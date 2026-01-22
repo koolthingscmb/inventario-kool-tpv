@@ -1,0 +1,1 @@
+# Archivo vacío para COMPRA de albaranes

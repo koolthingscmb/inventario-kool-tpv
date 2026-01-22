@@ -1,0 +1,1 @@
+# Archivo vacío para SALIDA de albaranes
