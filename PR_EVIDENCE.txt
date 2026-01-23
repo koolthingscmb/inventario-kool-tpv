@@ -1,0 +1,37 @@
+Backup usado:
+/Volumes/ALMACEN/KOOL_THINGS/Kool_TPV/backups/inventario.db.backup.20260122_192102.apply_prod.sqlite
+
+Resultado migración (producción):
+Migración OK: puntos_activados added and populated
+
+Resultado migración (verificaciones posteriores / staging):
+Migración OK: puntos_activados already present
+
+PRAGMA table_info(clientes):
+['id', 'nombre', 'telefono', 'email', 'dni', 'direccion', 'ciudad', 'cp', 'tags', 'puntos_fidelidad', 'total_gastado', 'notas_internas', 'fecha_alta', 'puntos_activados']
+
+Sample rows (id,nombre,email,telefono,puntos_activados,fecha_alta):
+(2, 'Egon Wiehoff', 'wiehoffegon@yahoo.es', '630514399', 1, None)
+(3, 'Test Client A', 'a@example.com', '600100001', 1, '2026-01-22')
+(4, 'Test Client B', 'b@example.com', '600100002', 1, '2026-01-22')
+
+Tests ejecutados:
+PYTHONPATH=. python3 tests/test_migracion_clientes.py
+Salida resumida:
+Staging DB at /var/folders/.../inventario.db.staging_test.sqlite
+First run stdout: Migración OK: puntos_activados already present
+Second run stdout: Migración OK: puntos_activados already present
+Columns: [same as PRAGMA above]
+Inserted puntos value: 0
+Updated puntos value: 1
+TESTS OK
+
+Resumen de pruebas manuales en staging:
+- Crear cliente nuevo -> guardar -> fecha_alta fijada (ISO date) ✔
+- Editar cliente -> cambiar switch puntos -> guardar -> reload muestra nuevo valor ✔
+- Enviar mail (modal placeholder) -> modal mostrado ✔
+- Modificar puntos (modal) -> actualiza campo/form ✔
+
+Notas:
+- La migración es idempotente y asegura puntos_activados=1 para filas existentes.
+- No se ha hecho push ni PR remoto desde este entorno; incluyo este archivo para adjuntar en el PR.
