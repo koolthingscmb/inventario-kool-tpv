@@ -77,11 +77,10 @@ class AppTPV(ctk.CTk):
                 pass
 
     def mostrar_clientes(self):
-        """Mostrar la vista de gestión de clientes (esquelética)."""
+        """La vista de clientes fue eliminada: redirigir al inicio de forma segura."""
         try:
-            from modulos.clientes.ui_gestion_clientes import GestionClientesView
-            self.limpiar_container()
-            GestionClientesView(self.container, self)
+            logging.info("mostrar_clientes: vista eliminada, redirigiendo a inicio.")
+            self.mostrar_inicio()
         except Exception:
             try:
                 self.mostrar_inicio()
@@ -89,11 +88,10 @@ class AppTPV(ctk.CTk):
                 pass
 
     def mostrar_gestion_clientes(self):
-        """Mostrar la vista de gestión de clientes (invocado desde el submenú)."""
+        """Alias seguro: la vista de gestión de clientes no está disponible."""
         try:
-            from modulos.clientes.ui_gestion_clientes import GestionClientesView
-            self.limpiar_container()
-            GestionClientesView(self.container, self)
+            logging.info("mostrar_gestion_clientes: vista eliminada, redirigiendo a inicio.")
+            self.mostrar_inicio()
         except Exception:
             try:
                 self.mostrar_inicio()
@@ -159,4 +157,5 @@ class AppTPV(ctk.CTk):
 
 if __name__ == "__main__":
     app = AppTPV()
+    # Inicio normal sin forzar vistas (la vista clientes fue eliminada)
     app.mainloop()

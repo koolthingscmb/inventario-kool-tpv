@@ -1,2 +1,3 @@
 """Módulo clientes - paquete inicializado."""
-__all__ = ['ui_gestion_clientes']
+# `ui_gestion_clientes` ha sido eliminado; listar otros módulos aquí si se añaden.
+__all__ = []

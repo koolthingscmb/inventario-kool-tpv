@@ -204,8 +204,9 @@ class PantallaInicio(ctk.CTkFrame):
         btn_font = ("Arial", 16, "bold")
 
         ctk.CTkButton(frame_botones, text="📇 GESTIÓN\nCLIENTES", width=btn_w, height=btn_h, font=btn_font,
-                      fg_color="#D97B29", hover_color="#B5631E",
-                      command=lambda: self._safe_call(lambda: self.controller.mostrar_gestion_clientes())).grid(row=0, column=0, padx=12, pady=6)
+                  fg_color="#D97B29", hover_color="#B5631E",
+                  # La vista de gestión de clientes fue eliminada; redirigir al inicio
+                  command=lambda: self._safe_call(lambda: self.controller.mostrar_inicio())).grid(row=0, column=0, padx=12, pady=6)
 
         # botón de ranking: por ahora sólo imprime en consola
         ctk.CTkButton(frame_botones, text="🏆 RANKING\nY ESTADÍSTICAS", width=btn_w, height=btn_h, font=btn_font,
