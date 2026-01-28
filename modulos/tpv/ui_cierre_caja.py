@@ -2,7 +2,7 @@ import customtkinter as ctk
 from tkinter import ttk
 from tkinter import messagebox as _mb
 from datetime import datetime
-from database import connect
+from database import connect, close_day
 try:
     from modulos.tpv.preview_imprimir import preview_ticket
 except Exception:
@@ -96,7 +96,8 @@ class CierreCajaView(ctk.CTkFrame):
         conn = connect()
         cur = conn.cursor()
         try:
-            cur.execute('SELECT MAX(id) FROM cierres')
+            # Prefer the `cierres_caja` sequence for last cierre id
+            cur.execute('SELECT MAX(id) FROM cierres_caja')
             r = cur.fetchone()
             return r[0] if r and r[0] is not None else None
         except Exception:
@@ -114,27 +115,14 @@ class CierreCajaView(ctk.CTkFrame):
     def _get_last_cierre_datetime(self):
         """Return ISO datetime string of last cierre stored in `cierres_caja`, or None.
 
-        Falls back to the older `cierres` table if `cierres_caja` is not present.
+        Only reads from `cierres_caja`.
         """
         conn = connect()
         cur = conn.cursor()
         try:
-            # prefer cierres_caja which stores the exact cierre datetime
-            try:
-                cur.execute("SELECT MAX(fecha_hora) FROM cierres_caja")
-                r = cur.fetchone()
-                if r and r[0]:
-                    return r[0]
-            except Exception:
-                # fallback to legacy cierres table
-                pass
-
-            try:
-                cur.execute("SELECT fecha_cierre FROM cierres WHERE tipo='Z' ORDER BY fecha_cierre DESC LIMIT 1")
-                r2 = cur.fetchone()
-                return r2[0] if r2 and r2[0] else None
-            except Exception:
-                return None
+            cur.execute("SELECT MAX(fecha_hora) FROM cierres_caja")
+            r = cur.fetchone()
+            return r[0] if r and r[0] else None
         finally:
             try:
                 cur.close()
@@ -149,18 +137,11 @@ class CierreCajaView(ctk.CTkFrame):
         conn = connect()
         cur = conn.cursor()
         try:
-            # Use cierres_caja id sequence for the next cierre number
-            try:
-                cur.execute('SELECT MAX(id) FROM cierres_caja')
-                r = cur.fetchone()
-                last = r[0] if r and r[0] is not None else 0
-                return int(last) + 1
-            except Exception:
-                # fallback to legacy cierres.numero
-                cur.execute('SELECT MAX(numero) FROM cierres')
-                r2 = cur.fetchone()
-                last2 = r2[0] if r2 and r2[0] is not None else 0
-                return int(last2) + 1
+            # Use `cierres_caja` id sequence for the next cierre number
+            cur.execute('SELECT MAX(id) FROM cierres_caja')
+            r = cur.fetchone()
+            last = r[0] if r and r[0] is not None else 0
+            return int(last) + 1
         except Exception:
             return 1
         finally:
@@ -345,14 +326,38 @@ class CierreCajaView(ctk.CTkFrame):
         # Resumen de ventas
         lines.append("RESUMEN DE VENTAS\n")
         lines.append(f"Facturas simplificadas: {resumen.get('count_tickets',0)}\n")
-        lines.append(f"Total Ingresos: {resumen.get('total',0):.2f}€\n")
+        lines.append(f"Total Ingresos: {float(resumen.get('total',0.0)):.2f}€\n")
         lines.append("-"*40 + "\n")
 
-        # Medios de pago
+        # Desglose principal por tipo de pago (para cuadre rápido)
+        lines.append("DESGLOSE PRINCIPAL DE PAGOS:\n")
+        lines.append(f"Efectivo: {float(resumen.get('total_efectivo', 0.0)):.2f}€\n")
+        lines.append(f"Tarjeta:  {float(resumen.get('total_tarjeta', 0.0)):.2f}€\n")
+        lines.append("-"*40 + "\n")
+
+        # Medios de pago (detalle por forma)
         lines.append("DESGLOSE POR MEDIOS DE PAGO:\n")
         for p in resumen.get('por_forma_pago', []):
             forma = p.get('forma') or 'OTROS'
-            lines.append(f"{forma}: {p.get('total',0):.2f}€\n")
+            try:
+                total_fp = float(p.get('total', 0.0) or 0.0)
+            except Exception:
+                total_fp = 0.0
+            lines.append(f"{forma}: {total_fp:.2f}€\n")
+        lines.append("-"*40 + "\n")
+
+        # Bloque de fidelización
+        lines.append("--- RESUMEN FIDELIZACIÓN ---\n")
+        try:
+            puntos_ganados = float(resumen.get('puntos_ganados', 0.0) or 0.0)
+        except Exception:
+            puntos_ganados = 0.0
+        try:
+            puntos_canjeados = float(resumen.get('puntos_canjeados', 0.0) or 0.0)
+        except Exception:
+            puntos_canjeados = 0.0
+        lines.append(f"Puntos Ganados hoy: {puntos_ganados:.2f}\n")
+        lines.append(f"Puntos Canjeados hoy: {puntos_canjeados:.2f} pts\n")
         lines.append("-"*40 + "\n")
 
         # Desglose de impuestos
@@ -405,11 +410,37 @@ class CierreCajaView(ctk.CTkFrame):
                 where = "created_at <= ?"
                 params = (now_dt,)
 
-            cur.execute(f"SELECT MIN(ticket_no), MAX(ticket_no), COUNT(*), COALESCE(SUM(total),0) FROM tickets WHERE {where}", params)
-            min_no, max_no, count_tickets, sum_total = cur.fetchone()
+            # Try to include fidelity columns if present; fallback if table doesn't have them
+            try:
+                cur.execute(f"SELECT MIN(ticket_no), MAX(ticket_no), COUNT(*), COALESCE(SUM(total),0), COALESCE(SUM(puntos_ganados),0), COALESCE(SUM(puntos_canjeados),0) FROM tickets WHERE {where}", params)
+                min_no, max_no, count_tickets, sum_total, sum_puntos_ganados, sum_puntos_canjeados = cur.fetchone()
+            except Exception:
+                cur.execute(f"SELECT MIN(ticket_no), MAX(ticket_no), COUNT(*), COALESCE(SUM(total),0) FROM tickets WHERE {where}", params)
+                min_no, max_no, count_tickets, sum_total = cur.fetchone()
+                sum_puntos_ganados = 0.0
+                sum_puntos_canjeados = 0.0
 
             cur.execute(f"SELECT forma_pago, COUNT(*), COALESCE(SUM(total),0) FROM tickets WHERE {where} GROUP BY forma_pago", params)
             pagos = [{"forma": r[0] or '', "count": r[1], "total": r[2] or 0.0} for r in cur.fetchall()]
+
+            # Totales por forma de pago (EFECTIVO / TARJETA)
+            try:
+                cur.execute(f"SELECT COALESCE(SUM(total),0) FROM tickets WHERE {where} AND forma_pago = ?", params + ('EFECTIVO',))
+                total_efectivo = float(cur.fetchone()[0] or 0.0)
+            except Exception:
+                total_efectivo = 0.0
+
+            try:
+                cur.execute(f"SELECT COALESCE(SUM(total),0) FROM tickets WHERE {where} AND forma_pago = ?", params + ('TARJETA',))
+                total_tarjeta = float(cur.fetchone()[0] or 0.0)
+            except Exception:
+                total_tarjeta = 0.0
+            # total for WEB payments
+            try:
+                cur.execute(f"SELECT COALESCE(SUM(total),0) FROM tickets WHERE {where} AND forma_pago = ?", params + ('WEB',))
+                total_web = float(cur.fetchone()[0] or 0.0)
+            except Exception:
+                total_web = 0.0
 
             resumen = {
                 'fecha_desde': last_dt,
@@ -419,7 +450,12 @@ class CierreCajaView(ctk.CTkFrame):
                 'count_tickets': count_tickets,
                 'total': float(sum_total or 0.0),
                 'por_forma_pago': pagos,
-                'numero': self._get_next_cierre_num()
+                'numero': self._get_next_cierre_num(),
+                'puntos_ganados': float(sum_puntos_ganados or 0.0),
+                'puntos_canjeados': float(sum_puntos_canjeados or 0.0),
+                'total_efectivo': float(total_efectivo or 0.0),
+                'total_tarjeta': float(total_tarjeta or 0.0),
+                'total_web': float(total_web or 0.0),
             }
 
             # impuestos por tipo de IVA
@@ -534,37 +570,15 @@ class CierreCajaView(ctk.CTkFrame):
                     _mb.showinfo('Cierre', 'No hay datos para este periodo')
                     return
 
-                # persist in DB table `cierres_caja` (create if not exists)
-                conn = connect()
-                cur = conn.cursor()
+                # delegate persistence to central `close_day` (no direct DB access here)
                 try:
-                    cur.execute('''
-                        CREATE TABLE IF NOT EXISTS cierres_caja (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            fecha_hora TEXT,
-                            total_ingresos REAL,
-                            num_ventas INTEGER,
-                            cajero TEXT
-                        )
-                    ''')
-                    ahora = datetime.now().isoformat()
-                    cur.execute('INSERT INTO cierres_caja (fecha_hora, total_ingresos, num_ventas, cajero) VALUES (?,?,?,?)', (
-                        ahora, resumen.get('total',0.0), resumen.get('count_tickets',0), None
-                    ))
-                    cierre_id = cur.lastrowid
-                    conn.commit()
-                finally:
-                    try:
-                        cur.close()
-                    except Exception:
-                        pass
-                    try:
-                        conn.close()
-                    except Exception:
-                        pass
+                    cierre_cajero = self.cajero_activo.get('nombre') if getattr(self, 'cajero_activo', None) else None
+                    resumen = close_day(fecha=self.current_date, tipo='Z', cajero=cierre_cajero)
+                except Exception as e:
+                    _mb.showerror('Error', f'Error ejecutando cierre: {e}')
+                    return
 
-                # prepare text with the generated ID
-                resumen['numero'] = cierre_id
+                cierre_id = resumen.get('cierre_id') or resumen.get('numero')
                 tipo = 'Z'
                 text = self._build_cierre_text(resumen, self.current_date, tipo=tipo)
 

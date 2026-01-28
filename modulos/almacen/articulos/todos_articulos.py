@@ -16,7 +16,8 @@ class TodosArticulos(ctk.CTkFrame):
         super().__init__(parent)
         self.pack(fill="both", expand=True)
         self.controller = controller
-        self.db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'inventario.db'))
+        # Use central DB connection; do not construct DB path manually
+        self.db_path = None
         self.sort_by = None
         self.sort_desc = False
         # pagination defaults
@@ -130,7 +131,8 @@ class TodosArticulos(ctk.CTkFrame):
 
     # Small helpers
     def _connect(self):
-        return connect(self.db_path)
+        # Prefer default DB_PATH from database.connect()
+        return connect()
 
     def _table_columns(self, table):
         con = self._connect()

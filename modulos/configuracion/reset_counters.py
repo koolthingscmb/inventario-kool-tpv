@@ -17,7 +17,7 @@ def reset_ticket_counters():
     conn = connect()
     cur = conn.cursor()
     try:
-        cur.execute("DELETE FROM sqlite_sequence WHERE name IN ('ticket_lines','tickets','cierres')")
+        cur.execute("DELETE FROM sqlite_sequence WHERE name IN ('ticket_lines','tickets','cierres_caja')")
         conn.commit()
     finally:
         try:

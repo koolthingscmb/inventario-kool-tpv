@@ -873,7 +873,10 @@ class PantallaCrearProducto(ctk.CTkFrame):
             except Exception:
                 pass
 
-            conexion.close()
+            try:
+                conn.close()
+            except Exception:
+                pass
         except Exception as e:
             print(f"Error cargando producto {producto_id}: {e}")
 

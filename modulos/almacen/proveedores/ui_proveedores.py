@@ -93,11 +93,6 @@ class PantallaProveedores(ctk.CTkFrame):
             CrearProveedorForm(self.detalle_container, self.controller, proveedores_page=self, proveedor_id=proveedor_id).render()
         except Exception:
             ctk.CTkLabel(self.detalle_container, text="No se pueden cargar datos", text_color="#ff3333").pack(padx=6, pady=6)
-        finally:
-            try:
-                conn.close()
-            except Exception:
-                pass
 
     def _crear_proveedor(self):
         # Open the crear proveedor form inside the detalle container
@@ -131,6 +126,6 @@ class PantallaProveedores(ctk.CTkFrame):
         except Exception as e:
             print('Error borrando proveedor:', e)
             try:
-                conexion.close()
+                conn.close()
             except Exception:
                 pass

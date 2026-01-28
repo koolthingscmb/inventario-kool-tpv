@@ -137,3 +137,163 @@
 2026-01-23 10:09:51,681 INFO: Arrancando KOOL_TPV - PID: 7218
 2026-01-23 10:10:21,317 INFO: Arrancando KOOL_TPV - PID: 7406
 2026-01-23 10:20:06,865 INFO: Arrancando KOOL_TPV - PID: 7842
+2026-01-23 11:30:04,688 INFO: Arrancando KOOL_TPV - PID: 8797
+2026-01-23 11:34:47,253 INFO: Arrancando KOOL_TPV - PID: 9000
+2026-01-23 11:49:34,860 INFO: Arrancando KOOL_TPV - PID: 9254
+2026-01-23 11:52:17,606 INFO: Arrancando KOOL_TPV - PID: 9476
+2026-01-23 11:57:22,076 INFO: Arrancando KOOL_TPV - PID: 9829
+2026-01-23 12:00:11,614 INFO: Arrancando KOOL_TPV - PID: 10186
+2026-01-23 12:02:06,139 INFO: Arrancando KOOL_TPV - PID: 10354
+2026-01-23 12:07:31,865 INFO: Arrancando KOOL_TPV - PID: 13328
+2026-01-23 12:15:15,359 INFO: Arrancando KOOL_TPV - PID: 13537
+2026-01-23 12:19:31,992 INFO: Arrancando KOOL_TPV - PID: 13885
+2026-01-23 12:23:45,560 INFO: Arrancando KOOL_TPV - PID: 14458
+2026-01-23 13:13:43,851 INFO: Arrancando KOOL_TPV - PID: 16681
+2026-01-23 13:16:49,072 INFO: Arrancando KOOL_TPV - PID: 17167
+2026-01-23 13:23:35,344 INFO: Arrancando KOOL_TPV - PID: 17354
+2026-01-23 13:24:11,147 INFO: Arrancando KOOL_TPV - PID: 17526
+2026-01-23 13:25:21,873 INFO: Arrancando KOOL_TPV - PID: 17585
+2026-01-23 13:26:02,623 INFO: Arrancando KOOL_TPV - PID: 17715
+2026-01-23 13:28:22,688 INFO: Arrancando KOOL_TPV - PID: 17887
+2026-01-23 13:35:49,728 INFO: Arrancando KOOL_TPV - PID: 18075
+2026-01-23 13:41:53,426 INFO: Arrancando KOOL_TPV - PID: 18477
+2026-01-23 13:49:52,448 INFO: Arrancando KOOL_TPV - PID: 18842
+2026-01-23 14:05:12,632 INFO: Arrancando KOOL_TPV - PID: 20217
+2026-01-23 14:06:38,565 INFO: Arrancando KOOL_TPV - PID: 20386
+2026-01-24 10:53:49,351 INFO: Arrancando KOOL_TPV - PID: 4125
+2026-01-24 11:31:23,590 INFO: Arrancando KOOL_TPV - PID: 5021
+2026-01-24 11:53:03,891 INFO: Arrancando KOOL_TPV - PID: 5486
+2026-01-24 11:59:51,822 INFO: Arrancando KOOL_TPV - PID: 5696
+2026-01-24 12:04:08,050 INFO: Arrancando KOOL_TPV - PID: 5882
+2026-01-24 12:09:45,232 INFO: Arrancando KOOL_TPV - PID: 6092
+2026-01-24 12:10:05,359 ERROR: Error en canje de puntos
+Traceback (most recent call last):
+  File "/Volumes/ALMACEN/KOOL_THINGS/Kool_TPV/modulos/tpv/ui_ventas.py", line 511, in _canjear_puntos
+    pts = self._mostrar_dialogo_canje(saldo)
+                                      ^^^^^
+UnboundLocalError: cannot access local variable 'saldo' where it is not associated with a value
+2026-01-24 12:10:11,696 ERROR: Error en canje de puntos
+Traceback (most recent call last):
+  File "/Volumes/ALMACEN/KOOL_THINGS/Kool_TPV/modulos/tpv/ui_ventas.py", line 511, in _canjear_puntos
+    pts = self._mostrar_dialogo_canje(saldo)
+                                      ^^^^^
+UnboundLocalError: cannot access local variable 'saldo' where it is not associated with a value
+2026-01-24 12:10:14,663 ERROR: Error en canje de puntos
+Traceback (most recent call last):
+  File "/Volumes/ALMACEN/KOOL_THINGS/Kool_TPV/modulos/tpv/ui_ventas.py", line 511, in _canjear_puntos
+    pts = self._mostrar_dialogo_canje(saldo)
+                                      ^^^^^
+UnboundLocalError: cannot access local variable 'saldo' where it is not associated with a value
+2026-01-24 12:14:00,516 INFO: Arrancando KOOL_TPV - PID: 6282
+2026-01-24 12:14:13,751 ERROR: Error en canje de puntos
+Traceback (most recent call last):
+  File "/Volumes/ALMACEN/KOOL_THINGS/Kool_TPV/modulos/tpv/ui_ventas.py", line 515, in _canjear_puntos
+    pts = self._mostrar_dialogo_canje(saldo)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'CajaVentas' object has no attribute '_mostrar_dialogo_canje'
+2026-01-24 12:14:22,807 ERROR: Error en canje de puntos
+Traceback (most recent call last):
+  File "/Volumes/ALMACEN/KOOL_THINGS/Kool_TPV/modulos/tpv/ui_ventas.py", line 515, in _canjear_puntos
+    pts = self._mostrar_dialogo_canje(saldo)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'CajaVentas' object has no attribute '_mostrar_dialogo_canje'
+2026-01-24 12:14:24,007 ERROR: Error en canje de puntos
+Traceback (most recent call last):
+  File "/Volumes/ALMACEN/KOOL_THINGS/Kool_TPV/modulos/tpv/ui_ventas.py", line 515, in _canjear_puntos
+    pts = self._mostrar_dialogo_canje(saldo)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'CajaVentas' object has no attribute '_mostrar_dialogo_canje'
+2026-01-24 12:18:31,679 INFO: Arrancando KOOL_TPV - PID: 6475
+2026-01-24 12:18:54,930 INFO: Arrancando KOOL_TPV - PID: 6639
+2026-01-24 12:25:34,136 INFO: Arrancando KOOL_TPV - PID: 7212
+2026-01-24 12:29:17,367 INFO: Arrancando KOOL_TPV - PID: 7394
+2026-01-24 12:35:27,889 INFO: Arrancando KOOL_TPV - PID: 7583
+2026-01-24 12:39:37,224 INFO: Arrancando KOOL_TPV - PID: 7967
+2026-01-24 12:55:41,782 INFO: Arrancando KOOL_TPV - PID: 8242
+2026-01-24 13:19:20,863 INFO: Arrancando KOOL_TPV - PID: 9185
+2026-01-24 13:24:42,969 INFO: Arrancando KOOL_TPV - PID: 9397
+2026-01-24 13:40:01,191 INFO: Arrancando KOOL_TPV - PID: 10125
+2026-01-24 13:44:32,301 INFO: Arrancando KOOL_TPV - PID: 10328
+2026-01-24 13:46:46,505 INFO: Arrancando KOOL_TPV - PID: 10501
+2026-01-25 10:20:55,612 INFO: Arrancando KOOL_TPV - PID: 4481
+2026-01-25 10:25:00,188 INFO: Arrancando KOOL_TPV - PID: 4684
+2026-01-25 10:36:46,031 INFO: Arrancando KOOL_TPV - PID: 5129
+2026-01-25 10:50:40,927 INFO: Arrancando KOOL_TPV - PID: 5548
+2026-01-25 10:54:03,105 INFO: Arrancando KOOL_TPV - PID: 5947
+2026-01-25 10:57:24,419 INFO: Arrancando KOOL_TPV - PID: 6452
+2026-01-25 11:02:11,546 INFO: Arrancando KOOL_TPV - PID: 6840
+2026-01-25 11:16:42,958 INFO: Arrancando KOOL_TPV - PID: 7045
+2026-01-25 11:33:45,451 INFO: Arrancando KOOL_TPV - PID: 7842
+2026-01-25 11:38:59,245 INFO: Arrancando KOOL_TPV - PID: 8171
+2026-01-25 11:43:18,722 INFO: Arrancando KOOL_TPV - PID: 8516
+2026-01-25 11:44:46,884 INFO: Arrancando KOOL_TPV - PID: 8681
+2026-01-25 11:49:20,570 INFO: Arrancando KOOL_TPV - PID: 9031
+2026-01-25 12:06:09,785 INFO: Arrancando KOOL_TPV - PID: 9622
+2026-01-25 12:12:46,863 INFO: Arrancando KOOL_TPV - PID: 9984
+2026-01-25 12:17:44,837 INFO: Arrancando KOOL_TPV - PID: 10406
+2026-01-25 12:18:52,055 INFO: Arrancando KOOL_TPV - PID: 10572
+2026-01-25 12:21:19,536 INFO: Arrancando KOOL_TPV - PID: 10963
+2026-01-25 12:30:28,960 INFO: Arrancando KOOL_TPV - PID: 11556
+2026-01-25 12:47:09,465 INFO: Arrancando KOOL_TPV - PID: 11962
+2026-01-25 12:52:45,148 INFO: Arrancando KOOL_TPV - PID: 12322
+2026-01-25 13:20:20,643 INFO: Arrancando KOOL_TPV - PID: 12775
+2026-01-25 13:27:18,505 INFO: Arrancando KOOL_TPV - PID: 12973
+2026-01-27 09:06:35,014 INFO: Arrancando KOOL_TPV - PID: 4240
+2026-01-27 09:21:27,344 INFO: Arrancando KOOL_TPV - PID: 5720
+2026-01-27 09:23:12,338 INFO: Arrancando KOOL_TPV - PID: 5889
+2026-01-27 09:34:16,947 INFO: Arrancando KOOL_TPV - PID: 6135
+2026-01-27 09:43:34,253 INFO: Arrancando KOOL_TPV - PID: 6390
+2026-01-27 09:45:09,994 INFO: Arrancando KOOL_TPV - PID: 6917
+2026-01-27 09:50:32,958 INFO: Arrancando KOOL_TPV - PID: 7140
+2026-01-27 09:50:54,969 INFO: Arrancando KOOL_TPV - PID: 7299
+2026-01-27 09:53:16,788 INFO: Arrancando KOOL_TPV - PID: 7468
+2026-01-27 10:00:01,075 INFO: Arrancando KOOL_TPV - PID: 7887
+2026-01-27 10:21:19,717 INFO: Arrancando KOOL_TPV - PID: 8434
+2026-01-27 10:26:22,211 INFO: Arrancando KOOL_TPV - PID: 8847
+2026-01-27 10:39:20,089 INFO: Arrancando KOOL_TPV - PID: 10061
+2026-01-27 10:43:27,776 INFO: Arrancando KOOL_TPV - PID: 10679
+2026-01-27 10:53:33,510 INFO: Arrancando KOOL_TPV - PID: 11288
+2026-01-27 11:02:09,020 INFO: Arrancando KOOL_TPV - PID: 11717
+2026-01-27 11:08:29,436 INFO: Arrancando KOOL_TPV - PID: 12138
+2026-01-27 11:20:28,127 INFO: Arrancando KOOL_TPV - PID: 12909
+2026-01-27 11:32:00,982 INFO: Arrancando KOOL_TPV - PID: 13905
+2026-01-27 11:41:06,254 INFO: Arrancando KOOL_TPV - PID: 14133
+2026-01-27 12:04:36,404 INFO: Arrancando KOOL_TPV - PID: 14674
+2026-01-27 12:07:14,564 INFO: Arrancando KOOL_TPV - PID: 14863
+2026-01-27 12:16:51,537 INFO: Arrancando KOOL_TPV - PID: 15414
+2026-01-27 12:23:52,924 INFO: Arrancando KOOL_TPV - PID: 15888
+2026-01-27 12:29:45,886 INFO: Arrancando KOOL_TPV - PID: 16364
+2026-01-27 12:45:22,654 INFO: Arrancando KOOL_TPV - PID: 17146
+2026-01-27 12:56:12,176 INFO: Arrancando KOOL_TPV - PID: 19617
+2026-01-27 13:04:16,859 INFO: Arrancando KOOL_TPV - PID: 19833
+2026-01-27 13:11:07,881 INFO: Arrancando KOOL_TPV - PID: 20057
+2026-01-27 13:11:31,847 INFO: Arrancando KOOL_TPV - PID: 20212
+2026-01-27 13:12:02,358 INFO: Arrancando KOOL_TPV - PID: 20419
+2026-01-27 13:12:37,425 INFO: Arrancando KOOL_TPV - PID: 20630
+2026-01-27 13:13:02,060 INFO: Arrancando KOOL_TPV - PID: 20841
+2026-01-27 13:14:53,594 INFO: Arrancando KOOL_TPV - PID: 20981
+2026-01-27 13:15:58,600 INFO: Arrancando KOOL_TPV - PID: 21162
+2026-01-27 13:17:16,133 INFO: Arrancando KOOL_TPV - PID: 21339
+2026-01-27 13:18:43,022 INFO: Arrancando KOOL_TPV - PID: 21512
+2026-01-27 13:24:52,352 INFO: Arrancando KOOL_TPV - PID: 21780
+2026-01-27 13:40:36,283 INFO: Arrancando KOOL_TPV - PID: 22767
+2026-01-27 16:38:40,638 INFO: Arrancando KOOL_TPV - PID: 4169
+2026-01-27 16:49:40,083 INFO: Arrancando KOOL_TPV - PID: 4663
+2026-01-27 17:09:45,896 INFO: Arrancando KOOL_TPV - PID: 5088
+2026-01-27 17:11:31,372 INFO: Arrancando KOOL_TPV - PID: 5266
+2026-01-27 17:24:26,603 INFO: Arrancando KOOL_TPV - PID: 5747
+2026-01-27 17:25:22,732 INFO: Arrancando KOOL_TPV - PID: 5907
+2026-01-27 17:37:44,728 INFO: Arrancando KOOL_TPV - PID: 6277
+2026-01-27 18:15:58,735 INFO: Arrancando KOOL_TPV - PID: 6795
+2026-01-27 18:28:15,680 INFO: Arrancando KOOL_TPV - PID: 7400
+2026-01-27 18:41:24,160 INFO: Arrancando KOOL_TPV - PID: 7934
+2026-01-27 18:43:58,737 INFO: Arrancando KOOL_TPV - PID: 8412
+2026-01-27 18:46:52,284 INFO: Arrancando KOOL_TPV - PID: 8593
+2026-01-27 18:49:07,418 INFO: Arrancando KOOL_TPV - PID: 8758
+2026-01-27 18:56:23,408 INFO: Arrancando KOOL_TPV - PID: 9509
+2026-01-27 18:59:06,552 INFO: Arrancando KOOL_TPV - PID: 9885
+2026-01-27 19:17:16,280 INFO: Arrancando KOOL_TPV - PID: 10156
+2026-01-27 19:21:34,687 INFO: Arrancando KOOL_TPV - PID: 10576
+2026-01-27 19:46:06,660 INFO: Arrancando KOOL_TPV - PID: 11419
+2026-01-28 08:51:31,060 INFO: Arrancando KOOL_TPV - PID: 4290
+2026-01-28 09:04:06,943 INFO: Arrancando KOOL_TPV - PID: 4662

@@ -1,10 +1,15 @@
 import customtkinter as ctk
 from datetime import datetime
+try:
+    from modulos.configuracion.ui_dialogo_pass import DialogoPassConfig
+except Exception:
+    DialogoPassConfig = None
 
 class PantallaInicio(ctk.CTkFrame):
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
+        self.last_submenu = None
         self._recently_resized = False
         try:
             # bind toplevel Configure to detect maximize/resize events
@@ -50,8 +55,8 @@ class PantallaInicio(ctk.CTkFrame):
                   command=lambda: self._safe_call(self.mostrar_submenu_shopify)).pack(side="left", padx=10)
 
         ctk.CTkButton(self.top_frame, text="⚙️ CONFIG", width=btn_w, height=btn_h, font=btn_font,
-                  fg_color="gray", hover_color="#444444",
-                  command=lambda: self._safe_call(self.mostrar_submenu_config)).pack(side="left", padx=10)
+              fg_color="gray", hover_color="#444444",
+              command=lambda: self._safe_call(self._intentar_abrir_config)).pack(side="left", padx=10)
 
         # --- 3. NIVEL 2: SUBMENÚ ---
         self.submenu_frame = ctk.CTkFrame(self, fg_color="#2b2b2b", corner_radius=0, height=120)
@@ -100,6 +105,44 @@ class PantallaInicio(ctk.CTkFrame):
         except Exception as e:
             print(f"Error ejecutando comando seguro: {e}")
 
+    def _intentar_abrir_config(self):
+        """Intentar abrir el submenú de configuración tras pasar el diálogo de contraseña.
+
+        Instancia `DialogoPassConfig`, espera a su cierre y, si `dlg.resultado` es True,
+        muestra el submenú de configuración llamando a `mostrar_submenu_config()`.
+        """
+        try:
+            # Si ya hemos desbloqueado la configuración en esta sesión, no pedir contraseña
+            try:
+                if getattr(self.controller, 'config_desbloqueado', False):
+                    return self.mostrar_submenu_config()
+            except Exception:
+                pass
+
+            if DialogoPassConfig is None:
+                # fallback: si no está disponible el diálogo, abrir directamente
+                return self.mostrar_submenu_config()
+
+            dlg = DialogoPassConfig(self)
+            try:
+                self.wait_window(dlg)
+            except Exception:
+                # en caso de fallo esperando, intentamos continuar
+                pass
+
+            try:
+                if getattr(dlg, 'resultado', False):
+                    # marcar como desbloqueado para el resto de la sesión
+                    try:
+                        self.controller.config_desbloqueado = True
+                    except Exception:
+                        pass
+                    return self.mostrar_submenu_config()
+            except Exception:
+                pass
+        except Exception as e:
+            print('Error al intentar abrir configuración:', e)
+
     def actualizar_reloj(self):
         ahora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         self.lbl_reloj.configure(text=ahora)
@@ -107,6 +150,15 @@ class PantallaInicio(ctk.CTkFrame):
 
     # --- LÓGICA DE NAVEGACIÓN ---
     def mostrar_submenu_almacen(self):
+        try:
+            # Al navegar fuera de Configuración desde la UI de inicio, asegurar que el candado vuelva a cerrarse
+            try:
+                self.controller.config_desbloqueado = False
+            except Exception:
+                pass
+            self.last_submenu = 'almacen'
+        except Exception:
+            pass
         self.limpiar_submenu()
         self.limpiar_tercer_nivel()
         ctk.CTkLabel(self.submenu_frame, text="GESTIÓN DE ALMACÉN", font=("Arial", 18, "bold"), text_color="white").pack(pady=10)
@@ -193,6 +245,14 @@ class PantallaInicio(ctk.CTkFrame):
             print(f"Error mostrando Categoría & Tipo: {e}")
 
     def mostrar_submenu_clientes(self):
+        try:
+            try:
+                self.controller.config_desbloqueado = False
+            except Exception:
+                pass
+            self.last_submenu = 'clientes'
+        except Exception:
+            pass
         self.limpiar_submenu()
         self.limpiar_tercer_nivel()
         ctk.CTkLabel(self.submenu_frame, text="GESTIÓN DE CLIENTES", font=("Arial", 18, "bold"), text_color="#D97B29").pack(pady=10)
@@ -204,21 +264,25 @@ class PantallaInicio(ctk.CTkFrame):
         btn_font = ("Arial", 16, "bold")
 
         ctk.CTkButton(frame_botones, text="📇 GESTIÓN\nCLIENTES", width=btn_w, height=btn_h, font=btn_font,
-                  fg_color="#D97B29", hover_color="#B5631E",
-                  # La vista de gestión de clientes fue eliminada; redirigir al inicio
-                  command=lambda: self._safe_call(lambda: self.controller.mostrar_inicio())).grid(row=0, column=0, padx=12, pady=6)
+              fg_color="#D97B29", hover_color="#B5631E",
+              command=lambda: self._safe_call(lambda: self.controller.mostrar_gestion_clientes())).grid(row=0, column=0, padx=12, pady=6)
 
         # botón de ranking: por ahora sólo imprime en consola
         ctk.CTkButton(frame_botones, text="🏆 RANKING\nY ESTADÍSTICAS", width=btn_w, height=btn_h, font=btn_font,
                       fg_color="#777777", hover_color="#666666",
                       command=lambda: print('Ranking - pendiente')).grid(row=0, column=1, padx=12, pady=6)
 
-        # botón configuración fidelización: pendiente
-        ctk.CTkButton(frame_botones, text="⚙️ CONFIG\nFIDELIZACIÓN", width=btn_w, height=btn_h, font=btn_font,
-                      fg_color="#777777", hover_color="#666666",
-                      command=lambda: print('Config fidelización - pendiente')).grid(row=0, column=2, padx=12, pady=6)
+        # (se eliminó el botón de Config Fidelización de aquí; ahora está en CONFIG)
 
     def mostrar_submenu_shopify(self):
+        try:
+            try:
+                self.controller.config_desbloqueado = False
+            except Exception:
+                pass
+            self.last_submenu = 'shopify'
+        except Exception:
+            pass
         self.limpiar_submenu()
         self.limpiar_tercer_nivel()
         ctk.CTkLabel(self.submenu_frame, text="CONEXIÓN SHOPIFY", font=("Arial", 18, "bold"), text_color="#95BF47").pack(pady=10)
@@ -228,25 +292,39 @@ class PantallaInicio(ctk.CTkFrame):
         ctk.CTkButton(frame_botones, text="DESCARGAR\nPEDIDOS", width=150, height=50, font=("Arial", 14, "bold"), fg_color="gray").grid(row=0, column=1, padx=10)
 
     def mostrar_submenu_config(self):
+        try:
+            self.last_submenu = 'config'
+        except Exception:
+            pass
         self.limpiar_submenu()
         self.limpiar_tercer_nivel()
         ctk.CTkLabel(self.submenu_frame, text="CONFIGURACIÓN", font=("Arial", 18, "bold"), text_color="gray").pack(pady=20)
+        # Contenedor con los botones en una sola fila, centrados bajo el título
         frame_bot = ctk.CTkFrame(self.submenu_frame, fg_color='transparent')
         frame_bot.pack(pady=5)
-        # Botón EXPORTAR principal
-        ctk.CTkButton(frame_bot, text='EXPORTAR', width=160, height=44, fg_color='#3399FF', command=self._toggle_export_options).pack()
-        # Botón REINICIAR CONTADORES (para pruebas)
+
+        # Estilo uniforme
+        btn_w, btn_h = 160, 44
+        btn_font = ("Arial", 14, "bold")
+        corner = 8
+
+        # Crear una única fila con 4 botones: EXPORTAR, REINICIAR, FIDELIZACIÓN, GESTIÓN CAJEROS
         try:
-            ctk.CTkButton(frame_bot, text='REINICIAR', width=160, height=44, fg_color='darkred', command=self._reset_counters).pack(pady=(8,0))
+            ctk.CTkButton(frame_bot, text='EXPORTAR', width=btn_w, height=btn_h, fg_color='#3399FF',
+                          font=btn_font, corner_radius=corner, command=self._toggle_export_options).grid(row=0, column=0, padx=10)
+
+            ctk.CTkButton(frame_bot, text='REINICIAR', width=btn_w, height=btn_h, fg_color='darkred',
+                          font=btn_font, corner_radius=corner, command=lambda: self._safe_call(lambda: self.controller.mostrar_mantenimiento())).grid(row=0, column=1, padx=10)
+
+            ctk.CTkButton(frame_bot, text='⚙️ FIDELIZACIÓN', width=btn_w, height=btn_h, fg_color='#777777',
+                          font=btn_font, corner_radius=corner,
+                          command=lambda: self._safe_call(lambda: self.controller.mostrar_config_fidelizacion())).grid(row=0, column=2, padx=10)
+
+            ctk.CTkButton(frame_bot, text='👤 GESTIÓN CAJEROS', width=btn_w, height=btn_h, fg_color='#777777',
+                          font=btn_font, corner_radius=corner,
+                          command=lambda: self._safe_call(lambda: self.controller.mostrar_gestion_usuarios())).grid(row=0, column=3, padx=10)
         except Exception:
             pass
-        # espacio para botones desplegables
-        try:
-            self._export_options_frame.destroy()
-        except Exception:
-            pass
-        self._export_options_frame = ctk.CTkFrame(self.submenu_frame, fg_color='transparent')
-        self._export_options_frame.pack(pady=8)
 
     def _toggle_export_options(self):
         # Muestra u oculta los botones Artículos / Clientes
@@ -282,57 +360,4 @@ class PantallaInicio(ctk.CTkFrame):
         except Exception:
             pass
 
-    def _reset_counters(self):
-        """Handler para reiniciar los contadores de tickets tras confirmación del usuario."""
-        try:
-            import tkinter.messagebox as mb
-            ok = mb.askyesno('Reiniciar contadores', '¿Estás seguro? Esto reseteará los contadores de tickets (solo sqlite_sequence).')
-            if not ok:
-                return
-        except Exception:
-            # si falla el diálogo, seguimos intentando
-            ok = True
-        # Ejecutar el script `scripts/clear_tickets.py` (contiene la lógica destructiva)
-        try:
-            import os, sys, subprocess, tkinter.messagebox as mb2
-            script_path = os.path.join(os.getcwd(), 'scripts', 'clear_tickets.py')
-            if not os.path.exists(script_path):
-                try:
-                    mb2.showerror('Error', f'No se encontró el script: {script_path}')
-                except Exception:
-                    print('No se encontró el script:', script_path)
-                return
-
-            # Ejecutar el script con el intérprete actual
-            try:
-                res = subprocess.run([sys.executable, script_path], capture_output=True, text=True)
-                output = (res.stdout or '') + (res.stderr or '')
-                if res.returncode == 0:
-                    try:
-                        mb2.showinfo('Reiniciado', 'Tickets y contadores reiniciados correctamente.')
-                    except Exception:
-                        print('Tickets y contadores reiniciados correctamente.')
-                    try:
-                        print(output)
-                    except Exception:
-                        pass
-                else:
-                    try:
-                        mb2.showerror('Error', f'El script devolvió código {res.returncode}. Revisa la salida en consola.')
-                    except Exception:
-                        print('Error ejecutando script, returncode:', res.returncode)
-                    try:
-                        print(output)
-                    except Exception:
-                        pass
-            except Exception as e:
-                try:
-                    mb2.showerror('Error', f'No se pudo ejecutar el script: {e}')
-                except Exception:
-                    print('No se pudo ejecutar el script:', e)
-        except Exception:
-            # en caso de cualquier fallo en el flujo anterior, informar por consola
-            try:
-                print('Fallo al intentar reiniciar contadores.')
-            except Exception:
-                pass
+    # _reset_counters removed: use maintenance UI instead (mostrar_mantenimiento)

@@ -14,7 +14,17 @@ def connect(db_path: Optional[str] = None):
     Pass `db_path` to override (used in tests or scripts).
     """
     path = db_path if db_path else DB_PATH
-    return sqlite3.connect(path)
+    # Use a short timeout to reduce immediate 'database is locked' errors
+    conn = sqlite3.connect(path, timeout=5.0)
+    try:
+        # Enable WAL to improve concurrency between readers and writers
+        conn.execute("PRAGMA journal_mode=WAL")
+    except Exception:
+        # If PRAGMA fails for any reason, continue with the connection
+        pass
+    # Return rows as sqlite3.Row to allow access by column name
+    conn.row_factory = sqlite3.Row
+    return conn
 
 
 def crear_base_de_datos():
@@ -108,21 +118,32 @@ def crear_tablas_tickets():
     except Exception:
         pass
 
-    # ensure cierres table exists for day closures
+    # ensure ticket_seq exists for safe ticket numbering
     try:
         cur.execute('''
-            CREATE TABLE IF NOT EXISTS cierres (
+            CREATE TABLE IF NOT EXISTS ticket_seq (
+                name TEXT PRIMARY KEY,
+                val INTEGER
+            )
+        ''')
+        cur.execute("INSERT OR IGNORE INTO ticket_seq (name, val) VALUES ('ticket_no', 0)")
+    except Exception:
+        pass
+
+    # ensure cierres_caja table exists for day closures
+    try:
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS cierres_caja (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    fecha TEXT NOT NULL,
-                    fecha_cierre TEXT NOT NULL,
-                    tickets_from INTEGER,
-                    tickets_to INTEGER,
-                    total REAL,
-                    resumen_json TEXT,
-                    cajero TEXT,
-                    notas TEXT,
-                    tipo TEXT DEFAULT 'Z',
-                    numero INTEGER
+                fecha_hora TEXT NOT NULL,
+                total_ingresos REAL DEFAULT 0.0,
+                num_ventas INTEGER DEFAULT 0,
+                cajero TEXT,
+                total_efectivo REAL DEFAULT 0.0,
+                total_tarjeta REAL DEFAULT 0.0,
+                total_web REAL DEFAULT 0.0,
+                puntos_ganados INTEGER DEFAULT 0,
+                puntos_canjeados INTEGER DEFAULT 0
             )
         ''')
     except Exception:
@@ -234,103 +255,60 @@ def ensure_product_schema():
     conn.close()
 
 
-def close_day(fecha: Optional[str] = None, tipo: str = 'Z', include_category: bool = False, include_products: bool = False, cajero: Optional[str] = None, notas: Optional[str] = None):
-    """Compute aggregates for `fecha` (YYYY-MM-DD). Insert a `cierres` row and return a summary dict.
+def close_day(fecha=None, tipo='Z', include_category=False, include_products=False, cajero=None, notas=None):
+    if not fecha:
+        fecha = datetime.now().date().isoformat()
 
-    tipo: 'Z' = cierre definitivo (marca tickets como cerrados), 'X' = cierre informativo (no marca tickets)
-    """
     conn = connect()
     cur = conn.cursor()
     try:
-        if not fecha:
-            fecha = datetime.now().date().isoformat()
+        # 1. Definir qué tickets entran en el cierre
+        ticket_where = "date(created_at)=? AND (cierre_id IS NULL)" if tipo == 'Z' else "date(created_at)=?"
 
-        # build WHERE clause depending on cierre type
-        if tipo == 'Z':
-            ticket_where = "date(created_at)=? AND (cierre_id IS NULL)"
-        else:
-            ticket_where = "date(created_at)=?"
+        # 2. Cálculos económicos básicos
+        cur.execute(f"SELECT COUNT(*), COALESCE(SUM(total),0) FROM tickets WHERE {ticket_where}", (fecha,))
+        num_ventas, total_ingresos = cur.fetchone()
 
-        # aggregates
-        cur.execute(f"SELECT MIN(ticket_no), MAX(ticket_no), COUNT(*), COALESCE(SUM(total),0) FROM tickets WHERE {ticket_where}", (fecha,))
-        min_no, max_no, count_tickets, sum_total = cur.fetchone()
+        # 3. Desglose por forma de pago (Lógica Blindada)
+        val_efectivo = 0.0; val_tarjeta = 0.0; val_web = 0.0
+        cur.execute(f"SELECT forma_pago, SUM(total) FROM tickets WHERE {ticket_where} GROUP BY forma_pago", (fecha,))
+        for forma, total in cur.fetchall():
+            f = (forma or "").upper()
+            if f == 'EFECTIVO':
+                val_efectivo = float(total or 0)
+            elif f == 'TARJETA':
+                val_tarjeta = float(total or 0)
+            elif f == 'WEB':
+                val_web = float(total or 0)
 
-        cur.execute(f"SELECT forma_pago, COUNT(*), COALESCE(SUM(total),0) FROM tickets WHERE {ticket_where} GROUP BY forma_pago", (fecha,))
-        pagos = [{"forma": r[0] or '', "count": r[1], "total": r[2] or 0.0} for r in cur.fetchall()]
+        # 4. Cálculo de Fidelización
+        cur.execute(f"SELECT COALESCE(SUM(puntos_ganados),0), COALESCE(SUM(puntos_canjeados),0) FROM tickets WHERE {ticket_where}", (fecha,))
+        pts_ganados, pts_canjeados = cur.fetchone()
 
-        resumen = {
-            "fecha": fecha,
-            "tickets_from": min_no,
-            "tickets_to": max_no,
-            "count_tickets": count_tickets,
-            "total": float(sum_total or 0.0),
-            "por_forma_pago": pagos
-        }
-
-        if include_category:
-            cur.execute(f'''
-                SELECT COALESCE(p.categoria, ''), SUM(tl.cantidad) as qty, SUM(tl.cantidad * tl.precio) as total
-                FROM ticket_lines tl
-                JOIN tickets t ON tl.ticket_id = t.id
-                JOIN productos p ON tl.sku = p.sku
-                WHERE {ticket_where}
-                GROUP BY p.categoria
-            ''', (fecha,))
-            resumen['por_categoria'] = [{"categoria": r[0], "qty": r[1], "total": r[2]} for r in cur.fetchall()]
-
-        if include_products:
-            cur.execute(f'''
-                SELECT tl.nombre, SUM(tl.cantidad) as qty, SUM(tl.cantidad * tl.precio) as total
-                FROM ticket_lines tl
-                JOIN tickets t ON tl.ticket_id = t.id
-                WHERE {ticket_where}
-                GROUP BY tl.nombre
-                ORDER BY qty DESC
-                LIMIT 10
-            ''', (fecha,))
-            resumen['top_products'] = [{"nombre": r[0], "qty": r[1], "total": r[2]} for r in cur.fetchall()]
-
-        # If tipo Z and no tickets to close, return message
-        if tipo == 'Z' and (count_tickets is None or count_tickets == 0):
-            resumen['cierre_id'] = None
-            resumen['already_closed'] = False
-            resumen['message'] = 'No hay tickets pendientes para cerrar.'
-            return resumen
-
-        # persist closure
+        # 5. GUARDADO REAL EN LA BASE DE DATOS (Asegurar que todas las columnas reciban su variable)
         ahora = datetime.now().isoformat()
-        resumen_json = json.dumps(resumen, default=str, ensure_ascii=False)
-
-        cur.execute('INSERT INTO cierres (fecha, fecha_cierre, tickets_from, tickets_to, total, resumen_json, cajero, notas, tipo) VALUES (?,?,?,?,?,?,?,?,?)', (
-            fecha, ahora, min_no, max_no, sum_total, resumen_json, cajero, notas, tipo
-        ))
+        cur.execute('''
+            INSERT INTO cierres_caja 
+            (fecha_hora, total_ingresos, num_ventas, cajero, total_efectivo, total_tarjeta, total_web, puntos_ganados, puntos_canjeados) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (ahora, total_ingresos, num_ventas, cajero, val_efectivo, val_tarjeta, val_web, pts_ganados, pts_canjeados))
+        
         cierre_id = cur.lastrowid
-        try:
-            cur.execute('UPDATE cierres SET numero=? WHERE id=?', (cierre_id, cierre_id))
-        except Exception:
-            pass
 
-        # If tipo Z, assign tickets to this cierre (mark them as closed)
+        # 6. Marcar tickets como cerrados si es tipo Z
         if tipo == 'Z':
-            try:
-                cur.execute('UPDATE tickets SET cierre_id=? WHERE date(created_at)=? AND (cierre_id IS NULL)', (cierre_id, fecha))
-            except Exception:
-                pass
-
+            cur.execute(f"UPDATE tickets SET cierre_id=? WHERE {ticket_where}", (cierre_id, fecha))
+        
         conn.commit()
-        resumen['cierre_id'] = cierre_id
-        resumen['already_closed'] = False
-        resumen['numero'] = cierre_id
-        return resumen
+        
+        # Devolver el resumen para que la UI lo pinte (usando las mismas variables que acabamos de guardar)
+        return {
+            "numero": cierre_id, "fecha": fecha, "total": total_ingresos, "count_tickets": num_ventas,
+            "total_efectivo": val_efectivo, "total_tarjeta": val_tarjeta, "total_web": val_web,
+            "puntos_ganados": pts_ganados, "puntos_canjeados": pts_canjeados, "cierre_id": cierre_id
+        }
     finally:
-        try:
-            cur.close()
-        except Exception:
-            pass
-        try:
-            conn.close()
-        except Exception:
-            pass
+        conn.close()
 
 
 if __name__ == "__main__":

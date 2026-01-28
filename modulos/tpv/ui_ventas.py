@@ -1,24 +1,39 @@
 import customtkinter as ctk
-import sqlite3
-from database import connect
 import sys
-from datetime import datetime
+from datetime import datetime, date
 from .ui_selector_sin_codigo import SelectorSinCodigo
 from tkinter import messagebox, simpledialog
+import logging
+
+# Servicios para fidelización y clientes
+from modulos.configuracion.config_service import ConfigService
+from modulos.clientes.cliente_service import ClienteService
+from modulos.clientes.ui_selector_cliente import SelectorCliente
+from modulos.configuracion.ui_login_cajero import LoginCajero
 try:
     from modulos.tpv.preview_imprimir import preview_ticket
 except Exception:
     preview_ticket = None
+
+from modulos.tpv.ticket_service import TicketService
 
 class CajaVentas(ctk.CTkFrame):
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
         self.pack(fill="both", expand=True)
+        # Service instances
+        self.ticket_service = TicketService()
         
         # --- CARRITO ---
         self.carrito = [] 
         self._awaiting_final_confirmation = False
+        # Cliente actual (dict) asignado a la venta
+        self.cliente_actual = None
+        # Cajero actualmente identificado (dict) — recuperar si main.py ya lo tiene
+        self.cajero_activo = getattr(self.controller, 'usuario_actual', None)
+        # puntos a canjear en la venta actual (permitir canje parcial)
+        self.puntos_a_canjear = 0.0
 
         # --- ESTRUCTURA ---
         self.grid_rowconfigure(0, weight=0) 
@@ -34,8 +49,27 @@ class CajaVentas(ctk.CTkFrame):
         self.lbl_reloj.pack(side="left", padx=20)
         self.actualizar_reloj()
 
-        self.lbl_cajero = ctk.CTkLabel(self.top_bar, text="👤 Cajero: EGON (Admin)", font=("Arial", 14))
+        self.lbl_cajero = ctk.CTkLabel(self.top_bar, text="👤 Cajero: Sin Identificar", font=("Arial", 14))
         self.lbl_cajero.pack(side="right", padx=20)
+
+        # Si se recuperó un cajero desde el controller, reflejar en la interfaz
+        try:
+            if getattr(self, 'cajero_activo', None):
+                caj = self.cajero_activo or {}
+                nombre = ''
+                try:
+                    nombre = caj.get('nombre') or str(caj.get('id') or '')
+                except Exception:
+                    nombre = str(caj.get('id') if isinstance(caj, dict) else caj)
+                self.lbl_cajero.configure(text=f"👤 Cajero: {nombre}")
+        except Exception:
+            pass
+
+        # asegurar que la interfaz refleje el usuario actual al terminar init
+        try:
+            self._actualizar_interfaz_cajero()
+        except Exception:
+            pass
 
         self.btn_salir = ctk.CTkButton(self.top_bar, text="❌ Salir", width=60, fg_color="red", 
                                        command=self.controller.mostrar_inicio)
@@ -62,8 +96,34 @@ class CajaVentas(ctk.CTkFrame):
         self.frame_totales = ctk.CTkFrame(self.frame_visor, height=100, fg_color="black")
         self.frame_totales.pack(fill="x", side="bottom")
 
+        # Información del cliente (compacta, encima del total)
+        self.frame_info_cliente = ctk.CTkFrame(self.frame_totales, fg_color="transparent")
+        self.frame_info_cliente.pack(fill="x", pady=(6, 0), padx=6)
+        # espacio para nombre cliente, botón quitar y botón canjear
+        self.frame_info_cliente.columnconfigure((0, 1, 2), weight=1)
+
+        self.lbl_cliente_nombre = ctk.CTkLabel(self.frame_info_cliente, text="", font=("Arial", 12))
+        self.lbl_cliente_nombre.grid(row=0, column=0, sticky="w")
+
+        # Botón para quitar cliente (por defecto deshabilitado)
+        self.btn_quitar_cliente = ctk.CTkButton(self.frame_info_cliente, text="X", width=28, height=24, command=self._desvincular_cliente)
+        self.btn_quitar_cliente.grid(row=0, column=1, sticky="e", padx=(6,0))
+        try:
+            self.btn_quitar_cliente.configure(state="disabled")
+        except Exception:
+            pass
+
+        # Botón para canjear puntos (deshabilitado por defecto)
+        try:
+            self.btn_canjear = ctk.CTkButton(self.frame_info_cliente, text="🎁 Canjear", width=90, height=24, command=self._canjear_puntos)
+            self.btn_canjear.grid(row=0, column=2, sticky="e", padx=(6,0))
+            self.btn_canjear.configure(state="disabled")
+        except Exception:
+            # keep going if customtkinter configuration fails
+            pass
+
         self.lbl_total = ctk.CTkLabel(self.frame_totales, text="TOTAL: 0.00 €", font=("Arial", 48, "bold"), text_color="#00FF00")
-        self.lbl_total.pack(pady=10)
+        self.lbl_total.pack(pady=6)
         
         self.lbl_iva = ctk.CTkLabel(self.frame_totales, text="Base: 0.00€ | IVA: 0.00€", font=("Arial", 14), text_color="white")
         self.lbl_iva.pack()
@@ -113,13 +173,13 @@ class CajaVentas(ctk.CTkFrame):
 
         # Parte inferior (de arriba a abajo):
         # 6- CLIENTE y CAJERO (misma línea)
-        ctk.CTkButton(self.frame_botones, text="👤 CLIENTE", height=40).grid(row=3, column=0, sticky="ew", padx=5, pady=5)
-        ctk.CTkButton(self.frame_botones, text="🆔 CAJERO", height=40).grid(row=3, column=1, sticky="ew", padx=5, pady=5)
+        ctk.CTkButton(self.frame_botones, text="👤 CLIENTE", height=40, command=self._abrir_selector_cliente).grid(row=3, column=0, sticky="ew", padx=5, pady=5)
+        ctk.CTkButton(self.frame_botones, text="🆔 CAJERO", height=40, command=self._abrir_login_cajero).grid(row=3, column=1, sticky="ew", padx=5, pady=5)
 
         # 5- TICKETS y SELECTOR IMPRIMIR TICKET (misma línea)
         # Tickets button: open tickets view
         try:
-            self.btn_tickets = ctk.CTkButton(self.frame_botones, text="📄 TICKETS", height=40, command=lambda: self.controller.mostrar_tickets())
+            self.btn_tickets = ctk.CTkButton(self.frame_botones, text="📄 TICKETS", height=40, command=self._abrir_tickets)
             self.btn_tickets.grid(row=4, column=0, sticky="ew", padx=5, pady=5)
         except Exception:
             ctk.CTkButton(self.frame_botones, text="📄 TICKETS", height=40).grid(row=4, column=0, sticky="ew", padx=5, pady=5)
@@ -135,23 +195,21 @@ class CajaVentas(ctk.CTkFrame):
                     pass
                 # Show list of tickets included in this cierre so user can verify
                 try:
-                    conn = connect()
-                    cur = conn.cursor()
+                    # Use TicketService to retrieve tickets for preview instead of direct DB access
                     tickets_rows = []
-                    if resumen.get('cierre_id'):
-                        cur.execute('SELECT id, created_at, ticket_no, cajero, total FROM tickets WHERE cierre_id=? ORDER BY created_at ASC', (resumen.get('cierre_id'),))
-                        tickets_rows = cur.fetchall()
-                    else:
-                        cur.execute('SELECT id, created_at, ticket_no, cajero, total FROM tickets WHERE date(created_at)=? ORDER BY created_at ASC', (fecha,))
-                        tickets_rows = cur.fetchall()
                     try:
-                        cur.close()
+                        # prefer any cached cierre id if available
+                        cierre_id = getattr(self, '_last_cierre_id', None)
                     except Exception:
-                        pass
+                        cierre_id = None
                     try:
-                        conn.close()
+                        if cierre_id:
+                            tickets_rows = self.ticket_service.listar_tickets_por_cierre(cierre_id)
+                        else:
+                            fecha_today = datetime.now().date().isoformat()
+                            tickets_rows = self.ticket_service.listar_tickets_por_fecha(fecha_today)
                     except Exception:
-                        pass
+                        tickets_rows = []
 
                     # build modal with Treeview
                     t = ctk.CTkToplevel(self)
@@ -210,18 +268,18 @@ class CajaVentas(ctk.CTkFrame):
             ctk.CTkButton(self.frame_botones, text="🖨️ IMPR. TICKET", height=40).grid(row=4, column=1, sticky="ew", padx=5, pady=5)
 
         # 4- DESCUENTO y DEVOLUCIÓN (misma línea)
-        ctk.CTkButton(self.frame_botones, text="✂️ DESCUENTO", height=40, fg_color="#E59400").grid(row=5, column=0, sticky="ew", padx=5, pady=5)
-        ctk.CTkButton(self.frame_botones, text="↩️ DEVOLUCIÓN", height=40, fg_color="#FF4500").grid(row=5, column=1, sticky="ew", padx=5, pady=5)
+        ctk.CTkButton(self.frame_botones, text="✂️ DESCUENTO", height=40, fg_color="#E59400", command=self._on_descuento).grid(row=5, column=0, sticky="ew", padx=5, pady=5)
+        ctk.CTkButton(self.frame_botones, text="↩️ DEVOLUCIÓN", height=40, fg_color="#FF4500", command=self._on_devolucion).grid(row=5, column=1, sticky="ew", padx=5, pady=5)
 
         # 3- TARJETA y WEB (misma línea)
-        ctk.CTkButton(self.frame_botones, text="💳 TARJETA", height=60, fg_color="#1E90FF").grid(row=6, column=0, sticky="ew", padx=5, pady=5)
-        ctk.CTkButton(self.frame_botones, text="🌐 WEB", height=60, fg_color="#00A4CC").grid(row=6, column=1, sticky="ew", padx=5, pady=5)
+        ctk.CTkButton(self.frame_botones, text="💳 TARJETA", height=60, fg_color="#1E90FF", command=self._cobrar_tarjeta).grid(row=6, column=0, sticky="ew", padx=5, pady=5)
+        ctk.CTkButton(self.frame_botones, text="🌐 WEB", height=60, fg_color="#00A4CC", command=self._cobrar_web).grid(row=6, column=1, sticky="ew", padx=5, pady=5)
 
         # 2- EFECTIVO (línea completa)
         ctk.CTkButton(self.frame_botones, text="💶 EFECTIVO", height=80, fg_color="#228B22", font=("Arial", 20, "bold"), command=self.abrir_cobro_efectivo).grid(row=7, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
 
         # 1- CERRAR DÍA  y CAJÓN (misma línea, al fondo)
-        ctk.CTkButton(self.frame_botones, text="🔒 CERRAR DÍA", height=30, fg_color="darkred", command=lambda: self.controller.mostrar_cierre_caja()).grid(row=8, column=0, sticky="ew", padx=5, pady=(20,5))
+        ctk.CTkButton(self.frame_botones, text="🔒 CERRAR DÍA", height=30, fg_color="darkred", command=self._on_cerrar_dia).grid(row=8, column=0, sticky="ew", padx=5, pady=(20,5))
         ctk.CTkButton(self.frame_botones, text="🔓 CAJÓN", height=30, fg_color="#555555").grid(row=8, column=1, sticky="ew", padx=5, pady=(20,5))
 
     def actualizar_reloj(self):
@@ -229,34 +287,405 @@ class CajaVentas(ctk.CTkFrame):
         self.lbl_reloj.configure(text=ahora)
         self.after(1000, self.actualizar_reloj)
 
+    def _abrir_login_cajero(self):
+        try:
+            dlg = LoginCajero(self)
+            # modal: wait until closed
+            try:
+                self.wait_window(dlg)
+            except Exception:
+                pass
+            # check result
+            res = getattr(dlg, 'result', None)
+            if res:
+                # persist session on controller and update UI
+                try:
+                    self.controller.usuario_actual = res
+                except Exception:
+                    pass
+                try:
+                    self._actualizar_interfaz_cajero()
+                except Exception:
+                    pass
+                # no popup on login; UI updated and dialog closed
+        except Exception:
+            logging.exception('Error abriendo dialogo de login de cajero')
+
+    def _actualizar_interfaz_cajero(self):
+        """Actualizar interfaz del TPV según `self.controller.usuario_actual`.
+
+        Si hay usuario, sincroniza `self.cajero_activo` y actualiza `self.lbl_cajero`.
+        Si no hay usuario, limpia `self.cajero_activo` y pone texto por defecto.
+        """
+        try:
+            usuario = getattr(self.controller, 'usuario_actual', None)
+            if usuario:
+                self.cajero_activo = usuario
+                try:
+                    nombre = usuario.get('nombre') or str(usuario.get('id') or '')
+                except Exception:
+                    nombre = str(usuario.get('id') if isinstance(usuario, dict) else usuario)
+                try:
+                    self.lbl_cajero.configure(text=f"👤 Cajero: {nombre}")
+                except Exception:
+                    pass
+            else:
+                self.cajero_activo = None
+                try:
+                    self.lbl_cajero.configure(text="👤 Cajero: Sin Identificar")
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    def _ensure_cajero_identificado(self) -> bool:
+        """Ensure `self.cajero_activo` is set; if not, open `LoginCajero` and wait.
+
+        Returns True if a cajero is identified, False otherwise.
+        """
+        try:
+            if getattr(self, 'cajero_activo', None):
+                return True
+            dlg = LoginCajero(self)
+            try:
+                self.wait_window(dlg)
+            except Exception:
+                pass
+            res = getattr(dlg, 'result', None)
+            if res:
+                self.cajero_activo = res
+                try:
+                    nombre = res.get('nombre') or str(res.get('id') or '')
+                except Exception:
+                    nombre = str(res.get('id') if isinstance(res, dict) else res)
+                try:
+                    self.lbl_cajero.configure(text=f"👤 Cajero: {nombre}")
+                except Exception:
+                    pass
+                return True
+            return False
+        except Exception:
+            return False
+
+    def _on_descuento(self):
+        """Handler para el botón DESCUENTO: comprueba permisos antes de permitir la acción."""
+        try:
+            ok = self._ensure_cajero_identificado()
+            if not ok:
+                return
+            caj = self.cajero_activo or {}
+            try:
+                is_admin = int(caj.get('es_admin') or 0)
+            except Exception:
+                is_admin = 0
+            if is_admin == 1:
+                pass  # admin can proceed
+            else:
+                try:
+                    permiso = int(caj.get('permiso_descuento') or 0)
+                except Exception:
+                    permiso = 0
+                if permiso != 1:
+                    try:
+                        messagebox.showerror('Acceso Denegado', 'No tienes permiso para aplicar descuentos.')
+                    except Exception:
+                        pass
+                    return
+
+            # TODO: implementar lógica real de descuento; por ahora mostramos diálogo simple
+            try:
+                monto = simpledialog.askfloat('Descuento', 'Introduce importe de descuento (€):', minvalue=0.0)
+                if monto is None:
+                    return
+                # aplicar descuento como línea negativa
+                descuento_item = {"id": "MAN_DESC", "nombre": "DESC. MANUAL", "precio": -round(float(monto or 0.0), 2), "cantidad": 1, "iva": 0}
+                self.carrito.append(descuento_item)
+                try:
+                    self.actualizar_visor()
+                except Exception:
+                    pass
+            except Exception:
+                pass
+
+        except Exception:
+            logging.exception('Error comprobando permiso para descuento')
+
+    def _on_devolucion(self):
+        """Handler para el botón DEVOLUCIÓN: comprueba permisos antes de permitir la acción."""
+        try:
+            ok = self._ensure_cajero_identificado()
+            if not ok:
+                return
+            caj = self.cajero_activo or {}
+            try:
+                is_admin = int(caj.get('es_admin') or 0)
+            except Exception:
+                is_admin = 0
+            if is_admin == 1:
+                pass
+            else:
+                try:
+                    permiso = int(caj.get('permiso_devolucion') or 0)
+                except Exception:
+                    permiso = 0
+                if permiso != 1:
+                    try:
+                        messagebox.showerror('Acceso Denegado', 'No tienes permiso para realizar devoluciones.')
+                    except Exception:
+                        pass
+                    return
+
+            # TODO: Implementar flujo real de devolución. Por ahora, abrir diálogo informativo.
+            try:
+                messagebox.showinfo('Devolución', 'Funcionalidad de devolución iniciada (pendiente de implementación).')
+            except Exception:
+                pass
+        except Exception:
+            logging.exception('Error comprobando permiso para devolución')
+
+    def _abrir_tickets(self):
+        """Handler protegido para abrir la pantalla de Tickets."""
+        try:
+            ok = self._ensure_cajero_identificado()
+            if not ok:
+                return
+            caj = self.cajero_activo or {}
+            # robust admin check: allow if explicit flag or role == 'admin'
+            es_admin = str(caj.get('es_admin', '0')) == '1' or (caj.get('rol') == 'admin')
+            if es_admin:
+                try:
+                    self.controller.mostrar_tickets()
+                except Exception:
+                    pass
+                return
+
+            # non-admin: enforce permiso_tickets
+            try:
+                permiso = int(caj.get('permiso_tickets') or 0)
+            except Exception:
+                permiso = 0
+            if permiso != 1:
+                try:
+                    messagebox.showerror('Acceso Denegado', 'No tienes permiso para abrir la pantalla de Tickets.')
+                except Exception:
+                    pass
+                return
+
+            try:
+                self.controller.mostrar_tickets()
+            except Exception:
+                pass
+        except Exception:
+            logging.exception('Error comprobando permiso para abrir Tickets')
+
+    def _on_cerrar_dia(self):
+        """Handler para CERRAR DÍA: comprueba permiso_cierre antes de delegar al controller."""
+        try:
+            ok = self._ensure_cajero_identificado()
+            if not ok:
+                return
+            caj = self.cajero_activo or {}
+            try:
+                is_admin = int(caj.get('es_admin') or 0)
+            except Exception:
+                is_admin = 0
+            if is_admin == 1:
+                pass
+            else:
+                try:
+                    permiso = int(caj.get('permiso_cierre') or 0)
+                except Exception:
+                    permiso = 0
+                if permiso != 1:
+                    try:
+                        messagebox.showerror('Acceso Denegado', 'No tienes permiso para cerrar el día.')
+                    except Exception:
+                        pass
+                    return
+
+            # delegate to controller to show cierre UI
+            try:
+                self.controller.mostrar_cierre_caja()
+            except Exception:
+                try:
+                    # fallback to local dialog
+                    self.cerrar_dia_dialog()
+                except Exception:
+                    pass
+        except Exception:
+            logging.exception('Error comprobando permiso para cerrar día')
+
+    # ------------------ Cálculo de puntos por venta ------------------
+    def _calcular_puntos_venta(self) -> float:
+        """Calcula los puntos que corresponde dar por la venta actual.
+
+        Orden de prioridad:
+          Promoción activa (multiplicador) > fide_puntos_fijos (producto) > porcentaje por tipo > porcentaje por categoría > porcentaje general
+
+        Devuelve puntos totales (int).
+        """
+        # Delegate to FidelizacionService to avoid DB access here
+        try:
+            if not hasattr(self, 'fidelizacion_service'):
+                from modulos.tpv.fidelizacion_service import FidelizacionService
+                self.fidelizacion_service = FidelizacionService()
+            return float(self.fidelizacion_service.calcular_puntos(getattr(self, 'carrito', []), getattr(self, 'cliente_actual', None)) or 0.0)
+        except Exception:
+            logging.exception('Error delegando cálculo de puntos a FidelizacionService')
+            return 0.0
+
+    # ------------------ Cliente selector ------------------
+    def _abrir_selector_cliente(self):
+        try:
+            selector = SelectorCliente(self)
+            self.wait_window(selector)
+            cliente = getattr(selector, 'result', None)
+            if cliente:
+                self._asignar_cliente(cliente)
+        except Exception:
+            pass
+
+    def _asignar_cliente(self, cliente: dict):
+        try:
+            self.cliente_actual = cliente
+            nombre = cliente.get('nombre') or ''
+            # intentar obtener saldo de puntos actualizado desde servicio si hay id
+            try:
+                puntos = 0.0
+                cid = cliente.get('id')
+                if cid:
+                    svc = ClienteService()
+                    datos = svc.obtener_por_id(cid)
+                    try:
+                        puntos = float(datos.get('puntos_fidelidad') or 0)
+                    except Exception:
+                        puntos = float(cliente.get('puntos_fidelidad') or 0)
+                else:
+                    puntos = float(cliente.get('puntos_fidelidad') or 0)
+            except Exception:
+                try:
+                    puntos = float(cliente.get('puntos_fidelidad') or 0)
+                except Exception:
+                    puntos = 0.0
+
+            self.lbl_cliente_nombre.configure(text=f"Cliente: {nombre} ({puntos:.2f} pts)")
+            try:
+                self.btn_quitar_cliente.configure(state="normal")
+                try:
+                    self.btn_canjear.configure(state="normal")
+                except Exception:
+                    pass
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+    def _desvincular_cliente(self):
+        try:
+            self.cliente_actual = None
+            # volver al estado por defecto (cliente no asignado)
+            try:
+                self.lbl_cliente_nombre.configure(text="Cliente: Contado")
+            except Exception:
+                self.lbl_cliente_nombre.configure(text="")
+            try:
+                self.btn_quitar_cliente.configure(state="disabled")
+                try:
+                    self.btn_canjear.configure(state="disabled")
+                except Exception:
+                    pass
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+    def _canjear_puntos(self):
+        """Permite canjear parcialmente puntos del cliente como descuento en euros.
+
+        Pide al cajero la cantidad de puntos a canjear y valida disponibilidad
+        y que el descuento no supere el total del carrito.
+        """
+        try:
+            if not getattr(self, 'cliente_actual', None):
+                messagebox.showwarning('Atención', 'No hay ningún cliente seleccionado')
+                return
+
+            cfg = ConfigService()
+            try:
+                puntos_por_euro = float(cfg.get_valor('fide_puntos_valor_euro', '1') or 1)
+            except Exception:
+                puntos_por_euro = 1.0
+
+            # 1. Obtener saldo real de la BD primero
+            cliente_id = self.cliente_actual.get('id')
+            data = ClienteService().obtener_por_id(cliente_id)
+            saldo = float(data.get('puntos_fidelidad') or 0) if data else 0.0
+
+            # 2. Llamar a nuestra nueva ventana en lugar de simpledialog
+            pts = self._mostrar_dialogo_canje(saldo)
+            # Si el usuario cerró o canceló, pts será None, salimos
+            if pts is None:
+                return
+
+            if pts > saldo:
+                messagebox.showwarning('Atención', 'El cliente no tiene suficientes puntos')
+                return
+
+            # calcular descuento en euros: puntos / puntos_por_euro (puntos por euro)
+            try:
+                descuento_euros = float(pts) / float(puntos_por_euro) if puntos_por_euro else 0.0
+            except Exception:
+                descuento_euros = 0.0
+
+            # total actual del carrito
+            try:
+                total = sum(item['precio'] * item.get('cantidad', 1) for item in self.carrito)
+            except Exception:
+                total = 0.0
+
+            if descuento_euros > total:
+                messagebox.showwarning('Atención', 'El descuento supera el total de la venta')
+                return
+
+            # remove any existing discount line
+            try:
+                self.carrito = [it for it in self.carrito if it.get('id') != 'DESC']
+            except Exception:
+                pass
+
+            # aplicar descuento como línea negativa
+            try:
+                descuento_item = {"id": "DESC", "nombre": "DESC. PUNTOS", "precio": -round(descuento_euros, 2), "cantidad": 1, "iva": 0}
+                self.carrito.append(descuento_item)
+                self.puntos_a_canjear = pts
+            except Exception:
+                pass
+
+            # actualizar visor para reflejar descuento
+            try:
+                self.actualizar_visor()
+            except Exception:
+                pass
+        except Exception:
+            logging.exception('Error en canje de puntos')
+
     def _compute_day_summary(self, fecha_str: str):
         """Return lightweight summary for `fecha_str` (YYYY-MM-DD)."""
         try:
-            conn = connect()
-            cur = conn.cursor()
-            cur.execute("SELECT MIN(ticket_no), MAX(ticket_no), COUNT(*), COALESCE(SUM(total),0) FROM tickets WHERE date(created_at)=?", (fecha_str,))
-            min_no, max_no, count_tickets, sum_total = cur.fetchone()
-            cur.execute("SELECT forma_pago, COUNT(*), COALESCE(SUM(total),0) FROM tickets WHERE date(created_at)=? GROUP BY forma_pago", (fecha_str,))
-            pagos = cur.fetchall()
-            return {
-                'fecha': fecha_str,
-                'from': min_no,
-                'to': max_no,
-                'count': count_tickets,
-                'total': float(sum_total or 0.0),
-                'pagos': pagos
-            }
+            # Delegate summary computation to TicketService
+            try:
+                if not hasattr(self, 'ticket_service'):
+                    from modulos.tpv.ticket_service import TicketService
+                    self.ticket_service = TicketService()
+                resumen = self.ticket_service.resumen_dia(fecha_str)
+                return resumen
+            except Exception:
+                return None
         except Exception:
             return None
         finally:
-            try:
-                cur.close()
-            except Exception:
-                pass
-            try:
-                conn.close()
-            except Exception:
-                pass
+            # TicketService handles its own connection lifecycle
+            pass
 
     def cerrar_dia_dialog(self):
         """Show modal to confirm day closure and perform close_day on confirm."""
@@ -303,54 +732,58 @@ class CajaVentas(ctk.CTkFrame):
 
         def _on_confirm():
             try:
-                from database import close_day
+                # Delegate close_day to TicketService to avoid direct DB function import in UI
                 tipo = var_tipo.get()
-                resumen = close_day(fecha, tipo=tipo, include_category=var_cat.get(), include_products=var_prod.get(), cajero=None, notas=None)
+                # pass current cashier name to close_day so cierres_caja.cajero is populated
+                cajero_name = None
+                try:
+                    if getattr(self, 'cajero_activo', None):
+                        cajero_name = self.cajero_activo.get('nombre')
+                except Exception:
+                    cajero_name = None
+
+                try:
+                    resumen = self.ticket_service.close_day(fecha, tipo=tipo, include_category=var_cat.get(), include_products=var_prod.get(), cajero=cajero_name, notas=None)
+                except Exception:
+                    resumen = None
+
                 # Build closure text (include numero and tipo)
                 lines = []
                 lines.append("CIERRE DE CAJA\n")
-                lines.append(f"Tipo: {resumen.get('numero','') or ''} - {tipo}\n")
+                lines.append(f"Tipo: {(resumen.get('numero','') if resumen else '')} - {tipo}\n")
                 lines.append(f"Día: {fecha}\n")
-                lines.append(f"Tickets: {resumen.get('count_tickets',0)}  TOTAL: {resumen.get('total',0):.2f}€\n")
-                for p in resumen.get('por_forma_pago', []):
-                    lines.append(f"{p.get('forma','OTROS')}: {p.get('total',0):.2f}€\n")
-                if resumen.get('por_categoria'):
-                    lines.append('\nDesglose por categoría:\n')
-                    for c in resumen.get('por_categoria'):
-                        lines.append(f"{c.get('categoria')}: {c.get('qty')}  {c.get('total'):.2f}€\n")
-                if resumen.get('top_products'):
-                    lines.append('\nTop productos:\n')
-                    for tprod in resumen.get('top_products'):
-                        lines.append(f"{tprod.get('nombre')}: {tprod.get('qty')}  {tprod.get('total'):.2f}€\n")
+                lines.append(f"Tickets: {(resumen.get('count_tickets',0) if resumen else 0)}  TOTAL: {(resumen.get('total',0) if resumen else 0):.2f}€\n")
+                if resumen:
+                    for p in resumen.get('por_forma_pago', []):
+                        lines.append(f"{p.get('forma','OTROS')}: {p.get('total',0):.2f}€\n")
+                    if resumen.get('por_categoria'):
+                        lines.append('\nDesglose por categoría:\n')
+                        for c in resumen.get('por_categoria'):
+                            lines.append(f"{c.get('categoria')}: {c.get('qty')}  {c.get('total'):.2f}€\n")
+                    if resumen.get('top_products'):
+                        lines.append('\nTop productos:\n')
+                        for tprod in resumen.get('top_products'):
+                            lines.append(f"{tprod.get('nombre')}: {tprod.get('qty')}  {tprod.get('total'):.2f}€\n")
                 text = ''.join(lines)
 
                 # Inform user immediately about created cierre (so they see something even if preview fails)
                 try:
                     from tkinter import messagebox as _mb
-                    _mb.showinfo('Cierre creado', f"Tipo: {tipo}  Número: {resumen.get('numero','')}\nTickets: {resumen.get('count_tickets',0)}\nTotal: {resumen.get('total',0):.2f}€")
+                    _mb.showinfo('Cierre creado', f"Tipo: {tipo}  Número: {(resumen.get('numero','') if resumen else '')}\nTickets: {(resumen.get('count_tickets',0) if resumen else 0)}\nTotal: {(resumen.get('total',0) if resumen else 0):.2f}€")
                 except Exception:
                     pass
 
                 # Always show a local preview modal for Z closures or when printing requested.
                 try:
-                    # collect ticket rows to display in the preview
-                    conn = connect()
-                    cur = conn.cursor()
-                    tickets_rows = []
-                    if resumen.get('cierre_id'):
-                        cur.execute('SELECT id, created_at, ticket_no, cajero, total FROM tickets WHERE cierre_id=? ORDER BY created_at ASC', (resumen.get('cierre_id'),))
-                        tickets_rows = cur.fetchall()
-                    else:
-                        cur.execute('SELECT id, created_at, ticket_no, cajero, total FROM tickets WHERE date(created_at)=? ORDER BY created_at ASC', (fecha,))
-                        tickets_rows = cur.fetchall()
+                    # collect ticket rows via TicketService for the preview
                     try:
-                        cur.close()
+                        tickets_rows = []
+                        if resumen and resumen.get('cierre_id'):
+                            tickets_rows = self.ticket_service.listar_tickets_por_cierre(resumen.get('cierre_id'))
+                        else:
+                            tickets_rows = self.ticket_service.listar_tickets_por_fecha(fecha)
                     except Exception:
-                        pass
-                    try:
-                        conn.close()
-                    except Exception:
-                        pass
+                        tickets_rows = []
 
                     if tipo == 'Z' or var_print.get():
                         try:
@@ -364,9 +797,10 @@ class CajaVentas(ctk.CTkFrame):
                             tb.insert('end', text)
                 except Exception:
                     pass
+
                 # if closure already existed, inform user; otherwise proceed to next day
                 try:
-                    if resumen.get('already_closed'):
+                    if resumen and resumen.get('already_closed'):
                         try:
                             from tkinter import messagebox
                             messagebox.showinfo('Cierre', f"El día {fecha} ya estaba cerrado (id {resumen.get('cierre_id')}). Se mostrará el resumen.")
@@ -505,34 +939,36 @@ class CajaVentas(ctk.CTkFrame):
         self.buscar_producto(None)
 
     def buscar_producto(self, event):
+        # require cashier identification
+        try:
+            if not getattr(self, 'cajero_activo', None):
+                messagebox.showwarning('Atención', 'Debe identificarse como cajero para realizar ventas')
+                return
+        except Exception:
+            pass
         codigo_input = self.entry_codigo.get().strip()
         if not codigo_input:
             return
 
-        conn = connect()
-        cursor = conn.cursor()
+        # Use ProductoService to avoid direct DB access in the UI
         try:
-            # try exact SKU/EAN first
-            query = '''
-                SELECT p.nombre, pr.pvp, p.sku, p.tipo_iva, p.id, COALESCE(p.pvp_variable, 0) as pvp_variable
-                FROM productos p
-                JOIN precios pr ON p.id = pr.producto_id
-                LEFT JOIN codigos_barras cb ON p.id = cb.producto_id
-                WHERE (p.sku = ? OR cb.ean = ?)
-                AND pr.activo = 1
-                LIMIT 1
-            '''
-            cursor.execute(query, (codigo_input, codigo_input))
-            resultado = cursor.fetchone()
+            if not hasattr(self, 'producto_service'):
+                from modulos.almacen.producto_service import ProductoService
+                self.producto_service = ProductoService()
+
+            # Exact SKU/EAN lookup via service
+            try:
+                resultado = self.producto_service.buscar_por_codigo(codigo_input)
+            except Exception:
+                resultado = None
 
             if resultado:
-                pvp_variable = resultado[5] if len(resultado) > 5 else 0
-                precio_base = resultado[1]
+                pvp_variable = resultado.get('pvp_variable', 0) if isinstance(resultado, dict) else (resultado[5] if len(resultado) > 5 else 0)
+                precio_base = resultado.get('pvp') if isinstance(resultado, dict) else resultado[1]
                 if pvp_variable:
                     try:
                         val = self._ask_large_price("Precio variable", "¿Cuánto vale?")
                         if val is None:
-                            conn.close()
                             self.entry_codigo.delete(0, 'end')
                             return
                         precio_base = float(val)
@@ -540,11 +976,11 @@ class CajaVentas(ctk.CTkFrame):
                         pass
 
                 producto = {
-                    "nombre": resultado[0],
+                    "nombre": resultado.get('nombre') if isinstance(resultado, dict) else resultado[0],
                     "precio": precio_base,
-                    "sku": resultado[2],
-                    "iva": resultado[3],
-                    "id": resultado[4],
+                    "sku": resultado.get('sku') if isinstance(resultado, dict) else resultado[2],
+                    "iva": resultado.get('tipo_iva') if isinstance(resultado, dict) else resultado[3],
+                    "id": resultado.get('id') if isinstance(resultado, dict) else resultado[4],
                     "cantidad": 1
                 }
 
@@ -559,22 +995,14 @@ class CajaVentas(ctk.CTkFrame):
                     self.carrito.append(producto)
 
                 self.actualizar_visor()
-                conn.close()
                 self.entry_codigo.delete(0, 'end')
                 return
 
-            # otherwise do a LIKE search and render matches in selector_area
-            like = f"%{codigo_input}%"
-            cursor.execute('''
-                SELECT p.id, p.nombre, pr.pvp, p.sku, COALESCE(p.pvp_variable,0) as pvp_variable
-                FROM productos p
-                JOIN precios pr ON p.id = pr.producto_id
-                WHERE (p.nombre LIKE ? OR p.sku LIKE ?) AND pr.activo = 1
-                ORDER BY p.nombre COLLATE NOCASE
-                LIMIT 30
-            ''', (like, like))
-            rows = cursor.fetchall()
-            conn.close()
+            # Fallback: search by name/sku
+            try:
+                rows = self.producto_service.buscar_por_nombre(codigo_input)
+            except Exception:
+                rows = []
 
             # clear and show results in selector area
             try:
@@ -589,7 +1017,19 @@ class CajaVentas(ctk.CTkFrame):
                 self.entry_codigo.delete(0, 'end')
                 return
 
-            for pid, nombre, pvp, sku, pvp_variable in rows:
+            for row in rows:
+                try:
+                    if isinstance(row, dict):
+                        pid = row.get('id')
+                        nombre = row.get('nombre')
+                        pvp = row.get('pvp') or row.get('precio') or 0
+                        sku = row.get('sku')
+                        pvp_variable = row.get('pvp_variable', 0)
+                    else:
+                        pid, nombre, pvp, sku, pvp_variable = row
+                except Exception:
+                    continue
+
                 def _make_cmd(pid=pid, pvp=pvp, sku=sku, nombre=nombre, pvp_variable=pvp_variable):
                     def _cmd():
                         precio_base = pvp
@@ -613,17 +1053,13 @@ class CajaVentas(ctk.CTkFrame):
                         self.actualizar_visor()
                     return _cmd
 
-                btn = ctk.CTkButton(self.selector_area, text=f"{nombre} — {sku} — {pvp:.2f}€", command=_make_cmd())
+                btn = ctk.CTkButton(self.selector_area, text=f"{nombre} — {sku} — {float(pvp):.2f}€", command=_make_cmd())
                 btn.pack(fill='x', pady=4, padx=6)
 
             self.entry_codigo.delete(0, 'end')
 
         except Exception as e:
             print(f"Error búsqueda global: {e}")
-            try:
-                conn.close()
-            except Exception:
-                pass
 
     def actualizar_visor(self):
         self.lista_productos.configure(state="normal")
@@ -732,6 +1168,10 @@ class CajaVentas(ctk.CTkFrame):
 
     # --- FUNCIONES DE COBRO ---
     def abrir_cobro_efectivo(self):
+        if not getattr(self, 'cajero_activo', None):
+            messagebox.showwarning('Atención', 'Debe identificarse como cajero para realizar ventas')
+            return
+
         if not self.carrito:
             print("El carrito está vacío, no se puede cobrar.")
             return
@@ -745,6 +1185,61 @@ class CajaVentas(ctk.CTkFrame):
         self.entry_efectivo.focus()
         self.entry_efectivo.delete(0, 'end')
         self._awaiting_final_confirmation = False
+
+    def _cobrar_tarjeta(self):
+        """Procesa un cobro con tarjeta: seguridad, confirmación y finalización."""
+        try:
+            ok = self._ensure_cajero_identificado()
+            if not ok:
+                return
+            if not getattr(self, 'carrito', None):
+                messagebox.showwarning('Atención', 'El carrito está vacío')
+                return
+            # calcular total
+            try:
+                total = sum(item['precio'] * item.get('cantidad', 1) for item in self.carrito)
+            except Exception:
+                total = 0.0
+
+            confirmar = messagebox.askyesno('Confirmar', '¿Finalizar venta con TARJETA?')
+            if not confirmar:
+                return
+
+            # finalizar venta: pasar total como efectivo para registrar importe, cambio=0
+            try:
+                self.limpiar_tras_venta(efectivo=total, cambio=0.0, forma_pago='TARJETA')
+            except Exception:
+                pass
+        except Exception:
+            logging.exception('Error procesando cobro con tarjeta')
+
+    def _cobrar_web(self):
+        """Procesa un cobro via web: seguridad, confirmación y finalización."""
+        try:
+            ok = self._ensure_cajero_identificado()
+            if not ok:
+                return
+            if not getattr(self, 'carrito', None):
+                messagebox.showwarning('Atención', 'El carrito está vacío')
+                return
+            try:
+                total = sum(item['precio'] * item.get('cantidad', 1) for item in self.carrito)
+            except Exception:
+                total = 0.0
+
+            confirmar = messagebox.askyesno('Confirmar', '¿Finalizar venta con WEB?')
+            if not confirmar:
+                return
+
+            try:
+                forma = 'WEB'
+                # force uppercase and trim spaces
+                forma_forzada = (forma or '').strip().upper()
+                self.limpiar_tras_venta(efectivo=total, cambio=0.0, forma_pago=forma_forzada)
+            except Exception:
+                logging.exception('Error finalizando cobro WEB')
+        except Exception:
+            logging.exception('Error procesando cobro WEB')
 
     def _on_global_key(self, event):
         """
@@ -857,22 +1352,19 @@ class CajaVentas(ctk.CTkFrame):
         
         # Generar el texto del ticket
         if self.carrito:
-            # First: save ticket and lines to DB (lightweight)
+                # First: save ticket and lines using TicketService
             try:
-                conn = connect()
-                cur = conn.cursor()
                 from datetime import datetime
                 now = datetime.now().isoformat()
-                # We'll rely on the table autoincrement `id` as the global ticket number.
-                # Insert first, then read lastrowid and set `ticket_no = id` to guarantee uniqueness.
 
                 total = sum(item['precio'] * item['cantidad'] for item in self.carrito)
+
+                # cajero text extraction (same logic as before)
                 cajero = getattr(self, 'lbl_cajero', None)
                 cajero_txt = ''
                 try:
                     if cajero is not None:
                         raw = cajero.cget('text')
-                        # remove emoji and extract name after 'Cajero:' if present
                         try:
                             raw = raw.replace('👤', '').strip()
                         except Exception:
@@ -880,9 +1372,7 @@ class CajaVentas(ctk.CTkFrame):
                         if 'Cajero' in raw:
                             try:
                                 name = raw.split('Cajero')[-1]
-                                # remove leading ':' and whitespace
                                 name = name.lstrip(':').strip()
-                                # remove role in parentheses if present
                                 if '(' in name:
                                     name = name.split('(')[0].strip()
                                 cajero_txt = name
@@ -892,96 +1382,122 @@ class CajaVentas(ctk.CTkFrame):
                             cajero_txt = raw
                 except Exception:
                     cajero_txt = ''
+
+                cliente_nombre = None
                 try:
-                    # Compute next visible ticket number from existing tickets.
-                    # This ensures that if the DB sequences were reset externally,
-                    # the next ticket will start at 1 when table is empty.
-                    try:
-                        cur.execute('SELECT COALESCE(MAX(ticket_no),0)+1 FROM tickets')
-                        next_ticket_no = cur.fetchone()[0] or 1
-                    except Exception:
-                        next_ticket_no = 1
-
-                    cur.execute('INSERT INTO tickets (created_at, total, cajero, cliente, ticket_no, forma_pago, pagado, cambio) VALUES (?,?,?,?,?,?,?,?)', (
-                        now, total, cajero_txt, None, next_ticket_no, forma_pago, efectivo, cambio
-                    ))
-                    ticket_id = cur.lastrowid
-                    # insert lines
-                    for item in self.carrito:
-                        try:
-                            # Prefer authoritative SKU from productos table using product id when available
-                            sku_to_store = None
-                            try:
-                                pid = item.get('id')
-                                if pid is not None:
-                                    cur2 = conn.cursor()
-                                    try:
-                                        cur2.execute('SELECT sku FROM productos WHERE id=? LIMIT 1', (pid,))
-                                        row = cur2.fetchone()
-                                        if row and row[0]:
-                                            sku_to_store = row[0]
-                                    finally:
-                                        try:
-                                            cur2.close()
-                                        except Exception:
-                                            pass
-                            except Exception:
-                                sku_to_store = None
-
-                            if not sku_to_store:
-                                sku_to_store = item.get('sku')
-
-                            cur.execute('INSERT INTO ticket_lines (ticket_id, sku, nombre, cantidad, precio, iva) VALUES (?,?,?,?,?,?)', (
-                                ticket_id, sku_to_store, item.get('nombre'), item.get('cantidad'), item.get('precio'), item.get('iva', 0)
-                            ))
-                        except Exception:
-                            pass
-                    conn.commit()
+                    if getattr(self, 'cliente_actual', None):
+                        cliente_nombre = self.cliente_actual.get('nombre')
                 except Exception:
+                    cliente_nombre = None
+
+                if cliente_nombre:
                     try:
-                        conn.rollback()
+                        if not hasattr(self, 'fidelizacion_service'):
+                            from modulos.tpv.fidelizacion_service import FidelizacionService
+                            self.fidelizacion_service = FidelizacionService()
+                        puntos_ganados = float(self.fidelizacion_service.calcular_puntos(self.carrito, getattr(self, 'cliente_actual', None)) or 0.0)
                     except Exception:
-                        pass
-                finally:
+                        puntos_ganados = 0.0
                     try:
-                        cur.close()
+                        puntos_canjeados = float(getattr(self, 'puntos_a_canjear', 0.0) or 0.0)
                     except Exception:
-                        pass
-                    try:
-                        conn.close()
-                    except Exception:
-                        pass
+                        puntos_canjeados = 0.0
+                else:
+                    puntos_ganados = 0.0
+                    puntos_canjeados = 0.0
+
+                try:
+                    puntos_total_momento = None
+                    cliente_id = None
+                    if getattr(self, 'cliente_actual', None):
+                        try:
+                            cliente_id = self.cliente_actual.get('id')
+                        except Exception:
+                            cliente_id = None
+                    if cliente_id:
+                        try:
+                            svc = ClienteService()
+                            datos_cli = svc.obtener_por_id(cliente_id) or {}
+                            saldo_actual = float(datos_cli.get('puntos_fidelidad') or 0.0)
+                            puntos_total_momento = float(saldo_actual) - float(puntos_canjeados) + float(puntos_ganados)
+                        except Exception:
+                            puntos_total_momento = float(0.0)
+                    else:
+                        puntos_total_momento = float(0.0)
+                except Exception:
+                    puntos_total_momento = float(0.0)
+
+                datos_ticket = {
+                    'created_at': now,
+                    'total': total,
+                    'cajero': cajero_txt,
+                    'cliente': cliente_nombre,
+                    'forma_pago': forma_pago,
+                    'pagado': efectivo,
+                    'cambio': cambio,
+                    'puntos_ganados': puntos_ganados,
+                    'puntos_canjeados': puntos_canjeados,
+                    'puntos_total_momento': puntos_total_momento,
+                }
+
+                ticket_id = self.ticket_service.guardar_ticket(datos_ticket, self.carrito)
+
+            except Exception:
+                ticket_id = None
 
             except Exception as e:
                 print(f"Error guardando ticket en BD: {e}")
 
                 # Then: print/preview only if printing is enabled in controller
             try:
-                # Fetch saved ticket and lines from DB to build an authoritative print text
+                # Fetch saved ticket and lines via TicketService to avoid SQL in UI
                 try:
-                    conn2 = connect()
-                    cur2 = conn2.cursor()
-                    cur2.execute('SELECT id, created_at, cajero, total, ticket_no, forma_pago, pagado, cambio, cliente FROM tickets WHERE id=? LIMIT 1', (ticket_id,))
-                    meta = cur2.fetchone()
-                    cur2.execute('SELECT sku, nombre, cantidad, precio, iva FROM ticket_lines WHERE ticket_id=? ORDER BY id ASC', (ticket_id,))
-                    lines = cur2.fetchall()
+                    datos = self.ticket_service.obtener_ticket_completo(ticket_id)
+                    if datos:
+                        meta = datos.get('meta') or {}
+                        lines = datos.get('lineas') or []
+                    else:
+                        meta = None
+                        lines = []
                 except Exception:
                     meta = None
                     lines = []
-                finally:
-                    try:
-                        cur2.close()
-                    except Exception:
-                        pass
-                    try:
-                        conn2.close()
-                    except Exception:
-                        pass
 
                 # Build textual ticket (header + lines + totals + pagado/cambio)
                 try:
                     if meta:
-                        _, created_at, cajero_meta, total_meta, ticket_no_meta, forma_meta, pagado_meta, cambio_meta, cliente_meta = meta
+                        try:
+                            created_at = meta.get('created_at')
+                        except Exception:
+                            created_at = None
+                        try:
+                            cajero_meta = meta.get('cajero') or ''
+                        except Exception:
+                            cajero_meta = ''
+                        try:
+                            total_meta = float(meta.get('total') or 0.0)
+                        except Exception:
+                            total_meta = total
+                        try:
+                            ticket_no_meta = meta.get('ticket_no') or meta.get('id') or ticket_id
+                        except Exception:
+                            ticket_no_meta = ticket_id
+                        try:
+                            forma_meta = meta.get('forma_pago') or forma_pago
+                        except Exception:
+                            forma_meta = forma_pago
+                        try:
+                            pagado_meta = meta.get('pagado')
+                        except Exception:
+                            pagado_meta = efectivo
+                        try:
+                            cambio_meta = meta.get('cambio')
+                        except Exception:
+                            cambio_meta = cambio
+                        try:
+                            cliente_meta = meta.get('cliente') or ''
+                        except Exception:
+                            cliente_meta = ''
                     else:
                         created_at = None
                         cajero_meta = ''
@@ -1016,14 +1532,23 @@ class CajaVentas(ctk.CTkFrame):
                 header_lines.append("-"*30 + "\n")
 
                 body_lines = []
-                for sku, nombre, cantidad_l, precio_l, iva_l in lines:
+                for ln in lines:
+                    try:
+                        sku = ln.get('sku') if isinstance(ln, dict) else (ln[0] if len(ln) > 0 else None)
+                        nombre = ln.get('nombre') if isinstance(ln, dict) else (ln[1] if len(ln) > 1 else '')
+                        cantidad_l = ln.get('cantidad') if isinstance(ln, dict) else (ln[2] if len(ln) > 2 else 0)
+                        precio_l = ln.get('precio') if isinstance(ln, dict) else (ln[3] if len(ln) > 3 else 0)
+                        iva_l = ln.get('iva') if isinstance(ln, dict) else (ln[4] if len(ln) > 4 else 0)
+                    except Exception:
+                        nombre = ''
+                        cantidad_l = 0
+                        precio_l = 0
                     try:
                         cantidad_show = int(cantidad_l) if isinstance(cantidad_l, float) and float(cantidad_l).is_integer() else cantidad_l
                     except Exception:
                         cantidad_show = cantidad_l
                     try:
-                        # Do not print SKU on tickets; show only product name and unit price
-                        body_lines.append(f"{cantidad_show}x {nombre}  {precio_l:.2f}\n")
+                        body_lines.append(f"{cantidad_show}x {nombre}  {float(precio_l):.2f}\n")
                     except Exception:
                         body_lines.append(f"{cantidad_show}x {nombre}  {precio_l}\n")
 
@@ -1035,9 +1560,9 @@ class CajaVentas(ctk.CTkFrame):
                     totals_lines.append(f"TOTAL: {total_meta}\n")
                 if pagado_meta is not None:
                     try:
-                        totals_lines.append(f"EFECTIVO: {pagado_meta:.2f}\n")
+                        totals_lines.append(f"{forma_meta}: {pagado_meta:.2f}\n")
                     except Exception:
-                        totals_lines.append(f"EFECTIVO: {pagado_meta}\n")
+                        totals_lines.append(f"{forma_meta}: {pagado_meta}\n")
                 if cambio_meta is not None:
                     try:
                         totals_lines.append(f"CAMBIO: {cambio_meta:.2f}\n")
@@ -1045,6 +1570,96 @@ class CajaVentas(ctk.CTkFrame):
                         totals_lines.append(f"CAMBIO: {cambio_meta}\n")
 
                 ticket_texto = ''.join(header_lines) + ''.join(body_lines) + ''.join(totals_lines) + "\n¡Gracias por tu compra!\n"
+
+                # Si hay un cliente asignado, procesar canje y puntos, y añadir información al ticket
+                try:
+                    if self.cliente_actual is not None:
+                        # extra info block
+                        try:
+                            cliente_id = None
+                            try:
+                                cliente_id = self.cliente_actual.get('id')
+                            except Exception:
+                                cliente_id = None
+                            try:
+                                cli_svc = ClienteService()
+                            except Exception:
+                                cli_svc = None
+
+                            extra = []
+                            extra.append('\n' + ('-'*20) + '\n')
+
+                            # 1) Si existe canje de puntos, restarlos primero
+                            try:
+                                if getattr(self, 'puntos_a_canjear', 0) and float(self.puntos_a_canjear) > 0 and cliente_id and cli_svc:
+                                    try:
+                                        cli_svc.sumar_puntos(cliente_id, -float(self.puntos_a_canjear))
+                                        extra.append(f"Puntos canjeados: -{float(self.puntos_a_canjear):.2f} pts\n")
+                                    except Exception:
+                                        logging.exception('No se pudieron restar puntos al cliente id=%s', cliente_id)
+                            except Exception:
+                                pass
+
+                            # 2) Calcular puntos ganados por la compra (solo si hay cliente)
+                            try:
+                                if not hasattr(self, 'fidelizacion_service'):
+                                    from modulos.tpv.fidelizacion_service import FidelizacionService
+                                    self.fidelizacion_service = FidelizacionService()
+                                puntos = self.fidelizacion_service.calcular_puntos(self.carrito, getattr(self, 'cliente_actual', None))
+                            except Exception:
+                                puntos = 0.0
+
+                            # 3) Registrar puntos ganados y gasto
+                            saldo = None
+                            if cliente_id and cli_svc:
+                                try:
+                                    if puntos and float(puntos) > 0:
+                                        try:
+                                            cli_svc.sumar_puntos(cliente_id, float(puntos))
+                                        except Exception:
+                                            logging.exception('No se pudieron sumar puntos al cliente id=%s', cliente_id)
+                                    try:
+                                        cli_svc.registrar_gasto(cliente_id, float(total_meta or total))
+                                    except Exception:
+                                        logging.exception('No se pudo registrar gasto para cliente id=%s', cliente_id)
+                                    try:
+                                        updated = cli_svc.obtener_por_id(cliente_id)
+                                        saldo = updated.get('puntos_fidelidad') if updated else None
+                                    except Exception:
+                                        saldo = None
+                                except Exception:
+                                    pass
+
+                            # 4) Añadir línea de puntos ganados si aplica
+                            try:
+                                if puntos and float(puntos) > 0:
+                                    extra.append(f"Puntos ganados en esta compra: {float(puntos):.2f}\n")
+                            except Exception:
+                                try:
+                                    extra.append(f"Puntos ganados en esta compra: {puntos}\n")
+                                except Exception:
+                                    pass
+
+                            # 5) Asegurar que saldo refleje los cambios y añadir línea de saldo
+                            try:
+                                if saldo is None and cliente_id and cli_svc:
+                                    try:
+                                        updated = cli_svc.obtener_por_id(cliente_id)
+                                        saldo = updated.get('puntos_fidelidad') if updated else None
+                                    except Exception:
+                                        saldo = None
+                            except Exception:
+                                pass
+                            try:
+                                extra.append(f"Saldo total de puntos: {float(saldo):.2f}\n" if saldo is not None else "Saldo total de puntos: \n")
+                            except Exception:
+                                extra.append(f"Saldo total de puntos: {saldo if saldo is not None else ''}\n")
+
+                            ticket_texto = ticket_texto + ''.join(extra)
+                        except Exception:
+                            logging.exception('Error proceso fidelización en ticket')
+                except Exception:
+                    logging.exception('Error proceso fidelización en ticket - envoltura')
 
                 if getattr(self.controller, 'imprimir_tickets_enabled', False):
                     # Prefer preview_ticket on macOS, otherwise try direct print
@@ -1075,33 +1690,44 @@ class CajaVentas(ctk.CTkFrame):
                 pass
         
         # Limpiar carrito
+        # Reset puntos_a_canjear antes de limpiar carrito y vistas
+        try:
+            self.puntos_a_canjear = 0
+        except Exception:
+            pass
         self.carrito = []
         self.actualizar_visor()
+        try:
+            self._desvincular_cliente()
+        except Exception:
+            pass
 
     def abrir_selector_sin_codigo(self):
         """Renderiza el selector de productos sin código dentro del área disponible"""
+        try:
+            if not getattr(self, 'cajero_activo', None):
+                messagebox.showwarning('Atención', 'Debe identificarse como cajero para realizar ventas')
+                return
+        except Exception:
+            pass
         selector = SelectorSinCodigo(self.agregar_producto_sin_codigo)
         selector.render_in_frame(self.selector_area)
 
     def agregar_producto_sin_codigo(self, producto_id, precio, nombre):
         """Agrega un producto al carrito desde el selector sin código"""
         try:
-            conn = connect()
-            cursor = conn.cursor()
-            query = '''
-                SELECT p.nombre, pr.pvp, p.sku, p.tipo_iva, p.id, COALESCE(p.pvp_variable, 0) as pvp_variable
-                FROM productos p
-                JOIN precios pr ON p.id = pr.producto_id
-                WHERE p.id = ? AND pr.activo = 1
-                LIMIT 1
-            '''
-            cursor.execute(query, (producto_id,))
-            resultado = cursor.fetchone()
-            conn.close()
+            # Use ProductoService to fetch product details
+            if not hasattr(self, 'producto_service'):
+                from modulos.almacen.producto_service import ProductoService
+                self.producto_service = ProductoService()
+            try:
+                resultado = self.producto_service.obtener_por_id(producto_id)
+            except Exception:
+                resultado = None
 
             if resultado:
-                pvp_variable = resultado[5] if len(resultado) > 5 else 0
-                precio_base = resultado[1]
+                pvp_variable = resultado.get('pvp_variable', 0) if isinstance(resultado, dict) else (resultado[5] if len(resultado) > 5 else 0)
+                precio_base = resultado.get('pvp') if isinstance(resultado, dict) else resultado[1]
                 if pvp_variable:
                     try:
                         val = self._ask_large_price("Precio variable", "¿Cuánto vale?")
@@ -1112,24 +1738,74 @@ class CajaVentas(ctk.CTkFrame):
                         pass
 
                 producto = {
-                    "nombre": resultado[0],
+                    "nombre": resultado.get('nombre') if isinstance(resultado, dict) else resultado[0],
                     "precio": precio_base,
-                    "sku": resultado[2],
-                    "iva": resultado[3],
-                    "id": resultado[4],
+                    "sku": resultado.get('sku') if isinstance(resultado, dict) else resultado[2],
+                    "iva": resultado.get('tipo_iva') if isinstance(resultado, dict) else resultado[3],
+                    "id": resultado.get('id') if isinstance(resultado, dict) else resultado[4],
                     "cantidad": 1
                 }
-                
+
                 encontrado = False
                 for item in self.carrito:
                     if item['id'] == producto['id']:
                         item['cantidad'] += 1
                         encontrado = True
                         break
-                
+
                 if not encontrado:
                     self.carrito.append(producto)
 
                 self.actualizar_visor()
         except Exception as e:
             print(f"Error al agregar producto: {e}")
+
+    def _mostrar_dialogo_canje(self, max_puntos):
+        """Crea una ventana flotante grande para introducir los puntos."""
+        result = {'value': None}
+        # Crear ventana
+        win = ctk.CTkToplevel(self)
+        win.title('Canjear Puntos')
+        win.geometry('450x300')
+        win.transient(self) # Se queda encima de la principal
+        win.grab_set()      # Bloquea el resto de la app hasta cerrar
+
+        # Títulos
+        ctk.CTkLabel(win, text='¿Cuántos puntos canjear?', font=('Arial', 22, 'bold')).pack(pady=(25,5))
+        ctk.CTkLabel(win, text=f'Máximo disponible: {max_puntos:.2f} pts', font=('Arial', 14)).pack(pady=(0,20))
+
+        # Caja de texto GIGANTE
+        entry_var = ctk.StringVar()
+        entry = ctk.CTkEntry(win, textvariable=entry_var, font=('Arial', 32), justify='center', height=60)
+        entry.pack(fill='x', padx=50, pady=10)
+        entry.focus_set()
+
+        # Etiqueta para errores (roja)
+        err_lbl = ctk.CTkLabel(win, text='', text_color='red', font=('Arial', 13))
+        err_lbl.pack()
+
+        def _validar_y_cerrar():
+            # El truco de la coma: la cambiamos por un punto aquí
+            texto = entry_var.get().replace(',', '.')
+            try:
+                val = float(texto)
+                if val < 0: raise ValueError
+                if val > max_puntos:
+                    err_lbl.configure(text=f'Error: El cliente solo tiene {max_puntos:.2f} pts')
+                    return
+                result['value'] = val
+                win.destroy()
+            except ValueError:
+                err_lbl.configure(text='Introduce un número válido (ej: 0.50)')
+
+        # Botones de acción
+        btn_frame = ctk.CTkFrame(win, fg_color='transparent')
+        btn_frame.pack(pady=25)
+        ctk.CTkButton(btn_frame, text='ACEPTAR', width=160, height=45, fg_color='#2ecc71', command=_validar_y_cerrar).pack(side='left', padx=10)
+        ctk.CTkButton(btn_frame, text='CANCELAR', width=160, height=45, fg_color='#555', command=win.destroy).pack(side='left', padx=10)
+
+        # Hacer que 'Enter' también sirva para aceptar
+        entry.bind('<Return>', lambda e: _validar_y_cerrar())
+        
+        self.wait_window(win)
+        return result['value']

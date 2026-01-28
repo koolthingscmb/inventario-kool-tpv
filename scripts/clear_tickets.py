@@ -14,7 +14,7 @@ conn = sqlite3.connect(DB_PATH)
 cur = conn.cursor()
 
 print('Counts before:')
-for name in ('ticket_lines','tickets','cierres','cierres_caja'):
+for name in ('ticket_lines','tickets','cierres_caja'):
     try:
         cur.execute(f"SELECT COUNT(*) FROM {name}")
         print(name, cur.fetchone()[0])
@@ -22,7 +22,7 @@ for name in ('ticket_lines','tickets','cierres','cierres_caja'):
         print(name, 'ERR', e)
 
 # Delete all test data (tables may not exist in all environments)
-for tbl in ('ticket_lines', 'tickets', 'cierres', 'cierres_caja'):
+for tbl in ('ticket_lines', 'tickets', 'cierres_caja'):
     try:
         cur.execute(f"DELETE FROM {tbl}")
     except Exception:
@@ -30,7 +30,7 @@ for tbl in ('ticket_lines', 'tickets', 'cierres', 'cierres_caja'):
 conn.commit()
 
 print('\nCounts after delete:')
-for name in ('ticket_lines','tickets','cierres','cierres_caja'):
+for name in ('ticket_lines','tickets','cierres_caja'):
     try:
         cur.execute(f"SELECT COUNT(*) FROM {name}")
         print(name, cur.fetchone()[0])
@@ -39,7 +39,7 @@ for name in ('ticket_lines','tickets','cierres','cierres_caja'):
 
 # Reset sqlite_sequence for these tables (if present) so AUTOINCREMENT restarts at 1
 try:
-    cur.execute("DELETE FROM sqlite_sequence WHERE name IN ('ticket_lines','tickets','cierres','cierres_caja')")
+    cur.execute("DELETE FROM sqlite_sequence WHERE name IN ('ticket_lines','tickets','cierres_caja')")
     conn.commit()
     print('\nReset sqlite_sequence entries (if existed).')
 except Exception as e:

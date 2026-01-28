@@ -46,8 +46,9 @@ def inspect_db(path):
             pass
 
 if __name__ == '__main__':
+    from database import DB_PATH
     if len(sys.argv) > 1:
         p = sys.argv[1]
     else:
-        p = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'inventario.db'))
+        p = DB_PATH
     inspect_db(p)

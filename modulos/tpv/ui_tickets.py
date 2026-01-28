@@ -17,10 +17,11 @@ class TicketsView(ctk.CTkFrame):
     - Lista de tickets por hora para el día seleccionado
     - Al clicar un ticket se muestra el carrito/lineas en panel derecho
     """
-    def __init__(self, parent, controller, fecha=None):
+    def __init__(self, parent, controller, fecha=None, retorno_historico=False):
         super().__init__(parent)
         self.pack(fill="both", expand=True)
         self.controller = controller
+        self.retorno_historico = bool(retorno_historico)
 
         header = ctk.CTkFrame(self)
         header.pack(side="top", fill="x", padx=8, pady=8)
@@ -37,7 +38,11 @@ class TicketsView(ctk.CTkFrame):
         self.opt_print = ctk.BooleanVar(value=True)
         # Volver al TPV
         try:
-            self.btn_volver = ctk.CTkButton(header, text="⬅ Volver", width=100, command=lambda: self.controller.mostrar_ventas())
+            if self.retorno_historico:
+                cmd = lambda: self.controller.mostrar_historico_cierres()
+            else:
+                cmd = lambda: self.controller.mostrar_ventas()
+            self.btn_volver = ctk.CTkButton(header, text="⬅ Volver", width=100, command=cmd)
             self.btn_volver.pack(side="right", padx=8)
         except Exception:
             pass
@@ -51,13 +56,13 @@ class TicketsView(ctk.CTkFrame):
         # columns: Nº ticket, Hora, Cajero, Cliente, Total, Forma Pago
         self.tree = ttk.Treeview(left, columns=("ticket_no", "hora","cajero","cliente","total","forma_pago"), show="headings")
         self.tree.heading("ticket_no", text="Nº ticket", anchor="w")
-        self.tree.heading("hora", text="Hora", anchor="w")
+        self.tree.heading("hora", text="Día/Hora", anchor="w")
         self.tree.heading("cajero", text="Cajero", anchor="w")
         self.tree.heading("cliente", text="Cliente", anchor="w")
         self.tree.heading("total", text="Total", anchor="w")
         self.tree.heading("forma_pago", text="Forma Pago", anchor="w")
         self.tree.column("ticket_no", width=90, anchor="w")
-        self.tree.column("hora", width=100, anchor="w")
+        self.tree.column("hora", width=140, anchor="w")
         self.tree.column("cajero", width=140, anchor="w")
         self.tree.column("cliente", width=140, anchor="w")
         self.tree.column("total", width=100, anchor="e")
@@ -157,7 +162,14 @@ class TicketsView(ctk.CTkFrame):
                 pagado = r[6] if len(r) > 6 else None
                 cambio = r[7] if len(r) > 7 else None
                 cliente = r[8] if len(r) > 8 else ''
-            hora = datetime.fromisoformat(created_at).strftime("%H:%M:%S") if created_at else ""
+            try:
+                hora = datetime.fromisoformat(created_at).strftime("%d/%m %H:%M") if created_at else ""
+            except Exception:
+                # fallback to time only if parsing fails
+                try:
+                    hora = datetime.fromisoformat(created_at).strftime("%H:%M:%S")
+                except Exception:
+                    hora = created_at or ''
             try:
                 total_str = f"{total:.2f}" if total is not None else ""
             except Exception:
@@ -181,8 +193,8 @@ class TicketsView(ctk.CTkFrame):
         conn = connect()
         cur = conn.cursor()
         try:
-            # basic ticket header info (include pagado/cambio)
-            cur.execute('SELECT created_at, cajero, total, ticket_no, forma_pago, pagado, cambio, cliente FROM tickets WHERE id=? LIMIT 1', (ticket_id,))
+            # basic ticket header info (include pagado/cambio and fidelización)
+            cur.execute('SELECT created_at, cajero, total, ticket_no, forma_pago, pagado, cambio, cliente, puntos_ganados, puntos_canjeados, puntos_total_momento FROM tickets WHERE id=? LIMIT 1', (ticket_id,))
             meta = cur.fetchone()
             created_at = meta[0] if meta and len(meta) > 0 else None
             cajero = meta[1] if meta and len(meta) > 1 else ''
@@ -192,6 +204,9 @@ class TicketsView(ctk.CTkFrame):
             pagado = meta[5] if meta and len(meta) > 5 else None
             cambio = meta[6] if meta and len(meta) > 6 else None
             cliente = meta[7] if meta and len(meta) > 7 else ''
+            puntos_ganados_meta = meta[8] if meta and len(meta) > 8 else 0.0
+            puntos_canjeados_meta = meta[9] if meta and len(meta) > 9 else 0.0
+            puntos_total_momento_meta = meta[10] if meta and len(meta) > 10 else None
 
             cur.execute("SELECT sku, nombre, cantidad, precio, iva FROM ticket_lines WHERE ticket_id=? ORDER BY id ASC", (ticket_id,))
             rows = cur.fetchall()
@@ -249,13 +264,58 @@ class TicketsView(ctk.CTkFrame):
             totals_lines.append(f"TOTAL: {total}\n")
         try:
             if pagado is not None:
-                totals_lines.append(f"EFECTIVO: {pagado:.2f}\n")
+                etiqueta = forma or 'EFECTIVO'
+                try:
+                    totals_lines.append(f"{etiqueta}: {pagado:.2f}\n")
+                except Exception:
+                    totals_lines.append(f"{etiqueta}: {pagado}\n")
             if cambio is not None:
-                totals_lines.append(f"CAMBIO: {cambio:.2f}\n")
+                try:
+                    totals_lines.append(f"CAMBIO: {cambio:.2f}\n")
+                except Exception:
+                    totals_lines.append(f"CAMBIO: {cambio}\n")
         except Exception:
             pass
 
-        text = ''.join(header_lines) + ''.join(body_lines) + ''.join(totals_lines)
+        # Build final ticket text identical to the TPV printout
+        try:
+            pg = float(puntos_ganados_meta) if puntos_ganados_meta is not None else 0.0
+        except Exception:
+            pg = 0.0
+        try:
+            pc = float(puntos_canjeados_meta) if puntos_canjeados_meta is not None else 0.0
+        except Exception:
+            pc = 0.0
+        try:
+            saldo_final = float(puntos_total_momento_meta) if puntos_total_momento_meta is not None else None
+        except Exception:
+            saldo_final = None
+
+        # totals + thank you line
+        ticket_core = ''.join(header_lines) + ''.join(body_lines) + ''.join(totals_lines) + "\n¡Gracias por tu compra!\n"
+
+        fide_section = []
+        fide_section.append('\n' + ('-'*20) + '\n')
+        if pc and float(pc) != 0:
+            try:
+                fide_section.append(f"Puntos canjeados: -{float(pc):.2f} pts\n")
+            except Exception:
+                pass
+        if pg and float(pg) != 0:
+            try:
+                fide_section.append(f"Puntos ganados en esta compra: {float(pg):.2f}\n")
+            except Exception:
+                pass
+        # Saldo final line (show as blank if None)
+        try:
+            if saldo_final is not None:
+                fide_section.append(f"Saldo total de puntos: {float(saldo_final):.2f}\n")
+            else:
+                fide_section.append("Saldo total de puntos: \n")
+        except Exception:
+            fide_section.append("Saldo total de puntos: \n")
+
+        text = ticket_core + ''.join(fide_section)
 
         self.detalle_txt.delete("0.0", "end")
         try:
@@ -271,6 +331,12 @@ class TicketsView(ctk.CTkFrame):
         lines.append(f"Tickets: {resumen.get('count_tickets',0)}  TOTAL: {resumen.get('total',0):.2f}€\n")
         for p in resumen.get('por_forma_pago', []):
             lines.append(f"{p.get('forma','OTROS')}: {p.get('total',0):.2f}€\n")
+        # Explicit Web total (ensure visibility even if not present in por_forma_pago)
+        try:
+            if resumen.get('total_web') is not None:
+                lines.append(f"Web: {float(resumen.get('total_web') or 0.0):.2f}€\n")
+        except Exception:
+            pass
         if resumen.get('por_categoria'):
             lines.append('\nDesglose por categoría:\n')
             for c in resumen.get('por_categoria'):
