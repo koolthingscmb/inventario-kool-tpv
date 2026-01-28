@@ -1,7 +1,12 @@
 import customtkinter as ctk
 import tkinter as tk
 from tkinter import messagebox
-from modulos.configuracion import exportador
+try:
+    # Legacy module removed; export functionality will be provided by ExportarService.
+    from modulos.configuracion import exportador
+except Exception:
+    exportador = None
+    # TODO: Rewire this dialog to use `modulos.exportar_importar.exportar_service.ExportarService`
 
 class DialogExportArticulos(ctk.CTkToplevel):
     def __init__(self, parent):
@@ -24,7 +29,10 @@ class DialogExportArticulos(ctk.CTkToplevel):
 
         # carga categorías
         self.cat_vars = []
-        cats = exportador.listar_categorias()
+        if exportador:
+            cats = exportador.listar_categorias()
+        else:
+            cats = []  # exportador removed; categories will be provided by ExportarService in future
         for i, c in enumerate(cats):
             var = tk.IntVar(value=0)
             cb = tk.Checkbutton(self.cats_frame, text=c, variable=var, anchor='w')
@@ -54,10 +62,16 @@ class DialogExportArticulos(ctk.CTkToplevel):
 
     def _dry_run(self):
         cats, s = self._gather_filters()
+        if not exportador:
+            messagebox.showinfo('Dry-run', 'Funcionalidad de exportación deshabilitada. Integrar con ExportarService.')
+            return
         rows = exportador.exportar_articulos_csv(categorias=cats, search=s, dry_run=True)
         messagebox.showinfo('Dry-run', f'Se exportarían {len(rows)} filas (máx 10000).')
 
     def _export(self):
         cats, s = self._gather_filters()
+        if not exportador:
+            messagebox.showinfo('Exportado', 'Funcionalidad de exportación deshabilitada. Integrar con ExportarService.')
+            return
         path = exportador.exportar_articulos_csv(categorias=cats, search=s, dry_run=False)
         messagebox.showinfo('Exportado', f'CSV guardado en: {path}')

@@ -25,6 +25,7 @@ class UIMantenimiento(ctk.CTkFrame):
         # Buttons for maintenance actions
         ctk.CTkButton(self.menu_panel, text='Vaciar Ventas', fg_color='#e74c3c', command=self._vaciar_ventas, **opts).pack(fill='x', padx=10, pady=6)
         ctk.CTkButton(self.menu_panel, text='Vaciar Inventario', fg_color='#e67e22', command=self._vaciar_inventario, **opts).pack(fill='x', padx=10, pady=6)
+        ctk.CTkButton(self.menu_panel, text='Borrar Todos los Artículos', fg_color='#e67e22', command=self._borrar_todos_articulos, **opts).pack(fill='x', padx=10, pady=6)
         ctk.CTkButton(self.menu_panel, text='Vaciar Clientes', fg_color='#f39c12', command=self._vaciar_clientes, **opts).pack(fill='x', padx=10, pady=6)
         ctk.CTkButton(self.menu_panel, text='Vaciar Todo', fg_color='#9b59b6', command=self._vaciar_todo, **opts).pack(fill='x', padx=10, pady=12)
 
@@ -82,6 +83,15 @@ class UIMantenimiento(ctk.CTkFrame):
             messagebox.showinfo('Éxito', 'Clientes vaciados correctamente')
         else:
             messagebox.showerror('Error', 'Error al vaciar clientes')
+
+    def _borrar_todos_articulos(self):
+        if not self._confirm('¿Está seguro de que desea borrar todos los artículos? Esta acción eliminará productos, precios, códigos de barras e imágenes relacionados.'):
+            return
+        ok = self.service.borrar_inventario()
+        if ok:
+            messagebox.showinfo('Éxito', 'Se han borrado todos los artículos correctamente')
+        else:
+            messagebox.showerror('Error', 'No se pudo borrar todos los artículos')
 
     def _vaciar_todo(self):
         if not self._confirm('¿Estás seguro? Esta acción borrará VENTAS, INVENTARIO y CLIENTES. Es irreversible.'):

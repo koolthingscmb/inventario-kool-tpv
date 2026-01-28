@@ -1,12 +1,116 @@
 import os
-import csv
 import time
-import subprocess
+import logging
+import tkinter as tk
+from tkinter import filedialog
+from modulos.exportar_importar.exportar_service import ExportarService
 import customtkinter as ctk
 import threading
 from tkinter import messagebox
 from tkinter import ttk
 from modulos.almacen.producto_service import ProductoService
+
+
+class DialogExportarArticulos(ctk.CTkToplevel):
+    def __init__(self, parent, columnas, on_export_csv, on_export_pdf, preselected=None):
+        super().__init__(parent)
+        self.title('Exportar Artículos')
+        self.geometry('420x420')
+        self.columnas = columnas
+        self.on_export_csv = on_export_csv
+        self.on_export_pdf = on_export_pdf
+        self.check_vars = []
+        self.preselected = set(preselected or [])
+
+        ctk.CTkLabel(self, text='Elige el formato de exportación y selecciona columnas', anchor='center').pack(pady=10)
+
+        self.frame_cols = ctk.CTkFrame(self)
+        self.frame_cols.pack(fill='both', expand=True, padx=8, pady=6)
+
+        # create checkbuttons but do not pack/grid yet; we'll layout dynamically
+        self.checkbox_widgets = []
+        for col in columnas:
+            var = tk.IntVar(value=1 if col in self.preselected else 0)
+            cb = tk.Checkbutton(self.frame_cols, text=col, variable=var, anchor='w')
+            self.checkbox_widgets.append((col, var, cb))
+
+        # bind resize to relayout the checkboxes in a grid
+        try:
+            self.bind('<Configure>', lambda e: self._layout_checkboxes())
+        except Exception:
+            pass
+        # initial layout
+        self.after(50, self._layout_checkboxes)
+
+        frame_btns = ctk.CTkFrame(self)
+        frame_btns.pack(pady=10, fill='x')
+        ctk.CTkButton(frame_btns, text='Exportar a CSV', command=self.export_csv).pack(side='left', padx=6)
+        ctk.CTkButton(frame_btns, text='Exportar a PDF', command=self.export_pdf).pack(side='left', padx=6)
+        ctk.CTkButton(frame_btns, text='Cancelar', command=self.destroy).pack(side='left', padx=6)
+
+    def export_csv(self):
+        sel = [col for col, var in zip(self.columnas, self.check_vars) if var.get()]
+        if not sel:
+            tk.messagebox.showinfo('Exportar', 'Seleccione al menos una columna para exportar.')
+            return
+        try:
+            self.on_export_csv(sel)
+        finally:
+            try:
+                self.destroy()
+            except Exception:
+                pass
+
+    def export_pdf(self):
+        sel = [col for col, var in zip(self.columnas, self.check_vars) if var.get()]
+        if not sel:
+            tk.messagebox.showinfo('Exportar', 'Seleccione al menos una columna para exportar.')
+            return
+        try:
+            self.on_export_pdf(sel)
+        finally:
+            try:
+                self.destroy()
+            except Exception:
+                pass
+
+    def _layout_checkboxes(self):
+        try:
+            # prefer frame width, fallback to toplevel width
+            w = self.frame_cols.winfo_width() or self.winfo_width() or 420
+            # target approximate width per column
+            target_w = 180
+            cols_per_row = max(1, int(max(1, w) // target_w))
+        except Exception:
+            cols_per_row = 4
+
+        # clear grid
+        for _, _, widget in self.checkbox_widgets:
+            try:
+                widget.grid_forget()
+            except Exception:
+                pass
+
+        for i, (col, var, widget) in enumerate(self.checkbox_widgets):
+            col_pos = i % cols_per_row
+            row_pos = i // cols_per_row
+            try:
+                widget.grid(row=row_pos, column=col_pos, sticky='w', padx=6, pady=4)
+            except Exception:
+                try:
+                    widget.pack(anchor='w', padx=6, pady=4)
+                except Exception:
+                    pass
+
+        # configure equal weight columns
+        try:
+            for c in range(cols_per_row):
+                try:
+                    self.frame_cols.grid_columnconfigure(c, weight=1)
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
 
 class TodosArticulos(ctk.CTkFrame):
@@ -51,7 +155,8 @@ class TodosArticulos(ctk.CTkFrame):
         self.btn_buscar.grid(row=0, column=1, padx=(0,8))
         self.btn_todos = ctk.CTkButton(bottom, text="Todos", fg_color="#6c6c6c", command=self._clear_filters)
         self.btn_todos.grid(row=0, column=2, padx=(0,8))
-        self.btn_export = ctk.CTkButton(bottom, text="Exportar", fg_color="#1f538d", command=self.exportar_csv)
+        # Exportación centralizada en `ExportarService`.
+        self.btn_export = ctk.CTkButton(bottom, text="Exportar", fg_color="#1f538d", command=self._open_export_dialog)
         self.btn_export.grid(row=0, column=3, padx=(0,8))
         self.btn_borrar_sel = ctk.CTkButton(bottom, text="Borrar seleccionados", fg_color="#AA3333", command=self.borrar_seleccionados_confirm)
         self.btn_borrar_sel.grid(row=0, column=4, padx=(0,8))
@@ -537,159 +642,8 @@ class TodosArticulos(ctk.CTkFrame):
     def refresh(self):
         self.render_list()
 
-    def exportar_csv(self):
-        # Determine which IDs to export: prefer Treeview selection, then internal selected set, otherwise current page
-        try:
-            ids = []
-            if getattr(self, 'tree', None):
-                sel = self.tree.selection()
-                if sel:
-                    ids = [int(s) for s in sel]
-            # fallback to current loaded items
-            if not ids:
-                items = self.load_items()
-                ids = [it['id'] for it in items]
-        except Exception:
-            items = self.load_items()
-            ids = [it['id'] for it in items]
-
-        if not ids:
-            messagebox.showinfo("Exportar", "No hay artículos a exportar.")
-            return
-
-        try:
-            from tkinter import filedialog
-            default_name = f"tpv_export_articulos_{int(time.time())}.csv"
-            path = filedialog.asksaveasfilename(defaultextension='.csv', filetypes=[('CSV','*.csv')], initialfile=default_name)
-            if not path:
-                return
-
-            # Build columns from productos table (deduped) and add pvp/coste
-            prod_cols = self._table_columns('productos')
-            cols = []
-            for c in (['id'] + prod_cols):
-                if c not in cols:
-                    cols.append(c)
-            # ensure pvp and coste are present at the end
-            if 'pvp' not in cols:
-                cols.append('pvp')
-            if 'coste' not in cols:
-                cols.append('coste')
-
-            # Remove redundant derived columns if present
-            for redundant in ('categoria_nombre', 'proveedor_nombre', 'tipo_nombre', 'tipo_shop'):
-                if redundant in cols:
-                    cols.remove(redundant)
-
-            con = self._connect()
-            cur = con.cursor()
-
-            with open(path, "w", newline="", encoding="utf-8") as f:
-                writer = csv.DictWriter(f, fieldnames=cols)
-                writer.writeheader()
-
-                # fetch product rows for ids
-                placeholders = ','.join(['?'] * len(ids))
-                try:
-                    cur.execute(f'SELECT * FROM productos WHERE id IN ({placeholders})', ids)
-                    prods = cur.fetchall()
-                except Exception:
-                    prods = []
-
-                # map pragma order
-                pcols = self._table_columns('productos')
-                prod_map = {}
-                for prod in prods:
-                    try:
-                        pid = prod[0]
-                        row = {c: '' for c in cols}
-                        for i, pc in enumerate(pcols):
-                            if pc in cols and i < len(prod):
-                                row[pc] = prod[i]
-                        prod_map[pid] = row
-                    except Exception:
-                        pass
-
-                # For ids without fetched prod (shouldn't happen), try single fetch
-                for _id in ids:
-                    row = prod_map.get(_id)
-                    if row is None:
-                        row = {c: '' for c in cols}
-                        try:
-                            cur.execute('SELECT * FROM productos WHERE id=?', (_id,))
-                            prod = cur.fetchone()
-                            if prod:
-                                for i, pc in enumerate(pcols):
-                                    if pc in cols and i < len(prod):
-                                        row[pc] = prod[i]
-                        except Exception:
-                            pass
-
-                    # get active price (pvp/coste)
-                    try:
-                        cur.execute('SELECT pvp, coste FROM precios WHERE producto_id=? AND activo=1 LIMIT 1', (_id,))
-                        pr = cur.fetchone()
-                        if pr:
-                            row['pvp'] = pr[0]
-                            row['coste'] = pr[1]
-                        else:
-                            row['pvp'] = ''
-                            row['coste'] = ''
-                    except Exception:
-                        row['pvp'] = ''
-                        row['coste'] = ''
-
-                    # ventas_totales is a column in productos - ensure it's present
-                    if 'ventas_totales' in pcols and 'ventas_totales' in cols:
-                        try:
-                            # already populated from producto row
-                            pass
-                        except Exception:
-                            pass
-
-                    # If proveedor is numeric id, resolve to provider name
-                    try:
-                        prov_val = row.get('proveedor')
-                        if prov_val is not None and prov_val != '':
-                            try:
-                                prov_id = int(prov_val)
-                                cur.execute('SELECT nombre FROM proveedores WHERE id=? LIMIT 1', (prov_id,))
-                                r = cur.fetchone()
-                                if r and r[0]:
-                                    row['proveedor'] = r[0]
-                            except Exception:
-                                # leave as-is if not numeric or lookup fails
-                                pass
-                    except Exception:
-                        pass
-
-                    # Reorder columns to place 'tipo' next to 'categoria' if both exist
-                    try:
-                        if 'categoria' in cols and 'tipo' in cols:
-                            # build preferred order
-                            ordered = []
-                            for key in ('id', 'nombre', 'sku', 'categoria', 'tipo', 'proveedor'):
-                                if key in cols and key not in ordered:
-                                    ordered.append(key)
-                            for key in cols:
-                                if key not in ordered:
-                                    ordered.append(key)
-                            out_row = {k: row.get(k, '') for k in ordered}
-                            writer.writerow(out_row)
-                            continue
-                    except Exception:
-                        pass
-
-                    writer.writerow(row)
-
-                try:
-                    con.close()
-                except Exception:
-                    pass
-
-            messagebox.showinfo("Exportar", f"Exportado {len(ids)} artículos a:\n{path}")
-        except Exception as e:
-            messagebox.showerror("Error", f"No se pudo exportar CSV: {e}")
+    # Export logic removed: centralized in `ExportarService`.
+    # TODO: Integrar con `modulos.exportar_importar.exportar_service.ExportarService.exportar_a_csv`.
 
     # Eliminar funcionalidad de 'Borrar todos' de esta pantalla (operación sensible)
 
@@ -770,4 +724,124 @@ class TodosArticulos(ctk.CTkFrame):
         if getattr(self, 'page', 1) > 1:
             self.page -= 1
         self.refresh()
+
+    def exportar_csv(self):
+        # Deprecated: use dialog-based export. Kept for API compatibility.
+        try:
+            self._open_export_dialog()
+        except Exception:
+            try:
+                messagebox.showerror('Exportar', 'No se pudo abrir el diálogo de exportación')
+            except Exception:
+                pass
+
+    def _open_export_dialog(self):
+        # Obtener todas las columnas de la tabla productos desde el servicio
+        try:
+            cols = ProductoService().obtener_columnas_productos() or []
+        except Exception:
+            cols = []
+
+        # Visible por defecto (posibles nombres de columnas visibles en UI):
+        visible = ['ID', 'Nombre', 'Tipo', 'Proveedor', 'Categoría']
+
+        # Normalizar nombres para emparejar visibilidad con nombres reales de BD
+        def _normalize(s: str) -> str:
+            if not s:
+                return ''
+            s = s.lower()
+            for a, b in [('á','a'),('é','e'),('í','i'),('ó','o'),('ú','u'),('ñ','n')]:
+                s = s.replace(a,b)
+            s = s.replace(' ', '')
+            return s
+
+        vis_norm = set(_normalize(v) for v in visible)
+        preselected = [c for c in cols if _normalize(c) in vis_norm]
+
+        dlg = DialogExportarArticulos(self, cols, on_export_csv=self._on_export_csv_selected, on_export_pdf=self._on_export_pdf_selected, preselected=preselected)
+        try:
+            dlg.grab_set()
+        except Exception:
+            pass
+
+    def _collect_rows_for_export(self, selected_columns):
+        # Delegate data retrieval to ProductoService which handles joins
+        # (e.g. codigo_barras) and column validation.
+        try:
+            # determine ids to export: selection preferred, otherwise visible items
+            ids = []
+            try:
+                if getattr(self, 'tree', None):
+                    sel = self.tree.selection()
+                    if sel:
+                        ids = [int(x) for x in sel]
+                    else:
+                        ids = getattr(self, '_last_rendered_item_ids', [])
+            except Exception:
+                ids = getattr(self, '_last_rendered_item_ids', []) or []
+
+            if not ids:
+                items = self.load_items()
+                ids = [it.get('id') for it in items]
+
+            if not ids:
+                return []
+
+            svc = ProductoService()
+            rows = svc.obtener_productos_por_ids_columnas(ids, selected_columns)
+            return rows or []
+        except Exception:
+            return []
+
+    def _on_export_csv_selected(self, selected_columns):
+        logger = logging.getLogger(__name__)
+        rows = self._collect_rows_for_export(selected_columns)
+        if not rows:
+            try:
+                messagebox.showinfo('Exportar', 'No hay artículos a exportar.')
+            except Exception:
+                pass
+            return
+        default_name = f"articulos_export_{int(time.time())}.csv"
+        path = filedialog.asksaveasfilename(defaultextension='.csv', filetypes=[('CSV','*.csv')], initialfile=default_name)
+        if not path:
+            return
+        try:
+            ok = ExportarService().exportar_a_csv(path, selected_columns, rows)
+            if ok:
+                messagebox.showinfo('Exportar', f'Exportado correctamente a:\n{path}')
+            else:
+                messagebox.showerror('Exportar', 'Error exportando archivo. Revisa logs para más detalles.')
+        except Exception as e:
+            logger.exception('Error exportando CSV: %s', e)
+            try:
+                messagebox.showerror('Exportar', f'Error exportando CSV: {e}')
+            except Exception:
+                pass
+
+    def _on_export_pdf_selected(self, selected_columns):
+        logger = logging.getLogger(__name__)
+        rows = self._collect_rows_for_export(selected_columns)
+        if not rows:
+            try:
+                messagebox.showinfo('Exportar', 'No hay artículos a exportar.')
+            except Exception:
+                pass
+            return
+        default_name = f"articulos_export_{int(time.time())}.pdf"
+        path = filedialog.asksaveasfilename(defaultextension='.pdf', filetypes=[('PDF','*.pdf')], initialfile=default_name)
+        if not path:
+            return
+        try:
+            ok = ExportarService().exportar_a_pdf(path, selected_columns, rows)
+            if ok:
+                messagebox.showinfo('Exportar', f'Exportado correctamente a:\n{path}')
+            else:
+                messagebox.showerror('Exportar', 'Error exportando archivo. Revisa logs para más detalles.')
+        except Exception as e:
+            logger.exception('Error exportando PDF: %s', e)
+            try:
+                messagebox.showerror('Exportar', f'Error exportando PDF: {e}')
+            except Exception:
+                pass
 

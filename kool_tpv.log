@@ -336,3 +336,27 @@ AttributeError: 'CajaVentas' object has no attribute '_mostrar_dialogo_canje'
 2026-01-28 16:34:16,221 INFO: Arrancando KOOL_TPV - PID: 22782
 2026-01-28 16:37:47,269 INFO: Arrancando KOOL_TPV - PID: 22963
 2026-01-28 16:42:57,855 INFO: Arrancando KOOL_TPV - PID: 23597
+2026-01-28 17:12:06,922 INFO: Arrancando KOOL_TPV - PID: 24631
+2026-01-28 17:15:05,057 INFO: Arrancando KOOL_TPV - PID: 25286
+2026-01-28 17:16:39,155 INFO: Arrancando KOOL_TPV - PID: 25452
+2026-01-28 17:18:27,174 INFO: Arrancando KOOL_TPV - PID: 26011
+2026-01-28 17:20:40,552 ERROR: Error delegando vaciado de inventario a ProductoService
+Traceback (most recent call last):
+  File "/Volumes/ALMACEN/KOOL_THINGS/Kool_TPV/modulos/configuracion/reiniciar/reset_service.py", line 53, in borrar_inventario
+    service = ProductoService()
+              ^^^^^^^^^^^^^^^
+NameError: name 'ProductoService' is not defined
+2026-01-28 17:33:48,093 INFO: Arrancando KOOL_TPV - PID: 26866
+2026-01-28 18:08:02,317 INFO: Arrancando KOOL_TPV - PID: 29840
+2026-01-28 18:28:11,513 INFO: Arrancando KOOL_TPV - PID: 30521
+2026-01-28 18:28:48,199 INFO: PDF exportado correctamente: /Users/koolthings/Desktop/articulos_export_1769621322.pdf
+2026-01-28 18:38:44,566 INFO: Arrancando KOOL_TPV - PID: 31140
+2026-01-28 18:39:25,114 INFO: PDF exportado correctamente: /Users/koolthings/Desktop/articulos_export_1769621959.pdf
+2026-01-28 18:40:34,654 INFO: Arrancando KOOL_TPV - PID: 31322
+2026-01-28 18:45:13,882 INFO: Arrancando KOOL_TPV - PID: 31940
+2026-01-28 18:46:24,230 INFO: PDF exportado correctamente: /Users/koolthings/Desktop/articulos_export_1769622380.pdf
+2026-01-28 18:47:40,071 INFO: CSV exportado correctamente: /Users/koolthings/Desktop/articulos_export_1769622457.csv
+2026-01-28 18:55:54,445 INFO: Arrancando KOOL_TPV - PID: 32648
+2026-01-28 18:57:25,165 INFO: Arrancando KOOL_TPV - PID: 32821
+2026-01-28 18:58:19,522 INFO: Arrancando KOOL_TPV - PID: 32995
+2026-01-28 19:00:20,027 INFO: Arrancando KOOL_TPV - PID: 33166

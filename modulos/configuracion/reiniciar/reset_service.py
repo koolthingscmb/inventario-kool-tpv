@@ -1,5 +1,6 @@
 import logging
 from database import connect
+from modulos.almacen.producto_service import ProductoService
 
 logger = logging.getLogger(__name__)
 
@@ -48,34 +49,14 @@ class ResetService:
 
     def borrar_inventario(self) -> bool:
         """Delete products-related data: productos, precios, codigos_barras, product_images."""
-        conn = None
+        # Delegar borrado de inventario a ProductoService para centralizar lógica
         try:
-            conn = connect()
-            cur = conn.cursor()
-            try:
-                conn.execute('BEGIN')
-            except Exception:
-                pass
-            cur.execute('DELETE FROM product_images')
-            cur.execute('DELETE FROM codigos_barras')
-            cur.execute('DELETE FROM precios')
-            cur.execute('DELETE FROM productos')
-            conn.commit()
-            return True
+            service = ProductoService()
+            ok = service.vaciar_inventario_completo()
+            return bool(ok)
         except Exception:
-            logger.exception('Error wiping inventory tables')
-            try:
-                if conn:
-                    conn.rollback()
-            except Exception:
-                logger.exception('Error rolling back inventory wipe')
+            logger.exception('Error delegando vaciado de inventario a ProductoService')
             return False
-        finally:
-            try:
-                if conn:
-                    conn.close()
-            except Exception:
-                logger.exception('Error closing DB connection after inventory wipe')
 
     def borrar_clientes(self) -> bool:
         """Delete clients table data."""

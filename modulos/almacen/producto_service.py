@@ -347,6 +347,82 @@ class ProductoService:
             logger.exception('Error obteniendo datos maestros')
             return {'proveedores': [], 'categorias': [], 'tipos': []}
 
+    def obtener_columnas_productos(self) -> List[str]:
+        """Obtiene todos los nombres de columna de la tabla `productos`.
+
+        Retorna una lista de strings con los nombres de columna en el orden
+        reportado por PRAGMA table_info(productos).
+        """
+        try:
+            with database.connect() as conn:
+                cur = conn.cursor()
+                try:
+                    cur.execute('PRAGMA table_info(productos)')
+                    rows = cur.fetchall()
+                    cols = [r[1] for r in rows]
+                    return cols
+                except Exception:
+                    logger.exception('No se pudieron obtener columnas de productos via PRAGMA')
+                    return []
+        except Exception:
+            logger.exception('Error conectando a DB para obtener columnas de productos')
+            return []
+
+    def obtener_productos_por_ids_columnas(self, ids: List[int], columnas: List[str]) -> List[List[Any]]:
+        """Devuelve filas de `productos` para los ids y columnas solicitadas.
+
+        Soporta una columna especial `codigo_barras` que agrupa los EANs
+        asociados con `GROUP_CONCAT`. Retorna una lista de filas (listas)
+        en el mismo orden que `columnas`.
+        """
+        if not ids or not columnas:
+            return []
+        try:
+            with database.connect() as conn:
+                conn.row_factory = sqlite3.Row
+                cur = conn.cursor()
+
+                # detectar columnas reales de la tabla productos
+                try:
+                    cur.execute('PRAGMA table_info(productos)')
+                    prod_cols = [r[1] for r in cur.fetchall()]
+                except Exception:
+                    prod_cols = []
+
+                select_parts = []
+                join_cb = False
+                for col in columnas:
+                    if col == 'codigo_barras':
+                        join_cb = True
+                        select_parts.append('GROUP_CONCAT(cb.ean, ",") AS codigo_barras')
+                    elif col in prod_cols:
+                        select_parts.append(f'p.{col} AS {col}')
+                    else:
+                        # intentar seleccionar columna desde productos si no existe en prod_cols
+                        select_parts.append(f'p.{col} AS {col}')
+
+                placeholders = ','.join(['?'] * len(ids))
+                sql = 'SELECT ' + ', '.join(select_parts) + ' FROM productos p '
+                if join_cb:
+                    sql += 'LEFT JOIN codigos_barras cb ON p.id = cb.producto_id '
+                sql += f'WHERE p.id IN ({placeholders}) '
+                if join_cb:
+                    sql += 'GROUP BY p.id'
+
+                cur.execute(sql, tuple(ids))
+                rows = cur.fetchall()
+
+                result = []
+                for r in rows:
+                    if isinstance(r, sqlite3.Row):
+                        result.append([r[col] if col in r.keys() else r[col] for col in columnas])
+                    else:
+                        result.append(list(r))
+                return result
+        except Exception:
+            logger.exception('Error obteniendo productos por ids y columnas ids=%s cols=%s', ids, columnas)
+            return []
+
     def eliminar_producto(self, producto_id: int) -> bool:
         """Borra producto y filas relacionadas de forma transaccional."""
         try:
@@ -671,29 +747,16 @@ class ProductoService:
             with database.connect() as conn:
                 cur = conn.cursor()
 
-                def has_table(tbl: str) -> bool:
+                # Borrar tablas relacionadas sin comprobación redundante
+                for table in ['precios', 'codigos_barras', 'product_images', 'product_history', 'productos']:
                     try:
-                        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (tbl,))
-                        return cur.fetchone() is not None
+                        cur.execute(f'DELETE FROM {table}')
                     except Exception:
-                        return False
+                        logger.warning('La tabla %s no existe o ocurrió un error al intentar borrarla.', table)
 
-                if has_table('precios'):
-                    cur.execute('DELETE FROM precios')
-                if has_table('codigos_barras'):
-                    cur.execute('DELETE FROM codigos_barras')
-                if has_table('product_images'):
-                    cur.execute('DELETE FROM product_images')
-                if has_table('product_history'):
-                    cur.execute('DELETE FROM product_history')
-                if has_table('productos'):
-                    cur.execute('DELETE FROM productos')
-
-                try:
-                    conn.commit()
-                except Exception:
-                    logger.debug('No se pudo hacer commit explicito en vaciar_inventario_completo')
-            return True
+                # Realizar el commit al final; si falla queremos que la excepción se propague
+                conn.commit()
+                return True
         except Exception:
             logger.exception('Error vaciando inventario completo')
-            return False
+            raise

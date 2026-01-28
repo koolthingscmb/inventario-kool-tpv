@@ -1,7 +1,7 @@
 import logging
 import customtkinter as ctk
 from datetime import datetime, timedelta
-from tkinter import filedialog, messagebox
+from tkinter import messagebox
 from typing import List, Optional
 
 from modulos.tpv.cierre_service import CierreService
@@ -65,7 +65,10 @@ class HistoricoCierresView(ctk.CTkFrame):
         btns.pack(fill="x", pady=6)
         self.btn_reimprimir = ctk.CTkButton(btns, text="🖨️ REIMPRIMIR TICKET", state="disabled", command=self._on_reimprimir)
         self.btn_reimprimir.pack(side="left", padx=8)
-        self.btn_export = ctk.CTkButton(btns, text="📄 EXPORTAR CSV", state="disabled", command=self._on_export_csv)
+        # Exportar CSV: funcionalidad centralizada en ExportarService.
+        # TODO: integrar con `modulos.exportar_importar.exportar_service.ExportarService`
+        self.btn_export = ctk.CTkButton(btns, text="📄 EXPORTAR CSV", state="disabled",
+                        command=lambda: messagebox.showinfo('Exportar', 'Exportación centralizada en ExportarService (pendiente).'))
         self.btn_export.pack(side="left", padx=8)
         self.btn_ver_tickets = ctk.CTkButton(btns, text="🔍 VER TICKETS DEL DÍA", state="disabled", command=self._on_ver_tickets)
         self.btn_ver_tickets.pack(side="left", padx=8)
@@ -116,6 +119,7 @@ class HistoricoCierresView(ctk.CTkFrame):
 
             state = "normal" if rows else "disabled"
             self.btn_reimprimir.configure(state=state)
+            # keep export button enabled/disabled for parity; command shows TODO
             self.btn_export.configure(state=state)
             
             # Resumen rápido en el visor
@@ -192,12 +196,4 @@ class HistoricoCierresView(ctk.CTkFrame):
         if text.strip() and imprimir_ticket_y_abrir_cajon:
             imprimir_ticket_y_abrir_cajon(text)
 
-    def _on_export_csv(self):
-        if not self.cierres_encontrados: return
-        fpath = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV", "*.csv")])
-        if fpath:
-            with open(fpath, "w", encoding="utf-8-sig") as fh:
-                fh.write("ID;Fecha;Importe\n")
-                for r in self.cierres_encontrados:
-                    fh.write(f"{r.get('id')};{r.get('fecha_hora')};{r.get('total_ingresos')}\n")
-            messagebox.showinfo("Exportar", "CSV guardado con éxito")
+    # Export CSV removed from UI; TODO integrate with ExportarService
