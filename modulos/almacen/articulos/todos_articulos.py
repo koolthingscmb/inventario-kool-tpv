@@ -15,7 +15,14 @@ class DialogExportarArticulos(ctk.CTkToplevel):
     def __init__(self, parent, columnas, on_export_csv, on_export_pdf, preselected=None):
         super().__init__(parent)
         self.title('Exportar Artículos')
-        self.geometry('420x420')
+        # Start with a larger, comfortable default size and enforce a sensible minimum
+        self.geometry('800x600')
+        self.minsize(800, 600)
+        # Allow the user to resize freely
+        try:
+            self.resizable(True, True)
+        except Exception:
+            pass
         self.columnas = columnas
         self.on_export_csv = on_export_csv
         self.on_export_pdf = on_export_pdf
@@ -33,23 +40,35 @@ class DialogExportarArticulos(ctk.CTkToplevel):
             var = tk.IntVar(value=1 if col in self.preselected else 0)
             cb = tk.Checkbutton(self.frame_cols, text=col, variable=var, anchor='w')
             self.checkbox_widgets.append((col, var, cb))
+            # keep a parallel list of IntVar for easy consumption by export methods
+            try:
+                self.check_vars.append(var)
+            except Exception:
+                # defensive: ensure check_vars exists and append
+                self.check_vars = [var]
 
         # bind resize to relayout the checkboxes in a grid
         try:
             self.bind('<Configure>', lambda e: self._layout_checkboxes())
         except Exception:
             pass
-        # initial layout
+        # ensure initial geometry/layout calculations are up-to-date, then layout
+        try:
+            self.update_idletasks()
+        except Exception:
+            pass
         self.after(50, self._layout_checkboxes)
 
         frame_btns = ctk.CTkFrame(self)
-        frame_btns.pack(pady=10, fill='x')
+        # Anchor the buttons frame to the bottom so it's visible on open and when resizing
+        frame_btns.pack(side='bottom', pady=10, fill='x')
         ctk.CTkButton(frame_btns, text='Exportar a CSV', command=self.export_csv).pack(side='left', padx=6)
         ctk.CTkButton(frame_btns, text='Exportar a PDF', command=self.export_pdf).pack(side='left', padx=6)
         ctk.CTkButton(frame_btns, text='Cancelar', command=self.destroy).pack(side='left', padx=6)
 
     def export_csv(self):
         sel = [col for col, var in zip(self.columnas, self.check_vars) if var.get()]
+        print('DialogExportarArticulos.export_csv sel =', sel)
         if not sel:
             tk.messagebox.showinfo('Exportar', 'Seleccione al menos una columna para exportar.')
             return
@@ -63,6 +82,7 @@ class DialogExportarArticulos(ctk.CTkToplevel):
 
     def export_pdf(self):
         sel = [col for col, var in zip(self.columnas, self.check_vars) if var.get()]
+        print('DialogExportarArticulos.export_pdf sel =', sel)
         if not sel:
             tk.messagebox.showinfo('Exportar', 'Seleccione al menos una columna para exportar.')
             return

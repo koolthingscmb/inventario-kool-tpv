@@ -360,6 +360,18 @@ class ProductoService:
                     cur.execute('PRAGMA table_info(productos)')
                     rows = cur.fetchall()
                     cols = [r[1] for r in rows]
+                    # Si existe una tabla de códigos de barras, exponer una columna virtual
+                    # `codigo_barras` que agrupa los EANs asociados (soportado por
+                    # `obtener_productos_por_ids_columnas` mediante LEFT JOIN + GROUP_CONCAT)
+                    try:
+                        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='codigos_barras'")
+                        if cur.fetchone():
+                            # evitar duplicados si ya existiera una columna con ese nombre
+                            if 'codigo_barras' not in cols:
+                                cols.append('codigo_barras')
+                    except Exception:
+                        # no hacer nada si falla la verificación
+                        pass
                     return cols
                 except Exception:
                     logger.exception('No se pudieron obtener columnas de productos via PRAGMA')
