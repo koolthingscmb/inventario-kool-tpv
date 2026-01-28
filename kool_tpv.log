@@ -297,3 +297,36 @@ AttributeError: 'CajaVentas' object has no attribute '_mostrar_dialogo_canje'
 2026-01-27 19:46:06,660 INFO: Arrancando KOOL_TPV - PID: 11419
 2026-01-28 08:51:31,060 INFO: Arrancando KOOL_TPV - PID: 4290
 2026-01-28 09:04:06,943 INFO: Arrancando KOOL_TPV - PID: 4662
+2026-01-28 11:01:45,563 INFO: Arrancando KOOL_TPV - PID: 8026
+2026-01-28 11:33:12,873 INFO: Arrancando KOOL_TPV - PID: 9081
+2026-01-28 11:33:25,138 WARNING: Producto sin precio al renderizar visor: SKU=KS13 id=13
+2026-01-28 11:33:27,847 WARNING: Producto sin precio al renderizar visor: SKU=KS13 id=13
+2026-01-28 11:33:27,848 WARNING: Producto sin precio al renderizar visor: SKU=MNG3020 id=14
+2026-01-28 11:33:30,064 WARNING: Producto sin precio al renderizar visor: SKU=KS13 id=13
+2026-01-28 11:33:30,064 WARNING: Producto sin precio al renderizar visor: SKU=MNG3020 id=14
+2026-01-28 11:33:30,895 WARNING: Producto sin precio al renderizar visor: SKU=KS13 id=13
+2026-01-28 11:33:30,896 WARNING: Producto sin precio al renderizar visor: SKU=MNG3020 id=14
+2026-01-28 11:35:55,452 INFO: Arrancando KOOL_TPV - PID: 9256
+2026-01-28 11:36:05,044 WARNING: Producto sin precio al renderizar visor: SKU=KS13 id=13
+2026-01-28 11:36:06,100 WARNING: Producto sin precio al renderizar visor: SKU=KS13 id=13
+2026-01-28 11:36:06,101 WARNING: Producto sin precio al renderizar visor: SKU=MNG3020 id=14
+2026-01-28 11:36:06,589 WARNING: Producto sin precio al renderizar visor: SKU=KS13 id=13
+2026-01-28 11:36:06,589 WARNING: Producto sin precio al renderizar visor: SKU=MNG3020 id=14
+2026-01-28 11:36:07,141 WARNING: Producto sin precio al renderizar visor: SKU=KS13 id=13
+2026-01-28 11:36:07,141 WARNING: Producto sin precio al renderizar visor: SKU=MNG3020 id=14
+2026-01-28 11:45:04,238 INFO: Arrancando KOOL_TPV - PID: 9788
+2026-01-28 11:45:17,294 WARNING: Producto sin precio al renderizar visor: SKU=MNG3020 id=14
+2026-01-28 11:45:21,357 WARNING: Producto sin precio al renderizar visor: SKU=MNG3020 id=14
+2026-01-28 11:45:23,349 WARNING: Producto sin precio al renderizar visor: SKU=MNG3020 id=14
+2026-01-28 11:45:23,350 WARNING: Producto sin precio al renderizar visor: SKU=KS13 id=13
+2026-01-28 12:04:19,836 INFO: Arrancando KOOL_TPV - PID: 10794
+2026-01-28 12:52:30,132 INFO: Arrancando KOOL_TPV - PID: 13991
+2026-01-28 12:56:24,787 INFO: Arrancando KOOL_TPV - PID: 14188
+2026-01-28 13:09:45,887 INFO: Arrancando KOOL_TPV - PID: 15412
+2026-01-28 13:21:29,825 INFO: Arrancando KOOL_TPV - PID: 16116
+2026-01-28 13:25:57,108 INFO: Arrancando KOOL_TPV - PID: 16601
+2026-01-28 13:30:43,715 INFO: Arrancando KOOL_TPV - PID: 17382
+2026-01-28 13:34:16,229 INFO: Arrancando KOOL_TPV - PID: 17574
+2026-01-28 13:57:11,959 INFO: Arrancando KOOL_TPV - PID: 19380
+2026-01-28 16:06:56,823 INFO: Arrancando KOOL_TPV - PID: 20218
+2026-01-28 16:07:30,000 INFO: Arrancando KOOL_TPV - PID: 20375

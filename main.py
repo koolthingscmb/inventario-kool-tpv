@@ -24,6 +24,7 @@ from modulos.clientes.ui_gestion_clientes import GestionClientesView
 from modulos.configuracion.ui_config_fidelizacion import UIConfigFidelizacion as ConfigFidelizacionView
 # Gestión de usuarios
 from modulos.configuracion.ui_gestion_usuarios import GestionUsuariosView as UIGestionUsuarios
+from modulos.tpv.ui_historico_cierres import HistoricoCierresView
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -291,14 +292,12 @@ class AppTPV(ctk.CTk):
 
     def mostrar_historico_cierres(self):
         try:
-            try:
-                self.config_desbloqueado = False
-            except Exception:
-                pass
-            from modulos.tpv.ui_historico_cierres import HistoricoCierresView
+            self.config_desbloqueado = False
             self.limpiar_container()
-            HistoricoCierresView(self.container, self)
+            view = HistoricoCierresView(self.container, self)
+            view.pack(fill='both', expand=True)
         except Exception:
+            logging.exception('Error mostrando la vista de Histórico de Cierres')
             try:
                 self.mostrar_inicio()
             except Exception:

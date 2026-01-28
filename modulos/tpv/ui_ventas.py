@@ -35,30 +35,6 @@ class CajaVentas(ctk.CTkFrame):
         # puntos a canjear en la venta actual (permitir canje parcial)
         self.puntos_a_canjear = 0.0
 
-        # Helper conversions to keep UI logic free of type-guessing
-        def _to_float(v, default=0.0):
-            try:
-                if v is None:
-                    return float(default)
-                return float(v)
-            except Exception:
-                return float(default)
-
-        def _to_int(v, default=0):
-            try:
-                if v is None:
-                    return int(default)
-                # allow floats which are integer-valued
-                if isinstance(v, float) and v.is_integer():
-                    return int(v)
-                return int(float(v))
-            except Exception:
-                return int(default)
-
-        # expose helpers as instance methods
-        self._to_float = _to_float
-        self._to_int = _to_int
-
         # --- ESTRUCTURA ---
         self.grid_rowconfigure(0, weight=0) 
         self.grid_rowconfigure(1, weight=1) 
@@ -663,7 +639,7 @@ class CajaVentas(ctk.CTkFrame):
 
             # total actual del carrito
             try:
-                total = sum(self._to_float(item.get('precio')) * self._to_int(item.get('cantidad', 1)) for item in self.carrito)
+                total = self._total_carrito()
             except Exception:
                 total = 0.0
 
@@ -987,27 +963,31 @@ class CajaVentas(ctk.CTkFrame):
                 resultado = None
 
             if resultado:
-                # ProductoService garantiza un dict con claves estandarizadas
-                try:
-                    pvp_variable = self._to_float(resultado.get('pvp_variable', 0.0))
-                    precio_base = self._to_float(resultado['precio'])
-                except Exception:
-                    # if service violated contract, fall back safely
-                    pvp_variable = self._to_float(resultado.get('pvp_variable', 0.0) if isinstance(resultado, dict) else 0.0)
-                    precio_base = self._to_float(resultado.get('precio', 0.0) if isinstance(resultado, dict) else 0.0)
-
+                # El ProductoService devuelve un dict; usar claves conocidas
+                pvp_variable = resultado.get('pvp_variable', 0)
+                # precio real almacenado bajo 'precio'
+                precio_base = resultado.get('precio')
                 if pvp_variable:
-                    val = self._ask_large_price("Precio variable", "¿Cuánto vale?")
-                    if val is None:
-                        self.entry_codigo.delete(0, 'end')
-                        return
-                    precio_base = self._to_float(val)
+                    try:
+                        val = self._ask_large_price("Precio variable", "¿Cuánto vale?")
+                        if val is None:
+                            self.entry_codigo.delete(0, 'end')
+                            return
+                        precio_base = float(val)
+                    except Exception:
+                        pass
+
+                # Asegurar tipo numérico en 'precio'
+                try:
+                    precio_base = float(precio_base) if precio_base is not None else 0.0
+                except Exception:
+                    precio_base = 0.0
 
                 producto = {
-                    "nombre": str(resultado.get('nombre', '')),
+                    "nombre": resultado.get('nombre'),
                     "precio": precio_base,
-                    "sku": str(resultado.get('sku', '')),
-                    "iva": self._to_int(resultado.get('tipo_iva', 0)),
+                    "sku": resultado.get('sku'),
+                    "iva": resultado.get('tipo_iva'),
                     "id": resultado.get('id'),
                     "cantidad": 1
                 }
@@ -1047,17 +1027,17 @@ class CajaVentas(ctk.CTkFrame):
 
             for row in rows:
                 try:
-                    # ProductoService returns normalized dicts; rely on that contract
+                    # ProductoService devuelve dicts; leer claves conocidas
                     pid = row.get('id')
                     nombre = row.get('nombre')
-                    pvp = self._to_float(row.get('precio', 0.0))
+                    # preferimos 'precio' como fuente del PVP
+                    pvp = row.get('precio') or row.get('pvp') or 0
                     sku = row.get('sku')
-                    pvp_variable = self._to_float(row.get('pvp_variable', 0.0))
-                    tipo_iva_row = self._to_int(row.get('tipo_iva', 0))
+                    pvp_variable = row.get('pvp_variable', 0)
                 except Exception:
                     continue
 
-                def _make_cmd(pid=pid, pvp=pvp, sku=sku, nombre=nombre, pvp_variable=pvp_variable, tipo_iva=tipo_iva_row):
+                def _make_cmd(pid=pid, pvp=pvp, sku=sku, nombre=nombre, pvp_variable=pvp_variable):
                     def _cmd():
                         precio_base = pvp
                         if pvp_variable:
@@ -1068,7 +1048,13 @@ class CajaVentas(ctk.CTkFrame):
                                 precio_base = float(val)
                             except Exception:
                                 pass
-                        producto = {"nombre": nombre, "precio": precio_base, "sku": sku, "iva": tipo_iva, "id": pid, "cantidad": 1}
+                        # Asegurar precio numérico y usar tipo de IVA si viene
+                        try:
+                            precio_base = float(precio_base) if precio_base is not None else 0.0
+                        except Exception:
+                            precio_base = 0.0
+                        iva_val = row.get('tipo_iva') if isinstance(row, dict) else None
+                        producto = {"nombre": nombre, "precio": precio_base, "sku": sku, "iva": iva_val or 21, "id": pid, "cantidad": 1}
                         encontrado = False
                         for item in self.carrito:
                             if item['id'] == producto['id']:
@@ -1100,26 +1086,40 @@ class CajaVentas(ctk.CTkFrame):
         self.lista_productos.insert("end", "-"*55 + "\n")
 
         for idx, item in enumerate(self.carrito):
-            cantidad = self._to_int(item.get('cantidad', 1))
-            precio = self._to_float(item.get('precio', 0.0))
-            tipo_iva = self._to_float(item.get('iva', 0.0))
+            # proteger valores: precio y cantidad pueden ser None o strings
+            precio_raw = item.get('precio')
+            cantidad_raw = item.get('cantidad', 0)
+            if precio_raw is None:
+                try:
+                    logging.warning('Producto sin precio al renderizar visor: SKU=%s id=%s', item.get('sku'), item.get('id'))
+                except Exception:
+                    logging.warning('Producto sin precio al renderizar visor: id=%s', item.get('id'))
+            try:
+                precio = float(precio_raw or 0.0)
+            except Exception:
+                precio = 0.0
+            try:
+                cantidad = int(cantidad_raw)
+            except Exception:
+                try:
+                    cantidad = int(float(cantidad_raw))
+                except Exception:
+                    cantidad = 0
 
             subtotal = precio * cantidad
-            # evitar division por cero y normalizar iva
             try:
-                divisor = 1 + (tipo_iva / 100)
-                if divisor == 0:
-                    divisor = 1
+                iva_val = float(item.get('iva') or 0.0)
             except Exception:
-                divisor = 1
-            base_item = subtotal / divisor
+                iva_val = 0.0
+            divisor = 1 + (iva_val / 100)
+            base_item = subtotal / divisor if divisor != 0 else 0.0
             iva_item = subtotal - base_item
 
             total_pagar += subtotal
             total_base += base_item
             total_iva += iva_item
 
-            linea = f"{cantidad}x    {str(item.get('nombre',''))[:22]:<25} {precio:>8.2f}€ {subtotal:>9.2f}€\n"
+            linea = f"{cantidad}x    {item.get('nombre','')[:22]:<25} {precio:>8.2f}€ {subtotal:>9.2f}€\n"
             # insertar y etiquetar la línea para selección
             self.lista_productos.insert("end", linea)
             line_no = 3 + idx
@@ -1152,6 +1152,38 @@ class CajaVentas(ctk.CTkFrame):
                     self.btn_impr.configure(text="🖨️ IMPR. TICKET")
         except Exception:
             pass
+
+    def _total_carrito(self) -> float:
+        """Calcula el total del carrito de forma segura, evitando None en precio/cantidad.
+
+        Registra un warning si encuentra un producto sin precio (para identificar SKU/id).
+        """
+        total = 0.0
+        try:
+            for it in getattr(self, 'carrito', []) or []:
+                precio_raw = it.get('precio')
+                cantidad_raw = it.get('cantidad', 0)
+                if precio_raw is None:
+                    try:
+                        logging.warning('Producto sin precio al calcular total: SKU=%s id=%s', it.get('sku'), it.get('id'))
+                    except Exception:
+                        logging.warning('Producto sin precio al calcular total: id=%s', it.get('id'))
+                try:
+                    precio = float(precio_raw or 0.0)
+                except Exception:
+                    precio = 0.0
+                try:
+                    cantidad = int(cantidad_raw)
+                except Exception:
+                    try:
+                        cantidad = int(float(cantidad_raw))
+                    except Exception:
+                        cantidad = 0
+                total += precio * cantidad
+        except Exception:
+            logging.exception('Error calculando total seguro del carrito')
+            return 0.0
+        return total
 
     def _on_text_click(self, event):
         try:
@@ -1234,7 +1266,7 @@ class CajaVentas(ctk.CTkFrame):
                 return
             # calcular total
             try:
-                total = sum(self._to_float(item.get('precio')) * self._to_int(item.get('cantidad', 1)) for item in self.carrito)
+                total = self._total_carrito()
             except Exception:
                 total = 0.0
 
@@ -1260,7 +1292,7 @@ class CajaVentas(ctk.CTkFrame):
                 messagebox.showwarning('Atención', 'El carrito está vacío')
                 return
             try:
-                total = sum(self._to_float(item.get('precio')) * self._to_int(item.get('cantidad', 1)) for item in self.carrito)
+                total = self._total_carrito()
             except Exception:
                 total = 0.0
 
@@ -1307,7 +1339,7 @@ class CajaVentas(ctk.CTkFrame):
                         if not getattr(self, '_awaiting_final_confirmation', False):
                             self._awaiting_final_confirmation = True
                             try:
-                                total = sum(self._to_float(item.get('precio')) * self._to_int(item.get('cantidad')) for item in self.carrito)
+                                total = self._total_carrito()
                                 cambio = val - total
                                 self.lbl_efectivo.configure(text=f"Pulsa Enter para confirmar — Efectivo: {val:.2f}€ | Total: {total:.2f}€ | Cambio: {cambio:.2f}€", text_color="yellow")
                             except Exception:
@@ -1359,7 +1391,7 @@ class CajaVentas(ctk.CTkFrame):
                         val = float(self.entry_efectivo.get().replace(',', '.'))
                     except Exception:
                         pass
-                    total = sum(self._to_float(item.get('precio')) * self._to_int(item.get('cantidad')) for item in self.carrito)
+                    total = self._total_carrito()
                     cambio = val - total
                     self._awaiting_final_confirmation = True
                     self.lbl_efectivo.configure(text=f"Pulsa Enter para confirmar — Efectivo: {val:.2f}€ | Total: {total:.2f}€ | Cambio: {cambio:.2f}€", text_color="yellow")
@@ -1368,7 +1400,7 @@ class CajaVentas(ctk.CTkFrame):
                 return
 
             efectivo = float(self.entry_efectivo.get())
-            total = sum(item['precio'] * item['cantidad'] for item in self.carrito)
+            total = self._total_carrito()
             if efectivo >= total:
                 cambio = efectivo - total
                 # specify payment method as EFECTIVO
@@ -1394,7 +1426,7 @@ class CajaVentas(ctk.CTkFrame):
                 from datetime import datetime
                 now = datetime.now().isoformat()
 
-                total = sum(item['precio'] * item['cantidad'] for item in self.carrito)
+                total = self._total_carrito()
 
                 # cajero text extraction (same logic as before)
                 cajero = getattr(self, 'lbl_cajero', None)
@@ -1762,9 +1794,12 @@ class CajaVentas(ctk.CTkFrame):
             except Exception:
                 resultado = None
 
+
             if resultado:
-                pvp_variable = resultado.get('pvp_variable', 0) if isinstance(resultado, dict) else (resultado[5] if len(resultado) > 5 else 0)
-                precio_base = resultado.get('pvp') if isinstance(resultado, dict) else resultado[1]
+                # ProductoService devuelve un dict con claves estables
+                pvp_variable = resultado.get('pvp_variable', 0)
+                # El precio real está ahora en la clave 'precio'
+                precio_base = resultado.get('precio')
                 if pvp_variable:
                     try:
                         val = self._ask_large_price("Precio variable", "¿Cuánto vale?")
@@ -1774,12 +1809,18 @@ class CajaVentas(ctk.CTkFrame):
                     except Exception:
                         pass
 
+                # Asegurar que precio sea numérico
+                try:
+                    precio_base = float(precio_base) if precio_base is not None else 0.0
+                except Exception:
+                    precio_base = 0.0
+
                 producto = {
-                    "nombre": resultado.get('nombre') if isinstance(resultado, dict) else resultado[0],
+                    "nombre": resultado.get('nombre'),
                     "precio": precio_base,
-                    "sku": resultado.get('sku') if isinstance(resultado, dict) else resultado[2],
-                    "iva": resultado.get('tipo_iva') if isinstance(resultado, dict) else resultado[3],
-                    "id": resultado.get('id') if isinstance(resultado, dict) else resultado[4],
+                    "sku": resultado.get('sku'),
+                    "iva": resultado.get('tipo_iva'),
+                    "id": resultado.get('id'),
                     "cantidad": 1
                 }
 

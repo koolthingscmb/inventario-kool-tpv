@@ -1,6 +1,6 @@
 import customtkinter as ctk
-import sqlite3
-from database import connect
+from modulos.almacen.producto_service import ProductoService
+import database
 import webbrowser
 from tkinter import messagebox # <--- ESTO ES VITAL PARA QUE SALGAN LAS VENTANAS
 from database import ensure_product_schema
@@ -11,6 +11,7 @@ class PantallaCrearProducto(ctk.CTkFrame):
         super().__init__(parent)
         self.controller = controller
         self.producto_id = producto_id
+        self.service = ProductoService()
         self.pack(fill="both", expand=True)
         # Ensure DB schema for product extras
         try:
@@ -219,12 +220,16 @@ class PantallaCrearProducto(ctk.CTkFrame):
                 ctk.CTkLabel(self.hist_frame, text='Historial (últimos 5):', text_color='gray').pack(anchor='w', padx=6)
                 # load history
                 try:
-                    conn = connect()
-                    cur = conn.cursor()
-                    cur.execute('SELECT usuario, fecha, cambios FROM product_history WHERE producto_id=? ORDER BY fecha DESC LIMIT 5', (self.producto_id,))
-                    for u,f,c in cur.fetchall():
-                        ctk.CTkLabel(self.hist_frame, text=f"{f} - {u} - {c}", text_color='white').pack(anchor='w', padx=6)
-                    conn.close()
+                    detalle = self.service.obtener_producto_completo(self.producto_id) or {}
+                    historial = detalle.get('historial', [])
+                    for h in historial:
+                        try:
+                            f = h.get('fecha')
+                            u = h.get('usuario')
+                            c = h.get('cambios')
+                            ctk.CTkLabel(self.hist_frame, text=f"{f} - {u} - {c}", text_color='white').pack(anchor='w', padx=6)
+                        except Exception:
+                            pass
                 except Exception:
                     pass
         ctk.CTkButton(self.scroll_frame, text='Mostrar/Ocultar Historial', command=_toggle_hist).pack(pady=6)
@@ -246,84 +251,51 @@ class PantallaCrearProducto(ctk.CTkFrame):
         ctk.CTkFrame(target, height=2, fg_color="#444444").pack(fill="x", padx=10, pady=(0,10))
 
     def cargar_selectores(self):
-        # Load providers and categories from DB into the combo boxes
+        # Load providers, categories and tipos via service (no SQL in UI)
         try:
-            conn = connect()
-            cur = conn.cursor()
+            datos = self.service.obtener_datos_maestros()
             provs = []
             self._prov_map = {}
             self._prov_rev = {}
-            try:
-                cur.execute('SELECT id, nombre FROM proveedores ORDER BY nombre')
-                for pid, nombre in cur.fetchall():
+            for p in datos.get('proveedores', []):
+                try:
+                    pid = p.get('id')
+                    nombre = p.get('nombre')
                     label = f"{nombre} ({pid})"
                     provs.append(label)
                     self._prov_map[label] = pid
                     self._prov_rev[pid] = label
-            except Exception:
-                pass
-
-            cats = []
-            self._cat_tax = {}
-            try:
-                # Prefer canonical categories table with taxonomy
-                cur.execute("SELECT nombre, shopify_taxonomy FROM categorias ORDER BY nombre")
-                rows = cur.fetchall()
-                if rows:
-                    for nombre, tax in rows:
-                        if nombre:
-                            cats.append(nombre)
-                            self._cat_tax[nombre] = tax or ''
-                else:
-                    # Fallback: take distinct categoria values from productos
-                    cur.execute("SELECT DISTINCT categoria FROM productos WHERE categoria IS NOT NULL AND categoria != '' ORDER BY categoria")
-                    cats = [r[0] for r in cur.fetchall() if r[0]]
-                    for c in cats:
-                        self._cat_tax[c] = ''
-            except Exception:
-                try:
-                    cur.execute("SELECT DISTINCT categoria FROM productos WHERE categoria IS NOT NULL AND categoria != '' ORDER BY categoria")
-                    cats = [r[0] for r in cur.fetchall() if r[0]]
-                    for c in cats:
-                        self._cat_tax[c] = ''
                 except Exception:
                     pass
-            # Tipos (separado)
-            tipos = []
-            try:
-                cur.execute("SELECT nombre FROM tipos ORDER BY nombre")
-                tipos = [r[0] for r in cur.fetchall() if r[0]]
-            except Exception:
-                tipos = []
-            conn.close()
+
+            cats = [c.get('nombre') for c in datos.get('categorias', []) if c.get('nombre')]
+            self._cat_tax = {c.get('nombre'): c.get('shopify_taxonomy', '') for c in datos.get('categorias', []) if c.get('nombre')}
+
+            tipos = datos.get('tipos', []) or []
+
             if hasattr(self, 'combo_proveedor'):
                 try:
                     self.combo_proveedor.configure(values=tuple(provs))
                     try:
-                        # ensure no placeholder text like 'CTkCombobox' appears
                         self.combo_proveedor.set('')
                     except Exception:
                         pass
                 except Exception:
                     pass
+
             if hasattr(self, 'combo_categoria'):
                 try:
-                    # set values and attach selection callback to populate taxonomy
+                    self.combo_categoria.configure(values=tuple(cats), command=self._on_categoria_selected)
                     try:
-                        self.combo_categoria.configure(values=tuple(cats), command=self._on_categoria_selected)
-                        try:
-                            self.combo_categoria.set('')
-                        except Exception:
-                            pass
+                        self.combo_categoria.set('')
                     except Exception:
-                        self.combo_categoria.configure(values=tuple(cats))
-                        try:
-                            self.combo_categoria.set('')
-                        except Exception:
-                            pass
+                        pass
                 except Exception:
-                    pass
-            # populate tipos combobox in General tab if present
+                    try:
+                        self.combo_categoria.configure(values=tuple(cats))
+                    except Exception:
+                        pass
+
             if hasattr(self, 'combo_tipo'):
                 try:
                     self.combo_tipo.configure(values=tuple(tipos))
@@ -333,23 +305,19 @@ class PantallaCrearProducto(ctk.CTkFrame):
                         pass
                 except Exception:
                     pass
-            # also populate the Shopify-tab category combobox if present
+
             if hasattr(self, 'combo_shop_categoria'):
                 try:
+                    self.combo_shop_categoria.configure(values=tuple(cats), command=self._on_shop_categoria_selected)
                     try:
-                        self.combo_shop_categoria.configure(values=tuple(cats), command=self._on_shop_categoria_selected)
-                        try:
-                            self.combo_shop_categoria.set('')
-                        except Exception:
-                            pass
+                        self.combo_shop_categoria.set('')
                     except Exception:
-                        self.combo_shop_categoria.configure(values=tuple(cats))
-                        try:
-                            self.combo_shop_categoria.set('')
-                        except Exception:
-                            pass
+                        pass
                 except Exception:
-                    pass
+                    try:
+                        self.combo_shop_categoria.configure(values=tuple(cats))
+                    except Exception:
+                        pass
         except Exception:
             pass
 
@@ -522,126 +490,70 @@ class PantallaCrearProducto(ctk.CTkFrame):
                 messagebox.showerror('Faltan Datos', 'El Tipo es obligatorio')
                 return
 
-            # Validaciones: SKU único
-            conn = connect()
-            cur = conn.cursor()
-            cur.execute('SELECT id FROM productos WHERE sku = ? LIMIT 1', (sku,))
-            row_sku = cur.fetchone()
-            if row_sku and (not self.producto_id or row_sku[0] != self.producto_id):
-                conn.close()
-                messagebox.showerror('SKU duplicado', 'El SKU ya existe para otro producto')
-                return
-
             # Price/stock non-negative
             if pvp < 0 or coste < 0 or stock < 0 or stock_min < 0:
                 messagebox.showerror('Valores inválidos', 'Precio y stock no pueden ser negativos')
-                conn.close()
                 return
 
-            # Conexión DB
-            # Use existing conn/cur
+            # Preparar datos para el servicio
             now = datetime.now().isoformat(sep=' ', timespec='seconds')
             pending = 1 if getattr(self.controller, 'offline_mode', False) else 0
-            if not self.producto_id:
-                cur.execute('''
-                    INSERT INTO productos (nombre, nombre_boton, sku, categoria, proveedor, tipo_iva, stock_actual, pvp_variable, titulo, stock_minimo, activo, created_at, updated_at, descripcion_shopify, pending_sync)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (nombre, nombre_boton, sku, categoria, proveedor, int(iva), stock, es_variable, titulo, stock_min, activo, now, now, descripcion_shop, pending))
-                producto_id = cur.lastrowid
+            lista_imagenes = [i.strip() for i in self.images_list.get('1.0', 'end').split('\n') if i.strip()]
+
+            datos_producto = {
+                'id': self.producto_id,
+                'nombre': nombre,
+                'nombre_boton': nombre_boton,
+                'titulo': titulo,
+                'sku': sku,
+                'categoria': categoria,
+                'tipo': tipo_sel,
+                'proveedor': proveedor,
+                'coste': coste,
+                'pvp': pvp,
+                'tipo_iva': int(iva) if iva else 0,
+                'stock_actual': stock,
+                'stock_minimo': stock_min,
+                'pvp_variable': es_variable,
+                'descripcion_shopify': descripcion_shop.strip(),
+                'shopify_taxonomy': shopify_taxonomy,
+                'link': link,
+                'activo': activo,
+                'pending_sync': pending,
+                'usuario': getattr(self.controller, 'usuario', 'user'),
+                'cambios': f"Saved at {now}",
+                'seo_title': seo_title,
+                'seo_desc': seo_desc,
+                'tipo_shop': tipo_shop,
+                'estado': estado,
+                'etiquetas': etiquetas,
+            }
+
+            try:
+                producto_id = self.service.guardar_producto(datos_producto, lista_eans, lista_imagenes)
+            except Exception as e:
+                print(f"ERROR guardando producto via servicio: {e}")
+                messagebox.showerror('Error', f'No se pudo guardar el producto: {e}')
+                return
+
+            if producto_id:
+                print('--- GUARDADO VIA SERVICE EXITOSO ---')
+                try:
+                    self.producto_id = producto_id
+                    self.lbl_id_bd.configure(text=f"ID: {producto_id}")
+                except Exception:
+                    pass
+                try:
+                    print(f"evento: producto:actualizado -> {{'sku': '{sku}', 'updated_at': '{now}'}}")
+                except Exception:
+                    pass
+                messagebox.showinfo("¡Hecho!", f"Producto '{nombre}' guardado correctamente.")
+                self.limpiar_formulario()
             else:
-                producto_id = self.producto_id
-                cur.execute('''
-                    UPDATE productos SET nombre=?, nombre_boton=?, sku=?, categoria=?, proveedor=?, tipo_iva=?, stock_actual=?, pvp_variable=?, titulo=?, stock_minimo=?, activo=?, updated_at=?, descripcion_shopify=?, pending_sync=?
-                    WHERE id=?
-                ''', (nombre, nombre_boton, sku, categoria, proveedor, int(iva), stock, es_variable, titulo, stock_min, activo, now, descripcion_shop, pending, producto_id))
-
-            # If the productos table has a tipo-like column, update it with the selected tipo
-            try:
-                try:
-                    cur.execute('PRAGMA table_info(productos)')
-                    cols = [c[1] for c in cur.fetchall()]
-                except Exception:
-                    cols = []
-                tipo_candidates = ['tipo', 'tipo_id', 'id_tipo', 'tipo_shop']
-                for tc in tipo_candidates:
-                    if tc in cols:
-                        try:
-                            cur.execute(f'UPDATE productos SET {tc}=? WHERE id=?', (tipo_sel, producto_id))
-                        except Exception:
-                            pass
-                        break
-            except Exception:
-                pass
-
-            # Precios: desactivar antiguos and add new price record
-            cur.execute('UPDATE precios SET activo=0 WHERE producto_id=?', (producto_id,))
-            cur.execute('INSERT INTO precios (producto_id, pvp, coste, fecha_registro, activo) VALUES (?, ?, ?, ?, 1)', (producto_id, pvp, coste, now))
-
-            # EANs
-            cur.execute('DELETE FROM codigos_barras WHERE producto_id=?', (producto_id,))
-            for ean_limpio in lista_eans:
-                cur.execute('INSERT INTO codigos_barras (producto_id, ean) VALUES (?, ?)', (producto_id, ean_limpio))
-
-            # Images: store paths
-            try:
-                cur.execute('DELETE FROM product_images WHERE producto_id=?', (producto_id,))
-                imgs = [i.strip() for i in self.images_list.get('1.0', 'end').split('\n') if i.strip()]
-                for pth in imgs:
-                    cur.execute('INSERT INTO product_images (producto_id, path) VALUES (?, ?)', (producto_id, pth))
-            except Exception:
-                pass
-
-            # Shopify fields (update optional columns if they exist)
-            try:
-                cur.execute('UPDATE productos SET descripcion_shopify=?, updated_at=? WHERE id=?', (descripcion_shop, now, producto_id))
-                try:
-                    cur.execute('UPDATE productos SET link=? WHERE id=?', (link, producto_id))
-                except Exception:
-                    pass
-                try:
-                    cur.execute('UPDATE productos SET shopify_taxonomy=? WHERE id=?', (shopify_taxonomy, producto_id))
-                except Exception:
-                    pass
-            except Exception:
-                pass
-
-            # History: store a minimal change record
-            try:
-                cambios = []
-                if self.producto_id:
-                    # compare previous values
-                    cur.execute('SELECT nombre, sku FROM productos WHERE id=?', (producto_id,))
-                    # note: this reads current values after update; for a robust diff we'd fetch before update. Keep minimal.
-                cambios_txt = f"Saved at {now}"
-                cur.execute('INSERT INTO product_history (producto_id, usuario, fecha, cambios) VALUES (?, ?, ?, ?)', (producto_id, getattr(self.controller, 'usuario', 'user'), now, cambios_txt))
-            except Exception:
-                pass
-
-            conn.commit()
-            conn.close()
-            print("--- GUARDADO EN BD EXITOSO ---")
-            # update internal id and header label
-            try:
-                self.producto_id = producto_id
-                self.lbl_id_bd.configure(text=f"ID: {producto_id}")
-            except Exception:
-                pass
-            # Emit event for sync
-            try:
-                print(f"evento: producto:actualizado -> {{'sku': '{sku}', 'updated_at': '{now}'}}")
-            except Exception:
-                pass
-            messagebox.showinfo("¡Hecho!", f"Producto '{nombre}' guardado correctamente.")
-            self.limpiar_formulario()
-
-        except sqlite3.IntegrityError:
-            messagebox.showerror("Error SKU", "Ese SKU ya existe. Cámbialo.")
+                messagebox.showerror('Error', 'No se pudo guardar el producto. Revisa los logs.')
         except Exception as e:
-            print(f"ERROR: {e}") # Ver error en consola
+            print(f"ERROR: {e}")
             messagebox.showerror("Error", f"Algo falló: {e}")
-        finally:
-            if 'conn' in locals():
-                conn.close()
 
     def limpiar_formulario(self):
         self.entry_nombre.delete(0, 'end')
@@ -691,68 +603,54 @@ class PantallaCrearProducto(ctk.CTkFrame):
 
     def cargar_producto(self, producto_id):
         try:
-            conn = connect()
-            cursor = conn.cursor()
-            cursor.execute('SELECT nombre, nombre_boton, sku, categoria, proveedor, tipo_iva, stock_actual, pvp_variable, titulo, stock_minimo, activo, descripcion_shopify, created_at, updated_at, pending_sync FROM productos WHERE id=?', (producto_id,))
-            row = cursor.fetchone()
-            if not row:
-                conn.close()
-                return
-                return
-            (nombre, nombre_boton, sku, categoria, proveedor, tipo_iva, stock_actual, pvp_variable, titulo, stock_minimo, activo, descripcion_shopify, created_at, updated_at, pending_sync) = row
-            self.entry_nombre.delete(0, 'end'); self.entry_nombre.insert(0, nombre)
-            self.entry_nombre_boton.delete(0, 'end'); self.entry_nombre_boton.insert(0, nombre_boton or '')
-            self.entry_sku.delete(0, 'end'); self.entry_sku.insert(0, sku or '')
-            if hasattr(self, 'entry_titulo'):
-                self.entry_titulo.delete(0, 'end'); self.entry_titulo.insert(0, titulo or '')
-            # Category -> combo
+            detalle = self.service.obtener_producto_completo(producto_id) or {}
+            producto = detalle.get('producto', {})
+            precio = detalle.get('precio') or {}
+            eans = detalle.get('eans', []) or []
+            imagenes = detalle.get('imagenes', []) or []
+            tipo_val = detalle.get('tipo')
+
+            nombre = producto.get('nombre', '')
+            nombre_boton = producto.get('nombre_boton', '')
+            sku = producto.get('sku', '')
+            categoria = producto.get('categoria', '')
+            proveedor = producto.get('proveedor', '')
+            tipo_iva = producto.get('tipo_iva', producto.get('tipo_iva', 0))
+            stock_actual = producto.get('stock_actual', 0)
+            pvp_variable = int(producto.get('pvp_variable', 0) or 0)
+            titulo = producto.get('titulo', '')
+            stock_minimo = producto.get('stock_minimo', 0)
+            activo = int(producto.get('activo', 1) or 1)
+            descripcion_shopify = producto.get('descripcion_shopify', '')
+
+            # rellenar campos UI
+            try:
+                self.entry_nombre.delete(0, 'end'); self.entry_nombre.insert(0, nombre)
+                self.entry_nombre_boton.delete(0, 'end'); self.entry_nombre_boton.insert(0, nombre_boton or '')
+                self.entry_sku.delete(0, 'end'); self.entry_sku.insert(0, sku or '')
+                if hasattr(self, 'entry_titulo'):
+                    self.entry_titulo.delete(0, 'end'); self.entry_titulo.insert(0, titulo or '')
+            except Exception:
+                pass
+
+            # Categoria / proveedor
             try:
                 if hasattr(self, 'combo_categoria'):
-                    self.combo_categoria.set(category_or := (categoria or ''))
+                    try:
+                        self.combo_categoria.set(categoria or '')
+                    except Exception:
+                        pass
                 else:
-                    self.entry_categoria.delete(0, 'end'); self.entry_categoria.insert(0, category_or := (categoria or ''))
+                    try:
+                        self.entry_categoria.delete(0, 'end'); self.entry_categoria.insert(0, categoria or '')
+                    except Exception:
+                        pass
             except Exception:
                 pass
 
-            # If product-level taxonomy not set, try to fill from categorias table mapping
-            try:
-                if hasattr(self, 'entry_shopify_taxonomy'):
-                    # product may already have shopify_taxonomy saved (loaded below); only overwrite if empty
-                    curval = self.entry_shopify_taxonomy.get().strip()
-                    if not curval:
-                        # try mapping
-                        if getattr(self, '_cat_tax', None):
-                            tax = self._cat_tax.get(category_or, '')
-                            if tax:
-                                try:
-                                    self.entry_shopify_taxonomy.delete(0, 'end')
-                                    self.entry_shopify_taxonomy.insert(0, tax)
-                                except Exception:
-                                    pass
-                        else:
-                            # fallback: try reading from categorias table directly
-                            try:
-                                conn2 = connect()
-                                cur2 = conn2.cursor()
-                                cur2.execute('SELECT shopify_taxonomy FROM categorias WHERE nombre=? LIMIT 1', (category_or,))
-                                r = cur2.fetchone()
-                                conn2.close()
-                                if r and r[0]:
-                                    try:
-                                        self.entry_shopify_taxonomy.delete(0, 'end')
-                                        self.entry_shopify_taxonomy.insert(0, r[0])
-                                    except Exception:
-                                        pass
-                            except Exception:
-                                pass
-            except Exception:
-                pass
-
-            # Provider -> combo (try to map numeric id to display label)
             try:
                 if hasattr(self, 'combo_proveedor'):
                     display = None
-                    # proveedor might be stored as integer id or as string name
                     try:
                         pid_val = int(proveedor) if proveedor is not None and str(proveedor).isdigit() else None
                     except Exception:
@@ -765,116 +663,115 @@ class PantallaCrearProducto(ctk.CTkFrame):
                                 display = lbl
                                 break
                     if display:
-                        self.combo_proveedor.set(display)
+                        try:
+                            self.combo_proveedor.set(display)
+                        except Exception:
+                            pass
                     else:
-                        self.combo_proveedor.set(str(proveedor or ''))
+                        try:
+                            self.combo_proveedor.set(str(proveedor or ''))
+                        except Exception:
+                            pass
                 else:
-                    self.entry_proveedor.delete(0, 'end'); self.entry_proveedor.insert(0, proveedor or '')
-            except Exception:
-                pass
-            # also set Shopify tab category combobox to current category if present
-            try:
-                if hasattr(self, 'combo_shop_categoria'):
                     try:
-                        self.combo_shop_categoria.set(category_or)
+                        self.entry_proveedor.delete(0, 'end'); self.entry_proveedor.insert(0, proveedor or '')
                     except Exception:
                         pass
             except Exception:
                 pass
-            self.combo_iva.set(str(tipo_iva))
-            self.entry_stock.delete(0, 'end'); self.entry_stock.insert(0, str(stock_actual or 0))
-            if hasattr(self, 'entry_stock_min'):
-                self.entry_stock_min.delete(0, 'end'); self.entry_stock_min.insert(0, str(stock_minimo or 0))
-            if pvp_variable:
+
+            # otros campos
+            try:
                 try:
-                    self.switch_variable.select()
+                    self.combo_shop_categoria.set(categoria or '')
                 except Exception:
                     pass
+            except Exception:
+                pass
+            try:
+                self.combo_iva.set(str(tipo_iva))
+            except Exception:
+                pass
+            try:
+                self.entry_stock.delete(0, 'end'); self.entry_stock.insert(0, str(stock_actual or 0))
+            except Exception:
+                pass
+            if hasattr(self, 'entry_stock_min'):
+                try:
+                    self.entry_stock_min.delete(0, 'end'); self.entry_stock_min.insert(0, str(stock_minimo or 0))
+                except Exception:
+                    pass
+            try:
+                if pvp_variable:
+                    self.switch_variable.select()
+                else:
+                    self.switch_variable.deselect()
+            except Exception:
+                pass
 
-            # Precio activo
-            cursor.execute('SELECT pvp, coste FROM precios WHERE producto_id=? AND activo=1 LIMIT 1', (producto_id,))
-            pr = cursor.fetchone()
-            if pr:
-                pvp, coste = pr
-                self.entry_pvp.delete(0, 'end'); self.entry_pvp.insert(0, str(pvp))
-                self.entry_coste.delete(0, 'end'); self.entry_coste.insert(0, str(coste))
+            # precio activo
+            try:
+                if precio:
+                    self.entry_pvp.delete(0, 'end'); self.entry_pvp.insert(0, str(precio.get('pvp', '')))
+                    self.entry_coste.delete(0, 'end'); self.entry_coste.insert(0, str(precio.get('coste', '')))
+            except Exception:
+                pass
 
             # EANs
-            cursor.execute('SELECT ean FROM codigos_barras WHERE producto_id=?', (producto_id,))
-            eans = [r[0] for r in cursor.fetchall()]
-            self.txt_ean.delete('1.0', 'end')
-            if eans:
-                self.txt_ean.insert('1.0', '\n'.join(eans))
+            try:
+                self.txt_ean.delete('1.0', 'end')
+                if eans:
+                    self.txt_ean.insert('1.0', '\n'.join(eans))
+            except Exception:
+                pass
 
             # Images
             try:
-                cursor.execute('SELECT path FROM product_images WHERE producto_id=?', (producto_id,))
-                imgs = [r[0] for r in cursor.fetchall()]
                 self.images_list.delete('1.0', 'end')
-                for pth in imgs:
-                    self.images_list.insert('end', pth + '\n')
+                for pth in imagenes:
+                    try:
+                        self.images_list.insert('end', pth + '\n')
+                    except Exception:
+                        pass
             except Exception:
                 pass
 
-            # Shopify fields
+            # Shopify fields and optional columns
             try:
                 if hasattr(self, 'txt_descripcion_shop'):
-                    self.txt_descripcion_shop.delete('1.0', 'end')
-                    self.txt_descripcion_shop.insert('1.0', descripcion_shopify or '')
-                # SEO and others may be stored in productos.notes or separate table; try to fetch from productos columns if exist
+                    try:
+                        self.txt_descripcion_shop.delete('1.0', 'end')
+                        self.txt_descripcion_shop.insert('1.0', descripcion_shopify or '')
+                    except Exception:
+                        pass
                 try:
-                    cursor.execute('PRAGMA table_info(productos)')
-                    cols = [c[1] for c in cursor.fetchall()]
-                    if 'seo_title' in cols:
-                        cursor.execute('SELECT seo_title FROM productos WHERE id=?', (producto_id,))
-                        r = cursor.fetchone(); self.entry_seo_title.delete(0,'end'); self.entry_seo_title.insert(0, r[0] if r else '')
-                    # link field if present
-                    if 'link' in cols and hasattr(self, 'entry_link'):
-                        try:
-                            cursor.execute('SELECT link FROM productos WHERE id=?', (producto_id,))
-                            rl = cursor.fetchone()
-                            self.entry_link.delete(0, 'end')
-                            if rl and rl[0]:
-                                self.entry_link.insert(0, rl[0])
-                        except Exception:
-                            pass
-                    # shopify_taxonomy: clear by default; user may fill or select category in Shopify tab to auto-fill
-                    if 'shopify_taxonomy' in cols and hasattr(self, 'entry_shopify_taxonomy'):
-                        try:
-                            self.entry_shopify_taxonomy.delete(0, 'end')
-                        except Exception:
-                            pass
+                    if hasattr(self, 'entry_seo_title') and producto.get('seo_title'):
+                        self.entry_seo_title.delete(0, 'end'); self.entry_seo_title.insert(0, producto.get('seo_title'))
                 except Exception:
                     pass
-
+                try:
+                    if hasattr(self, 'entry_link') and producto.get('link'):
+                        self.entry_link.delete(0, 'end'); self.entry_link.insert(0, producto.get('link'))
+                except Exception:
+                    pass
+                try:
+                    if hasattr(self, 'entry_shopify_taxonomy'):
+                        val = producto.get('shopify_taxonomy') or self._cat_tax.get(categoria, '')
+                        self.entry_shopify_taxonomy.delete(0, 'end')
+                        if val:
+                            self.entry_shopify_taxonomy.insert(0, val)
+                except Exception:
+                    pass
             except Exception:
                 pass
 
-            # Load tipo value if the productos table contains a tipo-like column
+            # tipo
             try:
-                cursor.execute('PRAGMA table_info(productos)')
-                pcols = [c[1] for c in cursor.fetchall()]
-                tipo_candidates = ['tipo', 'tipo_id', 'id_tipo', 'tipo_shop']
-                tipo_val = ''
-                for tc in tipo_candidates:
-                    if tc in pcols:
-                        try:
-                            cursor.execute(f'SELECT {tc} FROM productos WHERE id=? LIMIT 1', (producto_id,))
-                            tr = cursor.fetchone()
-                            tipo_val = tr[0] if tr and tr[0] is not None else ''
-                        except Exception:
-                            tipo_val = ''
-                        break
                 if tipo_val and hasattr(self, 'combo_tipo'):
                     try:
                         self.combo_tipo.set(str(tipo_val))
                     except Exception:
                         pass
-            except Exception:
-                pass
-
-            try:
-                conn.close()
             except Exception:
                 pass
         except Exception as e:
@@ -926,38 +823,17 @@ class PantallaCrearProducto(ctk.CTkFrame):
             if not messagebox.askyesno('Confirmar', '¿Eliminar este producto?'):
                 return
             try:
-                conn = connect()
-                cur = conn.cursor()
-                pid = int(self.producto_id)
-                # Delete related rows safely
+                ok = self.service.eliminar_producto(self.producto_id)
+            except Exception as e:
+                print(f"ERROR eliminando producto via servicio: {e}")
+                ok = False
+            if ok:
+                messagebox.showinfo('Eliminar', 'Producto eliminado.')
                 try:
-                    cur.execute('DELETE FROM precios WHERE producto_id=?', (pid,))
+                    self.controller.mostrar_todos_articulos()
                 except Exception:
                     pass
-                try:
-                    cur.execute('DELETE FROM codigos_barras WHERE producto_id=?', (pid,))
-                except Exception:
-                    pass
-                try:
-                    cur.execute('DELETE FROM product_images WHERE producto_id=?', (pid,))
-                except Exception:
-                    pass
-                try:
-                    cur.execute('DELETE FROM product_history WHERE producto_id=?', (pid,))
-                except Exception:
-                    pass
-                try:
-                    cur.execute('DELETE FROM productos WHERE id=?', (pid,))
-                except Exception:
-                    pass
-                conn.commit()
-                conn.close()
-            except Exception:
-                pass
-            messagebox.showinfo('Eliminar', 'Producto eliminado.')
-            try:
-                self.controller.mostrar_todos_articulos()
-            except Exception:
-                pass
+            else:
+                messagebox.showerror('Error', 'No se pudo eliminar el producto.')
         except Exception:
             messagebox.showerror('Error', 'No se pudo eliminar el producto.')
