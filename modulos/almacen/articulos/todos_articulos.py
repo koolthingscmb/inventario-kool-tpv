@@ -1,6 +1,4 @@
 import os
-import sqlite3
-from database import connect
 import csv
 import time
 import subprocess
@@ -8,7 +6,7 @@ import customtkinter as ctk
 import threading
 from tkinter import messagebox
 from tkinter import ttk
-from .dao_articulos import get_products_page
+from modulos.almacen.producto_service import ProductoService
 
 
 class TodosArticulos(ctk.CTkFrame):
@@ -23,6 +21,8 @@ class TodosArticulos(ctk.CTkFrame):
         # pagination defaults
         self.page = 1
         self.page_size = 100
+        # Service layer
+        self.service = ProductoService()
 
         # placeholder for columns header; rendered inside render_list so we can update arrows
         self.columns = [("nombre", "Nombre"), ("tipo", "Tipo"), ("proveedor", "Proveedor"), ("categoria", "Categoría")]
@@ -55,24 +55,9 @@ class TodosArticulos(ctk.CTkFrame):
         self.btn_export.grid(row=0, column=3, padx=(0,8))
         self.btn_borrar_sel = ctk.CTkButton(bottom, text="Borrar seleccionados", fg_color="#AA3333", command=self.borrar_seleccionados_confirm)
         self.btn_borrar_sel.grid(row=0, column=4, padx=(0,8))
-        self.btn_borrar = ctk.CTkButton(bottom, text="Borrar todos", fg_color="#AA3333", command=self.borrar_todos_confirm)
-        self.btn_borrar.grid(row=0, column=5, padx=(0,8))
         self.btn_volver = ctk.CTkButton(bottom, text="Volver", fg_color="gray", command=self._volver_restaurar)
         self.btn_volver.grid(row=0, column=6)
-        # selected ids
-        self._selected_ids = set()
-        # mapping item_id -> IntVar for checkboxes
-        self._row_vars = {}
-        # mapping item_id -> row frame for visual updates
-        self._row_frames = {}
-        # last clicked index for shift-selection
-        self._last_clicked_index = None
-        # pending single-click after id (to distinguish double-click)
-        self._pending_click_after = None
-        # select-all variable
-        self._select_all_var = ctk.IntVar(value=0)
-        # last rendered item ids (for select-all toggle)
-        self._last_rendered_item_ids = []
+        # Treeview selection will be used; no manual selection state maintained
 
         # detect tipo-like column name for later use
         prod_cols = self._table_columns('productos')
@@ -132,6 +117,8 @@ class TodosArticulos(ctk.CTkFrame):
     # Small helpers
     def _connect(self):
         # Prefer default DB_PATH from database.connect()
+        # legacy compatibility kept; services use central DB
+        from database import connect
         return connect()
 
     def _table_columns(self, table):
@@ -148,23 +135,14 @@ class TodosArticulos(ctk.CTkFrame):
                 con.close()
             except Exception:
                 pass
-
     def _distinct_values_from_product(self, col):
-        if not col:
-            return []
-        con = self._connect()
+        """Usa el servicio para obtener valores únicos para filtros."""
         try:
-            cur = con.cursor()
-            cur.execute(f"SELECT DISTINCT {col} FROM productos WHERE {col} IS NOT NULL AND {col} != '' ORDER BY {col} COLLATE NOCASE")
-            rows = [r[0] for r in cur.fetchall() if r and r[0] is not None]
-            return rows
+            if not col:
+                return []
+            return self.service.obtener_valores_unicos(col)
         except Exception:
             return []
-        finally:
-            try:
-                con.close()
-            except Exception:
-                pass
 
     def _on_header_combo_change(self, col_key, value):
         # map display '[Todos]' to empty string
@@ -184,35 +162,6 @@ class TodosArticulos(ctk.CTkFrame):
         elif col_key == 'tipo':
             self.filter_tipo.set(val)
         self.refresh()
-
-    def _update_row_visual(self, item_id):
-        try:
-            widgets = self._row_frames.get(item_id)
-            var = self._row_vars.get(item_id)
-            if widgets is None or var is None:
-                return
-            # apply highlight color to each widget in the row when selected
-            if var.get():
-                for w in widgets:
-                    try:
-                        w.configure(fg_color="#2b2b2b")
-                    except Exception:
-                        try:
-                            w.configure(bg="#2b2b2b")
-                        except Exception:
-                            pass
-            else:
-                for w in widgets:
-                    try:
-                        w.configure(fg_color=None)
-                    except Exception:
-                        try:
-                            w.configure(bg=self.scroll.cget('fg_color'))
-                        except Exception:
-                            pass
-        except Exception:
-            pass
-
     def _on_row_double_click(self, event, item_id):
         # legacy handler kept for compatibility; forward to tree handler if applicable
         try:
@@ -223,97 +172,6 @@ class TodosArticulos(ctk.CTkFrame):
             pass
         try:
             self.controller.mostrar_crear_producto(item_id)
-        except Exception:
-            pass
-
-    def _on_row_click(self, event, item_id):
-        # legacy click handler; when using treeview we rely on its selection model
-        try:
-            if getattr(self, 'tree', None):
-                return
-        except Exception:
-            pass
-        try:
-            # schedule single-click action shortly to allow double-click to cancel it
-            if getattr(self, '_pending_click_after', None):
-                try:
-                    self.after_cancel(self._pending_click_after)
-                except Exception:
-                    pass
-                self._pending_click_after = None
-            self._pending_click_after = self.after(180, lambda: self._handle_row_single_click(event, item_id))
-        except Exception:
-            pass
-
-    def _handle_row_single_click(self, event, item_id):
-        try:
-            self._pending_click_after = None
-            # modifier detection: Shift and Control
-            state = getattr(event, 'state', 0)
-            is_shift = bool(state & 0x1)
-            is_ctrl = bool(state & 0x4)
-
-            # get current index in rendered list
-            try:
-                idx = self._last_rendered_item_ids.index(item_id)
-            except Exception:
-                idx = None
-
-            if is_shift and idx is not None and self._last_clicked_index is not None:
-                # select range between last_clicked_index and idx
-                try:
-                    a = min(self._last_clicked_index, idx)
-                    b = max(self._last_clicked_index, idx)
-                    for i in range(a, b+1):
-                        iid = self._last_rendered_item_ids[i]
-                        self._selected_ids.add(iid)
-                        if iid in self._row_vars:
-                            try:
-                                self._row_vars[iid].set(1)
-                            except Exception:
-                                pass
-                except Exception:
-                    pass
-            else:
-                # toggle single item selection (ctrl behaves same as plain click for toggle)
-                if item_id in self._selected_ids:
-                    try:
-                        self._selected_ids.remove(item_id)
-                    except Exception:
-                        pass
-                    if item_id in self._row_vars:
-                        try:
-                            self._row_vars[item_id].set(0)
-                        except Exception:
-                            pass
-                else:
-                    try:
-                        self._selected_ids.add(item_id)
-                    except Exception:
-                        pass
-                    if item_id in self._row_vars:
-                        try:
-                            self._row_vars[item_id].set(1)
-                        except Exception:
-                            pass
-
-            # update visuals for affected rows
-            try:
-                if idx is not None:
-                    # update all in current rendered list for simplicity
-                    for iid in self._last_rendered_item_ids:
-                        self._update_row_visual(iid)
-                else:
-                    self._update_row_visual(item_id)
-            except Exception:
-                pass
-
-            # remember last clicked index for shift selections
-            try:
-                if idx is not None:
-                    self._last_clicked_index = idx
-            except Exception:
-                pass
         except Exception:
             pass
 
@@ -404,18 +262,19 @@ class TodosArticulos(ctk.CTkFrame):
         if tipo_val == '[Todos]':
             tipo_val = ''
         
-        # Delegate DB access to DAO (keeps UI code simple and testable)
         try:
             ps = page_size_override if page_size_override is not None else getattr(self, 'page_size', 100)
-            items = get_products_page(self.db_path,
-                                      page=getattr(self, 'page', 1),
-                                      page_size=ps,
-                                      search=q,
-                                      proveedor=prov_val,
-                                      categoria=cat_val,
-                                      tipo=tipo_val,
-                                      sort_by=getattr(self, 'sort_by', None),
-                                      sort_desc=getattr(self, 'sort_desc', False))
+            filtros = {
+                'page': getattr(self, 'page', 1),
+                'page_size': ps,
+                'search': q,
+                'proveedor': prov_val,
+                'categoria': cat_val,
+                'tipo': tipo_val,
+                'sort_by': getattr(self, 'sort_by', None),
+                'sort_desc': getattr(self, 'sort_desc', False)
+            }
+            items = self.service.obtener_productos_paginados(filtros)
             return items
         except Exception as e:
             try:
@@ -551,20 +410,11 @@ class TodosArticulos(ctk.CTkFrame):
                     pass
 
         # rows (render into a Treeview for stable columns)
-        # record last rendered ids for select-all
+        # record last rendered ids for potential fallback uses
         try:
             self._last_rendered_item_ids = [it['id'] for it in items]
         except Exception:
             self._last_rendered_item_ids = []
-        # clear previous row mappings
-        try:
-            self._row_vars.clear()
-        except Exception:
-            self._row_vars = {}
-        try:
-            self._row_frames.clear()
-        except Exception:
-            self._row_frames = {}
 
         # Use a Treeview for rows to ensure columns align with header and resize consistently
         try:
@@ -640,12 +490,7 @@ class TodosArticulos(ctk.CTkFrame):
         except Exception:
             pass
 
-        # helper to refresh visuals based on selection
-        try:
-            for _id in list(self._row_frames.keys()):
-                self._update_row_visual(_id)
-        except Exception:
-            pass
+            # no manual visual update required; Treeview handles selection visuals
         # Pagination controls
         try:
             if getattr(self, '_pagination_frame', None):
@@ -700,8 +545,6 @@ class TodosArticulos(ctk.CTkFrame):
                 sel = self.tree.selection()
                 if sel:
                     ids = [int(s) for s in sel]
-            if not ids and self._selected_ids:
-                ids = list(self._selected_ids)
             # fallback to current loaded items
             if not ids:
                 items = self.load_items()
@@ -848,135 +691,48 @@ class TodosArticulos(ctk.CTkFrame):
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo exportar CSV: {e}")
 
-    def borrar_todos_confirm(self):
-        if not messagebox.askyesno("Confirmar borrado", "¿Borrar TODOS los artículos y datos relacionados? Esta acción no se puede deshacer."):
-            return
-        self.borrar_todos()
-
-    def borrar_todos(self):
-        try:
-            con = self._connect()
-            cur = con.cursor()
-            # borrar datos relacionados (si existen)
-            related_tables = [
-                'precios',
-                'codigos_barras',
-                'product_images',
-                'product_history'
-            ]
-            for t in related_tables:
-                try:
-                    cur.execute(f"DELETE FROM {t}")
-                except Exception:
-                    pass
-            # borrar productos
-            try:
-                cur.execute('DELETE FROM productos')
-            except Exception:
-                pass
-            con.commit()
-            try:
-                con.close()
-            except Exception:
-                pass
-            messagebox.showinfo('Borrar', 'Se han borrado todos los artículos.')
-            self._clear_filters()
-            self.refresh()
-        except Exception as e:
-            messagebox.showerror('Error', f'No se pudo borrar: {e}')
+    # Eliminar funcionalidad de 'Borrar todos' de esta pantalla (operación sensible)
 
     def borrar_seleccionados_confirm(self):
-        if not self._selected_ids:
-            messagebox.showinfo('Borrar seleccionados', 'No hay artículos seleccionados.')
-            return
-        if not messagebox.askyesno('Confirmar borrado', f'¿Borrar {len(self._selected_ids)} artículos seleccionados? Esta acción no se puede deshacer.'):
-            return
-        self.borrar_seleccionados()
-
-    def borrar_seleccionados(self):
-        # determine selected ids from treeview if present, otherwise fallback to _selected_ids
-        ids = []
+        # rely on Treeview selection
         try:
+            sel = []
             if getattr(self, 'tree', None):
                 sel = self.tree.selection()
-                ids = [int(s) for s in sel]
+            if not sel:
+                messagebox.showinfo('Borrar seleccionados', 'No hay artículos seleccionados.')
+                return
+            if not messagebox.askyesno('Confirmar borrado', f'¿Borrar {len(sel)} artículos seleccionados? Esta acción no se puede deshacer.'):
+                return
+            self.borrar_seleccionados()
         except Exception:
-            ids = []
-        if not ids:
-            ids = list(self._selected_ids)
-        if not ids:
-            return
+            messagebox.showinfo('Borrar seleccionados', 'No hay artículos seleccionados.')
+
+    def borrar_seleccionados(self):
         try:
-            con = self._connect()
-            cur = con.cursor()
-            placeholders = ','.join(['?'] * len(ids))
-            # delete from related tables by producto_id if column exists
-            related_by_prod = ['precios', 'codigos_barras', 'product_images', 'product_history']
-            for t in related_by_prod:
+            if not getattr(self, 'tree', None):
+                messagebox.showinfo('Borrar seleccionados', 'No hay artículos seleccionados.')
+                return
+            sel = self.tree.selection()
+            ids = [int(x) for x in sel] if sel else []
+            if not ids:
+                messagebox.showinfo('Borrar seleccionados', 'No hay artículos seleccionados.')
+                return
+            ok = self.service.eliminar_productos_por_id(ids)
+            if ok:
                 try:
-                    cur.execute(f"DELETE FROM {t} WHERE producto_id IN ({placeholders})", ids)
+                    # clear selection
+                    self.tree.selection_remove(self.tree.selection())
                 except Exception:
-                    try:
-                        # try alternative column name
-                        cur.execute(f"DELETE FROM {t} WHERE product_id IN ({placeholders})", ids)
-                    except Exception:
-                        pass
-            # delete products
-            try:
-                cur.execute(f"DELETE FROM productos WHERE id IN ({placeholders})", ids)
-            except Exception:
-                pass
-            con.commit()
-            try:
-                con.close()
-            except Exception:
-                pass
-            self._selected_ids.clear()
-            messagebox.showinfo('Borrar', f'Se han borrado {len(ids)} artículos seleccionados.')
-            self._clear_filters()
-            self.refresh()
+                    pass
+                messagebox.showinfo('Borrar', f'Se han borrado {len(ids)} artículos seleccionados.')
+                self._clear_filters()
+                self.refresh()
+            else:
+                messagebox.showerror('Error', 'No se pudieron borrar los artículos seleccionados.')
         except Exception as e:
             messagebox.showerror('Error', f'No se pudo borrar seleccionados: {e}')
-
-    def _on_select_toggle(self, _id, var):
-        try:
-            if var.get():
-                self._selected_ids.add(_id)
-            else:
-                self._selected_ids.discard(_id)
-        except Exception:
-            pass
-
-    def _toggle_select_all(self):
-        try:
-            val = self._select_all_var.get()
-        except Exception:
-            val = 0
-        try:
-            if getattr(self, 'tree', None):
-                if val:
-                    self.tree.selection_set(self.tree.get_children())
-                else:
-                    self.tree.selection_remove(self.tree.get_children())
-                return
-        except Exception:
-            pass
-        if val:
-            # select all currently rendered
-            try:
-                for _id in self._last_rendered_item_ids:
-                    self._selected_ids.add(_id)
-            except Exception:
-                pass
-        else:
-            # deselect all currently rendered
-            try:
-                for _id in self._last_rendered_item_ids:
-                    self._selected_ids.discard(_id)
-            except Exception:
-                pass
-        # re-render to update checkboxes/highlight
-        self.refresh()
+    
 
     def _volver_restaurar(self):
         # save state and go back to submenu

@@ -207,8 +207,11 @@ class ProductoService:
                     cur.execute('INSERT INTO product_history (producto_id, usuario, fecha, cambios) VALUES (?, ?, ?, ?)', (prod_id, usuario, now, cambios_txt))
                 except Exception:
                     logger.debug('No se pudo insertar historial para producto id=%s', prod_id)
-
-                # Commit implícito al salir del with
+                # Commit explícito antes de salir del with
+                try:
+                    conn.commit()
+                except Exception:
+                    logger.debug('No se pudo hacer commit explicito para producto id=%s', prod_id)
             return int(prod_id)
         except Exception:
             logger.exception('Error guardando producto: %s', datos_producto.get('sku') if isinstance(datos_producto, dict) else datos_producto)
@@ -369,7 +372,328 @@ class ProductoService:
                     cur.execute('DELETE FROM productos WHERE id=?', (producto_id,))
                 except Exception:
                     pass
+                try:
+                    conn.commit()
+                except Exception:
+                    logger.debug('No se pudo hacer commit explicito al eliminar producto id=%s', producto_id)
             return True
         except Exception:
             logger.exception('Error eliminando producto id=%s', producto_id)
+            return False
+
+    def obtener_productos_paginados(self, filtros: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Devuelve una lista de productos paginada según los filtros.
+
+        `filtros` puede contener: 'search'|'nombre' (texto), 'proveedor', 'categoria',
+        'tipo', 'pagina' (int), 'tamaño_pagina'|'page_size' (int), 'orden'|'sort_by', 'orden_desc'|'sort_desc' (bool).
+        """
+        try:
+            page = int(filtros.get('pagina') or filtros.get('page') or 1)
+            page_size = int(filtros.get('tamaño_pagina') or filtros.get('page_size') or filtros.get('pageSize') or 100)
+            search = filtros.get('search') or filtros.get('nombre') or ''
+            proveedor = filtros.get('proveedor') or ''
+            categoria = filtros.get('categoria') or ''
+            tipo = filtros.get('tipo') or ''
+            sort_by = filtros.get('orden') or filtros.get('sort_by')
+            sort_desc = bool(filtros.get('orden_desc') or filtros.get('sort_desc') or False)
+
+            with database.connect() as conn:
+                conn.row_factory = sqlite3.Row
+                cur = conn.cursor()
+
+                # detectar columnas disponibles
+                try:
+                    cur.execute("PRAGMA table_info(productos)")
+                    prod_cols = [r[1] for r in cur.fetchall()]
+                except Exception:
+                    prod_cols = []
+
+                name_col = 'nombre' if 'nombre' in prod_cols else ('name' if 'name' in prod_cols else None)
+                sku_col = None
+                for sc in ['sku', 'codigo', 'codigo_barra', 'codigo_barras']:
+                    if sc in prod_cols:
+                        sku_col = sc
+                        break
+
+                select_parts = ['p.id']
+                if name_col:
+                    select_parts.append(f'p.{name_col} as nombre')
+                else:
+                    select_parts.append("'' as nombre")
+                if sku_col:
+                    select_parts.append(f'p.{sku_col} as sku')
+                else:
+                    select_parts.append("'' as sku")
+
+                select_parts.extend([
+                    'p.categoria as categoria_raw',
+                    'COALESCE(cat.nombre, p.categoria, "") as categoria_nombre',
+                    'p.proveedor as proveedor_raw',
+                    'COALESCE(prov.nombre, p.proveedor, "") as proveedor_nombre',
+                    'pr.pvp as pvp',
+                    'pr.coste as coste'
+                ])
+
+                tipo_col = None
+                for tc in ['tipo', 'tipo_id', 'id_tipo', 'tipo_shop']:
+                    if tc in prod_cols:
+                        tipo_col = tc
+                        break
+                if tipo_col:
+                    # insertar antes de pvp/coste
+                    select_parts.insert(-2, f'p.{tipo_col} as tipo_raw')
+                    select_parts.insert(-2, f'COALESCE(t.nombre, p.{tipo_col}, "") as tipo_nombre')
+
+                sql = 'SELECT ' + ', '.join(select_parts) + ' FROM productos p '
+                sql += 'LEFT JOIN precios pr ON p.id = pr.producto_id AND pr.activo = 1 '
+                sql += 'LEFT JOIN categorias cat ON (p.categoria = cat.nombre OR p.categoria = cat.id) '
+                sql += 'LEFT JOIN proveedores prov ON (p.proveedor = prov.nombre OR p.proveedor = prov.id) '
+                if tipo_col:
+                    sql += f'LEFT JOIN tipos t ON (p.{tipo_col} = t.nombre OR p.{tipo_col} = t.id) '
+
+                params = []
+                where_clauses = []
+                if search:
+                    qlike = f"%{search}%"
+                    sub = []
+                    if name_col:
+                        sub.append(f'p.{name_col} LIKE ?')
+                    if sku_col:
+                        sub.append(f'p.{sku_col} LIKE ?')
+                    if sub:
+                        where_clauses.append('(' + ' OR '.join(sub) + ')')
+                        for _ in sub:
+                            params.append(qlike)
+
+                def _apply_filter_expr(expr, value):
+                    if not value:
+                        return
+                    where_clauses.append(expr)
+                    params.extend([value, value])
+
+                _apply_filter_expr('(LOWER(p.proveedor) = LOWER(?) OR LOWER(prov.nombre) = LOWER(?))', proveedor)
+                _apply_filter_expr('(LOWER(p.categoria) = LOWER(?) OR LOWER(cat.nombre) = LOWER(?))', categoria)
+                if tipo_col:
+                    _apply_filter_expr(f'(LOWER(p.{tipo_col}) = LOWER(?) OR LOWER(t.nombre) = LOWER(?))', tipo)
+
+                if where_clauses:
+                    sql += ' WHERE ' + ' AND '.join(where_clauses)
+
+                if sort_by:
+                    sort_map = {
+                        'nombre': 'nombre',
+                        'categoria': 'categoria_nombre',
+                        'proveedor': 'proveedor_nombre',
+                        'tipo': 'tipo_nombre'
+                    }
+                    sort_col = sort_map.get(sort_by, 'nombre')
+                    sql += f" ORDER BY {sort_col} {'DESC' if sort_desc else 'ASC'}"
+
+                if page_size:
+                    offset = (max(1, page) - 1) * page_size
+                    sql += f" LIMIT {page_size} OFFSET {offset}"
+
+                try:
+                    cur.execute(sql, params)
+                    rows = cur.fetchall()
+                except Exception:
+                    logger.exception('Error ejecutando consulta paginada de productos')
+                    return []
+
+                items = []
+                for r in rows:
+                    try:
+                        _id = r['id'] if 'id' in r.keys() else r[0]
+                        nombre = r['nombre'] if 'nombre' in r.keys() else (r[1] if len(r) > 1 else '')
+                        sku = r['sku'] if 'sku' in r.keys() else (r[2] if len(r) > 2 else '')
+                        categoria_nombre = r['categoria_nombre'] if 'categoria_nombre' in r.keys() else ''
+                        proveedor_nombre = r['proveedor_nombre'] if 'proveedor_nombre' in r.keys() else ''
+                        tipo_nombre = r['tipo_nombre'] if 'tipo_nombre' in r.keys() else ''
+                    except Exception:
+                        # fallback por índice si no es Row
+                        _id = r[0]
+                        nombre = r[1] if len(r) > 1 else ''
+                        sku = r[2] if len(r) > 2 else ''
+                        categoria_nombre = r[4] if len(r) > 4 else ''
+                        proveedor_nombre = r[6] if len(r) > 6 else ''
+                        tipo_nombre = r[8] if len(r) > 8 else ''
+                    items.append({
+                        'id': _id,
+                        'nombre': nombre or '',
+                        'sku': sku or '',
+                        'categoria': categoria_nombre or '',
+                        'proveedor': proveedor_nombre or '',
+                        'tipo': tipo_nombre or ''
+                    })
+
+                return items
+        except Exception:
+            logger.exception('Error preparando filtros para obtener productos paginados')
+            return []
+
+    def obtener_valores_unicos(self, columna: str) -> List[str]:
+        """Devuelve valores distintos para la columna indicada (para usar en filtros).
+
+        Para 'categoria', 'proveedor' y 'tipo' intenta primero las tablas maestras
+        ('categorias','proveedores','tipos') y si no existen, hace DISTINCT desde productos.
+        """
+        try:
+            with database.connect() as conn:
+                conn.row_factory = sqlite3.Row
+                cur = conn.cursor()
+
+                col = columna.lower()
+                # proveedores
+                if col in ('proveedor', 'proveedores'):
+                    try:
+                        cur.execute('SELECT nombre FROM proveedores ORDER BY nombre')
+                        return [r['nombre'] if 'nombre' in r.keys() else r[0] for r in cur.fetchall()]
+                    except Exception:
+                        pass
+                    try:
+                        cur.execute("SELECT DISTINCT proveedor FROM productos WHERE proveedor IS NOT NULL AND proveedor != '' ORDER BY proveedor")
+                        return [r[0] for r in cur.fetchall()]
+                    except Exception:
+                        return []
+
+                # categorias
+                if col in ('categoria', 'categorias'):
+                    try:
+                        cur.execute('SELECT nombre, shopify_taxonomy FROM categorias ORDER BY nombre')
+                        rows = cur.fetchall()
+                        if rows:
+                            return [ (r['nombre'] if 'nombre' in r.keys() else r[0]) for r in rows ]
+                    except Exception:
+                        pass
+                    try:
+                        cur.execute("SELECT DISTINCT categoria FROM productos WHERE categoria IS NOT NULL AND categoria != '' ORDER BY categoria")
+                        return [r[0] for r in cur.fetchall()]
+                    except Exception:
+                        return []
+
+                # tipos
+                if col in ('tipo', 'tipos'):
+                    try:
+                        cur.execute('SELECT nombre FROM tipos ORDER BY nombre')
+                        rows = cur.fetchall()
+                        if rows:
+                            return [r['nombre'] if 'nombre' in r.keys() else r[0] for r in rows]
+                    except Exception:
+                        pass
+                    # fallback: detectar columna tipo en productos
+                    try:
+                        cur.execute('PRAGMA table_info(productos)')
+                        prod_cols = [r[1] for r in cur.fetchall()]
+                        tipo_col = None
+                        for tc in ['tipo', 'tipo_id', 'id_tipo', 'tipo_shop']:
+                            if tc in prod_cols:
+                                tipo_col = tc
+                                break
+                        if tipo_col:
+                            cur.execute(f"SELECT DISTINCT {tipo_col} FROM productos WHERE {tipo_col} IS NOT NULL AND {tipo_col} != '' ORDER BY {tipo_col}")
+                            return [r[0] for r in cur.fetchall()]
+                    except Exception:
+                        return []
+
+                # genérico
+                try:
+                    # evitar inyección moderada: sólo permitir nombres alfanum y _
+                    if not columna.replace('_', '').isalnum():
+                        return []
+                    cur.execute(f"SELECT DISTINCT {columna} FROM productos WHERE {columna} IS NOT NULL AND {columna} != '' ORDER BY {columna}")
+                    return [r[0] for r in cur.fetchall()]
+                except Exception:
+                    return []
+        except Exception:
+            logger.exception('Error obteniendo valores únicos para columna=%s', columna)
+            return []
+
+    def borrar_productos_masivo(self, ids: List[int]) -> bool:
+        """(DEPRECATED) Mantiene compatibilidad: llama a eliminar_productos_por_id o vaciar_inventario_completo.
+
+        Recomendado: usar `eliminar_productos_por_id` o `vaciar_inventario_completo` según el caso.
+        """
+        try:
+            if ids:
+                return self.eliminar_productos_por_id(ids)
+            else:
+                return self.vaciar_inventario_completo()
+        except Exception:
+            logger.exception('Error borrando productos masivo ids=%s', ids)
+            return False
+
+    def eliminar_productos_por_id(self, ids: List[int]) -> bool:
+        """Elimina productos por lista de IDs.
+
+        Si `ids` está vacía no hace nada y retorna False.
+        """
+        try:
+            if not ids:
+                return False
+            with database.connect() as conn:
+                cur = conn.cursor()
+
+                def has_table(tbl: str) -> bool:
+                    try:
+                        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (tbl,))
+                        return cur.fetchone() is not None
+                    except Exception:
+                        return False
+
+                placeholders = ','.join(['?'] * len(ids))
+                params = tuple(ids)
+                if has_table('precios'):
+                    cur.execute(f'DELETE FROM precios WHERE producto_id IN ({placeholders})', params)
+                if has_table('codigos_barras'):
+                    cur.execute(f'DELETE FROM codigos_barras WHERE producto_id IN ({placeholders})', params)
+                if has_table('product_images'):
+                    cur.execute(f'DELETE FROM product_images WHERE producto_id IN ({placeholders})', params)
+                if has_table('product_history'):
+                    cur.execute(f'DELETE FROM product_history WHERE producto_id IN ({placeholders})', params)
+                if has_table('productos'):
+                    cur.execute(f'DELETE FROM productos WHERE id IN ({placeholders})', params)
+
+                try:
+                    conn.commit()
+                except Exception:
+                    logger.debug('No se pudo hacer commit explicito en eliminar_productos_por_id ids=%s', ids)
+            return True
+        except Exception:
+            logger.exception('Error eliminando productos por id ids=%s', ids)
+            return False
+
+    def vaciar_inventario_completo(self) -> bool:
+        """Borra por completo todo el inventario y tablas relacionadas.
+
+        # Función sensible llamada desde Configuración
+        """
+        try:
+            with database.connect() as conn:
+                cur = conn.cursor()
+
+                def has_table(tbl: str) -> bool:
+                    try:
+                        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (tbl,))
+                        return cur.fetchone() is not None
+                    except Exception:
+                        return False
+
+                if has_table('precios'):
+                    cur.execute('DELETE FROM precios')
+                if has_table('codigos_barras'):
+                    cur.execute('DELETE FROM codigos_barras')
+                if has_table('product_images'):
+                    cur.execute('DELETE FROM product_images')
+                if has_table('product_history'):
+                    cur.execute('DELETE FROM product_history')
+                if has_table('productos'):
+                    cur.execute('DELETE FROM productos')
+
+                try:
+                    conn.commit()
+                except Exception:
+                    logger.debug('No se pudo hacer commit explicito en vaciar_inventario_completo')
+            return True
+        except Exception:
+            logger.exception('Error vaciando inventario completo')
             return False
