@@ -17,9 +17,54 @@ class ProductoService:
         pass
 
     def _row_to_dict(self, row: sqlite3.Row) -> Dict[str, Any]:
+        """Normalize DB row into a validated dict (DTO).
+
+        Guarantees the returned dict contains the keys:
+        {'id', 'nombre', 'precio', 'sku', 'tipo_iva', 'pvp_variable'}.
+
+        Ensures that numeric fields are not None: `precio` and `pvp_variable`
+        will be floats (default 0.0) and `tipo_iva` will be int (default 0).
+        If `row` is None returns None.
+        """
         if row is None:
             return None
-        return {k: row[k] for k in row.keys()}
+
+        # Build base mapping from row keys (sqlite3.Row behaves like a mapping)
+        data = {k: row[k] for k in row.keys()}
+
+        # Standardize keys and types
+        result: Dict[str, Any] = {
+            'id': data.get('id'),
+            'nombre': data.get('nombre') or '',
+            'precio': 0.0,
+            'sku': data.get('sku') or '',
+            'tipo_iva': 0,
+            'pvp_variable': 0.0,
+        }
+
+        # precio: accept numeric-like, otherwise coerce to 0.0
+        try:
+            # prefer explicit key 'precio' (alias for pr.pvp)
+            raw_precio = data.get('precio')
+            result['precio'] = float(raw_precio) if raw_precio is not None else 0.0
+        except Exception:
+            result['precio'] = 0.0
+
+        # tipo_iva: ensure int (default 0)
+        try:
+            raw_iva = data.get('tipo_iva')
+            result['tipo_iva'] = int(raw_iva) if raw_iva is not None else 0
+        except Exception:
+            result['tipo_iva'] = 0
+
+        # pvp_variable: ensure float (default 0.0)
+        try:
+            raw_pvpv = data.get('pvp_variable')
+            result['pvp_variable'] = float(raw_pvpv) if raw_pvpv is not None else 0.0
+        except Exception:
+            result['pvp_variable'] = 0.0
+
+        return result
 
     def buscar_por_codigo(self, codigo: str) -> Optional[Dict[str, Any]]:
         """Search product by exact SKU or EAN. Returns a dict or None."""
@@ -49,7 +94,7 @@ class ProductoService:
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()
                 cur.execute('''
-                    SELECT p.id, p.nombre, pr.pvp AS precio, p.sku, COALESCE(p.pvp_variable,0) as pvp_variable
+                    SELECT p.id, p.nombre, pr.pvp AS precio, p.sku, p.tipo_iva, COALESCE(p.pvp_variable,0) as pvp_variable
                     FROM productos p
                     JOIN precios pr ON p.id = pr.producto_id
                     WHERE (p.nombre LIKE ? OR p.sku LIKE ?) AND pr.activo = 1
