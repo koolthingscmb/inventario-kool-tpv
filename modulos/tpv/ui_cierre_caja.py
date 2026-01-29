@@ -8,6 +8,10 @@ try:
     from modulos.tpv.preview_imprimir import preview_ticket
 except Exception:
     preview_ticket = None
+from modulos.impresion.print_service import ImpresionService
+
+# instancia compartida de impresión
+impresion_service = ImpresionService()
 
 
 class CierreCajaView(ctk.CTkFrame):
@@ -579,8 +583,7 @@ class CierreCajaView(ctk.CTkFrame):
     def _on_imprimir_cierre(self):
         try:
             texto = self.detalle_txt.get('0.0', 'end')
-            from modulos.impresion.impresora import imprimir_ticket_y_abrir_cajon
-            imprimir_ticket_y_abrir_cajon(texto)
+            impresion_service.imprimir_ticket(texto, abrir_cajon=True)
         except Exception as e:
             _mb.showerror('Impresión', f'Error imprimiendo: {e}')
 
@@ -613,8 +616,7 @@ class CierreCajaView(ctk.CTkFrame):
 
                 # imprimir
                 try:
-                    from modulos.impresion.impresora import imprimir_ticket_y_abrir_cajon
-                    imprimir_ticket_y_abrir_cajon(text)
+                    impresion_service.imprimir_ticket(text, abrir_cajon=True)
                 except Exception as e:
                     _mb.showerror('Impresión', f'Error imprimiendo: {e}')
                     return

@@ -16,6 +16,10 @@ except Exception:
     preview_ticket = None
 
 from modulos.tpv.ticket_service import TicketService
+from modulos.impresion.print_service import ImpresionService
+
+# instancia compartida de impresión
+impresion_service = ImpresionService()
 
 class CajaVentas(ctk.CTkFrame):
     def __init__(self, parent, controller):
@@ -882,8 +886,7 @@ class CajaVentas(ctk.CTkFrame):
 
             def _imprimir():
                 try:
-                    from modulos.impresion.impresora import imprimir_ticket_y_abrir_cajon
-                    imprimir_ticket_y_abrir_cajon(cierre_text)
+                    impresion_service.imprimir_ticket(cierre_text, abrir_cajon=True)
                 except Exception:
                     pass
 
@@ -1742,9 +1745,8 @@ class CajaVentas(ctk.CTkFrame):
                             except Exception:
                                 pass
                     else:
-                        from modulos.impresion.impresora import imprimir_ticket_y_abrir_cajon
                         try:
-                            imprimir_ticket_y_abrir_cajon(ticket_texto)
+                            impresion_service.imprimir_ticket(ticket_texto, abrir_cajon=True)
                         except Exception:
                             try:
                                 if preview_ticket is not None:

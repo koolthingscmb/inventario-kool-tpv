@@ -1,11 +1,25 @@
 import os
+import sys
 import sqlite3
 from typing import Optional
 from datetime import datetime
 import json
 
-# Central DB path for the application
-DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), 'inventario.db'))
+
+def _app_base_dir():
+    """Return the base directory to resolve bundled resources.
+
+    When running as a PyInstaller onefile bundle, resources are expected
+    to be next to the executable (`sys.executable`). Otherwise use the
+    package directory.
+    """
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(__file__)
+
+
+# Central DB path for the application — resolved relative to the app base dir
+DB_PATH = os.path.abspath(os.path.join(_app_base_dir(), 'inventario.db'))
 
 
 def connect(db_path: Optional[str] = None):

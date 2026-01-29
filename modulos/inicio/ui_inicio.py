@@ -327,8 +327,23 @@ class PantallaInicio(ctk.CTkFrame):
             ctk.CTkButton(frame_bot, text='👤 GESTIÓN CAJEROS', width=btn_w, height=btn_h, fg_color='#777777',
                           font=btn_font, corner_radius=corner,
                           command=lambda: self._safe_call(lambda: self.controller.mostrar_gestion_usuarios())).grid(row=0, column=3, padx=10)
+            # Botón para configurar impresora (abre diálogo)
+            ctk.CTkButton(frame_bot, text='🖨️ Configurar impresora', width=btn_w, height=btn_h, fg_color='#777777',
+                          font=btn_font, corner_radius=corner,
+                          command=lambda: self._safe_call(lambda: self._open_config_impresora())).grid(row=0, column=4, padx=10)
         except Exception:
             pass
+
+    def _open_config_impresora(self):
+        try:
+            from modulos.configuracion.ui_config_impresora import ConfiguracionImpresoraDialog
+            dlg = ConfiguracionImpresoraDialog(self)
+            try:
+                dlg.window.grab_set()
+            except Exception:
+                pass
+        except Exception as e:
+            print('Error abriendo configuración impresora:', e)
 
     def _toggle_export_options(self):
         # Muestra u oculta los botones Artículos / Clientes

@@ -1,61 +1,35 @@
-# modulos/impresion/impresora.py
+"""
+DEPRECATED: `impresora.py`
 
-import sys
+This module is deprecated and now delegates all printing functionality
+to `modulos.impresion.print_service.ImpresionService`.
+
+Please update imports to use `from modulos.impresion.print_service import ImpresionService`
+and call `ImpresionService.imprimir_ticket(...)` directly. This module will be
+removed in a future release.
+"""
+
+from modulos.impresion.print_service import ImpresionService
+
+# Create a module-level, shared ImpresionService instance so existing callsites
+# that import this legacy module still delegate to the new implementation.
+_imp = ImpresionService()
+
 
 def imprimir_ticket_y_abrir_cajon(ticket_texto):
-    if sys.platform.startswith('win'):
-        _imprimir_en_windows_por_nombre(ticket_texto)
-    else:
-        print("\n[IMPRESIÓN SIMULADA - SISTEMA NO WINDOWS]")
-        print("Ticket que se imprimiría:")
-        print("-" * 40)
-        print(ticket_texto)
-        print("-" * 40)
-        print("[FIN SIMULACIÓN]\n")
+    """Legacy wrapper — delegates to ImpresionService.imprimir_ticket.
 
-def _imprimir_en_windows_por_nombre(ticket_texto):
+    Kept for backward compatibility. All new code should use
+    `ImpresionService` directly.
     """
-    Imprime usando el nombre de la impresora registrado en Windows.
-    """
+    # Delegate to the centralized print service. Request the cajon open flag
+    # so behaviour is consistent with the legacy helper name.
     try:
-        import win32print
-        import win32api
-
-        nombre_impresora = "POS-90"  
-
-        # Verificar que la impresora existe
-        impresoras = [printer[2] for printer in win32print.EnumPrinters(win32print.PRINTER_ENUM_LOCAL)]
-        if nombre_impresora not in impresoras:
-            print(f"[ERROR] Impresora '{nombre_impresora}' no encontrada.")
-            print("Impresoras disponibles:")
-            for p in impresoras:
-                print(f"  - {p}")
-            return
-
-        # Comando ESC/POS para abrir cajón
-        comando_cajon = b'\x1B\x70\x00\x10\xFF'
-
-        # Preparar datos: ticket + corte + cajón
-        datos_a_imprimir = (
-            ticket_texto.encode('cp850', errors='replace') +
-            b'\n\n' +
-            comando_cajon +
-            b'\x1D\x56\x00'          
-        )
-
-        # Enviar a impresora
-        hprinter = win32print.OpenPrinter(nombre_impresora)
+        return _imp.imprimir_ticket(ticket_texto, abrir_cajon=True)
+    except Exception:
+        # If anything fails, attempt to print to console for debugging parity
+        # with the old behaviour then re-raise.
         try:
-            hjob = win32print.StartDocPrinter(hprinter, 1, ("Ticket KOOL THINGS", None, "RAW"))
-            win32print.StartPagePrinter(hprinter)
-            win32print.WritePrinter(hprinter, datos_a_imprimir)
-            win32print.EndPagePrinter(hprinter)
-            win32print.EndDocPrinter(hprinter)
+            print(ticket_texto)
         finally:
-            win32print.ClosePrinter(hprinter)
-
-        print("[ÉXITO] Ticket enviado a la impresora y cajón abierto.")
-
-    except Exception as e:
-        print(f"[ERROR IMPRESIÓN WINDOWS] {e}")
-        print("Asegúrate de tener instalado 'pywin32' y que la impresora esté encendida.")
+            raise

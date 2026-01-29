@@ -118,7 +118,7 @@ class EstadisticasView(ctk.CTkFrame):
         ctk.CTkLabel(right, text="Área de visualización", font=(None, 14, "bold"), text_color="gray").pack(anchor="nw", padx=12, pady=12)
         self.visual_area = ctk.CTkTextbox(right, width=800, height=400)
         try:
-            self.visual_area.configure(font=("Courier", 11))
+            self.visual_area.configure(font=("Courier", 17))  # tamaño de fuente ajustado aquí
         except Exception:
             pass
         self.visual_area.pack(fill="both", expand=True, padx=12, pady=6)

@@ -8,11 +8,10 @@ from typing import List, Optional
 
 from modulos.tpv.cierre_service import CierreService
 from modulos.exportar_importar.exportar_service import ExportarService
+from modulos.impresion.print_service import ImpresionService
 
-try:
-    from modulos.impresion.impresora import imprimir_ticket_y_abrir_cajon
-except Exception:
-    imprimir_ticket_y_abrir_cajon = None
+# instancia compartida de impresión
+impresion_service = ImpresionService()
 
 class HistoricoCierresView(ctk.CTkFrame):
     """Vista histórica de cierres; utiliza exclusivamente CierreService (sin SQL)."""
@@ -251,8 +250,16 @@ class HistoricoCierresView(ctk.CTkFrame):
 
     def _on_reimprimir(self):
         text = self.detalle_txt.get("0.0", "end")
-        if text.strip() and imprimir_ticket_y_abrir_cajon:
-            imprimir_ticket_y_abrir_cajon(text)
+        if text.strip():
+            try:
+                impresion_service.imprimir_ticket(text, abrir_cajon=True)
+            except Exception:
+                # fallback: show preview or print to console
+                try:
+                    print('\n[RE-IMPRESIÓN FALLBACK]')
+                    print(text)
+                except Exception:
+                    pass
 
     def _on_export_csv(self):
         d = self.ent_desde.get().strip()
