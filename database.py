@@ -191,6 +191,27 @@ def ensure_ticket_schema():
     except Exception:
         pass
     try:
+        if 'cliente_id' not in cols:
+            cur.execute('ALTER TABLE tickets ADD COLUMN cliente_id INTEGER')
+    except Exception:
+        pass
+    try:
+        cur.execute('CREATE INDEX IF NOT EXISTS idx_tickets_cliente_id ON tickets(cliente_id)')
+    except Exception:
+        pass
+    try:
+        cur.execute('CREATE INDEX IF NOT EXISTS idx_tickets_cierre_id ON tickets(cierre_id)')
+    except Exception:
+        pass
+    try:
+        cur.execute('CREATE INDEX IF NOT EXISTS idx_tickets_cajero ON tickets(cajero)')
+    except Exception:
+        pass
+    try:
+        cur.execute('CREATE INDEX IF NOT EXISTS idx_cierres_fecha ON cierres_caja(fecha_hora)')
+    except Exception:
+        pass
+    try:
         conn.commit()
     except Exception:
         pass
@@ -231,6 +252,34 @@ def ensure_product_schema():
             except Exception:
                 pass
 
+    # Add proveedor_id column to normalize provider relationship
+    try:
+        cur.execute('PRAGMA table_info(productos)')
+        prod_cols = [c[1] for c in cur.fetchall()]
+    except Exception:
+        prod_cols = []
+    try:
+        if 'proveedor_id' not in prod_cols:
+            cur.execute('ALTER TABLE productos ADD COLUMN proveedor_id INTEGER')
+    except Exception:
+        pass
+
+    # Attempt to backfill proveedor_id from productos.proveedor when possible.
+    # First try numeric ids stored as text, then try matching by provider name.
+    try:
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='proveedores'")
+        if cur.fetchone():
+            try:
+                cur.execute("UPDATE productos SET proveedor_id = CAST(proveedor AS INTEGER) WHERE proveedor GLOB '[0-9]*' AND EXISTS (SELECT 1 FROM proveedores WHERE id = CAST(productos.proveedor AS INTEGER))")
+            except Exception:
+                pass
+            try:
+                cur.execute("UPDATE productos SET proveedor_id = (SELECT id FROM proveedores WHERE proveedores.nombre = productos.proveedor LIMIT 1) WHERE proveedor IS NOT NULL AND proveedor != '' AND proveedor_id IS NULL")
+            except Exception:
+                pass
+    except Exception:
+        pass
+
     cur.execute('''
         CREATE TABLE IF NOT EXISTS product_images (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -250,6 +299,11 @@ def ensure_product_schema():
             FOREIGN KEY(producto_id) REFERENCES productos(id) ON DELETE CASCADE
         )
     ''')
+
+    try:
+        cur.execute('CREATE INDEX IF NOT EXISTS idx_productos_proveedor_id ON productos(proveedor_id)')
+    except Exception:
+        pass
 
     conn.commit()
     conn.close()

@@ -1,10 +1,13 @@
 import logging
 import customtkinter as ctk
+import os
 from datetime import datetime, timedelta
 from tkinter import messagebox
+from tkinter.filedialog import asksaveasfilename
 from typing import List, Optional
 
 from modulos.tpv.cierre_service import CierreService
+from modulos.exportar_importar.exportar_service import ExportarService
 
 try:
     from modulos.impresion.impresora import imprimir_ticket_y_abrir_cajon
@@ -67,9 +70,18 @@ class HistoricoCierresView(ctk.CTkFrame):
         self.btn_reimprimir.pack(side="left", padx=8)
         # Exportar CSV: funcionalidad centralizada en ExportarService.
         # TODO: integrar con `modulos.exportar_importar.exportar_service.ExportarService`
-        self.btn_export = ctk.CTkButton(btns, text="📄 EXPORTAR CSV", state="disabled",
-                        command=lambda: messagebox.showinfo('Exportar', 'Exportación centralizada en ExportarService (pendiente).'))
+        self.btn_export = ctk.CTkButton(btns, text="📄 EXPORTAR CSV", state="disabled", command=self._on_export_csv)
         self.btn_export.pack(side="left", padx=8)
+        self.btn_export_pdf = ctk.CTkButton(btns, text="📕 EXPORTAR PDF", state="disabled", command=self._on_export_pdf)
+        self.btn_export_pdf.pack(side="left", padx=8)
+        # Export ventas por cajero
+        self.btn_export_cajero_csv = ctk.CTkButton(btns, text="📄 EXPORTAR POR CAJERO (CSV)", state="disabled", command=self._on_export_cajero_csv)
+        self.btn_export_cajero_csv.pack(side="left", padx=8)
+        try:
+            self.btn_export_cajero_pdf = ctk.CTkButton(btns, text="📕 EXPORTAR POR CAJERO (PDF)", state="disabled", command=self._on_export_cajero_pdf)
+            self.btn_export_cajero_pdf.pack(side="left", padx=8)
+        except Exception:
+            self.btn_export_cajero_pdf = None
         self.btn_ver_tickets = ctk.CTkButton(btns, text="🔍 VER TICKETS DEL DÍA", state="disabled", command=self._on_ver_tickets)
         self.btn_ver_tickets.pack(side="left", padx=8)
 
@@ -121,11 +133,40 @@ class HistoricoCierresView(ctk.CTkFrame):
             self.btn_reimprimir.configure(state=state)
             # keep export button enabled/disabled for parity; command shows TODO
             self.btn_export.configure(state=state)
+            try:
+                self.btn_export_pdf.configure(state=state)
+            except Exception:
+                pass
+            try:
+                self.btn_export_cajero_csv.configure(state=state)
+            except Exception:
+                pass
+            try:
+                if self.btn_export_cajero_pdf:
+                    self.btn_export_cajero_pdf.configure(state=state)
+            except Exception:
+                pass
             
             # Resumen rápido en el visor
             total_sum = sum(float(r.get("total_ingresos") or 0.0) for r in rows)
             self.detalle_txt.delete("0.0", "end")
             self.detalle_txt.insert("end", f"Cierres: {len(rows)}\nTotal ingresos: {total_sum:.2f} €\n")
+
+            # Mostrar ventas por cajero para el periodo
+            try:
+                ventas = self.cierre_service.ventas_por_cajero(desde, hasta) or []
+                self.detalle_txt.insert("end", "\nVENTAS POR CAJERO:\n")
+                self.detalle_txt.insert("end", f"{'Cajero':<20} {'ID':>6} {'Total':>12}\n")
+                self.detalle_txt.insert("end", "-" * 40 + "\n")
+                for v in ventas:
+                    nombre = (v.get('nombre') or '')[:20]
+                    cid = str(v.get('cajero_id') or 'N/A')
+                    total = float(v.get('total_ventas') or 0.0)
+                    self.detalle_txt.insert("end", f"{nombre:<20} {cid:>6} {total:>12.2f}€\n")
+                if not ventas:
+                    self.detalle_txt.insert("end", "(Sin ventas por cajero en el periodo)\n")
+            except Exception:
+                logging.exception('Error mostrando ventas por cajero en UI')
         except Exception:
             logging.exception("Error en _query_and_populate")
 
@@ -176,6 +217,23 @@ class HistoricoCierresView(ctk.CTkFrame):
         add_block("POR TIPOS", detalle.get('por_tipo'), 'tipo')
         add_block("TOP 10 ARTÍCULOS", detalle.get('por_articulo'), 'nombre')
 
+        # --- DESGLOSE FIDELIZACIÓN ---
+        try:
+            from modulos.tpv.fidelizacion_service import FidelizacionService
+            fid = FidelizacionService()
+            # use cierre date as period (day)
+            fecha = str(detalle.get('fecha_hora')).split('T')[0]
+            puntos = fid.desglose_puntos_periodo(fecha, fecha)
+            lines.append('\nPUNTOS OTORGADOS: ' + f"{puntos.get('puntos_otorgados',0):.2f}\n")
+            for c in puntos.get('clientes_otorgados', []):
+                lines.append(f"  {c.get('nombre','')[:18]:<18} {c.get('cliente_id') or '':>4} {c.get('puntos',0):>8.2f} pts\n")
+            lines.append('\nPUNTOS GASTADOS: ' + f"{puntos.get('puntos_gastados',0):.2f}\n")
+            for c in puntos.get('clientes_gastados', []):
+                lines.append(f"  {c.get('nombre','')[:18]:<18} {c.get('cliente_id') or '':>4} {c.get('puntos',0):>8.2f} pts\n")
+            lines.append('-' * 30 + "\n")
+        except Exception:
+            pass
+
         lines.append("\n¡Gracias por tu confianza!\n")
 
         self.detalle_txt.delete("0.0", "end")
@@ -195,5 +253,73 @@ class HistoricoCierresView(ctk.CTkFrame):
         text = self.detalle_txt.get("0.0", "end")
         if text.strip() and imprimir_ticket_y_abrir_cajon:
             imprimir_ticket_y_abrir_cajon(text)
+
+    def _on_export_csv(self):
+        d = self.ent_desde.get().strip()
+        h = self.ent_hasta.get().strip()
+        if not (self._valid_date(d) and self._valid_date(h)):
+            messagebox.showerror("Fecha", "Formato de fecha inválido. Use YYYY-MM-DD")
+            return
+        svc = ExportarService()
+        initial = f"ventas_{d}_a_{h}.csv"
+        path = asksaveasfilename(defaultextension='.csv', filetypes=[('CSV','*.csv')], initialfile=initial)
+        if not path:
+            return
+        ok = svc.exportar_desglose_ventas_csv(path, d + 'T00:00:00', h + 'T23:59:59')
+        if ok:
+            messagebox.showinfo('Exportar', f'CSV exportado: {path}')
+        else:
+            messagebox.showerror('Exportar', 'Error al exportar CSV')
+
+    def _on_export_pdf(self):
+        d = self.ent_desde.get().strip()
+        h = self.ent_hasta.get().strip()
+        if not (self._valid_date(d) and self._valid_date(h)):
+            messagebox.showerror("Fecha", "Formato de fecha inválido. Use YYYY-MM-DD")
+            return
+        svc = ExportarService()
+        initial = f"ventas_{d}_a_{h}.pdf"
+        path = asksaveasfilename(defaultextension='.pdf', filetypes=[('PDF','*.pdf')], initialfile=initial)
+        if not path:
+            return
+        ok = svc.exportar_desglose_ventas_pdf(path, d + 'T00:00:00', h + 'T23:59:59')
+        if ok:
+            messagebox.showinfo('Exportar', f'PDF exportado: {path}')
+        else:
+            messagebox.showerror('Exportar', 'Error al exportar PDF')
+
+    def _on_export_cajero_csv(self):
+        d = self.ent_desde.get().strip()
+        h = self.ent_hasta.get().strip()
+        if not (self._valid_date(d) and self._valid_date(h)):
+            messagebox.showerror("Fecha", "Formato de fecha inválido. Use YYYY-MM-DD")
+            return
+        svc = ExportarService()
+        initial = f"ventas_por_cajero_{d}_a_{h}.csv"
+        path = asksaveasfilename(defaultextension='.csv', filetypes=[('CSV','*.csv')], initialfile=initial)
+        if not path:
+            return
+        ok = svc.exportar_ventas_por_cajero_csv(path, d + 'T00:00:00', h + 'T23:59:59')
+        if ok:
+            messagebox.showinfo('Exportar', f'CSV exportado: {path}')
+        else:
+            messagebox.showerror('Exportar', 'Error al exportar CSV')
+
+    def _on_export_cajero_pdf(self):
+        d = self.ent_desde.get().strip()
+        h = self.ent_hasta.get().strip()
+        if not (self._valid_date(d) and self._valid_date(h)):
+            messagebox.showerror("Fecha", "Formato de fecha inválido. Use YYYY-MM-DD")
+            return
+        svc = ExportarService()
+        initial = f"ventas_por_cajero_{d}_a_{h}.pdf"
+        path = asksaveasfilename(defaultextension='.pdf', filetypes=[('PDF','*.pdf')], initialfile=initial)
+        if not path:
+            return
+        ok = svc.exportar_ventas_por_cajero_pdf(path, d + 'T00:00:00', h + 'T23:59:59')
+        if ok:
+            messagebox.showinfo('Exportar', f'PDF exportado: {path}')
+        else:
+            messagebox.showerror('Exportar', 'Error al exportar PDF')
 
     # Export CSV removed from UI; TODO integrate with ExportarService

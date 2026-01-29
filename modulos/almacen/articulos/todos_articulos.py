@@ -1,5 +1,6 @@
 import os
 import time
+from datetime import datetime
 import logging
 import tkinter as tk
 from tkinter import filedialog
@@ -822,7 +823,8 @@ class TodosArticulos(ctk.CTkFrame):
             except Exception:
                 pass
             return
-        default_name = f"articulos_export_{int(time.time())}.csv"
+        today = datetime.now().date().isoformat()
+        default_name = f"articulos_{today}_a_{today}.csv"
         path = filedialog.asksaveasfilename(defaultextension='.csv', filetypes=[('CSV','*.csv')], initialfile=default_name)
         if not path:
             return
@@ -848,7 +850,8 @@ class TodosArticulos(ctk.CTkFrame):
             except Exception:
                 pass
             return
-        default_name = f"articulos_export_{int(time.time())}.pdf"
+        today = datetime.now().date().isoformat()
+        default_name = f"articulos_{today}_a_{today}.pdf"
         path = filedialog.asksaveasfilename(defaultextension='.pdf', filetypes=[('PDF','*.pdf')], initialfile=default_name)
         if not path:
             return

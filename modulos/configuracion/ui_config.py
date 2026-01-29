@@ -1,12 +1,9 @@
 import customtkinter as ctk
 import tkinter as tk
 from tkinter import messagebox
-try:
-    # Legacy module removed; export functionality will be provided by ExportarService.
-    from modulos.configuracion import exportador
-except Exception:
-    exportador = None
-    # TODO: Rewire this dialog to use `modulos.exportar_importar.exportar_service.ExportarService`
+from modulos.exportar_importar.exportar_service import ExportarService
+from datetime import datetime
+exportador = None
 
 class DialogExportArticulos(ctk.CTkToplevel):
     def __init__(self, parent):
@@ -62,16 +59,22 @@ class DialogExportArticulos(ctk.CTkToplevel):
 
     def _dry_run(self):
         cats, s = self._gather_filters()
-        if not exportador:
-            messagebox.showinfo('Dry-run', 'Funcionalidad de exportación deshabilitada. Integrar con ExportarService.')
-            return
-        rows = exportador.exportar_articulos_csv(categorias=cats, search=s, dry_run=True)
+        svc = ExportarService()
+        rows = svc.exportar_articulos_csv(nombre_archivo=None, categorias=cats, search=s, dry_run=True)
         messagebox.showinfo('Dry-run', f'Se exportarían {len(rows)} filas (máx 10000).')
 
     def _export(self):
         cats, s = self._gather_filters()
-        if not exportador:
-            messagebox.showinfo('Exportado', 'Funcionalidad de exportación deshabilitada. Integrar con ExportarService.')
+        svc = ExportarService()
+        # pedir ruta al usuario
+        from tkinter import filedialog
+        today = datetime.now().date().isoformat()
+        default_name = f"articulos_{today}_a_{today}.csv"
+        path = filedialog.asksaveasfilename(defaultextension='.csv', filetypes=[('CSV','*.csv')], initialfile=default_name)
+        if not path:
             return
-        path = exportador.exportar_articulos_csv(categorias=cats, search=s, dry_run=False)
-        messagebox.showinfo('Exportado', f'CSV guardado en: {path}')
+        ok = svc.exportar_articulos_csv(nombre_archivo=path, categorias=cats, search=s, dry_run=False)
+        if ok:
+            messagebox.showinfo('Exportado', f'CSV guardado en: {path}')
+        else:
+            messagebox.showerror('Exportado', 'Error exportando CSV. Revisa logs.')

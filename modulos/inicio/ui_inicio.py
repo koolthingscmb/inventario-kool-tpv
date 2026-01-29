@@ -40,23 +40,27 @@ class PantallaInicio(ctk.CTkFrame):
         btn_font = ("Arial", 16, "bold")
 
         ctk.CTkButton(self.top_frame, text="🛒 CAJA / TPV", width=btn_w, height=btn_h, font=btn_font,
-                  command=lambda: self._safe_call(self.controller.mostrar_ventas)).pack(side="left", padx=10)
+              command=lambda: self._safe_call(self.controller.mostrar_ventas)).pack(side="left", padx=10)
 
         ctk.CTkButton(self.top_frame, text="📦 ALMACÉN", width=btn_w, height=btn_h, font=btn_font,
-                  fg_color="green", hover_color="darkgreen",
-                  command=lambda: self._safe_call(self.mostrar_submenu_almacen)).pack(side="left", padx=10)
+              fg_color="green", hover_color="darkgreen",
+              command=lambda: self._safe_call(self.mostrar_submenu_almacen)).pack(side="left", padx=10)
 
         ctk.CTkButton(self.top_frame, text="👥 CLIENTES", width=btn_w, height=btn_h, font=btn_font,
-                  fg_color="#D97B29", hover_color="#B5631E",
-                  command=lambda: self._safe_call(self.mostrar_submenu_clientes)).pack(side="left", padx=10)
+              fg_color="#D97B29", hover_color="#B5631E",
+              command=lambda: self._safe_call(self.mostrar_submenu_clientes)).pack(side="left", padx=10)
 
         ctk.CTkButton(self.top_frame, text="🛍️ SHOPIFY", width=btn_w, height=btn_h, font=btn_font,
-                  fg_color="#95BF47", hover_color="#5E8E3E", text_color="black",
-                  command=lambda: self._safe_call(self.mostrar_submenu_shopify)).pack(side="left", padx=10)
+              fg_color="#95BF47", hover_color="#5E8E3E", text_color="black",
+              command=lambda: self._safe_call(self.mostrar_submenu_shopify)).pack(side="left", padx=10)
 
         ctk.CTkButton(self.top_frame, text="⚙️ CONFIG", width=btn_w, height=btn_h, font=btn_font,
               fg_color="gray", hover_color="#444444",
               command=lambda: self._safe_call(self._intentar_abrir_config)).pack(side="left", padx=10)
+        # Estadísticas button (informational module)
+        ctk.CTkButton(self.top_frame, text="📊 ESTADÍSTICAS", width=btn_w, height=btn_h, font=btn_font,
+              fg_color="#3b6ea8", hover_color="#2f5c88",
+              command=lambda: self._safe_call(self.controller.mostrar_estadisticas)).pack(side="left", padx=10)
 
         # --- 3. NIVEL 2: SUBMENÚ ---
         self.submenu_frame = ctk.CTkFrame(self, fg_color="#2b2b2b", corner_radius=0, height=120)

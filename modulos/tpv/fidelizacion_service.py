@@ -146,3 +146,86 @@ class FidelizacionService:
         except Exception:
             logger.exception('Error calculando puntos de fidelización')
             return 0.0
+
+    def desglose_puntos_periodo(self, fecha_desde: str, fecha_hasta: str) -> dict:
+        """Devuelve un desglose de puntos en el periodo [fecha_desde, fecha_hasta].
+
+        Fecha esperada en ISO: 'YYYY-MM-DD' o ISO datetime. Devuelve dict con claves:
+        - puntos_otorgados, puntos_gastados, clientes_otorgados, clientes_gastados
+        Clientes se intentan mapear contra la tabla `clientes` por nombre exacto.
+        """
+        try:
+            import sqlite3
+            from database import connect
+
+            conn = connect()
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+
+            # Normalize inputs to full timestamps for inclusive range
+            def _norm(dt_str):
+                if 'T' in dt_str:
+                    return dt_str
+                return dt_str + 'T00:00:00'
+
+            desde = _norm(fecha_desde)
+            hasta = fecha_hasta
+            if 'T' not in hasta:
+                hasta = fecha_hasta + 'T23:59:59'
+
+            # Totales
+            cur.execute('SELECT COALESCE(SUM(puntos_ganados),0) AS otorgados, COALESCE(SUM(puntos_canjeados),0) AS gastados FROM tickets WHERE created_at BETWEEN ? AND ?', (desde, hasta))
+            row = cur.fetchone()
+            puntos_otorgados = float(row['otorgados'] or 0.0)
+            puntos_gastados = float(row['gastados'] or 0.0)
+
+            # Por cliente (por nombre guardado en tickets.cliente)
+            cur.execute('SELECT cliente, COALESCE(SUM(puntos_ganados),0) AS pts FROM tickets WHERE created_at BETWEEN ? AND ? AND cliente IS NOT NULL GROUP BY cliente', (desde, hasta))
+            otorgados_rows = [dict(r) for r in cur.fetchall()]
+
+            cur.execute('SELECT cliente, COALESCE(SUM(puntos_canjeados),0) AS pts FROM tickets WHERE created_at BETWEEN ? AND ? AND cliente IS NOT NULL GROUP BY cliente', (desde, hasta))
+            gastados_rows = [dict(r) for r in cur.fetchall()]
+
+            # Map ticket cliente (string) to clientes.id when possible
+            clientes_map = {}
+            try:
+                cur.execute('SELECT id, nombre FROM clientes')
+                for r in cur.fetchall():
+                    nombre = r['nombre'] if 'nombre' in r.keys() else r[1]
+                    clientes_map[nombre] = int(r['id'] if 'id' in r.keys() else r[0])
+            except Exception:
+                clientes_map = {}
+
+            clientes_otorgados = []
+            for r in otorgados_rows:
+                nombre = r.get('cliente')
+                pts = float(r.get('pts') or 0.0)
+                cid = clientes_map.get(nombre)
+                clientes_otorgados.append({'cliente_id': cid, 'nombre': nombre, 'puntos': pts})
+
+            clientes_gastados = []
+            for r in gastados_rows:
+                nombre = r.get('cliente')
+                pts = float(r.get('pts') or 0.0)
+                cid = clientes_map.get(nombre)
+                clientes_gastados.append({'cliente_id': cid, 'nombre': nombre, 'puntos': pts})
+
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+            return {
+                'puntos_otorgados': puntos_otorgados,
+                'puntos_gastados': puntos_gastados,
+                'clientes_otorgados': clientes_otorgados,
+                'clientes_gastados': clientes_gastados,
+            }
+        except Exception:
+            logger.exception('Error obteniendo desglose puntos periodo')
+            return {
+                'puntos_otorgados': 0,
+                'puntos_gastados': 0,
+                'clientes_otorgados': [],
+                'clientes_gastados': [],
+            }

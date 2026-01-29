@@ -3,6 +3,7 @@ from tkinter import ttk
 from tkinter import messagebox as _mb
 from datetime import datetime
 from database import connect, close_day
+from modulos.tpv.cierre_service import CierreService
 try:
     from modulos.tpv.preview_imprimir import preview_ticket
 except Exception:
@@ -86,6 +87,12 @@ class CierreCajaView(ctk.CTkFrame):
 
         self.current_date = datetime.now().date().isoformat()
         self.lbl_fecha.configure(text=f"Día: {self.current_date}")
+
+        # Service instance for centralized calculations
+        try:
+            self.cierre_service = CierreService()
+        except Exception:
+            self.cierre_service = None
 
         # actualizar footer y cargar tickets
         self._update_footer_cierre()
@@ -458,23 +465,31 @@ class CierreCajaView(ctk.CTkFrame):
                 'total_web': float(total_web or 0.0),
             }
 
-            # impuestos por tipo de IVA
-            # cuando hacemos JOIN con ticket_lines/tickets usamos t.created_at en el WHERE
-            where_t = where.replace('created_at', 't.created_at')
-            cur.execute(f"SELECT tl.iva, COALESCE(SUM(tl.cantidad * tl.precio),0) as subtotal FROM ticket_lines tl JOIN tickets t ON tl.ticket_id = t.id WHERE {where_t} GROUP BY tl.iva", params)
-            impuestos = []
-            for iva_rate, subtotal in cur.fetchall():
-                try:
-                    iva_f = float(iva_rate or 0.0)
-                    subtotal_f = float(subtotal or 0.0)
-                    divisor = 1 + (iva_f / 100.0) if iva_f != 0 else 1.0
-                    base = subtotal_f / divisor
-                    cuota = subtotal_f - base
-                except Exception:
-                    base = 0.0
-                    cuota = 0.0
-                impuestos.append({'iva': iva_f, 'base': base, 'cuota': cuota, 'total': subtotal_f})
-            resumen['impuestos'] = impuestos
+            # impuestos por tipo de IVA (usar el servicio centralizado si está disponible)
+            try:
+                desde_iso = last_dt if last_dt else '1970-01-01T00:00:00'
+                hasta_iso = now_dt
+                if self.cierre_service:
+                    impuestos = self.cierre_service.desglose_impuestos_periodo(desde_iso, hasta_iso)
+                else:
+                    # fallback: compute here (legacy)
+                    where_t = where.replace('created_at', 't.created_at')
+                    cur.execute(f"SELECT tl.iva, COALESCE(SUM(tl.cantidad * tl.precio),0) as subtotal FROM ticket_lines tl JOIN tickets t ON tl.ticket_id = t.id WHERE {where_t} GROUP BY tl.iva", params)
+                    impuestos = []
+                    for iva_rate, subtotal in cur.fetchall():
+                        try:
+                            iva_f = float(iva_rate or 0.0)
+                            subtotal_f = float(subtotal or 0.0)
+                            divisor = 1 + (iva_f / 100.0) if iva_f != 0 else 1.0
+                            base = subtotal_f / divisor
+                            cuota = subtotal_f - base
+                        except Exception:
+                            base = 0.0
+                            cuota = 0.0
+                        impuestos.append({'iva': iva_f, 'base': base, 'cuota': cuota, 'total': subtotal_f})
+                resumen['impuestos'] = impuestos
+            except Exception:
+                resumen['impuestos'] = []
 
             # ventas por cajero
             cur.execute(f"SELECT cajero, COUNT(*), COALESCE(SUM(total),0) FROM tickets WHERE {where} GROUP BY cajero", params)
@@ -484,39 +499,53 @@ class CierreCajaView(ctk.CTkFrame):
             resumen['aperturas_cajon_sin_venta'] = 0
 
             # condicionales: categorias, tipos, articulos
-            if self.opt_cat.get():
-                cur.execute(f"""
-                    SELECT COALESCE(p.categoria, ''), SUM(tl.cantidad) as qty, SUM(tl.cantidad * tl.precio) as total
-                    FROM ticket_lines tl
-                    JOIN tickets t ON tl.ticket_id = t.id
-                    JOIN productos p ON tl.sku = p.sku
-                    WHERE {where_t}
-                    GROUP BY p.categoria
-                """, params)
-                resumen['por_categoria'] = [{"categoria": r[0], "qty": r[1], "total": r[2]} for r in cur.fetchall()]
+            # Use centralized service to obtain breakdowns for categories, types and articles
+            try:
+                desde_iso = last_dt if last_dt else '1970-01-01T00:00:00'
+                hasta_iso = now_dt
+                if self.cierre_service:
+                    desglose = self.cierre_service.desglose_ventas(desde_iso, hasta_iso)
+                    resumen['por_categoria'] = desglose.get('por_categoria') or []
+                    resumen['por_tipo'] = desglose.get('por_tipo') or []
+                    resumen['por_articulo'] = desglose.get('por_articulo') or []
+                else:
+                    # fallback to previous per-query calculations
+                    if self.opt_cat.get():
+                        cur.execute(f"""
+                            SELECT COALESCE(p.categoria, ''), SUM(tl.cantidad) as qty, SUM(tl.cantidad * tl.precio) as total
+                            FROM ticket_lines tl
+                            JOIN tickets t ON tl.ticket_id = t.id
+                            JOIN productos p ON tl.sku = p.sku
+                            WHERE {where_t}
+                            GROUP BY p.categoria
+                        """, params)
+                        resumen['por_categoria'] = [{"categoria": r[0], "qty": r[1], "total": r[2]} for r in cur.fetchall()]
 
-            if self.opt_top.get():
-                # Resumen Tipos (agrupado por producto.tipo)
-                cur.execute(f"""
-                    SELECT COALESCE(p.tipo, ''), SUM(tl.cantidad) as qty, SUM(tl.cantidad * tl.precio) as total
-                    FROM ticket_lines tl
-                    JOIN tickets t ON tl.ticket_id = t.id
-                    JOIN productos p ON tl.sku = p.sku
-                    WHERE {where_t}
-                    GROUP BY p.tipo
-                """, params)
-                resumen['por_tipo'] = [{"tipo": r[0], "qty": r[1], "total": r[2]} for r in cur.fetchall()]
+                    if self.opt_top.get():
+                        cur.execute(f"""
+                            SELECT COALESCE(p.tipo, ''), SUM(tl.cantidad) as qty, SUM(tl.cantidad * tl.precio) as total
+                            FROM ticket_lines tl
+                            JOIN tickets t ON tl.ticket_id = t.id
+                            JOIN productos p ON tl.sku = p.sku
+                            WHERE {where_t}
+                            GROUP BY p.tipo
+                        """, params)
+                        resumen['por_tipo'] = [{"tipo": r[0], "qty": r[1], "total": r[2]} for r in cur.fetchall()]
 
-            if self.opt_lines.get():
-                cur.execute(f"""
-                    SELECT tl.nombre, SUM(tl.cantidad) as qty, SUM(tl.cantidad * tl.precio) as total
-                    FROM ticket_lines tl
-                    JOIN tickets t ON tl.ticket_id = t.id
-                    WHERE {where_t}
-                    GROUP BY tl.nombre
-                    ORDER BY qty DESC
-                """, params)
-                resumen['por_articulo'] = [{"nombre": r[0], "qty": r[1], "total": r[2]} for r in cur.fetchall()]
+                    if self.opt_lines.get():
+                        cur.execute(f"""
+                            SELECT tl.nombre, SUM(tl.cantidad) as qty, SUM(tl.cantidad * tl.precio) as total
+                            FROM ticket_lines tl
+                            JOIN tickets t ON tl.ticket_id = t.id
+                            WHERE {where_t}
+                            GROUP BY tl.nombre
+                            ORDER BY qty DESC
+                        """, params)
+                        resumen['por_articulo'] = [{"nombre": r[0], "qty": r[1], "total": r[2]} for r in cur.fetchall()]
+            except Exception:
+                resumen['por_categoria'] = resumen.get('por_categoria', [])
+                resumen['por_tipo'] = resumen.get('por_tipo', [])
+                resumen['por_articulo'] = resumen.get('por_articulo', [])
 
             return resumen
         except Exception:

@@ -1501,6 +1501,7 @@ class CajaVentas(ctk.CTkFrame):
                     'total': total,
                     'cajero': cajero_txt,
                     'cliente': cliente_nombre,
+                    'cliente_id': cliente_id,
                     'forma_pago': forma_pago,
                     'pagado': efectivo,
                     'cambio': cambio,

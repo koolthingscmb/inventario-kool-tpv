@@ -1,0 +1,18 @@
+﻿seccion;clave;qty;total
+CATEGORIAS;;;
+CATEGORIAS;Bolsas de deporte;1.0;22.0
+CATEGORIAS;Gorros;3.0;42.0
+CATEGORIAS;Parches bordados;1.0;5.0
+;;;
+TIPOS;;;
+TIPOS;Cartera;1.0;22.0
+TIPOS;Gorra;3.0;42.0
+TIPOS;Parche;1.0;5.0
+;;;
+ARTICULOS;;;
+ARTICULOS;Egon;1.0;5.0
+ARTICULOS;caja;3.0;42.0
+ARTICULOS;kjkd;1.0;22.0
+;;;
+IVA;;;
+IVA;21.0%;57.02479338842976;11.975206611570243

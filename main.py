@@ -303,6 +303,23 @@ class AppTPV(ctk.CTk):
             except Exception:
                 pass
 
+    def mostrar_estadisticas(self):
+        try:
+            self.config_desbloqueado = False
+        except Exception:
+            pass
+        try:
+            from modulos.estadisticas.ui_estadisticas import EstadisticasView
+            self.limpiar_container()
+            view = EstadisticasView(self.container, self)
+            view.pack(fill='both', expand=True)
+        except Exception:
+            logging.exception('Error mostrando la vista de Estadísticas')
+            try:
+                self.mostrar_inicio()
+            except Exception:
+                pass
+
     def toggle_imprimir_tickets(self):
         try:
             self.imprimir_tickets_enabled = not getattr(self, 'imprimir_tickets_enabled', False)

@@ -63,6 +63,7 @@ class TicketService:
                 float(datos_ticket.get('total', 0.0)),
                 datos_ticket.get('cajero'),
                 datos_ticket.get('cliente'),
+                datos_ticket.get('cliente_id'),
                 next_no,
                 datos_ticket.get('forma_pago'),
                 datos_ticket.get('pagado'),
@@ -73,7 +74,7 @@ class TicketService:
             )
 
             cur.execute(
-                'INSERT INTO tickets (created_at, total, cajero, cliente, ticket_no, forma_pago, pagado, cambio, puntos_ganados, puntos_canjeados, puntos_total_momento) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+                'INSERT INTO tickets (created_at, total, cajero, cliente, cliente_id, ticket_no, forma_pago, pagado, cambio, puntos_ganados, puntos_canjeados, puntos_total_momento) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
                 ticket_params,
             )
 

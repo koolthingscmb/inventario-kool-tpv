@@ -122,12 +122,53 @@ class ProductoService:
                 except Exception:
                     cols = []
 
+                # Resolve proveedor_id and proveedor display name
+                prov_id = None
+                prov_name = ''
+                try:
+                    # If an explicit proveedor_id is provided in datos_producto, prefer it
+                    given_prov_id = datos_producto.get('proveedor_id')
+                    given_prov = proveedor
+                    if given_prov_id:
+                        cur.execute('SELECT id, nombre FROM proveedores WHERE id=? LIMIT 1', (int(given_prov_id),))
+                        r = cur.fetchone()
+                        if r:
+                            prov_id = int(r[0])
+                            prov_name = r[1] if 'nombre' in r.keys() else r[1]
+                    elif given_prov:
+                        # try numeric id in proveedor string
+                        try:
+                            if str(given_prov).isdigit():
+                                cur.execute('SELECT id, nombre FROM proveedores WHERE id=? LIMIT 1', (int(given_prov),))
+                                r = cur.fetchone()
+                                if r:
+                                    prov_id = int(r[0])
+                                    prov_name = r[1] if 'nombre' in r.keys() else r[1]
+                        except Exception:
+                            pass
+                        # try match by name
+                        if prov_id is None:
+                            try:
+                                cur.execute('SELECT id, nombre FROM proveedores WHERE nombre=? LIMIT 1', (given_prov,))
+                                r = cur.fetchone()
+                                if r:
+                                    prov_id = int(r[0])
+                                    prov_name = r[1] if 'nombre' in r.keys() else r[1]
+                            except Exception:
+                                pass
+                    # if no match, keep proveedor text as provided
+                    if not prov_name:
+                        prov_name = given_prov or ''
+                except Exception:
+                    prov_id = None
+                    prov_name = proveedor or ''
+
                 # Inserción/actualización base (sin campos opcionales que pueden no existir)
                 if not prod_id:
                     cur.execute('''
-                        INSERT INTO productos (nombre, nombre_boton, sku, categoria, proveedor, tipo_iva, stock_actual, pvp_variable, titulo, stock_minimo, activo, created_at, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ''', (nombre, nombre_boton, sku, categoria, proveedor, tipo_iva, stock_actual, pvp_variable, titulo, stock_minimo, activo, now, now))
+                        INSERT INTO productos (nombre, nombre_boton, sku, categoria, proveedor, proveedor_id, tipo_iva, stock_actual, pvp_variable, titulo, stock_minimo, activo, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (nombre, nombre_boton, sku, categoria, prov_name, prov_id, tipo_iva, stock_actual, pvp_variable, titulo, stock_minimo, activo, now, now))
                     prod_id = cur.lastrowid
                 else:
                     # asegurar que el id sea int
@@ -136,9 +177,9 @@ class ProductoService:
                     except Exception:
                         pid = prod_id
                     cur.execute('''
-                        UPDATE productos SET nombre=?, nombre_boton=?, sku=?, categoria=?, proveedor=?, tipo_iva=?, stock_actual=?, pvp_variable=?, titulo=?, stock_minimo=?, activo=?, updated_at=?
+                        UPDATE productos SET nombre=?, nombre_boton=?, sku=?, categoria=?, proveedor=?, proveedor_id=?, tipo_iva=?, stock_actual=?, pvp_variable=?, titulo=?, stock_minimo=?, activo=?, updated_at=?
                         WHERE id=?
-                    ''', (nombre, nombre_boton, sku, categoria, proveedor, tipo_iva, stock_actual, pvp_variable, titulo, stock_minimo, activo, now, pid))
+                    ''', (nombre, nombre_boton, sku, categoria, prov_name, prov_id, tipo_iva, stock_actual, pvp_variable, titulo, stock_minimo, activo, now, pid))
                     prod_id = pid
 
                 # Guardar campos opcionales solo si existen en la tabla
@@ -535,7 +576,7 @@ class ProductoService:
                 sql = 'SELECT ' + ', '.join(select_parts) + ' FROM productos p '
                 sql += 'LEFT JOIN precios pr ON p.id = pr.producto_id AND pr.activo = 1 '
                 sql += 'LEFT JOIN categorias cat ON (p.categoria = cat.nombre OR p.categoria = cat.id) '
-                sql += 'LEFT JOIN proveedores prov ON (p.proveedor = prov.nombre OR p.proveedor = prov.id) '
+                sql += 'LEFT JOIN proveedores prov ON p.proveedor = prov.id '
                 if tipo_col:
                     sql += f'LEFT JOIN tipos t ON (p.{tipo_col} = t.nombre OR p.{tipo_col} = t.id) '
 
