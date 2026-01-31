@@ -9,6 +9,8 @@ from typing import List, Optional
 from modulos.tpv.cierre_service import CierreService
 from modulos.exportar_importar.exportar_service import ExportarService
 from modulos.impresion.print_service import ImpresionService
+from modulos.tpv.ticket_service import TicketService
+from modulos.impresion.ticket_generator import generar_ticket
 
 # instancia compartida de impresión
 impresion_service = ImpresionService()
@@ -172,6 +174,11 @@ class HistoricoCierresView(ctk.CTkFrame):
     def _on_select(self, cierre_id):
         detalle = self.cierre_service.obtener_detalle_cierre(cierre_id)
         if not detalle: return
+        # remember current selected cierre id for reimpresion actions
+        try:
+            self._current_cierre_id = cierre_id
+        except Exception:
+            pass
 
         # --- CONFIGURACIÓN DEL MOLDE (30 CARACTERES) ---
         lines = []
@@ -249,17 +256,68 @@ class HistoricoCierresView(ctk.CTkFrame):
             self.controller.mostrar_tickets(self._selected_cierre_date, retorno_historico=True)
 
     def _on_reimprimir(self):
-        text = self.detalle_txt.get("0.0", "end")
-        if text.strip():
-            try:
-                impresion_service.imprimir_ticket(text, abrir_cajon=True)
-            except Exception:
-                # fallback: show preview or print to console
+        # Rebuild ticket(s) from source data instead of reading widget text
+        cierre_id = getattr(self, '_current_cierre_id', None)
+        if not cierre_id:
+            messagebox.showerror('Reimprimir', 'No hay cierre seleccionado para reimprimir tickets.')
+            return
+
+        try:
+            tsrv = TicketService()
+            tickets = tsrv.listar_tickets_por_cierre(cierre_id) or []
+        except Exception:
+            messagebox.showerror('Reimprimir', 'Error accediendo a tickets del cierre.')
+            return
+
+        if not tickets:
+            messagebox.showinfo('Reimprimir', 'No hay tickets asociados a este cierre.')
+            return
+
+        # If multiple tickets, pick the most recent (last) as default reimpresión.
+        try:
+            ticket_id = tickets[-1][0]
+        except Exception:
+            ticket_id = tickets[0][0]
+
+        try:
+            ticket_data = tsrv.obtener_ticket_completo(ticket_id)
+            if not ticket_data:
+                messagebox.showerror('Reimprimir', f'Ticket {ticket_id} no encontrado en la BD.')
+                return
+            meta = ticket_data.get('meta') or {}
+            lineas = ticket_data.get('lineas') or []
+
+            carrito = []
+            for ln in lineas:
                 try:
-                    print('\n[RE-IMPRESIÓN FALLBACK]')
-                    print(text)
+                    carrito.append({
+                        'nombre': ln.get('nombre') or '',
+                        'cantidad': ln.get('cantidad') or 0,
+                        'precio': ln.get('precio') or 0.0,
+                        'iva': ln.get('iva') or 0,
+                    })
                 except Exception:
                     pass
+
+            efectivo = meta.get('pagado') or 0.0
+            cambio = meta.get('cambio') or 0.0
+            cajero = meta.get('cajero') or ''
+            forma = meta.get('forma_pago') or 'EFECTIVO'
+
+            ticket_texto = generar_ticket(carrito, float(efectivo or 0.0), float(cambio or 0.0), cajero=cajero, ticket_id=ticket_id, width=50, metodo_pago=(forma or 'EFECTIVO'))
+
+            try:
+                impresion_service.imprimir_ticket(ticket_texto, abrir_cajon=True, no_wrap=True)
+            except Exception:
+                # fallback: print to console
+                try:
+                    print('\n[RE-IMPRESIÓN FALLBACK]')
+                    print(ticket_texto)
+                except Exception:
+                    pass
+
+        except Exception:
+            messagebox.showerror('Reimprimir', 'Error generando ticket para reimpresión.')
 
     def _on_export_csv(self):
         d = self.ent_desde.get().strip()

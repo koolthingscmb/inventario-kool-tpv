@@ -342,8 +342,24 @@ class CierreCajaView(ctk.CTkFrame):
 
         # Desglose principal por tipo de pago (para cuadre rápido)
         lines.append("DESGLOSE PRINCIPAL DE PAGOS:\n")
-        lines.append(f"Efectivo: {float(resumen.get('total_efectivo', 0.0)):.2f}€\n")
-        lines.append(f"Tarjeta:  {float(resumen.get('total_tarjeta', 0.0)):.2f}€\n")
+        try:
+            te = float(resumen.get('total_efectivo', 0.0) or 0.0)
+            if te:
+                lines.append(f"EFECTIVO: {te:.2f}€\n")
+        except Exception:
+            pass
+        try:
+            tt = float(resumen.get('total_tarjeta', 0.0) or 0.0)
+            if tt:
+                lines.append(f"TARJETA:  {tt:.2f}€\n")
+        except Exception:
+            pass
+        try:
+            tw = float(resumen.get('total_web', 0.0) or 0.0)
+            if tw:
+                lines.append(f"WEB:      {tw:.2f}€\n")
+        except Exception:
+            pass
         lines.append("-"*40 + "\n")
 
         # Medios de pago (detalle por forma)
@@ -595,11 +611,22 @@ class CierreCajaView(ctk.CTkFrame):
 
         # modal confirmation using CTkToplevel
         def do_confirm():
+            # close the confirmation dialog and perform cierre sequence
             top.destroy()
             try:
                 resumen = self._aggregate_for_selected()
                 if not resumen:
                     _mb.showinfo('Cierre', 'No hay datos para este periodo')
+                    return
+
+                # Prevent performing a cierre when there are no tickets to close
+                try:
+                    if int(resumen.get('count_tickets', 0) or 0) <= 0:
+                        _mb.showinfo('Cierre', 'No hay ventas abiertas para cerrar el día. Cierre no realizado.')
+                        return
+                except Exception:
+                    # If count_tickets isn't numeric, treat as no tickets
+                    _mb.showinfo('Cierre', 'No hay ventas abiertas para cerrar el día. Cierre no realizado.')
                     return
 
                 # delegate persistence to central `close_day` (no direct DB access here)
@@ -629,12 +656,12 @@ class CierreCajaView(ctk.CTkFrame):
                     self.detalle_txt.delete('0.0', 'end')
                 except Exception:
                     pass
+
                 # volver al menú anterior
                 try:
                     self.controller.mostrar_ventas()
                 except Exception:
                     pass
-
             except Exception as e:
                 _mb.showerror('Error', f'Error ejecutando cierre: {e}')
 

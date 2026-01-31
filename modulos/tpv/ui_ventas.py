@@ -17,6 +17,7 @@ except Exception:
 
 from modulos.tpv.ticket_service import TicketService
 from modulos.impresion.print_service import ImpresionService
+from modulos.impresion.ticket_generator import generar_ticket
 
 # instancia compartida de impresión
 impresion_service = ImpresionService()
@@ -1513,16 +1514,13 @@ class CajaVentas(ctk.CTkFrame):
                     'puntos_total_momento': puntos_total_momento,
                 }
 
-                ticket_id = self.ticket_service.guardar_ticket(datos_ticket, self.carrito)
-
-            except Exception:
-                ticket_id = None
-
-            except Exception as e:
-                print(f"Error guardando ticket en BD: {e}")
+                try:
+                    ticket_id = self.ticket_service.guardar_ticket(datos_ticket, self.carrito)
+                except Exception as e:
+                    print(f"Error guardando ticket en BD: {e}")
+                    ticket_id = None
 
                 # Then: print/preview only if printing is enabled in controller
-            try:
                 # Fetch saved ticket and lines via TicketService to avoid SQL in UI
                 try:
                     datos = self.ticket_service.obtener_ticket_completo(ticket_id)
@@ -1590,59 +1588,54 @@ class CajaVentas(ctk.CTkFrame):
                     cambio_meta = cambio
                     cliente_meta = ''
 
-                header_lines = []
-                header_lines.append("KOOL DREAMS\nC/Juan Sebastián Elcano, 2\n43850 Cambrils\nNIF: 39887072N\n")
-                header_lines.append("-"*30 + "\n")
-                header_lines.append(f"FACTURA Nº: {ticket_no_meta}\n")
+                # Generate uniform ticket text using centralized generator
                 try:
-                    if created_at:
-                        dt_disp = datetime.fromisoformat(created_at).strftime("%d/%m/%Y %H:%M")
-                        header_lines.append(f"Fecha: {dt_disp}\n")
+                    carrito_for_gen = []
+                    for ln in lines:
+                        try:
+                            nombre = ln.get('nombre') if isinstance(ln, dict) else (ln[1] if len(ln) > 1 else '')
+                            cantidad_l = ln.get('cantidad') if isinstance(ln, dict) else (ln[2] if len(ln) > 2 else 0)
+                            precio_l = ln.get('precio') if isinstance(ln, dict) else (ln[3] if len(ln) > 3 else 0)
+                            iva_l = ln.get('iva') if isinstance(ln, dict) else (ln[4] if len(ln) > 4 else 0)
+                        except Exception:
+                            nombre = ''
+                            cantidad_l = 0
+                            precio_l = 0
+                            iva_l = 0
+                        try:
+                            cantidad_show = int(cantidad_l) if isinstance(cantidad_l, float) and float(cantidad_l).is_integer() else cantidad_l
+                        except Exception:
+                            cantidad_show = cantidad_l
+                        carrito_for_gen.append({'nombre': nombre, 'cantidad': cantidad_show, 'precio': float(precio_l or 0), 'iva': iva_l})
+
+                    # Prepare safe numeric values
+                    try:
+                        efectivo_val = float(pagado_meta or 0.0)
+                    except Exception:
+                        efectivo_val = 0.0
+                    try:
+                        cambio_val = float(cambio_meta or 0.0)
+                    except Exception:
+                        cambio_val = 0.0
+
+                    # If carrito is empty, provide a minimal fallback line to avoid empty tickets
+                    if not carrito_for_gen:
+                        fallback_precio = float(total_meta or total or 0.0)
+                        carrito_for_gen = [{'nombre': 'Detalle no disponible', 'cantidad': 1, 'precio': fallback_precio, 'iva': 0}]
+
+                    try:
+                        ticket_texto = generar_ticket(carrito_for_gen, efectivo_val, cambio_val, cajero=cajero_meta, ticket_id=ticket_id, width=50, metodo_pago=(forma_meta or 'EFECTIVO'))
+                    except Exception:
+                        # Final fallback: attempt to generate a minimal ticket; if it fails, use a simple message
+                        try:
+                            fallback_carrito = [{'nombre': 'Detalle no disponible', 'cantidad': 1, 'precio': float(total_meta or total or 0.0), 'iva': 0}]
+                            ticket_texto = generar_ticket(fallback_carrito, efectivo_val, cambio_val, cajero=cajero_meta, ticket_id=ticket_id, width=50, metodo_pago=(forma_meta or 'EFECTIVO'))
+                        except Exception:
+                            ticket_texto = "TICKET\n(Detalle no disponible)\n"
+
                 except Exception:
-                    header_lines.append(f"Fecha: {created_at or ''}\n")
-                header_lines.append(f"Cajero: {cajero_meta}\n")
-                header_lines.append(f"Cliente: {cliente_meta or ''}\n")
-                header_lines.append("-"*30 + "\n")
-
-                body_lines = []
-                for ln in lines:
-                    try:
-                        sku = ln.get('sku') if isinstance(ln, dict) else (ln[0] if len(ln) > 0 else None)
-                        nombre = ln.get('nombre') if isinstance(ln, dict) else (ln[1] if len(ln) > 1 else '')
-                        cantidad_l = ln.get('cantidad') if isinstance(ln, dict) else (ln[2] if len(ln) > 2 else 0)
-                        precio_l = ln.get('precio') if isinstance(ln, dict) else (ln[3] if len(ln) > 3 else 0)
-                        iva_l = ln.get('iva') if isinstance(ln, dict) else (ln[4] if len(ln) > 4 else 0)
-                    except Exception:
-                        nombre = ''
-                        cantidad_l = 0
-                        precio_l = 0
-                    try:
-                        cantidad_show = int(cantidad_l) if isinstance(cantidad_l, float) and float(cantidad_l).is_integer() else cantidad_l
-                    except Exception:
-                        cantidad_show = cantidad_l
-                    try:
-                        body_lines.append(f"{cantidad_show}x {nombre}  {float(precio_l):.2f}\n")
-                    except Exception:
-                        body_lines.append(f"{cantidad_show}x {nombre}  {precio_l}\n")
-
-                totals_lines = []
-                totals_lines.append("-"*30 + "\n")
-                try:
-                    totals_lines.append(f"TOTAL: {total_meta:.2f}\n")
-                except Exception:
-                    totals_lines.append(f"TOTAL: {total_meta}\n")
-                if pagado_meta is not None:
-                    try:
-                        totals_lines.append(f"{forma_meta}: {pagado_meta:.2f}\n")
-                    except Exception:
-                        totals_lines.append(f"{forma_meta}: {pagado_meta}\n")
-                if cambio_meta is not None:
-                    try:
-                        totals_lines.append(f"CAMBIO: {cambio_meta:.2f}\n")
-                    except Exception:
-                        totals_lines.append(f"CAMBIO: {cambio_meta}\n")
-
-                ticket_texto = ''.join(header_lines) + ''.join(body_lines) + ''.join(totals_lines) + "\n¡Gracias por tu compra!\n"
+                    logging.exception('Error building ticket for printing')
+                    ticket_texto = "TICKET\n(Detalle no disponible)\n"
 
                 # Si hay un cliente asignado, procesar canje y puntos, y añadir información al ticket
                 try:
@@ -1746,7 +1739,8 @@ class CajaVentas(ctk.CTkFrame):
                                 pass
                     else:
                         try:
-                            impresion_service.imprimir_ticket(ticket_texto, abrir_cajon=True)
+                            # ticket_texto already wrapped to target width (50), avoid additional wrapping
+                            impresion_service.imprimir_ticket(ticket_texto, abrir_cajon=True, no_wrap=True)
                         except Exception:
                             try:
                                 if preview_ticket is not None:

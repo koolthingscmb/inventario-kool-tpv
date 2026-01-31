@@ -25,9 +25,17 @@ class ImpresionService:
         self.nombre_impresora = None
         self.ticket_width = None
         self._cargar_configuracion()
-        # simulation flag: when True, printing is simulated to console/logs
-        # Set to False for normal operation.
+        # simulation flag: when True, printing is simulated to console/logs.
+        # Keep available for explicit developer override, but printer detection
+        # will force simulation when no physical printer is available.
         self.SIMULACION = False
+
+        # detect at init whether any printer is available; this drives
+        # whether printing attempts go to a physical device or fallback to terminal.
+        try:
+            self._printer_available = self._detect_printer()
+        except Exception:
+            self._printer_available = False
 
     def _cargar_configuracion(self):
         """Carga configuraciones desde config.ini."""
@@ -93,6 +101,24 @@ class ImpresionService:
         except Exception:
             return []
 
+    def _detect_printer(self) -> bool:
+        """Detecta si hay impresoras disponibles según la plataforma y la config.
+
+        Devuelve True si hay al menos una impresora o si `nombre_impresora` existe
+        en el sistema. False en caso contrario.
+        """
+        try:
+            printers = self.listar_impresoras()
+            if self.nombre_impresora:
+                # check configured printer exists in the system list
+                try:
+                    return self.nombre_impresora in printers
+                except Exception:
+                    return bool(printers)
+            return bool(printers)
+        except Exception:
+            return False
+
     def abrir_cajon(self):
         """Enviar comando para abrir cajón (solo si la impresora/driver lo soporta)."""
         # ESC p 0 16 255 as bytes
@@ -103,13 +129,14 @@ class ImpresionService:
             # best-effort; ignore if not supported
             pass
 
-    def imprimir_ticket(self, texto, abrir_cajon=False):
+    def imprimir_ticket(self, texto, abrir_cajon=False, no_wrap=False):
         """Imprime el ticket a la impresora configurada.
 
         En Windows usa win32print; en Unix intenta `lp`/`lpr`.
         """
-        # If simulation mode active, print diagnostic info and return success.
-        if getattr(self, 'SIMULACION', False):
+        # If there is no detected physical printer, or simulation explicitly
+        # requested, show ticket in terminal and return success.
+        if (not getattr(self, '_printer_available', True)) or getattr(self, 'SIMULACION', False):
             # determine caller info
             try:
                 stack = inspect.stack()
@@ -125,7 +152,7 @@ class ImpresionService:
             except Exception:
                 caller = 'unknown'
             logging.info(f"[SIMULACIÓN IMPRESIÓN] llamada desde: {caller}; abrir_cajon={abrir_cajon}")
-            print('\n[SIMULACIÓN IMPRESIÓN]')
+            print('\n[IMPRESIÓN EN TERMINAL]')
             print(f'Llamada desde: {caller} -- abrir_cajon={abrir_cajon}')
             print('-' * 30)
             print(texto)
@@ -138,7 +165,8 @@ class ImpresionService:
 
         # normalize width according to config (wrap lines to target chars)
         try:
-            texto = self._normalize_ticket_width(texto)
+            if not no_wrap:
+                texto = self._normalize_ticket_width(texto)
         except Exception:
             pass
 
@@ -148,11 +176,24 @@ class ImpresionService:
             try:
                 import win32print
             except Exception as e:
-                raise Exception('Módulo win32print no disponible: %s' % e)
+                # If win32print isn't available, fallback to terminal output
+                logging.exception('win32print no disponible: %s', e)
+                print('\n[ADVERTENCIA] win32print no disponible, imprimiendo en terminal:')
+                print(texto)
+                return True
 
-            nombre = self.nombre_impresora or ''
+            nombre = (self.nombre_impresora or '').strip()
             if not nombre:
-                raise Exception('No hay impresora configurada. Configure una en Configuración.')
+                try:
+                    nombre = win32print.GetDefaultPrinter()
+                except Exception:
+                    nombre = ''
+            if not nombre:
+                # no configured or default printer available; fallback to terminal
+                logging.warning('No hay impresora configurada en Windows; salida por terminal')
+                print('\n[ADVERTENCIA] No se encontró impresora configurada; imprimiendo en terminal:')
+                print(texto)
+                return True
 
             hprinter = None
             try:
@@ -184,7 +225,10 @@ class ImpresionService:
                 win32print.EndDocPrinter(hprinter)
             finally:
                 if hprinter:
-                    win32print.ClosePrinter(hprinter)
+                    try:
+                        win32print.ClosePrinter(hprinter)
+                    except Exception:
+                        pass
             # abrir cajon if requested (after printing)
             if abrir_cajon:
                 try:
@@ -205,13 +249,17 @@ class ImpresionService:
                     p.communicate(input=texto.encode('utf-8'))
                     return p.returncode == 0
                 else:
-                    # fallback: write to stdout (simulation)
-                    print('\n[IMPRESIÓN SIMULADA - sin lp/lpr]')
+                    # fallback: write to stdout (no lp/lpr available)
+                    print('\n[ADVERTENCIA] lp/lpr no disponible; imprimiendo en terminal]')
                     print(texto)
-                    print('[FIN SIMULACIÓN]\n')
+                    print('[FIN SALIDA]\n')
                     return True
             except Exception as e:
-                raise Exception(f'Error imprimiendo en Unix: {e}')
+                # On Unix printing failure, fallback to terminal output
+                logging.exception('Error imprimiendo en Unix: %s', e)
+                print('\n[ADVERTENCIA] Error imprimiendo en sistema Unix; imprimiendo en terminal]')
+                print(texto)
+                return True
 
     def _send_raw(self, data_bytes):
         """Envía bytes RAW a la impresora configurada (Windows).
