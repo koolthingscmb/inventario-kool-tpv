@@ -598,8 +598,17 @@ class CierreCajaView(ctk.CTkFrame):
 
     def _on_imprimir_cierre(self):
         try:
+            # Redirect closure preview printing to centralized ImpresionService
             texto = self.detalle_txt.get('0.0', 'end')
-            impresion_service.imprimir_ticket(texto, abrir_cajon=True)
+            try:
+                from datetime import datetime as _dt
+                fecha = _dt.now().strftime('%d/%m/%Y %H:%M')
+            except Exception:
+                fecha = ''
+            # Use next cierre number as ticket_id for this preview
+            ticket_id = self._get_next_cierre_num()
+            cajero = self.cajero_activo.get('nombre') if getattr(self, 'cajero_activo', None) else ''
+            impresion_service.imprimir_ticket('Configuracion/config.ini', ticket_id, fecha, cajero, [], puntos_canjeados=0.0, width=50)
         except Exception as e:
             _mb.showerror('Impresión', f'Error imprimiendo: {e}')
 
@@ -641,9 +650,15 @@ class CierreCajaView(ctk.CTkFrame):
                 tipo = 'Z'
                 text = self._build_cierre_text(resumen, self.current_date, tipo=tipo)
 
-                # imprimir
+                # imprimir via nuevo flujo centralizado
                 try:
-                    impresion_service.imprimir_ticket(text, abrir_cajon=True)
+                    try:
+                        from datetime import datetime as _dt
+                        fecha = _dt.now().strftime('%d/%m/%Y %H:%M')
+                    except Exception:
+                        fecha = ''
+                    cajero = cierre_cajero or ''
+                    impresion_service.imprimir_ticket('Configuracion/config.ini', cierre_id, fecha, cajero, [], puntos_canjeados=0.0, width=50)
                 except Exception as e:
                     _mb.showerror('Impresión', f'Error imprimiendo: {e}')
                     return

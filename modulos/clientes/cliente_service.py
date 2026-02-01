@@ -29,7 +29,24 @@ class ClienteService:
     def _row_to_dict(self, row: sqlite3.Row) -> Dict[str, Any]:
         if row is None:
             return None
-        return {k: row[k] for k in row.keys()}
+        d = {k: row[k] for k in row.keys()}
+        # backward compatibility aliases
+        try:
+            if 'tesoro_total' in d and 'puntos_fidelidad' not in d:
+                d['puntos_fidelidad'] = d.get('tesoro_total')
+        except Exception:
+            pass
+        try:
+            if 'tesoro_gastado_total' in d and 'total_gastado' not in d:
+                d['total_gastado'] = d.get('tesoro_gastado_total')
+        except Exception:
+            pass
+        try:
+            if 'fidelidad_activa' in d and 'puntos_activados' not in d:
+                d['puntos_activados'] = d.get('fidelidad_activa')
+        except Exception:
+            pass
+        return d
 
     def obtener_todos(self) -> List[Dict[str, Any]]:
         """Devuelve todos los clientes como lista de diccionarios."""
@@ -107,7 +124,7 @@ class ClienteService:
                 cur.execute(
                     """
                     INSERT INTO clientes
-                    (nombre, telefono, email, dni, direccion, ciudad, cp, tags, notas_internas, puntos_fidelidad, total_gastado, fecha_alta)
+                    (nombre, telefono, email, dni, direccion, ciudad, cp, tags, notas_internas, tesoro_total, tesoro_gastado_total, fecha_alta)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (nombre, telefono, email, dni, direccion, ciudad, cp, tags, notas, puntos, total, fecha_alta),
@@ -122,6 +139,7 @@ class ClienteService:
         """Actualiza campos de un cliente existente. Devuelve True si se actualizó."""
         try:
             # Filtrar campos permitidos
+            # Accept both new and legacy column names; map legacy names to new ones later
             allowed = {
                 "nombre",
                 "telefono",
@@ -132,14 +150,32 @@ class ClienteService:
                 "cp",
                 "tags",
                 "notas_internas",
+                "tesoro_total",
+                "tesoro_gastado_total",
+                "fidelidad_activa",
+                "id_nivel",
+                # legacy
                 "puntos_fidelidad",
                 "total_gastado",
+                "puntos_activados",
             }
             items = [(k, datos[k]) for k in datos.keys() if k in allowed]
             if not items:
                 return False
-            set_clause = ", ".join([f"{k}=?" for k, _ in items])
-            values = [v for _, v in items]
+            # map legacy keys to new DB column names
+            mapped_items = []
+            for k, v in items:
+                if k == 'puntos_fidelidad':
+                    mapped_items.append(('tesoro_total', v))
+                elif k == 'total_gastado':
+                    mapped_items.append(('tesoro_gastado_total', v))
+                elif k == 'puntos_activados':
+                    mapped_items.append(('fidelidad_activa', 1 if bool(v) else 0))
+                else:
+                    mapped_items.append((k, v))
+
+            set_clause = ", ".join([f"{k}=?" for k, _ in mapped_items])
+            values = [v for _, v in mapped_items]
             values.append(cliente_id)
             sql = f"UPDATE clientes SET {set_clause} WHERE id=?"
             with database.connect() as conn:
@@ -176,7 +212,7 @@ class ClienteService:
                 except Exception:
                     pts = 0.0
                 cur.execute(
-                    "UPDATE clientes SET puntos_fidelidad = COALESCE(puntos_fidelidad,0) + ? WHERE id=?",
+                    "UPDATE clientes SET tesoro_total = COALESCE(tesoro_total,0) + ? WHERE id=?",
                     (pts, cliente_id),
                 )
                 conn.commit()
@@ -191,7 +227,7 @@ class ClienteService:
             with database.connect() as conn:
                 cur = conn.cursor()
                 cur.execute(
-                    "UPDATE clientes SET total_gastado = COALESCE(total_gastado,0) + ? WHERE id=?",
+                    "UPDATE clientes SET tesoro_gastado_total = COALESCE(tesoro_gastado_total,0) + ? WHERE id=?",
                     (importe, cliente_id),
                 )
                 conn.commit()

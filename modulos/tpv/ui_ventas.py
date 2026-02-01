@@ -17,7 +17,7 @@ except Exception:
 
 from modulos.tpv.ticket_service import TicketService
 from modulos.impresion.print_service import ImpresionService
-from modulos.impresion.ticket_generator import generar_ticket
+from modulos.impresion.ticket_generator import generar_encabezado, generar_linea_fija, generar_cuerpo
 
 # instancia compartida de impresión
 impresion_service = ImpresionService()
@@ -654,14 +654,23 @@ class CajaVentas(ctk.CTkFrame):
 
             # remove any existing discount line
             try:
-                self.carrito = [it for it in self.carrito if it.get('id') != 'DESC']
+                # Do not add a discount line to the carrito anymore.
+                # Store discount as an attribute and let _total_carrito subtract it.
+                if hasattr(self, '_descuento_euros'):
+                    try:
+                        delattr(self, '_descuento_euros')
+                    except Exception:
+                        try:
+                            del self._descuento_euros
+                        except Exception:
+                            pass
             except Exception:
                 pass
 
             # aplicar descuento como línea negativa
             try:
-                descuento_item = {"id": "DESC", "nombre": "DESC. PUNTOS", "precio": -round(descuento_euros, 2), "cantidad": 1, "iva": 0}
-                self.carrito.append(descuento_item)
+                # Store the discount amount on the instance instead of inserting a line
+                self._descuento_euros = float(round(descuento_euros, 2)) if descuento_euros else 0.0
                 self.puntos_a_canjear = pts
             except Exception:
                 pass
@@ -1187,6 +1196,12 @@ class CajaVentas(ctk.CTkFrame):
         except Exception:
             logging.exception('Error calculando total seguro del carrito')
             return 0.0
+        # Restar descuento por puntos si existe (sin insertar línea en carrito)
+        try:
+            descuento = float(getattr(self, '_descuento_euros', 0.0) or 0.0)
+            total = float(total) - descuento
+        except Exception:
+            pass
         return total
 
     def _on_text_click(self, event):
@@ -1624,12 +1639,82 @@ class CajaVentas(ctk.CTkFrame):
                         carrito_for_gen = [{'nombre': 'Detalle no disponible', 'cantidad': 1, 'precio': fallback_precio, 'iva': 0}]
 
                     try:
-                        ticket_texto = generar_ticket(carrito_for_gen, efectivo_val, cambio_val, cajero=cajero_meta, ticket_id=ticket_id, width=50, metodo_pago=(forma_meta or 'EFECTIVO'))
+                        # Build preview text using the new generators
+                        try:
+                            from datetime import datetime as _dt
+                            if created_at:
+                                try:
+                                    fecha = _dt.fromisoformat(created_at).strftime('%d/%m/%Y %H:%M')
+                                except Exception:
+                                    fecha = str(created_at)
+                            else:
+                                fecha = _dt.now().strftime('%d/%m/%Y %H:%M')
+                        except Exception:
+                            from datetime import datetime as _dt
+                            fecha = _dt.now().strftime('%d/%m/%Y %H:%M')
+
+                        encabezado_preview = generar_encabezado('Configuracion/config.ini', width=50)
+                        linea_fija_preview = generar_linea_fija(ticket_id, fecha, cajero_meta, width=50)
+                        cuerpo_preview = generar_cuerpo(carrito_for_gen, puntos_canjeados=getattr(self, 'puntos_a_canjear', 0), width=50)
+
+                        # Calcular resumen financiero para previsualización
+                        try:
+                            subtotal_calc = 0.0
+                            iva_map = {}
+                            total_calc = 0.0
+                            for it in (carrito_for_gen or []):
+                                try:
+                                    qty = int(it.get('cantidad', 1))
+                                except Exception:
+                                    qty = 1
+                                try:
+                                    price = float(it.get('precio', 0.0))
+                                except Exception:
+                                    price = 0.0
+                                try:
+                                    iva_pct = float(it.get('iva', 0) or 0)
+                                except Exception:
+                                    iva_pct = 0.0
+                                line_total = round(qty * price, 2)
+                                total_calc += line_total
+                                if iva_pct and iva_pct > 0:
+                                    try:
+                                        iva_amount = line_total * (iva_pct / (100.0 + iva_pct))
+                                    except Exception:
+                                        iva_amount = round(line_total * (iva_pct / 100.0), 2)
+                                    net = line_total - iva_amount
+                                else:
+                                    iva_amount = 0.0
+                                    net = line_total
+                                subtotal_calc += net
+                                key = f"{int(iva_pct)}%" if iva_pct is not None else "0%"
+                                iva_map[key] = round(iva_map.get(key, 0.0) + iva_amount, 2)
+
+                            subtotal_calc = float(round(subtotal_calc, 2))
+                            total_calc = float(round(total_calc, 2))
+                            forma_pago_calc = {
+                                'pago': forma_meta or 'efectivo',
+                                'total': float(total_meta or total or total_calc),
+                                'entregado': float(pagado_meta or 0.0),
+                                'devuelto': float(cambio_meta or 0.0)
+                            }
+                            try:
+                                from modulos.impresion.ticket_generator import generar_resumen_financiero
+                                resumen_preview = generar_resumen_financiero(subtotal_calc, iva_map, total_calc, forma_pago_calc, width=50)
+                            except Exception:
+                                resumen_preview = []
+                        except Exception:
+                            resumen_preview = []
+
+                        ticket_texto = '\n'.join(encabezado_preview + linea_fija_preview + cuerpo_preview + resumen_preview)
                     except Exception:
-                        # Final fallback: attempt to generate a minimal ticket; if it fails, use a simple message
+                        # Final fallback: attempt to generate a minimal preview; if it fails, use a simple message
                         try:
                             fallback_carrito = [{'nombre': 'Detalle no disponible', 'cantidad': 1, 'precio': float(total_meta or total or 0.0), 'iva': 0}]
-                            ticket_texto = generar_ticket(fallback_carrito, efectivo_val, cambio_val, cajero=cajero_meta, ticket_id=ticket_id, width=50, metodo_pago=(forma_meta or 'EFECTIVO'))
+                            encabezado_preview = generar_encabezado('Configuracion/config.ini', width=50)
+                            linea_fija_preview = generar_linea_fija(ticket_id, datetime.now().strftime('%d/%m/%Y %H:%M'), cajero_meta, width=50)
+                            cuerpo_preview = generar_cuerpo(fallback_carrito, puntos_canjeados=getattr(self, 'puntos_a_canjear', 0), width=50)
+                            ticket_texto = '\n'.join(encabezado_preview + linea_fija_preview + cuerpo_preview)
                         except Exception:
                             ticket_texto = "TICKET\n(Detalle no disponible)\n"
 
@@ -1637,95 +1722,54 @@ class CajaVentas(ctk.CTkFrame):
                     logging.exception('Error building ticket for printing')
                     ticket_texto = "TICKET\n(Detalle no disponible)\n"
 
-                # Si hay un cliente asignado, procesar canje y puntos, y añadir información al ticket
+                # Procesamiento de fidelización: mantener la actualización de puntos en BD
+                # pero NO añadir texto legado de puntos al ticket (migración a resumen financiero).
                 try:
                     if self.cliente_actual is not None:
-                        # extra info block
+                        cliente_id = None
                         try:
-                            cliente_id = None
-                            try:
-                                cliente_id = self.cliente_actual.get('id')
-                            except Exception:
-                                cliente_id = None
-                            try:
-                                cli_svc = ClienteService()
-                            except Exception:
-                                cli_svc = None
-
-                            extra = []
-                            extra.append('\n' + ('-'*20) + '\n')
-
-                            # 1) Si existe canje de puntos, restarlos primero
-                            try:
-                                if getattr(self, 'puntos_a_canjear', 0) and float(self.puntos_a_canjear) > 0 and cliente_id and cli_svc:
-                                    try:
-                                        cli_svc.sumar_puntos(cliente_id, -float(self.puntos_a_canjear))
-                                        extra.append(f"Puntos canjeados: -{float(self.puntos_a_canjear):.2f} pts\n")
-                                    except Exception:
-                                        logging.exception('No se pudieron restar puntos al cliente id=%s', cliente_id)
-                            except Exception:
-                                pass
-
-                            # 2) Calcular puntos ganados por la compra (solo si hay cliente)
-                            try:
-                                if not hasattr(self, 'fidelizacion_service'):
-                                    from modulos.tpv.fidelizacion_service import FidelizacionService
-                                    self.fidelizacion_service = FidelizacionService()
-                                puntos = self.fidelizacion_service.calcular_puntos(self.carrito, getattr(self, 'cliente_actual', None))
-                            except Exception:
-                                puntos = 0.0
-
-                            # 3) Registrar puntos ganados y gasto
-                            saldo = None
-                            if cliente_id and cli_svc:
-                                try:
-                                    if puntos and float(puntos) > 0:
-                                        try:
-                                            cli_svc.sumar_puntos(cliente_id, float(puntos))
-                                        except Exception:
-                                            logging.exception('No se pudieron sumar puntos al cliente id=%s', cliente_id)
-                                    try:
-                                        cli_svc.registrar_gasto(cliente_id, float(total_meta or total))
-                                    except Exception:
-                                        logging.exception('No se pudo registrar gasto para cliente id=%s', cliente_id)
-                                    try:
-                                        updated = cli_svc.obtener_por_id(cliente_id)
-                                        saldo = updated.get('puntos_fidelidad') if updated else None
-                                    except Exception:
-                                        saldo = None
-                                except Exception:
-                                    pass
-
-                            # 4) Añadir línea de puntos ganados si aplica
-                            try:
-                                if puntos and float(puntos) > 0:
-                                    extra.append(f"Puntos ganados en esta compra: {float(puntos):.2f}\n")
-                            except Exception:
-                                try:
-                                    extra.append(f"Puntos ganados en esta compra: {puntos}\n")
-                                except Exception:
-                                    pass
-
-                            # 5) Asegurar que saldo refleje los cambios y añadir línea de saldo
-                            try:
-                                if saldo is None and cliente_id and cli_svc:
-                                    try:
-                                        updated = cli_svc.obtener_por_id(cliente_id)
-                                        saldo = updated.get('puntos_fidelidad') if updated else None
-                                    except Exception:
-                                        saldo = None
-                            except Exception:
-                                pass
-                            try:
-                                extra.append(f"Saldo total de puntos: {float(saldo):.2f}\n" if saldo is not None else "Saldo total de puntos: \n")
-                            except Exception:
-                                extra.append(f"Saldo total de puntos: {saldo if saldo is not None else ''}\n")
-
-                            ticket_texto = ticket_texto + ''.join(extra)
+                            cliente_id = self.cliente_actual.get('id')
                         except Exception:
-                            logging.exception('Error proceso fidelización en ticket')
+                            cliente_id = None
+                        try:
+                            cli_svc = ClienteService()
+                        except Exception:
+                            cli_svc = None
+
+                        # 1) Aplicar canje de puntos si corresponde (registro silencioso)
+                        try:
+                            if getattr(self, 'puntos_a_canjear', 0) and float(self.puntos_a_canjear) > 0 and cliente_id and cli_svc:
+                                try:
+                                    cli_svc.sumar_puntos(cliente_id, -float(self.puntos_a_canjear))
+                                except Exception:
+                                    logging.exception('No se pudieron restar puntos al cliente id=%s', cliente_id)
+                        except Exception:
+                            pass
+
+                        # 2) Calcular y registrar puntos ganados (silencioso)
+                        try:
+                            if not hasattr(self, 'fidelizacion_service'):
+                                from modulos.tpv.fidelizacion_service import FidelizacionService
+                                self.fidelizacion_service = FidelizacionService()
+                            puntos = self.fidelizacion_service.calcular_puntos(self.carrito, getattr(self, 'cliente_actual', None))
+                        except Exception:
+                            puntos = 0.0
+
+                        try:
+                            if cliente_id and cli_svc:
+                                if puntos and float(puntos) > 0:
+                                    try:
+                                        cli_svc.sumar_puntos(cliente_id, float(puntos))
+                                    except Exception:
+                                        logging.exception('No se pudieron sumar puntos al cliente id=%s', cliente_id)
+                                try:
+                                    cli_svc.registrar_gasto(cliente_id, float(total_meta or total))
+                                except Exception:
+                                    logging.exception('No se pudo registrar gasto para cliente id=%s', cliente_id)
+                        except Exception:
+                            pass
                 except Exception:
-                    logging.exception('Error proceso fidelización en ticket - envoltura')
+                    logging.exception('Error proceso fidelización en ticket (silencioso)')
 
                 if getattr(self.controller, 'imprimir_tickets_enabled', False):
                     # Prefer preview_ticket on macOS, otherwise try direct print
@@ -1740,7 +1784,73 @@ class CajaVentas(ctk.CTkFrame):
                     else:
                         try:
                             # ticket_texto already wrapped to target width (50), avoid additional wrapping
-                            impresion_service.imprimir_ticket(ticket_texto, abrir_cajon=True, no_wrap=True)
+                            # Prefer new centralized imprimir_ticket when possible (pass structured data)
+                            try:
+                                from datetime import datetime as _dt
+                                try:
+                                    if created_at:
+                                        try:
+                                            fecha = _dt.fromisoformat(created_at).strftime('%d/%m/%Y %H:%M')
+                                        except Exception:
+                                            fecha = str(created_at)
+                                    else:
+                                        fecha = _dt.now().strftime('%d/%m/%Y %H:%M')
+                                except Exception:
+                                    fecha = _dt.now().strftime('%d/%m/%Y %H:%M')
+                            except Exception:
+                                fecha = None
+
+                            # Use carrito_for_gen and puntos_a_canjear (if present) to compose ticket
+                            try:
+                                # Calcular resumen financiero básico a partir de `carrito_for_gen` (precios brutos asumidos)
+                                subtotal_calc = 0.0
+                                iva_map = {}
+                                total_calc = 0.0
+                                for it in (carrito_for_gen or []):
+                                    try:
+                                        qty = int(it.get('cantidad', 1))
+                                    except Exception:
+                                        qty = 1
+                                    try:
+                                        price = float(it.get('precio', 0.0))
+                                    except Exception:
+                                        price = 0.0
+                                    try:
+                                        iva_pct = float(it.get('iva', 0) or 0)
+                                    except Exception:
+                                        iva_pct = 0.0
+                                    line_total = round(qty * price, 2)
+                                    total_calc += line_total
+                                    if iva_pct and iva_pct > 0:
+                                        try:
+                                            iva_amount = line_total * (iva_pct / (100.0 + iva_pct))
+                                        except Exception:
+                                            iva_amount = round(line_total * (iva_pct / 100.0), 2)
+                                        net = line_total - iva_amount
+                                    else:
+                                        iva_amount = 0.0
+                                        net = line_total
+                                    subtotal_calc += net
+                                    key = f"{int(iva_pct)}%" if iva_pct is not None else "0%"
+                                    iva_map[key] = round(iva_map.get(key, 0.0) + iva_amount, 2)
+
+                                subtotal_calc = float(round(subtotal_calc, 2))
+                                total_calc = float(round(total_calc, 2))
+
+                                forma_pago_calc = {
+                                    'pago': forma_meta or 'efectivo',
+                                    'total': float(total_meta or total or total_calc),
+                                    'entregado': float(pagado_meta or 0.0),
+                                    'devuelto': float(cambio_meta or 0.0)
+                                }
+
+                            except Exception:
+                                subtotal_calc = float(total_meta or total or 0.0)
+                                iva_map = {}
+                                total_calc = float(total_meta or total or 0.0)
+                                forma_pago_calc = {'pago': forma_meta or 'efectivo', 'total': total_calc, 'entregado': float(pagado_meta or 0.0), 'devuelto': float(cambio_meta or 0.0)}
+
+                            impresion_service.imprimir_ticket('Configuracion/config.ini', ticket_id, fecha or '', cajero_meta, carrito_for_gen, puntos_canjeados=getattr(self, 'puntos_a_canjear', 0), width=50, subtotal=subtotal_calc, desglose_iva=iva_map, total=total_calc, forma_pago=forma_pago_calc)
                         except Exception:
                             try:
                                 if preview_ticket is not None:

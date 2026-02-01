@@ -1,338 +1,183 @@
-# modulos/impresion/print_service.py
+"""
+Servicio de impresión (limpieza inicial).
 
-import sys
-import configparser
-import platform
-import subprocess
-import os
-import inspect
+Este archivo ha sido limpiado el 2026-02-01. El contenido original se ha
+respaldado en `backups/impresion_print_service.py.backup.2026-02-01`.
+
+Objetivo: dejar una plantilla segura y sin lógica de impresión activa,
+manteniendo las firmas públicas usadas por el resto de la aplicación
+(`ImpresionService`, `imprimir_ticket`, `listar_impresoras`, `guardar_configuracion`).
+
+NOTA: No implementar lógica de impresión real en este archivo hasta que
+se planifique la reconstrucción.
+"""
+
 import logging
-import textwrap
+from typing import List, Optional
 
 
 class ImpresionService:
-    def __init__(self, config_file='Configuracion/config.ini'):
-        # Resolve config_file relative to executable when frozen, or project root otherwise
-        if config_file == 'Configuracion/config.ini':
-            if getattr(sys, 'frozen', False):
-                base = os.path.dirname(sys.executable)
-            else:
-                # project root is two levels up from this module (modulos/impresion)
-                base = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-            config_file = os.path.join(base, 'Configuracion', 'config.ini')
+    """Stub seguro de `ImpresionService`.
+
+    Proporciona métodos con firmas compatibles que realizan operaciones
+    neutras (simulación / no-op) para evitar errores en importaciones.
+    """
+
+    def __init__(self, config_file: str = 'Configuracion/config.ini') -> None:
         self.config_file = config_file
-        self.config = configparser.ConfigParser()
-        self.nombre_impresora = None
-        self.ticket_width = None
-        self._cargar_configuracion()
-        # simulation flag: when True, printing is simulated to console/logs.
-        # Keep available for explicit developer override, but printer detection
-        # will force simulation when no physical printer is available.
-        self.SIMULACION = False
+        self.nombre_impresora: Optional[str] = None
+        self.ticket_width: str = '80mm'
+        self.SIMULACION: bool = True
 
-        # detect at init whether any printer is available; this drives
-        # whether printing attempts go to a physical device or fallback to terminal.
-        try:
-            self._printer_available = self._detect_printer()
-        except Exception:
-            self._printer_available = False
+    def listar_impresoras(self) -> List[str]:
+        """Devuelve lista vacía: no hay impresoras detectadas en el stub."""
+        return []
 
-    def _cargar_configuracion(self):
-        """Carga configuraciones desde config.ini."""
-        try:
-            if not os.path.exists(self.config_file):
-                # ensure parent exists and create minimal structure
-                parent = os.path.dirname(self.config_file) or '.'
-                try:
-                    os.makedirs(parent, exist_ok=True)
-                except Exception:
-                    pass
-                self.config['impresion'] = {'nombre_impresora': '', 'ticket_width': '80mm'}
-                try:
-                    with open(self.config_file, 'w') as f:
-                        self.config.write(f)
-                except Exception:
-                    # ignore write errors for now
-                    pass
-            self.config.read(self.config_file)
-            self.nombre_impresora = self.config.get('impresion', 'nombre_impresora', fallback='')
-            self.ticket_width = self.config.get('impresion', 'ticket_width', fallback='80mm')
-        except Exception:
-            self.nombre_impresora = ''
-            self.ticket_width = '80mm'
+    def guardar_configuracion(self, nombre_impresora: str, ancho_ticket: str) -> bool:
+        """Almacena valores en atributos en memoria y retorna True."""
+        self.nombre_impresora = nombre_impresora
+        self.ticket_width = ancho_ticket
+        return True
 
-    def guardar_configuracion(self, nombre_impresora, ancho_ticket):
-        """Guarda la configuración de la impresora en config.ini."""
-        self.config['impresion'] = {
-            'nombre_impresora': nombre_impresora,
-            'ticket_width': ancho_ticket
-        }
-        parent = os.path.dirname(self.config_file) or '.'
-        try:
-            os.makedirs(parent, exist_ok=True)
-        except Exception:
-            pass
-        with open(self.config_file, 'w') as configfile:
-            self.config.write(configfile)
-        # refresh in-memory
-        self._cargar_configuracion()
+    def abrir_cajon(self) -> None:
+        """No-op seguro: registra la llamada para depuración."""
+        logging.info('ImpresionService.abrir_cajon() llamado (stub).')
+    def imprimir_ticket(self, *args, **kwargs) -> bool:
+        """Compone y simula la impresión completa del ticket usando los generadores.
 
-    def listar_impresoras(self):
-        """Devuelve una lista de impresoras disponibles en el sistema."""
-        try:
-            system = platform.system().lower()
-            if system.startswith('win'):
-                import win32print
-                return [p[2] for p in win32print.EnumPrinters(win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS)]
-            else:
-                # Try lpstat (CUPS) as a fallback on Unix-like systems
-                try:
-                    out = subprocess.check_output(['lpstat', '-p'], stderr=subprocess.DEVNULL, text=True)
-                    lines = [l.strip() for l in out.splitlines() if l.strip()]
-                    names = []
-                    for l in lines:
-                        # lines like: "printer NAME is idle."
-                        parts = l.split()
-                        if len(parts) >= 2 and parts[0] == 'printer':
-                            names.append(parts[1])
-                    return names
-                except Exception:
-                    return []
-        except Exception:
-            return []
+        Soporta dos firmas para compatibilidad:
 
-    def _detect_printer(self) -> bool:
-        """Detecta si hay impresoras disponibles según la plataforma y la config.
+        1) Antigua firma (texto simple):
+           imprimir_ticket(texto: str, abrir_cajon: bool = False, no_wrap: bool = False)
 
-        Devuelve True si hay al menos una impresora o si `nombre_impresora` existe
-        en el sistema. False en caso contrario.
+        2) Nueva firma (composición automática):
+           imprimir_ticket(config_path: str, ticket_id: int, fecha: str, cajero: str, carrito: list, puntos_canjeados: float = 0.00, width: int = 50)
+
+        :return: True si la simulación completó sin excepciones, False en caso contrario.
         """
         try:
-            printers = self.listar_impresoras()
-            if self.nombre_impresora:
-                # check configured printer exists in the system list
+            logging.info('ImpresionService.imprimir_ticket() llamado (compatibilidad).')
+
+            # Si vienen al menos 5 args posicionales asumimos la firma nueva
+            if len(args) >= 5:
+                config_path, ticket_id, fecha, cajero, carrito = args[:5]
+                puntos_canjeados = float(args[5]) if len(args) >= 6 else float(kwargs.get('puntos_canjeados', 0.0))
+                width = int(args[6]) if len(args) >= 7 else int(kwargs.get('width', 50))
+
+            # Detectar llamada antigua (texto simple) si no es la firma nueva
+            elif len(args) >= 1 and isinstance(args[0], str) and ('config_path' not in kwargs and 'ticket_id' not in kwargs):
+                texto = args[0]
+                abrir_cajon = False
+                no_wrap = False
+                if len(args) >= 2:
+                    abrir_cajon = bool(args[1])
+                if len(args) >= 3:
+                    no_wrap = bool(args[2])
+
+                # Simulación antigua: imprimir texto
+                print('\n[IMPRESIÓN SIMULADA - TEXTO]')
+                print(texto if texto is not None else '(sin contenido)')
+                if abrir_cajon:
+                    logging.info('Simulación: abrir cajón solicitado (antiguo).')
+                return True
+            else:
+                config_path = kwargs.get('config_path') or kwargs.get('ruta_config') or 'Configuracion/config.ini'
+                ticket_id = kwargs.get('ticket_id')
+                fecha = kwargs.get('fecha')
+                cajero = kwargs.get('cajero')
+                carrito = kwargs.get('carrito', [])
+                puntos_canjeados = float(kwargs.get('puntos_canjeados', 0.0))
+                width = int(kwargs.get('width', 50))
+
+            # Importar generadores
+            try:
+                from modulos.impresion.ticket_generator import generar_encabezado, generar_linea_fija, generar_cuerpo
+            except Exception:
+                logging.exception('No se pudo importar generadores de ticket')
+                return False
+
+            encabezado = generar_encabezado(config_path, width)
+            linea_fija = generar_linea_fija(ticket_id, fecha, cajero, width)
+            cuerpo = generar_cuerpo(carrito, puntos_canjeados, width)
+
+            # Intentar obtener resumen financiero desde kwargs; si no, calcular fallback
+            subtotal = kwargs.get('subtotal')
+            desglose_iva = kwargs.get('desglose_iva')
+            total = kwargs.get('total')
+            forma_pago = kwargs.get('forma_pago')
+
+            if subtotal is None or desglose_iva is None or total is None:
+                # Calcular a partir del carrito (asumiendo precios brutos en 'precio')
                 try:
-                    return self.nombre_impresora in printers
+                    subtotal_calc = 0.0
+                    iva_map = {}
+                    total_calc = 0.0
+                    for it in (carrito or []):
+                        try:
+                            cantidad = int(it.get('cantidad', 1))
+                        except Exception:
+                            cantidad = 1
+                        try:
+                            precio = float(it.get('precio', 0.0))
+                        except Exception:
+                            precio = 0.0
+                        try:
+                            iva_pct = float(it.get('iva', 0) or 0)
+                        except Exception:
+                            iva_pct = 0.0
+
+                        linea_total = round(cantidad * precio, 2)
+                        total_calc += linea_total
+                        if iva_pct and iva_pct > 0:
+                            # Suponer que `precio` incluye IVA -> extraer IVA
+                            try:
+                                iva_amount = linea_total * (iva_pct / (100.0 + iva_pct))
+                            except Exception:
+                                iva_amount = round(linea_total * (iva_pct / 100.0), 2)
+                            neto = linea_total - iva_amount
+                        else:
+                            iva_amount = 0.0
+                            neto = linea_total
+
+                        subtotal_calc += neto
+                        key = f"{int(iva_pct)}%" if iva_pct is not None else "0%"
+                        iva_map[key] = round(iva_map.get(key, 0.0) + iva_amount, 2)
+
+                    subtotal = float(round(subtotal_calc, 2)) if subtotal is None else float(subtotal)
+                    desglose_iva = iva_map if desglose_iva is None else desglose_iva
+                    total = float(round(total_calc, 2)) if total is None else float(total)
                 except Exception:
-                    return bool(printers)
-            return bool(printers)
+                    subtotal = float(kwargs.get('subtotal', 0.0) or 0.0)
+                    desglose_iva = kwargs.get('desglose_iva', {}) or {}
+                    total = float(kwargs.get('total', 0.0) or 0.0)
+
+            if forma_pago is None:
+                forma_pago = {
+                    'pago': kwargs.get('forma_pago', 'efectivo') or 'efectivo',
+                    'total': float(kwargs.get('total', total) or total or 0.0),
+                    'entregado': float(kwargs.get('entregado', kwargs.get('pagado', 0.0) or 0.0)),
+                    'devuelto': float(kwargs.get('devuelto', 0.0) or 0.0)
+                }
+
+            # Intentar añadir resumen financiero si el generador está disponible
+            try:
+                from modulos.impresion.ticket_generator import generar_resumen_financiero
+                resumen = generar_resumen_financiero(subtotal, desglose_iva or {}, total, forma_pago, width=width)
+            except Exception:
+                resumen = []
+
+            ticket_completo = encabezado + linea_fija + cuerpo + resumen
+
+            # Simular la impresión (mostrar en terminal)
+            print('\n=== IMPRESIÓN DE TICKET ===')
+            for linea in ticket_completo:
+                print(linea)
+            print('=== FIN DEL TICKET ===')
+
+            return True
         except Exception:
+            logging.exception('Error al imprimir el ticket (compatibilidad)')
             return False
 
-    def abrir_cajon(self):
-        """Enviar comando para abrir cajón (solo si la impresora/driver lo soporta)."""
-        # ESC p 0 16 255 as bytes
-        comando_cajon = b'\x1B\x70\x00\x10\xFF'
-        try:
-            self._send_raw(comando_cajon)
-        except Exception:
-            # best-effort; ignore if not supported
-            pass
 
-    def imprimir_ticket(self, texto, abrir_cajon=False, no_wrap=False):
-        """Imprime el ticket a la impresora configurada.
-
-        En Windows usa win32print; en Unix intenta `lp`/`lpr`.
-        """
-        # If there is no detected physical printer, or simulation explicitly
-        # requested, show ticket in terminal and return success.
-        if (not getattr(self, '_printer_available', True)) or getattr(self, 'SIMULACION', False):
-            # determine caller info
-            try:
-                stack = inspect.stack()
-                # find the first caller outside this module
-                caller = None
-                for fr in stack[1:6]:
-                    mod = inspect.getmodule(fr.frame)
-                    if mod and mod.__name__ != __name__:
-                        caller = f"{mod.__name__}.{fr.function}"
-                        break
-                if not caller:
-                    caller = stack[1].function
-            except Exception:
-                caller = 'unknown'
-            logging.info(f"[SIMULACIÓN IMPRESIÓN] llamada desde: {caller}; abrir_cajon={abrir_cajon}")
-            print('\n[IMPRESIÓN EN TERMINAL]')
-            print(f'Llamada desde: {caller} -- abrir_cajon={abrir_cajon}')
-            print('-' * 30)
-            print(texto)
-            print('-' * 30 + '\n')
-            if abrir_cajon:
-                print('[SIMULACIÓN] abrir cajón de dinero (comando no enviado)')
-            return True
-        if not texto:
-            raise Exception('Texto de ticket vacío')
-
-        # normalize width according to config (wrap lines to target chars)
-        try:
-            if not no_wrap:
-                texto = self._normalize_ticket_width(texto)
-        except Exception:
-            pass
-
-        system = platform.system().lower()
-        if system.startswith('win'):
-            # Import here to avoid failing on non-windows systems
-            try:
-                import win32print
-            except Exception as e:
-                # If win32print isn't available, fallback to terminal output
-                logging.exception('win32print no disponible: %s', e)
-                print('\n[ADVERTENCIA] win32print no disponible, imprimiendo en terminal:')
-                print(texto)
-                return True
-
-            nombre = (self.nombre_impresora or '').strip()
-            if not nombre:
-                try:
-                    nombre = win32print.GetDefaultPrinter()
-                except Exception:
-                    nombre = ''
-            if not nombre:
-                # no configured or default printer available; fallback to terminal
-                logging.warning('No hay impresora configurada en Windows; salida por terminal')
-                print('\n[ADVERTENCIA] No se encontró impresora configurada; imprimiendo en terminal:')
-                print(texto)
-                return True
-
-            hprinter = None
-            try:
-                hprinter = win32print.OpenPrinter(nombre)
-                job = win32print.StartDocPrinter(hprinter, 1, ("Ticket", None, "RAW"))
-                win32print.StartPagePrinter(hprinter)
-                # encode using cp850 to keep classic POS charset compatibility
-                data = texto.encode('cp850', errors='replace')
-                # send main data
-                win32print.WritePrinter(hprinter, data)
-
-                # send margin lines before cut
-                margin_lines = self._cut_margin_lines()
-                if margin_lines:
-                    win32print.WritePrinter(hprinter, margin_lines)
-
-                # send cut command (GS V 0)
-                try:
-                    cut_cmd = b'\x1D\x56\x00'
-                    win32print.WritePrinter(hprinter, cut_cmd)
-                except Exception:
-                    # try ESC i as alternative
-                    try:
-                        win32print.WritePrinter(hprinter, b'\x1B\x69')
-                    except Exception:
-                        pass
-
-                win32print.EndPagePrinter(hprinter)
-                win32print.EndDocPrinter(hprinter)
-            finally:
-                if hprinter:
-                    try:
-                        win32print.ClosePrinter(hprinter)
-                    except Exception:
-                        pass
-            # abrir cajon if requested (after printing)
-            if abrir_cajon:
-                try:
-                    self.abrir_cajon()
-                except Exception:
-                    pass
-            return True
-        else:
-            # Unix-like: try piping to lpr or lp
-            try:
-                # Prefer lp, then lpr
-                if shutil_which('lp'):
-                    p = subprocess.Popen(['lp', '-d', self.nombre_impresora] if self.nombre_impresora else ['lp'], stdin=subprocess.PIPE)
-                    p.communicate(input=texto.encode('utf-8'))
-                    return p.returncode == 0
-                elif shutil_which('lpr'):
-                    p = subprocess.Popen(['lpr', '-P', self.nombre_impresora] if self.nombre_impresora else ['lpr'], stdin=subprocess.PIPE)
-                    p.communicate(input=texto.encode('utf-8'))
-                    return p.returncode == 0
-                else:
-                    # fallback: write to stdout (no lp/lpr available)
-                    print('\n[ADVERTENCIA] lp/lpr no disponible; imprimiendo en terminal]')
-                    print(texto)
-                    print('[FIN SALIDA]\n')
-                    return True
-            except Exception as e:
-                # On Unix printing failure, fallback to terminal output
-                logging.exception('Error imprimiendo en Unix: %s', e)
-                print('\n[ADVERTENCIA] Error imprimiendo en sistema Unix; imprimiendo en terminal]')
-                print(texto)
-                return True
-
-    def _send_raw(self, data_bytes):
-        """Envía bytes RAW a la impresora configurada (Windows).
-
-        Implementación mínima: usa win32print si está disponible.
-        """
-        system = platform.system().lower()
-        if system.startswith('win'):
-            import win32print
-            if not self.nombre_impresora:
-                return
-            hprinter = win32print.OpenPrinter(self.nombre_impresora)
-            try:
-                win32print.StartDocPrinter(hprinter, 1, ("RAW", None, "RAW"))
-                win32print.StartPagePrinter(hprinter)
-                win32print.WritePrinter(hprinter, data_bytes)
-                win32print.EndPagePrinter(hprinter)
-                win32print.EndDocPrinter(hprinter)
-            finally:
-                win32print.ClosePrinter(hprinter)
-        else:
-            # Not implemented for Unix raw; attempt via lpr
-            if shutil_which('lp'):
-                p = subprocess.Popen(['lp', '-d', self.nombre_impresora] if self.nombre_impresora else ['lp'], stdin=subprocess.PIPE)
-                p.communicate(input=data_bytes)
-            elif shutil_which('lpr'):
-                p = subprocess.Popen(['lpr', '-P', self.nombre_impresora] if self.nombre_impresora else ['lpr'], stdin=subprocess.PIPE)
-                p.communicate(input=data_bytes)
-
-    def _cut_margin_lines(self):
-        """Return bytes with blank lines before the cut, according to config.
-
-        Default leave 6 blank lines (approx. 5-10 recommended).
-        """
-        try:
-            # allow ticket_width to also contain margin setting later; keep simple fixed count
-            lines = 6
-            return (b"\n" * lines)
-        except Exception:
-            return b"\n\n\n\n\n\n"
-
-    def _normalize_ticket_width(self, texto: str) -> str:
-        """Wrap lines to the configured ticket width in characters.
-
-        Uses `self.ticket_width` (like '80mm' or '58mm') to decide a chars-per-line value.
-        """
-        try:
-            tw = (self.ticket_width or '80mm').lower()
-            if '58' in tw:
-                width = 32
-            else:
-                # default to 80mm behaviour
-                width = 48
-            # wrap each paragraph/line preserving existing newlines in a simple way
-            out_lines = []
-            for line in texto.splitlines():
-                if not line.strip():
-                    out_lines.append('')
-                    continue
-                wrapped = textwrap.wrap(line, width=width, replace_whitespace=False)
-                if not wrapped:
-                    out_lines.append('')
-                else:
-                    out_lines.extend(wrapped)
-            return "\n".join(out_lines) + "\n"
-        except Exception:
-            return texto
-
-
-def shutil_which(cmd):
-    """Helper lightweight which replacement using shutil if available."""
-    try:
-        import shutil
-        return shutil.which(cmd)
-    except Exception:
-        return None
+__all__ = ['ImpresionService']

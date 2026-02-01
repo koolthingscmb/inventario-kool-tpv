@@ -10,7 +10,7 @@ from modulos.tpv.cierre_service import CierreService
 from modulos.exportar_importar.exportar_service import ExportarService
 from modulos.impresion.print_service import ImpresionService
 from modulos.tpv.ticket_service import TicketService
-from modulos.impresion.ticket_generator import generar_ticket
+# ticket generation now centralized in ImpresionService
 
 # instancia compartida de impresión
 impresion_service = ImpresionService()
@@ -304,15 +304,39 @@ class HistoricoCierresView(ctk.CTkFrame):
             cajero = meta.get('cajero') or ''
             forma = meta.get('forma_pago') or 'EFECTIVO'
 
-            ticket_texto = generar_ticket(carrito, float(efectivo or 0.0), float(cambio or 0.0), cajero=cajero, ticket_id=ticket_id, width=50, metodo_pago=(forma or 'EFECTIVO'))
+            # Reconstruir fecha y puntos si están disponibles en meta
+            try:
+                fecha_raw = meta.get('created_at') or meta.get('fecha')
+            except Exception:
+                fecha_raw = None
+            try:
+                from datetime import datetime as _dt
+                if fecha_raw:
+                    try:
+                        # intentar normalizar si está en ISO
+                        fecha = _dt.fromisoformat(fecha_raw).strftime('%d/%m/%Y %H:%M')
+                    except Exception:
+                        fecha = str(fecha_raw)
+                else:
+                    fecha = _dt.now().strftime('%d/%m/%Y %H:%M')
+            except Exception:
+                from datetime import datetime as _dt
+                fecha = _dt.now().strftime('%d/%m/%Y %H:%M')
+
+            puntos_canjeados = 0.0
+            try:
+                puntos_canjeados = float(meta.get('puntos_canjeados') or 0.0)
+            except Exception:
+                puntos_canjeados = 0.0
 
             try:
-                impresion_service.imprimir_ticket(ticket_texto, abrir_cajon=True, no_wrap=True)
+                impresion_service.imprimir_ticket('Configuracion/config.ini', ticket_id, fecha, cajero, carrito, puntos_canjeados=puntos_canjeados, width=50)
             except Exception:
-                # fallback: print to console
+                # fallback: generar texto mínimo y mostrar en consola
                 try:
                     print('\n[RE-IMPRESIÓN FALLBACK]')
-                    print(ticket_texto)
+                    for ln in carrito:
+                        print(ln)
                 except Exception:
                     pass
 

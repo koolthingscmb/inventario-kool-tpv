@@ -35,24 +35,41 @@ def run():
         cur.execute("PRAGMA table_info(clientes)")
         cols = [r[1] for r in cur.fetchall()]
         print('Columns:', cols)
-        assert 'puntos_activados' in cols, 'puntos_activados missing'
+        # New schema uses `fidelidad_activa` instead of `puntos_activados`
+        assert 'fidelidad_activa' in cols or 'puntos_activados' in cols, 'fidelidad_activa missing'
 
-        # insert a client with puntos_activados = 0
-        cur.execute("INSERT INTO clientes (nombre, puntos_activados) VALUES (?, ?)", ('TC Test', 0))
+        # insert a client with fidelidad_activa = 0 (or puntos_activados for legacy DBs)
+        if 'fidelidad_activa' in cols:
+            cur.execute("INSERT INTO clientes (nombre, fidelidad_activa) VALUES (?, ?)", ('TC Test', 0))
+        else:
+            cur.execute("INSERT INTO clientes (nombre, puntos_activados) VALUES (?, ?)", ('TC Test', 0))
         conn.commit()
         cid = cur.lastrowid
-        cur.execute('SELECT puntos_activados FROM clientes WHERE id=?', (cid,))
-        v = cur.fetchone()[0]
-        print('Inserted puntos value:', v)
-        assert int(v) == 0
+        if 'fidelidad_activa' in cols:
+            cur.execute('SELECT fidelidad_activa FROM clientes WHERE id=?', (cid,))
+            v = cur.fetchone()[0]
+            print('Inserted fidelidad_activa value:', v)
+            assert int(v) == 0
 
-        # update to 1
-        cur.execute('UPDATE clientes SET puntos_activados=? WHERE id=?', (1, cid))
-        conn.commit()
-        cur.execute('SELECT puntos_activados FROM clientes WHERE id=?', (cid,))
-        v2 = cur.fetchone()[0]
-        print('Updated puntos value:', v2)
-        assert int(v2) == 1
+            # update to 1
+            cur.execute('UPDATE clientes SET fidelidad_activa=? WHERE id=?', (1, cid))
+            conn.commit()
+            cur.execute('SELECT fidelidad_activa FROM clientes WHERE id=?', (cid,))
+            v2 = cur.fetchone()[0]
+            print('Updated fidelidad_activa value:', v2)
+            assert int(v2) == 1
+        else:
+            cur.execute('SELECT puntos_activados FROM clientes WHERE id=?', (cid,))
+            v = cur.fetchone()[0]
+            print('Inserted puntos_activados value:', v)
+            assert int(v) == 0
+
+            cur.execute('UPDATE clientes SET puntos_activados=? WHERE id=?', (1, cid))
+            conn.commit()
+            cur.execute('SELECT puntos_activados FROM clientes WHERE id=?', (cid,))
+            v2 = cur.fetchone()[0]
+            print('Updated puntos_activados value:', v2)
+            assert int(v2) == 1
         print('TESTS OK')
     finally:
         try:

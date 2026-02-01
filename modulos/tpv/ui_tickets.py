@@ -185,10 +185,7 @@ class TicketsView(ctk.CTkFrame):
 
     def _load_ticket_detail(self, ticket_id):
         # Try to render the ticket in the same textual format used for printing
-        try:
-            from modulos.impresion.ticket_generator import generar_ticket
-        except Exception:
-            generar_ticket = None
+        # Ticket preview built from DB records; centralized generators exist if needed
 
         conn = connect()
         cur = conn.cursor()

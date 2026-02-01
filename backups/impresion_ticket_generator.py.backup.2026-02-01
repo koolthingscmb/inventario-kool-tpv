@@ -1,0 +1,343 @@
+# Original modulos/impresion/ticket_generator.py backup created 2026-02-01
+# Content below preserved from repository for reference and rollback.
+
+from datetime import datetime
+import textwrap
+import logging
+import configparser
+import os
+
+# Cargar configuración de encabezado desde posibles rutas (priorizando Configuracion/config.ini)
+_config = configparser.ConfigParser()
+_config_paths = [
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'Configuracion', 'config.ini'),
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'config.ini'),
+    'Configuracion/config.ini',
+    'config.ini',
+]
+for _p in _config_paths:
+    try:
+        if os.path.exists(_p):
+            _config.read(_p)
+            break
+    except Exception:
+        pass
+
+
+def centrar_texto(texto, width: int):
+    """Centrar texto según el ancho especificado.
+
+    Si `texto` es más largo que `width`, se devuelve tal cual (no se trunca).
+    """
+    try:
+        texto = '' if texto is None else str(texto)
+        if width is None or not isinstance(width, int) or width <= 0:
+            return texto
+        if len(texto) >= width:
+            return texto
+        espacios = (width - len(texto)) // 2
+        return ' ' * espacios + texto
+    except Exception:
+        return str(texto or '')
+
+
+def _generar_encabezado_venta(width: int = 50) -> str:
+    """Genera el encabezado de venta leyendo la sección [IMPRESION_ENCABEZADO] del config.
+
+    Devuelve una cadena con 4 líneas centradas y un salto de línea final.
+    """
+    try:
+        sec = _config['IMPRESION_ENCABEZADO'] if 'IMPRESION_ENCABEZADO' in _config else {}
+    except Exception:
+        sec = {}
+
+    try:
+        linea_1 = sec.get('linea_1', '') if sec else ''
+        linea_2 = sec.get('linea_2', '') if sec else ''
+        linea_3 = sec.get('linea_3', '') if sec else ''
+        linea_4 = sec.get('linea_4', '') if sec else ''
+    except Exception:
+        linea_1 = linea_2 = linea_3 = linea_4 = ''
+
+    encabezado = [
+        centrar_texto(linea_1, width),
+        centrar_texto(linea_2, width),
+        centrar_texto(linea_3, width),
+        centrar_texto(linea_4, width),
+    ]
+    return '\n'.join(encabezado) + '\n'
+
+
+def _generar_factura_simplificada(width: int = 50) -> str:
+    """Genera la línea estática 'FACTURA SIMPLIFICADA' centrada según `width`."""
+    return centrar_texto('FACTURA SIMPLIFICADA', width) + '\n'
+
+
+def _generar_linea_informativa(cajero: str, ticket_id, width: int = 50) -> str:
+    """Genera la línea informativa centrada con Fecha, Hora, Cajero y Nº ticket.
+
+    Formato interno: 'DD/MM/YYYY  HH:MM  Cajero: {cajero}  T: {ticket_id}'
+    """
+    try:
+        from datetime import datetime as _dt
+        fecha = _dt.now().strftime('%d/%m/%Y')
+        hora = _dt.now().strftime('%H:%M')
+    except Exception:
+        fecha = ''
+        hora = ''
+
+    numero_ticket = f"T: {ticket_id}" if ticket_id is not None else "T: --"
+    cajero_disp = cajero or ''
+    linea = f"{fecha}  {hora}  Cajero: {cajero_disp}  {numero_ticket}"
+    return centrar_texto(linea, width) + '\n'
+# modulos/impresion/ticket_generator.py
+
+from datetime import datetime
+import textwrap
+import logging
+import configparser
+import os
+
+
+def _generar_encabezado(width, nombre_tienda):
+    encabezado = [
+        nombre_tienda.upper(),
+        "C/Juan Sebastián Elcano, 2",
+        "43850 Cambrils",
+        "NIF: 39887072N",
+        "-" * min(30, width)
+    ]
+    return encabezado
+
+
+def _generar_linea_fija(cajero, ticket_id, width):
+    ahora = datetime.now().strftime("%d/%m/%Y %H:%M")
+    ticket_str = f"FACTURA Nº: {ticket_id or '--'}"
+    return [
+        ticket_str,
+        f"Fecha: {ahora}",
+        f"Cajero: {cajero}",
+        "-" * min(30, width)
+    ]
+
+
+def _generar_cuerpo(carrito, width):
+    cuerpo = []
+    total_pagar = 0.0
+    price_col = 10
+    desc_col = max(10, width - price_col)
+    for item in carrito:
+        try:
+            nombre = item.get('nombre', '') if isinstance(item, dict) else (item[1] if len(item) > 1 else '')
+            cantidad = item.get('cantidad', 0) if isinstance(item, dict) else (item[2] if len(item) > 2 else 0)
+            precio = float(item.get('precio', 0.0) or 0.0) if isinstance(item, dict) else (float(item[3]) if len(item) > 3 else 0.0)
+        except Exception:
+            nombre = ''
+            cantidad = 0
+            precio = 0.0
+
+        # Skip the special discount line
+        try:
+            if nombre == 'DESC. PUNTOS':
+                continue
+        except Exception:
+            pass
+
+        try:
+            cantidad_num = float(cantidad)
+            cantidad_display = str(int(cantidad_num)) if cantidad_num.is_integer() else f"{cantidad_num:.2f}"
+        except Exception:
+            cantidad_display = str(cantidad)
+
+        subtotal = float(cantidad or 0) * float(precio or 0.0)
+        total_pagar += subtotal
+
+        precio_str = f"{subtotal:,.2f}".rjust(price_col)
+        desc = f"{cantidad_display}x {nombre}"
+        if len(desc) > desc_col:
+            desc = desc[:desc_col-3] + '...'
+        line = desc.ljust(desc_col) + precio_str
+        cuerpo.append(line)
+
+    return cuerpo, {'total_pagar': total_pagar}
+
+
+def _generar_resumen_financiero(carrito, width):
+    # compute subtotal and IVA breakdown similar to previous implementation
+    total_pagar = 0.0
+    total_base = 0.0
+    iva_desglose_map = {}
+    for item in carrito:
+        try:
+            nombre = item.get('nombre', '') if isinstance(item, dict) else (item[1] if len(item) > 1 else '')
+            if nombre == 'DESC. PUNTOS':
+                continue
+            cantidad = item.get('cantidad', 0) if isinstance(item, dict) else (item[2] if len(item) > 2 else 0)
+            precio = float(item.get('precio', 0.0) or 0.0) if isinstance(item, dict) else (float(item[3]) if len(item) > 3 else 0.0)
+            iva = item.get('iva', 0) if isinstance(item, dict) else (item[4] if len(item) > 4 else 0)
+        except Exception:
+            cantidad = 0
+            precio = 0.0
+            iva = 0
+
+        subtotal = float(cantidad or 0) * float(precio or 0.0)
+        total_pagar += subtotal
+        try:
+            divisor = 1 + (float(iva) / 100) if iva else 1.0
+            base_amount = subtotal / divisor if divisor else subtotal
+            iva_amount = subtotal - base_amount
+        except Exception:
+            base_amount = subtotal
+            iva_amount = 0.0
+        total_base += base_amount
+        iva_desglose_map[iva] = iva_desglose_map.get(iva, 0.0) + iva_amount
+
+    # build lines
+    price_col = 10
+    desc_col = max(10, width - price_col)
+    resumen = []
+    resumen.append("Subtotal:".ljust(desc_col) + f"{total_base:>{price_col}.2f}")
+    for tipo in sorted(iva_desglose_map.keys()):
+        resumen.append(f"IVA ({int(tipo)}%):".ljust(desc_col) + f"{iva_desglose_map[tipo]:>{price_col}.2f}")
+
+    return resumen, total_base, iva_desglose_map, total_pagar
+
+
+def _generar_zona_fidelizacion(puntos_canjeados, total_pagar, width):
+    lines = []
+    # show Tesoro gastado between IVA and TOTAL
+    try:
+        if puntos_canjeados and float(puntos_canjeados) != 0:
+            tesoro_line = f"Tesoro gastado: -{abs(float(puntos_canjeados)):.2f}"
+            lines.append(centrar_texto(tesoro_line, width))
+            final_total = float(total_pagar) - float(puntos_canjeados)
+        else:
+            final_total = float(total_pagar)
+    except Exception:
+        final_total = float(total_pagar)
+
+    # Append final total line here to keep placement consistent
+    price_col = 10
+    desc_col = max(10, width - price_col)
+    lines.append(f"TOTAL:".ljust(desc_col) + f"{final_total:>{price_col}.2f}")
+    return lines, final_total
+
+
+def _generar_pie(width):
+    return ["", centrar_texto("¡Gracias por tu compra!", width), ""]
+
+
+def generar_ticket(carrito, efectivo, cambio, nombre_tienda="KOOL DREAMS", cajero="EGON", ticket_id: int = None, width: int = 50, metodo_pago: str = 'EFECTIVO', puntos_canjeados=0):
+    """Controlador principal que ensambla el ticket usando las funciones modulares."""
+    try:
+        lineas = []
+
+        # 1. Encabezado (preferir config si está disponible)
+        try:
+            header_raw = _generar_encabezado_venta(width)
+            for l in header_raw.splitlines():
+                lineas.append(l)
+        except Exception:
+            lineas.extend(_generar_encabezado(width, nombre_tienda))
+
+        # 2. Línea fija (factura/fecha/cajero)
+        try:
+            fact = _generar_factura_simplificada(width)
+            for l in fact.splitlines():
+                lineas.append(l)
+        except Exception:
+            pass
+        try:
+            info = _generar_linea_informativa(cajero, ticket_id, width)
+            for l in info.splitlines():
+                lineas.append(l)
+        except Exception:
+            pass
+
+        lineas.append("-" * min(30, width))
+
+        # 3. Cuerpo
+        cuerpo_lines, totals_info = _generar_cuerpo(carrito, width)
+        lineas.extend(cuerpo_lines)
+        lineas.append("-" * min(30, width))
+
+        # 4. Resumen financiero
+        resumen_lines, total_base, iva_map, total_pagar = _generar_resumen_financiero(carrito, width)
+        lineas.extend(resumen_lines)
+
+        # 5. Zona fidelización (Tesoro gastado y total ajustado)
+        fidel_lines, final_total = _generar_zona_fidelizacion(puntos_canjeados, total_pagar, width)
+        lineas.extend(fidel_lines)
+
+        # 6. Pie: pagos y agradecimiento
+        price_col = 10
+        desc_col = max(10, width - price_col)
+        lineas.append("-" * min(30, width))
+        metodo = (metodo_pago or 'EFECTIVO').upper()
+        lineas.append(f"PAGO:".ljust(desc_col) + metodo.rjust(price_col))
+        if metodo == 'EFECTIVO':
+            lineas.append(f"EFECTIVO:".ljust(desc_col) + f"{efectivo:>{price_col}.2f}")
+            lineas.append(f"CAMBIO:".ljust(desc_col) + f"{cambio:>{price_col}.2f}")
+        lineas.extend(_generar_pie(width))
+
+        # Wrap lines to width
+        out_lines = []
+        for line in lineas:
+            if not line.strip():
+                out_lines.append('')
+                continue
+            wrapped = textwrap.wrap(line, width=width, replace_whitespace=False)
+            if not wrapped:
+                out_lines.append('')
+            else:
+                out_lines.extend(wrapped)
+
+        return "\n".join(out_lines) + "\n"
+    except Exception as e:
+        logging.exception('Error generando ticket modular: %s', e)
+        return "TICKET\n(Detalle no disponible)\n"
+
+
+    if __name__ == '__main__':
+        # Prueba: intenta obtener datos reales de la BD; si no, usa valores simulados
+        ancho = 50
+        caj = None
+        tid = None
+        try:
+            from database import connect
+            conn = connect()
+            cur = conn.cursor()
+            try:
+                cur.execute('SELECT id, cajero FROM tickets ORDER BY id DESC LIMIT 1')
+                row = cur.fetchone()
+                if row:
+                    tid = int(row['id']) if 'id' in row.keys() else int(row[0])
+                    try:
+                        caj = row['cajero'] if 'cajero' in row.keys() else (row[1] if len(row) > 1 else None)
+                    except Exception:
+                        caj = None
+            finally:
+                try:
+                    cur.close()
+                except Exception:
+                    pass
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+        except Exception:
+            # no DB access or no tickets
+            pass
+
+        if not caj:
+            caj = 'Ana López'
+        if not tid:
+            tid = 123
+
+        print('\n' + '=' * 60)
+        print('PRUEBA: Líneas centradas para ticket')
+        print('=' * 60 + '\n')
+        # Mostrar solo FACTURA SIMPLIFICADA y la línea informativa
+        print(_generar_factura_simplificada(ancho))
+        print(_generar_linea_informativa(caj, tid, ancho))
+        print('\n' + '=' * 60 + '\n')

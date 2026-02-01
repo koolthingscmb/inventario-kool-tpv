@@ -64,7 +64,7 @@ def test_desglose_clientes_registrados():
         conn = database.connect()
         cur = conn.cursor()
         # create clientes table minimal
-        cur.execute('''CREATE TABLE IF NOT EXISTS clientes (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT, puntos_fidelidad REAL DEFAULT 0)''')
+        cur.execute('''CREATE TABLE IF NOT EXISTS clientes (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT, tesoro_total REAL DEFAULT 0)''')
         # insert clients
         cur.execute("INSERT INTO clientes (nombre) VALUES ('Alice')")
         cur.execute("INSERT INTO clientes (nombre) VALUES ('Bob')")
@@ -95,7 +95,7 @@ def test_desglose_clientes_no_relacionados():
     try:
         conn = database.connect()
         cur = conn.cursor()
-        cur.execute('''CREATE TABLE IF NOT EXISTS clientes (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT, puntos_fidelidad REAL DEFAULT 0)''')
+        cur.execute('''CREATE TABLE IF NOT EXISTS clientes (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT, tesoro_total REAL DEFAULT 0)''')
         # insert a ticket with a client name that doesn't exist in clientes
         cur.execute("INSERT INTO tickets (created_at, total, cajero, cliente, puntos_ganados, puntos_canjeados) VALUES (?, ?, ?, ?, ?, ?)",
                     ('2026-01-15T12:00:00', 15.0, 'T1', 'Unknown', 3.0, 0.0))
