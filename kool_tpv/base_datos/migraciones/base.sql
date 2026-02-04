@@ -1,0 +1,2 @@
+-- Script SQL inicial con el esquema de la base de datos
+-- Vacío por ahora; añadir sentencias DDL aquí cuando sea necesario.
