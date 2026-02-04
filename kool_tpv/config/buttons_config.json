@@ -1,0 +1,16 @@
+{
+  "buttons": [
+    { "label": "Pagar", "color": "#E27D60", "hover_color": "#F2A07B", "font_size": 36, "width": 200, "height": 200, "command": "pagar" },
+    { "label": "Pendiente", "color": "#C38D9E", "hover_color": "#DDAEC1", "font_size": 36, "width": 200, "height": 200, "command": "pendiente" },
+    { "label": "Descuento", "color": "#41B3A3", "hover_color": "#62C9B9", "font_size": 36, "width": 200, "height": 200, "command": "descuento" },
+    { "label": "Cliente", "color": "#6B5B95", "hover_color": "#806AA8", "font_size": 36, "width": 200, "height": 200, "command": "cliente" },
+    { "label": "Productos", "color": "#FF6F61", "hover_color": "#FF8A7F", "font_size": 36, "width": 200, "height": 200, "command": "productos" },
+    { "label": "Cancelar", "color": "#F7CAC9", "hover_color": "#F9D6D5", "font_size": 36, "width": 200, "height": 200, "command": "cancelar" },
+    { "label": "Buscar", "color": "#92A8D1", "hover_color": "#A8BEE2", "font_size": 36, "width": 200, "height": 200, "command": "buscar" },
+    { "label": "Reimprimir", "color": "#034F84", "hover_color": "#265E99", "font_size": 36, "width": 200, "height": 200, "command": "reimprimir" },
+    { "label": "Recargo", "color": "#F7B32B", "hover_color": "#F9C542", "font_size": 36, "width": 200, "height": 200, "command": "recargo" },
+    { "label": "Imprimir", "color": "#88B04B", "hover_color": "#9BC767", "font_size": 36, "width": 200, "height": 200, "command": "imprimir" },
+    { "label": "Config", "color": "#6C5B7B", "hover_color": "#80698F", "font_size": 36, "width": 200, "height": 200, "command": "config" },
+    { "label": "Otros", "color": "#2E8B57", "hover_color": "#4B9E75", "font_size": 36, "width": 200, "height": 200, "command": "otros" }
+  ]
+}

@@ -16,6 +16,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional, List, Dict
 import logging
+import json
+from pathlib import Path
 
 import customtkinter as ctk
 
@@ -35,6 +37,52 @@ BUTTON_CONFIG: List[Dict[str, str]] = [
     {"text": "CONFIG", "color": "#6C5B7B"},
     {"text": "OTROS", "color": "#2E8B57"},
 ]
+
+
+def load_button_config_from_json() -> List[Dict]:
+    """Attempt to read button definitions from kool_tpv/config/buttons_config.json.
+
+    Returns a list of button config dicts. If the file is missing or invalid,
+    returns the in-code BUTTON_CONFIG as fallback (mapped to same shape).
+    """
+    try:
+        base = Path(__file__).resolve().parents[2]  # kool_tpv/
+        cfg_file = base / "config" / "buttons_config.json"
+        if cfg_file.exists():
+            with cfg_file.open("r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            buttons = data.get("buttons") or []
+            parsed = []
+            for b in buttons:
+                parsed.append(
+                    {
+                        "text": b.get("label", ""),
+                        "color": b.get("color", "#CCCCCC"),
+                        "hover_color": b.get("hover_color"),
+                        "font_size": b.get("font_size"),
+                        "width": b.get("width"),
+                        "height": b.get("height"),
+                        "command": b.get("command"),
+                    }
+                )
+            if parsed:
+                return parsed
+    except Exception:
+        logging.exception("Error leyendo buttons_config.json")
+
+    # Fallback: map BUTTON_CONFIG to expected shape
+    fallback = []
+    for b in BUTTON_CONFIG:
+        fallback.append({
+            "text": b.get("text"),
+            "color": b.get("color"),
+            "hover_color": None,
+            "font_size": None,
+            "width": None,
+            "height": None,
+            "command": None,
+        })
+    return fallback
 
 # Tamaños base / constantes
 RIGHT_WIDTH = 420
@@ -218,22 +266,34 @@ class TpvView:
         self.grid_frame = ctk.CTkFrame(self.action_panel, fg_color="transparent")
         self.grid_frame.pack(fill="both", expand=True, padx=12, pady=12)
 
-        # Crear botones desde BUTTON_CONFIG (si hay menos de 12, se repiten)
+        # Crear botones desde configuración JSON (o fallback interno)
         self.grid_buttons = []
+        cfg_list = load_button_config_from_json()
+        # ensure we have at least 12 entries by repeating if necessary
+        if len(cfg_list) < 12:
+            times = (12 + len(cfg_list) - 1) // max(1, len(cfg_list)) if cfg_list else 12
+            cfg_list = (cfg_list * times)[:12]
+
         for idx in range(12):
-            cfg = BUTTON_CONFIG[idx] if idx < len(BUTTON_CONFIG) else {"text": f"BTN{idx+1}", "color": "#888888"}
+            cfg = cfg_list[idx]
             row = idx // 4
             col = idx % 4
+            # derive font tuple
+            font_size = cfg.get("font_size") or 36
+            font = ("Impact", int(font_size))
+            btn_width = cfg.get("width") or 200
+            btn_height = cfg.get("height") or 200
+            hover = cfg.get("hover_color")
             btn = ButtonFactory.create_button(
                 parent=self.grid_frame,
                 text=cfg.get("text", f"BTN{idx+1}"),
-                command=(lambda l=cfg.get("text"): logging.info(f"Acción '{l}' pulsada")),
-                font=("Impact", 36),
+                command=(lambda name=cfg.get("command", cfg.get("text")): logging.info(f"Acción '{name}' pulsada")),
+                font=font,
                 color=cfg.get("color", "#CCCCCC"),
                 text_color="#000000",
-                hover_color=None,
-                width=200,
-                height=200,
+                hover_color=hover,
+                width=btn_width,
+                height=btn_height,
                 corner_radius=28,
             )
             btn.grid(row=row, column=col, padx=12, pady=12, sticky="nsew")
