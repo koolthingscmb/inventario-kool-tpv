@@ -2,7 +2,12 @@ import customtkinter as ctk
 import sys
 import logging
 import os
+import json
+from pathlib import Path
+from typing import List, Dict
 from kool_tpv.base_datos.db_wrapper import Database
+from kool_tpv.modulos.tpv.actions.buscar_articulo import BuscarArticuloPanel
+from PIL import Image
 
 # Hover color used across the UI (matches TPV 'BUSCAR ARTÍCULO' hover)
 HOVER_COLOR = "#00A4DF"
@@ -32,21 +37,27 @@ class App(ctk.CTk):
             pass
 
         # Tipografías configurables (modifica aquí si quieres tamaños distintos)
-        self.base_font = ("Arial", 18)
-        self.button_font = ("Arial", 24, "bold")
-        self.tpv_font = ("Arial", 60, "bold")
+        # Usamos las familias Roboto provistas en assets-fonts: Roboto-Regular y Roboto-SemiBold
+        self.base_font = ("Roboto-Regular", 18)
+        self.button_font = ("Roboto-SemiBold", 24)
+        self.tpv_font = ("Roboto-SemiBold", 60)
 
         # Configuración de la ventana principal
         self.title("Kool TPV")
-        # Tamaño dinámico según pantalla
-        width = self.winfo_screenwidth()
-        height = self.winfo_screenheight()
-        self.geometry(f"{width}x{height}")
-        self.minsize(1024, 768)
+        # Tamaño fijo para TPV profesional (25% más grande)
+        self.geometry("1600x960")
+        # Forzar aplicación de la geometría antes de mostrar (evita tamaño inicial diminuto)
         try:
-            self.state('zoomed')
+            self.update_idletasks()
         except Exception:
             pass
+        # Asegurar que no pueda reducirse por debajo de este tamaño
+        try:
+            self.minsize(1600, 960)
+        except Exception:
+            pass
+        # No redimensionable
+        self.resizable(False, False)
         # Fondo oscuro
         try:
             self.configure(bg="#222831")
@@ -83,39 +94,17 @@ class App(ctk.CTk):
         self.nav_frame.pack(side="left", fill="y")
         self.nav_frame.pack_propagate(False)
 
-        # Botón de apagar/volver atrás (más cuadrado y símbolo grande)
-        power_btn_kwargs = dict(
-            master=self.nav_frame,
-            fg_color="#FF0000",
-            hover_color=HOVER_COLOR,
-            width=110,
-            height=110,
-            corner_radius=18,
-            command=self.close_app,
-        )
-
-        # Intentar cargar imagen desde assets/power.png si existe (imagen más grande)
-        power_image = None
+        # Importar función global para el botón power/close
         try:
-            from PIL import Image
-            icon_path = os.path.join("assets", "power.png")
-            if os.path.exists(icon_path):
-                img = Image.open(icon_path).resize((96, 96))
-                power_image = ctk.CTkImage(img)
+            from kool_tpv.utils.global_buttons import create_global_close_button
+            self.power_button = create_global_close_button(self.nav_frame, command=self.close_app)
+            if self.power_button is not None:
+                try:
+                    self.power_button.pack(pady=(12, 20))
+                except Exception:
+                    pass
         except Exception:
-            power_image = None
-
-        if power_image:
-            self.power_button = ctk.CTkButton(image=power_image, **power_btn_kwargs)
-        else:
-            self.power_button = ctk.CTkButton(
-                **power_btn_kwargs,
-                text="⏻",
-                font=("Arial", 75, "bold"),
-                text_color="white",
-            )
-
-        self.power_button.pack(pady=(12, 20))
+            logging.exception("Error creando botón global power desde utils.global_buttons")
 
         # Preparar botón "PRINT ON" pero NO mostrarlo en la pantalla inicial.
         # Se mostrará únicamente cuando se cargue la vista TPV.
@@ -126,21 +115,77 @@ class App(ctk.CTk):
                 fg_color="#00BFFF",
                 hover_color=HOVER_COLOR,
                 text_color="black",
-                font=("Arial", 12, "bold"),
+                font=("Roboto-SemiBold", 12),
                 height=28,
             )
             # No hacer pack() aquí: se packeará al entrar en TPV
         except Exception:
             logging.exception("Error creando botón PRINT ON")
 
-        # Botones de navegación (tamaño táctil y márgenes mayores)
-        # TPV será más alto y con tipografía mayor
-        self.create_nav_button("TPV", "#FF8C00", height=100, command=self.load_tpv, font=self.tpv_font)
-        self.create_nav_button("ALMACÉN", "#32CD32", height=56)
-        self.create_nav_button("CLIENTES", "#9ACD32", height=56)
-        self.create_nav_button("INFORMES", "#FF1493", height=56)
-        self.create_nav_button("SHOPIFY", "#1E90FF", height=56)
-        self.create_nav_button("CONFIG", "#FF4500", height=56)
+        # Cargar configuración de botones del menú principal desde JSON
+        try:
+            base = Path(__file__).resolve().parents[0]
+            cfg_file = base / "kool_tpv" / "config" / "buttons_config.json"
+            main_menu: List[Dict] = []
+            if cfg_file.exists():
+                with cfg_file.open("r", encoding="utf-8") as fh:
+                    data = json.load(fh)
+                main_menu = data.get("main_menu") or []
+
+            if not main_menu:
+                # Fallback a la configuración hardcoded anterior
+                main_menu = [
+                    {"text": "TPV", "color": "#FF8C00", "command": "load_tpv", "hover_color": None},
+                    {"text": "ALMACÉN", "color": "#32CD32", "command": "open_almacen", "hover_color": None},
+                    {"text": "CLIENTES", "color": "#9ACD32", "command": "open_clientes", "hover_color": None},
+                    {"text": "INFORMES", "color": "#FF1493", "command": "open_informes", "hover_color": None},
+                    {"text": "SHOPIFY", "color": "#1E90FF", "command": "open_shopify", "hover_color": None},
+                    {"text": "CONFIG", "color": "#FF4500", "command": "open_config", "hover_color": None},
+                ]
+
+            # Import ButtonFactory lazily to avoid circular imports on startup
+            try:
+                from kool_tpv.modulos.tpv.tpv_view import ButtonFactory
+            except Exception:
+                ButtonFactory = None
+
+            for item in main_menu:
+                text = item.get("text") or item.get("label") or ""
+                color = item.get("color", "#CCCCCC")
+                hover = item.get("hover_color")
+                cmd_name = (item.get("command") or "").strip()
+
+                # map known commands to methods
+                if cmd_name.lower() in ("tpv", "load_tpv", "load_tpv()"):
+                    cmd = self.load_tpv
+                else:
+                    # default: log action
+                    cmd = (lambda name=cmd_name or text: logging.info(f"Nav action: {name}"))
+
+                # use ButtonFactory when available for consistent style
+                try:
+                    if ButtonFactory is not None:
+                        btn = ButtonFactory.create_button(
+                            parent=self.nav_frame,
+                            text=text,
+                            color=color,
+                            hover_color=hover,
+                            command=cmd,
+                            font=self.tpv_font if text.upper() == "TPV" else self.button_font,
+                            height=100 if text.upper() == "TPV" else 56,
+                        )
+                    else:
+                        btn = self.create_nav_button(text, color, height=(100 if text.upper() == "TPV" else 56), command=cmd, font=(self.tpv_font if text.upper() == "TPV" else self.button_font))
+                    btn.pack(pady=14, padx=20, fill="x")
+                    try:
+                        self.nav_buttons[text] = btn
+                    except Exception:
+                        pass
+                except Exception:
+                    logging.exception("Error creando botón del menú desde JSON")
+
+        except Exception:
+            logging.exception("Error cargando main_menu desde JSON")
 
         # Footer con versión
         footer = ctk.CTkLabel(self.nav_frame, text="KOOL TPV V1.0", text_color="white", font=self.base_font)
@@ -159,7 +204,7 @@ class App(ctk.CTk):
             height: Altura del botón en píxeles (útil para pantallas táctiles).
             command: Función a ejecutar al pulsar.
         """
-        btn_font = font or getattr(self, "button_font", ("Arial", 16, "bold"))
+        btn_font = font or getattr(self, "button_font", ("Roboto-SemiBold", 16))
         btn = ctk.CTkButton(
             self.nav_frame,
             text=(text or "").upper(),
@@ -217,7 +262,7 @@ class App(ctk.CTk):
                 label = ctk.CTkLabel(
                     self.main_frame,
                     text="Módulo TPV cargado correctamente",
-                    font=("Arial", 20),
+                    font=("Roboto-Regular", 20),
                     text_color="white",
                 )
                 label.pack(expand=True)
@@ -227,7 +272,7 @@ class App(ctk.CTk):
             label = ctk.CTkLabel(
                 self.main_frame,
                 text="Módulo TPV cargado correctamente",
-                font=("Arial", 20),
+                font=("Roboto-Regular", 20),
                 text_color="white",
             )
             label.pack(expand=True)

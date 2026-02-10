@@ -1,0 +1,93 @@
+PLANTILLA: PROMPT PARA GENERAR EL RESUMEN EXHAUSTIVO DIARIO
+USO: Cuando el usuario escriba "Genera resumen exhaustivo" o solicite el resumen diario, lee esta plantilla completa y ejecútala para producir `RESUMEN_EXHAUSTIVO_<YYYY-MM-DD>.txt` dentro de la carpeta `RESUMENES/`.
+
+INSTRUCCIONES GENERALES
+- Idioma: Español.
+- Formato de salida: Texto plano UTF-8, con secciones claras y enlaces a ficheros usando rutas relativas del workspace.
+- Nombre del fichero de salida: `RESUMEN_EXHAUSTIVO_<YYYY-MM-DD>.txt` (fecha ISO, p. ej. 2026-02-08).
+- NO BORRAR los resúmenes previos; siempre crear nuevo archivo con la fecha actual.
+- Nivel de detalle: Igualar o superar el detalle del archivo `RESUMEN_EXHAUSTIVO_2026-02-06.txt` (≈650+ líneas). Ser exhaustivo: analizar archivo por archivo los módulos y explicar cambios, riesgos, tests y recomendaciones.
+
+PASOS OBLIGATORIOS AL GENERAR EL RESUMEN
+1) Metadatos (breve)
+	- Nombre del proyecto
+	- Ruta raíz del workspace
+	- Fecha y autor (marcar como "auto-generado" si no hay autor humano)
+	- Rama y commit hash (si hay un repositorio Git en el workspace; intentar obtener `git rev-parse --abbrev-ref HEAD` y `git rev-parse --short HEAD`, si no disponible indicar N/A)
+
+2) Resumen ejecutivo (1-3 párrafos)
+	- Objetivo del proyecto
+	- Tecnologías principales
+	- Estado general (estable, en desarrollo, prototipo)
+
+3) Resumen de cambios recientes (cronología)
+	- Revisar los commits locales (si Git disponible) y listar cambios desde el último resumen (si no es posible, revisar timestamps de archivos modificados durante las últimas 24h).
+	- Resaltar cambios que afectan la BD, API pública o contratos entre módulos.
+
+4) Árbol de carpetas (selección relevante)
+	- Mostrar árbol con ficheros clave (no necesitamos listar TODO; centrarse en `kool_tpv/`, `scripts/`, `RESUMENES/`, `requirements.txt`, `migrations/`).
+
+5) Arquitectura y flujo principal (texto)
+	- Describir el flujo de una operación crítica (ej.: venta completa), enumerando los componentes y responsabilidades.
+
+6) Análisis archivo por archivo (CRÍTICO)
+	- Seleccionar los archivos clave (al menos: `main.py`, `kool_tpv/main.py`, `kool_tpv/modulos/tpv/*`, `kool_tpv/base_datos/*`, `kool_tpv/modulos/impresion/*`, `requirements.txt`, scripts de tests). Para cada archivo incluir:
+		* Ruta relativa (link al fichero)
+		* Propósito (1 línea)
+		* API pública (clases/funciones importantes con firma)
+		* Comportamiento clave y cuándo se invoca
+		* Dependencias (qué importa y quién lo usa)
+		* Supuestos y restricciones
+		* Riesgos conocidos y ejemplos de fallo
+		* Tests existentes o pruebas manuales realizadas
+		* Recomendaciones y acciones sugeridas (con pasos concretos)
+
+7) Cambios en la sesión actual (detalle técnico)
+	- Para cada archivo modificado desde el último resumen: incluir un resumen tipo diff (qué lineas/funciones se cambiaron y por qué), implicaciones y pasos siguientes.
+
+8) Puntos críticos y acciones recomendadas (priorizados)
+	- Clasificar en: Crítico / Alto / Medio / Bajo.
+	- Para cada punto: acción concreta, responsable sugerido, criterio de aceptación (DoD).
+
+9) Tareas pendientes (priorizadas y asignables)
+	- Lista de tareas con responsable sugerido y criterios de aceptación (DoD). Incluir estimación breve (horas o días).
+
+10) Apéndices
+	- Ejemplos de estructuras de datos (`ticket_data`, `items`), comandos útiles para ejecutar la app y tests, y scripts de migración SQL propuestos.
+
+11) Notas de despliegue y migración
+	- Incluir `requirements.txt`, versión de Python detectada (ejecutar `python --version`), pasos de despliegue y backup/migración de BD.
+
+12) Artifacts generados (registro)
+	- Indicar qué ficheros se leyeron para generar el resumen y qué scripts (si alguno) se ejecutaron durante la preparación del resumen.
+
+ESTILO Y REGLAS FIJAS
+- Mantener tono técnico, conciso y directo.
+- Usar listas y bullets para puntos técnicos; evitar párrafos excesivamente largos.
+- Incluir enlaces relativos a ficheros del workspace cuando se citen (p. ej. `RESUMENES/RESUMEN_EXHAUSTIVO_2026-02-06.txt`).
+- Incluir ejemplos concretos donde sean útiles (JSONs, comandos `sqlite3`, snippets pytest).
+- Revisar que el resumen cubre los checkpoints del CHECKLIST FINAL antes de cerrar.
+
+CHECKLIST FINAL (obligatorio, marcar explícitamente en el archivo)
+- [ ] Todos los archivos clave han sido analizados.
+- [ ] Las modificaciones recientes están documentadas con diffs o descripción técnica.
+- [ ] Se han indicado las migraciones de BD necesarias con SQL propuesto o referencias a `migrations/`.
+- [ ] Se han añadido pasos reproducibles para entorno local (comandos claros).
+
+COMPORTAMIENTO AL EJECUTAR (qué debe hacer el asistente automáticamente)
+1) Antes de generar el contenido: leer `RESUMENES/RESUMEN_EXHAUSTIVO_<ayer>.txt` si existe y computar delta de cambios.
+2) Buscar y leer los archivos clave indicados en la sección 6.
+3) Intentar obtener metadata Git; si no existe, tomar timestamps de archivos.
+4) Generar el archivo `RESUMENES/RESUMEN_EXHAUSTIVO_<hoy>.txt` y guardarlo en el repo.
+5) Actualizar el `todo list` interno con las tareas detectadas y presentarlas al usuario brevemente.
+
+USO DIARIO
+- Mensaje mínimo del usuario para activar: "Genera resumen exhaustivo" o "Resumen diario".
+- Opcional: el usuario puede pedir parámetros como: `--since YYYY-MM-DD`, `--include-tests`, `--run-pytest`.
+- Si el usuario pide `--run-pytest`, el asistente debe ejecutar `pytest -q`, capturar resultados y adjuntar resumen de fallos en la sección de pruebas.
+
+SEGURIDAD Y PRECAUCIONES
+- No ejecutar migraciones automáticamente sin confirmación explícita.
+- No sobrescribir `RESUMEN_EXHAUSTIVO_<fecha-anteior>.txt` existentes.
+
+FIN DE LA PLANTILLA DE PROMPT

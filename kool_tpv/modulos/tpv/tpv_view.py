@@ -18,8 +18,16 @@ from typing import Optional, List, Dict
 import logging
 import json
 from pathlib import Path
+from decimal import Decimal
+try:
+    from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
+except Exception:
+    ImpresoraService = None
 
 import customtkinter as ctk
+import tkinter as tk
+from kool_tpv.utils.custom_dialog import show_error, show_success, show_info, show_warning
+from kool_tpv.modulos.tpv.actions.descuento import DescuentoAction
 
 
 # --- Configuración editable de botones (texto y color). Modifica aquí. ---
@@ -103,7 +111,7 @@ class ButtonFactory:
         parent,
         text: str,
         command=None,
-        font=("Arial", 14),
+        font=("Roboto-SemiBold", 14),
         color="#FFFFFF",
         text_color="black",
         hover_color=None,
@@ -114,19 +122,24 @@ class ButtonFactory:
     ) -> ctk.CTkButton:
         # Use shared HOVER_COLOR when none provided
         _hover = hover_color if hover_color is not None else HOVER_COLOR
-        return ctk.CTkButton(
+        params = dict(
             master=parent,
             text=(text or "").upper(),
             command=command,
             fg_color=color,
             hover_color=_hover,
             text_color=text_color,
-            width=width,
-            height=height,
             font=font,
             corner_radius=corner_radius,
-            **kwargs,
         )
+        # Only include width/height when explicitly provided (avoid passing None)
+        if width is not None:
+            params["width"] = width
+        if height is not None:
+            params["height"] = height
+
+        params.update(kwargs)
+        return ctk.CTkButton(**params)
 
 
 class TpvView:
@@ -151,17 +164,85 @@ class TpvView:
         self.grid_frame: Optional[ctk.CTkFrame] = None
         self.search_button: Optional[ctk.CTkButton] = None
         self.grid_buttons: List[ctk.CTkButton] = []
+        # Sesión de cajero
+        self.cajero_nombre = None
+        self.cajero_id = None
+        self.cajero_rol = None
+
+    def _on_producto_stock_selected(self, producto: Dict) -> None:
+        """Callback cuando se selecciona producto desde StockUI (doble clic o Aceptar).
+
+        Añade el producto al carrito automáticamente.
+
+        Args:
+            producto: Dict con datos del producto
+        """
+        try:
+            if not producto or not producto.get('id'):
+                logging.warning('Producto inválido recibido en callback stock')
+                return
+
+            # Añadir al carrito usando carrito_service
+            if hasattr(self, 'carrito_service') and self.carrito_service is not None:
+                try:
+                    self.carrito_service.add_item(producto)
+                    logging.info(f"Producto añadido desde STOCK: {producto.get('nombre')}")
+
+                    # Actualizar display del carrito
+                    if hasattr(self, 'carrito_ui') and self.carrito_ui is not None:
+                        try:
+                            self.carrito_ui.update_display()
+                        except Exception:
+                            logging.exception('Error actualizando carrito_ui tras añadir desde stock')
+                except Exception:
+                    logging.exception('Error añadiendo producto al carrito desde stock')
+
+        except Exception:
+            logging.exception('Error en _on_producto_stock_selected')
+
+    def _open_cajero_overlay(self) -> None:
+        """Abrir el overlay/acción de Cajero para autenticación.
+
+        Intenta reutilizar la instancia de `CajeroAction` si existe,
+        o instanciarla como fallback.
+        """
+        try:
+            if getattr(self, '_cajero_action', None) is not None:
+                try:
+                    # `ejecutar` es el método usado por los botones para abrir el overlay
+                    self._cajero_action.ejecutar()
+                    return
+                except Exception:
+                    logging.exception('Error ejecutando _cajero_action.ejecutar()')
+
+            # Fallback: intentar instanciar y ejecutar
+            try:
+                from kool_tpv.modulos.tpv.actions.cajero import CajeroAction
+                caj = CajeroAction(self, self.db)
+                try:
+                    caj.ejecutar()
+                except Exception:
+                    logging.exception('Error ejecutando CajeroAction fallback')
+            except Exception:
+                logging.exception('No se pudo abrir overlay de Cajero (no disponible)')
+        except Exception:
+            logging.exception('Error en _open_cajero_overlay')
+    # Ticket viewer methods removed in rollback: Stock→Consultar→Volver (sin visor)
 
     # ---------------------- Reloj y teardown ----------------------
-    def _update_clock(self, cashier_name: str) -> None:
+    def _update_clock(self, cashier_name: str = None) -> None:
         try:
             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            info_text = f"KOOL TPV V1.0 - {now_str}\n{cashier_name}"
+
+            # Usar cajero actual si está autenticado, sino usar el pasado por parámetro
+            cajero_actual = getattr(self, 'cajero_nombre', None) or cashier_name or "Sin cajero"
+
+            info_text = f"KOOL TPV V1.0 - {now_str}\nCajero: {cajero_actual}"
             if self.info_label:
                 self.info_label.configure(text=info_text)
             # programar siguiente actualización
             if self.parent is not None:
-                self._clock_job = self.parent.after(1000, lambda: self._update_clock(cashier_name))
+                self._clock_job = self.parent.after(1000, lambda: self._update_clock())
         except Exception:
             logging.exception("Error actualizando reloj TPV")
 
@@ -220,16 +301,25 @@ class TpvView:
             # Aplicar al botón de búsqueda
             if self.search_button:
                 try:
-                    self.search_button.configure(width=search_w, height=search_h, font=("Impact", search_font_size))
+                    self.search_button.configure(width=search_w, height=search_h, font=("Roboto-SemiBold", search_font_size))
                 except Exception:
                     logging.exception("Error ajustando search_button")
 
             # Aplicar a botones de la grid
             for b in self.grid_buttons:
                 try:
-                    b.configure(width=btn_size, height=btn_size, font=("Impact", btn_font_size))
+                    b.configure(width=btn_size, height=btn_size, font=("Roboto-SemiBold", btn_font_size))
                 except Exception:
                     logging.exception("Error ajustando grid button")
+
+            # Ensure grid cells don't squash buttons: set minsize for columns/rows
+            try:
+                for c in range(cols):
+                    self.grid_frame.grid_columnconfigure(c, minsize=btn_size + spacing)
+                for r in range(rows):
+                    self.grid_frame.grid_rowconfigure(r, minsize=btn_size + spacing)
+            except Exception:
+                pass
         except Exception:
             logging.exception("Error en _on_resize TPV")
 
@@ -251,13 +341,11 @@ class TpvView:
         self.search_button = ButtonFactory.create_button(
             parent=self.action_panel,
             text="BUSCAR ARTÍCULO",
-            command=lambda: logging.info("Acción: BUSCAR ARTÍCULO"),
-            font=("Impact", 24),
+            command=None,
+            font=("Roboto-SemiBold", 24),
             color="#00BFFF",
             text_color="#000000",
             hover_color="#00A4DF",
-            width=1000,
-            height=60,
             corner_radius=18,
         )
         self.search_button.pack(pady=(18, 8), padx=20)
@@ -280,10 +368,12 @@ class TpvView:
             col = idx % 4
             # derive font tuple
             font_size = cfg.get("font_size") or 36
-            font = ("Impact", int(font_size))
-            btn_width = cfg.get("width") or 200
-            btn_height = cfg.get("height") or 200
+            # prefer explicit font_family from config, fallback to Roboto-SemiBold
+            fam = cfg.get("font_family") or "Roboto-SemiBold"
+            font = (fam, int(font_size))
             hover = cfg.get("hover_color")
+            # Create button without fixed pixel width/height so it can be
+            # resized responsively in `_on_resize`.
             btn = ButtonFactory.create_button(
                 parent=self.grid_frame,
                 text=cfg.get("text", f"BTN{idx+1}"),
@@ -292,13 +382,17 @@ class TpvView:
                 color=cfg.get("color", "#CCCCCC"),
                 text_color="#000000",
                 hover_color=hover,
-                width=btn_width,
-                height=btn_height,
                 corner_radius=28,
             )
-            btn.grid(row=row, column=col, padx=12, pady=12, sticky="nsew")
+            # place button centered in its cell; sizing handled in _on_resize
+            btn.grid(row=row, column=col, padx=12, pady=12)
             self.grid_frame.grid_columnconfigure(col, weight=1)
             self.grid_frame.grid_rowconfigure(row, weight=1)
+            # store base font size so _on_resize can scale relative to it
+            try:
+                btn._base_font_size = int(font_size)
+            except Exception:
+                btn._base_font_size = 36
             self.grid_buttons.append(btn)
 
         # Right container (fijo en la derecha)
@@ -329,23 +423,485 @@ class TpvView:
         self.info_label = ctk.CTkLabel(
             info_bar,
             text="",
-            font=("Arial", 18),
+            font=("Roboto-Regular", 18),
             text_color="#000000",
             anchor="center",
             justify="center",
         )
         self.info_label.pack(fill="both", expand=True)
 
-        # Cart view (negra)
-        cart_view = ctk.CTkFrame(self.right_container, fg_color="#000000")
-        cart_view.pack(side="top", fill="both", expand=True)
-        cart_view.pack_propagate(False)
+        # Cart view (negra) - keep as attribute for external wiring
+        self.cart_view = ctk.CTkFrame(self.right_container, fg_color="#000000")
+        self.cart_view.pack(side="top", fill="both", expand=True)
+        self.cart_view.pack_propagate(False)
+
+        # Cart view placeholder for carrito and ticket display (ticket_display created after carrito)
+        # Instantiate carrito service + UI
+        try:
+            from kool_tpv.modulos.tpv.carrito.carrito_service import CarritoService
+            from kool_tpv.modulos.tpv.carrito.carrito_ui import CarritoUI
+            self.carrito_service = CarritoService()
+            # CarritoUI expects a tk-compatible parent; CTkFrame works as master
+            self.carrito_ui = CarritoUI(self.cart_view, self.carrito_service)
+
+            # ticket_display removed in rollback — no widget created here
+
+            # Instanciar servicio de fidelización
+            try:
+                from kool_tpv.modulos.clientes.fidelizacion_service import FidelizacionService
+                try:
+                    self.fidelizacion_service = FidelizacionService(self.db)
+                except Exception:
+                    logging.exception('Error instanciando FidelizacionService')
+                    self.fidelizacion_service = None
+            except Exception:
+                logging.exception('Error importando FidelizacionService')
+                self.fidelizacion_service = None
+            # ClienteAction: conectar botón CLIENTE con el panel de selección
+            try:
+                from kool_tpv.modulos.tpv.actions.cliente import ClienteAction
+                try:
+                    self._cliente_action = ClienteAction(self, self.db, self.carrito_service)
+                except Exception:
+                    self._cliente_action = None
+            except Exception:
+                self._cliente_action = None
+            # Instanciar CajeroAction
+            try:
+                from kool_tpv.modulos.tpv.actions.cajero import CajeroAction
+                try:
+                    self._cajero_action = CajeroAction(self, self.db)
+                except Exception:
+                    logging.exception('Error instanciando CajeroAction')
+                    self._cajero_action = None
+            except Exception:
+                logging.exception('Error importando CajeroAction')
+                self._cajero_action = None
+            # Instanciar DescuentoAction
+            try:
+                try:
+                    self.descuento_action = DescuentoAction(self, self.carrito_service)
+                except Exception:
+                    logging.exception('Error instanciando DescuentoAction')
+                    self.descuento_action = None
+            except Exception:
+                logging.exception('Error creando DescuentoAction')
+                self.descuento_action = None
+            # Instanciar StockUI
+            try:
+                from kool_tpv.modulos.tpv.ui.stock_ui import StockUI
+                try:
+                    self._stock_ui = StockUI(self, self.db, on_selection_callback=self._on_producto_stock_selected)
+                except Exception:
+                    logging.exception('Error instanciando StockUI')
+                    self._stock_ui = None
+            except Exception:
+                logging.exception('Error importando StockUI')
+                self._stock_ui = None
+            # attach cash controller UI (entry + CASH button)
+            try:
+                from kool_tpv.modulos.tpv.actions.cash import CashController
+                # on_finalize: simple default that clears carrito and refreshes UI
+                def _on_finalize(efectivo, forma_pago='Efectivo', importe_efectivo=None, importe_tarjeta=None):
+                    """Finalize wrapper used by payment controllers.
+
+                    If `efectivo` is None (used for non-cash payments), treat pagado as
+                    the total amount so ticket fields remain numeric.
+                    """
+                    # Guard: do not allow finalizing when cart is empty
+                    try:
+                        try:
+                            empty = False
+                            if getattr(self.carrito_service, 'is_empty', None) and callable(self.carrito_service.is_empty):
+                                empty = self.carrito_service.is_empty()
+                            else:
+                                empty = (self.carrito_service.get_item_count() == 0)
+                        except Exception:
+                            empty = True
+                        if empty:
+                            try:
+                                show_warning(self.root if hasattr(self, 'root') else None, 'Carrito vacío', 'No se puede realizar una venta sin artículos.')
+                            except Exception:
+                                logging.exception('Error mostrando warning carrito vacío')
+                            return
+                    except Exception:
+                        logging.exception('Error comprobando carrito vacío en on_finalize')
+
+                    success = False
+                    try:
+                        # Persist the ticket, lines and update stock in DB
+                        from kool_tpv.base_datos.ticket_service import save_ticket
+                        resumen = self.carrito_service.get_resumen_financiero()
+                        # Capturar items antes de cualquier limpieza para impresión
+                        try:
+                            items_to_print = list(self.carrito_service.get_items() or [])
+                        except Exception:
+                            items_to_print = []
+
+                        # Capturar puntos canjeados ANTES de save_ticket (clear resetea a 0)
+                        try:
+                            puntos_canjeados_capturados = self.carrito_service.get_puntos_canjeados() or Decimal('0')
+                        except Exception:
+                            puntos_canjeados_capturados = Decimal('0')
+                        cajero = getattr(self, 'cajero_nombre', None) or None
+
+                        # Recuperar cliente desde CarritoService (si existe)
+                        cliente_info = None
+                        cliente_nombre = None
+                        cliente_id = None
+                        try:
+                            cliente_info = self.carrito_service.get_cliente()
+                            if cliente_info:
+                                cliente_nombre = cliente_info.get('nombre') or cliente_info.get('name') or None
+                                cliente_id = cliente_info.get('id') or cliente_info.get('cliente_id') or None
+                        except Exception:
+                            logging.exception('Error obteniendo cliente desde CarritoService')
+
+                        # Prepare importe_efectivo / importe_tarjeta as Decimals (or 0)
+                        try:
+                            importe_efectivo_val = Decimal(str(importe_efectivo)) if importe_efectivo is not None else Decimal('0')
+                        except Exception:
+                            importe_efectivo_val = Decimal('0')
+                        try:
+                            importe_tarjeta_val = Decimal(str(importe_tarjeta)) if importe_tarjeta is not None else Decimal('0')
+                        except Exception:
+                            importe_tarjeta_val = Decimal('0')
+
+                        # Determine pagado value: if efectivo is None (card), use total
+                        try:
+                            if efectivo is None:
+                                total_val = resumen.get('total', 0.0)
+                                pagado_val = Decimal(str(total_val))
+                            else:
+                                pagado_val = Decimal(str(efectivo))
+
+                            # Obtener descuento si existe
+                            try:
+                                descuento_data = None
+                                try:
+                                    descuento_data = self.carrito_service.get_descuento()
+                                except Exception:
+                                    descuento_data = None
+                            except Exception:
+                                descuento_data = None
+
+                            # Guardar posible resultado extendido (ticket_id, num_ticket[, tesoro_data])
+                            save_res = save_ticket(
+                                self.db,
+                                self.carrito_service.get_items(),
+                                resumen,
+                                pagado_val,
+                                cajero=cajero,
+                                cliente=cliente_nombre,
+                                cliente_id=cliente_id,
+                                forma_pago=forma_pago,
+                                importe_efectivo=importe_efectivo_val,
+                                importe_tarjeta=importe_tarjeta_val,
+                                descuento_data=descuento_data,
+                                carrito_service=self.carrito_service,
+                                fidelizacion_service=getattr(self, 'fidelizacion_service', None),
+                            )
+                            # soportar distintos retornos: (id,num) o (id,num,tesoro_dict)
+                            ticket_id = None
+                            num_ticket = None
+                            try:
+                                if isinstance(save_res, (list, tuple)):
+                                    if len(save_res) >= 2:
+                                        ticket_id, num_ticket = save_res[0], save_res[1]
+                            except Exception:
+                                # dejar ticket_id/num_ticket como None si unpack falla
+                                ticket_id = None
+                                num_ticket = None
+
+                            logging.info(f'Ticket guardado id={ticket_id} num={num_ticket} forma_pago={forma_pago} Efectivo: {importe_efectivo_val} Tarjeta: {importe_tarjeta_val}')
+                            success = True
+                        except Exception as e:
+                            logging.exception('Error guardando ticket en DB')
+                            # try to surface DB path and error to the user
+                            try:
+                                db_path = getattr(self.db, 'db_path', 'unknown')
+                            except Exception:
+                                db_path = 'unknown'
+                            msg = f"Error guardando ticket en la base de datos.\nDB: {db_path}\nDetalle: {e}"
+                            try:
+                                show_error(self.root if hasattr(self, 'root') else None, 'Error guardando ticket', msg)
+                            except Exception:
+                                logging.exception('No se pudo mostrar el diálogo de error')
+                    except Exception:
+                        logging.exception('Error en on_finalize wrapper')
+                        try:
+                            show_error(self.root if hasattr(self, 'root') else None, 'Error', 'Se produjo un error interno al finalizar la operación de cobro.')
+                        except Exception:
+                            pass
+
+                    # Only clear carrito if persistence succeeded
+                    if success:
+                        try:
+                            self.carrito_service.clear()
+                            self.carrito_ui.update_display()
+                            try:
+                                show_success(self.root if hasattr(self, 'root') else None, 'Venta guardada', f'Ticket guardado correctamente (#{num_ticket})')
+                            except Exception:
+                                pass
+                        except Exception:
+                            logging.exception('Error limpiando carrito tras guardar ticket')
+
+                        # Intentar imprimir ticket (simulación) sin bloquear flujo
+                        try:
+                            if getattr(self, 'impresora_service', None) is not None:
+                                try:
+                                    now = datetime.now()
+                                    total_val = resumen.get('total', 0) if isinstance(resumen, dict) else 0
+                                    # entregado: efectivo si se proporcionó, o total si pago con tarjeta
+                                    if efectivo is None:
+                                        entregado_val = total_val
+                                        cambio_val = 0
+                                    else:
+                                        try:
+                                            entregado_val = Decimal(str(efectivo))
+                                        except Exception:
+                                            entregado_val = Decimal(str(total_val))
+                                        try:
+                                            cambio_val = Decimal(str(efectivo)) - Decimal(str(total_val))
+                                        except Exception:
+                                            cambio_val = Decimal('0')
+
+                                    # Calcular tesoro_data para impresión
+                                    tesoro_data_for_ticket = {
+                                        'gastado': Decimal('0'),
+                                        'ganado': Decimal('0'),
+                                        'acumulado': Decimal('0'),
+                                        'total': Decimal('0')
+                                    }
+                                    try:
+                                        puntos_gastados = puntos_canjeados_capturados
+
+                                        # Calcular puntos ganados usando fidelizacion_service
+                                        puntos_ganados = Decimal('0')
+                                        try:
+                                            if hasattr(self, 'fidelizacion_service') and self.fidelizacion_service is not None:
+                                                puntos_ganados = self.fidelizacion_service.calcular_puntos_ganados(
+                                                    items_to_print,
+                                                    puntos_canjeados=puntos_gastados
+                                                ) or Decimal('0')
+                                        except Exception:
+                                            logging.exception('Error calculando puntos ganados para ticket')
+                                            puntos_ganados = Decimal('0')
+
+                                        # Obtener saldo ANTES de la venta (del cliente en el carrito)
+                                        tesoro_antes = Decimal('0')
+                                        try:
+                                            if cliente_info:
+                                                tesoro_antes = Decimal(str(cliente_info.get('tesoro_total', 0)))
+                                        except Exception:
+                                            tesoro_antes = Decimal('0')
+
+                                        # Calcular valores para el ticket
+                                        tesoro_data_for_ticket = {
+                                            'gastado': puntos_gastados,
+                                            'ganado': puntos_ganados,
+                                            'acumulado': tesoro_antes - puntos_gastados,
+                                            'total': tesoro_antes - puntos_gastados + puntos_ganados,
+                                        }
+                                    except Exception:
+                                        logging.exception('Error construyendo tesoro_data para ticket')
+
+                                    ticket_data = {
+                                        'fecha': now.strftime('%Y-%m-%d'),
+                                        'hora': now.strftime('%H:%M:%S'),
+                                        'cajero': cajero,
+                                        'num_ticket': num_ticket,
+                                        'subtotal': resumen.get('subtotal') if isinstance(resumen, dict) else 0,
+                                        'iva_desglose': resumen.get('iva_desglose') if isinstance(resumen, dict) else {},
+                                        'total': total_val,
+                                        'forma_pago': forma_pago,
+                                        'entregado': entregado_val,
+                                        'cambio': cambio_val,
+                                        'importe_efectivo': importe_efectivo_val,
+                                        'importe_tarjeta': importe_tarjeta_val,
+                                        # tesoro_data calculado arriba para asegurar valores reales
+                                        'tesoro_data': tesoro_data_for_ticket,
+                                        # datos de descuento (si existe)
+                                        'descuento_euros': str(descuento_data['euros']) if descuento_data else '0',
+                                        'descuento_tipo': descuento_data['tipo'] if descuento_data else None,
+                                        'descuento_valor': descuento_data['valor'] if descuento_data else None,
+                                     }
+                                    # Construir cliente_for_print con nivel resuelto
+                                    cliente_for_print = None
+                                    if cliente_info:
+                                        cliente_for_print = cliente_info.copy()
+                                        try:
+                                            id_nivel = cliente_info.get('id_nivel')
+                                            if id_nivel and getattr(self, 'db', None):
+                                                try:
+                                                    nivel_row = self.db.fetch_one(
+                                                        "SELECT nombre_nivel, grafismo_nivel, level FROM niveles_fidelidad WHERE id = ?",
+                                                        (id_nivel,)
+                                                    )
+                                                except Exception:
+                                                    nivel_row = None
+                                                if nivel_row:
+                                                    cliente_for_print['nivel'] = nivel_row[0]
+                                                    cliente_for_print['grafismo'] = nivel_row[1] or ''
+                                                    cliente_for_print['level_num'] = nivel_row[2] or ''
+                                                else:
+                                                    cliente_for_print['nivel'] = ''
+                                                    cliente_for_print['grafismo'] = ''
+                                                    cliente_for_print['level_num'] = ''
+                                            else:
+                                                cliente_for_print['nivel'] = ''
+                                                cliente_for_print['grafismo'] = ''
+                                                cliente_for_print['level_num'] = ''
+                                        except Exception:
+                                            logging.exception('Error resolviendo nivel de fidelidad')
+                                            cliente_for_print['nivel'] = ''
+                                    try:
+                                        self.impresora_service.imprimir_ticket(ticket_data, items_to_print, cliente_for_print)
+                                    except Exception:
+                                        logging.exception('Error en impresión de ticket (simulada)')
+                                except Exception:
+                                    logging.exception('Error preparando datos para impresión de ticket')
+                        except Exception:
+                            logging.exception('ImpresoraService no disponible o error al llamar imprimir_ticket')
+
+                self._cash_controller = CashController(self.carrito_ui, self.carrito_service, on_finalize=_on_finalize)
+            except Exception:
+                pass
+            # MultiPago controller (mixed payments)
+            try:
+                from kool_tpv.modulos.tpv.actions.multi_s import MultiPagoController
+                try:
+                    self._multi_controller = MultiPagoController(self.carrito_ui, self.carrito_service, on_finalize=_on_finalize)
+                except Exception:
+                    self._multi_controller = None
+            except Exception:
+                self._multi_controller = None
+            # Direct payment controllers: Tarjeta (card) and Web
+            try:
+                from kool_tpv.modulos.tpv.actions.tarjeta import DirectPaymentController
+                try:
+                    self._tarjeta_controller = DirectPaymentController(self.carrito_ui, self.carrito_service, on_finalize=_on_finalize)
+                except Exception:
+                    self._tarjeta_controller = None
+
+                try:
+                    self._web_controller = DirectPaymentController(
+                        self.carrito_ui,
+                        self.carrito_service,
+                        on_finalize=_on_finalize,
+                        payment_method='Web',
+                        banner_text='Finalizar venta WEB?',
+                        banner_color='#88B04B',
+                        help_bg_color='#6A8E3D',
+                    )
+                except Exception:
+                    self._web_controller = None
+            except Exception:
+                # if import fails, ensure safe defaults
+                self._tarjeta_controller = None
+                self._web_controller = None
+            # initial display
+            try:
+                self.carrito_ui.update_display()
+            except Exception:
+                pass
+            # Instantiate impresora service (simulada) for printing tickets
+            try:
+                if ImpresoraService is not None:
+                    try:
+                        self.impresora_service = ImpresoraService(db=self.db)
+                    except Exception:
+                        self.impresora_service = None
+                else:
+                    self.impresora_service = None
+            except Exception:
+                self.impresora_service = None
+            # Rebind big 'COBRAR' grid button (if present) to trigger cash action
+            try:
+                for btn in self.grid_buttons:
+                    try:
+                        txt = (btn.cget('text') or '').strip().upper()
+                        # Bind CLIENTE button to ClienteAction if available
+                        if txt == 'CLIENTE' and getattr(self, '_cliente_action', None) is not None:
+                            btn.configure(command=lambda act=self._cliente_action: act.ejecutar())
+                            logging.info('Grid button CLIENTE bound to ClienteAction')
+                        if txt == 'CAJERO' and getattr(self, '_cajero_action', None) is not None:
+                            btn.configure(command=lambda act=self._cajero_action: act.ejecutar())
+                            logging.info('Grid button CAJERO bound to CajeroAction')
+                        if txt in ('COBRAR', 'CASH') and getattr(self, '_cash_controller', None) is not None:
+                            btn.configure(command=lambda ctl=self._cash_controller: ctl._on_action())
+                            logging.info(f'Grid button {txt} bound to CashController')
+                        if txt == 'STOCK' and getattr(self, '_stock_ui', None) is not None:
+                            btn.configure(command=(lambda ui=self._stock_ui: ui.show()))
+                            logging.info('Grid button STOCK bound to StockUI')
+                        if txt == 'DESCUENTO' and getattr(self, 'descuento_action', None) is not None:
+                            btn.configure(command=lambda act=self.descuento_action: act.ejecutar())
+                            logging.info('Grid button DESCUENTO bound to DescuentoAction')
+                        if any(k in txt for k in ('MULTI', 'MIXTO')) and getattr(self, '_multi_controller', None) is not None:
+                            btn.configure(command=lambda ctl=self._multi_controller: ctl._on_action())
+                            logging.info(f'Grid button {txt} bound to MultiPagoController')
+                        if txt in ('TARJETA', 'CARD') and getattr(self, '_tarjeta_controller', None) is not None:
+                            btn.configure(command=lambda ctl=self._tarjeta_controller: ctl._on_action())
+                            logging.info(f'Grid button {txt} bound to DirectPaymentController (Tarjeta)')
+                        if txt == 'WEB' and getattr(self, '_web_controller', None) is not None:
+                            btn.configure(command=lambda ctl=self._web_controller: ctl._on_action())
+                            logging.info(f'Grid button {txt} bound to DirectPaymentController (Web)')
+                    except Exception:
+                        pass
+            except Exception:
+                logging.exception('Error rebinding grid buttons to payment controllers')
+        except Exception:
+            logging.exception("Error instanciando CarritoService/CarritoUI")
+
+        # Si no hay cajero autenticado, mostrar warning que abre overlay de Cajeros
+        try:
+            active = None
+            if self.db is not None:
+                getter = getattr(self.db, 'get_active_cashier', None)
+                if callable(getter):
+                    try:
+                        active = getter()
+                    except Exception:
+                        active = None
+
+            has_cajero = False
+            if active:
+                if isinstance(active, dict):
+                    nombre = active.get('name') or active.get('nombre')
+                    if nombre:
+                        self.cajero_nombre = nombre
+                        self.cajero_id = active.get('id') or active.get('cajero_id')
+                        has_cajero = True
+                elif isinstance(active, str):
+                    self.cajero_nombre = active
+                    has_cajero = True
+
+            if not has_cajero:
+                try:
+                    parent_win = self.parent.winfo_toplevel() if hasattr(self.parent, 'winfo_toplevel') else self.parent
+                    show_warning(
+                        parent_win,
+                        'Cajero no autenticado',
+                        'No hay cajero autenticado. Pulsa Aceptar para abrir el panel de cajeros y autenticar uno.',
+                        callback=lambda: self._open_cajero_overlay(),
+                    )
+                except Exception:
+                    logging.exception('Error mostrando diálogo de cajero no autenticado')
+        except Exception:
+            logging.exception('Error comprobando sesión de cajero')
 
         # Iniciar reloj
         try:
             self._update_clock(cashier_name)
         except Exception:
             logging.exception("Error iniciando reloj")
+        # Conectar controlador de acciones (buscar artículo, etc.)
+        try:
+            from kool_tpv.modulos.tpv.tpv_controller import TpvController
+            # guardar referencia para teardown si es necesario
+            self.controller = TpvController(self)
+        except Exception:
+            logging.exception("Error inicializando TpvController")
 
         # Bind resize para comportamiento responsive
         try:

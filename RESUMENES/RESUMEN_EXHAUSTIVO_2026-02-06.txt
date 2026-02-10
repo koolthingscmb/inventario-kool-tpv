@@ -1,0 +1,666 @@
+```bash
+RESUMEN EXHAUSTIVO DEL PROYECTO KOOL_TPV_V2
+Fecha: 2026-02-06 (versión final _v2_ sobrescrita)
+Autor: Resumen generado y ampliado — incluye todas las implementaciones y correcciones realizadas en la sesión de la mañana.
+
+---
+
+OBJETIVO
+
+Este documento es un "RESUMEN SUPER MEGA EXHAUSTIVO" del proyecto `KOOL_TPV_V2`, construido para ser una referencia completa archivo por archivo del estado actual del código, con especial atención a las modificaciones implementadas durante la sesión de hoy. Incluye:
+- Árbol de carpetas y ficheros relevantes (completo para módulos de producción).
+- Análisis detallado de cada archivo importante: propósito, API pública, comportamiento, dependencia, cambios aplicados, riesgos, pruebas y recomendaciones.
+- Registro de las acciones efectuadas y sugerencias concretas para el despliegue y migraciones.
+
+ALCANCE
+
+Está centrado en el código fuente principal, los módulos del TPV, la persistencia y la impresión de tickets. No incluye tests externos ni documentación de terceros, salvo cuando se referencian scripts internos.
+
+---
+
+RESUMEN EJECUTIVO (1-2 párrafos)
+
+KOOL_TPV_V2 es una aplicación TPV de escritorio escrita en Python con UI basada en `customtkinter`. La arquitectura separa claramente: vistas (UI), servicios (persistencia/impresión), lógica de negocio (CarritoService) y controladores de acciones (cash/tarjeta/multi pago). Durante la mañana se implementaron y reforzaron los flujos de cobro, la persistencia de tickets y la generación/impresión de tickets (simulada), además de arreglar bugs de formato y consolidar el manejo de importes mixtos.
+
+Se han tomado decisiones concretas:
+- Mantener `Decimal` para cálculos en memoria; serializar a string al persistir para evitar conversión implícita a float en SQLite.
+- Implementar impresión en texto plano con `TicketGenerator` y un `ImpresoraService` simulado para permitir verificación sin impresora física.
+- Soportar pagos mixtos (efectivo+tarjeta) y persistir desgloses en `ticket_service.save_ticket`.
+
+---
+
+ÁRBOL DE CARPETAS (completo y actual)
+
+kool_tpv/
+  __init__.py
+  main.py
+  assets/
+    FONTS/
+    (imágenes y recursos)
+  base_datos/
+    __init__.py
+    db_init.py
+    db_wrapper.py
+    categoria_service.py
+    producto_service.py
+    ticket_service.py
+    tipo_service.py
+  config/
+    buttons_config.json
+  logs/
+    application.log
+  modulos/
+    __init__.py
+    impresion/
+      __init__.py
+      impresora_service.py
+      ticket_generator.py
+    configuracion/
+      __init__.py
+      configuracion_service.py
+      reset_service.py
+    clientes/
+      __init__.py
+      cliente_service.py
+      clientes_db.py
+      ui_clientes.py
+    tpv/
+      __init__.py
+      tpv_controller.py
+      tpv_db.py
+      tpv_service.py
+      tpv_view.py
+      ticket_service.py
+      ui_tpv.py
+      carrito/
+        __init__.py
+        carrito_service.py
+        carrito_ui.py
+      actions/
+        __init__.py
+        buscar_articulo.py
+        cajero.py
+        cash.py
+        cierre.py
+        cliente.py
+        config.py
+        descuento.py
+        evolucion.py
+        multi_s.py
+        stock.py
+        tarjeta.py
+        tickets.py
+
+scripts/
+  run_save_ticket.py
+  test_* (varios scripts de prueba)
+
+RESUMEN DE CAMBIOS PRINCIPALES (SÍNTESIS)
+
+- Implementado `TicketGenerator` que construye el ticket en texto plano con ancho fijo `WIDTH = 42` y secciones: encabezado, info venta, cuerpo (líneas), resumen financiero, tabla de pagos (soporte Mixto), fidelización y pie.
+- Implementado `ImpresoraService` que usa `TicketGenerator` y simula la impresión por terminal (útil para desarrollo y pruebas).
+- Integrada la impresión simulada en `TpvView._on_finalize`: se captura `items_to_print` antes de limpiar el carrito, se persiste el ticket y luego se invoca `imprimir_ticket` de forma segura (try/except).
+- `ticket_service.save_ticket` ampliado para aceptar y persistir `importe_efectivo` y `importe_tarjeta`; además `save_ticket` gestiona `cliente_id` y utiliza `Decimal` en la lógica interna.
+- `CarritoService` extendido con soporte para `cliente` (set/get) y mantiene `Decimal` en todos los cálculos financieros.
+- `CarritoUI` ampliado para registrar controladores de pago (`register_controller`) y desactivar todos (`deactivate_all_controllers`) para garantizar exclusividad de controladores.
+- Creado/Refactorizados controladores de pago:
+  * `CashController` (mejoras: validación de importe, restauración de widgets ocultos, registro en `CarritoUI`).
+  * `DirectPaymentController` (refactor de `TarjetaController`) con parámetros configurables y bind/unbind de `Enter` a nivel root.
+  * `MultiPagoController` implementado para pagos mixtos y calco sobre UI con `var_efectivo` y `var_tarjeta` con traces recíprocos.
+- Correcciones: f-strings con espacios en especificadores corregidos en `ticket_generator.py`; lógica de pago mixto corregida para mostrar Entr./Total correctos.
+
+---
+
+ANÁLISIS DETALLADO ARCHIVO POR ARCHIVO (EXHAUSTIVO)
+
+Nota: cada entrada sigue la estructura: Ruta, Propósito, API pública (clases/funciones), Comportamiento, Cambios realizados (si aplica), riesgos/puntos de atención, pruebas realizadas, recomendaciones.
+
+----------------------------------------------------------------------
+File: main.py (root)
+----------------------------------------------------------------------
+Propósito:
+- Script de arranque que facilita lanzar la aplicación desde el workspace. Contiene lógica mínima para ejecutar `kool_tpv/main.py`.
+
+Detalles:
+- Inserta la carpeta del repo en `sys.path` y ejecuta `runpy.run_path()` del archivo principal.
+
+Riesgos/Notas:
+- No contiene lógica de negocio.
+
+----------------------------------------------------------------------
+File: kool_tpv/__init__.py
+----------------------------------------------------------------------
+Propósito:
+- Identifica el paquete `kool_tpv`.
+
+Notas:
+- Archivo vacío con comentario; no requiere cambio.
+
+----------------------------------------------------------------------
+File: kool_tpv/main.py
+----------------------------------------------------------------------
+Propósito:
+- Clase `App` (CTk application): configura ventana, tema, logging, conexión DB y navegación lateral.
+
+API / Métodos relevantes:
+- `App.__init__`: configura `CTk`, carga DB (`Database`), crea `nav_frame` y botones.
+- `create_navigation()`: crea botones laterales y `power_button`.
+- `load_tpv()`: instancia `TpvView` y oculta navegación.
+- `close_app()`: teardown, cerrar DB, salir.
+
+Cambios/Notas:
+- Robustez: maneja fallos al abrir DB; registra `db_path` y errores en logs.
+
+Recomendaciones:
+- Añadir opción de pasar `--db-path` para despliegues.
+
+Pruebas manuales:
+- La app se inicializa y muestra navegación correctamente en entorno local con `customtkinter` disponible.
+
+----------------------------------------------------------------------
+File: kool_tpv/utils/formatter_service.py
+----------------------------------------------------------------------
+Propósito:
+- Formatter central para precios, cantidades, líneas de ticket y truncado monetario.
+
+API pública:
+- `format_precio(precio)`, `truncar_decimales(numero, decimales=2)`, `format_centrado(texto, ancho=None)`, `format_iva(porcentaje, importe)`.
+
+Comportamiento clave:
+- Usa `Decimal` y aplica truncado (ROUND_DOWN) para evitar redondeos inesperados.
+
+Riesgos:
+- Asegurar que todos los lugares que muestran precios usan `FormatterService` para coherencia.
+
+Pruebas:
+- Manuales en flows de UI, test unitario pendiente (ver tareas sugeridas).
+
+----------------------------------------------------------------------
+File: kool_tpv/utils/global_buttons.py
+----------------------------------------------------------------------
+Propósito:
+- Helpers para crear botones globales (ej. botón power) usando `buttons_config.json`.
+
+Comportamiento:
+- Busca recursos en `assets/` y configura estilo de botón; devuelve widget sin empaquetar.
+
+Riesgo:
+- Si faltan recursos (imagen JSON), se registra excepción y puede devolver None.
+
+----------------------------------------------------------------------
+File: kool_tpv/config/buttons_config.json
+----------------------------------------------------------------------
+Propósito:
+- Definición JSON para botones del grid y externos; utilizada por `TpvView` para construir la UI.
+
+Notas:
+- Cambios aquí afectan texto y colores de los botones del grid; mantener coherencia con `BUTTON_CONFIG` fallback.
+
+----------------------------------------------------------------------
+File: kool_tpv/base_datos/db_wrapper.py
+----------------------------------------------------------------------
+Propósito:
+- Encapsula operaciones básicas con SQLite: conectar, ejecutar, fetch y cerrar.
+
+API:
+- `connect()`, `execute_query(query, params)`, `fetch_all(query, params)`, `fetch_one(query, params)`, `close_connection()`.
+
+Observaciones técnicas:
+- Simple wrapper; no maneja pool de conexiones ni concurrencia avanzada; sin `row_factory` configurado por defecto.
+
+Recomendación:
+- Añadir contexto `with` y control de transacciones si se comparten conexiones entre hilos.
+
+----------------------------------------------------------------------
+File: kool_tpv/base_datos/db_init.py
+----------------------------------------------------------------------
+Propósito:
+- Lugar para DDL de creación de esquema; actualmente placeholder. Importante para migraciones reproducibles.
+
+Acción recomendada:
+- Añadir DDL actual de `tickets`, `ticket_lines`, `productos` y `precios` para reproducir DB vacía.
+
+----------------------------------------------------------------------
+File: kool_tpv/base_datos/categoria_service.py
+----------------------------------------------------------------------
+Propósito:
+- Acceso a categorías con productos.
+
+API:
+- `get_categorias_con_productos()` devuelve lista de categorias.
+
+Notas:
+- Funciona con `Database` wrapper; añadir tests con datos sample.
+
+----------------------------------------------------------------------
+File: kool_tpv/base_datos/tipo_service.py
+----------------------------------------------------------------------
+Propósito:
+- Similar a `categoria_service`; obtiene tipos de productos.
+
+----------------------------------------------------------------------
+File: kool_tpv/base_datos/producto_service.py
+----------------------------------------------------------------------
+Propósito:
+- Consultas de productos, precio activo (`pvp`) y tipo de IVA.
+
+Detalles:
+- Devuelve `pvp` como string para preservar precisión (se convierte a Decimal en CarritoService).
+
+Riesgos:
+- Si se usa pvp directamente sin convertir a Decimal, se pueden introducir errores de tipo.
+
+----------------------------------------------------------------------
+File: kool_tpv/base_datos/ticket_service.py
+----------------------------------------------------------------------
+Propósito:
+- Persistencia de tickets: inserción en `tickets`, `ticket_lines` y actualización de stock/ventas dentro de transacción.
+
+API modificada (resumen):
+- `save_ticket(db, carrito_items, resumen, pagado_val, cajero=None, cliente=None, cliente_id=None, forma_pago='Efectivo', importe_efectivo=Decimal('0'), importe_tarjeta=Decimal('0'))`
+
+Comportamiento y cambios realizados esta mañana:
+- Se añadió soporte para `cliente_id` y para desglosar `importe_efectivo` y `importe_tarjeta`.
+- Se preserva la transacción: BEGIN/COMMIT/ROLLBACK.
+- Se insertan valores monetarios serializados (string) para evitar que sqlite convierta Decimals a floats inesperados.
+
+Puntos críticos y riesgos:
+- `num_ticket` se calcula con `MAX(num_ticket)+1` — riesgo de condición de carrera. Recomendado: usar una tabla de secuencia, lock explícito o AUTOINCREMENT para id y derivar num_ticket.
+- Asegurar que el esquema de la BD contiene las columnas nuevas (`importe_efectivo`, `importe_tarjeta`) o aplicar migración SQL.
+
+Pruebas realizadas:
+- Pruebas manuales headless de inserción realizadas por script; no existe suite automatizada aún.
+
+----------------------------------------------------------------------
+File: kool_tpv/modulos/impresion/ticket_generator.py
+----------------------------------------------------------------------
+Propósito:
+- Generador de tickets en texto plano con anchura fija `WIDTH=42`.
+
+API pública:
+- `TicketGenerator._format_currency(val) -> str` (2 decimales)
+- `TicketGenerator.generate(config, ticket_data, items, cliente_data=None) -> str`
+
+Diseño y secciones generadas:
+- Encabezado (centrado): `nombre_negocio`, `direccion`, `nif`.
+- Info venta: `FACTURA SIMPLIFICADA`, `Fecha Hora - Cajero - Ticket: Num`.
+- Cuerpo: cabecera `Cant | Articulo | PVP | Total` y líneas por item (truncado del nombre para encajar).
+- Tesoro: línea adicional si `tesoro_data['gastado'] > 0`.
+- Resumen financiero: Subtotal, lista de IVAs (`iva_desglose` dict o lista), `DOUBLE_DIVIDER`, TOTAL (alineado), `DOUBLE_DIVIDER`.
+- Tabla de pagos: 4 columnas con anchos fijos (9,10,10,10) para encajar en 42 chars. Soporta:
+   * Pago normal: una fila con formaPago | total | entregado | devuelto
+   * Pago Mixto: dos filas — Efectivo (Total=importe_efectivo, Entr.=importe_efectivo, Dev.=0.00) y Tarjeta (Total=importe_tarjeta, Entr.=importe_tarjeta, Dev.=0.00)
+- Fidelización: si `cliente_data` presente, mostrar nombre centrado, nivel alineado a la derecha y desglose de tesoro.
+- Pie: `I.V.A Incluido` y `pie_texto` centrado.
+
+Implementación técnica relevante (correcciones y mejoras realizadas):
+- Añadido manejo robusto para nombres de campos alternativos (`cantidad`, `cant`, `qty`) y para `precio`/`pvp`.
+- Eliminados espacios problemáticos dentro de especificadores en f-strings para evitar `ValueError`.
+- Cálculo de total por línea con `Decimal(pvp) * Decimal(cantidad)` cuando `total` no está presente.
+- Introducida función interna `fmt()` que delega a `_format_currency` para mantener coherencia.
+
+Ejemplo de uso:
+```py
+gen = TicketGenerator()
+texto = gen.generate(config, ticket_data, items, cliente_data)
+print(texto)
+```
+
+Pruebas:
+- Se generaron tickets mixtos y simples en desarrollo; verificar alineados y truncados con nombres largos.
+
+Recomendación:
+- Añadir tests unitarios que verifiquen límites de ancho y formatos con entradas edge-case.
+
+----------------------------------------------------------------------
+File: kool_tpv/modulos/impresion/impresora_service.py
+----------------------------------------------------------------------
+Propósito:
+- Servicio de impresión. Implementación actual: simulación por terminal.
+
+API:
+- `ImpresoraService.imprimir_ticket(ticket_data, items, cliente_data=None)` -> imprime el ticket (simulado) por terminal y loggea.
+
+Implementación:
+- Crea `config_fake` con `nombre_negocio='KOOL DREAMS'`, `direccion`, `nif`, `pie_texto` y llama a `TicketGenerator.generate`.
+- Muestra el resultado con delimitadores en stdout e informa al logger.
+
+Notas:
+- Implementación de desarrollo; para producción reemplazar por backend ESC/POS o CUPS.
+
+----------------------------------------------------------------------
+File: kool_tpv/modulos/tpv/tpv_view.py
+----------------------------------------------------------------------
+Propósito:
+- Vista principal del TPV: construye layout (grid de acciones, panel derecho con carrito), maneja relojes y resize, y orquesta controladores de pago.
+
+API pública / atributos:
+- `show()`: construye la vista y monta `CarritoService` y `CarritoUI`.
+- `_on_finalize`: callback que los controladores de pago usan para persistir la venta.
+
+Cambios aplicados en la sesión de la mañana (detallado, importante):
+1) Import opcional de `ImpresoraService` al tope del fichero dentro de try/except:
+   - `try: from kool_tpv.modulos.impresion.impresora_service import ImpresoraService except: ImpresoraService = None`
+2) Instanciación segura de `self.impresora_service` en `show()` tras inicializar `carrito_ui`:
+   - `self.impresora_service = ImpresoraService()` envuelto en try/except.
+3) `_on_finalize` rework:
+   - Captura `items_to_print = list(self.carrito_service.get_items() or [])` ANTES de persistir y limpiar.
+   - Recupera `resumen` y `cliente_info` desde `CarritoService`.
+   - Prepara `importe_efectivo_val` y `importe_tarjeta_val` como `Decimal` (o 0) desde argumentos.
+   - Determina `pagado_val` (si efectivo is None -> pagado = total; else pagado = efectivo).
+   - Llama a `save_ticket(self.db, items, resumen, pagado_val, cajero=..., cliente=..., cliente_id=..., forma_pago=..., importe_efectivo=..., importe_tarjeta=...)`.
+   - Si `save_ticket` retorna success: primero limpia `carrito_service.clear()` y `carrito_ui.update_display()`, luego intenta `self.impresora_service.imprimir_ticket(ticket_data, items_to_print, cliente_for_print)` envuelto en try/except.
+
+Razón del cambio:
+- Evitar imprimir carrito vacío (previo bug: impresión después de `clear()`).
+- Asegurar que los importes de efectivo/tarjeta se registran y pasan a impresión.
+
+Recomendación:
+- Ejecutar impresión en hilo o cola (background) para no bloquear UI.
+
+----------------------------------------------------------------------
+File: kool_tpv/modulos/tpv/tpv_controller.py
+----------------------------------------------------------------------
+Propósito:
+- Vincula la vista `TpvView` con paneles y acciones (ej. abrir buscador de artículos y añadir items al carrito).
+
+Notas:
+- Lógica mínima, delega la mayor parte a `CarritoService` y `CarritoUI`.
+
+----------------------------------------------------------------------
+File: kool_tpv/modulos/tpv/carrito/carrito_service.py
+----------------------------------------------------------------------
+Propósito:
+- Mantener el estado del carrito (items en memoria), cálculos de subtotal, IVA, total y gestión de cliente.
+
+API pública:
+- `add_item(product)`, `remove_item(index)`, `update_cantidad(index,nueva)`, `get_items()`, `get_resumen_financiero()`, `clear()`, `set_cliente(cliente_dict)`, `get_cliente()`.
+
+Cambios implementados esta mañana:
+- Se añadió soporte de `cliente` con `set_cliente` y `get_cliente`, y `clear()` limpia también el cliente.
+- Todos los cálculos usan `Decimal` y truncado coherente (por `FormatterService`).
+
+Consideraciones:
+- Asegurar que `get_items()` devuelve estructuras inmutables/copiadas si la impresión usa los items tras `clear()`; en la implementación actual capturamos `items_to_print = list(self.carrito_service.get_items())` para evitar referencias mutables.
+
+----------------------------------------------------------------------
+File: kool_tpv/modulos/tpv/carrito/carrito_ui.py
+----------------------------------------------------------------------
+Propósito:
+- Interfaz gráfica del carrito (lista de artículos, totales y zona de cobro).
+
+API / comportamiento:
+- `update_display()` rellena el `Treeview` con items y totales.
+- `register_controller(controller)` y `deactivate_all_controllers(except_controller=None)` para controlar exclusividad entre controladores de pago.
+
+Cambios aplicados:
+- Añadida lista `self._payment_controllers` y métodos de registro/desactivación para que al activar un controlador este desactive los demás.
+- `update_display()` llama a `deactivate_all_controllers()` si el carrito queda vacío para limpiar estados activos.
+
+Riesgo:
+- Si un controlador no implementa `deactivate()` correctamente, podría dejar bindings activos. Se requiere que controladores implementen `deactivate()` público.
+
+----------------------------------------------------------------------
+File: kool_tpv/modulos/tpv/actions/buscar_articulo.py
+----------------------------------------------------------------------
+Propósito:
+- UI para buscar y añadir artículos al carrito; paginación y filtrado por categoría/tipo.
+
+Notas técnicas:
+- Render adaptativo por columnas según ancho; recomendable añadir debounce a re-render.
+
+----------------------------------------------------------------------
+Files: kool_tpv/modulos/tpv/actions/cash.py, tarjeta.py, multi_s.py
+----------------------------------------------------------------------
+Propósito general:
+- Controladores de pago: `CashController`, `DirectPaymentController` (tarjeta/web) y `MultiPagoController` (mixto).
+
+Detalles `CashController`:
+- UI: `Entry` para importe, `Label` para cambio, estado visual en `_cash_container`.
+- Lógica: validación de que `efectivo >= total` antes de confirmar; en caso contrario no finaliza y muestra mensaje.
+- Se registra con `CarritoUI.register_controller()` y llama `deactivate_all_controllers()` al activarse.
+
+Detalles `DirectPaymentController` (refactor de tarjeta):
+- Parámetros configurables: `payment_method`, `banner_text`, `banner_color`, `help_bg_color`.
+- Usa bind/unbind de `Enter` sobre `root` para confirmar el pago.
+- Al activarse desactiva otros controladores mediante `CarritoUI.deactivate_all_controllers(except_controller=self)`.
+
+Detalles `MultiPagoController`:
+- UI encapsulada en `self._main_frame` para evitar destruir widgets compartidos.
+- Variables `var_efectivo` y `var_tarjeta` con traces sincronizados; `on_finalize(..., forma_pago='Mixto', importe_efectivo=..., importe_tarjeta=...)`.
+
+Correcciones y validaciones aplicadas:
+- Evitar destrucción de widgets compartidos: `grid_remove()` y encapsular UI por controlador.
+- Validación de cambios y cálculo recíproco en `MultiPagoController`.
+
+----------------------------------------------------------------------
+Files: otros módulos y placeholders
+----------------------------------------------------------------------
+Varios archivos actúan como placeholders (cliente_service, configuracion_service, reset_service, etc.). Estos deben completarse según roadmap.
+
+----------------------------------------------------------------------
+PRUEBAS REALIZADAS
+----------------------------------------------------------------------
+Resumen de pruebas manuales y headless ejecutadas esta mañana:
+- Generación de tickets mixtos y simples con `TicketGenerator.generate` en desarrollo (visualización por terminal mediante `ImpresoraService`).
+- Flujo de venta: añadir artículos, cobrar con efectivo/tarjeta/mixto, `save_ticket` insertando datos y `CarritoUI` limpiando estado.
+- Verificación de que la impresión se realiza con los items capturados (antes de `clear()`).
+
+Pendiente: convertir las pruebas manuales en tests automatizados (unit y integration).
+
+----------------------------------------------------------------------
+PUNTOS CRÍTICOS Y RECOMENDACIONES (ORDENADOS)
+----------------------------------------------------------------------
+1) Migración de esquema DB — ALTA prioridad
+- `ticket_service.save_ticket` ahora incluye `importe_efectivo` y `importe_tarjeta`. Antes de desplegar hay que: revisar esquema y aplicar migración SQL o adaptar INSERT.
+  * Script sugerido (ejemplo):
+    ALTER TABLE tickets ADD COLUMN importe_efectivo TEXT DEFAULT '0';
+    ALTER TABLE tickets ADD COLUMN importe_tarjeta TEXT DEFAULT '0';
+
+2) Consistencia monetaria — ALTA prioridad
+- Homogeneizar el uso de `Decimal` en toda la cadena: UI -> servicios -> persistencia. Elegir formato de almacenamiento (string o integer céntimos).
+
+3) `num_ticket` (condición de carrera) — ALTA prioridad
+- Reemplazar `MAX(num_ticket)+1` por un mecanismo seguro (tabla secuencia o derivado de `id` AUTOINCREMENT).
+
+4) Impresión física — MEDIO
+- Integrar backend real (ESC/POS o CUPS) y colas de impresión para no bloquear UI.
+
+5) Tests automatizados — MEDIO
+- Añadir tests unitarios para `TicketGenerator`, `save_ticket` (DB in-memory), `CarritoService` y controladores de pago.
+
+6) UX y validaciones — BAJO/MEDIO
+- Normalizar entrada del `CashController` (coma/punto), mejorar mensajes de error y feedback visual.
+
+----------------------------------------------------------------------
+TAREAS PENDIENTES (acciones concretas que puedo ejecutar)
+----------------------------------------------------------------------
+- Generar script SQL de migración para añadir `importe_efectivo` y `importe_tarjeta`.
+- Crear tests unitarios básicos para `TicketGenerator.generate()` y ejecutar localmente.
+- Implementar integración de impresión ESC/POS (investigar impresora objetivo).
+
+---
+
+APÉNDICE: EJEMPLOS Y JSONS UTILIZADOS
+
+Ejemplo `ticket_data` (Mixto):
+```
+{
+  'fecha': '2026-02-06',
+  'hora': '11:15:22',
+  'cajero': 'EGON',
+  'num_ticket': 512,
+  'subtotal': '100.00',
+  'iva_desglose': {'21': '21.00'},
+  'total': '121.00',
+  'forma_pago': 'Mixto',
+  'entregado': '121.00',
+  'cambio': '0.00',
+  'importe_efectivo': '50.00',
+  'importe_tarjeta': '71.00',
+  'tesoro_data': {'gastado': 0, 'ganado': 0, 'acumulado': 0, 'total': 0}
+}
+```
+
+Ejemplo `items`:
+```
+[
+  {'nombre': 'Café Expresso', 'cantidad': 1, 'precio': '1.50', 'total': '1.50'},
+  {'nombre': 'Sándwich mixto extra largo nombre', 'cantidad': 2, 'precio': '3.75', 'total': '7.50'},
+]
+```
+
+---
+
+CONCLUSIÓN
+
+Esta versión `v2` del resumen es exhaustiva y archivo por archivo; incorpora todas las implementaciones y correcciones realizadas esta mañana: generación e impresión de tickets (simulada), soporte pago mixto y persistencia con desglose de importes, registro de cliente en el carrito y exclusividad de controladores de pago.
+
+Siguientes pasos que propongo (elige una):
+- 1) Generar script SQL de migración para `tickets` (añadir columnas `importe_efectivo` y `importe_tarjeta`).
+- 2) Ejecutar simulación y imprimir por terminal un ticket mixto de ejemplo ahora.
+- 3) Crear tests unitarios básicos para `TicketGenerator.generate()`.
+
+FIN DEL RESUMEN SUPER MEGA EXHAUSTIVO (v2)
+```
+Flujo de venta (pasos clave, con actualizaciones recientes):
+1) Usuario añade artículos al `CarritoService` desde `BuscarArticuloPanel`.
+2) Al cobrar, uno de los controladores de pago (`CashController`, `DirectPaymentController`/tarjeta, `MultiPagoController`) invoca un callback `on_finalize` implementado en `TpvView`.
+3) `TpvView._on_finalize`:
+   - Valida carrito no vacío.
+   - Recupera `resumen_financiero` de `CarritoService`.
+   - Captura `items_to_print` ANTES de persistir (para evitar imprimir carrito vacío).
+   - Llama a `save_ticket` (persistencia) pasando `importe_efectivo`/`importe_tarjeta` cuando proceda.
+   - Si `save_ticket` es exitoso, limpia el carrito y luego intenta imprimir (simulado) **usando los items capturados previamente**, todo envuelto en try/except para que errores de impresión no rompan el flujo.
+
+---
+
+ANÁLISIS DETALLADO POR ARCHIVO (delta con respecto al resumen anterior más el estado actual)
+
+Nota: se omiten pruebas y documentación menor, centrado en código de producción y módulos activos.
+
+1) `kool_tpv/modulos/impresion/ticket_generator.py`
+  - Propósito: generar ticket en formato texto de ancho fijo (`WIDTH=42`).
+  - Implementación:
+    * Constantes: `WIDTH = 42`, `DIVIDER = '-'*WIDTH`, `DOUBLE_DIVIDER = '='*WIDTH`.
+    * Clase `TicketGenerator` con métodos:
+      - `_format_currency(val)`: convierte a `Decimal`, normaliza a 2 decimales y devuelve string con 2 decimales.
+      - `generate(config, ticket_data, items, cliente_data=None)`: construye el texto completo del ticket dividiendo en secciones: encabezado, info venta, cuerpo (líneas de items), resumen financiero, tabla de pagos (ahora con soporte Mixto), sección de fidelización (si `cliente_data`) y pie.
+  - Cambios y detalles técnicos:
+    * Manejo robusto de entrada: intenta resolver claves alternativas (`cantidad`, `cant`, `qty`) y `precio`/`pvp`.
+    * Cálculo de total por línea usando `Decimal(pvp) * Decimal(cant)` si `total` no está presente.
+    * Tesoro: si `ticket_data['tesoro_data']['gastado'] > 0` añade línea informativa.
+    * Resumen financiero: itera `iva_desglose` (dict o lista) y presenta líneas `IVA {tipo}%: {cuota}`.
+    * Tabla de pagos:
+      - Columnas fijas que suman 42 caracteres: col widths = (9,10,10,10) con separadores `|`.
+      - Soporta `forma_pago == 'Mixto'`: imprime dos líneas separadas (Efectivo y Tarjeta) usando `importe_efectivo` y `importe_tarjeta` respectivamente; para Mixto las columnas `Total` y `Entr.` usan el importe correspondiente y `Dev.` es `0.00`.
+      - Para otros modos imprime una sola línea con `forma_pago`, `total`, `entregado` y `cambio`.
+    * Correcciones aplicadas:
+      - Eliminado uso incorrecto de espacios dentro de especificadores de formato en f-strings (previo ValueError). Ahora los f-strings usan `f"{valor:<{width}}"` sin espacios.
+      - Ajustes para truncado/formatos con `_format_currency`.
+  - Recomendaciones:
+    * Añadir tests unitarios que construyan `ticket_data` y `items` con escenarios mixtos y verifiquen longitudes de lineas, alineado y ausencia de excepciones.
+    * Si se requiere impresión física ESC/POS, añadir adaptador que convierta este texto a comandos ESC/POS o generar un PDF con el mismo layout.
+
+2) `kool_tpv/modulos/impresion/impresora_service.py`
+  - Propósito: servicio de impresión. En esta iteración se implementó como simulación en terminal.
+  - Implementación:
+    * `ImpresoraService.__init__` instancia `TicketGenerator`.
+    * `imprimir_ticket(ticket_data, items, cliente_data=None)` construye un `config_fake` (KOOL DREAMS, dirección, NIF, pie_texto) y llama a `TicketGenerator.generate`, mostrando el resultado en la terminal con delimitadores y logueando la acción.
+  - Notas:
+    * Implementación orientada a desarrollo; no integra librería de impresión real.
+    * Recomendación: extraer la lógica de `config` a una fuente real (configuración de negocio) y añadir backend de impresión (p. ej. `python-escpos` o `cups`) en una versión futura.
+
+3) `kool_tpv/modulos/tpv/tpv_view.py` (actualizaciones relevantes)
+  - Cambios introducidos:
+    * Intento de import `ImpresoraService` al inicio del fichero dentro de try/except para mantener compatibilidad si no existe.
+    * En `show()` se instancia `self.impresora_service = ImpresoraService()` envuelto en try/except para seguridad.
+    * En `_on_finalize` (wrapper que llaman los controladores de pago) se añadieron:
+      - Captura de `items_to_print = list(self.carrito_service.get_items() or [])` ANTES de persistir/limpiar.
+      - Preparación del diccionario `ticket_data` con `fecha`, `hora`, `cajero`, `num_ticket`, `subtotal`, `iva_desglose`, `total`, `forma_pago`, `entregado`, `cambio`, `importe_efectivo`, `importe_tarjeta`, `tesoro_data`.
+      - Llamada a `self.impresora_service.imprimir_ticket(ticket_data, items_to_print, cliente_for_print)` dentro de varios try/except para que un fallo de impresión no rompa la UI.
+  - Efecto:
+    * Evita imprimir un carrito vacío (antes se imprimían items tras `self.carrito_service.clear()`).
+    * Añade la impresión simulada al flujo de finalización de venta.
+  - Recomendaciones:
+    * Considerar ejecutar la impresión en hilo separado o cola de impresión para no bloquear el hilo principal de la UI en caso de impresión lenta.
+
+4) `kool_tpv/modulos/tpv/actions/multi_s.py` y `kool_tpv/modulos/tpv/actions/tarjeta.py` / `cash.py` (resumen rápido)
+  - `MultiPagoController` (controlador mixto): implementado para permitir pago dividido (efectivo + tarjeta). Actualiza `CarritoUI` con controles propios y llama a `on_finalize(..., forma_pago='Mixto', importe_efectivo=..., importe_tarjeta=...)` al confirmar.
+  - `DirectPaymentController` (refactor de tarjeta): controlador genérico para pagos que no requieren entrada numérica (tarjeta/web), con bind/unbind de `Enter` a nivel de root y parámetros configurables.
+  - `CashController`: reforzado para re-gridear widgets cuando se re-activa, forzar texto/color de etiqueta de venta y validar importe suficiente antes de confirmar.
+
+5) `kool_tpv/base_datos/ticket_service.py` (persistencia)
+  - Estado actual: `save_ticket` acepta ahora `importe_efectivo` y `importe_tarjeta` y persiste los importes adicionales en la tabla `tickets` (nota: esto requiere que el esquema de BD tenga columnas correspondientes; en este repo se añadió lógica de inserción asumiendo dichas columnas — se recomienda revisar/migrar esquema).
+  - La función preserva uso de transacciones (BEGIN/COMMIT/ROLLBACK). Manejo de errores con mensajes al usuario y logging.
+  - Recomendaciones críticas:
+    * Revisar esquema (añadir columnas `importe_efectivo`/`importe_tarjeta` o adaptar INSERT para compatibilidad con versiones antiguas).
+    * Considerar persistir montos monetarios como strings (actual approach) o enteros de céntimos para portabilidad.
+
+6) `kool_tpv/modulos/tpv/carrito/carrito_service.py` y `carrito_ui.py`
+  - `CarritoService` mantiene Decimal-aware calculations; `get_resumen_financiero()` devuelve `subtotal`, `iva_desglose`, `total`.
+  - `CarritoUI` ahora expone `register_controller` y `deactivate_all_controllers` para permitir exclusividad de controladores de pago; `update_display()` desactiva controles cuando el carrito está vacío.
+
+7) Correcciones y hardening aplicados (lista puntual):
+  - Fix f-strings en `ticket_generator.py` (eliminar espacios en especificadores).
+  - Asegurar `items_to_print` capturados antes de `clear()` en `_on_finalize`.
+  - Ajuste de tabla de pagos para `Mixto` y ancho fijo de 42 columns.
+  - Añadir `importe_efectivo`/`importe_tarjeta` en `ticket_data` para impresión y trazabilidad.
+  - Protección por try/except alrededor de la impresión para no interrumpir flujo normal.
+
+---
+
+PUNTOS CRÍTICOS Y RECOMENDACIONES (detallado)
+
+1) Esquema de BD y migraciones
+   - `save_ticket` ahora asume columnas adicionales; antes de desplegar a producción es obligatorio revisar el esquema y aplicar migración:
+     * `ALTER TABLE tickets ADD COLUMN importe_efectivo TEXT DEFAULT '0'` (o similar)
+     * `ALTER TABLE tickets ADD COLUMN importe_tarjeta TEXT DEFAULT '0'`
+   - Alternativa: adaptar `save_ticket` para rellenar valores en columnas existentes o usar `INSERT INTO tickets (col1, col2, ...) VALUES (...)` solo con columnas existentes.
+
+2) Consistencia monetaria
+   - Homogeneizar el uso de `Decimal` en todo el stack y decidir la estrategia de almacenamiento monetario.
+
+3) Concurrencia y `num_ticket`
+   - `num_ticket` calculado con `MAX(num_ticket)+1` es susceptible a condiciones de carrera. Recomendado:
+     * Usar una tabla de secuencia o mecanismo exclusivo en DB (fila de lock) o AUTOINCREMENT y almacenar `num_ticket` derivado de `id`.
+
+4) Impresión
+   - Implementación actual es una simulación por terminal. Para impresión física, añadir backend ESC/POS o CUPS y colas de impresión (queue) para no bloquear UI.
+
+5) Tests y validación
+   - Añadir tests unitarios e integrados:
+     * `TicketGenerator.generate()` con escenarios: pago efectivo, tarjeta, mixto, cliente/no cliente, tesoro presente/no.
+     * `save_ticket()` sobre base de datos temporal in-memory para validar inserciones y actualizaciones de stock.
+     * Pruebas headless end-to-end para los controladores de pago en flows comunes.
+
+---
+
+REGISTRO DE LAS ÚLTIMAS INTERVENCIONES (cronología resumida)
+
+1) Implementación de `TicketGenerator` (formato ancho fijo, helpers y formateo de currency).
+2) Añadida `ImpresoraService` que imprime en terminal (simulación) y logging.
+3) Integración en `TpvView`: import opcional, instanciación safe y llamada a `imprimir_ticket` en on_finalize.
+4) Corrección en orden de operaciones: captura `items_to_print` antes de `clear()` para evitar imprimir carrito vacío.
+5) Soporte y corrección para pagos mixtos en la tabla de pagos del ticket (ancho fijo, filas separadas, valores correctos para Entr./Dev.).
+6) Corrección de f-strings erróneos y verificación de sintaxis (`py_compile` pasó para los archivos modificados).
+
+---
+
+CONCLUSIÓN Y SIGUIENTES PASOS RECOMENDADOS
+
+- Aplicar migración de BD para nuevas columnas de importes mixtos o adaptar `save_ticket` para compatibilidad.
+- Homogeneizar el uso de `Decimal` y decidir la estrategia de almacenamiento monetario.
+- Implementar backend real de impresión y manejar cola de impresión en hilo/servicio.
+- Añadir tests unitarios e integrados para `TicketGenerator` y `save_ticket`.
+- Revisar `num_ticket` para evitar condiciones de carrera.
+
+Si quieres, puedo:
+- Generar un script de migración SQL para añadir las columnas necesarias a la tabla `tickets`.
+- Ejecutar una simulación ahora mismo que cree un ticket mixto y muestre la salida por terminal.
+- Añadir tests unitarios básicos para `TicketGenerator.generate()` y `save_ticket()`.
+
+---
+
+FIN DEL RESUMEN EXHAUSTIVO (versión actualizada)
+```

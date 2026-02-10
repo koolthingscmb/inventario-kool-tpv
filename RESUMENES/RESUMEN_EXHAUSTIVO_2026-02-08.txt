@@ -1,0 +1,272 @@
+RESUMEN EXHAUSTIVO DEL PROYECTO KOOL_TPV_V2
+Versión del resumen: ampliada y adaptada a commits del 2026-02-07
+Fecha de generación: 2026-02-08
+Autor: auto-generado (análisis automatizado + revisión de commits locales)
+
+METADATOS
+- Nombre del proyecto: KOOL_TPV_V2
+- Ruta raíz del workspace: /Volumes/ALMACEN/KOOL_THINGS/KOOL_TPV_V2
+- Rama Git actual examinada: feat/tpv-ui
+- Commit HEAD de referencia (corto): 08f2ed3
+- Rango de commits analizados (2026-02-07): 5b39afb .. 08f2ed3 (ver sección "Commits relevantes")
+- Archivos y fuentes consultadas para este resumen:
+  - RESUMENES/PLANTILLA_RESUMEN_EXHAUSTIVO.txt
+  - RESUMENES/RESUMEN_EXHAUSTIVO_2026-02-06.txt
+  - RESUMENES/RESUMEN_EXHAUSTIVO_2026-02-07.txt
+  - Commits y diffs del día 2026-02-07 (ver sección "Commits relevantes").
+  - Lectura focalizada de módulos en `kool_tpv/` (detalles más abajo).
+
+OBJETIVO DE ESTE DOCUMENTO
+Este archivo es un resumen exhaustivo, técnico y accionable del estado del repo y de los cambios aplicados durante el 2026-02-07. Integra:
+- Análisis comparativo de los resúmenes previos (`RESUMEN_EXHAUSTIVO_2026-02-06.txt` y `RESUMEN_EXHAUSTIVO_2026-02-07.txt`).
+- Revisión de commits realizados el 2026-02-07 y su impacto en la base de código.
+- Análisis archivo por archivo de los módulos más relevantes con enlaces relativos.
+- Lista priorizada de riesgos, tareas y recomendaciones concretas.
+
+RESUMEN EJECUTIVO (3-5 párrafos)
+KOOL_TPV_V2 es una aplicación TPV de escritorio modular escrita en Python. La jornada del 2026-02-07 tuvo como foco principal la consolidación del flujo de fidelización/puntos, la corrección de sincronizaciones en el canje de puntos y la mejora de la trazabilidad de la persistencia de tickets (incluyendo el desglose por forma de pago y el retorno de información de tesoro/puntos para impresión). Además se introdujeron pequeños ajustes de formato y robustez en la UI del carrito y en el generador de tickets.
+
+Los cambios son técnicamente coherentes con el objetivo de mejorar la trazabilidad y UX de cobro (especialmente pagos mixtos y canjes de puntos). Se añadieron cálculos más defensivos en `FidelizacionService` (uso de ROUND_DOWN y factor de pago posterior a canje) y se extendió `ticket_service.save_ticket` para devolver datos de tesoro/puntos, permitiendo que la impresión muestre el saldo actualizado del cliente sin hacer consultas adicionales tras la transacción.
+
+Hay que destacar dos riesgos operativos: (1) la API de `save_ticket` cambió (ahora puede devolver una tupla con `tesoro_data`) y esto requiere que todos los callers manejen ambos formatos; (2) existen cambios no commitados/unclean en el workspace (archivos binarios como la base de datos y `.DS_Store`) que deben limpiarse o añadirse a `.gitignore` según corresponda.
+
+Estado general: en desarrollo; cambios del 2026-02-07 estabilizan cálculos de puntos y presentación de la información en el ticket. Pendientes: cobertura de tests, migraciones DB formalizadas y adaptar consumidores a la nueva API de `save_ticket`.
+
+COMMITS RELEVANTES (resumen y análisis por commit del 2026-02-07)
+Se analizaron los commits realizados el 2026-02-07. Lista (orden cronológico ascendente):
+
+- 5b39afb (10:52) — "Fix: sincronización canje puntos and stabilize CarritoUI; add unit tests for canje%"
+  - Objetivo: corregir sincronización entre el diálogo de canje y la lógica del carrito; añadir pruebas unitarias para la lógica de canje.
+  - Cambios clave: mejoras en `CanjearTesoroAction` (manejo de diálogos, foco/topmost), ajustes en `FidelizacionService` para aplicar factor de pago tras canje, y tests añadidos (referencias a scripts de prueba en repo).
+  - Impacto: más robusto ante race conditions de UI y cálculo correcto de puntos tras canje.
+
+- 6a0dc04 (12:56) — "Fix: fidelizacion neto after canje; pass services to save_ticket; use ROUND_DOWN truncation"
+  - Objetivo: asegurar que el cálculo de puntos ganados tiene en cuenta puntos canjeados y que `save_ticket` recibe servicios necesarios.
+  - Cambios clave: `FidelizacionService.calcular_puntos_ganados` ahora acepta `puntos_canjeados` y calcula `factor_pago` para reducir puntos ganados proporcionales al canje; `tpv_view._on_finalize` y otros puntos pasan `carrito_service` y `fidelizacion_service` a `save_ticket`.
+  - Impacto: coherencia en puntos tras operaciones mixtas (canje + compra); evita otorgar puntos sobre el importe canjeado.
+
+- d45c3fc (13:30) — "Feat: return tesoro_data from save_ticket for printing; include updated client balances"
+  - Objetivo: devolver desde la persistencia la nueva situación del cliente (tesoro_total, histórico, gastado), para que la impresión muestre la información sincronizada sin consultas extra.
+  - Cambios clave: `ticket_service.save_ticket` fue ampliado para recuperar los valores actualizados del cliente dentro de la transacción y construir `tesoro_for_return` que se añade como tercer elemento del retorno `(ticket_id, num_ticket, tesoro_for_return)`; `TicketGenerator` y `TpvView` adaptados para usar ese valor cuando está presente.
+  - Impacto: reducción de inconsistencias entre la BD y la impresión; mejor trazabilidad de puntos ganados/gastados.
+
+- 08f2ed3 (13:34) — "Fix: format tesoro_total in CarritoUI to 2-decimal truncation"
+  - Objetivo: asegurar formato consistente de visualización para el saldo de tesoro en `CarritoUI`.
+  - Cambios clave: import de `Decimal` y `ROUND_DOWN` en `carrito_ui.py`, cuantización a 2 decimales antes de mostrar el valor.
+  - Impacto: mejora en presentación y consistencia con el uso de `ROUND_DOWN` en otros componentes.
+
+NOTA IMPORTANTE: durante la generación de este resumen se detectaron cambios no commiteados en el workspace (por ejemplo, una versión de `ticket_service.py` sin `tesoro_for_return`). El análisis principal se basa en los commits enumerados anteriormente (la fuente de verdad). Recomiendo revisar el working tree y decidir si la eliminación del `tesoro_for_return` es intencional o fue un cambio intermedio no commitado.
+
+ÁRBOLES Y FICHEROS CLAVE (selección con anotaciones)
+- kool_tpv/
+  - main.py — Entrypoint de la app (inicia `App` / CTk). Ver [kool_tpv/main.py](kool_tpv/main.py#L1)
+  - base_datos/
+    - db_init.py — DDL y helpers de migración (necesita versión completa del schema).
+    - db_wrapper.py — Wrapper sqlite (mejoras sugeridas: busy_timeout, context manager, pool o conexiones por hilo).
+    - ticket_service.py — Persistencia central de tickets (ver más adelante).
+  - modulos/
+    - impresion/ticket_generator.py — Formateador y generador de ticket (ancho fijo, soporta mixto y tesoro_data).
+    - impresion/impresora_service.py — Servicio de impresión (simulado por consola; adicionar adapter físico).
+    - tpv/ — Controladores, UI y lógica (tpv_view.py, carrito/, actions/).
+
+FLUJO PRINCIPAL DE UNA VENTA (texto y responsabilidades)
+1) El usuario añade items a través de `CarritoUI` / `buscar_articulo`.
+2) `CarritoService` mantiene la lista de items y calcula `get_resumen_financiero()` (subtotal, IVA, total).
+3) Al finalizar, el controlador de pago correspondiente (CashController, DirectPaymentController, MultiPagoController) valida y llama a la función de cierre (`on_finalize` en `TpvView`).
+4) `TpvView._on_finalize` construye `ticket_data` con: metadatos (fecha, hora, cajero, num_ticket estimado), `iva_desglose`, `total`, `forma_pago`, `entregado`, `cambio`, `importe_efectivo`, `importe_tarjeta`, además de `cliente`/`cliente_id` y `tesoro_data` como fallback.
+5) `save_ticket` en `kool_tpv/base_datos/ticket_service.py` ejecuta una transacción: INSERT en `tickets`, INSERT en `ticket_lines`, UPDATE en `productos` (stock/ventas), y actualización de `clientes` (tesoro/puntos). Tras COMMIT devuelve `(ticket_id, num_ticket, tesoro_for_return)` si la versión en commit lo implementa.
+6) `TpvView` recibe el retorno, normaliza el resultado (soporta tanto retorno corto `(id,num)` como extendido con `tesoro_data`) y llama a `ImpresoraService.imprimir_ticket` pasando `ticket_data` y `items` capturados.
+
+ANÁLISIS DETALLADO POR ARCHIVO (extractos y puntos críticos)
+Nota: cada subsección incluye: Ruta, Propósito, Cambios 07/02/2026, Riesgos, Recomendaciones.
+
+1) `kool_tpv/base_datos/ticket_service.py`
+   - Propósito: persistir tickets y líneas en la BD, actualizar stock y balances de cliente, y devolver información relevante para impresión.
+   - Cambios 07/02/2026:
+     * Introducción del cálculo de `puntos_ganados` que atiende a `puntos_canjeados` (se pasa `puntos_gastados` para que no se compute puntos sobre la porción canjeada).
+     * Inclusión de la actualización de tabla `clientes` dentro de la misma transacción para mantener atomicidad.
+     * (commit d45c3fc) Preparación de `tesoro_for_return` y retorno extendido `(ticket_id, num_ticket, tesoro_for_return)`.
+   - Riesgos:
+     * Si callers esperan el retorno anterior (solo `(ticket_id, num_ticket)`), puede haber incompatibilidades.
+     * Si no existe la columna prevista en `clientes`, o la tabla `clientes` tiene esquemas distintos, el UPDATE puede fallar.
+   - Recomendaciones:
+     * Asegurar contratos de API: documentar que `save_ticket` puede devolver 2 o 3 elementos y escribir tests de integración.
+     * Añadir migración SQL para las columnas de `tickets` si no existen `importe_efectivo`/`importe_tarjeta`.
+
+2) `kool_tpv/modulos/clientes/fidelizacion_service.py`
+   - Propósito: calcular puntos ganados por ticket y lógica de canje.
+   - Cambios 07/02/2026:
+     * Firma `calcular_puntos_ganados(items, puntos_canjeados=Decimal('0'))` para aplicar factor de pago tras canje.
+     * Uso de `ROUND_DOWN` para cuantizar puntos (coherente con política de no regalar redondeos).
+   - Riesgos:
+     * Calcular factor de pago puede producir división por cero si `total_bruto == 0` (controlado en el commit pero verificar casos edge).
+   - Recomendaciones:
+     * Añadir tests unitarios que validen casos: todos items con pvp=0, mix de canje y compra, cantidades decimales.
+
+3) `kool_tpv/modulos/impresion/ticket_generator.py`
+   - Propósito: construir el string de ticket con ancho fijo y secciones (encabezado, líneas, IVA, totales, pagos, tesoro).
+   - Cambios 07/02/2026:
+     * Mejora en la representación de canje de puntos: impresión alineada y formateada si `tesoro_data` contiene `gastado`>0.
+     * Manejo defensivo de tipos (Decimal desde str) para evitar excepción con valores nulos o no numéricos.
+   - Riesgos:
+     * Si `ticket_data` proviene de una versión de `save_ticket` diferente (no devuelve tesoro), el generator debe usar fallback (resumen/totales).
+   - Recomendaciones:
+     * Añadir test que valide que ninguna línea exceda `WIDTH` (42) y que la sección de tesoro muestra datos correctos.
+
+4) `kool_tpv/modulos/tpv/tpv_view.py`
+   - Propósito: lógica de la UI del TPV y orchestración del flujo de finalización.
+   - Cambios 07/02/2026:
+     * `TpvView._on_finalize` ahora pasa `carrito_service` y `fidelizacion_service` a `save_ticket` para que ésta calcule puntos de forma consistente dentro de la transacción.
+     * Adaptación para aceptar retornos de `save_ticket` con 2 o 3 elementos y extraer `tesoro_data` si está presente.
+   - Riesgos:
+     * Si `save_ticket` deja de devolver `tesoro_for_return` (por ejemplo, por un commit no commitado que lo eliminó), `TpvView` ya maneja fallback, pero conviene unificar contrato.
+   - Recomendaciones:
+     * Hacer que `save_ticket` devuelva un dict consistente con claves (id, num, tesoro) para evitar ambigüedad posicional.
+
+5) `kool_tpv/modulos/tpv/carrito/carrito_ui.py`
+   - Propósito: componentes visuales del carrito y visualización de puntos/tesoro.
+   - Cambios 07/02/2026:
+     * Mejora en formato de `tesoro_total` usando `Decimal` y `ROUND_DOWN` para truncado a dos decimales antes de mostrar.
+   - Riesgos:
+     * Import faltante de `Decimal` puede romper UI si se utiliza sin cuidado (commit 08f2ed3 añade import necesario).
+   - Recomendaciones:
+     * Consolidar helpers de formateo (usar `formatter_service.format_precio` o helper común) para evitar duplicidad.
+
+INSPECCIÓN DETALLADA DE LOS DIFFS (resumen técnico por cambio)
+Resumen de los cambios técnicos más relevantes por diff inspeccionado:
+
+- `FidelizacionService`:
+  * Se cambió estrategia de cálculo: antes `puntos = pvp * cantidad * pct/100` con ROUND_HALF_UP; ahora se aplica factor de pago tras canje y se usa `ROUND_DOWN` para cuantizar. Esto evita sobra de puntos cuando una parte del importe se cubre con canje.
+  * Efecto: menor riesgo de otorgar puntos indebidos; coherencia con política de truncado monetario.
+
+- `ticket_service.save_ticket`:
+  * Incluye ahora cálculo de `puntos_ganados` tomando en cuenta `puntos_canjeados` pasados desde `carrito_service`.
+  * Actualiza `clientes` en la misma transacción: `tesoro_total = COALESCE(tesoro_total, 0) + ? - ?`, `tesoro_historico += ?`, `tesoro_gastado_total += ?`.
+  * Prepara y retorna `tesoro_for_return` (dict con gastado/ganado/acumulado/total) en la versión commit- d45c3fc. Esto evita consultas adicionales a la BD desde la capa UI para obtener el saldo actualizado.
+  * Recomendación: compatibilizar el retorno (posicional -> dict) en siguiente iteración para mayor claridad.
+
+- `TpvView` y `TicketGenerator`:
+  * `TpvView` adapta su uso del retorno de `save_ticket` y construye `ticket_data` con preferencia por `save_res[2]` si existe. `TicketGenerator` ajusta la representación visual del canje con alineado y formateo seguro.
+
+ESTADO DEL REPO Y WORKING TREE (observaciones operativas)
+- Hay archivos binarios de BD (`kool_bd.db`, -shm, -wal) detectados como modificados; confirmar si deben incluirse en commits o añadirse al `.gitignore`.
+- Se detectaron `.DS_Store` añadidos en diversas carpetas; limpiar con `git rm` y actualizar `.gitignore` para macOS.
+- Observación: existen cambios no commitados en `kool_tpv/base_datos/ticket_service.py` en working tree que eliminan el bloque que preparaba `tesoro_for_return`. Si la intención es revertir la devolución de `tesoro_for_return`, documentarlo y actualizar `TpvView` para no depender del valor. Si no, restaurar la versión commit- d45c3fc.
+
+PRUEBAS REALIZADAS / SUGERIDAS
+Resumen de pruebas manuales (ya descritas en resúmenes previos y validadas parcialmente):
+- Venta efectivo simple: OK.
+- Venta tarjeta: OK (simulado).
+- Venta mixto: OK (se imprimen líneas separadas para Efectivo/Tarjeta y se registra importe_efectivo/importe_tarjeta).
+- Rollback forzado en `save_ticket`: el código revierte correctamente la transacción y deja el carrito intacto (según pruebas manuales).
+
+Pruebas automatizadas sugeridas (prioridad y ejemplos concretos):
+1) Unitarios (Alta)
+   - `test_ticket_generator_mixto()` validar que existe la sección Mixto y líneas de efectivo/tarjeta.
+   - `test_ticket_generator_edge_cases()` nombres con tabuladores/newlines/valores nulos.
+   - `test_fidelizacion_factor_pago()` casos con canje parcial y total.
+   - `test_save_ticket_transaction_rollback()` usando sqlite `:memory:` forzar excepción en mitad de transacción y comprobar rollback.
+
+2) Integración (Medio)
+   - E2E headless: crear DB temporal, insertar productos, simular flujo completo add->pago mixto->save_ticket->assert rows.
+
+3) Manual/UI (Baja)
+   - Probar impresión física en staging con adapter ESC/POS.
+
+MIGRACIONES DE BD (propuesta y precauciones)
+- Propuesta de migración (archivo sugerido: `scripts/migrations/2026-02-07_add_importes_mixtos.sql`):
+  ALTER TABLE tickets ADD COLUMN importe_efectivo TEXT DEFAULT '0';
+  ALTER TABLE tickets ADD COLUMN importe_tarjeta TEXT DEFAULT '0';
+
+- Precauciones:
+  - Backup obligatorio: `cp kool_tpv/base_datos/kool_bd.db kool_tpv/base_datos/kool_bd.db.bak`.
+  - Ejecutar en staging y validar con tests de integridad.
+  - SQLite limita algunos tipos de ALTER; probar en entorno local con copy previa.
+
+RIESGOS, PRIORIDADES Y ACCIONES (con DoD)
+- Crítico: Incompatibilidad en API de `save_ticket`.
+  - Acción: revisar callers en `kool_tpv/` que consumen `save_ticket` y asegurar manejo de retorno extendido.
+  - Responsable sugerido: desarrollador/owner TPV.
+  - DoD: todos los callers pasan tests unitarios; `TpvView` funciona con ambos retornos; no hay excepciones en E2E.
+
+- Alto: Migración de esquema DB pendiente.
+  - Acción: preparar script SQL, validar en staging y desplegar con backup.
+  - Responsable sugerido: dev + ops.
+  - DoD: script validado en staging, backup creado, steps documentados.
+
+- Medio: Falta cobertura de tests para `TicketGenerator` y `ticket_service`.
+  - Acción: implementar tests unitarios e integrados.
+  - Responsable: equipo dev.
+  - DoD: pipeline local `pytest -q` pasa en CI para estos tests.
+
+- Bajo: `.DS_Store` y artefactos generados en repo.
+  - Acción: eliminar y actualizar `.gitignore`.
+  - DoD: `git status` limpio de .DS_Store.
+
+TAREAS RECOMENDADAS (priorizadas, estimación rápida)
+1) Immediate (0.5-2h)
+   - Revisar working tree y confirmar si la eliminación de `tesoro_for_return` es intencional.
+   - Restaurar versión commit si necesario o adaptar `TpvView` para devolver dict estructurado.
+
+2) Short (1-2 days)
+   - Implementar tests unitarios para fidelización y ticket generation.
+   - Crear script de migración y validar en staging.
+
+3) Medium (3-7 days)
+   - Implementar adapter ESC/POS y worker queue para impresión.
+   - Reforzar db_wrapper para concurrencia/thread-safety.
+
+APÉNDICES (ejemplos, comandos y fragmentos)
+Comandos útiles (macOS / entorno dev):
+```bash
+python3 -m pytest -q
+python3 main.py
+cp kool_tpv/base_datos/kool_bd.db kool_tpv/base_datos/kool_bd.db.bak
+sqlite3 kool_tpv/base_datos/kool_bd.db < scripts/migrations/2026-02-07_add_importes_mixtos.sql
+```
+
+Ejemplo `ticket_data` (Mixto) — estructura final usada por impresión:
+{
+  'fecha': '2026-02-07',
+  'hora': '10:45:12',
+  'cajero': 'EGON',
+  'num_ticket': 513,
+  'subtotal': '100.00',
+  'iva_desglose': {'21': '21.00'},
+  'total': '121.00',
+  'forma_pago': 'Mixto',
+  'entregado': '121.00',
+  'cambio': '0.00',
+  'importe_efectivo': '50.00',
+  'importe_tarjeta': '71.00',
+  'tesoro_data': {'gastado': 0, 'ganado': 0, 'acumulado': 0, 'total': 0},
+  'cliente_id': 12
+}
+
+Ejemplo `tesoro_for_return` (estructura devuelta por `save_ticket`):
+{
+  'gastado': Decimal('10.00'),
+  'ganado': Decimal('2.00'),
+  'acumulado': Decimal('150.00'),
+  'total': Decimal('150.00')
+}
+
+CHECKLIST FINAL (obligatorio — marque tras completar la verificación)
+- [ ] He leído y comparado `RESUMEN_EXHAUSTIVO_2026-02-06.txt` y `RESUMEN_EXHAUSTIVO_2026-02-07.txt`.
+- [ ] He inspeccionado los commits del 2026-02-07 y resumido sus impactos.
+- [ ] Documenté los cambios de API relevantes (ej. `save_ticket`).
+- [ ] Propuse migración DB y pasos reproducibles para entorno local.
+- [ ] Añadí tareas priorizadas con responsables y DoD.
+
+REGISTRO DE ACCIONES REALIZADAS POR ESTE RESUMEN
+- Lectura: `RESUMENES/PLANTILLA_RESUMEN_EXHAUSTIVO.txt` (plantilla de contenido y checklist).
+- Lectura: `RESUMENES/RESUMEN_EXHAUSTIVO_2026-02-06.txt` y `RESUMENES/RESUMEN_EXHAUSTIVO_2026-02-07.txt`.
+- Revisión: Commits del 2026-02-07 (`5b39afb`, `6a0dc04`, `d45c3fc`, `08f2ed3`).
+- Inspección: diffs de los commits mencionados y lectura de archivos clave (`ticket_service.py`, `fidelizacion_service.py`, `tpv_view.py`, `ticket_generator.py`, `carrito_ui.py`).
+
+PRÓXIMOS PASOS (opcionales — elige uno para que lo ejecute):
+1) Restaurar o ajustar `ticket_service.save_ticket` en working tree para que coincida con el commit d45c3fc (si la eliminación fue accidental) y actualizar callers. (puedo hacerlo ahora si confirmas).
+2) Generar `scripts/migrations/2026-02-07_add_importes_mixtos.sql` y añadirlo al repo. (puedo crearlo ahora).
+3) Añadir tests unitarios iniciales para `TicketGenerator` y `FidelizacionService`. (puedo generarlos y ejecutarlos localmente si autorizas).
+
+FIN DEL RESUMEN EXHAUSTIVO

@@ -1,16 +1,39 @@
 {
   "buttons": [
-    { "label": "Pagar", "color": "#E27D60", "hover_color": "#F2A07B", "font_size": 36, "width": 200, "height": 200, "command": "pagar" },
-    { "label": "Pendiente", "color": "#C38D9E", "hover_color": "#DDAEC1", "font_size": 36, "width": 200, "height": 200, "command": "pendiente" },
-    { "label": "Descuento", "color": "#41B3A3", "hover_color": "#62C9B9", "font_size": 36, "width": 200, "height": 200, "command": "descuento" },
-    { "label": "Cliente", "color": "#6B5B95", "hover_color": "#806AA8", "font_size": 36, "width": 200, "height": 200, "command": "cliente" },
-    { "label": "Productos", "color": "#FF6F61", "hover_color": "#FF8A7F", "font_size": 36, "width": 200, "height": 200, "command": "productos" },
-    { "label": "Cancelar", "color": "#F7CAC9", "hover_color": "#F9D6D5", "font_size": 36, "width": 200, "height": 200, "command": "cancelar" },
-    { "label": "Buscar", "color": "#92A8D1", "hover_color": "#A8BEE2", "font_size": 36, "width": 200, "height": 200, "command": "buscar" },
-    { "label": "Reimprimir", "color": "#034F84", "hover_color": "#265E99", "font_size": 36, "width": 200, "height": 200, "command": "reimprimir" },
-    { "label": "Recargo", "color": "#F7B32B", "hover_color": "#F9C542", "font_size": 36, "width": 200, "height": 200, "command": "recargo" },
-    { "label": "Imprimir", "color": "#88B04B", "hover_color": "#9BC767", "font_size": 36, "width": 200, "height": 200, "command": "imprimir" },
-    { "label": "Config", "color": "#6C5B7B", "hover_color": "#80698F", "font_size": 36, "width": 200, "height": 200, "command": "config" },
-    { "label": "Otros", "color": "#2E8B57", "hover_color": "#4B9E75", "font_size": 36, "width": 200, "height": 200, "command": "otros" }
+    { "label": "CONFIG", "color": "#E85217", "hover_color": "#F2A07B", "font_family": "Roboto-SemiBold", "font_size": 36, "width": 200, "height": 200, "command": "pagar" },
+    { "label": "STOCK", "color": "#C38D9E", "hover_color": "#DDAEC1", "font_family": "Roboto-SemiBold", "font_size": 36, "width": 200, "height": 200, "command": "stock" },
+    { "label": "MULTI $", "color": "#97DBA7", "hover_color": "#62C9B9", "font_family": "Roboto-SemiBold", "font_size": 36, "width": 200, "height": 200, "command": "Multicobro" },
+    { "label": "WEB", "color": "#00FF00", "hover_color": "#806AA8", "font_family": "Roboto-SemiBold", "font_size": 36, "width": 200, "height": 200, "command": "Pagar en Web" },
+    { "label": "CIERRE", "color": "#DB0202", "hover_color": "#FF8A7F", "font_family": "Roboto-SemiBold", "font_size": 36, "width": 200, "height": 200, "command": "Cierres de caja" },
+    { "label": "DESCUENTO", "color": "#FF00D1", "hover_color": "#F9D6D5", "font_family": "Roboto-SemiBold", "font_size": 36, "width": 200, "height": 200, "command": "Hacer dto directo o %" },
+    { "label": "CLIENTE", "color": "#EEFF00", "hover_color": "#A8BEE2", "font_family": "Roboto-SemiBold", "font_size": 36, "width": 200, "height": 200, "command": "Asignar Cliente" },
+    { "label": "TARJETA", "color": "#8EFABB", "hover_color": "#9BC767", "font_family": "Roboto-SemiBold", "font_size": 36, "width": 200, "height": 200, "command": "Pagar con Tarjeta" },
+    { "label": "TICKETS", "color": "#FF0037", "hover_color": "#F9C542", "font_family": "Roboto-SemiBold", "font_size": 36, "width": 200, "height": 200, "command": "Abrir Tickets" },
+    { "label": "DEVOLUCIÓN", "color": "#DE8CFA", "hover_color": "#9BC767", "font_family": "Roboto-SemiBold", "font_size": 36, "width": 200, "height": 200, "command": "Realizar Devolución" },
+    { "label": "CAJERO", "color": "#FFE600", "hover_color": "#80698F", "font_family": "Roboto-SemiBold", "font_size": 36, "width": 200, "height": 200, "command": "Asignar Cajero" },
+    { "label": "CASH", "color": "#2E8B57", "hover_color": "#4B9E75", "font_family": "Roboto-SemiBold", "font_size": 36, "width": 200, "height": 200, "command": "Pagar en Efectivo" }
   ]
+  ,
+  "main_menu": [
+    { "text": "TPV", "color": "#FF8C00", "hover_color": "#00A4DF", "command": "load_tpv" },
+    { "text": "ALMACÉN", "color": "#32CD32", "hover_color": "#00A4DF", "command": "open_almacen" },
+    { "text": "CLIENTES", "color": "#9ACD32", "hover_color": "#00A4DF", "command": "open_clientes" },
+    { "text": "INFORMES", "color": "#FF1493", "hover_color": "#00A4DF", "command": "open_informes" },
+    { "text": "SHOPIFY", "color": "#1E90FF", "hover_color": "#00A4DF", "command": "open_shopify" },
+    { "text": "CONFIG", "color": "#FF4500", "hover_color": "#00A4DF", "command": "open_config" }
+  ]
+    ,
+    "global_buttons": [
+      {
+        "id": "power",
+        "text": "",
+        "color": "#FF0000",
+        "hover_color": "#00A4DF",
+        "image": "assets/power.png",
+        "width": 110,
+        "height": 110,
+        "corner_radius": 18,
+        "command": "close_app"
+      }
+    ]
 }
