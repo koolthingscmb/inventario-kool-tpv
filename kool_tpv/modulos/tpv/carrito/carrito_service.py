@@ -30,18 +30,46 @@ class CarritoService:
         # descuento aplicado al carrito: dict {'tipo': str, 'valor': Decimal, 'euros': Decimal}
         self._descuento = None
 
-    def add_item(self, producto_data: Dict) -> bool:
+
+    def add_item(self, producto_data: Dict, parent_window=None) -> bool:
+        from kool_tpv.utils.custom_dialog import show_error
         producto_id = producto_data.get('id')
         if producto_id is None:
             logging.error('Producto sin ID no se puede añadir al carrito')
             return False
+        # Normalizar datos básicos
+        line_tipo = producto_data.get('line_tipo', 'venta')
+        try:
+            cantidad_in = int(producto_data.get('cantidad', 1))
+        except Exception:
+            try:
+                cantidad_in = int(float(producto_data.get('cantidad', 1)))
+            except Exception:
+                cantidad_in = 1
 
+        # Bloquear la adición de artículos con cantidad positiva si hay una devolución activa
+        try:
+            if getattr(self, '_devolucion_active', False) and line_tipo != 'devolucion' and cantidad_in > 0:
+                if parent_window is not None:
+                    show_error(parent_window, 'Operación no permitida', 'No se puede iniciar una venta con una devolución en curso')
+                else:
+                    show_error(None, 'Operación no permitida', 'No se puede iniciar una venta con una devolución en curso')
+                return False
+        except Exception:
+            # si hay error leyendo la bandera, no bloquear pero loguear
+            logging.exception('Error comprobando estado de devolución antes de añadir item')
+
+        # Buscar ítem existente con mismo id y mismo tipo de línea
         for item in self._items:
-            if item['id'] == producto_id:
-                item['cantidad'] += 1
-                pvp_dec = Decimal(str(item.get('pvp', 0)))
-                item['total_linea'] = pvp_dec * Decimal(item['cantidad'])
-                return True
+            try:
+                if item.get('id') == producto_id and item.get('line_tipo', 'venta') == line_tipo:
+                    # sumar cantidades
+                    item['cantidad'] = int(item.get('cantidad', 0)) + cantidad_in
+                    pvp_dec = Decimal(str(item.get('pvp', 0)))
+                    item['total_linea'] = pvp_dec * Decimal(item['cantidad'])
+                    return True
+            except Exception:
+                continue
 
         # Use Decimal for internal calculations but keep pvp stored (Decimal-compatible)
         pvp_raw = producto_data.get('pvp', 0.0)
@@ -54,9 +82,10 @@ class CarritoService:
             'id': producto_id,
             'nombre': producto_data.get('nombre', 'Producto'),
             'pvp': pvp_dec,
-            'cantidad': 1,
+            'cantidad': cantidad_in,
             'tipo_iva': int(producto_data.get('tipo_iva', 21)),
-            'total_linea': pvp_dec
+            'total_linea': pvp_dec * Decimal(cantidad_in),
+            'line_tipo': producto_data.get('line_tipo', 'venta')
         }
         self._items.append(nuevo)
         logging.info(f"Producto añadido al carrito: {producto_data.get('nombre')}")
@@ -116,7 +145,8 @@ class CarritoService:
             pvp_dec = Decimal(str(item.get('pvp', 0)))
             iva_factor = Decimal('1') + (Decimal(item.get('tipo_iva', 21)) / Decimal('100'))
             precio_sin_iva = pvp_dec / iva_factor
-            subtotal += precio_sin_iva * Decimal(item.get('cantidad', 0))
+            sign = Decimal('-1') if str(item.get('line_tipo', 'venta')) == 'devolucion' else Decimal('1')
+            subtotal += precio_sin_iva * Decimal(item.get('cantidad', 0)) * sign
         # Devolver Decimal sin truncar; la vista/impresión hará el formateo
         return subtotal
 
@@ -126,7 +156,8 @@ class CarritoService:
             pvp_dec = Decimal(str(item.get('pvp', 0)))
             cantidad = Decimal(item.get('cantidad', 0))
             iva_rate = Decimal(item.get('tipo_iva', 21)) / Decimal('100')
-            base = (pvp_dec / (Decimal('1') + iva_rate)) * cantidad
+            sign = Decimal('-1') if str(item.get('line_tipo', 'venta')) == 'devolucion' else Decimal('1')
+            base = (pvp_dec / (Decimal('1') + iva_rate)) * cantidad * sign
             iva = base * iva_rate
             key = int(item.get('tipo_iva', 21))
             iva_desglose[key] = iva_desglose.get(key, Decimal('0.00')) + iva
@@ -143,12 +174,13 @@ class CarritoService:
         # Esta versión anterior se mantiene como método renombrado por compatibilidad interna.
         total = Decimal('0.00')
         for item in self._items:
-            total_linea = item.get('total_linea', Decimal('0.00'))
             try:
-                total += Decimal(str(total_linea))
+                total_linea = Decimal(str(item.get('total_linea', Decimal('0.00'))))
             except Exception:
                 logging.exception('Valor inválido en total_linea al calcular total')
                 continue
+            sign = Decimal('-1') if str(item.get('line_tipo', 'venta')) == 'devolucion' else Decimal('1')
+            total += total_linea * sign
 
         puntos = self.get_puntos_canjeados()
         total_after = total - puntos

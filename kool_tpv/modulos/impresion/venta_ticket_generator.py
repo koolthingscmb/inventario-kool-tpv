@@ -32,6 +32,23 @@ class VentaTicketGenerator(BaseTicketGenerator):
         # Encabezado
         lines.extend(self._format_header(config))
 
+        # Detectar si es ticket de devolución (por flag en ticket_data o por line_tipo en items)
+        is_devolucion = False
+        try:
+            tipo_flag = str(ticket_data.get('tipo', '') or '')
+            if tipo_flag.lower() in ('devolucion', 'devolución'):
+                is_devolucion = True
+        except Exception:
+            pass
+        if not is_devolucion:
+            for it_check in (items or []):
+                try:
+                    if str(it_check.get('line_tipo', '')).lower() == 'devolucion':
+                        is_devolucion = True
+                        break
+                except Exception:
+                    continue
+
         # Info venta
         fecha = ticket_data.get('fecha', '')
         hora = ticket_data.get('hora', '')
@@ -39,7 +56,10 @@ class VentaTicketGenerator(BaseTicketGenerator):
         num = ticket_data.get('num_ticket', '')
 
         lines.append(self.DIVIDER)
-        lines.append('FACTURA SIMPLIFICADA'.center(self.WIDTH))
+        if is_devolucion:
+            lines.append('TICKET DEVOLUCIÓN'.center(self.WIDTH))
+        else:
+            lines.append('FACTURA SIMPLIFICADA'.center(self.WIDTH))
         lines.append(self.DIVIDER)
 
         info_line = f"{fecha} {hora} - {cajero} - Ticket: {num}"
@@ -86,8 +106,24 @@ class VentaTicketGenerator(BaseTicketGenerator):
             else:
                 total_s = self._format_currency(total_val)
 
-            right_part = f"{pvp_s} {total_s}"
-            left_part = f"{cant_int}x {nombre_item}"
+            # detectar si la línea es de devolución
+            line_is_devol = False
+            try:
+                line_is_devol = str(it.get('line_tipo', '')).lower() == 'devolucion'
+            except Exception:
+                line_is_devol = False
+
+            # preparar cadenas de presentación (no alterar los valores reales)
+            if line_is_devol:
+                pvp_display = f"-{pvp_s}"
+                total_display = f"-{total_s}"
+                left_part = f"-{cant_int}x {nombre_item}"
+            else:
+                pvp_display = pvp_s
+                total_display = total_s
+                left_part = f"{cant_int}x {nombre_item}"
+
+            right_part = f"{pvp_display} {total_display}"
 
             # compute available space for left_part
             space_for_left = self.WIDTH - len(right_part) - 1
@@ -170,16 +206,31 @@ class VentaTicketGenerator(BaseTicketGenerator):
         def fmt(v):
             return self._format_currency(v)
 
+        # Para presentaciones de devolución ajustamos columnas Entr./Dev. (solo presentación)
         if forma.lower() == 'mixto':
-            # Linea Efectivo
-            l1 = f"{'Efectivo':<{col1_w}}|{fmt(importe_efectivo):>{col2_w}}|{fmt(importe_efectivo):>{col3_w}}|{fmt(0):>{col4_w}}"
-            lines.append(l1[: self.WIDTH])
-            # Linea Tarjeta
-            l2 = f"{'Tarjeta':<{col1_w}}|{fmt(importe_tarjeta):>{col2_w}}|{fmt(importe_tarjeta):>{col3_w}}|{fmt(0):>{col4_w}}"
-            lines.append(l2[: self.WIDTH])
+            if is_devolucion:
+                # Efectivo: mostrar total negativo en Total y en Dev., Entr. = 0
+                l1 = f"{'Efectivo':<{col1_w}}|{fmt(importe_efectivo):>{col2_w}}|{fmt(0):>{col3_w}}|{fmt(importe_efectivo):>{col4_w}}"
+                lines.append(l1[: self.WIDTH])
+                # Tarjeta: idem
+                l2 = f"{'Tarjeta':<{col1_w}}|{fmt(importe_tarjeta):>{col2_w}}|{fmt(0):>{col3_w}}|{fmt(importe_tarjeta):>{col4_w}}"
+                lines.append(l2[: self.WIDTH])
+            else:
+                # Linea Efectivo
+                l1 = f"{'Efectivo':<{col1_w}}|{fmt(importe_efectivo):>{col2_w}}|{fmt(importe_efectivo):>{col3_w}}|{fmt(0):>{col4_w}}"
+                lines.append(l1[: self.WIDTH])
+                # Linea Tarjeta
+                l2 = f"{'Tarjeta':<{col1_w}}|{fmt(importe_tarjeta):>{col2_w}}|{fmt(importe_tarjeta):>{col3_w}}|{fmt(0):>{col4_w}}"
+                lines.append(l2[: self.WIDTH])
         else:
             # Single payment row
-            row = f"{forma[:col1_w]:<{col1_w}}|{fmt(total):>{col2_w}}|{fmt(entr):>{col3_w}}|{fmt(dev):>{col4_w}}"
+            if is_devolucion:
+                display_entr = 0
+                display_dev = total
+            else:
+                display_entr = entr
+                display_dev = dev
+            row = f"{forma[:col1_w]:<{col1_w}}|{fmt(total):>{col2_w}}|{fmt(display_entr):>{col3_w}}|{fmt(display_dev):>{col4_w}}"
             lines.append(row[: self.WIDTH])
 
         # Fidelización

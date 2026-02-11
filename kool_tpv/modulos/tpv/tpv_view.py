@@ -487,6 +487,17 @@ class TpvView:
             except Exception:
                 logging.exception('Error creando DescuentoAction')
                 self.descuento_action = None
+            # Instanciar DevolucionAction
+            try:
+                try:
+                    from kool_tpv.modulos.tpv.actions.devolucion import DevolucionAction
+                    self._devolucion_action = DevolucionAction(self, self.db, self.carrito_service)
+                except Exception:
+                    logging.exception('Error instanciando DevolucionAction')
+                    self._devolucion_action = None
+            except Exception:
+                logging.exception('Error creando DevolucionAction')
+                self._devolucion_action = None
             # Instanciar StockUI
             try:
                 from kool_tpv.modulos.tpv.ui.stock_ui import StockUI
@@ -520,7 +531,7 @@ class TpvView:
                             empty = True
                         if empty:
                             try:
-                                show_warning(self.root if hasattr(self, 'root') else None, 'Carrito vacío', 'No se puede realizar una venta sin artículos.')
+                                show_warning(self.parent if hasattr(self, 'parent') else None, 'Carrito vacío', 'No se puede realizar una venta sin artículos.')
                             except Exception:
                                 logging.exception('Error mostrando warning carrito vacío')
                             return
@@ -585,22 +596,49 @@ class TpvView:
                             except Exception:
                                 descuento_data = None
 
-                            # Guardar posible resultado extendido (ticket_id, num_ticket[, tesoro_data])
-                            save_res = save_ticket(
-                                self.db,
-                                self.carrito_service.get_items(),
-                                resumen,
-                                pagado_val,
-                                cajero=cajero,
-                                cliente=cliente_nombre,
-                                cliente_id=cliente_id,
-                                forma_pago=forma_pago,
-                                importe_efectivo=importe_efectivo_val,
-                                importe_tarjeta=importe_tarjeta_val,
-                                descuento_data=descuento_data,
-                                carrito_service=self.carrito_service,
-                                fidelizacion_service=getattr(self, 'fidelizacion_service', None),
-                            )
+                            # Si existe un flujo de Devolución activo y tiene líneas, delegar la confirmación
+                            save_res = None
+                            try:
+                                devol_svc = None
+                                if getattr(self, '_devolucion_action', None) is not None:
+                                    devol_svc = getattr(self._devolucion_action, 'devolucion_service', None)
+                                if devol_svc is not None and callable(getattr(devol_svc, 'listar_lineas', None)) and len(devol_svc.listar_lineas()) > 0:
+                                    # Delegar la persistencia a DevolucionService (convierte/valida internamente)
+                                    save_res = devol_svc.confirmar_devolucion(usuario=cajero, cliente_id=cliente_id, efectivo=pagado_val, forma_pago=forma_pago, importe_efectivo=importe_efectivo_val, importe_tarjeta=importe_tarjeta_val, descuento_data=descuento_data)
+                                else:
+                                    save_res = save_ticket(
+                                        self.db,
+                                        self.carrito_service.get_items(),
+                                        resumen,
+                                        pagado_val,
+                                        cajero=cajero,
+                                        cliente=cliente_nombre,
+                                        cliente_id=cliente_id,
+                                        forma_pago=forma_pago,
+                                        importe_efectivo=importe_efectivo_val,
+                                        importe_tarjeta=importe_tarjeta_val,
+                                        descuento_data=descuento_data,
+                                        carrito_service=self.carrito_service,
+                                        fidelizacion_service=getattr(self, 'fidelizacion_service', None),
+                                    )
+                            except Exception:
+                                # fallback to direct save_ticket if devolucion confirm fails
+                                logging.exception('Error delegando a DevolucionService; intentando save_ticket directo')
+                                save_res = save_ticket(
+                                    self.db,
+                                    self.carrito_service.get_items(),
+                                    resumen,
+                                    pagado_val,
+                                    cajero=cajero,
+                                    cliente=cliente_nombre,
+                                    cliente_id=cliente_id,
+                                    forma_pago=forma_pago,
+                                    importe_efectivo=importe_efectivo_val,
+                                    importe_tarjeta=importe_tarjeta_val,
+                                    descuento_data=descuento_data,
+                                    carrito_service=self.carrito_service,
+                                    fidelizacion_service=getattr(self, 'fidelizacion_service', None),
+                                )
                             # soportar distintos retornos: (id,num) o (id,num,tesoro_dict)
                             ticket_id = None
                             num_ticket = None
@@ -624,13 +662,13 @@ class TpvView:
                                 db_path = 'unknown'
                             msg = f"Error guardando ticket en la base de datos.\nDB: {db_path}\nDetalle: {e}"
                             try:
-                                show_error(self.root if hasattr(self, 'root') else None, 'Error guardando ticket', msg)
+                                show_error(self.parent if hasattr(self, 'parent') else None, 'Error guardando ticket', msg)
                             except Exception:
                                 logging.exception('No se pudo mostrar el diálogo de error')
                     except Exception:
                         logging.exception('Error en on_finalize wrapper')
                         try:
-                            show_error(self.root if hasattr(self, 'root') else None, 'Error', 'Se produjo un error interno al finalizar la operación de cobro.')
+                            show_error(self.parent if hasattr(self, 'parent') else None, 'Error', 'Se produjo un error interno al finalizar la operación de cobro.')
                         except Exception:
                             pass
 
@@ -640,7 +678,7 @@ class TpvView:
                             self.carrito_service.clear()
                             self.carrito_ui.update_display()
                             try:
-                                show_success(self.root if hasattr(self, 'root') else None, 'Venta guardada', f'Ticket guardado correctamente (#{num_ticket})')
+                                show_success(self.parent if hasattr(self, 'parent') else None, 'Venta guardada', f'Ticket guardado correctamente (#{num_ticket})')
                             except Exception:
                                 pass
                         except Exception:
@@ -726,6 +764,12 @@ class TpvView:
                                         'descuento_tipo': descuento_data['tipo'] if descuento_data else None,
                                         'descuento_valor': descuento_data['valor'] if descuento_data else None,
                                      }
+                                    # Marcar tipo devolucion para presentación si alguna línea es de devolución
+                                    try:
+                                        if any(str(it.get('line_tipo', '')).lower() == 'devolucion' for it in (items_to_print or [])):
+                                            ticket_data['tipo'] = 'devolucion'
+                                    except Exception:
+                                        pass
                                     # Construir cliente_for_print con nivel resuelto
                                     cliente_for_print = None
                                     if cliente_info:
@@ -837,6 +881,9 @@ class TpvView:
                         if txt == 'DESCUENTO' and getattr(self, 'descuento_action', None) is not None:
                             btn.configure(command=lambda act=self.descuento_action: act.ejecutar())
                             logging.info('Grid button DESCUENTO bound to DescuentoAction')
+                        if txt in ('DEVOLUCIÓN', 'DEVOLUCION', 'REALIZAR DEVOLUCIÓN', 'REALIZAR DEVOLUCION') and getattr(self, '_devolucion_action', None) is not None:
+                            btn.configure(command=lambda act=self._devolucion_action: act.ejecutar())
+                            logging.info('Grid button DEVOLUCIÓN bound to DevolucionAction')
                         if any(k in txt for k in ('MULTI', 'MIXTO')) and getattr(self, '_multi_controller', None) is not None:
                             btn.configure(command=lambda ctl=self._multi_controller: ctl._on_action())
                             logging.info(f'Grid button {txt} bound to MultiPagoController')
@@ -878,7 +925,7 @@ class TpvView:
 
             if not has_cajero:
                 try:
-                    parent_win = self.parent.winfo_toplevel() if hasattr(self.parent, 'winfo_toplevel') else self.parent
+                    parent_win = self.parent if hasattr(self, 'parent') else None
                     show_warning(
                         parent_win,
                         'Cajero no autenticado',

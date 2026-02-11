@@ -191,6 +191,11 @@ class CarritoUI:
                 self._tree.tag_configure("descuento", foreground="#ff6b6b", font=("Arial", 11, "bold"))
             except Exception:
                 pass
+            # visual tag for devolucion rows (red)
+            try:
+                self._tree.tag_configure("devolucion", foreground="#d9534f", font=("Arial", 11, "bold"))
+            except Exception:
+                pass
 
             # vertical scrollbar
             self._vsb = ttk.Scrollbar(container, orient='vertical', command=self._tree.yview)
@@ -395,7 +400,16 @@ class CarritoUI:
                 total_s = self.carrito_service.formatter.format_precio(total_linea)
 
                 iid = str(item.get('id', idx))
-                self._tree.insert('', 'end', iid=iid, values=(prod, str(cant), precio_s, total_s))
+                # mark devolucion lines
+                tags = ()
+                try:
+                    if str(item.get('line_tipo', 'venta')) == 'devolucion':
+                        tags = ('devolucion',)
+                        # display negative total for devolucion
+                        total_s = self.carrito_service.formatter.format_precio(-abs(total_linea))
+                except Exception:
+                    pass
+                self._tree.insert('', 'end', iid=iid, values=(prod, str(cant), precio_s, total_s), tags=tags)
             except Exception as e:
                 logging.exception(f"ERROR insertando línea {idx}: {e}")
 

@@ -52,6 +52,7 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
             logging.exception('No se pudo instanciar FidelizacionService; se asumirá 0 puntos')
             fidelizacion_service = None
 
+        # puntos gastados (canjeados) provienen del carrito
         puntos_gastados = Decimal('0')
         try:
             if carrito_service is not None and getattr(carrito_service, 'get_puntos_canjeados', None):
@@ -60,13 +61,41 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
             logging.exception('Error obteniendo puntos canjeados del carrito; se asume 0')
             puntos_gastados = Decimal('0')
 
-        puntos_ganados = Decimal('0')
+        # separar items de venta y de devolución para calcular puntos por separado
+        puntos_otorgar = Decimal('0')
+        puntos_restar = Decimal('0')
         try:
+            items_venta = []
+            items_devol = []
+            for it in carrito_items or []:
+                # construir estructura mínima esperada por calcular_puntos_ganados
+                item_repr = {
+                    'id': it.get('id'),
+                    'pvp': str(it.get('pvp', '0')),
+                    'cantidad': it.get('cantidad', 0)
+                }
+                if str(it.get('line_tipo', 'venta')) == 'devolucion':
+                    items_devol.append(item_repr)
+                else:
+                    items_venta.append(item_repr)
+
             if fidelizacion_service is not None:
-                puntos_ganados = fidelizacion_service.calcular_puntos_ganados(carrito_items, puntos_canjeados=puntos_gastados) or Decimal('0')
+                try:
+                    # Aplicar reducción proporcional por canje solo a los puntos de ventas
+                    puntos_otorgar = fidelizacion_service.calcular_puntos_ganados(items_venta, puntos_canjeados=puntos_gastados) or Decimal('0')
+                except Exception:
+                    logging.exception('Error calculando puntos otorgar; se asume 0')
+                    puntos_otorgar = Decimal('0')
+                try:
+                    # Para devoluciones no aplicamos factor de canje (se restan los puntos correspondientes)
+                    puntos_restar = fidelizacion_service.calcular_puntos_ganados(items_devol, puntos_canjeados=Decimal('0')) or Decimal('0')
+                except Exception:
+                    logging.exception('Error calculando puntos restar; se asume 0')
+                    puntos_restar = Decimal('0')
         except Exception:
-            logging.exception('Error calculando puntos ganados; se asume 0')
-            puntos_ganados = Decimal('0')
+            logging.exception('Error separando items por tipo para fidelización')
+            puntos_otorgar = Decimal('0')
+            puntos_restar = Decimal('0')
 
         # determine next num_ticket
         cur.execute('SELECT MAX(num_ticket) FROM tickets')
@@ -148,8 +177,8 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
                 str(descuento_euros),
                 descuento_tipo,
                 descuento_valor,
-                str(puntos_ganados),
-                str(puntos_gastados),
+                        str(puntos_otorgar),
+                        str(puntos_restar + puntos_gastados),
             ),
         )
         ticket_id = cur.lastrowid
@@ -172,62 +201,132 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
                     sku = p[0]
 
             # insert ticket line (store numeric fields as strings to avoid implicit float conversion)
+            # include `line_tipo` so lines can be 'venta'|'devolucion'|'intercambio'
+            line_tipo = str(item.get('line_tipo', 'venta'))
             insert_line_q = (
-                "INSERT INTO ticket_lines (ticket_id, sku, nombre, cantidad, precio, iva) VALUES (?, ?, ?, ?, ?, ?)"
+                "INSERT INTO ticket_lines (ticket_id, sku, nombre, cantidad, precio, iva, line_tipo) VALUES (?, ?, ?, ?, ?, ?, ?)"
             )
-            cur.execute(insert_line_q, (ticket_id, sku, nombre, cantidad, str(precio), tipo_iva))
+            cur.execute(insert_line_q, (ticket_id, sku, nombre, cantidad, str(precio), tipo_iva, line_tipo))
+            line_id = cur.lastrowid
 
             # update producto stock and ventas if prod_id provided
             if prod_id is not None:
                 try:
-                    # update stock_actual (allow negative but log)
-                    cur.execute('UPDATE productos SET stock_actual = COALESCE(stock_actual,0) - ?, ventas_totales = COALESCE(ventas_totales,0) + ? WHERE id = ?', (cantidad, cantidad, prod_id))
+                    # determine stock and ventas change depending on line type
+                    if line_tipo == 'devolucion':
+                        stock_change = cantidad  # devolución = entrada al stock
+                        ventas_change = -cantidad
+                    else:
+                        stock_change = -cantidad  # venta = salida del stock
+                        ventas_change = cantidad
+
+                    cur.execute('UPDATE productos SET stock_actual = COALESCE(stock_actual,0) + ?, ventas_totales = COALESCE(ventas_totales,0) + ? WHERE id = ?', (stock_change, ventas_change, prod_id))
                     # optional: check new stock and log
                     cur.execute('SELECT stock_actual FROM productos WHERE id = ?', (prod_id,))
                     new_stock = cur.fetchone()
                     if new_stock and new_stock[0] is not None and new_stock[0] < 0:
-                        logging.warning(f'Producto id {prod_id} stock negativo tras venta: {new_stock[0]}')
+                        logging.warning(f'Producto id {prod_id} stock negativo tras operación: {new_stock[0]}')
+
+                    # insert stock_movements record if table exists
+                    try:
+                        cur.execute(
+                            "INSERT INTO stock_movements (producto_id, cantidad, motivo, ticket_line_id) VALUES (?, ?, ?, ?)",
+                            (prod_id, stock_change, f"ticket:{ticket_id}", line_id),
+                        )
+                    except Exception:
+                        # table may not exist yet; ignore but log
+                        logging.debug('stock_movements table not present or insert failed')
                 except Exception:
                     logging.exception('Error actualizando stock/ventas para producto %s', prod_id)
 
         # commit
+        # --- Insertar registros de pagos y auditoría dentro de la misma transacción ---
+            # Insertar pagos desglosados si la tabla existe (se ignora si no existe)
+            try:
+                if importe_efectivo_val and importe_efectivo_val != 0:
+                    cur.execute(
+                        "INSERT INTO payments (ticket_id, metodo, importe, created_at) VALUES (?, ?, ?, ?)",
+                        (ticket_id, 'efectivo', str(importe_efectivo_val), created_at),
+                    )
+                if importe_tarjeta_val and importe_tarjeta_val != 0:
+                    cur.execute(
+                        "INSERT INTO payments (ticket_id, metodo, importe, created_at) VALUES (?, ?, ?, ?)",
+                        (ticket_id, 'tarjeta', str(importe_tarjeta_val), created_at),
+                    )
+            except Exception:
+                logging.debug('payments table not present or insert failed')
+
+            # Registrar un entry de auditoría con resumen mínimo (si la tabla existe)
+            try:
+                detalles = f"num_ticket={num_ticket} total={total} pagado={pagado} cambio={cambio} cajero={cajero}"
+                cur.execute(
+                    "INSERT INTO audit_logs (created_at, ticket_id, usuario, accion, detalles) VALUES (?, ?, ?, ?, ?)",
+                    (created_at, ticket_id, cajero if cajero else None, 'save_ticket', detalles),
+                )
+            except Exception:
+                logging.debug('audit_logs table not present or insert failed')
+
         # --- Actualizar cliente con puntos dentro de la misma transacción ---
         try:
             if cliente_id:
-                # Actualizar cliente: sumar puntos ganados, restar puntos gastados,
-                # acumular puntos ganados en histórico y acumular puntos gastados.
-                cur.execute(
-                    """
-                    UPDATE clientes SET
-                        tesoro_total = COALESCE(tesoro_total, 0) + ? - ?,
-                        tesoro_historico = COALESCE(tesoro_historico, 0) + ?,
-                        tesoro_gastado_total = COALESCE(tesoro_gastado_total, 0) + ?
-                    WHERE id = ?
-                    """,
-                    (
-                        str(puntos_ganados),
-                        str(puntos_gastados),
-                        str(puntos_ganados),
-                        str(puntos_gastados),
-                        cliente_id,
-                    ),
-                )
-                # Recalcular nivel automáticamente según tesoro_historico
-                cur.execute(
-                    """
-                    UPDATE clientes
-                    SET id_nivel = (
-                        SELECT id FROM niveles_fidelidad
-                        WHERE gasto_minimo <= (SELECT tesoro_historico FROM clientes WHERE id = ?)
-                        ORDER BY gasto_minimo DESC
-                        LIMIT 1
+                # neto de puntos: otorgar (ventas) - restar (devoluciones) - canjeados
+                try:
+                    neto_puntos = (puntos_otorgar - puntos_restar - puntos_gastados).quantize(Decimal('0.01'))
+                except Exception:
+                    neto_puntos = Decimal('0')
+
+                # Insertar movimiento de puntos (si la tabla existe)
+                try:
+                    cur.execute(
+                        "INSERT INTO points_movements (cliente_id, puntos, motivo, ticket_id, usuario_id) VALUES (?, ?, ?, ?, ?)",
+                        (cliente_id, float(neto_puntos), 'ticket', ticket_id, None),
                     )
-                    WHERE id = ?
-                    """,
-                    (cliente_id, cliente_id),
-                )
+                except Exception:
+                    logging.debug('points_movements table not present or insert failed')
+
+                # Actualizar cliente: aplicar cambios en tesoro_total y tesoro_historico
+                try:
+                    cur.execute(
+                        """
+                        UPDATE clientes SET
+                            tesoro_total = COALESCE(tesoro_total, 0) + ? - ?,
+                            tesoro_historico = COALESCE(tesoro_historico, 0) + ? - ?,
+                            tesoro_gastado_total = COALESCE(tesoro_gastado_total, 0) + ?
+                        WHERE id = ?
+                        """,
+                        (
+                            str(puntos_otorgar),
+                            str(puntos_restar + puntos_gastados),
+                            str(puntos_otorgar),
+                            str(puntos_restar),
+                            str(puntos_gastados),
+                            cliente_id,
+                        ),
+                    )
+                except Exception:
+                    logging.exception('Error actualizando cliente con puntos; rollback')
+                    conn.rollback()
+                    raise
+
+                # Recalcular nivel automáticamente según tesoro_historico
+                try:
+                    cur.execute(
+                        """
+                        UPDATE clientes
+                        SET id_nivel = (
+                            SELECT id FROM niveles_fidelidad
+                            WHERE gasto_minimo <= (SELECT tesoro_historico FROM clientes WHERE id = ?)
+                            ORDER BY gasto_minimo DESC
+                            LIMIT 1
+                        )
+                        WHERE id = ?
+                        """,
+                        (cliente_id, cliente_id),
+                    )
+                except Exception:
+                    logging.exception('Error recalculando nivel de fidelidad')
         except Exception:
-            logging.exception('Error actualizando cliente con puntos; rollback')
+            logging.exception('Error procesando actualización de cliente')
             conn.rollback()
             raise
 

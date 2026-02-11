@@ -99,9 +99,9 @@ class ImpresoraService:
             if not ticket_row:
                 return None
 
-            # Obtener líneas
+            # Obtener líneas (incluimos line_tipo para detectar devoluciones)
             lines = self.db.fetch_all(
-                "SELECT sku, nombre, cantidad, precio, iva FROM ticket_lines WHERE ticket_id = ?",
+                "SELECT sku, nombre, cantidad, precio, iva, line_tipo FROM ticket_lines WHERE ticket_id = ?",
                 (ticket_id,)
             )
 
@@ -110,19 +110,33 @@ class ImpresoraService:
             subtotal_calc = Decimal('0')
             iva_desglose = {}
 
+            # Acumular por tipo y respetar devoluciones (signo negativo)
+            base_by_type = {}
+            gross_by_type = {}
             for line in lines:
                 cantidad = int(float(line[2])) if line[2] else 0
                 precio = Decimal(str(line[3])) if line[3] else Decimal('0')
                 tipo_iva = int(float(line[4])) if line[4] else 21
+                line_tipo = str(line[5]) if len(line) > 5 and line[5] is not None else 'venta'
 
-                # Calcular base imponible (precio ya incluye IVA)
-                total_linea = precio * cantidad
-                base = total_linea / (1 + Decimal(tipo_iva) / 100)
+                sign = Decimal('-1') if line_tipo == 'devolucion' else Decimal('1')
+
+                # Calcular total de la línea (con signo) y base imponible
+                total_linea = (precio * cantidad) * sign
+                divisor = (Decimal('1') + (Decimal(tipo_iva) / Decimal('100')))
+                try:
+                    base = (total_linea / divisor)
+                except Exception:
+                    base = Decimal('0')
                 cuota_iva = total_linea - base
 
                 subtotal_calc += base
 
-                # Acumular IVA por tipo
+                # Acumular por tipo
+                base_by_type[tipo_iva] = base_by_type.get(tipo_iva, Decimal('0')) + base
+                gross_by_type[tipo_iva] = gross_by_type.get(tipo_iva, Decimal('0')) + total_linea
+
+                # Acumular IVA por tipo (cuota_iva puede ser negativo for devoluciones)
                 if tipo_iva not in iva_desglose:
                     iva_desglose[tipo_iva] = Decimal('0')
                 iva_desglose[tipo_iva] += cuota_iva
@@ -132,7 +146,9 @@ class ImpresoraService:
                     'nombre': line[1],
                     'cantidad': cantidad,
                     'pvp': float(precio),
-                    'tipo_iva': tipo_iva
+                    'tipo_iva': tipo_iva,
+                    'line_tipo': line_tipo,
+                    'total': float(total_linea),
                 })
 
             # Separar fecha y hora
@@ -143,11 +159,39 @@ class ImpresoraService:
                 fecha = fecha_completa
                 hora = ''
 
+            # Si hay tesoro gastado, prorratearlo entre tipos de IVA y ajustar bases/IVA
+            try:
+                tesoro_gastado = Decimal(str(ticket_row[11])) if ticket_row[11] is not None else Decimal('0')
+            except Exception:
+                tesoro_gastado = Decimal('0')
+
             # Calcular entregado y cambio
             total = Decimal(str(ticket_row[6]))
             forma_pago = ticket_row[7]
             importe_efectivo = Decimal(str(ticket_row[8])) if ticket_row[8] else Decimal('0')
             importe_tarjeta = Decimal(str(ticket_row[9])) if ticket_row[9] else Decimal('0')
+            if tesoro_gastado and tesoro_gastado != 0 and sum(gross_by_type.values()) != 0:
+                total_gross = sum(gross_by_type.values())
+                try:
+                    factor_pago = (total_gross - tesoro_gastado) / total_gross
+                except Exception:
+                    factor_pago = Decimal('1')
+                # Recalcular bases e IVA por tipo
+                iva_desglose_new = {}
+                subtotal_new = Decimal('0')
+                for tipo, gross_orig in gross_by_type.items():
+                    tipo_pct = Decimal(tipo)
+                    proporcion = (gross_orig / total_gross) if total_gross != 0 else Decimal('0')
+                    descuento_para_tipo = tesoro_gastado * proporcion
+                    nueva_gross = gross_orig - descuento_para_tipo
+                    if nueva_gross < Decimal('0'):
+                        nueva_gross = Decimal('0')
+                    nueva_base = nueva_gross / (Decimal('1') + (tipo_pct / Decimal('100')))
+                    nueva_cuota = nueva_gross - nueva_base
+                    iva_desglose_new[int(tipo)] = nueva_cuota
+                    subtotal_new += nueva_base
+                iva_desglose = iva_desglose_new
+                subtotal_calc = subtotal_new
 
             if forma_pago and forma_pago.lower() == 'mixto':
                 entregado = importe_efectivo + importe_tarjeta
