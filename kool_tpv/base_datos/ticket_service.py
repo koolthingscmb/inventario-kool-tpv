@@ -202,6 +202,19 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
         ticket_id = cur.lastrowid
 
         # insert ticket lines and update product stock/ventas
+        # helper to safely insert stock_movements requiring ticket_line_id
+        def _insert_stock_movement(cursor, producto_id, cantidad, motivo, ticket_line_id):
+            try:
+                if ticket_line_id is None:
+                    logging.error('Refusing to insert stock_movements without ticket_line_id: producto_id=%s cantidad=%s motivo=%s', producto_id, cantidad, motivo)
+                    return
+                cursor.execute(
+                    "INSERT INTO stock_movements (producto_id, cantidad, motivo, ticket_line_id) VALUES (?, ?, ?, ?)",
+                    (producto_id, cantidad, motivo, ticket_line_id),
+                )
+            except Exception:
+                logging.debug('stock_movements table not present or insert failed')
+
         for item in carrito_items:
             prod_id = item.get('id')
             nombre = item.get('nombre')
@@ -247,14 +260,8 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
                         logging.warning(f'Producto id {prod_id} stock negativo tras operación: {new_stock[0]}')
 
                     # insert stock_movements record if table exists
-                    try:
-                        cur.execute(
-                            "INSERT INTO stock_movements (producto_id, cantidad, motivo, ticket_line_id) VALUES (?, ?, ?, ?)",
-                            (prod_id, stock_change, f"ticket:{ticket_id}", line_id),
-                        )
-                    except Exception:
-                        # table may not exist yet; ignore but log
-                        logging.debug('stock_movements table not present or insert failed')
+                    # insert stock movement with explicit ticket_line_id using helper
+                    _insert_stock_movement(cur, prod_id, stock_change, f"ticket:{ticket_id}", line_id)
                 except Exception:
                     logging.exception('Error actualizando stock/ventas para producto %s', prod_id)
 
