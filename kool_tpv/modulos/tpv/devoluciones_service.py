@@ -49,18 +49,8 @@ class DevolucionesService:
             prod_id = int(producto.get('id'))
             qty = int(cantidad)
 
-            # Update stock in DB: increment stock_actual by cantidad
-            try:
-                if self.db is None:
-                    logging.warning('DevolucionesService: no hay DB, no se actualizará stock en BD')
-                else:
-                    # Use a transaction via execute_query
-                    update_q = "UPDATE productos SET stock_actual = COALESCE(stock_actual,0) + ? WHERE id = ?"
-                    self.db.execute_query(update_q, (qty, prod_id))
-                    insert_sm = "INSERT INTO stock_movements (producto_id, cantidad, motivo) VALUES (?, ?, ?)"
-                    self.db.execute_query(insert_sm, (prod_id, qty, 'devolucion'))
-            except Exception:
-                logging.exception('DevolucionesService: error actualizando stock en BD')
+            # NOTE: Do NOT update DB here. Stock updates are centralized in save_ticket().
+            # DevolucionesService should only prepare the carrito line and set devolucion mode.
 
             # Build product data for carrito: ensure pvp and tipo_iva exist
             prod_for_cart = {

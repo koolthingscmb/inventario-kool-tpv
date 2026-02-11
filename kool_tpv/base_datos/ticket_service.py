@@ -238,23 +238,8 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
                         stock_change = -cantidad  # venta = salida del stock
                         ventas_change = cantidad
 
-                    # Before applying stock_change for devoluciones, check if a prior
-                    # DevolucionesService already updated stock (motivo='devolucion' and ticket_line_id IS NULL)
-                    skip_stock_update = False
-                    try:
-                        if line_tipo == 'devolucion':
-                            cur.execute(
-                                "SELECT 1 FROM stock_movements WHERE producto_id = ? AND cantidad = ? AND motivo = 'devolucion' AND ticket_line_id IS NULL LIMIT 1",
-                                (prod_id, stock_change),
-                            )
-                            if cur.fetchone():
-                                skip_stock_update = True
-                    except Exception:
-                        # If the check fails for any reason, default to applying the update
-                        skip_stock_update = False
-
-                    if not skip_stock_update:
-                        cur.execute('UPDATE productos SET stock_actual = COALESCE(stock_actual,0) + ?, ventas_totales = COALESCE(ventas_totales,0) + ? WHERE id = ?', (stock_change, ventas_change, prod_id))
+                    # Apply stock and ventas update centrally here for every ticket line.
+                    cur.execute('UPDATE productos SET stock_actual = COALESCE(stock_actual,0) + ?, ventas_totales = COALESCE(ventas_totales,0) + ? WHERE id = ?', (stock_change, ventas_change, prod_id))
                     # optional: check new stock and log
                     cur.execute('SELECT stock_actual FROM productos WHERE id = ?', (prod_id,))
                     new_stock = cur.fetchone()
@@ -263,12 +248,10 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
 
                     # insert stock_movements record if table exists
                     try:
-                        # Only insert a stock_movements entry if we actually applied the stock update here
-                        if not skip_stock_update:
-                            cur.execute(
-                                "INSERT INTO stock_movements (producto_id, cantidad, motivo, ticket_line_id) VALUES (?, ?, ?, ?)",
-                                (prod_id, stock_change, f"ticket:{ticket_id}", line_id),
-                            )
+                        cur.execute(
+                            "INSERT INTO stock_movements (producto_id, cantidad, motivo, ticket_line_id) VALUES (?, ?, ?, ?)",
+                            (prod_id, stock_change, f"ticket:{ticket_id}", line_id),
+                        )
                     except Exception:
                         # table may not exist yet; ignore but log
                         logging.debug('stock_movements table not present or insert failed')
