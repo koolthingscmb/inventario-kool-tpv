@@ -3,7 +3,7 @@ Service para formateo de datos del TPV
 Formateo de precios, cantidades, descuentos, fechas, etc.
 """
 from typing import Union
-from decimal import Decimal, ROUND_DOWN, InvalidOperation
+from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 import math
 from datetime import datetime
 
@@ -17,27 +17,27 @@ class FormatterService:
     
     def format_precio(self, precio: Union[float, str, int]) -> str:
         """
-        Formatear precio con truncado a 2 decimales (NO redondeo)
-        Ejemplo: 12.567 → "12.56 €"
+        Formatear precio con redondeo a 2 decimales (ROUND_HALF_UP)
+        Ejemplo: 12.567 → "12.57 €"
         """
         try:
             d = Decimal(str(precio))
-            d_trunc = d.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
-            return f"{d_trunc:.2f} €"
+            d_round = d.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            return f"{d_round:.2f} €"
         except (InvalidOperation, ValueError, TypeError):
             return "0.00 €"
 
     def format_tesoro(self, tesoro: Union[float, str, int, Decimal]) -> str:
         """
-        Formatear valor de "tesoro" truncando (NO redondeando) a 2 decimales.
+        Formatear valor de "tesoro" redondeando a 2 decimales (ROUND_HALF_UP).
         - Siempre devuelve una cadena con 2 decimales, sin símbolo monetario.
         - Uso: mostrar saldo de tesoro en UI (ej. '12.56').
         """
         try:
             # Convertir de forma segura a Decimal
             d = Decimal(str(tesoro))
-            d_trunc = d.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
-            return f"{d_trunc:.2f}"
+            d_round = d.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            return f"{d_round:.2f}"
         except (InvalidOperation, ValueError, TypeError):
             return "0.00"
     
@@ -129,21 +129,22 @@ class FormatterService:
         precio_formateado = self.format_precio(total)
         return f"TOTAL: {precio_formateado}"
     
-    def truncar_decimales(self, numero: Union[float, str], decimales: int = 2) -> Decimal:
+    def truncar_decimales(self, numero: Union[float, str], decimales: int = 2, rounding_mode=ROUND_HALF_UP) -> Decimal:
         """
-        Truncar número a X decimales (NO redondear).
-        Devuelve un Decimal ya cuantizado con ROUND_DOWN.
-        Uso: funciones de la capa de servicio que necesitan un Decimal truncado.
+        Cuantizar número a X decimales.
+        - Por defecto usa `ROUND_HALF_UP` (comportamiento financiero estándar)
+        - Devuelve un `Decimal` cuantizado.
+        - Si necesitas truncado puro, pasa `rounding_mode=ROUND_DOWN`.
         """
         try:
             d = Decimal(str(numero))
             if decimales <= 0:
-                d_trunc = d.quantize(Decimal('1'), rounding=ROUND_DOWN)
+                d_q = d.quantize(Decimal('1'), rounding=rounding_mode)
             else:
                 # Construir patrón dinámico: '0.01' para decimales=2
                 pattern = '0.' + ('0' * (decimales - 1)) + '1' if decimales > 0 else '1'
-                d_trunc = d.quantize(Decimal(pattern), rounding=ROUND_DOWN)
-            return d_trunc
+                d_q = d.quantize(Decimal(pattern), rounding=rounding_mode)
+            return d_q
         except (InvalidOperation, ValueError, TypeError):
             return Decimal('0.00')
     

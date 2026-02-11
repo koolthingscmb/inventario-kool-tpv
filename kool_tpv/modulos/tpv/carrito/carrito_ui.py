@@ -770,9 +770,32 @@ class CarritoUI:
                 items = self.carrito_service.get_items() or []
                 for item in items:
                     if str(item.get('id')) == str(iid):
-                        # add another unit by calling add_item with minimal data
+                        # determine if we are in devolucion mode (cart flag or item type)
+                        is_devol = False
                         try:
-                            self.carrito_service.add_item({'id': item.get('id'), 'nombre': item.get('nombre'), 'pvp': str(item.get('pvp')), 'tipo_iva': item.get('tipo_iva', 21)})
+                            if getattr(self.carrito_service, '_devolucion_active', False):
+                                is_devol = True
+                        except Exception:
+                            pass
+                        try:
+                            if str(item.get('line_tipo', 'venta')) == 'devolucion':
+                                is_devol = True
+                        except Exception:
+                            pass
+
+                        # build payload for add_item
+                        payload = {
+                            'id': item.get('id'),
+                            'nombre': item.get('nombre'),
+                            'pvp': str(item.get('pvp')),
+                            'tipo_iva': item.get('tipo_iva', 21),
+                        }
+                        if is_devol:
+                            payload['line_tipo'] = 'devolucion'
+                            payload['cantidad'] = 1
+
+                        try:
+                            self.carrito_service.add_item(payload)
                             self.update_display()
                         except Exception:
                             logging.exception('Error añadiendo unidad por Enter')

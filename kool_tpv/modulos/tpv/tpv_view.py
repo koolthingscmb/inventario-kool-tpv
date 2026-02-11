@@ -716,15 +716,40 @@ class TpvView:
 
                                         # Calcular puntos ganados usando fidelizacion_service
                                         puntos_ganados = Decimal('0')
+                                        puntos_restar = Decimal('0')
                                         try:
                                             if hasattr(self, 'fidelizacion_service') and self.fidelizacion_service is not None:
+                                                # separar items venta/devolución para cálculo correcto de puntos
+                                                items_venta = []
+                                                items_devol = []
+                                                for itp in (items_to_print or []):
+                                                    item_repr = {
+                                                        'id': itp.get('id'),
+                                                        'pvp': str(itp.get('pvp', itp.get('precio', 0))),
+                                                        'cantidad': itp.get('cantidad', 0)
+                                                    }
+                                                    try:
+                                                        if str(itp.get('line_tipo', '')).lower() == 'devolucion':
+                                                            items_devol.append(item_repr)
+                                                        else:
+                                                            items_venta.append(item_repr)
+                                                    except Exception:
+                                                        items_venta.append(item_repr)
+
                                                 puntos_ganados = self.fidelizacion_service.calcular_puntos_ganados(
-                                                    items_to_print,
+                                                    items_venta,
                                                     puntos_canjeados=puntos_gastados
                                                 ) or Decimal('0')
+
+                                                # calcular puntos que se restan por devoluciones (presentación)
+                                                try:
+                                                    puntos_restar = self.fidelizacion_service.calcular_puntos_ganados(items_devol, puntos_canjeados=Decimal('0')) or Decimal('0')
+                                                except Exception:
+                                                    puntos_restar = Decimal('0')
                                         except Exception:
                                             logging.exception('Error calculando puntos ganados para ticket')
                                             puntos_ganados = Decimal('0')
+                                            puntos_restar = Decimal('0')
 
                                         # Obtener saldo ANTES de la venta (del cliente en el carrito)
                                         tesoro_antes = Decimal('0')
@@ -734,12 +759,17 @@ class TpvView:
                                         except Exception:
                                             tesoro_antes = Decimal('0')
 
-                                        # Calcular valores para el ticket
+                                        # Calcular valores para el ticket (mostrar neto ganado-restar devoluciones)
+                                        try:
+                                            neto_ganado = (puntos_ganados - puntos_restar)
+                                        except Exception:
+                                            neto_ganado = puntos_ganados
+
                                         tesoro_data_for_ticket = {
                                             'gastado': puntos_gastados,
-                                            'ganado': puntos_ganados,
+                                            'ganado': neto_ganado,
                                             'acumulado': tesoro_antes - puntos_gastados,
-                                            'total': tesoro_antes - puntos_gastados + puntos_ganados,
+                                            'total': tesoro_antes - puntos_gastados + neto_ganado,
                                         }
                                     except Exception:
                                         logging.exception('Error construyendo tesoro_data para ticket')

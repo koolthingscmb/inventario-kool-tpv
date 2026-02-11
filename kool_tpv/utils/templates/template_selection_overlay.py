@@ -40,8 +40,9 @@ class SelectionOverlayTemplate:
     def __init__(self, view_or_action_panel: object, db: object = None, on_selection_callback: Optional[Callable[[Dict[str, Any]], None]] = None, ui_config: Optional[dict] = None):
         self._visible = False
 
-        # Título personalizable del panel
-        self.title_text = "TITULO PANEL"
+        # Título personalizable del panel (respetar valor proporcionado por subclases)
+        if not hasattr(self, 'title_text') or not getattr(self, 'title_text'):
+            self.title_text = "TITULO PANEL"
 
         # UI configurable defaults
         cfg = {

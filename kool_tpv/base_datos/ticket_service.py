@@ -9,7 +9,7 @@ schema and logs warnings if stock goes negative.
 """
 from datetime import datetime
 import logging
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from kool_tpv.modulos.clientes.fidelizacion_service import FidelizacionService
 
 
@@ -154,7 +154,25 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
 
         cambio = pagado - total
 
+        # Quantize monetary values to 2 decimals to avoid tiny float residues
+        try:
+            quant = Decimal('0.01')
+            pagado = pagado.quantize(quant, rounding=ROUND_HALF_UP)
+            cambio = cambio.quantize(quant, rounding=ROUND_HALF_UP)
+        except Exception:
+            # fallback: ensure strings are stable
+            logging.debug('No se pudo cuantizar pagado/cambio; continuando sin cuantizar')
+
         # insert ticket
+        # If no cliente_id provided, ensure points values are zeroed (do not calculate/record tesoro)
+        try:
+            if not cliente_id:
+                puntos_otorgar = Decimal('0')
+                puntos_restar = Decimal('0')
+                puntos_gastados = Decimal('0')
+        except Exception:
+            pass
+
         insert_ticket_q = (
             "INSERT INTO tickets (created_at, cajero, cliente, cliente_id, num_ticket, forma_pago, total, pagado, cambio, importe_efectivo, importe_tarjeta, descuento_euros, descuento_tipo, descuento_valor, tesoro_ganado, tesoro_gastado) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
@@ -220,7 +238,23 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
                         stock_change = -cantidad  # venta = salida del stock
                         ventas_change = cantidad
 
-                    cur.execute('UPDATE productos SET stock_actual = COALESCE(stock_actual,0) + ?, ventas_totales = COALESCE(ventas_totales,0) + ? WHERE id = ?', (stock_change, ventas_change, prod_id))
+                    # Before applying stock_change for devoluciones, check if a prior
+                    # DevolucionesService already updated stock (motivo='devolucion' and ticket_line_id IS NULL)
+                    skip_stock_update = False
+                    try:
+                        if line_tipo == 'devolucion':
+                            cur.execute(
+                                "SELECT 1 FROM stock_movements WHERE producto_id = ? AND cantidad = ? AND motivo = 'devolucion' AND ticket_line_id IS NULL LIMIT 1",
+                                (prod_id, stock_change),
+                            )
+                            if cur.fetchone():
+                                skip_stock_update = True
+                    except Exception:
+                        # If the check fails for any reason, default to applying the update
+                        skip_stock_update = False
+
+                    if not skip_stock_update:
+                        cur.execute('UPDATE productos SET stock_actual = COALESCE(stock_actual,0) + ?, ventas_totales = COALESCE(ventas_totales,0) + ? WHERE id = ?', (stock_change, ventas_change, prod_id))
                     # optional: check new stock and log
                     cur.execute('SELECT stock_actual FROM productos WHERE id = ?', (prod_id,))
                     new_stock = cur.fetchone()
@@ -229,10 +263,12 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
 
                     # insert stock_movements record if table exists
                     try:
-                        cur.execute(
-                            "INSERT INTO stock_movements (producto_id, cantidad, motivo, ticket_line_id) VALUES (?, ?, ?, ?)",
-                            (prod_id, stock_change, f"ticket:{ticket_id}", line_id),
-                        )
+                        # Only insert a stock_movements entry if we actually applied the stock update here
+                        if not skip_stock_update:
+                            cur.execute(
+                                "INSERT INTO stock_movements (producto_id, cantidad, motivo, ticket_line_id) VALUES (?, ?, ?, ?)",
+                                (prod_id, stock_change, f"ticket:{ticket_id}", line_id),
+                            )
                     except Exception:
                         # table may not exist yet; ignore but log
                         logging.debug('stock_movements table not present or insert failed')
@@ -241,30 +277,30 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
 
         # commit
         # --- Insertar registros de pagos y auditoría dentro de la misma transacción ---
-            # Insertar pagos desglosados si la tabla existe (se ignora si no existe)
-            try:
-                if importe_efectivo_val and importe_efectivo_val != 0:
-                    cur.execute(
-                        "INSERT INTO payments (ticket_id, metodo, importe, created_at) VALUES (?, ?, ?, ?)",
-                        (ticket_id, 'efectivo', str(importe_efectivo_val), created_at),
-                    )
-                if importe_tarjeta_val and importe_tarjeta_val != 0:
-                    cur.execute(
-                        "INSERT INTO payments (ticket_id, metodo, importe, created_at) VALUES (?, ?, ?, ?)",
-                        (ticket_id, 'tarjeta', str(importe_tarjeta_val), created_at),
-                    )
-            except Exception:
-                logging.debug('payments table not present or insert failed')
-
-            # Registrar un entry de auditoría con resumen mínimo (si la tabla existe)
-            try:
-                detalles = f"num_ticket={num_ticket} total={total} pagado={pagado} cambio={cambio} cajero={cajero}"
+        # Insertar pagos desglosados si la tabla existe (se ignora si no existe)
+        try:
+            if importe_efectivo_val and importe_efectivo_val != 0:
                 cur.execute(
-                    "INSERT INTO audit_logs (created_at, ticket_id, usuario, accion, detalles) VALUES (?, ?, ?, ?, ?)",
-                    (created_at, ticket_id, cajero if cajero else None, 'save_ticket', detalles),
+                    "INSERT INTO payments (ticket_id, metodo, importe, created_at) VALUES (?, ?, ?, ?)",
+                    (ticket_id, 'efectivo', str(importe_efectivo_val), created_at),
                 )
-            except Exception:
-                logging.debug('audit_logs table not present or insert failed')
+            if importe_tarjeta_val and importe_tarjeta_val != 0:
+                cur.execute(
+                    "INSERT INTO payments (ticket_id, metodo, importe, created_at) VALUES (?, ?, ?, ?)",
+                    (ticket_id, 'tarjeta', str(importe_tarjeta_val), created_at),
+                )
+        except Exception:
+            logging.debug('payments table not present or insert failed')
+
+        # Registrar un entry de auditoría con resumen mínimo (si la tabla existe)
+        try:
+            detalles = f"num_ticket={num_ticket} total={total} pagado={pagado} cambio={cambio} cajero={cajero}"
+            cur.execute(
+                "INSERT INTO audit_logs (created_at, ticket_id, usuario, accion, detalles) VALUES (?, ?, ?, ?, ?)",
+                (created_at, ticket_id, cajero if cajero else None, 'save_ticket', detalles),
+            )
+        except Exception:
+            logging.debug('audit_logs table not present or insert failed')
 
         # --- Actualizar cliente con puntos dentro de la misma transacción ---
         try:
@@ -277,9 +313,23 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
 
                 # Insertar movimiento de puntos (si la tabla existe)
                 try:
+                    # Determinar motivo: 'gasto' si hubo canje, 'devolucion' si hubo devolución,
+                    # 'compra' si se otorgaron puntos por venta. No tocar cálculos numéricos.
+                    motivo = 'ticket'
+                    try:
+                        # puntos_gastados, puntos_otorgar and puntos_restar were computed earlier
+                        if (puntos_gastados and Decimal(str(puntos_gastados)) > 0):
+                            motivo = 'gasto'
+                        elif (puntos_restar and Decimal(str(puntos_restar)) > 0):
+                            motivo = 'devolucion'
+                        elif (puntos_otorgar and Decimal(str(puntos_otorgar)) > 0):
+                            motivo = 'compra'
+                    except Exception:
+                        motivo = 'ticket'
+
                     cur.execute(
                         "INSERT INTO points_movements (cliente_id, puntos, motivo, ticket_id, usuario_id) VALUES (?, ?, ?, ?, ?)",
-                        (cliente_id, float(neto_puntos), 'ticket', ticket_id, None),
+                        (cliente_id, float(neto_puntos), motivo, ticket_id, None),
                     )
                 except Exception:
                     logging.debug('points_movements table not present or insert failed')

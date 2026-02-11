@@ -7,7 +7,7 @@ Todos los cálculos usan truncado mediante FormatterService.
 from typing import List, Dict, Optional
 import logging
 
-from decimal import Decimal, ROUND_DOWN
+from decimal import Decimal
 from kool_tpv.utils.formatter_service import FormatterService
 
 
@@ -65,7 +65,9 @@ class CarritoService:
                 if item.get('id') == producto_id and item.get('line_tipo', 'venta') == line_tipo:
                     # sumar cantidades
                     item['cantidad'] = int(item.get('cantidad', 0)) + cantidad_in
+                    # Normalizar pvp y total_linea a Decimal (evitar floats)
                     pvp_dec = Decimal(str(item.get('pvp', 0)))
+                    item['pvp'] = pvp_dec
                     item['total_linea'] = pvp_dec * Decimal(item['cantidad'])
                     return True
             except Exception:
@@ -87,6 +89,13 @@ class CarritoService:
             'total_linea': pvp_dec * Decimal(cantidad_in),
             'line_tipo': producto_data.get('line_tipo', 'venta')
         }
+        # ensure numeric fields are Decimal/int
+        try:
+            nuevo['pvp'] = Decimal(str(nuevo.get('pvp', 0)))
+            nuevo['total_linea'] = Decimal(str(nuevo.get('total_linea', 0)))
+            nuevo['cantidad'] = int(nuevo.get('cantidad', 0))
+        except Exception:
+            logging.exception('Error normalizando valores del nuevo item')
         self._items.append(nuevo)
         logging.info(f"Producto añadido al carrito: {producto_data.get('nombre')}")
         return True
@@ -139,7 +148,7 @@ class CarritoService:
     def get_item_count(self) -> int:
         return sum(item['cantidad'] for item in self._items)
 
-    def get_subtotal(self) -> float:
+    def get_subtotal(self) -> Decimal:
         subtotal = Decimal('0.00')
         for item in self._items:
             pvp_dec = Decimal(str(item.get('pvp', 0)))

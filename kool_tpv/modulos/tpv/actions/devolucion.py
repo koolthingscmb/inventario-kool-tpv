@@ -82,6 +82,51 @@ class DevolucionesPanel(SelectionOverlayTemplate):
                             self.anadir_btn['text'] = "Cliente"
                         except Exception:
                             pass
+                # Wire the Cliente button to open the CLIENTES overlay
+                try:
+                    def _open_clientes():
+                        try:
+                            # Prefer existing ClienteAction on the view
+                            if getattr(self, 'view', None) is not None and getattr(self.view, '_cliente_action', None) is not None:
+                                try:
+                                    self.view._cliente_action.ejecutar()
+                                    return
+                                except Exception:
+                                    pass
+
+                            # Fallback: construct a ClienteAction with available references
+                            from kool_tpv.modulos.tpv.actions.cliente import ClienteAction
+                            carrito = None
+                            # try devoluciones_service -> carrito_service
+                            if getattr(self, 'devoluciones_service', None) is not None and getattr(self.devoluciones_service, 'carrito_service', None) is not None:
+                                carrito = self.devoluciones_service.carrito_service
+                            # try view attribute
+                            if carrito is None and getattr(self, 'view', None) is not None and getattr(self.view, 'carrito_service', None) is not None:
+                                carrito = self.view.carrito_service
+                            db_ref = None
+                            try:
+                                db_ref = getattr(self.root, 'db', None) if getattr(self, 'root', None) is not None else None
+                                if db_ref is None:
+                                    db_ref = getattr(self, 'db', None)
+                            except Exception:
+                                db_ref = None
+                            try:
+                                action = ClienteAction(getattr(self, 'view', None) or self, db_ref, carrito)
+                                action.ejecutar()
+                            except Exception:
+                                logging.exception('Error abriendo panel CLIENTES desde DevolucionesPanel')
+                        except Exception:
+                            logging.exception('Error en _open_clientes fallback')
+
+                    try:
+                        self.anadir_btn.configure(command=_open_clientes)
+                    except Exception:
+                        try:
+                            self.anadir_btn['command'] = _open_clientes
+                        except Exception:
+                            pass
+                except Exception:
+                    logging.exception('Error vinculando boton Cliente en DevolucionesPanel')
         except Exception:
             logging.exception('Error ajustando botones header en DevolucionesPanel')
 
