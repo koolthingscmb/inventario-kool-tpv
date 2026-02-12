@@ -156,10 +156,160 @@ class CierreUI(SelectionOverlayTemplate):
             logging.exception('Error abriendo cierre_historico_ui')
 
     def _on_cierre_z(self):
-        # Placeholder: actual Cierre Z logic delegated to controller
         try:
-            # Example flow: compute totals, insert cierre via CierreService, mark tickets
-            logging.info('Cierre Z invoked (not yet implemented)')
+            sel = list(self.tree.selection() or [])
+            if not sel:
+                logging.info('No hay tickets seleccionados para Cierre Z')
+                return
+            try:
+                ids = [int(i) for i in sel]
+            except Exception:
+                logging.info('IDs seleccionados inválidos para Cierre Z')
+                return
+
+            # Confirm dialog using custom_dialog.show_info (OK/Cancelar)
+            try:
+                from kool_tpv.utils.custom_dialog import show_info
+                root = self.overlay.winfo_toplevel() if hasattr(self, 'overlay') else None
+                prompt = '¿Quieres realizar el cierre del día? (Se imprimirá Ticket de cierre)'
+                # show_info returns True if accepted, False if cancelled
+                answer = show_info(root, 'Confirmar Cierre', prompt, confirm=True)
+            except Exception:
+                logging.exception('Error mostrando diálogo de confirmación con show_info; asumiendo OK')
+                answer = True
+
+            if not answer:
+                logging.info('Usuario canceló Cierre Z')
+                return
+
+            # Build full snapshot (always include productos, categorias, tipos, fidelizacion)
+            try:
+                # load tickets rows
+                placeholders = ','.join(['?'] * len(ids))
+                q = f"SELECT id, num_ventas, total, importe_efectivo, importe_tarjeta, forma_pago, descuento_euros, cajero, created_at FROM tickets WHERE id IN ({placeholders})"
+                rows = self.db.fetch_all(q, tuple(ids))
+                tickets = []
+                for r in rows:
+                    tickets.append({
+                        'id': r[0],
+                        'num_ventas': int(r[1] or 0),
+                        'total': float(r[2] or 0.0),
+                        'importe_efectivo': float(r[3] or 0.0),
+                        'importe_tarjeta': float(r[4] or 0.0),
+                        'forma_pago': r[5],
+                        'descuento_euros': float(r[6] or 0.0),
+                        'cajero': r[7],
+                        'created_at': r[8],
+                    })
+            except Exception:
+                logging.exception('Error cargando tickets para Cierre Z')
+                tickets = []
+
+            # compute totals (IVA etc)
+            cierre_svc = CierreService(self.db)
+            totals = cierre_svc.compute_totals_for_ticket_ids(ids)
+
+            # products
+            try:
+                qp = f"SELECT p.nombre, COUNT(DISTINCT tl.ticket_id) as tickets, COALESCE(SUM(tl.cantidad),0) as uds, COALESCE(SUM(tl.precio * tl.cantidad),0) as total FROM ticket_lines tl JOIN productos p ON p.id = tl.producto_id WHERE tl.ticket_id IN ({placeholders}) GROUP BY p.id ORDER BY total DESC LIMIT 500"
+                prod_rows = self.db.fetch_all(qp, tuple(ids))
+                if totals is None:
+                    totals = {}
+                totals['productos'] = prod_rows
+            except Exception:
+                logging.exception('Error cargando productos para snapshot')
+
+            # categorias
+            try:
+                qc = f"SELECT c.nombre, COUNT(DISTINCT tl.ticket_id) as tickets, COALESCE(SUM(tl.cantidad),0) as uds, COALESCE(SUM(tl.precio * tl.cantidad),0) as total FROM ticket_lines tl JOIN productos p ON p.id = tl.producto_id JOIN categorias c ON c.id = p.categoria WHERE tl.ticket_id IN ({placeholders}) GROUP BY c.id ORDER BY total DESC"
+                cat_rows = self.db.fetch_all(qc, tuple(ids))
+                totals['categorias'] = cat_rows
+            except Exception:
+                logging.exception('Error cargando categorias para snapshot')
+
+            # tipos
+            try:
+                qt = f"SELECT t.nombre, COUNT(DISTINCT tl.ticket_id) as tickets, COALESCE(SUM(tl.cantidad),0) as uds, COALESCE(SUM(tl.precio * tl.cantidad),0) as total FROM ticket_lines tl JOIN productos p ON p.id = tl.producto_id JOIN tipos t ON t.id = p.tipo WHERE tl.ticket_id IN ({placeholders}) GROUP BY t.id ORDER BY total DESC"
+                tipo_rows = self.db.fetch_all(qt, tuple(ids))
+                totals['tipos'] = tipo_rows
+            except Exception:
+                logging.exception('Error cargando tipos para snapshot')
+
+            # fidelizacion (detailed: sums and ticket counts)
+            try:
+                qf = f"SELECT COALESCE(SUM(CASE WHEN puntos>0 THEN puntos ELSE 0 END),0) AS otorgado_sum, COALESCE(SUM(CASE WHEN puntos<0 THEN -puntos ELSE 0 END),0) AS gastado_sum, COALESCE(COUNT(DISTINCT CASE WHEN puntos>0 THEN ticket_id END),0) AS otorgado_tickets, COALESCE(COUNT(DISTINCT CASE WHEN puntos<0 THEN ticket_id END),0) AS gastado_tickets FROM points_movements WHERE ticket_id IN ({placeholders})"
+                row = self.db.fetch_one(qf, tuple(ids))
+                otorgado_sum = float(row[0] or 0)
+                gastado_sum = float(row[1] or 0)
+                otorgado_tickets = int(row[2] or 0)
+                gastado_tickets = int(row[3] or 0)
+            except Exception:
+                logging.exception('Error cargando fidelizacion para snapshot')
+                otorgado_sum = gastado_sum = 0.0
+                otorgado_tickets = gastado_tickets = 0
+
+            # Build snapshot text (full) using generator and appending fidelizacion block
+            try:
+                cfg = {'nombre_negocio': 'KOOL TPV', 'direccion': '', 'nif': '', 'pie_texto': ''}
+                gen = CierreTicketGenerator()
+                cierre_data = {
+                    'fecha': datetime.now().strftime('%d/%m/%Y'),
+                    'hora': datetime.now().strftime('%H:%M'),
+                    'usuario': tickets[0].get('cajero') if tickets else '',
+                    'cierre_id': ''
+                }
+                cierre_data['cierre_id'] = f"Z-PREV-{int(datetime.now().timestamp())}"
+                snapshot = gen.generate(cfg, cierre_data, tickets, totals=totals)
+                # append fidelizacion block (always included in snapshot)
+                try:
+                    tmp = CierreTicketGenerator()
+                    block = []
+                    block.append(tmp.DOUBLE_DIVIDER)
+                    block.append('TESORO (Fidelización)'.center(tmp.WIDTH))
+                    block.append(tmp.DIVIDER)
+                    block.append(f"Tesoro otorgado: {otorgado_tickets} tickets ({tmp._format_currency(otorgado_sum)})")
+                    block.append(f"Tesoro gastado: {gastado_tickets} tickets ({tmp._format_currency(gastado_sum)})")
+                    block.append(tmp.DOUBLE_DIVIDER)
+                    snapshot = snapshot + '\n' + '\n'.join(block)
+                except Exception:
+                    pass
+            except Exception:
+                logging.exception('Error generando snapshot de cierre')
+                snapshot = f"Cierre snapshot - tickets: {len(ids)}"
+
+            # Persistir cierre atómico con snapshot_text
+            try:
+                cierre_id = cierre_svc.create_cierre_atomic(ids, None, tickets[0].get('cajero') if tickets else None, cierre_text=snapshot)
+                if cierre_id is None:
+                    logging.error('Fallo al crear cierre atómico')
+                    return
+            except Exception:
+                logging.exception('Error llamando create_cierre_atomic')
+                return
+
+            # Imprimir snapshot (terminal / impresora) - por ahora imprimir en stdout
+            try:
+                print(snapshot)
+            except Exception:
+                logging.exception('Error imprimiendo snapshot en terminal')
+
+            # Limpiar VisorNegro tras impresión
+            try:
+                if getattr(self, '_visor_negro', None):
+                    try:
+                        self._visor_negro.set_text('')
+                        self._visor_negro.hide()
+                    except Exception:
+                        pass
+            except Exception:
+                logging.exception('Error limpiando VisorNegro tras impresión')
+
+            # Recargar lista de tickets disponibles para cerrar
+            try:
+                self._load_and_render('')
+            except Exception:
+                logging.exception('Error recargando UI tras Cierre Z')
+
         except Exception:
             logging.exception('Error en _on_cierre_z')
 
@@ -213,47 +363,14 @@ class CierreUI(SelectionOverlayTemplate):
             except Exception:
                 totals = None
 
-            # Si se solicitó el detalle por productos, cargar y pasar al generador
-            try:
-                if getattr(self, 'chk_prods_var', None) and self.chk_prods_var.get():
-                    qp = f"SELECT p.nombre, COUNT(DISTINCT tl.ticket_id) as tickets, COALESCE(SUM(tl.cantidad),0) as uds, COALESCE(SUM(tl.precio * tl.cantidad),0) as total FROM ticket_lines tl JOIN productos p ON p.id = tl.producto_id WHERE tl.ticket_id IN ({placeholders}) GROUP BY p.id ORDER BY total DESC LIMIT 50"
-                    prod_rows = self.db.fetch_all(qp, tuple(ids))
-                    if totals is None:
-                        totals = {}
-                    totals['productos'] = prod_rows
-            except Exception:
-                logging.exception('Error cargando detalle de productos en Mostrar')
+            # Cargar totales básicos (IVA, formas de pago, etc.)
+            # Los detalles por productos/categorías/tipos se cargan solo
+            # si el usuario tiene marcados los checkboxes (más abajo).
 
-            # Si se solicitó el detalle por categorías, cargar y pasar al generador
-            try:
-                if getattr(self, 'chk_cats_var', None) and self.chk_cats_var.get():
-                    # Obtener: nombre categoria, tickets distintos, uds totales, total importe
-                    qc = f"SELECT c.nombre, COUNT(DISTINCT tl.ticket_id) as tickets, COALESCE(SUM(tl.cantidad),0) as uds, COALESCE(SUM(tl.precio * tl.cantidad),0) as total FROM ticket_lines tl JOIN productos p ON p.id = tl.producto_id JOIN categorias c ON c.id = p.categoria WHERE tl.ticket_id IN ({placeholders}) GROUP BY c.id ORDER BY total DESC"
-                    cat_rows = self.db.fetch_all(qc, tuple(ids))
-                    if totals is None:
-                        totals = {}
-                    totals['categorias'] = cat_rows
-            except Exception:
-                logging.exception('Error cargando detalle de categorias en Mostrar')
-
-            # Si se solicitó el detalle por tipos, cargar y pasar al generador
-            try:
-                if getattr(self, 'chk_tipos_var', None) and self.chk_tipos_var.get():
-                    # Obtener: nombre tipo, tickets distintos, uds totales, total importe
-                    qt = f"SELECT t.nombre, COUNT(DISTINCT tl.ticket_id) as tickets, COALESCE(SUM(tl.cantidad),0) as uds, COALESCE(SUM(tl.precio * tl.cantidad),0) as total FROM ticket_lines tl JOIN productos p ON p.id = tl.producto_id JOIN tipos t ON t.id = p.tipo WHERE tl.ticket_id IN ({placeholders}) GROUP BY t.id ORDER BY total DESC"
-                    tipo_rows = self.db.fetch_all(qt, tuple(ids))
-                    if totals is None:
-                        totals = {}
-                    totals['tipos'] = tipo_rows
-            except Exception:
-                logging.exception('Error cargando detalle de tipos en Mostrar')
-
-            # Generar texto base con CierreTicketGenerator (pasando totals para desglose IVA)
+            # Preparar configuración para generar texto (se generará tras cargar detalles condicionales)
             cfg = {'nombre_negocio': 'KOOL TPV', 'direccion': '', 'nif': '', 'pie_texto': ''}
             gen = CierreTicketGenerator()
-            # usar id temporal para preview
             cierre_data['cierre_id'] = f"PREV-{int(datetime.now().timestamp())}"
-            texto = gen.generate(cfg, cierre_data, tickets, totals=totals)
 
             # Añadir extras según checkboxes
             extras = []
@@ -302,6 +419,17 @@ class CierreUI(SelectionOverlayTemplate):
                     totals = {}
                 totals['categorias'] = cat_rows
 
+            # Productos
+            if getattr(self, 'chk_prods_var', None) and self.chk_prods_var.get():
+                try:
+                    qp = f"SELECT p.nombre, COUNT(DISTINCT tl.ticket_id) as tickets, COALESCE(SUM(tl.cantidad),0) as uds, COALESCE(SUM(tl.precio * tl.cantidad),0) as total FROM ticket_lines tl JOIN productos p ON p.id = tl.producto_id WHERE tl.ticket_id IN ({placeholders}) GROUP BY p.id ORDER BY total DESC LIMIT 50"
+                    prod_rows = self.db.fetch_all(qp, tuple(ids))
+                    if totals is None:
+                        totals = {}
+                    totals['productos'] = prod_rows
+                except Exception:
+                    logging.exception('Error cargando detalle de productos en Mostrar')
+
             # Tipos
             if getattr(self, 'chk_tipos_var', None) and self.chk_tipos_var.get():
                 # Obtener: nombre tipo, tickets distintos, uds totales, total importe
@@ -311,7 +439,12 @@ class CierreUI(SelectionOverlayTemplate):
                     totals = {}
                 totals['tipos'] = tipo_rows
 
-            # (El detalle de productos se incorpora ahora a `totals` y lo renderiza el generador)
+            # (El detalle de productos/categorías/tipos se incorpora a `totals` cuando esté seleccionado)
+            # Generar texto base ahora que `totals` contiene los detalles solicitados
+            try:
+                texto = gen.generate(cfg, cierre_data, tickets, totals=totals)
+            except Exception:
+                logging.exception('Error generando texto de preview con CierreTicketGenerator')
 
             # Combinar texto y extras
             if extras:
@@ -394,3 +527,4 @@ class CierreUI(SelectionOverlayTemplate):
                 pass
         except Exception:
             logging.exception('Error en CierreUI.show()')
+    
