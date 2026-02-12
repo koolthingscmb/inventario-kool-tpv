@@ -122,14 +122,8 @@ class CierreUI(SelectionOverlayTemplate):
 
     def _load_and_render(self, termino: str = ''):
         try:
-            # Load tickets without cierre
-            filters = {
-                'tipos': bool(self.chk_tipos_var.get()) if hasattr(self, 'chk_tipos_var') else True,
-                'categorias': bool(self.chk_cats_var.get()) if hasattr(self, 'chk_cats_var') else True,
-                'productos': bool(self.chk_prods_var.get()) if hasattr(self, 'chk_prods_var') else True,
-                'fidelizacion': bool(self.chk_fidel_var.get()) if hasattr(self, 'chk_fidel_var') else True,
-            }
-            items = self.controller.fetch_tickets_without_cierre(limit=1000, offset=0, filters=filters)
+            # Load tickets without cierre (always show all pending tickets).
+            items = self.controller.fetch_tickets_without_cierre(limit=1000, offset=0)
             # Prefer visor helper to render items directly (no search entry)
             try:
                 if getattr(self, 'visor_helper', None) is not None:
@@ -259,6 +253,32 @@ class CierreUI(SelectionOverlayTemplate):
                     'cierre_id': ''
                 }
                 cierre_data['cierre_id'] = f"Z-PREV-{int(datetime.now().timestamp())}"
+                # Defensive: ensure `tickets` is a list of dicts as the generator expects
+                try:
+                    if tickets and not isinstance(tickets[0], dict):
+                        normalized = []
+                        for r in tickets:
+                            try:
+                                normalized.append({
+                                    'id': r[0],
+                                    'num_ventas': int(r[1] or 0),
+                                    'total': float(r[2] or 0.0),
+                                    'importe_efectivo': float(r[3] or 0.0),
+                                    'importe_tarjeta': float(r[4] or 0.0),
+                                    'forma_pago': r[5],
+                                    'descuento_euros': float(r[6] or 0.0),
+                                    'cajero': r[7],
+                                    'created_at': r[8],
+                                })
+                            except Exception:
+                                # Best-effort fallback for unexpected row shape
+                                try:
+                                    normalized.append({'id': int(r[0])})
+                                except Exception:
+                                    normalized.append({'id': None})
+                        tickets = normalized
+                except Exception:
+                    pass
                 snapshot = gen.generate(cfg, cierre_data, tickets, totals=totals)
                 # append fidelizacion block (always included in snapshot)
                 try:
@@ -442,6 +462,31 @@ class CierreUI(SelectionOverlayTemplate):
             # (El detalle de productos/categorías/tipos se incorpora a `totals` cuando esté seleccionado)
             # Generar texto base ahora que `totals` contiene los detalles solicitados
             try:
+                # Defensive: ensure `tickets` entries are dict-like for the generator
+                try:
+                    if tickets and not isinstance(tickets[0], dict):
+                        normalized = []
+                        for r in tickets:
+                            try:
+                                normalized.append({
+                                    'id': r[0],
+                                    'num_ventas': int(r[1] or 0),
+                                    'total': float(r[2] or 0.0),
+                                    'importe_efectivo': float(r[3] or 0.0),
+                                    'importe_tarjeta': float(r[4] or 0.0),
+                                    'forma_pago': r[5],
+                                    'descuento_euros': float(r[6] or 0.0),
+                                    'cajero': r[7],
+                                    'created_at': r[8],
+                                })
+                            except Exception:
+                                try:
+                                    normalized.append({'id': int(r[0])})
+                                except Exception:
+                                    normalized.append({'id': None})
+                        tickets = normalized
+                except Exception:
+                    pass
                 texto = gen.generate(cfg, cierre_data, tickets, totals=totals)
             except Exception:
                 logging.exception('Error generando texto de preview con CierreTicketGenerator')
@@ -495,7 +540,8 @@ class CierreUI(SelectionOverlayTemplate):
             logging.exception('Error en _on_mostrar')
 
     def _on_filter_change(self):
-        self._load_and_render('')
+        # Checkboxes only affect report detail; do not reload the tickets list here.
+        return
 
     def show(self):
         """Mostrar overlay y asegurar que el VisorNegro esté activo sin cambiar el título."""
@@ -527,4 +573,27 @@ class CierreUI(SelectionOverlayTemplate):
                 pass
         except Exception:
             logging.exception('Error en CierreUI.show()')
-    
+
+    def hide(self) -> None:
+        """Oculta el overlay y asegura que el VisorNegro quede desactivado.
+
+        Limpia el texto del visor y lo oculta si existe, luego delega
+        en la implementación base para ocultar el overlay.
+        """
+        try:
+            if getattr(self, '_visor_negro', None):
+                try:
+                    self._visor_negro.set_text('')
+                except Exception:
+                    pass
+                try:
+                    self._visor_negro.hide()
+                except Exception:
+                    pass
+        except Exception:
+            logging.exception('Error limpiando VisorNegro en CierreUI.hide')
+
+        try:
+            super().hide()
+        except Exception:
+            logging.exception('Error llamando SelectionOverlayTemplate.hide en CierreUI.hide')
