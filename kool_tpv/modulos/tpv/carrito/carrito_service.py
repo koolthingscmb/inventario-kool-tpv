@@ -104,6 +104,13 @@ class CarritoService:
         if 0 <= index < len(self._items):
             eliminado = self._items.pop(index)
             logging.info(f"Producto eliminado del carrito: {eliminado.get('nombre')}")
+            # Si se elimina una línea, comprobar si aún quedan líneas de devolución;
+            # si no quedan, desactivar modo devolución para permitir ventas posteriores.
+            try:
+                has_devol = any(str(it.get('line_tipo', '')).lower() == 'devolucion' for it in self._items)
+                setattr(self, '_devolucion_active', bool(has_devol))
+            except Exception:
+                logging.exception('Error actualizando bandera _devolucion_active tras eliminar item')
             return True
         logging.warning(f"Índice inválido para eliminar: {index}")
         return False
@@ -140,6 +147,11 @@ class CarritoService:
             self._descuento = None
         except Exception:
             self._descuento = None
+        # Al limpiar el carrito también debe desactivarse el modo devolución
+        try:
+            setattr(self, '_devolucion_active', False)
+        except Exception:
+            pass
         logging.info('Carrito limpiado completamente')
 
     def get_items(self) -> List[Dict]:

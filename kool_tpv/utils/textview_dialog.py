@@ -39,23 +39,53 @@ class TextViewDialog(ctk.CTkToplevel):
         except Exception:
             pass
 
-        # Modal
+        # Prepare hidden window, set transient and compute geometry before mapping
+        try:
+            self.withdraw()
+        except Exception:
+            pass
         try:
             self.transient(parent)
-            self.grab_set()
         except Exception:
             pass
 
-        # Centrar en pantalla
         try:
             self.update_idletasks()
-            x = (self.winfo_screenwidth() // 2) - (width // 2)
-            y = (self.winfo_screenheight() // 2) - (height // 2)
-            self.geometry(f"{width}x{height}+{x}+{y}")
+            w, h = width, height
+            if parent is not None and getattr(parent, 'winfo_ismapped', None) and parent.winfo_ismapped():
+                try:
+                    parent.update_idletasks()
+                    px = parent.winfo_rootx()
+                    py = parent.winfo_rooty()
+                    pw = parent.winfo_width() or parent.winfo_reqwidth()
+                    ph = parent.winfo_height() or parent.winfo_reqheight()
+                    x = px + max(0, (pw - w) // 2)
+                    y = py + max(0, (ph - h) // 2)
+                except Exception:
+                    x = (self.winfo_screenwidth() // 2) - (w // 2)
+                    y = (self.winfo_screenheight() // 2) - (h // 2)
+            else:
+                x = (self.winfo_screenwidth() // 2) - (w // 2)
+                y = (self.winfo_screenheight() // 2) - (h // 2)
+            self.geometry(f"{w}x{h}+{x}+{y}")
         except Exception:
             pass
 
         self._crear_contenido(titulo, texto)
+
+        # Show immediately (no animation) and grab
+        try:
+            self.deiconify()
+        except Exception:
+            pass
+        try:
+            self.update_idletasks()
+        except Exception:
+            pass
+        try:
+            self.grab_set()
+        except Exception:
+            pass
 
         # Bind Escape para cerrar
         try:
@@ -63,9 +93,9 @@ class TextViewDialog(ctk.CTkToplevel):
         except Exception:
             pass
 
-        # Foco en el botón
+        # Foco en el botón (sin delay)
         try:
-            self.after(100, lambda: self.btn.focus_set())
+            self.btn.focus_set()
         except Exception:
             pass
 

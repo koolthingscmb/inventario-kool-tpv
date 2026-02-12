@@ -14,6 +14,7 @@ import customtkinter as ctk
 import tkinter as tk
 from tkinter import ttk
 import tkinter.font as tkfont
+from datetime import datetime, timedelta
 
 from kool_tpv.modulos.clientes.cliente_service import ClienteService
 
@@ -68,6 +69,7 @@ class UIClientes:
         self.columns_config = [
             ("id", "ID", 60, "center"),
             ("nombre", "Nombre", 300, "w"),
+            ("fecha_alta", "Fecha Alta", 120, "center"),
             ("telefono", "Teléfono", 140, "center"),
             ("nivel", "Nivel", 100, "center"),
         ]
@@ -185,11 +187,57 @@ class UIClientes:
             self.page_label.pack(side="left", padx=6)
             self.next_btn.pack(side="left", padx=6, pady=6)
 
+            # Date range filter controls in footer (quick buttons + desde / hasta)
+            try:
+                self.date_filters_frame = ctk.CTkFrame(self.footer_frame, fg_color="transparent")
+                self.date_filters_frame.pack(side="right")
+
+                # Quick filter buttons: 7 / 30 / 90 days
+                try:
+                    self.quick_7_btn = ctk.CTkButton(self.date_filters_frame, text="7d", width=48, command=lambda: self._set_quick_date(7))
+                    self.quick_30_btn = ctk.CTkButton(self.date_filters_frame, text="30d", width=48, command=lambda: self._set_quick_date(30))
+                    self.quick_90_btn = ctk.CTkButton(self.date_filters_frame, text="90d", width=48, command=lambda: self._set_quick_date(90))
+                    self.quick_7_btn.pack(side="left", padx=4)
+                    self.quick_30_btn.pack(side="left", padx=4)
+                    self.quick_90_btn.pack(side="left", padx=4)
+                except Exception:
+                    pass
+
+                # Label + Entries for date range (YYYY-MM-DD)
+                try:
+                    lbl_from = ctk.CTkLabel(self.date_filters_frame, text="Desde:")
+                    lbl_to = ctk.CTkLabel(self.date_filters_frame, text="Hasta:")
+                    lbl_from.pack(side="left", padx=(8, 2))
+                except Exception:
+                    lbl_from = None
+                    lbl_to = None
+
+                self.from_var = tk.StringVar(value="")
+                self.to_var = tk.StringVar(value="")
+                self.from_entry = ctk.CTkEntry(self.date_filters_frame, textvariable=self.from_var, width=110)
+                if lbl_to:
+                    try:
+                        lbl_to.pack(side="left", padx=(8, 2))
+                    except Exception:
+                        pass
+                self.to_entry = ctk.CTkEntry(self.date_filters_frame, textvariable=self.to_var, width=110)
+                self.apply_date_btn = ctk.CTkButton(self.date_filters_frame, text="Aplicar", width=80, command=self._apply_date_filter)
+
+                self.from_entry.pack(side="left", padx=4)
+                self.to_entry.pack(side="left", padx=4)
+                self.apply_date_btn.pack(side="left", padx=6)
+            except Exception:
+                pass
+
             # internal state
             self._active_view = None
             self._clients_items: List[Dict[str, Any]] = []
             self._current_page = 0
-            self._page_size = int(cfg['page_size'])
+            # force default page size to 25 for clients overlay
+            self._page_size = 25
+            # date filter range values (None == no filter)
+            self._filter_from = None
+            self._filter_to = None
 
             # build treeview
             tree_container = tk.Frame(self.articles_grid)
@@ -283,8 +331,33 @@ class UIClientes:
                 self._on_overlay_configure()
             except Exception:
                 logging.exception('Error configurando overlay tras lift in UIClientes')
-            # Load initial data and render the first page
+            # Initialize default date filter (últimos 30 días) and load initial data
             try:
+                now = datetime.now()
+                default_days = 30
+                f_from = (now - timedelta(days=default_days)).strftime('%d/%m/%y')
+                f_to = now.strftime('%d/%m/%y')
+                try:
+                    # populate UI entries if present
+                    if getattr(self, 'from_var', None) is not None:
+                        self.from_var.set(f_from)
+                    if getattr(self, 'to_var', None) is not None:
+                        self.to_var.set(f_to)
+                except Exception:
+                    pass
+                # set internal filter values (store as datetimes)
+                try:
+                    self._filter_from = datetime.strptime(f_from, '%d/%m/%y')
+                    self._filter_to = datetime.strptime(f_to, '%d/%m/%y')
+                except Exception:
+                    try:
+                        self._filter_from = datetime.strptime(f_from, '%Y-%m-%d')
+                        self._filter_to = datetime.strptime(f_to, '%Y-%m-%d')
+                    except Exception:
+                        self._filter_from = None
+                        self._filter_to = None
+
+                # Load initial page using current search term
                 self._load_and_render("")
             except Exception:
                 logging.exception('Error cargando clientes iniciales en UIClientes')
@@ -388,7 +461,38 @@ class UIClientes:
                 try:
                     nivel = item.get('id_nivel')
                     nivel_label = self.cliente_service.formatear_nivel(nivel) if self.cliente_service else ''
-                    self.tree.insert('', 'end', iid=str(item.get('id')), values=(item.get('id'), item.get('nombre'), item.get('telefono'), nivel_label))
+                    # format fecha_alta if present
+                    fecha_val = ''
+                    try:
+                        fa = item.get('fecha_alta') if isinstance(item, dict) else None
+                        if fa:
+                                if isinstance(fa, str):
+                                    try:
+                                        from datetime import datetime as _dt
+                                        # try common formats
+                                        try:
+                                            fecha_val = _dt.strptime(fa.split('.')[0], '%d/%m/%y').strftime('%d/%m/%y')
+                                        except Exception:
+                                            try:
+                                                fecha_val = _dt.strptime(fa.split('.')[0], '%Y-%m-%d').strftime('%d/%m/%y')
+                                            except Exception:
+                                                try:
+                                                    fecha_val = _dt.fromisoformat(fa).strftime('%d/%m/%y')
+                                                except Exception:
+                                                    fecha_val = str(fa)
+                                    except Exception:
+                                        fecha_val = str(fa)
+                                elif hasattr(fa, 'strftime'):
+                                    try:
+                                        fecha_val = fa.strftime('%d/%m/%y')
+                                    except Exception:
+                                        fecha_val = str(fa)
+                                else:
+                                    fecha_val = str(fa)
+                    except Exception:
+                        fecha_val = ''
+
+                    self.tree.insert('', 'end', iid=str(item.get('id')), values=(item.get('id'), item.get('nombre'), fecha_val, item.get('telefono'), nivel_label))
                 except Exception:
                     pass
             total_pages = max(1, math.ceil(len(self._clients_items or []) / self._page_size))
@@ -447,7 +551,54 @@ class UIClientes:
             if self.cliente_service is None:
                 self._clients_items = []
             else:
-                self._clients_items = self.cliente_service.buscar_clientes(termino)
+                # retrieve clients from service
+                items = self.cliente_service.buscar_clientes(termino)
+
+                # if a date filter range is set, try to filter locally by common date fields
+                if getattr(self, '_filter_from', None) or getattr(self, '_filter_to', None):
+                    f_from = getattr(self, '_filter_from', None)
+                    f_to = getattr(self, '_filter_to', None)
+
+                    def parse_date(v):
+                        if v is None:
+                            return None
+                        if isinstance(v, datetime):
+                            return v
+                        s = str(v).split('.')[0]
+                        # Try common display formats: DD/MM/YY, YYYY-MM-DD, ISO
+                        for fmt in ('%d/%m/%y', '%Y-%m-%d'):
+                            try:
+                                return datetime.strptime(s, fmt)
+                            except Exception:
+                                continue
+                        try:
+                            return datetime.fromisoformat(s)
+                        except Exception:
+                            return None
+
+                    filtered = []
+                    for it in items:
+                        # try common date keys
+                        date_val = None
+                        for k in ('fidelizado_at', 'created_at', 'fecha_alta', 'fecha'):
+                            if isinstance(it, dict) and k in it and it.get(k):
+                                date_val = parse_date(it.get(k))
+                                break
+                        if date_val is None:
+                            # keep item if we cannot determine date
+                            filtered.append(it)
+                            continue
+                        ok = True
+                        if f_from and date_val < f_from:
+                            ok = False
+                        if f_to and date_val > f_to:
+                            ok = False
+                        if ok:
+                            filtered.append(it)
+                    self._clients_items = filtered
+                else:
+                    # no date filter: present clients as returned
+                    self._clients_items = items
             self._current_page = 0
             self._render_clients_page()
         except Exception:
@@ -458,6 +609,57 @@ class UIClientes:
             self._confirm_selection()
         except Exception:
             logging.exception('Error en doble click UIClientes')
+
+    def _apply_date_filter(self) -> None:
+        """Apply date range from footer entries and reload the list."""
+        try:
+            ftext = (self.from_var.get() or '').strip()
+            ttext = (self.to_var.get() or '').strip()
+            f_from = None
+            f_to = None
+            try:
+                if ftext:
+                    f_from = datetime.strptime(ftext.split('.')[0], '%Y-%m-%d')
+                if ttext:
+                    f_to = datetime.strptime(ttext.split('.')[0], '%Y-%m-%d')
+            except Exception:
+                # ignore parse errors
+                f_from = None
+                f_to = None
+            self._filter_from = f_from
+            self._filter_to = f_to
+            # reload with current search term
+            self._current_page = 0
+            self._load_and_render(self.search_var.get())
+        except Exception:
+            logging.exception('Error aplicando filtro de fecha UIClientes')
+
+    def _set_quick_date(self, days: int) -> None:
+        try:
+            now = datetime.now()
+            f_from = (now - timedelta(days=int(days))).strftime('%Y-%m-%d')
+            f_to = now.strftime('%Y-%m-%d')
+            if getattr(self, 'from_var', None) is not None:
+                try:
+                    self.from_var.set(f_from)
+                except Exception:
+                    pass
+            if getattr(self, 'to_var', None) is not None:
+                try:
+                    self.to_var.set(f_to)
+                except Exception:
+                    pass
+            try:
+                self._filter_from = datetime.strptime(f_from, '%Y-%m-%d')
+                self._filter_to = datetime.strptime(f_to, '%Y-%m-%d')
+            except Exception:
+                self._filter_from = None
+                self._filter_to = None
+            # reload
+            self._current_page = 0
+            self._load_and_render(self.search_var.get())
+        except Exception:
+            logging.exception('Error aplicando quick date filter')
 
     def _on_tree_select(self, event: Optional[tk.Event] = None) -> None:
         try:

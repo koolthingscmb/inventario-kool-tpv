@@ -155,6 +155,7 @@ class TpvView:
         self.parent = parent
         self.db = db
         self._clock_job = None
+        self._destroy_bound = False
         self.info_label: Optional[ctk.CTkLabel] = None
         self._resize_bound = False
 
@@ -238,11 +239,22 @@ class TpvView:
             cajero_actual = getattr(self, 'cajero_nombre', None) or cashier_name or "Sin cajero"
 
             info_text = f"KOOL TPV V1.0 - {now_str}\nCajero: {cajero_actual}"
-            if self.info_label:
-                self.info_label.configure(text=info_text)
-            # programar siguiente actualización
-            if self.parent is not None:
-                self._clock_job = self.parent.after(1000, lambda: self._update_clock())
+            # Only update label if it still exists
+            try:
+                if self.info_label and getattr(self.info_label, 'winfo_exists', None) and self.info_label.winfo_exists():
+                    self.info_label.configure(text=info_text)
+            except tk.TclError:
+                # widget destroyed between check and configure; ignore
+                pass
+
+            # programar siguiente actualización solo si el parent aún existe
+            try:
+                if self.parent is not None and getattr(self.parent, 'winfo_exists', None) and self.parent.winfo_exists():
+                    self._clock_job = self.parent.after(1000, lambda: self._update_clock())
+                else:
+                    self._clock_job = None
+            except Exception:
+                self._clock_job = None
         except Exception:
             logging.exception("Error actualizando reloj TPV")
 
@@ -254,6 +266,17 @@ class TpvView:
                 self._clock_job = None
         except Exception:
             logging.exception("Error cancelando reloj TPV")
+
+        # Unbind destroy handler if we bound one
+        try:
+            if self._destroy_bound and self.parent is not None:
+                try:
+                    self.parent.unbind("<Destroy>")
+                except Exception:
+                    pass
+                self._destroy_bound = False
+        except Exception:
+            logging.exception("Error unbinding destroy handler TPV")
 
         try:
             if self._resize_bound and self.parent is not None:
@@ -498,17 +521,42 @@ class TpvView:
             except Exception:
                 logging.exception('Error creando DevolucionAction')
                 self._devolucion_action = None
-            # Instanciar StockUI
+            # Instanciar StockUI — intentar varias rutas posibles para compatibilidad
             try:
-                from kool_tpv.modulos.tpv.ui.stock_ui import StockUI
+                StockUI = None
                 try:
-                    self._stock_ui = StockUI(self, self.db, on_selection_callback=self._on_producto_stock_selected)
+                    # ruta actual tras mover archivos
+                    from kool_tpv.modulos.tpv.actions.Stock.stock_ui import StockUI
                 except Exception:
-                    logging.exception('Error instanciando StockUI')
+                    try:
+                        # posible ruta antigua/alternativa
+                        from kool_tpv.modulos.tpv.ui.stock_ui import StockUI
+                    except Exception:
+                        StockUI = None
+
+                if StockUI is not None:
+                    try:
+                        self._stock_ui = StockUI(self, self.db, on_selection_callback=self._on_producto_stock_selected)
+                    except Exception:
+                        logging.exception('Error instanciando StockUI')
+                        self._stock_ui = None
+                else:
+                    logging.exception('Error importando StockUI: no se encontró el módulo en rutas esperadas')
                     self._stock_ui = None
             except Exception:
-                logging.exception('Error importando StockUI')
+                logging.exception('Error creando StockUI (unexpected)')
                 self._stock_ui = None
+            # Instanciar CierreUI (cierres de caja)
+            try:
+                from kool_tpv.modulos.tpv.actions.cierres.cierre_ui import CierreUI
+                try:
+                    self._cierre_ui = CierreUI(self, self.db)
+                except Exception:
+                    logging.exception('Error instanciando CierreUI')
+                    self._cierre_ui = None
+            except Exception:
+                # not critical if cierres action not available
+                self._cierre_ui = None
             # attach cash controller UI (entry + CASH button)
             try:
                 from kool_tpv.modulos.tpv.actions.cash import CashController
@@ -684,159 +732,75 @@ class TpvView:
                         except Exception:
                             logging.exception('Error limpiando carrito tras guardar ticket')
 
+                        # Ensure devolucion mode is ended if it was active (idempotent)
+                        try:
+                            if getattr(self, '_devolucion_action', None) is not None:
+                                ds = getattr(self._devolucion_action, 'devoluciones_service', None) or getattr(self._devolucion_action, 'devolucion_service', None)
+                                if ds is not None and hasattr(ds, 'end_devolucion'):
+                                    try:
+                                        ds.end_devolucion()
+                                    except Exception:
+                                        logging.exception('Error finalizando devolucion tras guardar ticket')
+                                # also hide panel if still open to refresh UI
+                                try:
+                                    panel = getattr(self._devolucion_action, '_panel', None)
+                                    if panel is not None:
+                                        try:
+                                            panel.hide()
+                                        except Exception:
+                                            pass
+                                except Exception:
+                                    pass
+                        except Exception:
+                            logging.exception('Error comprobando/terminando estado de devolucion')
+
                         # Intentar imprimir ticket (simulación) sin bloquear flujo
                         try:
                             if getattr(self, 'impresora_service', None) is not None:
                                 try:
-                                    now = datetime.now()
-                                    total_val = resumen.get('total', 0) if isinstance(resumen, dict) else 0
-                                    # entregado: efectivo si se proporcionó, o total si pago con tarjeta
-                                    if efectivo is None:
-                                        entregado_val = total_val
-                                        cambio_val = 0
+                                    # Prefer printed snapshot stored in DB
+                                    printed_text = None
+                                    try:
+                                        if getattr(self, 'db', None) is not None and ticket_id is not None:
+                                            row = self.db.fetch_one("SELECT ticket_text FROM tickets WHERE id = ?", (ticket_id,))
+                                            if row and row[0]:
+                                                printed_text = row[0]
+                                    except Exception:
+                                        printed_text = None
+
+                                    if printed_text:
+                                        # Simulated print of stored snapshot
+                                        print("\n" + "="*50)
+                                        print(" IMPRIMIENDO TICKET (snapshot) ")
+                                        print("="*50 + "\n")
+                                        print(printed_text)
+                                        print("\n" + "="*50 + "\n")
+                                        try:
+                                            self.impresora_service.logger.info("Ticket impreso (snapshot) id=%s", ticket_id)
+                                        except Exception:
+                                            pass
                                     else:
+                                        # Fallback: generate from DB and print
                                         try:
-                                            entregado_val = Decimal(str(efectivo))
-                                        except Exception:
-                                            entregado_val = Decimal(str(total_val))
-                                        try:
-                                            cambio_val = Decimal(str(efectivo)) - Decimal(str(total_val))
-                                        except Exception:
-                                            cambio_val = Decimal('0')
-
-                                    # Calcular tesoro_data para impresión
-                                    tesoro_data_for_ticket = {
-                                        'gastado': Decimal('0'),
-                                        'ganado': Decimal('0'),
-                                        'acumulado': Decimal('0'),
-                                        'total': Decimal('0')
-                                    }
-                                    try:
-                                        puntos_gastados = puntos_canjeados_capturados
-
-                                        # Calcular puntos ganados usando fidelizacion_service
-                                        puntos_ganados = Decimal('0')
-                                        puntos_restar = Decimal('0')
-                                        try:
-                                            if hasattr(self, 'fidelizacion_service') and self.fidelizacion_service is not None:
-                                                # separar items venta/devolución para cálculo correcto de puntos
-                                                items_venta = []
-                                                items_devol = []
-                                                for itp in (items_to_print or []):
-                                                    item_repr = {
-                                                        'id': itp.get('id'),
-                                                        'pvp': str(itp.get('pvp', itp.get('precio', 0))),
-                                                        'cantidad': itp.get('cantidad', 0)
-                                                    }
-                                                    try:
-                                                        if str(itp.get('line_tipo', '')).lower() == 'devolucion':
-                                                            items_devol.append(item_repr)
-                                                        else:
-                                                            items_venta.append(item_repr)
-                                                    except Exception:
-                                                        items_venta.append(item_repr)
-
-                                                puntos_ganados = self.fidelizacion_service.calcular_puntos_ganados(
-                                                    items_venta,
-                                                    puntos_canjeados=puntos_gastados
-                                                ) or Decimal('0')
-
-                                                # calcular puntos que se restan por devoluciones (presentación)
+                                            from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
+                                            impresora = ImpresoraService(self.db)
+                                            texto_imp = impresora.generar_ticket_desde_id(ticket_id)
+                                            if texto_imp:
+                                                print("\n" + "="*50)
+                                                print(" IMPRIMIENDO TICKET ")
+                                                print("="*50 + "\n")
+                                                print(texto_imp)
+                                                print("\n" + "="*50 + "\n")
                                                 try:
-                                                    puntos_restar = self.fidelizacion_service.calcular_puntos_ganados(items_devol, puntos_canjeados=Decimal('0')) or Decimal('0')
+                                                    impresora.logger.info("Ticket impreso (simulado) id=%s", ticket_id)
                                                 except Exception:
-                                                    puntos_restar = Decimal('0')
+                                                    pass
                                         except Exception:
-                                            logging.exception('Error calculando puntos ganados para ticket')
-                                            puntos_ganados = Decimal('0')
-                                            puntos_restar = Decimal('0')
-
-                                        # Obtener saldo ANTES de la venta (del cliente en el carrito)
-                                        tesoro_antes = Decimal('0')
-                                        try:
-                                            if cliente_info:
-                                                tesoro_antes = Decimal(str(cliente_info.get('tesoro_total', 0)))
-                                        except Exception:
-                                            tesoro_antes = Decimal('0')
-
-                                        # Calcular valores para el ticket (mostrar neto ganado-restar devoluciones)
-                                        try:
-                                            neto_ganado = (puntos_ganados - puntos_restar)
-                                        except Exception:
-                                            neto_ganado = puntos_ganados
-
-                                        tesoro_data_for_ticket = {
-                                            'gastado': puntos_gastados,
-                                            'ganado': neto_ganado,
-                                            'acumulado': tesoro_antes - puntos_gastados,
-                                            'total': tesoro_antes - puntos_gastados + neto_ganado,
-                                        }
-                                    except Exception:
-                                        logging.exception('Error construyendo tesoro_data para ticket')
-
-                                    ticket_data = {
-                                        'fecha': now.strftime('%Y-%m-%d'),
-                                        'hora': now.strftime('%H:%M:%S'),
-                                        'cajero': cajero,
-                                        'num_ticket': num_ticket,
-                                        'subtotal': resumen.get('subtotal') if isinstance(resumen, dict) else 0,
-                                        'iva_desglose': resumen.get('iva_desglose') if isinstance(resumen, dict) else {},
-                                        'total': total_val,
-                                        'forma_pago': forma_pago,
-                                        'entregado': entregado_val,
-                                        'cambio': cambio_val,
-                                        'importe_efectivo': importe_efectivo_val,
-                                        'importe_tarjeta': importe_tarjeta_val,
-                                        # tesoro_data calculado arriba para asegurar valores reales
-                                        'tesoro_data': tesoro_data_for_ticket,
-                                        # datos de descuento (si existe)
-                                        'descuento_euros': str(descuento_data['euros']) if descuento_data else '0',
-                                        'descuento_tipo': descuento_data['tipo'] if descuento_data else None,
-                                        'descuento_valor': descuento_data['valor'] if descuento_data else None,
-                                     }
-                                    # Marcar tipo devolucion para presentación si alguna línea es de devolución
-                                    try:
-                                        if any(str(it.get('line_tipo', '')).lower() == 'devolucion' for it in (items_to_print or [])):
-                                            ticket_data['tipo'] = 'devolucion'
-                                    except Exception:
-                                        pass
-                                    # Construir cliente_for_print con nivel resuelto
-                                    cliente_for_print = None
-                                    if cliente_info:
-                                        cliente_for_print = cliente_info.copy()
-                                        try:
-                                            id_nivel = cliente_info.get('id_nivel')
-                                            if id_nivel and getattr(self, 'db', None):
-                                                try:
-                                                    nivel_row = self.db.fetch_one(
-                                                        "SELECT nombre_nivel, grafismo_nivel, level FROM niveles_fidelidad WHERE id = ?",
-                                                        (id_nivel,)
-                                                    )
-                                                except Exception:
-                                                    nivel_row = None
-                                                if nivel_row:
-                                                    cliente_for_print['nivel'] = nivel_row[0]
-                                                    cliente_for_print['grafismo'] = nivel_row[1] or ''
-                                                    cliente_for_print['level_num'] = nivel_row[2] or ''
-                                                else:
-                                                    cliente_for_print['nivel'] = ''
-                                                    cliente_for_print['grafismo'] = ''
-                                                    cliente_for_print['level_num'] = ''
-                                            else:
-                                                cliente_for_print['nivel'] = ''
-                                                cliente_for_print['grafismo'] = ''
-                                                cliente_for_print['level_num'] = ''
-                                        except Exception:
-                                            logging.exception('Error resolviendo nivel de fidelidad')
-                                            cliente_for_print['nivel'] = ''
-                                    try:
-                                        self.impresora_service.imprimir_ticket(ticket_data, items_to_print, cliente_for_print)
-                                    except Exception:
-                                        logging.exception('Error en impresión de ticket (simulada)')
+                                            logging.exception('Error imprimiendo ticket desde BD')
                                 except Exception:
-                                    logging.exception('Error preparando datos para impresión de ticket')
+                                    logging.exception('ImpresoraService no disponible o error al llamar imprimir_ticket')
                         except Exception:
-                            logging.exception('ImpresoraService no disponible o error al llamar imprimir_ticket')
+                            logging.exception('Error en bloque de impresión de ticket')
 
                 self._cash_controller = CashController(self.carrito_ui, self.carrito_service, on_finalize=_on_finalize)
             except Exception:
@@ -908,12 +872,43 @@ class TpvView:
                         if txt == 'STOCK' and getattr(self, '_stock_ui', None) is not None:
                             btn.configure(command=(lambda ui=self._stock_ui: ui.show()))
                             logging.info('Grid button STOCK bound to StockUI')
+                        if txt in ('CIERRE', 'CIERRES') and getattr(self, '_cierre_ui', None) is not None:
+                            btn.configure(command=(lambda ui=self._cierre_ui: ui.show()))
+                            logging.info('Grid button CIERRES bound to CierreUI')
                         if txt == 'DESCUENTO' and getattr(self, 'descuento_action', None) is not None:
                             btn.configure(command=lambda act=self.descuento_action: act.ejecutar())
                             logging.info('Grid button DESCUENTO bound to DescuentoAction')
                         if txt in ('DEVOLUCIÓN', 'DEVOLUCION', 'REALIZAR DEVOLUCIÓN', 'REALIZAR DEVOLUCION') and getattr(self, '_devolucion_action', None) is not None:
-                            btn.configure(command=lambda act=self._devolucion_action: act.ejecutar())
-                            logging.info('Grid button DEVOLUCIÓN bound to DevolucionAction')
+                            # Guard: if there's an active sale (venta) in the carrito, block opening devoluciones
+                            def _attempt_devol(act=self._devolucion_action, parent=(self.parent if hasattr(self, 'parent') else None), carrito=self.carrito_service):
+                                try:
+                                    sale_active = False
+                                    try:
+                                        if carrito is not None and hasattr(carrito, 'get_items'):
+                                            for it in (carrito.get_items() or []):
+                                                try:
+                                                    if str(it.get('line_tipo', '')).lower() != 'devolucion' and int(it.get('cantidad', 0)) > 0:
+                                                        sale_active = True
+                                                        break
+                                                except Exception:
+                                                    continue
+                                    except Exception:
+                                        sale_active = False
+
+                                    if sale_active:
+                                        try:
+                                            from kool_tpv.utils.custom_dialog import show_error
+                                            show_error(parent, 'Operación no permitida', 'No se puede devolver si hay una venta en curso')
+                                        except Exception:
+                                            logging.exception('Error mostrando diálogo al bloquear Devolución')
+                                        return
+
+                                    act.ejecutar()
+                                except Exception:
+                                    logging.exception('Error al intentar abrir Devolución')
+
+                            btn.configure(command=_attempt_devol)
+                            logging.info('Grid button DEVOLUCIÓN bound to guarded DevolucionAction')
                         if any(k in txt for k in ('MULTI', 'MIXTO')) and getattr(self, '_multi_controller', None) is not None:
                             btn.configure(command=lambda ctl=self._multi_controller: ctl._on_action())
                             logging.info(f'Grid button {txt} bound to MultiPagoController')
@@ -972,6 +967,16 @@ class TpvView:
             self._update_clock(cashier_name)
         except Exception:
             logging.exception("Error iniciando reloj")
+        # Bind to parent destroy to ensure teardown is called and after() cancelled
+        try:
+            if not self._destroy_bound and self.parent is not None:
+                try:
+                    self.parent.bind("<Destroy>", lambda e: self.teardown())
+                    self._destroy_bound = True
+                except Exception:
+                    logging.exception('Error binding destroy handler TPV')
+        except Exception:
+            logging.exception('Error setting destroy bind for TPV')
         # Conectar controlador de acciones (buscar artículo, etc.)
         try:
             from kool_tpv.modulos.tpv.tpv_controller import TpvController

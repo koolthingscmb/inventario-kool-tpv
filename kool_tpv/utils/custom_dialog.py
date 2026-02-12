@@ -47,15 +47,54 @@ class CustomDialog(ctk.CTkToplevel):
         except Exception:
             pass
 
-        # Modal (bloquea interacción con ventana padre)
-        self.transient(parent)
-        self.grab_set()
+        # Prepare window hidden so we can set geometry before mapping
+        try:
+            self.withdraw()
+        except Exception:
+            pass
 
-        # Centrar en pantalla
-        self.update_idletasks()
-        x = (self.winfo_screenwidth() // 2) - (500 // 2)
-        y = (self.winfo_screenheight() // 2) - (350 // 2)
-        self.geometry(f"500x350+{x}+{y}")
+        # Modal (set transient while hidden)
+        try:
+            self.transient(parent)
+        except Exception:
+            pass
+
+        # Compute centered geometry relative to parent when possible, otherwise screen-center
+        try:
+            self.update_idletasks()
+            w, h = 500, 350
+            if parent is not None and getattr(parent, 'winfo_ismapped', None) and parent.winfo_ismapped():
+                try:
+                    parent.update_idletasks()
+                    px = parent.winfo_rootx()
+                    py = parent.winfo_rooty()
+                    pw = parent.winfo_width() or parent.winfo_reqwidth()
+                    ph = parent.winfo_height() or parent.winfo_reqheight()
+                    x = px + max(0, (pw - w) // 2)
+                    y = py + max(0, (ph - h) // 2)
+                except Exception:
+                    x = (self.winfo_screenwidth() // 2) - (w // 2)
+                    y = (self.winfo_screenheight() // 2) - (h // 2)
+            else:
+                x = (self.winfo_screenwidth() // 2) - (w // 2)
+                y = (self.winfo_screenheight() // 2) - (h // 2)
+            self.geometry(f"{w}x{h}+{x}+{y}")
+        except Exception:
+            pass
+
+        # Show window immediately (no animation) and then grab focus
+        try:
+            self.deiconify()
+        except Exception:
+            pass
+        try:
+            self.update_idletasks()
+        except Exception:
+            pass
+        try:
+            self.grab_set()
+        except Exception:
+            pass
 
         self._crear_contenido(titulo, mensaje, btn_text)
 
@@ -63,8 +102,11 @@ class CustomDialog(ctk.CTkToplevel):
         self.bind('<Escape>', lambda e: self._on_close())
         self.bind('<Return>', lambda e: self._on_close())
 
-        # Foco en el botón
-        self.after(100, lambda: self.btn.focus_set())
+        # Foco en el botón (sin delay)
+        try:
+            self.btn.focus_set()
+        except Exception:
+            pass
 
     def _cargar_icono(self):
         """Cargar icono según tipo."""
@@ -206,15 +248,52 @@ class CustomInputDialog(ctk.CTkToplevel):
         except Exception:
             pass
 
-        # Modal
-        self.transient(parent)
-        self.grab_set()
+        # Prepare window hidden so we can set geometry before mapping
+        try:
+            self.withdraw()
+        except Exception:
+            pass
+        try:
+            self.transient(parent)
+        except Exception:
+            pass
 
-        # Centrar
-        self.update_idletasks()
-        x = (self.winfo_screenwidth() // 2) - (500 // 2)
-        y = (self.winfo_screenheight() // 2) - (400 // 2)
-        self.geometry(f"500x400+{x}+{y}")
+        # Compute centered geometry relative to parent when possible
+        try:
+            self.update_idletasks()
+            w, h = 500, 400
+            if parent is not None and getattr(parent, 'winfo_ismapped', None) and parent.winfo_ismapped():
+                try:
+                    parent.update_idletasks()
+                    px = parent.winfo_rootx()
+                    py = parent.winfo_rooty()
+                    pw = parent.winfo_width() or parent.winfo_reqwidth()
+                    ph = parent.winfo_height() or parent.winfo_reqheight()
+                    x = px + max(0, (pw - w) // 2)
+                    y = py + max(0, (ph - h) // 2)
+                except Exception:
+                    x = (self.winfo_screenwidth() // 2) - (w // 2)
+                    y = (self.winfo_screenheight() // 2) - (h // 2)
+            else:
+                x = (self.winfo_screenwidth() // 2) - (w // 2)
+                y = (self.winfo_screenheight() // 2) - (h // 2)
+            self.geometry(f"{w}x{h}+{x}+{y}")
+        except Exception:
+            pass
+
+        # Show immediately and grab
+        try:
+            self.deiconify()
+        except Exception:
+            pass
+        try:
+            self.update_idletasks()
+        except Exception:
+            pass
+        try:
+            self.grab_set()
+        except Exception:
+            pass
 
         self._crear_contenido(titulo, mensaje, valor_defecto)
 
@@ -223,8 +302,11 @@ class CustomInputDialog(ctk.CTkToplevel):
         # Bind Enter (aceptar)
         self.bind('<Return>', lambda e: self._on_accept())
 
-        # Foco en el entry
-        self.after(100, lambda: self.entry.focus_set())
+        # Foco en el entry (sin delay)
+        try:
+            self.entry.focus_set()
+        except Exception:
+            pass
 
     def _cargar_icono(self):
         """Cargar icono según tipo."""

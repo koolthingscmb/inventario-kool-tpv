@@ -21,6 +21,7 @@ import customtkinter as ctk
 import tkinter as tk
 from tkinter import ttk
 import tkinter.font as tkfont
+from datetime import datetime, timedelta
 
 # [INSTANCIAR AQUÍ EL SERVICIO CORRESPONDIENTE]
 # from mi_modulo.mi_servicio import MiServicio
@@ -57,6 +58,8 @@ class SelectionOverlayTemplate:
             'article_btn_height': 56,
             'btn_font': ("Roboto", 18, "bold"),
             'page_size': 12,
+            'min_page_size': 25,
+            'default_filter_days': 30,
             'pagination_height': 48,
         }
         if isinstance(ui_config, dict):
@@ -102,6 +105,12 @@ class SelectionOverlayTemplate:
         self.article_btn_height = int(cfg['article_btn_height'])
         self.btn_font = tuple(cfg['btn_font'])
         self._page_size = int(cfg['page_size'])
+        # Minimum page size to avoid very small pages on some resolutions
+        self._min_page_size = int(cfg.get('min_page_size', 25))
+        # Default quick date filter (days)
+        self._filter_days = int(cfg.get('default_filter_days', 30))
+        self._filter_from = None
+        self._filter_to = None
         self.pagination_height = int(cfg['pagination_height'])
 
         # Detect whether we received the view or the panel
@@ -202,6 +211,35 @@ class SelectionOverlayTemplate:
             self.page_label.pack(side="left", padx=6)
             self.next_btn.pack(side="left", padx=6, pady=6)
 
+            # Quick date filters (placed at right side of footer)
+            try:
+                self.filters_frame = ctk.CTkFrame(self.footer_frame, fg_color="transparent")
+                self.filters_frame.pack(side="right")
+                # Quick filter buttons: 7 / 30 / 90 days
+                self.filter_7_btn = ctk.CTkButton(self.filters_frame, text="7d", width=48, command=lambda: self._set_quick_filter(7))
+                self.filter_30_btn = ctk.CTkButton(self.filters_frame, text="30d", width=48, command=lambda: self._set_quick_filter(30))
+                self.filter_90_btn = ctk.CTkButton(self.filters_frame, text="90d", width=48, command=lambda: self._set_quick_filter(90))
+                self.filter_label = ctk.CTkLabel(self.filters_frame, text=f"Últimos {self._filter_days} días")
+                self.filter_7_btn.pack(side="left", padx=4)
+                self.filter_30_btn.pack(side="left", padx=4)
+                self.filter_90_btn.pack(side="left", padx=4)
+                self.filter_label.pack(side="left", padx=(8, 0))
+                # date range entries for template (display in DD/MM/YY)
+                try:
+                    self.from_var = tk.StringVar(value="")
+                    self.to_var = tk.StringVar(value="")
+                    self.from_entry = ctk.CTkEntry(self.filters_frame, textvariable=self.from_var, width=110)
+                    self.to_entry = ctk.CTkEntry(self.filters_frame, textvariable=self.to_var, width=110)
+                    self.apply_date_btn = ctk.CTkButton(self.filters_frame, text="Aplicar", width=80, command=self._apply_date_filter)
+                    # pack to the right of filter_label
+                    self.from_entry.pack(side="left", padx=4)
+                    self.to_entry.pack(side="left", padx=4)
+                    self.apply_date_btn.pack(side="left", padx=6)
+                except Exception:
+                    pass
+            except Exception:
+                pass
+
             # internal state
             self._active_view = None
             self._items: List[Dict[str, Any]] = []
@@ -240,6 +278,35 @@ class SelectionOverlayTemplate:
             # overlay resize binding
             try:
                 self.overlay.bind('<Configure>', lambda e: self._on_overlay_configure(e))
+            except Exception:
+                pass
+            
+            # Helper to apply column configuration from concrete implementations
+            def _aplicar_config_columnas_impl(columns_config):
+                try:
+                    if not hasattr(self, 'tree') or self.tree is None:
+                        return
+                    # Guarda config actual
+                    self.columns_config = columns_config
+
+                    cols = [c[0] for c in columns_config]
+                    try:
+                        self.tree.configure(columns=cols)
+                    except Exception:
+                        pass
+
+                    for key, heading, width, anchor in columns_config:
+                        try:
+                            self.tree.heading(key, text=heading)
+                            self.tree.column(key, width=width, anchor=anchor)
+                        except Exception:
+                            logging.exception('Error configurando columna %s en SelectionOverlayTemplate', key)
+                except Exception:
+                    logging.exception('Error aplicando config de columnas en SelectionOverlayTemplate')
+
+            # expose as method on the instance for backward compatibility
+            try:
+                setattr(self, '_aplicar_config_columnas', _aplicar_config_columnas_impl)
             except Exception:
                 pass
         except Exception:
@@ -437,8 +504,13 @@ class SelectionOverlayTemplate:
                 h = max(200, self.articles_grid.winfo_height())
                 btn_h = getattr(self, 'article_btn_height', 56)
                 vpadding = 12
+                # compute dynamic page size but enforce a sensible minimum
                 rows = max(1, h // (btn_h + vpadding))
                 self._page_size = max(1, cols * rows)
+                try:
+                    self._page_size = max(self._page_size, int(getattr(self, '_min_page_size', 25)))
+                except Exception:
+                    pass
             except Exception:
                 pass
             if self._items:
@@ -471,6 +543,73 @@ class SelectionOverlayTemplate:
             self._render_clients_page()
         except Exception:
             logging.exception('Error cargando datos en SelectionOverlayTemplate')
+
+    def _set_quick_filter(self, days: int) -> None:
+        try:
+            self._filter_days = int(days)
+            now = datetime.now()
+            self._filter_to = now
+            self._filter_from = now - timedelta(days=self._filter_days)
+            try:
+                if hasattr(self, 'filter_label') and self.filter_label is not None:
+                    self.filter_label.configure(text=f"Últimos {self._filter_days} días")
+                # update entries display in DD/MM/YY if present
+                try:
+                    if getattr(self, 'from_var', None) is not None:
+                        self.from_var.set(self._filter_from.strftime('%d/%m/%y'))
+                    if getattr(self, 'to_var', None) is not None:
+                        self.to_var.set(self._filter_to.strftime('%d/%m/%y'))
+                except Exception:
+                    pass
+            except Exception:
+                pass
+            # reload data using current search term
+            try:
+                self._current_page = 0
+                self._load_and_render(self.search_var.get())
+            except Exception:
+                pass
+        except Exception:
+            logging.exception('Error aplicando filtro rápido')
+
+    def _apply_date_filter(self) -> None:
+        try:
+            ftext = (getattr(self, 'from_var', tk.StringVar(value='')) or '').strip()
+            ttext = (getattr(self, 'to_var', tk.StringVar(value='')) or '').strip()
+            f_from = None
+            f_to = None
+            # try parsing DD/MM/YY then YYYY-MM-DD then ISO
+            def _parse(s: str):
+                if not s:
+                    return None
+                s1 = s.split('.')[0]
+                for fmt in ('%d/%m/%y', '%Y-%m-%d'):
+                    try:
+                        return datetime.strptime(s1, fmt)
+                    except Exception:
+                        continue
+                try:
+                    return datetime.fromisoformat(s1)
+                except Exception:
+                    return None
+
+            try:
+                f_from = _parse(ftext)
+                f_to = _parse(ttext)
+            except Exception:
+                f_from = None
+                f_to = None
+
+            self._filter_from = f_from
+            self._filter_to = f_to
+            # reload
+            try:
+                self._current_page = 0
+                self._load_and_render(self.search_var.get())
+            except Exception:
+                pass
+        except Exception:
+            logging.exception('Error aplicando filtro de fecha en template')
 
     def _on_row_double_click(self, event: Optional[tk.Event] = None) -> None:
         try:

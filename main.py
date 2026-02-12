@@ -284,10 +284,36 @@ class App(ctk.CTk):
         en lugar de cerrar la app. En otro caso, cierra la aplicación.
         """
 
-        # Si estamos en TPV, hacer teardown y volver a la navegación
+        # Si estamos en TPV, comprobar carrito antes de hacer teardown y volver a la navegación
         if getattr(self, "current_view", None) == "tpv":
             tpv = getattr(self, "tpv_view", None)
+            # Si hay un TPV activo, revisar si el carrito contiene artículos
             if tpv is not None:
+                try:
+                    carrito = getattr(tpv, 'carrito_service', None)
+                    if carrito is not None:
+                        try:
+                            # Preferir método is_empty si existe
+                            if getattr(carrito, 'is_empty', None) and callable(carrito.is_empty):
+                                empty = carrito.is_empty()
+                            else:
+                                try:
+                                    empty = (carrito.get_item_count() == 0)
+                                except Exception:
+                                    empty = (len(carrito.get_items() or []) == 0)
+                        except Exception:
+                            empty = True
+
+                        if not empty:
+                            try:
+                                from kool_tpv.utils.custom_dialog import show_error
+                                show_error(self, 'Carrito no vacío', 'No se puede salir del TPV con artículos en el carrito. Finaliza la tarea.')
+                            except Exception:
+                                logging.exception('Error mostrando diálogo carrito no vacío')
+                            return
+                except Exception:
+                    logging.exception('Error comprobando estado del carrito antes de cerrar TPV')
+
                 try:
                     tpv.teardown()
                 except Exception:

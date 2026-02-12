@@ -40,16 +40,24 @@ class ClienteService:
 		puede externalizar a configuración o a una tabla en la base de
 		datos en un siguiente paso.
 		"""
-		mapping = {
-			1: "BRONCE",
-			2: "PLATA",
-			3: "ORO",
-			4: "PLATINO",
-		}
+		# Resolve the level label from the `niveles_fidelidad` table using the
+		# provided `id_nivel`. This avoids hard-coded mappings and keeps the UI
+		# consistent with the DB configuration.
 		try:
-			key = int(id_nivel) if id_nivel is not None else 0
+			if id_nivel is None:
+				return "SIN NIVEL"
+			row = None
+			try:
+				row = self.db.fetch_one(
+					"SELECT nombre_nivel FROM niveles_fidelidad WHERE id = ?",
+					(id_nivel,)
+				)
+			except Exception:
+				row = None
+			if row and len(row) > 0 and row[0]:
+				return str(row[0])
+			return "SIN NIVEL"
 		except Exception:
-			key = 0
-
-		return mapping.get(key, "SIN NIVEL")
+			# Defensive fallback
+			return "SIN NIVEL"
 

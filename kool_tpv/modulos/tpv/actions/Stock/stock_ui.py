@@ -7,17 +7,19 @@ Modo 'stock': Lista de productos con stock
 Modo 'consulta': Historial de ventas de un producto
 """
 import logging
+import re
 from typing import Optional, Callable
 import math
 import customtkinter as ctk
 
 from kool_tpv.utils.formatter_service import FormatterService
 
-from kool_tpv.utils.templates.template_selection_overlay import SelectionOverlayTemplate
+from .StockBase import StockBaseUI
 from kool_tpv.base_datos.producto_service import ProductoService
+from .consulta_stock_ui import ConsultaStockHandler
 
 
-class StockUI(SelectionOverlayTemplate):
+class StockUI(StockBaseUI):
     """Overlay para consulta de stock con modo dual (stock/consulta)."""
 
     def __init__(self, view_or_action_panel, db, on_selection_callback: Optional[Callable] = None):
@@ -53,6 +55,14 @@ class StockUI(SelectionOverlayTemplate):
         # Modo del overlay: 'stock' o 'consulta'
         self.modo = 'stock'
         self.producto_consulta = None  # Guarda producto seleccionado para consulta
+        self._visor_negro = None
+        # Handler for consulta-related behaviour (keeps logic separate)
+        try:
+            self._consulta_handler = ConsultaStockHandler(self)
+        except Exception:
+            self._consulta_handler = None
+        # Saved page size to restore after leaving consulta mode
+        self._saved_page_size = None
 
         # Personalizar título inicial
         self.title_text = "STOCK"
@@ -154,7 +164,10 @@ class StockUI(SelectionOverlayTemplate):
             if self.modo == 'stock':
                 self._load_productos(termino)
             elif self.modo == 'consulta':
-                self._load_ventas_producto(termino)
+                if self._consulta_handler is not None:
+                    self._items = self._consulta_handler.load_ventas(termino)
+                else:
+                    self._items = []
 
             self._current_page = 0
             self._render_clients_page()
@@ -174,34 +187,27 @@ class StockUI(SelectionOverlayTemplate):
             self._items = []
 
     def _load_ventas_producto(self, termino=''):
-        """Cargar ventas con filtro opcional por nombre de cliente."""
+        """Deprecated: delegated to ConsultaStockHandler.load_ventas."""
         try:
-            if not self.producto_consulta:
-                self._items = []
-                return
-
-            producto_id = self.producto_consulta.get('id')
-            if self.data_service:
-                ventas = self.data_service.obtener_ventas_producto(producto_id)
-
-                # Filtrar por nombre de cliente si hay término de búsqueda
-                if termino:
-                    termino_lower = termino.lower()
-                    self._items = [
-                        v for v in ventas
-                        if termino_lower in (v.get('cliente_nombre') or '').lower()
-                    ]
-                else:
-                    self._items = ventas
+            if self._consulta_handler is not None:
+                self._items = self._consulta_handler.load_ventas(termino)
             else:
                 self._items = []
         except Exception:
-            logging.exception('Error cargando ventas de producto')
+            logging.exception('Error delegado cargando ventas de producto')
             self._items = []
 
     def _render_clients_page(self):
         """Renderizar página según modo actual."""
         try:
+            # Diagnostic: página y tamaño
+            try:
+                ps = getattr(self, '_page_size', 15)
+                start = getattr(self, '_current_page', 0) * ps
+                total = len(self._items or [])
+                logging.info('StockUI._render_clients_page modo=%s page=%s page_size=%s total_items=%s start=%s', self.modo, getattr(self, '_current_page', 0), ps, total, start)
+            except Exception:
+                pass
             # Limpiar tree
             for child in list(self.tree.get_children()):
                 try:
@@ -255,64 +261,12 @@ class StockUI(SelectionOverlayTemplate):
                 logging.exception('Error insertando producto en tree')
 
     def _render_ventas(self, ventas):
-        """Renderizar lista de ventas (modo consulta)."""
-        for venta in ventas:
-            try:
-                # Formatear fecha a formato español (DD/MM/YYYY)
-                fecha_raw = venta.get('fecha', '')
-                fecha_formateada = ''
-                try:
-                    if self.formatter:
-                        fecha_formateada = self.formatter.format_fecha(fecha_raw)
-                    else:
-                        # Fallback manual: 2026-02-08 → 08/02/2026
-                        if fecha_raw and len(fecha_raw) >= 10:
-                            partes = fecha_raw[:10].split('-')
-                            if len(partes) == 3:
-                                fecha_formateada = f"{partes[2]}/{partes[1]}/{partes[0]}"
-                            else:
-                                fecha_formateada = fecha_raw.split()[0]
-                        else:
-                            fecha_formateada = fecha_raw
-                except Exception:
-                    fecha_formateada = fecha_raw.split()[0] if fecha_raw else ''
-
-                # Formatear cantidad como entero
-                cantidad_raw = venta.get('cantidad', 0)
-                try:
-                    cantidad_str = str(int(float(cantidad_raw)))
-                except Exception:
-                    cantidad_str = str(cantidad_raw)
-
-                try:
-                    ticket_id_row = venta.get('ticket_id') or venta.get('id')
-                    # Preferir num_ticket si viene; si no, leer desde la tabla tickets
-                    num_ticket_display = venta.get('num_ticket')
-                    if not num_ticket_display:
-                        try:
-                            row = self.db.fetch_one("SELECT num_ticket FROM tickets WHERE id = ?", (ticket_id_row,))
-                            if row:
-                                num_ticket_display = row[0]
-                        except Exception:
-                            pass
-
-                    display_ticket = num_ticket_display or ticket_id_row
-
-                    self.tree.insert(
-                        '',
-                        'end',
-                        iid=str(ticket_id_row),  # usar id DB como iid
-                        values=(
-                            display_ticket,
-                            fecha_formateada,
-                            cantidad_str,
-                            venta.get('cliente_nombre')
-                        )
-                    )
-                except Exception:
-                    logging.exception('Error insertando venta en tree')
-            except Exception:
-                logging.exception('Error insertando venta en tree')
+        """Deprecated: delegated to ConsultaStockHandler.render_ventas."""
+        try:
+            if self._consulta_handler is not None:
+                self._consulta_handler.render_ventas(ventas)
+        except Exception:
+            logging.exception('Error delegando render_ventas')
 
     def _on_consultar(self):
         """Handler botón Consultar: cambiar a modo consulta."""
@@ -361,8 +315,40 @@ class StockUI(SelectionOverlayTemplate):
                 # Restaurar modo stock
                 self._configurar_modo_stock()
             elif self.modo == 'consulta':
-                # Activar modo consulta
-                self._configurar_modo_consulta()
+                # Activar modo consulta (delegar a handler)
+                try:
+                    if self._consulta_handler is not None:
+                        self._consulta_handler.configurar_modo_consulta()
+                    else:
+                        self._configurar_modo_consulta()
+                except Exception:
+                    # fallback to internal method if exists
+                    try:
+                        self._configurar_modo_consulta()
+                    except Exception:
+                        pass
+
+            # En modo consulta forzar un mínimo de filas visibles y guardar el valor previo
+            try:
+                if self.modo == 'consulta':
+                    try:
+                        # guardar solo si no hay guardado previo
+                        if getattr(self, '_saved_page_size', None) is None:
+                            self._saved_page_size = getattr(self, '_page_size', None)
+                        # forzar mínimo 20
+                        self._page_size = max(getattr(self, '_page_size', 1), 20)
+                    except Exception:
+                        pass
+                else:
+                    # Restaurar tamaño de página original si existe
+                    try:
+                        if getattr(self, '_saved_page_size', None) is not None:
+                            self._page_size = self._saved_page_size
+                            self._saved_page_size = None
+                    except Exception:
+                        pass
+            except Exception:
+                pass
 
             # Recargar datos
             self._load_and_render('')
@@ -431,154 +417,67 @@ class StockUI(SelectionOverlayTemplate):
                 pass
 
             # (visor de ticket eliminado en rollback) --- no-op
+            # Si existe el VisorNegro (creado en modo consulta), destruirlo
+            try:
+                if getattr(self, '_visor_negro', None) is not None:
+                    try:
+                        self._visor_negro.destroy()
+                    except Exception:
+                        pass
+                    self._visor_negro = None
+            except Exception:
+                pass
 
         except Exception:
             logging.exception('Error configurando modo stock')
 
     def _configurar_modo_consulta(self):
-        """Configurar UI para modo consulta."""
+        """Delegar configuración de modo 'consulta' al handler especializado."""
         try:
-            # Cambiar título con nombre del producto
-            nombre_prod = self.producto_consulta.get('nombre', 'Producto') if self.producto_consulta else 'Producto'
-            self.title_text = f"CONSULTA: {nombre_prod}"
-            if hasattr(self, 'header_label'):
+            if getattr(self, '_consulta_handler', None) is not None:
                 try:
-                    self.header_label.configure(text=self.title_text)
+                    self._consulta_handler.configurar_modo_consulta()
+                    return
                 except Exception:
-                    pass
-
-            # Aplicar columnas de consulta
-            self._aplicar_config_columnas(self.columns_config_consulta)
-
-            # Ocultar botones de stock
-            if hasattr(self, 'modificar_btn'):
-                try:
-                    self.modificar_btn.pack_forget()
-                except Exception:
-                    pass
-
-            if hasattr(self, 'anadir_btn'):
-                try:
-                    self.anadir_btn.pack_forget()
-                except Exception:
-                    pass
-
-            # Crear/mostrar botón Volver
-            if not hasattr(self, 'volver_btn'):
-                try:
-                    self.volver_btn = ctk.CTkButton(
-                        self.header_actions_frame,
-                        text="Volver",
-                        fg_color='#7f8c8d',
-                        hover_color='#95a5a6',
-                        command=lambda: self._cambiar_modo('stock'),
-                        width=140
-                    )
-                except Exception:
-                    self.volver_btn = None
-
-            try:
-                if self.volver_btn is not None:
-                    self.volver_btn.pack(side="left", padx=5)
-            except Exception:
-                pass
-
-            # Botón Aceptar → Mostrar Ticket
-            if hasattr(self, 'aceptar_btn'):
-                try:
-                    self.aceptar_btn.configure(text="Mostrar Ticket", command=self._on_mostrar_ticket)
-                except Exception:
-                    pass
-
-            # Limpiar búsqueda pero MANTENER habilitada para filtrar clientes
-            try:
-                if hasattr(self, 'search_var'):
-                    self.search_var.set('')
-                if hasattr(self, 'search_entry'):
-                    self.search_entry.configure(state='normal')
-                    self.after(100, lambda: self.search_entry.focus_set())
-            except Exception:
-                pass
-
+                    logging.exception('Error en ConsultaStockHandler.configurar_modo_consulta')
         except Exception:
-            logging.exception('Error configurando modo consulta')
+            logging.exception('Error delegando configurar_modo_consulta')
 
     def _on_ficha_cliente(self):
         """Handler botón Ficha Cliente (placeholder)."""
         logging.info('Ficha cliente - placeholder (no implementado)')
 
+    def _on_imprimir_ticket(self):
+        """Imprimir el ticket actualmente mostrado en el VisorNegro.
+
+        Si no hay ticket mostrado, intenta tomar la selección actual.
+        """
+        try:
+            if getattr(self, '_consulta_handler', None) is not None:
+                try:
+                    self._consulta_handler.on_imprimir_ticket()
+                    return
+                except Exception:
+                    logging.exception('Error en ConsultaStockHandler.on_imprimir_ticket')
+        except Exception:
+            logging.exception('Error delegando _on_imprimir_ticket')
+
     def _on_mostrar_ticket(self):
         """Mostrar ticket del elemento seleccionado en modo consulta."""
         try:
-            sel = self.tree.selection()
-            if not sel:
-                logging.info('No hay ticket seleccionado')
-                return
-
-            try:
-                ticket_id = int(sel[0])
-            except Exception:
-                logging.error('ID de ticket inválido')
-                return
-
-            # Generar ticket
-            from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
-            from kool_tpv.utils.textview_dialog import show_text_viewer
-
-            impresora = ImpresoraService(self.db)
-            ticket_text = impresora.generar_ticket_desde_id(ticket_id)
-
-            if not ticket_text:
-                logging.warning(f'No se pudo generar ticket {ticket_id}')
-                return
-
-            # Parent correcto
-            try:
-                parent = self.view.parent.winfo_toplevel()
-            except Exception:
-                parent = self.view.parent
-
-            # Obtener num_ticket para título
-            num_ticket = None
-            try:
-                num_row = self.db.fetch_one(
-                    "SELECT num_ticket FROM tickets WHERE id = ?",
-                    (ticket_id,)
-                )
-                if num_row:
-                    num_ticket = num_row[0]
-            except Exception:
-                logging.exception('Error obteniendo num_ticket')
-
-            # Mostrar dialog
-            titulo = f"TICKET #{num_ticket}" if num_ticket else f"TICKET #{ticket_id}"
-
-            # Definir callback de impresión que reutiliza ImpresoraService
-            def _print_ticket():
+            if getattr(self, '_consulta_handler', None) is not None:
                 try:
-                    texto_imp = impresora.generar_ticket_desde_id(ticket_id)
-                    if texto_imp:
-                        print("\n" + "="*50)
-                        print(" SIMULACIÓN IMPRESIÓN TICKET ")
-                        print("="*50 + "\n")
-                        print(texto_imp)
-                        print("\n" + "="*50 + "\n")
-                        try:
-                            impresora.logger.info("Ticket impreso (simulado) num_ticket=%s", num_ticket or ticket_id)
-                        except Exception:
-                            pass
+                    self._consulta_handler.on_mostrar_ticket()
+                    return
                 except Exception:
-                    logging.exception('Error imprimiendo ticket desde dialog')
-
-            show_text_viewer(parent, titulo, ticket_text, print_callback=_print_ticket)
-
+                    logging.exception('Error en ConsultaStockHandler.on_mostrar_ticket')
         except Exception:
-            logging.exception('Error mostrando ticket desde botón')
+            logging.exception('Error delegando _on_mostrar_ticket')
 
     def _on_mi_tree_select(self, event=None):
         """Detectar selección en tree (no usado, binding desactivado)."""
         # Este método ya no se usa porque el binding fue eliminado
-        pass
+        return
 
     def hide(self):
         """Override hide() para detectar modo.

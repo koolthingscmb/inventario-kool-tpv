@@ -34,7 +34,7 @@ class ClientesDB:
 		"""
 		term = f"%{filtro}%"
 		query = (
-			"SELECT id, nombre, telefono, tesoro_total, id_nivel "
+			"SELECT id, nombre, telefono, tesoro_total, id_nivel, fecha_alta "
 			"FROM clientes "
 			"WHERE nombre LIKE ? OR dni LIKE ? OR telefono LIKE ? "
 			"ORDER BY COALESCE(tesoro_total, 0) DESC"
@@ -47,7 +47,7 @@ class ClientesDB:
 		for row in rows:
 			# row expected: (id, nombre, telefono, tesoro_total, id_nivel)
 			try:
-				id_, nombre, telefono, tesoro_total, id_nivel = row
+				id_, nombre, telefono, tesoro_total, id_nivel, fecha_alta = row
 			except Exception:
 				# defensivo: si el esquema cambia, ignorar fila mal formada
 				continue
@@ -58,6 +58,7 @@ class ClientesDB:
 				"telefono": telefono,
 				"tesoro_total": tesoro_total,
 				"id_nivel": id_nivel,
+				"fecha_alta": fecha_alta,
 			})
 
 		return clientes
