@@ -1,0 +1,144 @@
+"""ExportService: exportar cierres/tickets a CSV y PDF.
+
+Colocado en `kool_tpv/modulos/impresion/` porque está relacionado con salida/impresión.
+
+Notas:
+- `export_cierre_csv` usa la stdlib `csv` y escribe metadatos + filas de tickets.
+- `export_cierre_pdf` usa `reportlab` si está instalado; si no, lanza RuntimeError indicando la dependencia.
+"""
+from __future__ import annotations
+
+import os
+import csv
+import json
+import logging
+from datetime import datetime
+from typing import Optional, List
+
+from kool_tpv.base_datos.cierre_service import CierreService
+
+
+class ExportService:
+    """Servicio responsable de exportar cierres/tickets a disco.
+
+    Esta clase NO maneja UI; devuelve rutas de fichero o lanza excepciones.
+    """
+
+    def __init__(self, db, out_dir: Optional[str] = None):
+        self.db = db
+        self.cierre_svc = CierreService(db)
+        base = out_dir or os.path.join(os.getcwd(), "exports")
+        self.out_dir = os.path.abspath(base)
+        try:
+            os.makedirs(self.out_dir, exist_ok=True)
+        except Exception:
+            logging.exception('No se pudo crear carpeta de exports: %s', self.out_dir)
+
+    def _timestamped_path(self, base_name: str, ext: str) -> str:
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe = base_name.replace(' ', '_')
+        fn = f"{safe}_{ts}.{ext.lstrip('.')}"
+        return os.path.join(self.out_dir, fn)
+
+    def export_cierre_csv(self, cierre_id: int, path: Optional[str] = None) -> str:
+        """Exporta un cierre a CSV. Devuelve la ruta generada.
+
+        CSV contiene primero metadatos del cierre y luego una sección "tickets"
+        con filas por cada ticket marcado con `cierre_id`.
+        """
+        cierre = self.cierre_svc.obtener_cierre_por_id(cierre_id)
+        if cierre is None:
+            raise ValueError(f'Cierre id={cierre_id} no encontrado')
+
+        if path is None:
+            path = self._timestamped_path(f"cierre_{cierre.get('cierre_num') or cierre_id}", "csv")
+
+        try:
+            tickets = self.db.fetch_all(
+                'SELECT id, num_ventas, total, importe_efectivo, importe_tarjeta, forma_pago, descuento_euros, cajero, created_at FROM tickets WHERE cierre_id = ?',
+                (cierre_id,)
+            )
+        except Exception:
+            logging.exception('Error cargando tickets para export CSV')
+            tickets = []
+
+        try:
+            with open(path, 'w', newline='', encoding='utf-8') as f:
+                w = csv.writer(f)
+
+                # Metadatos
+                w.writerow(['campo', 'valor'])
+                w.writerow(['cierre_id', cierre.get('id')])
+                w.writerow(['cierre_num', cierre.get('cierre_num')])
+                w.writerow(['fecha_hora', cierre.get('fecha_hora')])
+                w.writerow(['cajero', cierre.get('cajero')])
+                w.writerow(['total_ingresos', cierre.get('total_ingresos')])
+                w.writerow(['num_ventas', cierre.get('num_ventas')])
+                w.writerow(['total_descuentos', cierre.get('total_descuentos')])
+                w.writerow(['iva_desglose', json.dumps(cierre.get('iva_desglose') or {}, ensure_ascii=False)])
+
+                # Sección tickets
+                w.writerow([])
+                w.writerow(['tickets'])
+                header = ['id', 'num_ventas', 'total', 'importe_efectivo', 'importe_tarjeta', 'forma_pago', 'descuento_euros', 'cajero', 'created_at']
+                w.writerow(header)
+                for r in tickets or []:
+                    try:
+                        w.writerow([r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8]])
+                    except Exception:
+                        logging.exception('Error escribiendo fila ticket en CSV')
+
+            return path
+        except Exception:
+            logging.exception('Error generando CSV para cierre %s', cierre_id)
+            raise
+
+    def export_text_to_pdf(self, text: str, path: Optional[str] = None) -> str:
+        """Generar un PDF simple a partir de texto con reportlab.
+
+        Requiere `reportlab` instalado. Devuelve ruta.
+        """
+        try:
+            from reportlab.lib.pagesizes import A4
+            from reportlab.pdfgen import canvas
+        except Exception:
+            raise RuntimeError('Exportar a PDF requiere instalar `reportlab` (pip install reportlab)')
+
+        if path is None:
+            path = self._timestamped_path('export', 'pdf')
+
+        try:
+            c = canvas.Canvas(path, pagesize=A4)
+            width, height = A4
+            margin = 40
+            y = height - margin
+            line_h = 12
+            for line in (text or '').splitlines():
+                if y < margin:
+                    c.showPage()
+                    y = height - margin
+                c.drawString(margin, y, str(line))
+                y -= line_h
+            c.save()
+            return path
+        except Exception:
+            logging.exception('Error generando PDF en %s', path)
+            raise
+
+    def export_cierre_pdf(self, cierre_id: int, path: Optional[str] = None) -> str:
+        """Exporta el `cierre_text` persistido a PDF usando `reportlab`.
+
+        Si el `cierre_text` es None o vacío, lanza ValueError.
+        """
+        cierre = self.cierre_svc.obtener_cierre_por_id(cierre_id)
+        if cierre is None:
+            raise ValueError(f'Cierre id={cierre_id} no encontrado')
+
+        cierre_text = cierre.get('cierre_text') or ''
+        if not cierre_text:
+            raise ValueError('El cierre no contiene `cierre_text` para exportar')
+
+        if path is None:
+            path = self._timestamped_path(f"cierre_{cierre.get('cierre_num') or cierre_id}", 'pdf')
+
+        return self.export_text_to_pdf(cierre_text, path=path)
