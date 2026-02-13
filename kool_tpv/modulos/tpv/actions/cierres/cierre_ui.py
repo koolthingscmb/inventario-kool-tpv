@@ -700,22 +700,26 @@ class CierreUI(CierreBaseUI):
         except Exception:
             logging.exception('Error en _on_mostrar')
 
-    def _on_row_double_click(self, event=None):
-        """Override: on double-click show the ticket in VisorNegro, then confirm selection (which hides overlay)."""
-        try:
-            # First, attempt to show selected ticket(s) in VisorNegro (same behavior as Mostrar)
-            try:
-                self._on_mostrar()
-            except Exception:
-                logging.exception('Error mostrando ticket en double-click')
+    def _on_row_double_click(self, event: Optional[object] = None) -> None:
+        """Override default template behavior: show selected item in VisorNegro without closing overlay.
 
-            # Then carry on with normal selection confirmation (this will hide the overlay)
-            try:
-                super()._on_row_double_click(event)
-            except Exception:
-                logging.exception('Error delegando _on_row_double_click a super')
+        - In `cierres` mode: call `_on_mostrar()` to preview the ticket.
+        - In `historico` mode: delegate to `HistoricoHandler.on_mostrar()` if available.
+        """
+        try:
+            if getattr(self, 'modo', None) == 'cierres':
+                try:
+                    self._on_mostrar()
+                except Exception:
+                    logging.exception('Error mostrando ticket en doble click (cierres)')
+            elif getattr(self, 'modo', None) == 'historico':
+                try:
+                    if getattr(self, '_historico_handler', None) is not None:
+                        self._historico_handler.on_mostrar()
+                except Exception:
+                    logging.exception('Error mostrando cierre en doble click (historico)')
         except Exception:
-            logging.exception('Error en override _on_row_double_click CierreUI')
+            logging.exception('Error en _on_row_double_click en CierreUI')
 
     def _on_imprimir(self):
         """Imprimir cierre desde histórico."""
