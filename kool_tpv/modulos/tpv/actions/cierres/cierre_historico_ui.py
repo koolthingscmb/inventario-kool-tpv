@@ -148,6 +148,17 @@ class HistoricoHandler:
             except Exception:
                 logging.exception('Error al configurar VisorNegro (handler)')
 
+            # Bind doble clic en el tree para mostrar cierre (si existe)
+            try:
+                tree = getattr(parent, 'tree', None)
+                if tree is not None:
+                    try:
+                        tree.bind('<Double-1>', lambda e: self.on_mostrar())
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
         except Exception:
             logging.exception('Error configurando modo historico (handler)')
 
@@ -169,6 +180,80 @@ class HistoricoHandler:
                 logging.exception('Error generando impresión de cierre (handler)')
         except Exception:
             logging.exception('Error en on_imprimir (handler)')
+
+    def on_mostrar(self):
+        """Mostrar el `cierre_text` del cierre seleccionado en el VisorNegro.
+
+        Reglas:
+        - Si no hay selección: no hace nada.
+        - Si hay más de 1 selección: mostrar diálogo de error (solo 1 permitido).
+        - Si hay 1 selección: obtener cierre por id y mostrar `cierre_text`.
+        """
+        try:
+            parent = self.parent
+            tree = getattr(parent, 'tree', None)
+            sel = list(tree.selection() or []) if tree is not None else []
+
+            if not sel:
+                logging.info('No hay selección para Mostrar (Historico handler)')
+                return
+
+            # Si hay más de uno -> error modal
+            if len(sel) > 1:
+                try:
+                    from kool_tpv.utils.custom_dialog import show_error
+                    root = parent.overlay.winfo_toplevel() if getattr(parent, 'overlay', None) is not None else None
+                    show_error(root, 'Error', 'Solamente se puede Mostrar un cierre a la vez')
+                except Exception:
+                    logging.exception('Error mostrando diálogo de selección múltiple en Mostrar')
+                return
+
+            # Mostrar cierre único
+            try:
+                cid = int(sel[0])
+            except Exception:
+                logging.info('ID seleccionado inválido para Mostrar')
+                return
+
+            try:
+                cierre = self.cierre_svc.obtener_cierre_por_id(cid) if self.cierre_svc is not None else None
+                cierre_text = cierre.get('cierre_text') if cierre is not None else ''
+            except Exception:
+                logging.exception('Error recuperando cierre para Mostrar')
+                cierre_text = ''
+
+            try:
+                view = getattr(parent, 'view', None)
+                parent_widget = None
+                if view is not None and getattr(view, 'cart_view', None) is not None:
+                    parent_widget = view.cart_view
+                else:
+                    parent_widget = getattr(parent, 'overlay', None)
+
+                if parent_widget is not None:
+                    if getattr(parent, '_visor_negro', None) is None:
+                        try:
+                            parent._visor_negro = VisorNegro(parent_widget)
+                        except Exception:
+                            logging.exception('Error creando VisorNegro (mostrar)')
+                    try:
+                        parent._visor_negro.set_text_color('#00FF00')
+                    except Exception:
+                        pass
+                    try:
+                        parent._visor_negro.set_font_size(13)
+                    except Exception:
+                        pass
+                    try:
+                        parent._visor_negro.set_text(cierre_text or '')
+                        parent._visor_negro.show()
+                    except Exception:
+                        logging.exception('Error mostrando cierre_text en VisorNegro')
+            except Exception:
+                logging.exception('Error configurando VisorNegro para Mostrar')
+
+        except Exception:
+            logging.exception('Error en on_mostrar (handler)')
 
 
 # Only HistoricoHandler is needed for mode integration; older
