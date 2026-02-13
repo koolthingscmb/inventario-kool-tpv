@@ -284,9 +284,9 @@ class CierreUI(SelectionOverlayTemplate):
                 try:
                     tmp = CierreTicketGenerator()
                     block = []
-                    block.append(tmp.DOUBLE_DIVIDER)
+                    # Do not prepend an extra divider here — the generator already
+                    # adds separators before this block. Keep header compact.
                     block.append('TESORO (Fidelización)'.center(tmp.WIDTH))
-                    # avoid extra divider between title and content to keep compact layout
                     block.append(f"Tesoro otorgado: {otorgado_tickets} tickets ({tmp._format_currency(otorgado_sum)})")
                     block.append(f"Tesoro gastado: {gastado_tickets} tickets ({tmp._format_currency(gastado_sum)})")
                     block.append(tmp.DOUBLE_DIVIDER)
