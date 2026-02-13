@@ -739,7 +739,16 @@ class CierreUI(CierreBaseUI):
             logging.exception('Error delegando _on_imprimir')
 
     def _on_exportar(self):
-        logging.info('Exportar - no implementado')
+        try:
+            if getattr(self, 'modo', None) == 'historico' and getattr(self, '_historico_handler', None) is not None:
+                try:
+                    self._historico_handler.on_exportar()
+                except Exception:
+                    logging.exception('Error delegando Exportar al HistoricoHandler')
+            else:
+                logging.info('Exportar sólo está disponible en modo HISTÓRICO')
+        except Exception:
+            logging.exception('Error en _on_exportar')
 
     def _on_ver_tickets(self):
         logging.info('Ver Tickets - no implementado')
