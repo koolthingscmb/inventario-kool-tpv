@@ -125,6 +125,18 @@ class CierreUI(CierreBaseUI):
                     text_color='#000000',
                     command=self._on_imprimir
                 )
+                self.exportar_btn = ctk.CTkButton(
+                    self._header_buttons_row,
+                    text="Exportar",
+                    width=140,
+                    command=self._on_exportar
+                )
+                self.ver_tickets_btn = ctk.CTkButton(
+                    self._header_buttons_row,
+                    text="Ver Tickets",
+                    width=140,
+                    command=self._on_ver_tickets
+                )
                 self.tickets_cierre_btn.pack(side="left", padx=5)
                 self.historico_btn.pack(side="left", padx=5)
                 self.cierre_z_btn.pack(side="left", padx=5)
@@ -685,6 +697,12 @@ class CierreUI(CierreBaseUI):
                 self._historico_handler.on_imprimir()
         except Exception:
             logging.exception('Error delegando _on_imprimir')
+
+    def _on_exportar(self):
+        logging.info('Exportar - no implementado')
+
+    def _on_ver_tickets(self):
+        logging.info('Ver Tickets - no implementado')
 
     def _aplicar_config_columnas(self, columns_config):
         """Aplicar configuración de columnas al treeview (igual que stock_ui)."""

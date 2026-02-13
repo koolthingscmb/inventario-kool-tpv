@@ -98,6 +98,13 @@ class HistoricoHandler:
                 except Exception:
                     pass
 
+            # Ocultar checkboxes
+            try:
+                if hasattr(parent, '_header_checks_row'):
+                    parent._header_checks_row.pack_forget()
+            except Exception:
+                pass
+
             # Mostrar botón imprimir
             try:
                 if hasattr(parent, 'imprimir_btn'):
@@ -107,6 +114,14 @@ class HistoricoHandler:
                         pass
             except Exception:
                 pass
+
+            # Mostrar botones adicionales de histórico
+            for btn in ['mostrar_btn', 'exportar_btn', 'ver_tickets_btn']:
+                try:
+                    if hasattr(parent, btn):
+                        getattr(parent, btn).pack(side='left', padx=5)
+                except Exception:
+                    pass
 
             # Crear y mostrar VisorNegro inmediatamente
             try:
