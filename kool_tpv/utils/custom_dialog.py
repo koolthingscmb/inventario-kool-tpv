@@ -21,7 +21,7 @@ class CustomDialog(ctk.CTkToplevel):
         'info': {'bg': '#3498db', 'hover': '#2980b9'}
     }
 
-    def __init__(self, parent, tipo='info', titulo='', mensaje='', btn_text='Aceptar', callback=None):
+    def __init__(self, parent, tipo='info', titulo='', mensaje='', btn_text='Aceptar', callback=None, confirm=False):
         """
         Args:
             parent: Ventana padre
@@ -35,6 +35,8 @@ class CustomDialog(ctk.CTkToplevel):
 
         self.callback = callback
         self.tipo = tipo if tipo in self.COLORS else 'info'
+        self.confirm = bool(confirm)
+        self.result = False
 
         # Configurar ventana
         self.title(titulo)
@@ -170,20 +172,53 @@ class CustomDialog(ctk.CTkToplevel):
         )
         mensaje_label.pack(pady=(0, 25))
 
-        # Botón
+        # Botones: si es confirm, mostrar Cancelar + Aceptar; si no, mostrar un solo botón
         colors = self.COLORS[self.tipo]
-        self.btn = ctk.CTkButton(
-            main_frame,
-            text=btn_text,
-            command=self._on_close,
-            fg_color=colors['bg'],
-            hover_color=colors['hover'],
-            font=('Roboto-SemiBold', 20),
-            width=160,
-            height=50,
-            corner_radius=10
-        )
-        self.btn.pack()
+        if self.confirm:
+            btn_frame = ctk.CTkFrame(main_frame, fg_color='transparent')
+            btn_frame.pack()
+            # Cancelar
+            colors_cancel = {'bg': '#7f8c8d', 'hover': '#95a5a6'}
+            btn_cancel = ctk.CTkButton(
+                btn_frame,
+                text='Cancelar',
+                command=self._on_cancel,
+                fg_color=colors_cancel['bg'],
+                hover_color=colors_cancel['hover'],
+                font=('Roboto-SemiBold', 20),
+                width=140,
+                height=50,
+                corner_radius=10
+            )
+            btn_cancel.pack(side='left', padx=(0, 10))
+
+            # Aceptar
+            btn_accept = ctk.CTkButton(
+                btn_frame,
+                text=btn_text,
+                command=self._on_accept,
+                fg_color=colors['bg'],
+                hover_color=colors['hover'],
+                font=('Roboto-SemiBold', 20),
+                width=140,
+                height=50,
+                corner_radius=10
+            )
+            btn_accept.pack(side='left')
+            self.btn = btn_accept
+        else:
+            self.btn = ctk.CTkButton(
+                main_frame,
+                text=btn_text,
+                command=self._on_close,
+                fg_color=colors['bg'],
+                hover_color=colors['hover'],
+                font=('Roboto-SemiBold', 20),
+                width=160,
+                height=50,
+                corner_radius=10
+            )
+            self.btn.pack()
 
     def _on_close(self):
         """Cerrar diálogo y ejecutar callback si existe."""
@@ -192,6 +227,40 @@ class CustomDialog(ctk.CTkToplevel):
                 self.callback()
         except Exception:
             logging.exception('Error ejecutando callback de CustomDialog')
+        finally:
+            try:
+                self.grab_release()
+            except Exception:
+                pass
+            self.destroy()
+
+    def _on_accept(self):
+        try:
+            self.result = True
+            if self.callback and callable(self.callback):
+                try:
+                    self.callback(True)
+                except Exception:
+                    logging.exception('Error ejecutando callback en accept')
+        except Exception:
+            logging.exception('Error en _on_accept CustomDialog')
+        finally:
+            try:
+                self.grab_release()
+            except Exception:
+                pass
+            self.destroy()
+
+    def _on_cancel(self):
+        try:
+            self.result = False
+            if self.callback and callable(self.callback):
+                try:
+                    self.callback(False)
+                except Exception:
+                    logging.exception('Error ejecutando callback en cancel')
+        except Exception:
+            logging.exception('Error en _on_cancel CustomDialog')
         finally:
             try:
                 self.grab_release()
@@ -215,9 +284,15 @@ def show_warning(parent, titulo, mensaje, callback=None):
     CustomDialog(parent, tipo='warning', titulo=titulo, mensaje=mensaje, callback=callback)
 
 
-def show_info(parent, titulo, mensaje, callback=None):
+def show_info(parent, titulo, mensaje, callback=None, confirm=False):
     """Mostrar diálogo de información."""
-    CustomDialog(parent, tipo='info', titulo=titulo, mensaje=mensaje, callback=callback)
+    dlg = CustomDialog(parent, tipo='info', titulo=titulo, mensaje=mensaje, callback=callback, confirm=confirm)
+    try:
+        # Modal: wait for user action
+        dlg.wait_window()
+    except Exception:
+        pass
+    return getattr(dlg, 'result', True)
 
 
 class CustomInputDialog(ctk.CTkToplevel):

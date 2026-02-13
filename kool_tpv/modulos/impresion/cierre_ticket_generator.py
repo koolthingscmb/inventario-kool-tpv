@@ -126,6 +126,13 @@ class CierreTicketGenerator(BaseTicketGenerator):
                     lines.append(self._format_line_lr('Total Tarjeta:', self._format_currency(tt)))
                 if tw and float(tw) != 0:
                     lines.append(self._format_line_lr('Total Web:', self._format_currency(tw)))
+                # Mostrar total de descuentos si existe
+                td = totals.get('total_descuentos', 0) if isinstance(totals, dict) else 0
+                try:
+                    if td and float(td) != 0:
+                        lines.append(self._format_line_lr('Total Descuentos:', f"-{self._format_currency(td)}"))
+                except Exception:
+                    pass
         except Exception:
             pass
 

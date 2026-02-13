@@ -296,8 +296,8 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
             ticket_text_snapshot = None
 
         insert_ticket_q = (
-            "INSERT INTO tickets (created_at, cajero, cliente, cliente_id, num_ticket, forma_pago, total, pagado, cambio, importe_efectivo, importe_tarjeta, descuento_euros, descuento_tipo, descuento_valor, tesoro_ganado, tesoro_gastado, ticket_text) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO tickets (created_at, cajero, cliente, cliente_id, num_ticket, subtotal, forma_pago, total, pagado, cambio, importe_efectivo, importe_tarjeta, descuento_euros, descuento_tipo, descuento_valor, tesoro_ganado, tesoro_gastado, ticket_text) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )
         # Use provided cliente_id (if any) instead of hardcoded None
         cur.execute(
@@ -308,6 +308,7 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
                 cliente if cliente else None,
                 cliente_id if cliente_id else None,
                 num_ticket,
+                str(resumen.get('subtotal', 0)),
                 forma_pago,
                 str(total),
                 str(pagado),
@@ -317,9 +318,9 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
                 str(descuento_euros),
                 descuento_tipo,
                 descuento_valor,
-                        str(puntos_otorgar),
-                        str(puntos_restar + puntos_gastados),
-                        ticket_text_snapshot,
+                str(puntos_otorgar),
+                str(puntos_restar + puntos_gastados),
+                ticket_text_snapshot,
             ),
         )
         ticket_id = cur.lastrowid
@@ -358,9 +359,9 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
             # include `line_tipo` so lines can be 'venta'|'devolucion'|'intercambio'
             line_tipo = str(item.get('line_tipo', 'venta'))
             insert_line_q = (
-                "INSERT INTO ticket_lines (ticket_id, sku, nombre, cantidad, precio, iva, line_tipo) VALUES (?, ?, ?, ?, ?, ?, ?)"
+                "INSERT INTO ticket_lines (ticket_id, sku, nombre, cantidad, precio, iva, line_tipo, producto_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
             )
-            cur.execute(insert_line_q, (ticket_id, sku, nombre, cantidad, str(precio), tipo_iva, line_tipo))
+            cur.execute(insert_line_q, (ticket_id, sku, nombre, cantidad, str(precio), tipo_iva, line_tipo, prod_id))
             line_id = cur.lastrowid
 
             # update producto stock and ventas if prod_id provided
@@ -387,6 +388,61 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
                     _insert_stock_movement(cur, prod_id, stock_change, f"ticket:{ticket_id}", line_id)
                 except Exception:
                     logging.exception('Error actualizando stock/ventas para producto %s', prod_id)
+
+        # If there is a monetary discount, add it as one or more ticket lines
+        # distributed across IVA types proportionally to gross per-IVA totals.
+        try:
+            if descuento_euros and Decimal(str(descuento_euros)) != Decimal('0'):
+                try:
+                    # compute gross totals per iva from carrito_items
+                    gross_by_iva = {}
+                    total_gross = Decimal('0')
+                    for it in carrito_items:
+                        try:
+                            lt = str(it.get('line_tipo', 'venta'))
+                            qty = Decimal(str(it.get('cantidad', 0)))
+                            price = Decimal(str(it.get('pvp', '0')))
+                            iva = int(it.get('tipo_iva', 0) or 0)
+                            if lt == 'devolucion':
+                                # returns reduce gross
+                                gross = - (price * qty)
+                            else:
+                                gross = price * qty
+                            gross_by_iva[iva] = gross_by_iva.get(iva, Decimal('0')) + gross
+                            total_gross += abs(gross)
+                        except Exception:
+                            logging.exception('Error calculando gross por IVA')
+
+                    insert_line_q = (
+                        "INSERT INTO ticket_lines (ticket_id, sku, nombre, cantidad, precio, iva, line_tipo, producto_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+                    )
+
+                    # if total_gross is zero (fallback), insert single discount line with iva 0
+                    decimals = Decimal('0.01')
+                    remaining = Decimal(str(descuento_euros))
+                    if total_gross == 0:
+                        cur.execute(insert_line_q, (ticket_id, None, 'Descuento', 1, str(-abs(remaining)), 0, 'descuento', None))
+                    else:
+                        # allocate per IVA group
+                        iva_items = list(gross_by_iva.items())
+                        allocated_sum = Decimal('0')
+                        for idx, (iva, gross) in enumerate(iva_items):
+                            try:
+                                # proportion based on absolute gross
+                                portion = (abs(gross) / total_gross)
+                                alloc = (Decimal(str(descuento_euros)) * portion).quantize(decimals, rounding=ROUND_HALF_UP)
+                                # last one gets remainder to ensure exact total
+                                if idx == len(iva_items) - 1:
+                                    alloc = Decimal(str(descuento_euros)) - allocated_sum
+                                allocated_sum += alloc
+                                # insert negative gross as price, with corresponding iva
+                                cur.execute(insert_line_q, (ticket_id, None, 'Descuento', 1, str(-abs(alloc)), iva, 'descuento', None))
+                            except Exception:
+                                logging.exception('Error insertando línea de descuento por IVA')
+                except Exception:
+                    logging.exception('Error insertando líneas de descuento en ticket_lines')
+        except Exception:
+            logging.exception('Error comprobando descuento para insertar línea')
 
         # commit
         # --- Insertar registros de pagos y auditoría dentro de la misma transacción ---

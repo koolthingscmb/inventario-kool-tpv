@@ -299,7 +299,20 @@ class CierreUI(SelectionOverlayTemplate):
 
             # Persistir cierre atómico con snapshot_text
             try:
-                cierre_id = cierre_svc.create_cierre_atomic(ids, None, tickets[0].get('cajero') if tickets else None, cierre_text=snapshot)
+                # intentar obtener usuario_id (cajero) desde DB wrapper si está disponible
+                usuario_id = None
+                try:
+                    getter = getattr(self.db, 'get_active_cashier', None)
+                    if callable(getter):
+                        active = getter()
+                        if isinstance(active, dict):
+                            usuario_id = active.get('id') or active.get('usuario_id') or active.get('cajero_id')
+                        elif isinstance(active, int):
+                            usuario_id = active
+                except Exception:
+                    usuario_id = None
+
+                cierre_id = cierre_svc.create_cierre_atomic(ids, usuario_id, tickets[0].get('cajero') if tickets else None, cierre_text=snapshot)
                 if cierre_id is None:
                     logging.error('Fallo al crear cierre atómico')
                     return

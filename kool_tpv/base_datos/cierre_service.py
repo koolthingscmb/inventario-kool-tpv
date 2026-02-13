@@ -5,6 +5,7 @@ Provee métodos básicos para insertar, listar y obtener cierres.
 import logging
 from typing import Optional, List, Dict, Any
 from decimal import Decimal
+import json
 
 
 class CierreService:
@@ -172,15 +173,30 @@ class CierreService:
 
             base_by_type = {}
             iva_by_type = {}
+            # track totals for discounts and devoluciones
+            total_descuentos = Decimal('0')
+            total_devoluciones = Decimal('0')
             for ln in lines or []:
                 try:
                     cantidad = Decimal(str(ln[1] or 0))
                     precio = Decimal(str(ln[2] or 0))
                     tipo_iva = int(float(ln[3])) if ln[3] is not None else 21
                     line_tipo = ln[4] if len(ln) > 4 else 'venta'
+                    # determine effective gross: precio already can be negative (discounts)
                     sign = Decimal('-1') if str(line_tipo) == 'devolucion' else Decimal('1')
-
                     gross = precio * cantidad * sign
+
+                    # accumulate discounts/devoluciones separately for reporting
+                    if str(line_tipo) == 'descuento':
+                        try:
+                            total_descuentos += abs(gross)
+                        except Exception:
+                            pass
+                    if str(line_tipo) == 'devolucion':
+                        try:
+                            total_devoluciones += abs(gross)
+                        except Exception:
+                            pass
                     divisor = (Decimal('1') + (Decimal(tipo_iva) / Decimal('100')))
                     try:
                         base = (gross / divisor)
@@ -202,6 +218,36 @@ class CierreService:
             result['total_base_imponible'] = sum(base_by_type.values())
             result['total_iva'] = sum(iva_by_type.values())
 
+            # totals for discounts and devoluciones
+            result['total_descuentos'] = float(total_descuentos)
+            result['total_devoluciones'] = float(total_devoluciones)
+
+            # Construir desglose IVA por tipo para uso en snapshot/BD
+            try:
+                iva_desglose = {}
+                for t, base in base_by_type.items():
+                    cuota = iva_by_type.get(t, Decimal('0'))
+                    iva_desglose[str(int(t))] = {
+                        'base': float(base),
+                        'iva': float(cuota)
+                    }
+                result['iva_desglose'] = iva_desglose
+            except Exception:
+                result['iva_desglose'] = {}
+
+            # Calcular tesoro (puntos) asociados a los tickets
+            try:
+                placeholders = ','.join(['?'] * len(ticket_ids))
+                q = f"SELECT COALESCE(SUM(CASE WHEN puntos>0 THEN puntos ELSE 0 END),0), COALESCE(SUM(CASE WHEN puntos<0 THEN -puntos ELSE 0 END),0) FROM points_movements WHERE ticket_id IN ({placeholders})"
+                row = self.db.fetch_one(q, tuple(ticket_ids))
+                otorgado = float(row[0] or 0)
+                gastado = float(row[1] or 0)
+                result['tesoro_otorgado'] = otorgado
+                result['tesoro_gastado'] = gastado
+            except Exception:
+                result['tesoro_otorgado'] = 0.0
+                result['tesoro_gastado'] = 0.0
+
             # Convert Decimals to floats for caller convenience
             for k in ['total_ingresos', 'total_efectivo', 'total_tarjeta', 'total_web', 'base_21', 'iva_21', 'base_4', 'iva_4', 'total_base_imponible', 'total_iva']:
                 try:
@@ -209,12 +255,25 @@ class CierreService:
                 except Exception:
                     result[k] = 0.0
 
+            # Ensure iva_desglose and tesoro fields are serializables
+            try:
+                if 'iva_desglose' not in result:
+                    result['iva_desglose'] = {}
+            except Exception:
+                result['iva_desglose'] = {}
+            try:
+                result['tesoro_otorgado'] = float(result.get('tesoro_otorgado', 0.0))
+                result['tesoro_gastado'] = float(result.get('tesoro_gastado', 0.0))
+            except Exception:
+                result['tesoro_otorgado'] = 0.0
+                result['tesoro_gastado'] = 0.0
+
             return result
         except Exception:
             logging.exception('Error computing totals for ticket ids')
             return result
 
-    def create_cierre_atomic(self, ticket_ids: List[int], usuario_id: Optional[int], cajero: Optional[str]) -> Optional[int]:
+    def create_cierre_atomic(self, ticket_ids: List[int], usuario_id: Optional[int], cajero: Optional[str], cierre_text: Optional[str] = None) -> Optional[int]:
         """Crear un cierre y marcar tickets en una única transacción.
 
         Retorna el `id` del cierre creado o None en caso de error.
@@ -249,12 +308,14 @@ class CierreService:
                     'cierre_num', 'fecha_hora', 'cajero', 'total_ingresos', 'num_ventas',
                     'rango_inicio_ticket', 'rango_fin_ticket', 'total_efectivo', 'total_tarjeta',
                     'total_web', 'total_devoluciones', 'total_descuentos',
+                    'tesoro_ganado', 'tesoro_gastado', 'iva_desglose',
                     'base_21', 'iva_21', 'base_4', 'iva_4', 'total_base_imponible', 'total_iva',
                     'cierre_text', 'usuario_id'
                 )
 
                 # Compute minimal values for devoluciones/discounts as 0 for now
-                cierre_text = f"Cierre {cierre_num} - tickets: {len(ticket_ids)}"
+                if cierre_text is None:
+                    cierre_text = f"Cierre {cierre_num} - tickets: {len(ticket_ids)}"
 
                 values = (
                     cierre_num,
@@ -268,8 +329,12 @@ class CierreService:
                     totals.get('total_efectivo', 0.0),
                     totals.get('total_tarjeta', 0.0),
                     totals.get('total_web', 0.0),
-                    0.0,  # total_devoluciones
-                    0.0,  # total_descuentos
+                    totals.get('total_devoluciones', 0.0),
+                    totals.get('total_descuentos', 0.0),
+                    # tesoro
+                    totals.get('tesoro_otorgado', 0.0),
+                    totals.get('tesoro_gastado', 0.0),
+                    json.dumps(totals.get('iva_desglose', {}), ensure_ascii=False),
                     totals.get('base_21', 0.0),
                     totals.get('iva_21', 0.0),
                     totals.get('base_4', 0.0),
@@ -296,8 +361,8 @@ class CierreService:
                         if isinstance(e, _sqlite.OperationalError):
                             fallback_cols = (
                                 'cierre_num', 'fecha_hora', 'cajero', 'total_ingresos', 'num_ventas',
-                                'rango_inicio_ticket', 'rango_fin_ticket', 'total_efectivo', 'total_tarjeta',
-                                'total_web', 'total_devoluciones', 'total_descuentos', 'cierre_text', 'usuario_id'
+                                    'rango_inicio_ticket', 'rango_fin_ticket', 'total_efectivo', 'total_tarjeta',
+                                    'total_web', 'total_devoluciones', 'total_descuentos', 'tesoro_ganado', 'tesoro_gastado', 'iva_desglose', 'cierre_text', 'usuario_id'
                             )
                             fallback_values = (
                                 cierre_num,
@@ -312,8 +377,11 @@ class CierreService:
                                 totals.get('total_web', 0.0),
                                 0.0,
                                 0.0,
-                                cierre_text,
-                                usuario_id,
+                                    totals.get('tesoro_otorgado', 0.0),
+                                    totals.get('tesoro_gastado', 0.0),
+                                    json.dumps(totals.get('iva_desglose', {}), ensure_ascii=False),
+                                    cierre_text,
+                                    usuario_id,
                             )
                             fallback_sql = 'INSERT INTO cierres_caja (' + ','.join(fallback_cols) + ') VALUES (' + ','.join(['?'] * len(fallback_cols)) + ')'
                             cur.execute(fallback_sql, fallback_values)
