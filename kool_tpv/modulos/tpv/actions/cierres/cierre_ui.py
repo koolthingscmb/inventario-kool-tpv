@@ -14,6 +14,7 @@ from kool_tpv.utils.templates.selection_overlay_visor import SelectionOverlayVis
 from kool_tpv.modulos.tpv.actions.cierres.cierre_controller import CierreController
 from kool_tpv.modulos.impresion.cierre_ticket_generator import CierreTicketGenerator
 from kool_tpv.base_datos.cierre_service import CierreService
+from .cierre_historico_ui import HistoricoHandler
 from datetime import datetime
 
 
@@ -27,6 +28,17 @@ class CierreUI(CierreBaseUI):
         self.db = db
         self.controller = CierreController(db)
 
+        # Sistema de modos (igual que stock_ui.py)
+        self.modo = 'cierres'  # 'cierres' o 'historico'
+        self._saved_page_size = None
+
+        # Handler para histórico (igual que ConsultaStockHandler en stock_ui.py)
+        try:
+            self._historico_handler = HistoricoHandler(self)
+        except Exception:
+            self._historico_handler = None
+            logging.exception('Error instanciando HistoricoHandler')
+
         # Title
         self.title_text = "CIERRES"
         try:
@@ -35,13 +47,25 @@ class CierreUI(CierreBaseUI):
         except Exception:
             pass
 
-        # Columns for tickets list (as requested)
-        self.columns_config = [
+        # Columns for modo CIERRES
+        self.columns_config_cierres = [
             ("id", "ID ticket", 100, "center"),
             ("created_at", "Fecha ticket", 180, "center"),
             ("num_ventas", "Nº de ventas", 120, "center"),
             ("total", "Total €", 120, "e"),
         ]
+
+        # Columns for modo HISTORICO
+        self.columns_config_historico = [
+            ("cierre_id", "ID cierre", 100, "center"),
+            ("fecha", "Fecha", 180, "center"),
+            ("usuario", "Usuario", 120, "center"),
+            ("num_tickets", "Total tickets", 120, "center"),
+            ("total", "Total €", 120, "e"),
+        ]
+
+        # Aplicar config inicial (cierres)
+        self.columns_config = self.columns_config_cierres
         try:
             self._aplicar_config_columnas(self.columns_config)
         except Exception:
@@ -92,6 +116,15 @@ class CierreUI(CierreBaseUI):
                 self.cierre_z_btn = ctk.CTkButton(self._header_buttons_row, text="Cierre Z", width=140, fg_color='#FF4444', text_color='black', command=self._on_cierre_z)
                 # Mostrar button (blanco fondo, texto negro) a la derecha de Cierre Z
                 self.mostrar_btn = ctk.CTkButton(self._header_buttons_row, text="Mostrar", width=140, fg_color='#FFFFFF', text_color='black', command=self._on_mostrar)
+                # Botón IMPRIMIR (solo visible en modo historico)
+                self.imprimir_btn = ctk.CTkButton(
+                    self._header_buttons_row,
+                    text="IMPRIMIR",
+                    width=140,
+                    fg_color='#FFFFFF',
+                    text_color='#000000',
+                    command=self._on_imprimir
+                )
                 self.tickets_cierre_btn.pack(side="left", padx=5)
                 self.historico_btn.pack(side="left", padx=5)
                 self.cierre_z_btn.pack(side="left", padx=5)
@@ -121,33 +154,39 @@ class CierreUI(CierreBaseUI):
             logging.exception('Error añadiendo controles al header en CierreUI')
 
     def _load_and_render(self, termino: str = ''):
+        """Cargar datos según modo actual y renderizar."""
         try:
-            # Load tickets without cierre (always show all pending tickets).
-            items = self.controller.fetch_tickets_without_cierre(limit=1000, offset=0)
-            # Prefer visor helper to render items directly (no search entry)
-            try:
-                if getattr(self, 'visor_helper', None) is not None:
-                    self.visor_helper.render_items(items)
+            if self.modo == 'cierres':
+                # Cargar tickets sin cierre
+                items = self.controller.fetch_tickets_without_cierre(limit=1000, offset=0)
+                self._items = items
+            elif self.modo == 'historico':
+                # Delegar carga al handler
+                if self._historico_handler is not None:
+                    try:
+                        self._items = self._historico_handler.load_historico(termino)
+                    except Exception:
+                        logging.exception('Error cargando historico desde handler')
+                        self._items = []
                 else:
-                    self._items = items
-                    self._current_page = 0
-                    self._render_clients_page()
-            except Exception:
-                logging.exception('Error usando visor_helper para render_items en CierreUI')
+                    self._items = []
+
+            self._current_page = 0
+            self._render_clients_page()
+
         except Exception:
-            logging.exception('Error _load_and_render en CierreUI')
+            logging.exception('Error en _load_and_render de CierreUI')
 
     def _on_refresh(self):
         self._load_and_render('')
 
     def _on_historico(self):
-        # Placeholder: open cierre_historico_ui (to be implemented)
+        """Cambiar a modo histórico (igual que stock_ui._on_consultar)."""
         try:
-            from .cierre_historico_ui import CierreHistoricoUI
-            ui = CierreHistoricoUI(self.action_panel if hasattr(self, 'action_panel') else self.view, self.db)
-            ui.show()
+            self._cambiar_modo('historico')
+            logging.info('Cambiado a modo histórico')
         except Exception:
-            logging.exception('Error abriendo cierre_historico_ui')
+            logging.exception('Error en _on_historico')
 
     def _on_cierre_z(self):
         try:
@@ -345,6 +384,93 @@ class CierreUI(CierreBaseUI):
 
         except Exception:
             logging.exception('Error en _on_cierre_z')
+
+    def _cambiar_modo(self, nuevo_modo: str):
+        """Cambiar entre modo 'cierres' y 'historico' (igual que stock_ui)."""
+        try:
+            self.modo = nuevo_modo
+
+            if self.modo == 'cierres':
+                self._configurar_modo_cierres()
+            elif self.modo == 'historico':
+                # Delegar al handler (igual que stock_ui delega a ConsultaStockHandler)
+                try:
+                    if self._historico_handler is not None:
+                        self._historico_handler.configurar_modo_historico()
+                    else:
+                        self._configurar_modo_historico()
+                except Exception:
+                    logging.exception('Error configurando modo historico')
+
+            # Recargar datos
+            self._load_and_render('')
+
+        except Exception:
+            logging.exception('Error cambiando modo en CierreUI')
+
+    def _configurar_modo_cierres(self):
+        """Configurar UI para modo cierres (igual que stock_ui._configurar_modo_stock)."""
+        try:
+            # Cambiar título
+            self.title_text = "CIERRES"
+            if hasattr(self, 'header_label'):
+                try:
+                    self.header_label.configure(text=self.title_text)
+                except Exception:
+                    pass
+
+            # Aplicar columnas de cierres
+            self._aplicar_config_columnas(self.columns_config_cierres)
+
+            # Mostrar botones de cierres
+            if hasattr(self, 'tickets_cierre_btn'):
+                try:
+                    self.tickets_cierre_btn.pack(side="left", padx=5)
+                except Exception:
+                    pass
+
+            if hasattr(self, 'historico_btn'):
+                try:
+                    self.historico_btn.pack(side="left", padx=5)
+                except Exception:
+                    pass
+
+            if hasattr(self, 'cierre_z_btn'):
+                try:
+                    self.cierre_z_btn.pack(side="left", padx=5)
+                except Exception:
+                    pass
+
+            if hasattr(self, 'mostrar_btn'):
+                try:
+                    self.mostrar_btn.pack(side="left", padx=5)
+                except Exception:
+                    pass
+
+            # Ocultar botón IMPRIMIR (solo visible en historico)
+            if hasattr(self, 'imprimir_btn'):
+                try:
+                    self.imprimir_btn.pack_forget()
+                except Exception:
+                    pass
+
+            # Destruir VisorNegro si existe
+            try:
+                if getattr(self, '_visor_negro', None) is not None:
+                    try:
+                        self._visor_negro.destroy()
+                    except Exception:
+                        pass
+                    self._visor_negro = None
+            except Exception:
+                pass
+
+        except Exception:
+            logging.exception('Error configurando modo cierres')
+
+    def _configurar_modo_historico(self):
+        """Fallback si no existe handler (normalmente se delega)."""
+        logging.warning('_configurar_modo_historico llamado sin handler')
 
     def _on_mostrar(self):
         """Mostrar el ticket seleccionado en el VisorNegro (si existe)."""
@@ -552,6 +678,97 @@ class CierreUI(CierreBaseUI):
         except Exception:
             logging.exception('Error en _on_mostrar')
 
+    def _on_imprimir(self):
+        """Imprimir cierre desde histórico."""
+        try:
+            if self._historico_handler is not None:
+                self._historico_handler.on_imprimir()
+        except Exception:
+            logging.exception('Error delegando _on_imprimir')
+
+    def _aplicar_config_columnas(self, columns_config):
+        """Aplicar configuración de columnas al treeview (igual que stock_ui)."""
+        try:
+            if not hasattr(self, 'tree') or self.tree is None:
+                return
+
+            self.columns_config = columns_config
+            cols = [c[0] for c in columns_config]
+            self.tree.configure(columns=cols)
+
+            for key, heading, width, anchor in columns_config:
+                try:
+                    self.tree.heading(key, text=heading)
+                    self.tree.column(key, width=width, anchor=anchor)
+                except Exception:
+                    logging.exception(f'Error configurando columna {key}')
+        except Exception:
+            logging.exception('Error aplicando config de columnas')
+
+    def _render_clients_page(self):
+        """Renderizar página según modo actual."""
+        try:
+            import math
+
+            # Limpiar tree
+            for child in list(self.tree.get_children()):
+                try:
+                    self.tree.delete(child)
+                except Exception:
+                    pass
+
+            # Calcular rango de página
+            start = getattr(self, '_current_page', 0) * getattr(self, '_page_size', 25)
+            end = start + getattr(self, '_page_size', 25)
+            page_items = (self._items or [])[start:end]
+
+            # Renderizar según modo
+            if self.modo == 'cierres':
+                self._render_tickets(page_items)
+            elif self.modo == 'historico':
+                self._render_historico(page_items)
+
+            # Actualizar paginación
+            total_pages = max(1, math.ceil(len(self._items or []) / getattr(self, '_page_size', 25)))
+            try:
+                if hasattr(self, 'page_label'):
+                    self.page_label.configure(text=f"Página {getattr(self, '_current_page', 0) + 1} / {total_pages}")
+                if hasattr(self, 'prev_btn'):
+                    self.prev_btn.configure(state=('normal' if getattr(self, '_current_page', 0) > 0 else 'disabled'))
+                if hasattr(self, 'next_btn'):
+                    self.next_btn.configure(state=('normal' if getattr(self, '_current_page', 0) < total_pages - 1 else 'disabled'))
+            except Exception:
+                pass
+
+        except Exception:
+            logging.exception('Error renderizando página en CierreUI')
+
+    def _render_tickets(self, tickets):
+        """Renderizar lista de tickets (modo cierres)."""
+        for ticket in tickets:
+            try:
+                self.tree.insert(
+                    '',
+                    'end',
+                    iid=str(ticket.get('id')),
+                    values=(
+                        ticket.get('id'),
+                        ticket.get('created_at'),
+                        ticket.get('num_ventas'),
+                        ticket.get('total')
+                    )
+                )
+            except Exception:
+                logging.exception('Error insertando ticket en tree')
+
+    def _render_historico(self, items):
+        """Delegar renderizado de histórico al handler."""
+        try:
+            if self._historico_handler is not None:
+                self._historico_handler.render_historico(items)
+        except Exception:
+            logging.exception('Error delegando render_historico')
+
     def _on_filter_change(self):
         # Checkboxes only affect report detail; do not reload the tickets list here.
         return
@@ -588,25 +805,39 @@ class CierreUI(CierreBaseUI):
             logging.exception('Error en CierreUI.show()')
 
     def hide(self) -> None:
-        """Oculta el overlay y asegura que el VisorNegro quede desactivado.
+        """Override hide() para detectar modo (igual que stock_ui).
 
-        Limpia el texto del visor y lo oculta si existe, luego delega
-        en la implementación base para ocultar el overlay.
+        Si está en historico, vuelve a cierres.
+        Si está en cierres, cierra overlay.
         """
         try:
-            if getattr(self, '_visor_negro', None):
+            if getattr(self, 'modo', None) == 'historico':
+                # Volver a modo cierres (NO cerrar)
+                self._cambiar_modo('cierres')
+            else:
+                # Cerrar overlay
                 try:
-                    self._visor_negro.set_text('')
+                    # Limpiar VisorNegro
+                    if getattr(self, '_visor_negro', None):
+                        try:
+                            self._visor_negro.set_text('')
+                        except Exception:
+                            pass
+                        try:
+                            self._visor_negro.hide()
+                        except Exception:
+                            pass
                 except Exception:
                     pass
-                try:
-                    self._visor_negro.hide()
-                except Exception:
-                    pass
-        except Exception:
-            logging.exception('Error limpiando VisorNegro en CierreUI.hide')
 
-        try:
-            super().hide()
+                try:
+                    super().hide()
+                except Exception:
+                    pass
         except Exception:
-            logging.exception('Error llamando SelectionOverlayTemplate.hide en CierreUI.hide')
+            logging.exception('Error en hide() de CierreUI')
+            # Fallback: cerrar siempre
+            try:
+                super().hide()
+            except Exception:
+                pass
