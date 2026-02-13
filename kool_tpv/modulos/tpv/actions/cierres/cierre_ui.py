@@ -9,7 +9,7 @@ from typing import Optional
 
 import customtkinter as ctk
 
-from kool_tpv.utils.templates.template_selection_overlay import SelectionOverlayTemplate
+from .cierre_base_ui import CierreBaseUI
 from kool_tpv.utils.templates.selection_overlay_visor import SelectionOverlayVisor
 from kool_tpv.modulos.tpv.actions.cierres.cierre_controller import CierreController
 from kool_tpv.modulos.impresion.cierre_ticket_generator import CierreTicketGenerator
@@ -17,7 +17,7 @@ from kool_tpv.base_datos.cierre_service import CierreService
 from datetime import datetime
 
 
-class CierreUI(SelectionOverlayTemplate):
+class CierreUI(CierreBaseUI):
     def __init__(self, view_or_action_panel, db, on_selection_callback: Optional[callable] = None):
         ui_cfg = {
             'page_size': 25,
@@ -142,12 +142,12 @@ class CierreUI(SelectionOverlayTemplate):
 
     def _on_historico(self):
         # Placeholder: open cierre_historico_ui (to be implemented)
-            try:
-                from .cierre_historicos import CierreHistoricoUI
-                ui = CierreHistoricoUI(self.action_panel if hasattr(self, 'action_panel') else self.view, self.db)
-                ui.show()
-            except Exception:
-                logging.exception('Error abriendo CierreHistoricoUI')
+        try:
+            from .cierre_historico_ui import CierreHistoricoUI
+            ui = CierreHistoricoUI(self.action_panel if hasattr(self, 'action_panel') else self.view, self.db)
+            ui.show()
+        except Exception:
+            logging.exception('Error abriendo cierre_historico_ui')
 
     def _on_cierre_z(self):
         try:
