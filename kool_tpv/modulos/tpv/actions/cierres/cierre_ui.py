@@ -745,10 +745,10 @@ class CierreUI(CierreBaseUI):
                     self._historico_handler.on_exportar()
                 except Exception:
                     logging.exception('Error delegando Exportar al HistoricoHandler')
-            else:
-                logging.info('Exportar sólo está disponible en modo HISTÓRICO')
+                return
+            logging.info('Exportar - no implementado para modo cierres')
         except Exception:
-            logging.exception('Error en _on_exportar')
+            logging.exception('Error en _on_exportar CierreUI')
 
     def _on_ver_tickets(self):
         logging.info('Ver Tickets - no implementado')

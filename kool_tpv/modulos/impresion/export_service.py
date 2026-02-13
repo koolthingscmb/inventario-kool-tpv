@@ -142,3 +142,74 @@ class ExportService:
             path = self._timestamped_path(f"cierre_{cierre.get('cierre_num') or cierre_id}", 'pdf')
 
         return self.export_text_to_pdf(cierre_text, path=path)
+
+    def export_cierres_csv(self, cierre_ids: List[int], path: Optional[str] = None) -> str:
+        """Exportar múltiples cierres en un único CSV.
+
+        Cada cierre se añade como un bloque con metadatos seguido de su sección de tickets.
+        """
+        if not cierre_ids:
+            raise ValueError('No se proporcionaron ids de cierres')
+
+        if path is None:
+            path = self._timestamped_path('cierres_export', 'csv')
+
+        try:
+            with open(path, 'w', newline='', encoding='utf-8') as f:
+                w = csv.writer(f)
+                for cid in cierre_ids:
+                    cierre = self.cierre_svc.obtener_cierre_por_id(cid)
+                    if cierre is None:
+                        continue
+                    # header for cierre
+                    w.writerow(['CIERRE_ID', cierre.get('id')])
+                    w.writerow(['CIERRE_NUM', cierre.get('cierre_num')])
+                    w.writerow(['FECHA_HORA', cierre.get('fecha_hora')])
+                    w.writerow(['CAJERO', cierre.get('cajero')])
+                    w.writerow(['TOTAL_INGRESOS', cierre.get('total_ingresos')])
+                    w.writerow(['NUM_VENTAS', cierre.get('num_ventas')])
+                    w.writerow(['TOTAL_DESCUENTOS', cierre.get('total_descuentos')])
+                    w.writerow(['IVA_DESGLOSE', json.dumps(cierre.get('iva_desglose') or {}, ensure_ascii=False)])
+                    w.writerow([])
+                    w.writerow(['TICKETS'])
+                    header = ['id', 'num_ventas', 'total', 'importe_efectivo', 'importe_tarjeta', 'forma_pago', 'descuento_euros', 'cajero', 'created_at']
+                    w.writerow(header)
+                    try:
+                        rows = self.db.fetch_all('SELECT id, num_ventas, total, importe_efectivo, importe_tarjeta, forma_pago, descuento_euros, cajero, created_at FROM tickets WHERE cierre_id = ?', (cid,))
+                    except Exception:
+                        logging.exception('Error cargando tickets para cierre %s en export CSV', str(cid))
+                        rows = []
+                    for r in rows or []:
+                        try:
+                            w.writerow([r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8]])
+                        except Exception:
+                            logging.exception('Error escribiendo fila ticket en export CSV')
+                    # separator between cierres
+                    w.writerow([])
+                    w.writerow(['----'])
+                    w.writerow([])
+            return path
+        except Exception:
+            logging.exception('Error generando CSV múltiple')
+            raise
+
+    def export_cierres_pdf(self, cierre_ids: List[int], path: Optional[str] = None) -> str:
+        """Exportar múltiples cierres concatenando sus `cierre_text` en un único PDF."""
+        if not cierre_ids:
+            raise ValueError('No se proporcionaron ids de cierres')
+
+        texts = []
+        for cid in cierre_ids:
+            cierre = self.cierre_svc.obtener_cierre_por_id(cid)
+            if cierre is None:
+                continue
+            texts.append(cierre.get('cierre_text') or f"Cierre {cierre.get('cierre_num')}")
+
+        if not texts:
+            raise ValueError('No hay texto de cierre para exportar')
+
+        combined = '\n\f\n'.join(texts)
+        if path is None:
+            path = self._timestamped_path('cierres_export', 'pdf')
+
+        return self.export_text_to_pdf(combined, path=path)

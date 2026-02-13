@@ -8,9 +8,6 @@ import logging
 
 from kool_tpv.base_datos.cierre_service import CierreService
 from kool_tpv.modulos.tpv.ui.visor_negro import VisorNegro
-from kool_tpv.modulos.impresion.export_service import ExportService
-from tkinter import filedialog
-from kool_tpv.utils.custom_dialog import show_success, show_error
 
 
 class HistoricoHandler:
@@ -231,77 +228,6 @@ class HistoricoHandler:
         except Exception:
             logging.exception('Error en teardown_historico (handler)')
 
-    def on_exportar(self):
-        """Exportar el cierre seleccionado a CSV o PDF.
-
-        Reglas:
-        - Solo admite una selección (igual que mostrar).
-        - Abre un diálogo para elegir ruta y formato.
-        """
-        try:
-            parent = self.parent
-            tree = getattr(parent, 'tree', None)
-            sel = list(tree.selection() or []) if tree is not None else []
-
-            if not sel:
-                try:
-                    root = parent.overlay.winfo_toplevel() if getattr(parent, 'overlay', None) is not None else None
-                    show_error(root, 'Error', 'Selecciona un cierre para exportar')
-                except Exception:
-                    pass
-                return
-
-            if len(sel) > 1:
-                try:
-                    root = parent.overlay.winfo_toplevel() if getattr(parent, 'overlay', None) is not None else None
-                    show_error(root, 'Error', 'Solamente se puede exportar un cierre a la vez')
-                except Exception:
-                    pass
-                return
-
-            try:
-                cid = int(sel[0])
-            except Exception:
-                logging.info('ID selección inválido para exportar')
-                return
-
-            # Ask save location and format
-            try:
-                rootwin = parent.overlay.winfo_toplevel() if getattr(parent, 'overlay', None) is not None else None
-                filetypes = [('CSV', '*.csv'), ('PDF', '*.pdf')]
-                path = filedialog.asksaveasfilename(parent=rootwin, title='Exportar cierre', filetypes=filetypes, defaultextension=filetypes)
-                if not path:
-                    return
-            except Exception:
-                logging.exception('Error mostrando dialogo saveas')
-                return
-
-            svc = ExportService(self.db)
-            try:
-                if path.lower().endswith('.csv'):
-                    out = svc.export_cierre_csv(cid, path=path)
-                elif path.lower().endswith('.pdf'):
-                    out = svc.export_cierre_pdf(cid, path=path)
-                else:
-                    # fallback to csv
-                    out = svc.export_cierre_csv(cid, path=path + '.csv')
-
-                try:
-                    root = parent.overlay.winfo_toplevel() if getattr(parent, 'overlay', None) is not None else None
-                    show_success(root, 'Exportado', f'Exportado a {out}')
-                except Exception:
-                    pass
-            except Exception:
-                logging.exception('Error exportando cierre %s', cid)
-                try:
-                    root = parent.overlay.winfo_toplevel() if getattr(parent, 'overlay', None) is not None else None
-                    show_error(root, 'Error', 'Fallo al exportar el cierre')
-                except Exception:
-                    pass
-
-        except Exception:
-            logging.exception('Error en on_exportar (handler)')
-
     def on_mostrar(self):
         """Mostrar el `cierre_text` del cierre seleccionado en el VisorNegro.
 
@@ -375,6 +301,76 @@ class HistoricoHandler:
 
         except Exception:
             logging.exception('Error en on_mostrar (handler)')
+
+    def on_exportar(self):
+        """Exportar cierres seleccionados (o todos los visibles si no hay selección).
+
+        Abre un `asksaveasfilename` para elegir CSV o PDF y llama a `ExportService`.
+        """
+        try:
+            parent = self.parent
+            tree = getattr(parent, 'tree', None)
+            sel = list(tree.selection() or []) if tree is not None else []
+
+            if sel:
+                cierre_ids = []
+                for s in sel:
+                    try:
+                        cierre_ids.append(int(s))
+                    except Exception:
+                        pass
+            else:
+                items = getattr(parent, '_items', []) or []
+                cierre_ids = [int(it.get('cierre_id')) for it in items if it.get('cierre_id')]
+
+            if not cierre_ids:
+                try:
+                    from kool_tpv.utils.custom_dialog import show_error
+                    root = parent.overlay.winfo_toplevel() if getattr(parent, 'overlay', None) is not None else None
+                    show_error(root, 'Error', 'No hay cierres seleccionados ni visibles para exportar')
+                except Exception:
+                    logging.exception('No cierres para exportar')
+                return
+
+            # dialog
+            try:
+                import tkinter.filedialog as fd
+                root = parent.overlay.winfo_toplevel() if getattr(parent, 'overlay', None) is not None else None
+                filetypes = [('CSV', '*.csv'), ('PDF', '*.pdf')]
+                # default to CSV
+                path = fd.asksaveasfilename(parent=root, title='Exportar cierres', defaultextension='.csv', filetypes=filetypes)
+            except Exception:
+                logging.exception('Error mostrando filedialog')
+                path = None
+
+            if not path:
+                return
+
+            # choose format by extension
+            import os
+            ext = os.path.splitext(path)[1].lower()
+            from kool_tpv.modulos.impresion.export_service import ExportService
+            svc = ExportService(self.db)
+            try:
+                if ext == '.pdf':
+                    svc.export_cierres_pdf(cierre_ids, path=path)
+                else:
+                    svc.export_cierres_csv(cierre_ids, path=path)
+
+                from kool_tpv.utils.custom_dialog import show_success
+                try:
+                    show_success(root, 'Exportado', f'Exportación guardada en: {path}')
+                except Exception:
+                    pass
+            except Exception:
+                logging.exception('Error exportando cierres')
+                try:
+                    from kool_tpv.utils.custom_dialog import show_error
+                    show_error(root, 'Error', 'Fallo al exportar cierres. Revisa logs.')
+                except Exception:
+                    pass
+        except Exception:
+            logging.exception('Error en on_exportar (handler)')
 
 
 # Only HistoricoHandler is needed for mode integration; older
