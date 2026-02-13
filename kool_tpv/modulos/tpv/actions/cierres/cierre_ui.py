@@ -817,7 +817,7 @@ class CierreUI(CierreBaseUI):
             else:
                 # Cerrar overlay
                 try:
-                    # Limpiar VisorNegro
+                    # Limpiar y destruir VisorNegro si existe
                     if getattr(self, '_visor_negro', None):
                         try:
                             self._visor_negro.set_text('')
@@ -827,6 +827,14 @@ class CierreUI(CierreBaseUI):
                             self._visor_negro.hide()
                         except Exception:
                             pass
+                        try:
+                            self._visor_negro.destroy()
+                        except Exception:
+                            pass
+                        try:
+                            self._visor_negro = None
+                        except Exception:
+                            self._visor_negro = None
                 except Exception:
                     pass
 
