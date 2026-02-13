@@ -142,12 +142,12 @@ class CierreUI(SelectionOverlayTemplate):
 
     def _on_historico(self):
         # Placeholder: open cierre_historico_ui (to be implemented)
-        try:
-            from .cierre_historico_ui import CierreHistoricoUI
-            ui = CierreHistoricoUI(self.action_panel if hasattr(self, 'action_panel') else self.view, self.db)
-            ui.show()
-        except Exception:
-            logging.exception('Error abriendo cierre_historico_ui')
+            try:
+                from .cierre_historicos import CierreHistoricoUI
+                ui = CierreHistoricoUI(self.action_panel if hasattr(self, 'action_panel') else self.view, self.db)
+                ui.show()
+            except Exception:
+                logging.exception('Error abriendo CierreHistoricoUI')
 
     def _on_cierre_z(self):
         try:
