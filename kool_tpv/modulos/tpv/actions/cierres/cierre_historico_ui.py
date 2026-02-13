@@ -153,7 +153,17 @@ class HistoricoHandler:
                 tree = getattr(parent, 'tree', None)
                 if tree is not None:
                     try:
-                        tree.bind('<Double-1>', lambda e: self.on_mostrar())
+                        # Save previous binding (if any) to restore later
+                        try:
+                            self._prev_double_bind = tree.bind('<Double-1>')
+                        except Exception:
+                            self._prev_double_bind = None
+
+                        # Bind our handler
+                        try:
+                            tree.bind('<Double-1>', lambda e: self.on_mostrar())
+                        except Exception:
+                            pass
                     except Exception:
                         pass
             except Exception:
@@ -166,20 +176,57 @@ class HistoricoHandler:
         """Imprimir el cierre seleccionado desde el handler."""
         try:
             parent = self.parent
-            sel = list(getattr(parent, 'tree', None).selection() or [])
+            tree = getattr(parent, 'tree', None)
+            sel = list(tree.selection() or []) if tree is not None else []
+
             if not sel:
                 logging.info('No selection to print in Historico (handler)')
                 return
-            cid = int(sel[0])
-            try:
-                cierre = self.cierre_svc.obtener_cierre_por_id(cid)
-                if cierre:
-                    print(f"Cierre {cierre.get('cierre_num')} - {cierre.get('fecha_hora')} - {cierre.get('cajero')}")
-                    print(f"Total ingresos: {cierre.get('total_ingresos')}")
-            except Exception:
-                logging.exception('Error generando impresión de cierre (handler)')
+
+            # Iterate and "print" each selected cierre sequentially
+            for sid in sel:
+                try:
+                    cid = int(sid)
+                except Exception:
+                    logging.info('ID seleccionado inválido para imprimir en Historico')
+                    continue
+
+                try:
+                    cierre = self.cierre_svc.obtener_cierre_por_id(cid) if self.cierre_svc is not None else None
+                    if cierre:
+                        # For now print to terminal (placeholder for real printer)
+                        cierre_text = cierre.get('cierre_text') or f"Cierre {cierre.get('cierre_num')}"
+                        print(cierre_text)
+                except Exception:
+                    logging.exception('Error generando impresión de cierre (handler) para id %s', str(cid))
+
         except Exception:
             logging.exception('Error en on_imprimir (handler)')
+
+    def teardown_historico(self):
+        """Restaurar estado del tree al salir de modo histórico (unbind/restore double-click)."""
+        try:
+            parent = self.parent
+            tree = getattr(parent, 'tree', None)
+            if tree is None:
+                return
+
+            try:
+                prev = getattr(self, '_prev_double_bind', None)
+                if prev:
+                    try:
+                        tree.bind('<Double-1>', prev)
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        tree.unbind('<Double-1>')
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+        except Exception:
+            logging.exception('Error en teardown_historico (handler)')
 
     def on_mostrar(self):
         """Mostrar el `cierre_text` del cierre seleccionado en el VisorNegro.

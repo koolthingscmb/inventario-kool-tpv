@@ -477,6 +477,16 @@ class CierreUI(CierreBaseUI):
             except Exception:
                 pass
 
+            # Notify handler to teardown (restore bindings) if present
+            try:
+                if getattr(self, '_historico_handler', None) is not None:
+                    try:
+                        self._historico_handler.teardown_historico()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
         except Exception:
             logging.exception('Error configurando modo cierres')
 
