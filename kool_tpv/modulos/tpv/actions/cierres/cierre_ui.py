@@ -320,22 +320,44 @@ class CierreUI(SelectionOverlayTemplate):
                 logging.exception('Error llamando create_cierre_atomic')
                 return
 
-            # Imprimir snapshot (terminal / impresora) - por ahora imprimir en stdout
+            # Mostrar snapshot en VisorNegro (si la vista lo provee) y también imprimir en stdout
             try:
-                print(snapshot)
-            except Exception:
-                logging.exception('Error imprimiendo snapshot en terminal')
-
-            # Limpiar VisorNegro tras impresión
-            try:
-                if getattr(self, '_visor_negro', None):
+                view = getattr(self, 'view', None)
+                if view is not None and getattr(view, 'cart_view', None) is not None:
                     try:
-                        self._visor_negro.set_text('')
-                        self._visor_negro.hide()
+                        from kool_tpv.modulos.tpv.ui.visor_negro import VisorNegro
+                        if getattr(self, '_visor_negro', None) is None:
+                            self._visor_negro = VisorNegro(view.cart_view)
                     except Exception:
+                        # fallback: ignore visor creation errors
                         pass
-            except Exception:
-                logging.exception('Error limpiando VisorNegro tras impresión')
+
+                # Set text on visor if available
+                try:
+                    if getattr(self, '_visor_negro', None):
+                        try:
+                            self._visor_negro.set_text_color('#00FF00')
+                        except Exception:
+                            pass
+                        try:
+                            self._visor_negro.set_text(snapshot)
+                        except Exception:
+                            try:
+                                self._visor_negro.set_text(str(snapshot))
+                            except Exception:
+                                pass
+                        try:
+                            self._visor_negro.show()
+                        except Exception:
+                            pass
+                except Exception:
+                    logging.exception('Error mostrando snapshot en VisorNegro')
+
+                # También mantener impresión en stdout como antes
+                try:
+                    print(snapshot)
+                except Exception:
+                    logging.exception('Error imprimiendo snapshot en terminal')
 
             # Recargar lista de tickets disponibles para cerrar
             try:
