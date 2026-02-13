@@ -497,6 +497,15 @@ class CierreUI(CierreBaseUI):
     def _on_mostrar(self):
         """Mostrar el ticket seleccionado en el VisorNegro (si existe)."""
         try:
+            # If we are in historico mode, delegate to the handler which
+            # shows the persisted `cierre_text` (keeps behavior consistent).
+            if getattr(self, 'modo', None) == 'historico' and getattr(self, '_historico_handler', None) is not None:
+                try:
+                    self._historico_handler.on_mostrar()
+                except Exception:
+                    logging.exception('Error delegando Mostrar al HistoricoHandler')
+                return
+
             sel = list(self.tree.selection() or [])
             if not sel:
                 logging.info('No hay tickets seleccionados para Mostrar')
