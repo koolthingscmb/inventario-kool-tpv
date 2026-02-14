@@ -17,6 +17,7 @@ from kool_tpv.utils.formatter_service import FormatterService
 from .StockBase import StockBaseUI
 from kool_tpv.base_datos.producto_service import ProductoService
 from .consulta_stock_ui import ConsultaStockHandler
+from kool_tpv.modulos.tpv.ui.visor_negro import VisorNegro
 
 
 class StockUI(StockBaseUI):
@@ -61,6 +62,28 @@ class StockUI(StockBaseUI):
             self._consulta_handler = ConsultaStockHandler(self)
         except Exception:
             self._consulta_handler = None
+        # Crear VisorNegro pero NO mostrarlo automáticamente
+        try:
+            view = getattr(self, 'view', None)
+            parent_widget = None
+            if view is not None and getattr(view, 'cart_view', None) is not None:
+                parent_widget = view.cart_view
+            else:
+                parent_widget = getattr(self, 'overlay', None)
+            if parent_widget is not None:
+                self._visor_negro = VisorNegro(parent_widget)
+                self._visor_negro.set_text('')
+                try:
+                    self._visor_negro.set_text_color('#00FF00')
+                except Exception:
+                    pass
+                try:
+                    self._visor_negro.set_font_size(13)
+                except Exception:
+                    pass
+                # Do NOT show the VisorNegro here automatically
+        except Exception:
+            logging.exception('Error creando VisorNegro en StockUI')
         # Saved page size to restore after leaving consulta mode
         self._saved_page_size = None
 
@@ -332,11 +355,11 @@ class StockUI(StockBaseUI):
             try:
                 if self.modo == 'consulta':
                     try:
-                        # guardar solo si no hay guardado previo
-                        if getattr(self, '_saved_page_size', None) is None:
-                            self._saved_page_size = getattr(self, '_page_size', None)
-                        # forzar mínimo 20
-                        self._page_size = max(getattr(self, '_page_size', 1), 20)
+                        # Do not force page_size here; keep template dynamic sizing
+                        # previous behavior forced a minimum of 20 which could
+                        # collapse pagination when many items exist. Preserve
+                        # existing _page_size to allow proper pagination.
+                        pass
                     except Exception:
                         pass
                 else:
@@ -511,8 +534,12 @@ class StockUI(StockBaseUI):
         """
         try:
             if self.modo == 'consulta':
-                # Mostrar ticket
-                self._on_mostrar_ticket()
+                # Mostrar ticket (no confirmar selección ni añadir al carrito)
+                try:
+                    self._on_mostrar_ticket()
+                except Exception:
+                    logging.exception('Error mostrando ticket en doble click (StockUI)')
+                return
             else:
                 # Modo stock: añadir al carrito SIN cerrar
                 sel = self.tree.selection()

@@ -166,7 +166,7 @@ class ConsultaStockHandler:
             except Exception:
                 pass
 
-            # Crear VisorNegro en view.cart_view si es posible
+            # Crear VisorNegro en view.cart_view si es posible (NO mostrar automáticamente)
             try:
                 view = getattr(parent, 'view', None)
                 if view is not None and getattr(view, 'cart_view', None) is not None:
@@ -176,11 +176,11 @@ class ConsultaStockHandler:
                         parent._visor_negro.set_text('')
                         parent._visor_negro.set_text_color('#00FF00')
                         parent._visor_negro.set_font_size(13)
-                        parent._visor_negro.show()
+                        # Do NOT call show() here; Visor should be shown only on user action
                     except Exception:
                         pass
             except Exception:
-                logging.exception('Error creando/mostrando VisorNegro (ConsultaStockHandler)')
+                logging.exception('Error creando VisorNegro (ConsultaStockHandler)')
 
         except Exception:
             logging.exception('Error en configurar_modo_consulta')

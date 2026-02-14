@@ -170,6 +170,31 @@ class TpvView:
         self.cajero_id = None
         self.cajero_rol = None
 
+    def _dispatch_action(self, name: str) -> None:
+        """Dispatch string-named actions to concrete handlers (robust to rebinding order).
+
+        Supports at least: 'Abrir Tickets' -> open TicketsUI overlay.
+        """
+        try:
+            nm = (name or '').strip()
+            logging.info(f"Acción '{nm}' pulsada")
+            if not nm:
+                return
+            # Normalize common commands
+            if nm.lower() in ('abrir tickets', 'tickets', 'ticket', 'abrir ticket'):
+                if getattr(self, '_tickets_ui', None) is not None:
+                    try:
+                        self._tickets_ui.show()
+                        return
+                    except Exception:
+                        logging.exception('Error mostrando TicketsUI desde dispatcher')
+                else:
+                    logging.info('TicketsUI no disponible al despachar acción')
+                    return
+            # Fallback: log only (existing rebinding logic handles other commands)
+        except Exception:
+            logging.exception('Error en _dispatch_action (TpvView)')
+
     def _on_producto_stock_selected(self, producto: Dict) -> None:
         """Callback cuando se selecciona producto desde StockUI (doble clic o Aceptar).
 
@@ -397,10 +422,18 @@ class TpvView:
             hover = cfg.get("hover_color")
             # Create button without fixed pixel width/height so it can be
             # resized responsively in `_on_resize`.
+            cmd_name = cfg.get("command", cfg.get("text"))
+            def _btn_cmd(name=cmd_name):
+                try:
+                    # Use dispatcher which will log and try to open known overlays
+                    self._dispatch_action(name)
+                except Exception:
+                    logging.exception("Error ejecutando comando de grid button")
+
             btn = ButtonFactory.create_button(
                 parent=self.grid_frame,
                 text=cfg.get("text", f"BTN{idx+1}"),
-                command=(lambda name=cfg.get("command", cfg.get("text")): logging.info(f"Acción '{name}' pulsada")),
+                command=_btn_cmd,
                 font=font,
                 color=cfg.get("color", "#CCCCCC"),
                 text_color="#000000",
@@ -457,6 +490,8 @@ class TpvView:
         self.cart_view = ctk.CTkFrame(self.right_container, fg_color="#000000")
         self.cart_view.pack(side="top", fill="both", expand=True)
         self.cart_view.pack_propagate(False)
+
+        # no debug overlay
 
         # Cart view placeholder for carrito and ticket display (ticket_display created after carrito)
         # Instantiate carrito service + UI
@@ -557,6 +592,17 @@ class TpvView:
             except Exception:
                 # not critical if cierres action not available
                 self._cierre_ui = None
+            # Instanciar TicketsUI (tickets)
+            try:
+                from kool_tpv.modulos.tpv.actions.tickets.tickets_ui import TicketsUI
+                try:
+                    self._tickets_ui = TicketsUI(self, self.db)
+                except Exception:
+                    logging.exception('Error instanciando TicketsUI')
+                    self._tickets_ui = None
+            except Exception:
+                # not critical if tickets action not available
+                self._tickets_ui = None
             # attach cash controller UI (entry + CASH button)
             try:
                 from kool_tpv.modulos.tpv.actions.cash import CashController
@@ -875,6 +921,29 @@ class TpvView:
                         if txt in ('CIERRE', 'CIERRES') and getattr(self, '_cierre_ui', None) is not None:
                             btn.configure(command=(lambda ui=self._cierre_ui: ui.show()))
                             logging.info('Grid button CIERRES bound to CierreUI')
+                        if txt in ('TICKETS', 'TICKET') and getattr(self, '_tickets_ui', None) is not None:
+                            # Wrap with a placeholder permission check (to implement later)
+                            def _open_tickets(ui=self._tickets_ui, parent=self):
+                                try:
+                                    allowed = True
+                                    try:
+                                        checker = getattr(parent, '_check_tickets_permission', None)
+                                        if callable(checker):
+                                            allowed = bool(checker())
+                                    except Exception:
+                                        allowed = True
+                                    if not allowed:
+                                        try:
+                                            show_error(parent.parent if getattr(parent, 'parent', None) is not None else None, 'Sin permiso', 'Acceso no autorizado a TICKETS')
+                                        except Exception:
+                                            logging.exception('Acceso denegado a TICKETS')
+                                        return
+                                    ui.show()
+                                except Exception:
+                                    logging.exception('Error abriendo TicketsUI')
+
+                            btn.configure(command=_open_tickets)
+                            logging.info('Grid button TICKETS bound to TicketsUI')
                         if txt == 'DESCUENTO' and getattr(self, 'descuento_action', None) is not None:
                             btn.configure(command=lambda act=self.descuento_action: act.ejecutar())
                             logging.info('Grid button DESCUENTO bound to DescuentoAction')

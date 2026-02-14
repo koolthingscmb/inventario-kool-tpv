@@ -1,0 +1,344 @@
+RESUMEN EXHAUSTIVO - KOOL_TPV_V2
+Fecha: 2026-02-14
+Generado por: asistente técnico
+
+--- Índice rápido ---
+1) Resumen ejecutivo
+2) Estructura de carpetas y archivos
+3) Descripción de módulos y responsabilidades
+4) Flujo principal de la aplicación (TPV)
+5) Base de datos: esquema, puntos críticos y consideraciones
+6) Servicios centrales (impresión, cierres, ticketing, stock)
+7) UI y patrones usados (overlays, VisorNegro, templates)
+8) Estado actual: qué está implementado y qué falta
+9) Robustez y profesionalidad: puntos fuertes y débiles
+10) Escalabilidad y uso con bases de datos grandes
+11) Riesgos, deudas técnicas y recomendaciones concretas
+12) Próximos pasos sugeridos
+
+--- 1) Resumen ejecutivo ---
+1. Este documento repasa el proyecto KOOL_TPV_V2: arquitectura, módulos,
+2. funciones y estado de implementación a fecha 2026-02-14.
+3. El objetivo es proporcionar una visión completa y accionable para
+4. desarrolladores y responsables técnicos; incluye valoración de
+5. robustez, escalabilidad y recomendaciones concretas.
+6. El código base está organizado modularmente: `kool_tpv` como paquete
+7. principal con submódulos para `modulos/tpv`, `base_datos`, `modulos/impresion`,
+8. `utils`, `assets` y scripts de prueba.
+9. Los componentes UI usan `customtkinter` + `tkinter` y plantillas de overlays.
+10. La persistencia es SQLite (envoltorio `db_wrapper`) con servicios
+11. para `ticket_service`, `cierre_service`, `producto_service`, etc.
+12. Existen generadores de tickets para impresión simulada en consola.
+13. El proyecto está en un estado funcional con TPV operativo, pero con
+14. áreas incompletas y deuda técnica: handlers sin implementar, faltan
+15. pruebas integrales y optimizaciones de consultas para escalabilidad.
+
+--- 2) Estructura de carpetas y archivos (alto nivel) ---
+1. / (workspace root)
+2. - main.py  -> arranque de la aplicación (envoltorio)
+3. - requirements.txt
+4. - scripts/ -> scripts de prueba e integración (headless, render, etc.)
+5. - RESUMENES/ -> carpeta con resúmenes generados previamente
+6. - kool_tpv/ -> paquete principal de la app
+7. Dentro de `kool_tpv/`:
+8. - __init__.py
+9. - main.py (entry local al paquete)
+10. - assets/ -> recursos (fuentes, dialogs, templates de UI)
+11. - base_datos/ -> capa de persistencia y servicios DB
+12.    - db_wrapper.py (envoltorio genérico para SQLite)
+13.    - db_init.py (inicialización y migraciones/DDL)
+14.    - producto_service.py, ticket_service.py, cierre_service.py,
+15.    - categoria_service.py, tipo_service.py, configuracion_service.py
+16. - modulos/ -> características verticales (tpv, clientes, impresion, etc.)
+17.    - tpv/
+18.       - tpv_view.py (vista principal TPV)
+19.       - tpv_controller.py (lógica de control del TPV)
+20.       - ticket_service.py (lógica de tickets a nivel TPV)
+21.       - carrito/ (UI + servicio del carrito)
+22.       - actions/ -> acciones y controladores (cobros, tickets, cierres)
+23.          - tickets/ -> tickets_ui.py, tickets_handler.py, tickets_base_ui.py
+24.          - cierres/ -> cierre_ui.py, cierre_controller.py, cierre_historico_ui.py
+25.          - Stock/ -> stock UI y consultas
+26.          - cash.py, tarjeta.py, multi_s.py, devolucion.py, descuento.py
+27.    - clientes/ -> cliente_service, fidelizacion_service, ui_clientes.py
+28. - modulos/impresion/ -> generadores e impresora_service (simulado)
+29.    - venta_ticket_generator.py, cierre_ticket_generator.py,
+30.    - base_ticket_generator.py, export_service.py
+31. - utils/ -> utilidades y templates
+32.    - custom_dialog.py (diálogos), formatter_service.py, global_buttons.py
+33.    - templates/ (selection_overlay, selection_overlay_visor, dual mode handler)
+34. - tests/ and scripts/ -> pruebas unit/integración y harnesses
+35. - logs/ -> archivos de log de la aplicación (application.log)
+
+--- 3) Descripción de módulos y responsabilidades (detallado) ---
+1. `main.py` (raíz): arranca la aplicación. Carga configuración y crea
+2. instancia principal de `kool_tpv.main` / `tpv_view` según el flujo.
+3. `kool_tpv/main.py`: encapsula inicialización del entorno y arranque
+4. del bucle principal de tkinter / customtkinter.
+5. `kool_tpv/modulos/tpv/tpv_view.py`: vista y lógica visual del TPV.
+6. - Contiene la rejilla principal (botones grandes), cart UI y binding
+7.   de acciones (TICKETS, CIERRE, STOCK, COBRAR, etc.).
+8. - Instancia sub-UIs como `TicketsUI`, `CierreUI`, `StockUI` durante
+9.   la inicialización y enlaza sus `show()` a botones de la grid.
+10. `kool_tpv/modulos/tpv/tpv_controller.py`: controlador de alto nivel
+11. que acelera interacciones entre UI y servicios.
+12. `kool_tpv/modulos/tpv/carrito/carrito_service.py`: maneja el carrito:
+13. - items, totales, descuentos, puntos de fidelidad (tesoro), y
+14. - expone `get_items()`, `get_resumen_financiero()`, `clear()`, etc.
+15. `kool_tpv/base_datos/db_wrapper.py`: wrapper encargado de ejecutar
+16. consultas SQLite y proveer `fetch_one`, `fetch_all`, `execute`.
+17. `kool_tpv/base_datos/ticket_service.py`: persistencia de tickets y
+18. ticket_lines; genera `ticket_id` y `num_ticket`, actualiza stock y
+19. clientes (tesoro) dentro de transacción.
+20. `cierre_service.py`: agrupa tickets en cierres de caja, calcula totales,
+21. marca tickets con `cierre_id` y guarda metadatos de cierre (rango
+22. de tickets, totales, num_ventas, etc.).
+23. `producto_service.py`: consultas relacionadas con productos y stock.
+24. `impresora_service.py`: servicio de impresión simulado que usa
+25. `VentaTicketGenerator` para generar texto monoespaciado del ticket.
+26. `export_service.py`: exportar cierres/tickets a CSV/PDF.
+27. `utils/custom_dialog.py`: componente de UI modal con estilos y
+28. funciones helper `show_info`, `show_warning`, `show_error`, `show_success`.
+29. `utils/templates/selection_overlay_visor.py` y `template_selection_overlay.py`:
+30. - Plantillas reutilizables para overlays con `Treeview`, paginación y
+31.   controles de footer; utilizados por `TicketsUI` y otros overlays.
+32. `modulos/tpv/actions/tickets/tickets_ui.py`: overlay de tickets.
+33. - Implementa columnas, rendereo de filas, paginación por cierres
+34.   y botones de header (IMPRIMIR, Mostrar, Crear Factura, Consultar).
+35. - Usa `TicketsHandler` para modo histórico (listado de cierres/páginas).
+36. `modulos/tpv/actions/tickets/tickets_handler.py`: handler parcial
+37. - `load_historico`, `render_historico`, `configurar_modo_historico`,
+38.   `on_mostrar` están implementados; `on_imprimir` y `on_consultar` son stubs.
+39. `visor_negro.py`: UI para mostrar texto del ticket en el área del carrito
+40. - Implementa `show()`, `hide()`, `set_text()`, y ajustes de estilo.
+41. `modulos/tpv/actions/cierres/*`: UIs y controladores para cierres de caja,
+42. con vista histórico y generación de cierre (agrupar tickets pendientes).
+43. `modulos/clientes/*`: gestión de clientes y fidelización (niveles, puntos).
+44. `modulos/tpv/actions/Stock/*`: consulta y UI de inventario.
+45. Tests y scripts: varios scripts de prueba headless y tests puntuales.
+
+--- 4) Flujo principal de la aplicación (TPV) ---
+1. Inicio: `main.py` configura logging y crea instancia principal UI.
+2. La `tpv_view` monta la interfaz: grid de botones, `carrito_ui`, `cart_view`.
+3. Usuario añade artículos al carrito (vía búsqueda o botones), se actualiza
+4. `carrito_service` con items, totales y tesoro.
+5. Al pulsar `COBRAR` o `CASH`, se invoca `CashController`, que pide
+6. confirmaciones y llama a `save_ticket` (ticket_service) para persistir.
+7. `save_ticket` hace inserts en `tickets` y `ticket_lines` y actualiza `productos`.
+8. Si el guardado es correcto, se limpia carrito y se intenta imprimir
+9. (simulado) el ticket usando `ImpresoraService` o el `ticket_text` almacenado.
+10. El botón `TICKETS` abre `TicketsUI` overlay; por defecto muestra
+11. tickets abiertos (sin `cierre_id`) y permite paginar sobre cierres.
+12. En `TicketsUI`, `IMPRIMIR` abre diálogo confirm (`show_info`) y
+13. genera texto mediante `ImpresoraService.generar_ticket_desde_id` o usa
+14. `ticket_text` si existe; se imprime en consola (simulación).
+15. `Mostrar` carga `ticket_text` y lo muestra en `VisorNegro`.
+
+--- 5) Base de datos: esquema, puntos críticos y consideraciones ---
+1. DB usada: SQLite (archivos `kool_bd.db.bak` en repo indicativos).
+2. Acceso a DB via `db_wrapper` que implementa `fetch_all`, `fetch_one`.
+3. Tablas clave:
+4. - `tickets`: columnas esperadas: id, num_ticket, created_at, cajero,
+5.   cliente, cliente_id, total, forma_pago, importe_efectivo, importe_tarjeta,
+6.   tesoro_ganado, tesoro_gastado, cierre_id, ticket_text, subtotal, etc.
+7. - `ticket_lines`: líneas por ticket (sku, nombre, cantidad, precio, iva, line_tipo)
+8. - `cierres_caja`: metadatos de cierre: id, fecha_hora, num_ventas (num_tickets),
+9.   total_ingresos, rango_inicio_ticket, rango_fin_ticket
+10. - `productos`, `clientes`, `niveles_fidelidad`, `configuracion`.
+11. Observaciones encontradas en el repo:
+12. - Hubo una referencia a `num_tickets` que no existía; se adaptó a `num_ventas`.
+13. - El código asume columnas adicionales (`importe_efectivo`, `importe_tarjeta`)
+14.   — si la BD no las tuviese, habría fallos; hay migraciones SQL en `RESUMENES`.
+15. - `ticket_text` se guarda como snapshot para impresión; útil cuando la
+16.   generación a posteriori es compleja (p. ej. devoluciones).
+17. - Consultas potencialmente costosas: `SELECT * FROM tickets WHERE num_ticket BETWEEN ? AND ?`.
+18. - No hay índices explícitos visibles en repo; la performance en tablas
+19.   masivas dependerá de índices sobre `num_ticket`, `cierre_id`, `created_at`.
+20. Recomendaciones DB:
+21. - Añadir índices: `CREATE INDEX idx_tickets_num_ticket ON tickets(num_ticket);`
+22. - Índice en `cierre_id` y `created_at` para consultas por rango e ordering.
+23. - Evitar `SELECT *` en vistas; seleccionar columnas necesarias para UI.
+24. - Usar paginación por `LIMIT/OFFSET` combinado con `ORDER BY` y filtros.
+25. - Para millones de filas considerar mover a motor más escalable (Postgres)
+26.   o usar estrategias de particionado/archivado para tickets muy antiguos.
+
+--- 6) Servicios centrales ---
+1. `ImpresoraService`:
+2. - Encapsula `VentaTicketGenerator` que forma el texto del ticket
+3. - Tiene `imprimir_en_consola` flag para simulación; método clave
+4.   `generar_ticket_desde_id(ticket_id)` reconstruye ticket y líneas
+5.   y retorna texto formateado; maneja devoluciones y prorrateo de tesoro.
+6.   Es sólido para impresión simulada; maneja errores y fallbacks.
+7. `CierreService`:
+8. - Construye cierres: agrupa tickets pendientes, calcula desglose de IVA
+9.   y totales; actualiza `tickets` con `cierre_id`; mantiene rango de tickets
+10.  y `num_ventas`.
+11. `TicketService` (base_datos/ticket_service.py):
+12. - Insert transaccional de tickets y líneas; impacto directo en stock.
+13. `ExportService`:
+14. - Exporta cierres y tickets a CSV/PDF; usado en reporting.
+15. Observación general: servicios centralizados y con responsabilidades
+16. bien separadas, lo que facilita pruebas unitarias y sustitución.
+
+--- 7) UI y patrones usados ---
+1. UI basada en `customtkinter` y `ttk.Treeview` para listados.
+2. Patrones detectados:
+3. - Overlays reutilizables: `SelectionOverlayTemplate` y variantes.
+4. - Dual-mode overlays: `SelectionOverlayVisor` y template de modo dual
+5.   que permite modo principal y modo histórico (handler pattern).
+6. - `VisorNegro`: componente para mostrar texto de ticket en cart area.
+7. - Header buttons y footer pagination: patrón consistente en overlays.
+8. - Uso extensivo de `try/except` para robustez en UI y evitar crashes.
+9. Observaciones UI:
+10. - Buen nivel de encapsulación: UIs separadas de handlers y servicios.
+11. - Se usan callbacks y `on_selection_callback` para integración.
+12. - Diálogos personalizados (CustomDialog) con `show_info`/`show_warning`.
+13. - Algunas decisiones causaron regresiones temporales (VisorNegro autoshow)
+14.   que ya fueron corregidas; hay evidencias de cambios repentinos para
+15.   debugging en `tpv_view` que se revertieron.
+
+--- 8) Estado actual: qué está implementado y qué falta ---
+1. Implementado:
+2. - UI principal del TPV (`tpv_view`, `carrito_ui`, grid buttons).
+3. - Persistencia de tickets y líneas (`ticket_service`) con transacciones.
+4. - Generador de tickets y `ImpresoraService` para impresión simulada.
+5. - Cierres de caja y `CierreService` funcional.
+6. - Varios overlays como `TicketsUI` con columnas y `VisorNegro`.
+7. - `TicketsHandler` parcialmente implementado (`load_historico`, render,
+8.   on_mostrar, configurar_modo_historico, teardown).
+9. - Dialogs (`custom_dialog`) y templates revistos y en uso.
+10. - Tests y scripts de integración existenten (varios headless scripts).
+11. Pendiente / incompleto:
+12. - `TicketsHandler.on_imprimir` y `on_consultar` son stubs aún.
+13. - Algunas rutas/acciones pueden no estar enlazadas (ej. Consultar Tickets button).
+14. - Falta de pruebas unitarias completas para todos los servicios.
+15. - Falta de migraciones DB automatizadas y control de versiones de esquema
+16. - Falta de índices y optimizaciones SQL para grandes volúmenes.
+17. - Falta de mecanismos de paginación robusta y caching en listados masivos.
+18. - Poco o ningún manejo transaccional centralizado para operaciones compuestas
+19.   fuera de `save_ticket` (ej: cierres complejos con many-to-many updates).
+20. - Ausencia de métricas/telemetría y pruebas de carga.
+
+--- 9) Robustez y profesionalidad (puntos fuertes y débiles) ---
+Sección: "Robustez y profesionalidad"
+Puntos fuertes:
+1. Estructura modular clara: separación entre UI, servicios e integración DB.
+2. Uso de wrappers de DB (`db_wrapper`) para centralizar acceso y facilitar
+3. manejo de errores y cambios futuros de motor DB.
+4. Diseño de servicios (ImpresoraService, CierreService, TicketService) con
+5. responsabilidades bien delimitadas, facilitando pruebas unitarias.
+6. Uso de `try/except` para evitar bloqueos de UI y capturar excepciones.
+7. Plantillas reutilizables para overlays que fomentan coherencia visual.
+8. Inclusión de fallbacks (ej. usar `ticket_text` si generar desde DB falla).
+9. Herramientas de desarrollo y scripts de prueba (headless) ya presentes.
+10. Log detallado en `logs/application.log` que facilita trazabilidad.
+
+Puntos débiles:
+1. Exceso de `try/except` sin acciones correctivas o logging claro en todos
+2. los casos — podría ocultar fallos lógicos y dificultar debugging.
+3. Falta de pruebas unitarias e integrales; los scripts existentes ayudan,
+4. pero la cobertura automatizada es limitada.
+5. Falta de migraciones estructuradas y control de cambios en esquema DB.
+6. Dependencia de SQLite para producción sin rutas claras para pasar a
+7. BD más robustas (Postgres) si crece el volumen.
+8. Falta de índices y optimizaciones SQL para tablas con alto volumen.
+9. Algunos cambios realizados localmente introdujeron regresiones (VisorNegro)
+10.  — sugiere ausencia de pruebas de regresión y CI que validen UIs.
+11. Uso de strings de SQL construidos a mano en varios puntos; riesgo de
+12. inyección si no se valida correctamente (aunque se usan placeholders en la mayoría).
+13. Falta de separación entre lógica de negocio y formateo para impresión;
+14. por ejemplo, generar tickets a la vez que imprimir podría acoplar capas.
+15. UI: tests de usabilidad y accesibilidad no presentes; focus/teclas se
+16. han corregido manualmente (se requiere checklist de accesibilidad).
+
+Evaluación general de profesionalidad:
+1. El proyecto muestra buenas prácticas de modularidad y separación de
+2. responsabilidades, con servicios y templates reutilizables.
+3. Sin embargo, carece de varias piezas profesionales imprescindibles para
+4. un despliegue a largo plazo: migraciones, testing, CI/CD, métricas y
+5. optimización de consultas.
+6. Para elevar la calidad a nivel profesional se recomiendan: tests unitarios
+7. y de integración, pipeline CI con linting y tests, migraciones DB (alembic
+8. o scripts versionados), y plan de índices/particionado para escalabilidad.
+
+--- 10) Escalabilidad: ¿sirve para millones de productos/tickets? ---
+Diagnóstico actual:
+1. Arquitectura modular facilita escalar lógicamente: separar servicios,
+2. externalizar impresión y reporting.
+3. El principal cuello de botella para grandes volúmenes es la base de datos
+4. (SQLite) y la falta de índices/particionado.
+5. Consultas sobre `tickets` y `ticket_lines` (joins y rangos) costarán
+6. considerablemente si se ejecutan sin índices en millones de filas.
+7. UI con `Treeview` no está preparada para mostrar millones de filas; se
+8. requiere paginación en servidor y carga incremental (virtualized list).
+
+Recomendaciones para escalabilidad:
+1. Cambiar de SQLite a Postgres o similar para entornos con mucho volumen.
+2. Añadir índices críticos: `num_ticket`, `cierre_id`, `created_at`, `cliente_id`.
+3. Implementar paginación en server side (p. ej. consultas por rango + LIMIT)
+4. Usar consultas con `WHERE` específicas y evitar `ORDER BY` costoso sin index.
+5. Mantener `ticket_text` snapshot sólo para tickets críticos; usar archivado
+6. para tickets muy antiguos y almacenar en tablas particionadas.
+7. Implementar cache (Redis) para listados frecuentes (últimos N tickets,
+8. cierres recientes, etc.) y reducir carga en BD.
+9. Para UI usar técnicas de virtual scrolling o paginadores con prefetch.
+10. Monitorización de consultas lentas y profiler SQL para identificar puntos.
+
+--- 11) Riesgos, deuda técnica y recomendaciones concretas ---
+Riesgos inmediatos:
+1. Falla en producción por crecimiento de data sin índices.
+2. Corrupción o bloqueo de BD SQLite en entornos concurrentes de alta carga.
+3. Operaciones de cierre que toquen muchas filas pueden bloquear y causar
+4. lentitud en la interacción del TPV.
+5. Cambios sin migraciones podrían romper instalaciones existentes.
+
+Deuda técnica prioritaria:
+1. Añadir migraciones versionadas y checks de esquema en arranque.
+2. Añadir índices en columnas clave y verificar planes de ejecución.
+3. Escribir pruebas unitarias para `ticket_service`, `cierre_service`,
+4. `producto_service` y `ImpresoraService`.
+5. Implementar `TicketsHandler.on_imprimir` y `on_consultar` con tests.
+6. Establecer una rutina de backup y rotación de logs / DB.
+
+Recomendaciones concretas (ordenadas por prioridad):
+1. Añadir índices SQL (inmediato) sobre `tickets(num_ticket, cierre_id, created_at)`.
+2. Implementar migraciones (medium): script versionado bajo `kool_tpv/base_datos/migrations/`.
+3. Agregar pruebas de integración automatizadas que creen una BD en memoria
+4. y validen los flujos: guardar ticket, imprimir, crear cierre, ver histórico.
+5. Revisar queries que usan `IN (...)` con listas largas y evitar construcciones
+6. que generen SQL con placeholders insuficientes o riesgos.
+7. Considerar mover a Postgres si se prevé concurrencia y datos masivos.
+8. Optimizar UI: server-side pagination y virtualized Treeview si se necesita
+9. mostrar listados grandes.
+10. Introducir CI (GitHub Actions, GitLab CI) con lint, tests y packaging.
+
+--- 12) Próximos pasos sugeridos (plan accionable) ---
+1. Corto plazo (1-2 días):
+2. - Implementar `TicketsHandler.on_imprimir` y `on_consultar` (ya planificado).
+3. - Añadir índices básicos en BD y crear script de migración inicial.
+4. - Añadir tests unitarios para `custom_dialog` y `ImpresoraService`.
+5. Medio plazo (1-2 semanas):
+6. - Añadir pruebas de integración para `ticket_service` y `cierre_service`.
+7. - Implementar backup/restore automatizado y rotación de DB (si SQLite se mantiene).
+8. Largo plazo (1-3 meses):
+9. - Migración a Postgres para instalaciones con alto volumen.
+10. - Implementar CI/CD y estrategia de despliegue, monitorización y alertas.
+
+--- Anexos y detalles menores ---
+1. Se detectó un bug de sintaxis en `tickets_ui.py` derivado de un bloque `try`
+2. mal cerrado: fue corregido para restaurar importabilidad del módulo.
+3. Se corrigió uso de `show_info` del `custom_dialog` y se adaptaron bindings
+4. para que Enter active ACEPTAR en diálogos de confirm.
+5. Varios cambios ya aplicados localmente: restauración de `VisorNegro` y
+6. protección para no auto-mostrarlo al abrir overlays.
+
+--- Conclusión breve ---
+1. KOOL_TPV_V2 es una aplicación modular, con buena separación de
+2. responsabilidades y un diseño pragmático orientado a la operativa TPV.
+3. Para convertirla en un producto robusto a escala productiva se requieren
+4. inversiones en migraciones, índices, tests, CI y optimización de consultas.
+5. Puedo generar un plan de trabajo detallado, patches para las mejoras
+6. prioritarias (migraciones, índices, tests) y continuar implementando
+7. los handlers pendientes si me lo indicas.
+
+--- FIN DEL RESUMEN ---

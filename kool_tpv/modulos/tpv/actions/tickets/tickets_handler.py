@@ -34,17 +34,28 @@ class TicketsHandler:
 		"""
 		# Return a list of closures (pages) ordered newest first.
 		try:
-			sql = "SELECT id, fecha_hora, num_tickets, total_ingresos FROM cierres_caja ORDER BY fecha_hora DESC"
+			sql = (
+				"SELECT id, fecha_hora, num_ventas, total_ingresos, rango_inicio_ticket, rango_fin_ticket "
+				"FROM cierres_caja ORDER BY fecha_hora DESC"
+			)
 			rows = self.db.fetch_all(sql) if self.db is not None else []
 			items: List[Dict[str, Any]] = []
 			for r in rows or []:
 				cid = r[0]
 				fecha = r[1]
+				# num_ventas is the stored number of tickets for the cierre
 				num_tickets = int(r[2] or 0) if len(r) > 2 else 0
 				total = float(r[3] or 0.0) if len(r) > 3 else 0.0
+				r_start = r[4] if len(r) > 4 else None
+				r_end = r[5] if len(r) > 5 else None
+				# Build a human-friendly range string when possible
+				if r_start is not None and r_end is not None:
+					range_str = f"{int(r_start)} - {int(r_end)} ({fecha})"
+				else:
+					range_str = f"Cierre {cid} - {fecha}"
 				items.append({
 					'page_id': cid,
-					'range': f'Cierre {cid} - {fecha}',
+					'range': range_str,
 					'num_tickets': num_tickets,
 					'total': total,
 					'closed': True,

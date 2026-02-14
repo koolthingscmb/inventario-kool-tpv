@@ -58,11 +58,19 @@ class App(ctk.CTk):
             pass
         # No redimensionable
         self.resizable(False, False)
-        # Fondo oscuro
+        # Fondo oscuro: asegurar tanto el CTk como el Tk nativo
         try:
-            self.configure(bg="#222831")
+            self.configure(fg_color="#222831")
+            # Forzar también el fondo a nivel nativo Tkinter para evitar flashes
+            try:
+                self.config(background="#222831")
+            except Exception:
+                pass
         except Exception:
-            pass
+            try:
+                self.configure(bg="#222831")
+            except Exception:
+                pass
 
         # Inicializar y conectar base de datos
         # Ruta al archivo kool_bd.db dentro del paquete `kool_tpv/base_datos`
@@ -158,6 +166,8 @@ class App(ctk.CTk):
                 # map known commands to methods
                 if cmd_name.lower() in ("tpv", "load_tpv", "load_tpv()"):
                     cmd = self.load_tpv
+                elif cmd_name.lower() in ("open_almacen", "almacen", "open_almacen()"):
+                    cmd = self.open_almacen
                 else:
                     # default: log action
                     cmd = (lambda name=cmd_name or text: logging.info(f"Nav action: {name}"))
@@ -368,6 +378,100 @@ class App(ctk.CTk):
         except Exception:
             pass
         sys.exit(0)
+
+    def open_almacen(self):
+        """Open Almacén module: hide main nav and main_frame, instantiate AlmacenView.
+
+        The back callback destroys the almacen view and restores the original
+        navigation and main frame packing.
+        """
+        try:
+            # Hide existing navigation and main content
+            try:
+                self.nav_frame.pack_forget()
+            except Exception:
+                pass
+            try:
+                self.main_frame.pack_forget()
+            except Exception:
+                pass
+
+            # Lazy import to avoid startup circular imports
+            try:
+                from kool_tpv.modulos.almacen.almacen_view import AlmacenView
+            except Exception:
+                logging.exception('Error importando AlmacenView')
+                return
+
+            # Instantiate almacen view attached to the root (self)
+            try:
+                self.almacen_view = AlmacenView(self, db=getattr(self, 'db', None))
+            except Exception:
+                logging.exception('Error instanciando AlmacenView')
+                # restore UI
+                try:
+                    self.nav_frame.pack(side='left', fill='y')
+                except Exception:
+                    pass
+                try:
+                    self.main_frame.pack(side='right', fill='both', expand=True)
+                except Exception:
+                    pass
+                return
+
+            # Define back callback to destroy almacen view and restore frames
+            def _on_back():
+                try:
+                    # 1) Mostrar primero los elementos del menú principal
+                    try:
+                        self.nav_frame.pack(side='left', fill='y')
+                    except Exception:
+                        pass
+                    try:
+                        self.main_frame.pack(side='right', fill='both', expand=True)
+                    except Exception:
+                        pass
+
+                    # 2) Forzar a la interfaz a procesar el dibujado de los nuevos elementos
+                    try:
+                        self.update_idletasks()
+                    except Exception:
+                        pass
+
+                    # 3) Solo ahora, destruir el contenedor del módulo que estamos cerrando
+                    try:
+                        if getattr(self, 'almacen_view', None):
+                            try:
+                                if getattr(self.almacen_view, 'sidebar', None):
+                                    self.almacen_view.sidebar.destroy()
+                            except Exception:
+                                pass
+                            try:
+                                if getattr(self.almacen_view, 'main_frame', None):
+                                    self.almacen_view.main_frame.destroy()
+                            except Exception:
+                                pass
+                            try:
+                                del self.almacen_view
+                            except Exception:
+                                pass
+                    except Exception:
+                        logging.exception('Error destruyendo almacen_view en _on_back')
+                except Exception:
+                    logging.exception('Error en callback de volver desde Almacen')
+
+            # Bind power button in the almacen sidebar to act as 'back'
+            try:
+                if getattr(self, 'almacen_view', None) and getattr(self.almacen_view, 'power_button', None):
+                    try:
+                        self.almacen_view.power_button.configure(command=_on_back)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+        except Exception:
+            logging.exception('Error en open_almacen')
 
 
 if __name__ == "__main__":

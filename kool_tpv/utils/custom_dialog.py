@@ -100,9 +100,21 @@ class CustomDialog(ctk.CTkToplevel):
 
         self._crear_contenido(titulo, mensaje, btn_text)
 
-        # Bind Escape y Enter
-        self.bind('<Escape>', lambda e: self._on_close())
-        self.bind('<Return>', lambda e: self._on_close())
+        # Bind Escape y Enter: when confirm-mode, Enter should accept and Escape cancel.
+        try:
+            if self.confirm:
+                self.bind('<Escape>', lambda e: self._on_cancel())
+                self.bind('<Return>', lambda e: self._on_accept())
+            else:
+                self.bind('<Escape>', lambda e: self._on_close())
+                self.bind('<Return>', lambda e: self._on_close())
+        except Exception:
+            # fallback to conservative bindings
+            try:
+                self.bind('<Escape>', lambda e: self._on_close())
+                self.bind('<Return>', lambda e: self._on_close())
+            except Exception:
+                pass
 
         # Foco en el botón (sin delay)
         try:

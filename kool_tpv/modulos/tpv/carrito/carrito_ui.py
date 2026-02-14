@@ -174,11 +174,11 @@ class CarritoUI:
             self._tree.heading('precio', text='Precio')
             self._tree.heading('total', text='Total')
 
-            # column sizing
-            self._tree.column('producto', anchor='w', width=180)
-            self._tree.column('cantidad', anchor='center', width=60)
-            self._tree.column('precio', anchor='e', width=80)
-            self._tree.column('total', anchor='e', width=100)
+            # column sizing (compact widths; total column can stretch)
+            self._tree.column('producto', anchor='w', width=180, minwidth=120)
+            self._tree.column('cantidad', anchor='center', width=50, minwidth=45)
+            self._tree.column('precio', anchor='e', width=80, minwidth=70)
+            self._tree.column('total', anchor='e', width=85, minwidth=75, stretch=True)
 
             # visual tag for canje row
             try:
@@ -424,7 +424,7 @@ class CarritoUI:
             descuento_tipo = resumen_tmp.get('descuento_tipo', None)
             descuento_valor = resumen_tmp.get('descuento_valor', None)
 
-            if descuento_euros and descuento_euros > 0:
+            if descuento_euros and descuento_euros > 0 and descuento_tipo is not None:
                 try:
                     if descuento_tipo == 'directo':
                         texto_descuento = '>> Descuento Directo:'

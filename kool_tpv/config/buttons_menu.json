@@ -1,0 +1,13 @@
+{
+  "almacen": {
+    "title": "ALMACÉN",
+    "buttons": [
+      { "label": "+", "color": "#32CD32", "hover_color": "#5EE37E", "action": "show_crear" },
+      { "label": "BÚSQUEDA", "color": "#00A4DF", "hover_color": "#6FCFF5", "action": "show_busqueda" },
+      { "label": "COMPRA", "color": "#FFC107", "hover_color": "#FFD856", "action": "show_compra" },
+      { "label": "TIPOS", "color": "#9ACD32", "hover_color": "#BFE07A", "action": "show_tipos" },
+      { "label": "CATEGORÍAS", "color": "#C38D9E", "hover_color": "#DDAEC1", "action": "show_categorias" },
+      { "label": "PROVEEDORES", "color": "#806AA8", "hover_color": "#9B8EDB", "action": "show_proveedores" }
+    ]
+  }
+}
