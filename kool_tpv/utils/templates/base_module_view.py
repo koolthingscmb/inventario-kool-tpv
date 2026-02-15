@@ -9,6 +9,8 @@ import logging
 import customtkinter as ctk
 import tkinter as tk
 
+from kool_tpv.utils.utils import SIDEBAR_WIDTH, COLOR_BG_TERMINAL, COLOR_BG_SIDEBAR, COLOR_MATRIX, FONT_TERMINAL
+
 
 class BaseModuleView:
     """Plantilla base con sidebar y zona central.
@@ -23,7 +25,7 @@ class BaseModuleView:
     def __init__(self, parent, config_section: str = None):
         self.parent = parent
         # Sidebar (izquierda)
-        self.sidebar = ctk.CTkFrame(parent, width=220, corner_radius=0, fg_color="#393E46")
+        self.sidebar = ctk.CTkFrame(parent, width=SIDEBAR_WIDTH, corner_radius=0, fg_color=COLOR_BG_SIDEBAR)
         self.sidebar.pack(side="left", fill="y")
         try:
             self.sidebar.pack_propagate(False)
@@ -85,10 +87,26 @@ class BaseModuleView:
 
         # Zona central (derecha)
         try:
-            self.main_frame = ctk.CTkFrame(parent, fg_color="#222831")
+            # main container uses terminal background to ensure flicker-free dark UI
+            self.main_frame = ctk.CTkFrame(parent, fg_color=COLOR_BG_TERMINAL)
             self.main_frame.pack(side='right', fill='both', expand=True)
-            # Alias usado por módulos: central_area
-            self.central_area = self.main_frame
+            # Add breadcrumb / ruta label at the top of central area (fixed)
+            try:
+                self.module_name = (config_section or 'MODULO').upper()
+                self.lbl_ruta_sistema = ctk.CTkLabel(
+                    self.main_frame,
+                    text=f"SISTEMA_KOOL: / {self.module_name}",
+                    font=FONT_TERMINAL,
+                    text_color=COLOR_MATRIX,
+                    anchor='w',
+                    fg_color=COLOR_BG_TERMINAL,
+                )
+                self.lbl_ruta_sistema.pack(anchor='nw', fill='x', padx=12, pady=(8, 6))
+            except Exception:
+                logging.exception('Error creando lbl_ruta_sistema en BaseModuleView')
+            # Alias usado por módulos: central_area (below the ruta label)
+            self.central_area = ctk.CTkFrame(self.main_frame, fg_color=COLOR_BG_TERMINAL)
+            self.central_area.pack(fill='both', expand=True)
         except Exception:
             logging.exception('Error creando main_frame BaseModuleView')
 
@@ -171,6 +189,26 @@ class BaseModuleView:
                 pass
         except Exception:
             pass
+
+    def actualizar_ruta(self, sub_seccion: str = None):
+        """Actualiza el texto de la ruta/breadcrumb mostrado arriba del área central.
+
+        Formato: SISTEMA_KOOL_TPV: / <MODULO> [ / <SUB_SECCION>]
+        """
+        try:
+            base = f"SISTEMA_KOOL: / {(getattr(self, 'module_name', 'MODULO') or '').upper()}"
+            if sub_seccion:
+                base = f"{base} / {sub_seccion.upper()}"
+            if hasattr(self, 'lbl_ruta_sistema') and self.lbl_ruta_sistema is not None:
+                try:
+                    self.lbl_ruta_sistema.configure(text=base)
+                except Exception:
+                    try:
+                        self.lbl_ruta_sistema['text'] = base
+                    except Exception:
+                        pass
+        except Exception:
+            logging.exception('Error actualizando ruta en BaseModuleView')
 
     def _on_volver(self):
         # Subclasses should override this to implement back-navigation

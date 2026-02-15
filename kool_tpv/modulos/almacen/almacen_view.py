@@ -26,6 +26,11 @@ class AlmacenView(BaseModuleView):
     def __init__(self, parent, db):
         # Initialize base template with module key 'almacen'
         super().__init__(parent, config_section='almacen')
+        # update breadcrumb to module on entry
+        try:
+            self.actualizar_ruta('ALMACEN')
+        except Exception:
+            pass
         self.parent = parent
         self.db = db
         self.service = MaestroService(db)
@@ -80,11 +85,17 @@ class AlmacenView(BaseModuleView):
     def show_crear(self):
         """Instancia y muestra la UI de creación en la zona central."""
         try:
+            # update breadcrumb to indicate sub-section
+            try:
+                self.actualizar_ruta('ALMACEN / CREAR_PRODUCTO')
+            except Exception:
+                pass
             from .ui.crear_producto_ui import CrearProductoUI
 
             # Lazy load the UI so we keep state while the module is open
             if not hasattr(self, 'crear_ui') or self.crear_ui is None:
-                self.crear_ui = CrearProductoUI(self.central_area)
+                # pass the module DB so the UI can load options immediately
+                self.crear_ui = CrearProductoUI(self.central_area, db=self.db)
 
             # Prefer using the widget returned by get_widget()
             try:
@@ -102,18 +113,38 @@ class AlmacenView(BaseModuleView):
             logging.exception('Error abriendo crear en AlmacenView')
 
     def show_busqueda(self):
+        try:
+            self.actualizar_ruta('ALMACEN / BUSQUEDA')
+        except Exception:
+            pass
         logging.info('Abriendo búsqueda...')
 
     def show_compra(self):
+        try:
+            self.actualizar_ruta('ALMACEN / COMPRA')
+        except Exception:
+            pass
         logging.info('Abriendo compra...')
 
     def show_tipos(self):
+        try:
+            self.actualizar_ruta('ALMACEN / TIPOS')
+        except Exception:
+            pass
         logging.info('Abriendo tipos...')
 
     def show_categorias(self):
+        try:
+            self.actualizar_ruta('ALMACEN / CATEGORIAS')
+        except Exception:
+            pass
         logging.info('Abriendo categorías...')
 
     def show_proveedores(self):
+        try:
+            self.actualizar_ruta('ALMACEN / PROVEEDORES')
+        except Exception:
+            pass
         logging.info('Abriendo proveedores...')
 
     # attach_to_nav kept for compatibility with main navigation

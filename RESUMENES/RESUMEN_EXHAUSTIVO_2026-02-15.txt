@@ -1,0 +1,671 @@
+RESUMEN EXHAUSTIVO - KOOL TPV V2
+Fecha: 2026-02-15
+Autor: Revisión automática (GitHub Copilot)
+
+Resumen general
+---------------
+Este documento recoge una revisión técnica exhaustiva del proyecto "Kool TPV V2" tal y como está en el workspace en la fecha indicada. Se han inspeccionado los archivos y módulos que se utilizan para el funcionamiento de la aplicación, priorizando los puntos críticos: arranque de la aplicación, persistencia (base de datos), módulo TPV (interfaz y lógica de venta), carrito, impresión y servicios clientes/almacén.
+
+El objetivo es presentar:
+- Estructura de carpetas y componentes principales.
+- Descripción funcional de cada componente clave.
+- Estado actual y últimas implementaciones detectadas.
+- Análisis de pros y contras.
+- Recomendaciones y posibles mejoras futuras.
+
+Índice (temas principales)
+1. Estructura general del proyecto
+2. Entrypoints y arranque de la app
+3. Capa de persistencia (base_datos)
+4. Servicios y lógica de negocio clave
+   - ProductoService
+   - TicketService
+   - CarritoService
+   - Fidelización (clientes)
+5. Módulo TPV (UI y controladores)
+6. Módulos auxiliares (almacén, clientes, impresión, configuración)
+7. Integración y flujos críticos (guardar ticket, imprimir, devoluciones, puntos)
+8. Calidad de código observada y puntos técnicos
+9. Estado del proyecto al día de hoy
+10. Lo último que se está implementando
+11. Pros y fortalezas
+12. Contras y puntos débiles
+13. Recomendaciones y roadmap técnico sugerido
+
+1. Estructura general del proyecto
+----------------------------------
+Carpetas y archivos de interés raíz:
+- main.py (raíz): bootstrap de la aplicación, inicializa UI y DB.
+- kool_tpv/: paquete principal con la app, módulos y assets.
+- kool_tpv/base_datos/: lógica de acceso a datos y servicios relacionados.
+- kool_tpv/modulos/: módulos funcionales (tpv, almacen, clientes, impresion, configuracion, etc.).
+- kool_tpv/utils/: utilidades comunes (dialogs, formatter, botones globales, overlays).
+- RESUMENES/: carpeta destinada a resúmenes (aquí se guarda este archivo).
+
+Archivos principales revisados (lista resumida)
+- /main.py
+- /kool_tpv/main.py
+- /kool_tpv/base_datos/db_wrapper.py
+- /kool_tpv/base_datos/db_init.py
+- /kool_tpv/base_datos/producto_service.py
+- /kool_tpv/base_datos/ticket_service.py
+- /kool_tpv/modulos/tpv/tpv_view.py
+- /kool_tpv/modulos/tpv/tpv_service.py (si existe)
+- /kool_tpv/modulos/tpv/carrito/carrito_service.py
+- /kool_tpv/modulos/tpv/carrito/carrito_ui.py
+- /kool_tpv/modulos/impresion/* (generadores e impresora)
+- /kool_tpv/modulos/clientes/* (fidelizacion, cliente_service)
+- utils/* (custom_dialog, formatter_service, global_buttons)
+
+2. Entrypoints y arranque de la app
+---------------------------------
+El arranque principal es `main.py` en la raíz. Observaciones:
+- Se usa `customtkinter` para la interfaz (`ctk`).
+- Se configura logging con archivo `logs/application.log`.
+- Se crea instancia `Database` usando `kool_tpv/base_datos/kool_bd.db` (ruta relativa dentro del paquete).
+- Tras conectar BD, se crea la UI principal `App` que monta una barra lateral (navegación) y un `main_frame` para vistas.
+- Los botones de navegación se cargan desde `kool_tpv/config/buttons_config.json` con fallback a una lista hardcoded.
+- `App.load_tpv()` crea/presenta la vista `TpvView` y gestiona el ocultado/restauración de botones y el botón `PRINT ON`.
+
+Observaciones técnicas del arranque
+- Se realizan imports perezosos (lazy imports) para evitar ciclos e improvisar cuando un módulo no está disponible.
+- Se manejan excepciones con logs y fallbacks visibles para el usuario (labels de fallback en `main_frame`).
+- El shutdown intenta cerrar la conexión DB (`db.close_connection()`) antes de `destroy()`.
+
+3. Capa de persistencia (base_datos)
+-----------------------------------
+3.1 `db_wrapper.py`
+- Implementa clase `Database` con métodos: `connect()`, `execute_query()`, `fetch_all()`, `fetch_one()`, `close_connection()`.
+- Usa `sqlite3.connect(self.db_path)` directamente y commits manuales en `execute_query()`.
+- Implementación sencilla y adecuada para SQLite en una sola instancia.
+
+Puntos observados:
+- No emplea `row_factory` ni `detect_types` de sqlite3: devuelve tuplas, lo que obliga a mapping manual en servicios.
+- No hay control de concurrencia (locks) si la app escalase a multihilo/procesos (pero en UI Tkinter típico no hay concurrencia persistente sobre SQLite).
+- No hay configuración de PRAGMA (journal_mode, synchronous) para robustez de BD en fallos: se podría mejorar.
+
+3.2 `db_init.py`
+- Archivo placeholder: no hay lógica de creación de esquema implementada aquí en la versión actual.
+- Es recomendable que exista un script/función que cree tablas y relaciones (migraciones o SQL inicial) para facilitar instalación.
+
+3.3 Base de datos en el repo
+- Existen backups: `kool_bd.db.bak*` dentro de `kool_tpv/base_datos/`.
+- Se espera que la app use `kool_bd.db` en esa ruta.
+
+4. Servicios y lógica de negocio clave
+------------------------------------
+4.1 `producto_service.py`
+- Métodos principales: `get_productos_by_categoria`, `get_productos_by_tipo`, `listar_productos`, `obtener_ventas_producto`.
+- Usa `self.db.fetch_all()` y mapea resultados en listas de dicts con campos básicos (id, nombre, pvp, tipo_iva, stock, etc.).
+- Buen manejo de `COALESCE` en SQL para evitar Nulls.
+
+4.2 `ticket_service.py` (persistencia de tickets)
+- Archivo con lógica compleja y núcleo crítico: `save_ticket(db, carrito_items, resumen, efectivo, cajero=...)`.
+- Funcionalidad principal:
+  - Inicia transacción explícita `BEGIN` y hace `conn.commit()` al final, `conn.rollback()` en errores.
+  - Gestiona fidelización: usa `FidelizacionService` para calcular puntos ganados y restados.
+  - Calcula `num_ticket` incrementando el max actual.
+  - Usa `Decimal` para la contabilidad de importes, cuantiza a 2 decimales.
+  - Inserta fila en `tickets` con snapshot `ticket_text` (generado por `VentaTicketGenerator` si está disponible).
+  - Inserta `ticket_lines` por cada item, actualiza `productos.stock_actual` y `ventas_totales`.
+  - Inserta movimientos de stock en `stock_movements` si existe la tabla (helper tolerante a ausencia de tabla).
+  - Inserta líneas de descuento prorrateadas por tipo de IVA si hay descuento monetario `descuento_euros`.
+  - Inserta pagos desglosados en `payments` si la tabla existe.
+  - Inserta audit log en `audit_logs` si tabla existe.
+  - Actualiza cliente (puntos/tesoro) y recalcula `id_nivel` de fidelidad si existen tablas relacionadas.
+
+Observaciones críticas:
+- El servicio es robusto en cuanto a manejo de excepciones y rollbacks, pero depende de la presencia de tablas opcionales (payments, stock_movements, points_movements, audit_logs). Usa inserciones tolerantes.
+- El uso de `BEGIN` y `conn.commit()` es correcto; sin embargo, el `Database` wrapper no expone un manager de contexto ni transaction helper, lo que obliga a operar sobre `db.connection` desde servicios.
+- Se mezclan concernes: lógica de puntos, creación de snapshot de ticket y persistencia están en la misma función — esto dificulta testabilidad y separación de responsabilidades.
+
+4.3 `carrito_service.py`
+- Implementa la gestión completa del carrito: `add_item`, `remove_item`, `update_cantidad`, `clear`, `get_items`, `get_subtotal`, `get_iva_desglose`, `get_resumen_financiero`, `apply_descuento`, `aplicar_canje_puntos`, etc.
+- Usa `FormatterService` para formateo (no para cálculos) y `Decimal` para cálculos internos, lo cual es correcto.
+- `get_resumen_financiero()` recalcula el efecto combinado de descuentos y puntos, prorratea descuentos entre tipos de IVA.
+
+Observaciones del carrito:
+- Buen uso de Decimal y separación entre datos (pvp, total_linea) y lógica de presentación.
+- Soporta líneas de `devolucion` y comprueba restricciones (no permitir ventas si hay devolución activa).
+- Tiene protección para no aplicar descuento si ya hay puntos canjeados (política de negocio). Esto está bien, pero es una regla de negocio que debe quedar documentada y testeada.
+
+4.4 Fidelización y clientes
+- Hay referencias a `FidelizacionService` (módulo `kool_tpv.modulos.clientes.fidelizacion_service`) utilizado en `ticket_service` y `tpv_view`.
+- El flujo de puntos contempla: calcular puntos ganados por ventas, restar por devoluciones, y aplicar puntos canjeados como descuento monetario al guardar ticket.
+
+5. Módulo TPV (UI y controladores)
+---------------------------------
+5.1 `tpv_view.py`
+- Vista principal del TPV: UI con `customtkinter`.
+- Componentes:
+  - Barra izquierda de acciones (grid 4x3) con botones configurables.
+  - Columna derecha fija (cart_view) con info, carrito y botones de cobro.
+  - Reloj y label de info que se actualiza cada segundo via `after`.
+  - Responsive resize handler `_on_resize` que recalcula tamaños y fuentes.
+  - Integración con `CarritoService` y `CarritoUI`.
+  - Integración con `ImpresoraService` para impresión simulada.
+  - Rebinding de botones de grid a controladores (CashController, MultiPagoController, DirectPaymentController, ClienteAction, CajeroAction, StockUI, CierreUI, TicketsUI, etc.) si están disponibles.
+
+Observaciones:
+- Código muy documentado y con múltiples fallbacks; diseño pensado para robustez en ejecución aunque falten módulos.
+- Se delega la persistencia de ticket a `save_ticket` en `ticket_service` mediante el callback `_on_finalize` del `CashController`.
+- Se utiliza patrón de fábrica `ButtonFactory` para estandarizar estilo de botones.
+
+5.2 Controladores de pago y acciones
+- Hay varios módulos de acciones en `kool_tpv/modulos/tpv/actions/` (cash, tarjeta, multi_s, cliente, devolucion, buscar_articulo, cierres, tickets, stock, etc.) que implementan overlays y flujos específicos.
+- `TpvView` intenta instanciarlos y enlazarlos; si uno falla, se usa fallback informativo.
+
+6. Módulos auxiliares
+----------------------
+6.1 Impresión
+- `modulos/impresion` contiene `venta_ticket_generator.py`, `impresora_service.py`, `ticket_generator.py`, `cierre_ticket_generator.py`.
+- `ticket_service` crea snapshot `ticket_text` mediante `VentaTicketGenerator` si está disponible, y `TpvView` puede usar `ImpresoraService` para generar texto de ticket desde DB para imprimir o simular impresión en consola.
+
+6.2 Almacén
+- Módulo `modulos/almacen` con vistas (`almacen_view.py`) y servicios (`maestro_service.py`). `App.open_almacen()` muestra el `AlmacenView` y gestiona packing/unpacking de frames.
+
+6.3 Clientes
+- `modulos/clientes` contiene `cliente_service.py`, `fidelizacion_service.py`, `clientes_db.py`.
+
+6.4 Utils
+- `utils/custom_dialog.py`: wrappers para diálogos (show_error, show_warning, ...).
+- `utils/formatter_service.py`: formateo monetario y decimal.
+- `utils/global_buttons.py`: botón global power/close reutilizable.
+
+7. Flujos críticos e integración
+--------------------------------
+7.1 Guardado de ticket (flujo crítico)
+  - CarritoService acumula items -> CashController (o similar) llama a on_finalize -> llama a `ticket_service.save_ticket` con:
+    * db (Database), items, resumen, efectivo/pagos, cajero, cliente y servicios auxiliares (fidelizacion_service, carrito_service)
+  - `save_ticket` realiza transacción, inserta ticket, lineas, actualiza stock, inserta pagos y logs.
+  - Tras éxito, `TpvView._on_finalize` limpia carrito y actualiza UI.
+
+7.2 Devoluciones
+  - Hay soporte para `DevolucionAction` que puede delegar la persistencia a su propio servicio. `TpvView` comprueba si hay líneas de devolución activas y delega si procede.
+
+7.3 Impresión
+  - Se genera un snapshot opcional (`ticket_text`) y se guarda en DB. `ImpresoraService` puede generar texto de ticket desde DB para imprimir o simular impresión en consola.
+
+8. Calidad de código observada y puntos técnicos
+----------------------------------------------
+8.1 Buenas prácticas aplicadas
+- Uso de Decimal para cálculos monetarios en `ticket_service` y `carrito_service`.
+- Uso extensivo de try/except para robustez en entorno de UI donde faltan módulos.
+- Separación entre UI (TpvView) y servicios (CarritoService, TicketService) aunque hay acoplamientos necesarios.
+
+8.2 Áreas con margen de mejora
+- Falta de tests automáticos cubriendo flujos críticos (guardar ticket, actualizar stock, puntos).
+- `db_wrapper` podría ofrecer context manager y helpers de transacción para centralizar commits/rollbacks.
+- `db_init.py` vacío: falta una migración o script de inicialización, lo que dificulta reproducir entorno DB en instalación nueva.
+- Mezcla de responsabilidades en `ticket_service.save_ticket` (persistencia, cálculo puntos, snapshot print, selección de configuraciones) — esto dificulta pruebas unitarias.
+
+8.3 Observaciones de seguridad y consistencia
+- No se han detectado entradas de usuario sin validar en SQL (uso de parámetros en consultas SQL, buena práctica presente).
+- No hay controles de concurrencia para accesos a archivos DB en caso de múltiples procesos.
+
+9. Estado del proyecto al día de hoy (15/02/2026)
+-----------------------------------------------
+- La aplicación tiene una arquitectura funcional completa: UI, carrito, persistencia y módulos de impresión y clientes.
+- Múltiples utilidades y servicios están presentes y bien separados por módulos.
+- Existen varias funciones maestras implementadas: guardar tickets con transacción y prorrateo de descuentos por IVA, carrito con lógica de descuentos y canje de puntos.
+- Faltan piezas o están parciales: `db_init.py` (esqueleto), algunos módulos pueden no existir en tiempo de ejecución y por eso hay abundantes try/except y fallbacks.
+
+10. Lo último que se está implementando (evidencia encontrada)
+-------------------------------------------------------------
+- En `ticket_service.save_ticket` se observan implementaciones recientes y cuidadosas sobre:
+  - Uso de `VentaTicketGenerator` para generar snapshot de ticket y guardar `ticket_text`.
+  - Inserción tolerante en tablas auxiliares (payments, audit_logs, stock_movements), indicando expansión hacia auditoría y trazabilidad.
+  - Manejo avanzado de puntos de fidelidad (puntos_gastados, otorgar, restar y recalculo de nivel mediante `niveles_fidelidad`).
+- En `tpv_view` hay trabajo en una UI responsiva y en la capacidad de enlazar múltiples controladores de pago y acciones (tarjeta, web, multi-pago, devoluciones).
+
+11. Pros y fortalezas
+---------------------
+- Arquitectura modular: separación por carpetas `modulos`, `base_datos`, `utils` facilita mantenimiento.
+- Robustez y tolerancia a errores: abundantes try/except y fallbacks evitan crashes en producción.
+- Uso correcto de `Decimal` para dinero y transacciones atómicas en `save_ticket`.
+- Diseño UI pensado para TPV táctil (botones grandes, responsive, tipografías dedicadas).
+- Persistencia de snapshot de ticket y hooks para impresión aumentan trazabilidad.
+
+12. Contras y puntos débiles
+---------------------------
+- Falta de migraciones/initial schema (`db_init.py` vacío) — complicada instalación desde cero.
+- `db_wrapper` es mínimo: no gestiona contexto, PRAGMA ni row_factory, lo que exige mapeos manuales.
+- `save_ticket` es una función monolítica difícil de testear y con muchas responsabilidades.
+- Poca cobertura de tests automatizados visibles en el repo (hay tests en `tests/` y `scripts/` pero no se ve un CI configurado aquí).
+- Uso intensivo de cadenas como flags y comprobaciones por nombres de columnas; podría ocurrir regresiones silenciosas ante cambios en esquema.
+- No hay validación central de permisos/roles en los controladores (p. ej. acceso a tickets) — hay placeholders.
+
+13. Recomendaciones (técnicas y de producto)
+------------------------------------------
+Priorizar estas acciones por impacto/efuerzo:
+
+Alta prioridad (0-3 semanas):
+1) Implementar `db_init` o migraciones SQL
+   - Crear script `kool_tpv/base_datos/schema.sql` y/o funciones Python que creen tablas necesarias.
+   - Incluir PRAGMA recomendadas para SQLite: `journal_mode=WAL`, `synchronous=NORMAL` o `FULL` según necesidades.
+   - Añadir verificación en arranque para aplicar migraciones pendientes.
+
+2) Añadir transaction manager en `db_wrapper`
+   - Proveer métodos `begin()`, `commit()`, `rollback()` o un context manager `with db.transaction():`.
+   - Evitar acceso directo a `db.connection` desde los servicios; usar la API del wrapper para transacciones.
+
+3) Modularizar `ticket_service.save_ticket`
+   - Separar responsabilidades: 1) preparar datos (calcular puntos, descuentos), 2) persistir ticket y líneas, 3) actualizar cliente/puntos, 4) generar snapshot/print.
+   - Hacer que cada paso sea testeable y que la función principal coordine y maneje rollback si alguna parte falla.
+
+Mediana prioridad (3-8 semanas):
+4) Añadir tests unitarios y de integración para flujos críticos
+   - Tests para `CarritoService` (aplicar descuentos, canje de puntos, devoluciones).
+   - Tests para `ticket_service` con DB en memoria (`:memory:`) y verificación de commits/rollbacks.
+   - Tests UI básicos en modo headless para controladores (si es factible).
+
+5) Mejorar `db_wrapper` para devolver rows como dicts
+   - Usar `connection.row_factory = sqlite3.Row` o mapear columnas para evitar indexing por posición.
+
+6) Documentación técnica mínima
+   - README con pasos para instalación, variables de entorno, cómo restaurar DB desde backup y cómo ejecutar la app.
+   - Documentar el esquema de BD (README o SQL comments).
+
+Baja prioridad / mejoras continuas:
+7) Introducir control de permisos y autenticación para acciones sensibles
+   - Ejemplo: bloquear reimpresión/edición de tickets según roles.
+
+8) Sistema de logging y métricas centralizado
+   - Configurar rotación de logs y niveles por entorno.
+
+9) Considerar migración a DB cliente-servidor si escala
+   - Si crecimiento de concurrencia o múltiples terminales, valorar Postgres/SQLite en WAL con servidor intermedio.
+
+14. Posibles futuras implementaciones y roadmap
+-----------------------------------------------
+- Exponer API REST para sincronización multi-nodo (permite tener múltiples terminales sincronizados con backend central).
+- Implementar replicación o exportación periódica a CSV/JSON para conciliación contable.
+- Mejorar sistema de fidelización con reglas configurables (promociones, niveles, caducidad de puntos).
+- Integrar pasarela de pagos real para pagos con tarjeta y web en lugar de controlador simulado.
+
+15. Notas finales y evidencia de revisión
+---------------------------------------
+La revisión ha leído y analizado los archivos principales responsables del funcionamiento de la aplicación: `main.py`, `kool_tpv/main.py`, `kool_tpv/base_datos/db_wrapper.py`, `kool_tpv/base_datos/ticket_service.py`, `kool_tpv/modulos/tpv/tpv_view.py`, `kool_tpv/modulos/tpv/carrito/carrito_service.py` y utilidades relacionadas.
+
+Observaciones concretas detectadas durante la inspección del código:
+- `ticket_service.save_ticket` muestra un esfuerzo por mantener atomicidad y coherencia contable, incluyendo manejo de puntos, prorrateo de descuentos por IVA y guardado de snapshot.
+- `CarritoService` implementa reglas de negocio (no mezclar devoluciones con ventas activas, no aplicar descuento si hay canje de puntos) que deben ser reflejadas en documentación y tests.
+- La UI `TpvView` es extensa y preparada para múltiples controladores; su diseño responsive es un punto fuerte.
+
+Anexos (lista abreviada de archivos revisados con ruta)
+- [main.py](main.py#L1)
+- [kool_tpv/main.py](kool_tpv/main.py#L1)
+- [kool_tpv/base_datos/db_wrapper.py](kool_tpv/base_datos/db_wrapper.py#L1)
+- [kool_tpv/base_datos/db_init.py](kool_tpv/base_datos/db_init.py#L1)
+- [kool_tpv/base_datos/producto_service.py](kool_tpv/base_datos/producto_service.py#L1)
+- [kool_tpv/base_datos/ticket_service.py](kool_tpv/base_datos/ticket_service.py#L1)
+- [kool_tpv/modulos/tpv/tpv_view.py](kool_tpv/modulos/tpv/tpv_view.py#L1)
+- [kool_tpv/modulos/tpv/carrito/carrito_service.py](kool_tpv/modulos/tpv/carrito/carrito_service.py#L1)
+- [kool_tpv/modulos/impresion/venta_ticket_generator.py](kool_tpv/modulos/impresion/venta_ticket_generator.py#L1)
+- [kool_tpv/modulos/impresion/impresora_service.py](kool_tpv/modulos/impresion/impresora_service.py#L1)
+- [kool_tpv/modulos/tpv/actions/*] (varios controladores y UIs de acciones)
+- [kool_tpv/utils/custom_dialog.py](kool_tpv/utils/custom_dialog.py#L1)
+- [kool_tpv/utils/formatter_service.py](kool_tpv/utils/formatter_service.py#L1)
+
+Fin del resumen.
+
+16. Estructura de la base de datos (kool_bd.db)
+----------------------------------------------
+A continuación se incluye el volcado resumido del esquema de la base de datos usada por la aplicación (`kool_tpv/base_datos/kool_bd.db`).
+Se listan índices, tablas, triggers y para cada tabla se muestran sus columnas con tipos y restricciones básicas.
+
+Ruta al archivo DB: kool_tpv/base_datos/kool_bd.db
+
+-- INDEX idx_audit_entidad
+CREATE INDEX idx_audit_entidad ON audit_logs(entidad, entidad_id)
+
+-- INDEX idx_cierres_cierre_num
+CREATE INDEX idx_cierres_cierre_num ON cierres_caja(cierre_num)
+
+-- INDEX idx_cierres_fecha_hora
+CREATE INDEX idx_cierres_fecha_hora ON cierres_caja(fecha_hora)
+
+-- INDEX idx_payments_ticket
+CREATE INDEX idx_payments_ticket ON payments(ticket_id)
+
+-- INDEX idx_points_mov_cliente
+CREATE INDEX idx_points_mov_cliente ON points_movements(cliente_id)
+
+-- INDEX idx_precios_activo
+CREATE INDEX "idx_precios_activo" ON "precios" ("producto_id", "activo")
+
+-- INDEX idx_productos_categoria
+CREATE INDEX idx_productos_categoria ON productos(categoria)
+
+-- INDEX idx_productos_tipo
+CREATE INDEX idx_productos_tipo ON productos(tipo)
+
+-- INDEX idx_stock_mov_producto
+CREATE INDEX idx_stock_mov_producto ON stock_movements(producto_id)
+
+-- INDEX idx_ticket_lines_ticket
+CREATE INDEX idx_ticket_lines_ticket ON ticket_lines(ticket_id)
+
+-- INDEX sqlite_autoindex_categorias_1
+(sql: NULL)
+
+-- INDEX sqlite_autoindex_configuracion_1
+(sql: NULL)
+
+-- INDEX sqlite_autoindex_niveles_fidelidad_1
+(sql: NULL)
+
+-- INDEX sqlite_autoindex_productos_1
+(sql: NULL)
+
+-- INDEX sqlite_autoindex_tipos_1
+(sql: NULL)
+
+-- TABLE audit_logs
+CREATE TABLE audit_logs (
+   id INTEGER PRIMARY KEY AUTOINCREMENT,
+   entidad TEXT,
+   entidad_id INTEGER,
+   accion TEXT,
+   usuario_id INTEGER,
+   datos_previos TEXT,
+   datos_nuevos TEXT,
+   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+)
+Columns:
+   - id INTEGER PRIMARY KEY
+   - entidad TEXT
+   - entidad_id INTEGER
+   - accion TEXT
+   - usuario_id INTEGER
+   - datos_previos TEXT
+   - datos_nuevos TEXT
+   - created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+
+-- TABLE categorias
+CREATE TABLE "categorias" (
+	"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+	"nombre" TEXT UNIQUE,
+	"descripcion" TEXT,
+	"created_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+	"updated_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+	"shopify_taxonomy" TEXT,
+	"fide_porcentaje" REAL
+)
+Columns:
+   - id INTEGER PRIMARY KEY
+   - nombre TEXT UNIQUE
+   - descripcion TEXT
+   - created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+   - updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+   - shopify_taxonomy TEXT
+   - fide_porcentaje REAL
+
+-- TABLE cierres_caja
+CREATE TABLE "cierres_caja" (
+   id INTEGER PRIMARY KEY AUTOINCREMENT,
+   cierre_num INTEGER,
+   fecha_hora TIMESTAMP,
+   cajero TEXT,
+   total_ingresos REAL,
+   num_ventas INTEGER,
+   rango_inicio_ticket INTEGER,
+   rango_fin_ticket INTEGER,
+   total_efectivo REAL DEFAULT 0.0,
+   total_tarjeta REAL DEFAULT 0.0,
+   total_web REAL DEFAULT 0.0,
+   total_devoluciones REAL DEFAULT 0.0,
+   total_descuentos REAL DEFAULT 0.0,
+   tesoro_ganado REAL DEFAULT 0.0,
+   tesoro_gastado REAL DEFAULT 0.0,
+   tesoro_total_ganado REAL DEFAULT 0.0,
+   tesoro_total_gastado REAL DEFAULT 0.0,
+   cierre_text TEXT,
+   usuario_id INTEGER,
+   total_base_imponible REAL DEFAULT 0.0,
+   total_iva REAL DEFAULT 0.0,
+   base_21 REAL DEFAULT 0.0,
+   iva_21 REAL DEFAULT 0.0,
+   base_4 REAL DEFAULT 0.0,
+   iva_4 REAL DEFAULT 0.0,
+   iva_desglose TEXT DEFAULT '{}'
+)
+
+-- TABLE clientes
+CREATE TABLE "clientes" (
+	"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+	"nombre" TEXT,
+	"telefono" TEXT,
+	"email" TEXT,
+	"dni" TEXT,
+	"direccion" TEXT,
+	"ciudad" TEXT,
+	"cp" TEXT,
+	"pais" TEXT,
+	"fecha_nacimiento" DATE,
+	"tags" TEXT,
+	"notes_internas" TEXT,
+	"tesoro_total" REAL DEFAULT 0.0,
+	"tesoro_gastado_total" REAL DEFAULT 0.0,
+	"tesoro_historico" REAL DEFAULT 0.0,
+	"id_nivel" INTEGER,
+	"fidelidad_activa" INTEGER DEFAULT 1,
+	"fecha_alta" DATETIME DEFAULT CURRENT_TIMESTAMP
+)
+
+-- TABLE codigos_barras
+CREATE TABLE codigos_barras (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  producto_id INTEGER,
+                  ean TEXT NOT NULL,
+                  FOREIGN KEY(producto_id) REFERENCES productos(id) ON DELETE CASCADE
+            )
+
+-- TABLE configuracion
+CREATE TABLE configuracion (
+                  clave TEXT PRIMARY KEY,
+                  valor TEXT
+            )
+
+-- TABLE niveles_fidelidad
+CREATE TABLE niveles_fidelidad (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  level INTEGER NOT NULL UNIQUE,
+                  nombre_nivel TEXT NOT NULL,
+                  grafismo_nivel TEXT,
+                  gasto_minimo REAL NOT NULL DEFAULT 0.0,
+                  tipo_recompensa TEXT,
+                  detalle_recompensa TEXT,
+                  producto_sku TEXT
+)
+
+-- TABLE payments
+CREATE TABLE payments (
+   id INTEGER PRIMARY KEY AUTOINCREMENT,
+   ticket_id INTEGER NOT NULL,
+   metodo TEXT,
+   importe REAL NOT NULL,
+   referencia TEXT,
+   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+   FOREIGN KEY(ticket_id) REFERENCES "tickets_backup"(id) ON DELETE CASCADE
+)
+
+-- TABLE points_movements
+CREATE TABLE points_movements (
+   id INTEGER PRIMARY KEY AUTOINCREMENT,
+   cliente_id INTEGER NOT NULL,
+   puntos REAL NOT NULL,
+   motivo TEXT,
+   ticket_id INTEGER,
+   usuario_id INTEGER,
+   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+   FOREIGN KEY(cliente_id) REFERENCES "clientes_old"(id),
+   FOREIGN KEY(ticket_id) REFERENCES "tickets_backup"(id)
+)
+
+-- TABLE precios
+CREATE TABLE "precios" (
+	"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+	"producto_id" INTEGER,
+	"pvp" REAL DEFAULT 0.0,
+	"coste" REAL DEFAULT 0.0,
+	"fecha_registro" DATETIME DEFAULT CURRENT_TIMESTAMP,
+	"activo" INTEGER DEFAULT 1,
+	FOREIGN KEY("producto_id") REFERENCES "productos"("id") ON DELETE CASCADE
+)
+
+-- TABLE productos
+CREATE TABLE "productos" (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nombre TEXT NOT NULL,
+      nombre_boton TEXT,
+      sku TEXT NOT NULL UNIQUE,
+      categoria INTEGER NOT NULL,
+      tipo INTEGER NOT NULL,
+      proveedor_id INTEGER,
+      tipo_iva INTEGER DEFAULT 0,
+      stock_actual INTEGER DEFAULT 0 NOT NULL,
+      stock_minimo INTEGER DEFAULT 0,
+      ventas_totales INTEGER DEFAULT 0,
+      pvp_variable INTEGER DEFAULT 0,
+      descripcion_shopify TEXT,
+      notas_internas TEXT,
+      titulo TEXT,
+      activo INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      pending_sync INTEGER DEFAULT 0,
+      seo_title TEXT,
+      seo_description TEXT,
+      tipo_shop TEXT,
+      estado TEXT,
+      etiquetas TEXT,
+      shop_link TEXT,
+      shopify_taxonomy TEXT,
+      FOREIGN KEY (categoria) REFERENCES "categorias_old"(id) ON DELETE RESTRICT,
+      FOREIGN KEY (tipo) REFERENCES "tipos_old"(id) ON DELETE RESTRICT,
+      FOREIGN KEY (proveedor_id) REFERENCES proveedores(id) ON DELETE SET NULL
+)
+
+-- TABLE proveedores
+CREATE TABLE proveedores (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        nombre TEXT,
+                        que_vende TEXT,
+                        nif_cif TEXT,
+                        iva_intracom TEXT,
+                        dir_fiscal TEXT,
+                        dir_envio TEXT,
+                        email TEXT,
+                        telefono TEXT,
+                        forma_pago TEXT,
+                        persona_comercial TEXT,
+                        telefono_comercial TEXT,
+                        email_comercial TEXT,
+                        web TEXT,
+                        notas TEXT
+                  )
+
+-- TABLE sqlite_sequence
+CREATE TABLE sqlite_sequence(name,seq)
+
+-- TABLE stock_movements
+CREATE TABLE stock_movements (
+   id INTEGER PRIMARY KEY AUTOINCREMENT,
+   producto_id INTEGER NOT NULL,
+   cantidad INTEGER NOT NULL,
+   motivo TEXT,
+   ticket_line_id INTEGER,
+   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+   FOREIGN KEY(producto_id) REFERENCES productos(id),
+   FOREIGN KEY(ticket_line_id) REFERENCES ticket_lines(id)
+)
+
+-- TABLE ticket_lines
+CREATE TABLE "ticket_lines" (
+   id INTEGER PRIMARY KEY AUTOINCREMENT,
+   ticket_id INTEGER NOT NULL,
+   sku TEXT,
+   nombre TEXT,
+   cantidad REAL,
+   precio REAL,
+   iva REAL,
+   line_tipo TEXT DEFAULT 'venta',
+   producto_id INTEGER,
+   FOREIGN KEY(ticket_id) REFERENCES "tickets_backup"(id) ON DELETE CASCADE,
+   FOREIGN KEY(producto_id) REFERENCES productos(id) ON DELETE SET NULL
+)
+
+-- TABLE tickets
+CREATE TABLE "tickets" (
+	"id"	INTEGER,
+	"created_at"	DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	"cajero"	TEXT,
+	"cliente"	TEXT,
+	"cliente_id"	INTEGER,
+	"num_ticket"	INTEGER,
+	"forma_pago"	TEXT,
+	"total"	REAL NOT NULL,
+	"pagado"	REAL,
+	"cambio"	REAL,
+	"importe_efectivo"	REAL DEFAULT 0.0,
+	"importe_tarjeta"	REAL DEFAULT 0.0,
+	"descuento_euros"	REAL,
+	"descuento_tipo"	TEXT,
+	"descuento_valor"	REAL,
+	"cierre_id"	INTEGER,
+	"tesoro_ganado"	REAL DEFAULT 0,
+	"tesoro_gastado"	REAL DEFAULT 0,
+	"tesoro_total_ticket"	REAL DEFAULT 0,
+	"ticket_text"	TEXT,
+	"usuario_id"	INTEGER,
+	"num_ventas"	INTEGER DEFAULT 0,
+	"subtotal"	REAL DEFAULT 0.0,
+	PRIMARY KEY("id" AUTOINCREMENT)
+)
+
+-- TABLE tipos
+CREATE TABLE "tipos" (
+	"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+	"nombre" TEXT UNIQUE,
+	"descripcion" TEXT,
+	"created_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+	"updated_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+	"shopify_taxonomy" TEXT,
+	"fide_porcentaje" REAL
+)
+
+-- TABLE usuarios
+CREATE TABLE usuarios (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nombre TEXT NOT NULL,
+      password TEXT NOT NULL,
+      rol TEXT NOT NULL,
+      permiso_cierre INTEGER DEFAULT 0,
+      permiso_descuento INTEGER DEFAULT 0,
+      permiso_devolucion INTEGER DEFAULT 0,
+      permiso_tickets INTEGER DEFAULT 0
+)
+
+-- TRIGGER trg_ticket_lines_after_delete
+CREATE TRIGGER trg_ticket_lines_after_delete
+AFTER DELETE ON ticket_lines
+BEGIN
+   UPDATE tickets SET num_ventas = COALESCE((SELECT COUNT(*) FROM ticket_lines WHERE ticket_id = OLD.ticket_id),0) WHERE id = OLD.ticket_id;
+END
+
+-- TRIGGER trg_ticket_lines_after_insert
+CREATE TRIGGER trg_ticket_lines_after_insert
+AFTER INSERT ON ticket_lines
+BEGIN
+   UPDATE tickets SET num_ventas = COALESCE((SELECT COUNT(*) FROM ticket_lines WHERE ticket_id = NEW.ticket_id),0) WHERE id = NEW.ticket_id;
+END
+
+-- TRIGGER trg_ticket_lines_after_update_ticketid
+CREATE TRIGGER trg_ticket_lines_after_update_ticketid
+AFTER UPDATE OF ticket_id ON ticket_lines
+BEGIN
+   UPDATE tickets SET num_ventas = COALESCE((SELECT COUNT(*) FROM ticket_lines WHERE ticket_id = OLD.ticket_id),0) WHERE id = OLD.ticket_id;
+   UPDATE tickets SET num_ventas = COALESCE((SELECT COUNT(*) FROM ticket_lines WHERE ticket_id = NEW.ticket_id),0) WHERE id = NEW.ticket_id;
+END
+
