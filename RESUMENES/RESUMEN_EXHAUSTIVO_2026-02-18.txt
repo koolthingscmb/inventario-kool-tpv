@@ -1,0 +1,1239 @@
+**RESUMEN EXHAUSTIVO - KOOL_TPV_V2**
+
+Fecha: 2026-02-18
+Alcance: Revisión técnica profunda de los archivos usados para el funcionamiento de la app Kool TPV v2. Incluye estructura, componentes, análisis por archivo/módulo, estado actual, últimas implementaciones, ventajas, desventajas y recomendaciones.
+
+---
+
+**ÍNDICE**
+- Resumen ejecutivo
+- Estructura del repositorio
+- Arranque y flujo principal
+- Base de datos y persistencia
+- Schema de la base de datos (anexo)
+- Servicios principales (producto, ticket, carrito, fidelización)
+- Módulo TPV (vista, controladores, acciones)
+- Módulo Almacén
+- Módulo Clientes
+- Módulo Impresión
+- Utilidades y plantillas
+- Scripts y tests
+- Guia de estilo (resumen del archivo guia_estilo_blindaje.txt)
+- Estado del proyecto a fecha
+- Últimas implementaciones detectadas
+- Pros y contras
+- Recomendaciones y mejoras propuestas
+- Anexos: lista de archivos analizados
+
+---
+
+**RESUMEN EJECUTIVO**
+
+Este documento sintetiza una revisión técnica exhaustiva del proyecto Kool TPV v2 realizada el 2026-02-18. Se mantiene el formato y la estructura del resumen previo (2026-02-17) para facilitar comparaciones y auditorías.
+
+---
+
+**ESTRUCTURA DEL REPOSITORIO (alto nivel)**
+- Raíz:
+  - `main.py` -> arranque de la aplicación (CTk/Tkinter UI).
+  - `requirements.txt` -> dependencias principales.
+  - `kool_tpv/` -> paquete principal con módulos, base de datos, assets, utilidades.
+  - `RESUMENES/` -> contiene archivos de resumen y guía de estilo.
+  - `scripts/` y `tests/` -> casos de prueba y scripts de apoyo.
+
+- Dentro de `kool_tpv`:
+  - `base_datos/` -> servicios y wrappers para SQLite (db_wrapper, db_init, servicios por entidad).
+  - `modulos/` -> implementaciones funcionales (tpv, almacen, clientes, impresion, configuracion, etc.).
+  - `utils/` -> componentes UI reutilizables, formateo, diálogos personalizados, templates UI.
+  - `assets/` -> recursos gráficos y fuentes.
+  - `config/` -> configuraciones JSON (botones, menús).
+
+---
+
+**ARRANQUE Y FLUJO PRINCIPAL**
+
+- `main.py` (raíz) realiza:
+  - Configuración de `customtkinter`, logging y carpetas de logs.
+  - Inicialización de la base de datos mediante `initialize_database(db_path)` y `Database.connect()`.
+  - Construcción de la UI principal y barra lateral con botones cargados desde `config/buttons_config.json`.
+  - Instanciación y carga de `TpvView` y demás módulos mediante lazy imports.
+
+Observaciones:
+- Buena separación entre inicialización y carga de módulos (lazy imports).
+- Uso extensivo de try/except mejora robustez pero puede ocultar errores si logs carecen de contexto.
+
+---
+
+**BASE DE DATOS Y PERSISTENCIA**
+
+- `kool_tpv/base_datos/db_wrapper.py`:
+  - Wrapper `Database` con métodos `connect`, `execute_query`, `fetch_all`, `fetch_one`, `close_connection` y `transaction()` context manager.
+  - Defaults mitigantes de concurrencia: `check_same_thread=False`, `timeout=10`.
+
+- `kool_tpv/base_datos/db_init.py`:
+  - `initialize_database(db_path)` aplica `migraciones/base.sql` cuando faltan tablas críticas y verifica post-migración.
+
+Observaciones:
+- `Database.transaction()` y `ticket_service.save_ticket` implementan operaciones atómicas críticas.
+- Revisar `migraciones/base.sql` para confirmar tablas opcionales (payments, audit_logs, stock_movements, points_movements, etc.).
+
+---
+
+**SCHEMA DE LA BASE DE DATOS (kool_bd.db)**
+
+A continuación se incluye el SQL extraído de `sqlite_master` del fichero `kool_tpv/base_datos/kool_bd.db`.
+
+  -- index idx_audit_entidad
+  CREATE INDEX idx_audit_entidad ON audit_logs(entidad, entidad_id)
+  
+  -- index idx_cierres_cierre_num
+  CREATE INDEX idx_cierres_cierre_num ON cierres_caja(cierre_num)
+  
+  -- index idx_cierres_fecha_hora
+  CREATE INDEX idx_cierres_fecha_hora ON cierres_caja(fecha_hora)
+  
+  -- index idx_payments_ticket
+  CREATE INDEX idx_payments_ticket ON payments(ticket_id)
+  
+  -- index idx_points_mov_cliente
+  CREATE INDEX idx_points_mov_cliente ON points_movements(cliente_id)
+  
+  -- index idx_precios_activo
+  CREATE INDEX "idx_precios_activo" ON "precios" ("producto_id", "activo")
+  
+  -- index idx_productos_categoria
+  CREATE INDEX idx_productos_categoria ON productos(categoria)
+  
+  -- index idx_productos_tipo
+  CREATE INDEX idx_productos_tipo ON productos(tipo)
+  
+  -- index idx_stock_mov_producto
+  CREATE INDEX idx_stock_mov_producto ON stock_movements(producto_id)
+  
+  -- index idx_ticket_lines_ticket
+  CREATE INDEX idx_ticket_lines_ticket ON ticket_lines(ticket_id)
+  
+  -- table albaran_lines
+  CREATE TABLE albaran_lines (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      albaran_id INTEGER,
+      producto_id INTEGER,
+      ean TEXT,
+      nombre TEXT,
+      cantidad INTEGER,
+      coste REAL,
+      descuento REAL DEFAULT 0.0,
+      importe REAL,
+      tipo_iva INTEGER DEFAULT 21,
+      FOREIGN KEY(albaran_id) REFERENCES albaranes(id) ON DELETE CASCADE,
+      FOREIGN KEY(producto_id) REFERENCES productos(id)
+  )
+  
+  -- table albaranes
+  CREATE TABLE albaranes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      num_albaran INTEGER UNIQUE,
+      proveedor_id INTEGER,
+      fecha DATE,
+      total_neto REAL DEFAULT 0.0,
+      total_iva_4 REAL DEFAULT 0.0,
+      total_iva_10 REAL DEFAULT 0.0,
+      total_iva_21 REAL DEFAULT 0.0,
+      total REAL DEFAULT 0.0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(proveedor_id) REFERENCES proveedores(id)
+  )
+  
+  -- table audit_logs
+  CREATE TABLE audit_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entidad TEXT,
+    entidad_id INTEGER,
+    accion TEXT,
+    usuario_id INTEGER,
+    datos_previos TEXT,
+    datos_nuevos TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+  
+  -- table categorias
+  CREATE TABLE "categorias" (
+  	"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  	"nombre" TEXT UNIQUE,
+  	"descripcion" TEXT,
+  	"created_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+  	"updated_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+  	"shopify_taxonomy" TEXT,
+  	"fide_porcentaje" REAL
+  )
+  
+  -- table cierres_caja
+  CREATE TABLE "cierres_caja" (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cierre_num INTEGER,
+    fecha_hora TIMESTAMP,
+    cajero TEXT,
+    total_ingresos REAL,
+    num_ventas INTEGER,
+    rango_inicio_ticket INTEGER,
+    rango_fin_ticket INTEGER,
+    total_efectivo REAL DEFAULT 0.0,
+    total_tarjeta REAL DEFAULT 0.0,
+    total_web REAL DEFAULT 0.0,
+    total_devoluciones REAL DEFAULT 0.0,
+    total_descuentos REAL DEFAULT 0.0,
+    tesoro_ganado REAL DEFAULT 0.0,
+    tesoro_gastado REAL DEFAULT 0.0,
+    tesoro_total_ganado REAL DEFAULT 0.0,
+    tesoro_total_gastado REAL DEFAULT 0.0,
+    cierre_text TEXT,
+    usuario_id INTEGER
+  , total_base_imponible REAL DEFAULT 0.0, total_iva REAL DEFAULT 0.0, base_21 REAL DEFAULT 0.0, iva_21 REAL DEFAULT 0.0, base_4 REAL DEFAULT 0.0, iva_4 REAL DEFAULT 0.0, iva_desglose TEXT DEFAULT '{}')
+  
+  -- table clientes
+  CREATE TABLE "clientes" (
+  	"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  	"nombre" TEXT,
+  	"telefono" TEXT,
+  	"email" TEXT,
+  	"dni" TEXT,
+  	"direccion" TEXT,
+  	"ciudad" TEXT,
+  	"cp" TEXT,
+  	"pais" TEXT,
+  	"fecha_nacimiento" DATE,
+  	"tags" TEXT,
+  	"notes_internas" TEXT,
+  	"tesoro_total" REAL DEFAULT 0.0,
+  	"tesoro_gastado_total" REAL DEFAULT 0.0,
+  	"tesoro_historico" REAL DEFAULT 0.0,
+  	"id_nivel" INTEGER,
+  	"fidelidad_activa" INTEGER DEFAULT 1,
+  	"fecha_alta" DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+  
+  -- table codigos_barras
+  CREATE TABLE codigos_barras (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              producto_id INTEGER,
+              ean TEXT NOT NULL,
+              FOREIGN KEY(producto_id) REFERENCES productos(id) ON DELETE CASCADE
+          )
+  
+  -- table configuracion
+  CREATE TABLE configuracion (
+              clave TEXT PRIMARY KEY,
+              valor TEXT
+          )
+  
+  -- table niveles_fidelidad
+  CREATE TABLE niveles_fidelidad (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              level INTEGER NOT NULL UNIQUE,
+              nombre_nivel TEXT NOT NULL,
+              grafismo_nivel TEXT,
+              gasto_minimo REAL NOT NULL DEFAULT 0.0
+          , tipo_recompensa TEXT, detalle_recompensa TEXT, producto_sku TEXT)
+  
+  -- table payments
+  CREATE TABLE payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id INTEGER NOT NULL,
+    metodo TEXT,
+    importe REAL NOT NULL,        -- positivo si cliente paga, negativo si tienda devuelve
+    referencia TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(ticket_id) REFERENCES "tickets_backup"(id) ON DELETE CASCADE
+  )
+  
+  -- table points_movements
+  CREATE TABLE points_movements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cliente_id INTEGER NOT NULL,
+    puntos REAL NOT NULL,         -- positivo/negativo
+    motivo TEXT,
+    ticket_id INTEGER,            -- referencia opcional al ticket
+    usuario_id INTEGER,           -- usuario que aplicó el movimiento
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(cliente_id) REFERENCES "clientes_old"(id),
+    FOREIGN KEY(ticket_id) REFERENCES "tickets_backup"(id)
+  )
+  
+  -- table precios
+  CREATE TABLE "precios" (
+  	"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  	"producto_id" INTEGER,
+  	"pvp" REAL DEFAULT 0.0,
+  	"coste" REAL DEFAULT 0.0,
+  	"fecha_registro" DATETIME DEFAULT CURRENT_TIMESTAMP,
+  	"activo" INTEGER DEFAULT 1,
+  	FOREIGN KEY("producto_id") REFERENCES "productos"("id") ON DELETE CASCADE
+  )
+  
+  -- table productos
+  CREATE TABLE "productos" (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nombre TEXT NOT NULL,
+      nombre_boton TEXT,
+      sku TEXT NOT NULL UNIQUE,
+      categoria INTEGER NOT NULL,
+      tipo INTEGER NOT NULL,
+      proveedor_id INTEGER,
+      tipo_iva INTEGER DEFAULT 0,
+      stock_actual INTEGER DEFAULT 0 NOT NULL,
+      stock_minimo INTEGER DEFAULT 0,
+      ventas_totales INTEGER DEFAULT 0,
+      pvp_variable INTEGER DEFAULT 0, -- 0 = No, 1 = Sí
+      descripcion_shopify TEXT,
+      notas_internas TEXT,
+      titulo TEXT,
+      activo INTEGER DEFAULT 1, -- 1 = Activo, 0 = Inactivo
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      pending_sync INTEGER DEFAULT 0,
+      seo_title TEXT,
+      seo_description TEXT,
+      tipo_shop TEXT,
+      etiquetas TEXT,
+      shop_link TEXT,
+      shopify_taxonomy TEXT,
+      FOREIGN KEY (categoria) REFERENCES "categorias_old"(id) ON DELETE RESTRICT,
+      FOREIGN KEY (tipo) REFERENCES "tipos_old"(id) ON DELETE RESTRICT,
+      FOREIGN KEY (proveedor_id) REFERENCES proveedores(id) ON DELETE SET NULL
+  )
+  
+  -- table proveedores
+  CREATE TABLE proveedores (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  nombre TEXT,
+                  que_vende TEXT,
+                  nif_cif TEXT,
+                  iva_intracom TEXT,
+                  dir_fiscal TEXT,
+                  dir_envio TEXT,
+                  email TEXT,
+                  telefono TEXT,
+                  forma_pago TEXT,
+                  persona_comercial TEXT,
+                  telefono_comercial TEXT,
+                  email_comercial TEXT,
+                  web TEXT,
+                  notas TEXT
+              )
+  
+  -- table sqlite_sequence
+  CREATE TABLE sqlite_sequence(name,seq)
+  
+  -- table stock_movements
+  CREATE TABLE stock_movements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    producto_id INTEGER NOT NULL,
+    cantidad INTEGER NOT NULL,    -- positivo = entrada (devolución), negativo = salida (venta)
+    motivo TEXT,
+    ticket_line_id INTEGER,       -- referencia a ticket_lines.id (si aplica)
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(producto_id) REFERENCES productos(id),
+    FOREIGN KEY(ticket_line_id) REFERENCES ticket_lines(id)
+  )
+  
+  -- table ticket_lines
+  CREATE TABLE "ticket_lines" (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id INTEGER NOT NULL,
+    sku TEXT,
+    nombre TEXT,
+    cantidad REAL,
+    precio REAL,
+    iva REAL,
+    line_tipo TEXT DEFAULT 'venta',
+    producto_id INTEGER,
+    FOREIGN KEY(ticket_id) REFERENCES "tickets_backup"(id) ON DELETE CASCADE,
+    FOREIGN KEY(producto_id) REFERENCES productos(id) ON DELETE SET NULL
+  )
+  
+  -- table tickets
+  CREATE TABLE "tickets" (
+  	"id"	INTEGER,
+  	"created_at"	DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  	"cajero"	TEXT,
+  	"cliente"	TEXT,
+  	"cliente_id"	INTEGER,
+  	"num_ticket"	INTEGER,
+  	"forma_pago"	TEXT,
+  	"total"	REAL NOT NULL,
+  	"pagado"	REAL,
+  	"cambio"	REAL,
+  	"importe_efectivo"	REAL DEFAULT 0.0,
+  	"importe_tarjeta"	REAL DEFAULT 0.0,
+  	"descuento_euros"	REAL,
+  	"descuento_tipo"	TEXT,
+  	"descuento_valor"	REAL,
+  	"cierre_id"	INTEGER,
+  	"tesoro_ganado"	REAL DEFAULT 0,
+  	"tesoro_gastado"	REAL DEFAULT 0,
+  	"tesoro_total_ticket"	REAL DEFAULT 0,
+  	"ticket_text"	TEXT,
+  	"usuario_id"	INTEGER,
+  	"num_ventas"	INTEGER DEFAULT 0,
+  	"subtotal"	REAL DEFAULT 0.0,
+  	PRIMARY KEY("id" AUTOINCREMENT)
+  )
+  
+  -- table tipos
+  CREATE TABLE "tipos" (
+  	"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  	"nombre" TEXT UNIQUE,
+  	"descripcion" TEXT,
+  	"created_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+  	"updated_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+  	"shopify_taxonomy" TEXT,
+  	"fide_porcentaje" REAL
+  )
+  
+  -- table usuarios
+  CREATE TABLE usuarios (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nombre TEXT NOT NULL,
+      password TEXT NOT NULL,
+      rol TEXT NOT NULL,
+      permiso_cierre INTEGER DEFAULT 0,
+      permiso_descuento INTEGER DEFAULT 0,
+      permiso_devolucion INTEGER DEFAULT 0,
+      permiso_tickets INTEGER DEFAULT 0
+  )
+  
+  -- trigger trg_ticket_lines_after_delete
+  CREATE TRIGGER trg_ticket_lines_after_delete
+  AFTER DELETE ON ticket_lines
+  BEGIN
+    UPDATE tickets SET num_ventas = COALESCE((SELECT COUNT(*) FROM ticket_lines WHERE ticket_id = OLD.ticket_id),0) WHERE id = OLD.ticket_id;
+  END
+  
+  -- trigger trg_ticket_lines_after_insert
+  CREATE TRIGGER trg_ticket_lines_after_insert
+  AFTER INSERT ON ticket_lines
+  BEGIN
+    UPDATE tickets SET num_ventas = COALESCE((SELECT COUNT(*) FROM ticket_lines WHERE ticket_id = NEW.ticket_id),0) WHERE id = NEW.ticket_id;
+  END
+  
+  -- trigger trg_ticket_lines_after_update_ticketid
+  CREATE TRIGGER trg_ticket_lines_after_update_ticketid
+  AFTER UPDATE OF ticket_id ON ticket_lines
+  BEGIN
+    UPDATE tickets SET num_ventas = COALESCE((SELECT COUNT(*) FROM ticket_lines WHERE ticket_id = OLD.ticket_id),0) WHERE id = OLD.ticket_id;
+    UPDATE tickets SET num_ventas = COALESCE((SELECT COUNT(*) FROM ticket_lines WHERE ticket_id = NEW.ticket_id),0) WHERE id = NEW.ticket_id;
+  END
+  
+
+---
+
+**SERVICIOS PRINCIPALES**
+- `producto_service.py`: consultas JOIN con `precios`, listados paginados y búsquedas por múltiples campos.
+- `ticket_service.py`: `save_ticket` atómico, actualizaciones stock, movimientos puntos y snapshot de ticket.
+- `cierre_service.py`, `configuracion_service.py`, `categoria_service.py`, `proveedor_service.py`, `tipo_service.py`: servicios CRUD y utilidades.
+
+---
+
+**MÓDULO TPV (UI y lógica de cobro)**
+- `tpv_view.py`: Orquestador UI, CarritoUI, integración con `CarritoService` y `TicketService`.
+- Observaciones: archivo extenso; beneficiaría de refactorización por responsabilidades.
+
+**MÓDULO ALMACÉN**
+- `almacen_view.py`, `maestro_service.py`, UI CRUD para productos, categorías y proveedores.
+
+**MÓDULO CLIENTES**
+- Gestión de clientes y `fidelizacion_service` (cálculo y aplicación de puntos).
+
+**MÓDULO IMPRESIÓN**
+- Generadores de tickets (`venta_ticket_generator`) y servicios de impresión/desacople. Snapshot de ticket usado por `save_ticket` si está disponible.
+
+---
+
+**UTILIDADES Y PLANTILLAS**
+- `utils/` contiene `formatter_service`, `custom_dialogs`, `templates/base_module_view.py` y componentes reutilizables.
+- `base_module_view.py` es el punto clave para aplicar la guía de estilo Matrix (sidebar 220px, breadcrumbs, colores).
+
+---
+
+**SCRIPTS Y TESTS**
+- `scripts/` y `tests/` contienen utilidades y pruebas existentes; se recomienda ampliar cobertura especialmente en `ticket_service` y `CarritoService`.
+
+---
+
+**GUIA DE ESTILO (resumen del archivo guia_estilo_blindaje.txt)**
+
+- PROMPT DE BLINDAJE ARQUITECTÓNICO Y UI (ESTÁNDAR KOOL_V2)
+- ══════════════════════════════════════════════════════════
+- 
+- OBJETIVO:
+- Consolidar la identidad visual Matrix y blindar la lógica de validación de datos. A partir de ahora, todo el sistema debe regirse por estos estándares inamovibles.
+- 🎨 1. BLINDAJE ESTÉTICO (SISTEMA DE DISEÑO)
+- 
+- Para asegurar que todos los módulos (Almacén, Clientes, Shopify, etc.) sean idénticos, debes aplicar estos valores fijos en utils/templates/base_module_view.py:
+- 
+-     Sidebar (Inamovible): Ancho fijo de 220px. Fondo #393E46.
+- 
+-     Zona Central (Fondo): Siempre #1a1a1a (Negro profundo).
+- 
+-     Sistema de Ruta (Breadcrumbs): Implementar en la parte superior de la zona central un CTkLabel persistente que muestre la ruta: SISTEMA_KOOL_TPV: / [MODULO] / [SUB_SECCION].
+- 
+-         Fuente: Courier New, 12px, negrita. Color: #00FF00.
+- 
+-     Cero Flicker: Todas las pestañas (Tabs) y frames de contenido deben tener fg_color="#1a1a1a" para garantizar transiciones totalmente negras.
+- 
+- ⌨️ 2. BLINDAJE DE BUSCADORES (SearchableCombo PRO)
+- 
+- Debes refactorizar el componente SearchableCombo para que sea una herramienta de alta productividad:
+- 
+-     Navegación Remota (Sin pérdida de foco):
+- 
+-         Las flechas Arriba/Abajo y la tecla Enter deben controlar la lista de sugerencias sin que el cursor abandone el Entry.
+- 
+-         El evento KeyRelease debe ignorar estas teclas de navegación para no regenerar la lista mientras se navega.
+- 
+-     Validación Estricta (Strict Mode):
+- 
+-         Al dispararse el evento FocusOut (salir del campo), el componente debe verificar si el texto existe en la base de datos.
+- 
+-         Si es inválido: Cambiar el border_color a Rojo (#FF0000) inmediatamente.
+- 
+-         Si es válido: Mantener el border_color en Verde (#00FF00).
+- 
+- 📊 3. ESTÁNDAR DE FORMULARIOS (GRID 8 COLUMNAS)
+- 
+- Todos los formularios complejos (como Crear Producto) deben usar un Grid de 8 columnas para una alineación perfecta.
+- 
+-     Usar columnspan para equilibrar filas (ej. ID: 2 col, Nombre: 6 col).
+- 
+-     Las etiquetas (Labels) deben usar siempre la fuente Courier New en verde.
+- 
+-     Los cuadros de texto largos (SEO Description, Descripción Web) deben ser CTkTextbox.
+- 
+- 💾 4. BLINDAJE DE DATOS (TRANSACCIONES SQL)
+- 
+- El botón de Guardado debe ser atómico. No se permite guardar un producto si su precio falla.
+- 
+-     Validación Previa: Si algún SearchableCombo tiene el borde en Rojo (inválido) o get_id() es None, el guardado se aborta con un show_error.
+- 
+-     Atomicidad: Usar BEGIN TRANSACTION y COMMIT para asegurar que las tablas productos y precios se actualicen simultáneamente.
+- 
+- ✅ CRITERIO DE ACEPTACIÓN FINAL:
+- 
+-     La navegación por el almacén es fluida y muestra la ruta arriba: ALMACEN / CREAR.
+- 
+-     No es posible guardar una categoría inexistente (como "Libretilla").
+- 
+-     El usuario puede rellenar todo el formulario usando solo el teclado (Tab, flechas y Enter).
+- 
+-     Visualmente, la app es consistente: 220px de sidebar y estética Matrix impecable.
+
+---
+
+**ESTADO DEL PROYECTO (a fecha)**
+- Código modularizado, funcionalidades TPV centrales operativas (carrito, cobro, impresión).
+- Persistencia con transacciones atómicas en puntos críticos.
+- Tests presentes pero cobertura limitada en componentes críticos.
+- Migraciones disponibles en `base_datos/migraciones/base.sql` (aplicación completa si faltan tablas).
+
+---
+
+**ÚLTIMAS IMPLEMENTACIONES DETECTADAS**
+- Robustez en inicialización y logging. Nuevas funcionalidades en `ticket_service` (fidelización, snapshot).
+- `db_wrapper.Database` configurado con `check_same_thread=False` y `timeout=10`.
+
+---
+
+**ANÁLISIS DE PROS Y CONTRAS**
+Pros:
+- Arquitectura modular clara y servicios encapsulados.
+- Uso de transacciones en operaciones críticas.
+- Componentes reutilizables y manejo opcional de impresión.
+
+Contras:
+- Archivos UI extensos con mezcla de responsabilidades.
+- Uso de SQLite limita concurrencia en entornos multi-proceso.
+- Falta de tipado consistente y pruebas en `save_ticket`.
+
+---
+
+**RECOMENDACIONES Y FUTURAS IMPLEMENTACIONES**
+- Refactorizar `TpvView` por responsabilidades.
+- Implementar validación estricta en `SearchableCombo` según guía.
+- Añadir pruebas unitarias/integración para `save_ticket` y `CarritoService` (usar DB :memory: para tests).
+- Establecer estrategia de migraciones incremental y considerar migración a RDBMS si se necesita concurrencia real.
+- Forzar uso consistente de `Decimal` y normalizar almacenamiento de valores monetarios.
+
+---
+
+**ANEXOS: LISTA DE ARCHIVOS ANALIZADOS (selección)**
+- main.py
+- kool_tpv/main.py
+- kool_tpv/base_datos/db_wrapper.py
+- kool_tpv/base_datos/db_init.py
+- kool_tpv/base_datos/producto_service.py
+- kool_tpv/base_datos/ticket_service.py
+- kool_tpv/modulos/tpv/tpv_view.py
+- kool_tpv/modulos/almacen/almacen_view.py
+- kool_tpv/modulos/clientes/fidelizacion_service.py
+- kool_tpv/utils/templates/base_module_view.py
+- scripts/
+- tests/
+
+---
+
+**ACCIONES REALIZADAS DURANTE ESTA REVISIÓN**
+- Lectura del resumen previo (2026-02-17) y adaptación del formato.
+- Extracción del schema de la BBDD y su inclusión en el anexo de schema.
+- Listado y verificación de archivos representativos. Redacción de recomendaciones.
+
+---
+
+**SIGUIENTES PASOS SUGERIDOS (priorizados)**
+1. Implementar tests unitarios para `save_ticket` y `CarritoService` con DB `:memory:`.
+2. Refactorizar `TpvView` extrayendo orquestador y layout.
+3. Implementar validación estricta y navegación mejorada en `SearchableCombo`.
+4. Adoptar esquema de migraciones incremental.
+5. Revisar estrategia de concurrencia y considerar migración a Postgres si es necesario.
+
+Fin del documento.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+---
+
+**ANEXO: EXPLICACIÓN POR ARCHIVO (kool_tpv/)**
+
+Se listan a continuación breves descripciones funcionales de cada archivo del paquete `kool_tpv`.
+
+Archivo: kool_tpv/__init__.py
+
+Archivo: kool_tpv/assets/__init__.py
+
+Archivo: kool_tpv/base_datos/__init__.py
+
+Archivo: kool_tpv/base_datos/albaran_service.py
+ - Doc: Servicio de Albaranes - CRUD y gestión de stock.
+ - Área funcional: productos
+ - Clases principales: AlbaranService
+
+Archivo: kool_tpv/base_datos/categoria_service.py
+ - Área funcional: persistencia, productos
+ - Clases principales: CategoriaService
+ - Nota: Usa acceso a BD; comprobar uso del wrapper `Database`.
+
+Archivo: kool_tpv/base_datos/cierre_service.py
+ - Doc: Servicio de acceso a datos para la tabla `cierres_caja`.
+ - Área funcional: configuracion, fidelizacion, persistencia, ticket
+ - Clases principales: CierreService
+ - Nota: Usa acceso a BD; comprobar uso del wrapper `Database`.
+ - Nota: Archivo muy largo; considerar refactorización.
+ - Nota: Contiene 2 TODO/FIXME.
+
+Archivo: kool_tpv/base_datos/configuracion_service.py
+ - Área funcional: configuracion, fidelizacion, persistencia
+ - Clases principales: ConfiguracionService
+ - Nota: Usa acceso a BD; comprobar uso del wrapper `Database`.
+
+Archivo: kool_tpv/base_datos/db_init.py
+ - Área funcional: persistencia, productos, ticket
+ - Funciones top-level: _read_migrations_sql, initialize_database
+ - Nota: Usa acceso a BD; comprobar uso del wrapper `Database`.
+
+Archivo: kool_tpv/base_datos/db_wrapper.py
+ - Área funcional: configuracion, persistencia
+ - Clases principales: Database
+
+Archivo: kool_tpv/base_datos/producto_service.py
+ - Área funcional: clientes, persistencia, productos, ticket
+ - Clases principales: ProductoService
+ - Nota: Usa acceso a BD; comprobar uso del wrapper `Database`.
+ - Nota: Contiene 4 TODO/FIXME.
+
+Archivo: kool_tpv/base_datos/proveedor_service.py
+ - Doc: Servicio de proveedores - CRUD completo.
+ - Clases principales: ProveedorService
+ - Nota: Contiene 1 TODO/FIXME.
+
+Archivo: kool_tpv/base_datos/ticket_service.py
+ - Doc: Ticket persistence service.
+ - Área funcional: carrito, clientes, configuracion, fidelizacion, impresion, persistencia, productos, ticket
+ - Funciones top-level: save_ticket
+ - Descripción detallada (manual):
+   - Propósito: Persiste un ticket completo en la base de datos de forma atómica. Inserta
+     registros en `tickets`, `ticket_lines`, registra `payments`, actualiza `productos`
+     (`stock_actual`, `ventas_totales`), crea entradas en `stock_movements` y `points_movements`
+     y actualiza la cuenta de fidelización del cliente si procede.
+   - Flujo clave:
+     1. Valida conexión y obtiene próximo `num_ticket` mediante `SELECT MAX(num_ticket)`.
+     2. Calcula puntos de fidelización (delegando a `FidelizacionService`).
+     3. Inserta el registro principal en `tickets` y obtiene `ticket_id`.
+     4. Inserta cada línea en `ticket_lines`, aplica cambios en `productos` y registra `stock_movements`.
+     5. Inserta líneas de descuento distribuidas por tipo de IVA si aplica.
+     6. Inserta `payments` desglosados y escribe un entry en `audit_logs` si existen las tablas.
+     7. Actualiza `clientes` (tesoro/tesoro_historico/tesoro_gastado_total) y recalcula `id_nivel`.
+     8. Genera snapshot `ticket_text` usando `VentaTicketGenerator` cuando esté disponible.
+   - Puntos críticos y riesgos:
+     - Uso de `SELECT MAX(num_ticket)` para generar el número de ticket puede causar colisiones
+       en entornos con concurrencia multi-proceso; considerar secuencia centralizada.
+     - Se mezclan `Decimal` y conversiones a `str()` para inserciones: es deliberado pero requiere
+       comprobación consistente en lecturas (tipos en DB y en servicios consumidores).
+     - El código silencia errores de tablas opcionales (payments, audit_logs) mediante excepts,
+       lo cual es tolerante pero puede ocultar falta de integridad en entornos mal provisionados.
+   - Recomendaciones:
+     - Añadir tests unitarios/integración para casos: venta normal, devolución, descuento por IVA,
+       canje de puntos y concurrencia de tickets.
+     - Considerar mecanismo alternativo para `num_ticket` (tabla `counters` o usar `rowid`).
+
+ - Nota: Usa acceso a BD; comprobar uso del wrapper `Database`.
+ - Nota: Archivo muy largo; considerar refactorización.
+ - Nota: Contiene 2 TODO/FIXME.
+
+Archivo: kool_tpv/base_datos/tipo_service.py
+ - Área funcional: persistencia, productos
+ - Clases principales: TipoService
+ - Nota: Usa acceso a BD; comprobar uso del wrapper `Database`.
+ - Nota: Contiene 1 TODO/FIXME.
+
+Archivo: kool_tpv/logs/__init__.py
+
+Archivo: kool_tpv/main.py
+
+Archivo: kool_tpv/modulos/__init__.py
+
+Archivo: kool_tpv/modulos/almacen/__init__.py
+
+Archivo: kool_tpv/modulos/almacen/almacen_view.py
+ - Doc: Almacen module orchestrator (BaseModuleView pattern).
+ - Área funcional: configuracion, productos, ui
+ - Clases principales: AlmacenView
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+ - Nota: Contiene 1 TODO/FIXME.
+
+Archivo: kool_tpv/modulos/almacen/services/__init__.py
+
+Archivo: kool_tpv/modulos/almacen/services/maestro_service.py
+ - Doc: MaestroService: servicio CRUD genérico para el módulo ALMACÉN.
+ - Área funcional: productos
+ - Clases principales: MaestroService
+ - Nota: Contiene 2 TODO/FIXME.
+
+Archivo: kool_tpv/modulos/almacen/ui/__init__.py
+
+Archivo: kool_tpv/modulos/almacen/ui/albaranes/__init__.py
+ - Doc: Módulo de acciones de albaranes.
+
+Archivo: kool_tpv/modulos/almacen/ui/albaranes/consultar_albaran.py
+ - Doc: UI de Consultar Albaranes.
+ - Área funcional: ui
+ - Clases principales: ConsultarAlbaranUI
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+
+Archivo: kool_tpv/modulos/almacen/ui/albaranes/devolucion.py
+ - Doc: UI de Devolución.
+ - Área funcional: ui
+ - Clases principales: DevolucionUI
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+
+Archivo: kool_tpv/modulos/almacen/ui/albaranes/entrada_manual.py
+ - Doc: UI de Entrada Manual de albaranes.
+ - Área funcional: configuracion, productos, searchablecombo, ui
+ - Clases principales: SearchableCombo, EntradaManualUI
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+ - Nota: Archivo muy largo; considerar refactorización.
+ - Nota: Contiene 1 TODO/FIXME.
+
+Archivo: kool_tpv/modulos/almacen/ui/albaranes/exportar_albaran.py
+ - Doc: UI de Exportar Albarán.
+ - Área funcional: ui
+ - Clases principales: ExportarAlbaranUI
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+
+Archivo: kool_tpv/modulos/almacen/ui/albaranes/importar_albaran.py
+ - Doc: UI de Importar Albarán.
+ - Área funcional: ui
+ - Clases principales: ImportarAlbaranUI
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+
+Archivo: kool_tpv/modulos/almacen/ui/albaranes/salida_manual.py
+ - Doc: UI de Salida Manual.
+ - Área funcional: ui
+ - Clases principales: SalidaManualUI
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+
+Archivo: kool_tpv/modulos/almacen/ui/albaranes_ui.py
+ - Doc: UI de Albaranes - entrada manual con scanner EAN.
+ - Área funcional: ui
+ - Clases principales: AlbaranesUI
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+
+Archivo: kool_tpv/modulos/almacen/ui/busqueda_ui.py
+ - Doc: UI de Búsqueda (Grid manual dentro de CTkScrollableFrame).
+ - Área funcional: configuracion, productos, ui
+ - Clases principales: BusquedaUI
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+ - Nota: Contiene 2 TODO/FIXME.
+
+Archivo: kool_tpv/modulos/almacen/ui/categorias_ui.py
+ - Doc: UI de Categorías - estética Matrix, grid 8 columnas.
+ - Área funcional: configuracion, ui
+ - Clases principales: CategoriasUI
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+
+Archivo: kool_tpv/modulos/almacen/ui/crear_producto_ui.py
+ - Doc: CrearProductoUI (refactor): Interfaz Terminal Pro para altas de producto.
+ - Área funcional: configuracion, persistencia, productos, searchablecombo, ticket, ui
+ - Clases principales: SearchableCombo, CrearProductoUI
+ - Nota: Usa acceso a BD; comprobar uso del wrapper `Database`.
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+ - Nota: Archivo muy largo; considerar refactorización.
+
+Archivo: kool_tpv/modulos/almacen/ui/proveedores_ui.py
+ - Doc: UI de Proveedores - estética Matrix, grid 8 columnas.
+ - Área funcional: configuracion, productos, ui
+ - Clases principales: ProveedoresUI
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+
+Archivo: kool_tpv/modulos/almacen/ui/tipos_ui.py
+ - Doc: UI de Tipos - estética Matrix, grid 8 columnas.
+ - Área funcional: configuracion, ui
+ - Clases principales: TiposUI
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+
+Archivo: kool_tpv/modulos/clientes/__init__.py
+ - Área funcional: clientes, fidelizacion
+
+Archivo: kool_tpv/modulos/clientes/cliente_service.py
+ - Doc: Servicio de negocio para clientes.
+ - Área funcional: clientes, configuracion, fidelizacion, persistencia
+ - Clases principales: ClienteService
+ - Nota: Usa acceso a BD; comprobar uso del wrapper `Database`.
+
+Archivo: kool_tpv/modulos/clientes/clientes_db.py
+ - Doc: Acceso a datos para la tabla `clientes`.
+ - Área funcional: clientes, fidelizacion, persistencia
+ - Clases principales: ClientesDB
+ - Nota: Usa acceso a BD; comprobar uso del wrapper `Database`.
+ - Nota: Contiene 1 TODO/FIXME.
+
+Archivo: kool_tpv/modulos/clientes/fidelizacion_service.py
+ - Área funcional: carrito, configuracion, fidelizacion, persistencia, productos
+ - Clases principales: FidelizacionService
+ - Nota: Usa acceso a BD; comprobar uso del wrapper `Database`.
+ - Nota: Contiene 1 TODO/FIXME.
+
+Archivo: kool_tpv/modulos/clientes/ui_clientes.py
+ - Doc: Overlay UI para gestión de clientes.
+ - Área funcional: clientes, configuracion, fidelizacion, ui
+ - Clases principales: UIClientes
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+ - Nota: Archivo muy largo; considerar refactorización.
+
+Archivo: kool_tpv/modulos/configuracion/__init__.py
+ - Área funcional: configuracion
+
+Archivo: kool_tpv/modulos/configuracion/configuracion_service.py
+ - Área funcional: configuracion
+
+Archivo: kool_tpv/modulos/configuracion/reset_service.py
+
+Archivo: kool_tpv/modulos/impresion/__init__.py
+ - Área funcional: impresion, ticket
+
+Archivo: kool_tpv/modulos/impresion/base_ticket_generator.py
+ - Doc: Clase base abstracta para generadores de tickets.
+ - Área funcional: configuracion, ticket
+ - Clases principales: BaseTicketGenerator
+ - Nota: Contiene 2 TODO/FIXME.
+
+Archivo: kool_tpv/modulos/impresion/cierre_ticket_generator.py
+ - Doc: Generador de ticket para cierres (resumen de caja / Cierre Z).
+ - Área funcional: configuracion, impresion, productos, ticket
+ - Clases principales: CierreTicketGenerator
+ - Nota: Contiene 1 TODO/FIXME.
+
+Archivo: kool_tpv/modulos/impresion/export_service.py
+ - Doc: ExportService: exportar cierres/tickets a CSV y PDF.
+ - Área funcional: configuracion, impresion, ticket
+ - Clases principales: ExportService
+
+Archivo: kool_tpv/modulos/impresion/impresora_service.py
+ - Área funcional: clientes, configuracion, fidelizacion, impresion, ticket
+ - Clases principales: ImpresoraService
+
+Archivo: kool_tpv/modulos/impresion/ticket_generator.py
+ - Área funcional: ticket
+
+Archivo: kool_tpv/modulos/impresion/venta_ticket_generator.py
+ - Doc: Generador de tickets de venta.
+ - Área funcional: clientes, configuracion, fidelizacion, impresion, ticket
+ - Clases principales: VentaTicketGenerator
+
+Archivo: kool_tpv/modulos/tpv/__init__.py
+
+Archivo: kool_tpv/modulos/tpv/actions/Stock/StockBase.py
+ - Doc: StockBaseUI: clase base ligera para las UIs de stock.
+ - Área funcional: configuracion
+ - Clases principales: StockBaseUI
+
+Archivo: kool_tpv/modulos/tpv/actions/Stock/__init__.py
+ - Doc: Compat layer for Actions/Stock package.
+
+Archivo: kool_tpv/modulos/tpv/actions/Stock/consulta_stock_ui.py
+ - Doc: Lógica separada para el modo 'consulta' del overlay de stock.
+ - Área funcional: clientes, configuracion, impresion, productos, ticket, ui
+ - Clases principales: ConsultaStockHandler
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+
+Archivo: kool_tpv/modulos/tpv/actions/Stock/stock_ui.py
+ - Doc: UI overlay para consulta y gestión de stock de productos.
+ - Área funcional: carrito, clientes, configuracion, productos, ticket, ui
+ - Clases principales: StockUI
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+ - Nota: Archivo muy largo; considerar refactorización.
+ - Nota: Contiene 1 TODO/FIXME.
+
+Archivo: kool_tpv/modulos/tpv/actions/__init__.py
+
+Archivo: kool_tpv/modulos/tpv/actions/buscar_articulo.py
+ - Doc: Panel overlay para 'Buscar Artículo'.
+ - Área funcional: carrito, configuracion, productos, ui
+ - Clases principales: BuscarArticuloPanel
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+ - Nota: Archivo muy largo; considerar refactorización.
+ - Nota: Contiene 2 TODO/FIXME.
+
+Archivo: kool_tpv/modulos/tpv/actions/cajero.py
+ - Doc: Acción: seleccionar y autenticar cajero.
+ - Área funcional: persistencia
+ - Clases principales: CajeroAction
+ - Nota: Usa acceso a BD; comprobar uso del wrapper `Database`.
+
+Archivo: kool_tpv/modulos/tpv/actions/canjear_tesoro.py
+ - Doc: Acción: canjear tesoro (puntos) del cliente en la venta actual.
+ - Área funcional: carrito, clientes, fidelizacion, productos, ticket, ui
+ - Clases principales: CanjearTesoroAction
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+
+Archivo: kool_tpv/modulos/tpv/actions/cash.py
+ - Doc: Cash action controller: attaches cash input and button to `CarritoUI` totals area.
+ - Área funcional: carrito, configuracion, ticket, ui
+ - Clases principales: CashController
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+
+Archivo: kool_tpv/modulos/tpv/actions/cierres/__init__.py
+ - Doc: Paquete de acciones relacionadas con cierres de caja.
+
+Archivo: kool_tpv/modulos/tpv/actions/cierres/cierre_base_ui.py
+ - Doc: Clase base para overlays de Cierres.
+ - Área funcional: configuracion
+ - Clases principales: CierreBaseUI
+
+Archivo: kool_tpv/modulos/tpv/actions/cierres/cierre_controller.py
+ - Doc: Controlador ligero para la funcionalidad de cierres.
+ - Área funcional: clientes, fidelizacion, productos, ticket
+ - Clases principales: CierreController
+ - Nota: Contiene 1 TODO/FIXME.
+
+Archivo: kool_tpv/modulos/tpv/actions/cierres/cierre_historico_ui.py
+ - Doc: Interfaz de históricos de cierres.
+ - Área funcional: configuracion, impresion, ticket, ui
+ - Clases principales: HistoricoHandler
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+ - Nota: Contiene 1 TODO/FIXME.
+
+Archivo: kool_tpv/modulos/tpv/actions/cierres/cierre_ui.py
+ - Doc: UI action para gestión de cierres de caja.
+ - Área funcional: configuracion, fidelizacion, impresion, productos, ticket, ui
+ - Clases principales: CierreUI
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+ - Nota: Archivo muy largo; considerar refactorización.
+
+Archivo: kool_tpv/modulos/tpv/actions/cliente.py
+ - Doc: Acción para abrir el panel de clientes y vincular la selección al carrito.
+ - Área funcional: carrito, clientes, persistencia
+ - Clases principales: ClienteAction
+ - Nota: Usa acceso a BD; comprobar uso del wrapper `Database`.
+ - Nota: Contiene 1 TODO/FIXME.
+
+Archivo: kool_tpv/modulos/tpv/actions/config.py
+
+Archivo: kool_tpv/modulos/tpv/actions/descuento.py
+ - Área funcional: carrito, fidelizacion, productos, ticket
+ - Clases principales: DescuentoAction
+
+Archivo: kool_tpv/modulos/tpv/actions/devolucion.py
+ - Doc: Panel overlay para Devoluciones — clon de SelectionOverlayTemplate adaptado.
+ - Área funcional: carrito, clientes, configuracion, persistencia, productos, ui
+ - Clases principales: DevolucionesPanel, DevolucionAction
+ - Nota: Usa acceso a BD; comprobar uso del wrapper `Database`.
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+ - Nota: Contiene 2 TODO/FIXME.
+
+Archivo: kool_tpv/modulos/tpv/actions/multi_s.py
+ - Doc: Controlador para cobro mixto (Efectivo + Tarjeta).
+ - Área funcional: carrito, configuracion, ui
+ - Clases principales: MultiPagoController
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+
+Archivo: kool_tpv/modulos/tpv/actions/tarjeta.py
+ - Doc: Controlador genérico para pagos directos (tarjeta, web, etc.).
+ - Área funcional: carrito, configuracion, ui
+ - Clases principales: DirectPaymentController
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+
+Archivo: kool_tpv/modulos/tpv/actions/tickets/tickets_base_ui.py
+ - Doc: Base UI for Tickets overlay.
+ - Área funcional: configuracion, ticket
+ - Clases principales: TicketsBaseUI
+
+Archivo: kool_tpv/modulos/tpv/actions/tickets/tickets_handler.py
+ - Doc: Handler for Tickets histórico mode.
+ - Área funcional: configuracion, ticket
+ - Clases principales: TicketsHandler
+
+Archivo: kool_tpv/modulos/tpv/actions/tickets/tickets_ui.py
+ - Doc: Tickets UI (overlay) — dual-mode entry point.
+ - Área funcional: clientes, configuracion, impresion, ticket, ui
+ - Clases principales: TicketsUI
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+ - Nota: Archivo muy largo; considerar refactorización.
+
+Archivo: kool_tpv/modulos/tpv/carrito/__init__.py
+ - Doc: Módulo Carrito del TPV Gestión completa del carrito de compras
+ - Área funcional: carrito
+
+Archivo: kool_tpv/modulos/tpv/carrito/carrito_service.py
+ - Doc: CarritoService: gestión del carrito de compras.
+ - Área funcional: carrito, clientes, fidelizacion, impresion, productos, ticket
+ - Clases principales: CarritoService
+ - Nota: Archivo muy largo; considerar refactorización.
+ - Nota: Contiene 2 TODO/FIXME.
+
+Archivo: kool_tpv/modulos/tpv/carrito/carrito_ui.py
+ - Doc: UI del carrito de compras Interfaz visual para mostrar y gestionar el carrito
+ - Área funcional: carrito, clientes, configuracion, fidelizacion, productos, ui
+ - Clases principales: CarritoUI
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+ - Nota: Archivo muy largo; considerar refactorización.
+
+Archivo: kool_tpv/modulos/tpv/devoluciones_service.py
+ - Doc: Servicio para gestionar devoluciones: bloqueo de ventas, añadir líneas de devolución y actualización de stock dentro de la base de datos.
+ - Área funcional: carrito, persistencia, productos, ticket
+ - Clases principales: DevolucionesService
+ - Nota: Usa acceso a BD; comprobar uso del wrapper `Database`.
+
+Archivo: kool_tpv/modulos/tpv/ticket_service.py
+ - Área funcional: ticket
+
+Archivo: kool_tpv/modulos/tpv/tpv_controller.py
+ - Doc: Controlador ligero para enlazar acciones UI del TPV.
+ - Área funcional: carrito, configuracion
+ - Clases principales: TpvController
+
+Archivo: kool_tpv/modulos/tpv/tpv_db.py
+ - Área funcional: persistencia
+ - Nota: Usa acceso a BD; comprobar uso del wrapper `Database`.
+
+Archivo: kool_tpv/modulos/tpv/tpv_service.py
+ - Doc: kool_tpv.modulos.tpv.tpv_service
+ - Área funcional: ticket
+ - Clases principales: TpvService
+ - Nota: Contiene 1 TODO/FIXME.
+
+Archivo: kool_tpv/modulos/tpv/tpv_view.py
+ - Doc: kool_tpv.modulos.tpv.tpv_view
+ - Área funcional: carrito, clientes, configuracion, fidelizacion, impresion, productos, ticket, ui
+ - Clases principales: ButtonFactory, TpvView
+ - Funciones top-level: load_button_config_from_json
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+ - Nota: Archivo muy largo; considerar refactorización.
+ - Nota: Contiene 2 TODO/FIXME.
+
+Archivo: kool_tpv/modulos/tpv/ui/cajero_ui.py
+ - Doc: UI overlay para selección de cajero.
+ - Área funcional: configuracion, productos
+ - Clases principales: UICajero
+ - Nota: Contiene 2 TODO/FIXME.
+
+Archivo: kool_tpv/modulos/tpv/ui/descuento_ui.py
+ - Doc: UI overlay para aplicar descuentos.
+ - Área funcional: clientes, configuracion, ticket, ui
+ - Clases principales: UIDescuento
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+
+Archivo: kool_tpv/modulos/tpv/ui/visor_negro.py
+ - Doc: VisorNegro: simple caja negra reutilizable para visualizar tickets/informes.
+ - Área funcional: carrito, configuracion, ticket, ui
+ - Clases principales: VisorNegro
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+
+Archivo: kool_tpv/modulos/tpv/ui_tpv.py
+
+Archivo: kool_tpv/scripts/__init__.py
+
+Archivo: kool_tpv/tests/__init__.py
+
+Archivo: kool_tpv/utils/Overlay con Modo Dual + Handler/template_dual_ui.py
+ - Doc: UI con modo dual - PLANTILLA REUTILIZABLE
+ - Área funcional: configuracion, ui
+ - Clases principales: MiUI
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+ - Nota: Contiene 1 TODO/FIXME.
+
+Archivo: kool_tpv/utils/Overlay con Modo Dual + Handler/template_handler.py
+ - Doc: Handler para modo secundario - PLANTILLA REUTILIZABLE
+ - Área funcional: configuracion, impresion
+ - Clases principales: MiHandler
+ - Nota: Contiene 4 TODO/FIXME.
+
+Archivo: kool_tpv/utils/__init__.py
+ - Doc: Utilities package for kool_tpv.
+
+Archivo: kool_tpv/utils/custom_dialog.py
+ - Doc: Custom Dialog helper para diálogos modales con branding corporativo.
+ - Área funcional: configuracion, ui
+ - Clases principales: CustomDialog, CustomInputDialog
+ - Funciones top-level: show_success, show_error, show_warning, show_info, show_input_dialog, show_text_viewer
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+
+Archivo: kool_tpv/utils/formatter_service.py
+ - Doc: Service para formateo de datos del TPV Formateo de precios, cantidades, descuentos, fechas, etc.
+ - Área funcional: productos, ticket
+ - Clases principales: FormatterService
+
+Archivo: kool_tpv/utils/global_buttons.py
+ - Área funcional: configuracion, ui
+ - Funciones top-level: create_global_close_button
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+
+Archivo: kool_tpv/utils/templates/base_module_view.py
+ - Doc: BaseModuleView: plantilla base clonada de la barra lateral de `main.py`.
+ - Área funcional: configuracion, productos, ui
+ - Clases principales: BaseModuleView
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+ - Nota: Contiene 1 TODO/FIXME.
+
+Archivo: kool_tpv/utils/templates/selection_overlay_visor.py
+ - Doc: Plantilla reutilizable para overlays que muestran/visuan registros (visor).
+ - Área funcional: clientes, configuracion, fidelizacion, impresion, productos, ticket, ui
+ - Clases principales: SelectionOverlayVisor
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+ - Nota: Contiene 1 TODO/FIXME.
+
+Archivo: kool_tpv/utils/templates/template_selection_overlay.py
+ - Doc: Plantilla reutilizable para overlays de selección (proveedores, promociones, etc.).
+ - Área funcional: clientes, configuracion, fidelizacion, ui
+ - Clases principales: SelectionOverlayTemplate
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+ - Nota: Archivo muy largo; considerar refactorización.
+
+Archivo: kool_tpv/utils/textview_dialog.py
+ - Doc: TextViewDialog - Template para visualizar texto largo con scroll.
+ - Área funcional: configuracion, impresion, ticket, ui
+ - Clases principales: TextViewDialog
+ - Funciones top-level: show_text_viewer
+ - Nota: Contiene componentes de UI (widgets/ventanas).
+
+Archivo: kool_tpv/utils/utils.py
+ - Área funcional: configuracion
+

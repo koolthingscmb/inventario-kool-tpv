@@ -1,0 +1,211 @@
+RESUMEN EXHAUSTIVO — KOOL TPV V2
+Fecha: 2026-02-16
+Autor: Revisión automatizada por Copilot
+
+Resumen ejecutivo:
+- Este documento ofrece una revisión técnica exhaustiva del proyecto `Kool TPV V2`.
+- Contiene inventario de archivos clave, descripción de la arquitectura, análisis del modelo de datos, estado actual, funcionalidades en desarrollo, cumplimiento de la `guia_estilo_blindaje`, correspondencia con `kool_bd_schema_2026-02-15.txt`, puntos fuertes, debilidades y recomendaciones de mejora.
+- Se provee evidencia de lectura de archivos principales y servicios de base de datos.
+
+Índice:
+1. Alcance de la revisión
+2. Inventario y mapa de archivos relevantes
+3. Arquitectura general y flujo de ejecución
+4. Submódulos y responsabilidades
+5. Servicios de base de datos: análisis detallado
+6. Esquema de BD: correspondencia con el código
+7. Revisión de la `guia_estilo_blindaje` y grado de cumplimiento
+8. Estado del proyecto (hoy)
+9. Funcionalidades en curso / últimas implementaciones
+10. Calidad del código, robustez y prácticas observadas
+11. Pros y contras
+12. Recomendaciones y roadmap de mejoras
+13. Lista de acciones sugeridas inmediatas
+14. Conclusión
+
+1) Alcance de la revisión
+- Se han analizado los archivos que soportan el funcionamiento de la app: archivos de entrada, paquete `kool_tpv`, servicios de `base_datos`, módulo `modulos` (TPV, impresión, almacen, clientes, configuracion), utilidades y scripts de integración/tests.
+- Se han leído explícitamente: `main.py` (raíz), `kool_tpv/main.py`, `kool_tpv/base_datos/db_wrapper.py`, `kool_tpv/base_datos/producto_service.py`, `kool_tpv/base_datos/ticket_service.py`, `kool_tpv/base_datos/categoria_service.py`, `kool_tpv/base_datos/tipo_service.py`, `kool_tpv/base_datos/cierre_service.py`, `kool_tpv/base_datos/configuracion_service.py`, utilidades principales en `kool_tpv/utils/`, y múltiples ficheros del módulo TPV (`kool_tpv/modulos/tpv/...`).
+- Se han leído y tenido en cuenta los archivos de referencia en `RESUMENES`: `guia_estilo_blindaje.txt` y `kool_bd_schema_2026-02-15.txt`.
+
+2) Inventario y mapa de archivos relevantes (resumen por paquetes)
+- Raíz:
+  - `main.py` — entrypoint de la aplicación (interfaz CTk, navegación principal, carga de módulos, inicialización DB). Se observa la creación de `App(ctk.CTk)` que administra la navegación.
+  - `check_import_stockui.py` — script auxiliar (no revisado a fondo ahora).
+  - `requirements.txt` — lista de dependencias (se recomienda validar versiones).
+- Paquete `kool_tpv`:
+  - `kool_tpv/main.py` — wrapper para ejecutar desde el editor.
+  - `kool_tpv/__init__.py` — paquete raíz (vacío o con inicializaciones menores).
+  - `kool_tpv/main.py` (ya mencionado).
+- `kool_tpv/base_datos/` (servicios de acceso y persistencia):
+  - `db_wrapper.py` — wrapper ligero SQLite con `connect`, `execute_query`, `fetch_all`, `fetch_one`, `close_connection`.
+  - `db_init.py` — placeholder para inicializar esquema.
+  - `producto_service.py` — consultas y adaptadores para `productos` y `precios`.
+  - `ticket_service.py` — persistencia compleja de tickets con transacción, actualización de stock, generación de snapshot de texto de ticket, integración con fidelización, pagos, auditoría y registros auxiliares.
+  - `categoria_service.py`, `tipo_service.py`, `cierre_service.py`, `configuracion_service.py` — servicios especializados para operaciones sobre tablas concretas.
+- `kool_tpv/modulos/`:
+  - `tpv/` — UI y lógica principal de punto de venta: `tpv_view.py`, `tpv_service.py`, `tpv_controller.py`, `tpv_db.py`, `ticket_service.py` (módulo local), `devoluciones_service.py`, `carrito/` (carrito_ui.py, carrito_service.py) y acciones (descuento, cliente, buscar_articulo, cierres, tickets, etc.).
+  - `impresion/` — generación de ticket y servicios de impresora: `venta_ticket_generator.py`, `ticket_generator.py`, `cierre_ticket_generator.py`, `impresora_service.py`, `export_service.py`.
+  - `almacen/` — vistas y servicios para gestión de productos (crear/editar), con `almacen_view.py` y servicios en `services/`.
+  - `clientes/` — `cliente_service.py`, `clientes_db.py`, `fidelizacion_service.py`, `ui_clientes.py`.
+  - `configuracion/` — `configuracion_service.py`, `reset_service.py`.
+- `kool_tpv/utils/`: utilidades UI y servicios transversales: `custom_dialog.py`, `formatter_service.py`, `global_buttons.py`, `textview_dialog.py`, `utils.py`, y plantillas UI en `templates/`.
+- Scripts de pruebas y utilidades en `scripts/` y `tests/`.
+
+3) Arquitectura general y flujo de ejecución
+- La aplicación es una app de escritorio construida con `customtkinter` (CTk), con un `App` principal (`main.py`) que actúa como gestor de ventanas y punto de carga de módulos.
+- Inicialización:
+  - `App.__init__()` configura apariencia, fuentes, ventana, y crea `Database` usando ruta relativa a `kool_tpv/base_datos/kool_bd.db`.
+  - `db.connect()` es llamado en el arranque y su conexión se guarda en `self.db`.
+  - `create_navigation()` crea la barra lateral y carga configuración de botones desde `kool_tpv/config/buttons_config.json` si existe.
+- Navegación modular:
+  - Cada botón navega a un módulo (TPV, Almacén, Clientes, etc.) mediante carga perezosa (lazy import) para evitar dependencias circulares al inicio.
+  - `load_tpv()` instancia `TpvView` pasando la conexión `db` y controla el tear-down (teardown) y visibilidad de botones (p. ej. ocultar navegación cuando se carga TPV).
+  - `open_almacen()` demuestra patrón de embeber vistas en el root y usar callbacks para restaurar la UI de base.
+- Persistencia y transacciones:
+  - `kool_tpv/base_datos/db_wrapper.py` brinda acceso a SQLite con commit automático en `execute_query` y funciones `fetch_all`/`fetch_one`.
+  - Las operaciones complejas como `save_ticket()` (en `ticket_service.py`) usan transacción explícita (`BEGIN`, `commit`, `rollback`) para asegurar atomicidad: inserción de ticket, líneas, movimientos de stock, pagos, auditoría y actualización de cliente/puntos.
+- Integración impresión/fidelización:
+  - `ticket_service.save_ticket()` integra generación de ticket mediante `VentaTicketGenerator` (si disponible) y el servicio de fidelización `FidelizacionService`.
+- Diseño UI:
+  - Se utiliza `CTkFrame` y `CTkButton` con estilos definidos centralmente (colores, fuentes). Se intenta seguir un sistema visual tipo "Matrix" (guía) con barra lateral de ancho 220px.
+
+4) Submódulos y responsabilidades (detallado)
+- TPV (`kool_tpv/modulos/tpv`):
+  - `tpv_view.py` — componentes visuales principales: `TpvView` y `ButtonFactory` para botones del menú TPV. Maneja la vista principal, reloj, carrito y contenedores.
+  - `tpv_service.py` — lógica de negocio del TPV: cálculo de totales, aplicación de descuentos, interacción con DB a alto nivel.
+  - `tpv_controller.py` — controlador que enlaza UI y servicio (pattern MVC ligero).
+  - `tpv_db.py` — adaptadores específicos a tablas de tickets/productos si existen.
+  - `ticket_service.py` (módulo local) — envoltorio o complementos alrededor de la persistencia central.
+  - `actions/` — acciones concretas asociadas al TPV (buscar artículo, descuento, devoluciones, cierres, tickets, tarjeta, cajero, etc.).
+  - `carrito/` — UI y servicio del carrito con gestión de items, cantidad, resumen financiero, puntos y funciones auxiliares `get_resumen_financiero()`.
+- Impresión (`kool_tpv/modulos/impresion`):
+  - Generadores de texto de ticket, plantillas, servicios de exportación/impresión.
+- Almacén:
+  - `almacen_view.py` y `services/maestro_service.py` — interfaces para crear/editar productos, gestionar stock, importaciones.
+- Clientes:
+  - Servicios y UI para crear, buscar y fidelizar clientes. `fidelizacion_service.py` calcula puntos en base a reglas.
+
+5) Servicios de base de datos: análisis detallado
+- `db_wrapper.Database`:
+  - Ventajas: wrapper simple y explícito que asegura creación de carpeta y manejo básico de errores.
+  - Gap: no tiene manejo de `row_factory` ni conversores de tipos (Decimal), ni control de concurrencia. Conexión es directa `sqlite3.connect(self.db_path)` sin `check_same_thread` configurado ni `isolation_level` personalizado.
+- `producto_service`:
+  - Buen uso de `LEFT JOIN` sobre `precios` para obtener `pvp` activo y fallback a `0.0`.
+  - Devuelve `pvp` como `str` para preservar precisión/serialización; adecuado si el código consumidor espera strings.
+  - Tiene funciones `listar_productos`, `get_productos_by_tipo` y `get_productos_by_categoria` con manejo de excepciones y devoluciones limpias.
+- `ticket_service.save_ticket`:
+  - Implementación compleja y crítica: maneja transacción, cálculo de num_ticket, creación de `tickets`, `ticket_lines`, actualización de `productos.stock_actual` y `ventas_totales`, inserciones en `stock_movements`, `payments`, `audit_logs`, `points_movements` y actualización de `clientes`.
+  - Uso de `Decimal` para evitar pérdidas por coma flotante; cuantiza valores monetarios a 2 decimales donde corresponde.
+  - Manejo robusto de casos en los que tablas auxiliares no existen (usa try/except y logging.debug para inserts opcionales como `payments`, `audit_logs`, `points_movements`).
+  - Genera `ticket_text_snapshot` si `VentaTicketGenerator` está disponible, lo que conecta la persistencia con la impresión.
+  - Consideraciones de mejora: hay llamadas repetidas a `cur.execute('SELECT sku FROM productos WHERE id = ?')` dentro del bucle de líneas; podría reducirse con un SELECT previo o un JOIN para mayor eficiencia en tickets grandes.
+  - Si un update de producto falla, el código registra y continúa; pero el rollback está a nivel superior: si ocurre excepción global se hace rollback. Esto es correcto pero hay puntos dentro del bloque que hacen `conn.rollback()` condicionalmente en sub-excepciones; hay que revisar la consistencia de rollback/raise.
+- `cierre_service`:
+  - Implementa `compute_totals_for_ticket_ids` y `create_cierre_atomic` que usa una transacción para insertar cierre y marcar tickets.
+  - Realiza agregaciones por IVA leyendo `ticket_lines` y calculando base/iva por tipo, con conversión a floats para serialización.
+  - Tiene lógica defensiva para DB con o sin columnas nuevas (fallback en caso de `OperationalError`).
+- Otros servicios (`categoria_service`, `tipo_service`, `configuracion_service`): implementan queries simples y devuelven valores con manejo de excepciones.
+
+6) Esquema de BD: correspondencia con el código (basado en `kool_bd_schema_2026-02-15.txt`)
+- Tablas críticas observadas y su uso:
+  - `productos`: columnas `id, nombre, sku, categoria, tipo, tipo_iva, stock_actual, ventas_totales, ...` — utilizadas en `producto_service` y `ticket_service` (update stock, select sku).
+  - `precios`: columna `activo` usada para recuperar `pvp` activo en `producto_service`.
+  - `tickets` y `ticket_lines`: estructura coherente con `ticket_service.save_ticket` (inserciones y referencias).
+  - `stock_movements`: `ticket_service` intenta insertar registros si la tabla existe.
+  - `points_movements`, `clientes`, `niveles_fidelidad`: usados por la fidelización.
+  - `cierres_caja`: usado por `cierre_service`.
+- Observaciones del schema:
+  - Existen múltiples relaciones y triggers que mantienen `num_ventas` en `tickets` cuando se añaden/borra líneas (`trg_ticket_lines_*`). `ticket_service` también actualiza `ventas_totales` en `productos` directamente.
+  - Indices importantes (`idx_precios_activo`, `idx_productos_categoria`, etc.) que mejoran rendimiento en consultas repetidas.
+  - Algunas tablas hacen referencia a `tickets_backup` o `clientes_old` en `FOREIGN KEY` de `payments` y `points_movements`, lo que sugiere migraciones pasadas; el código usa defensivamente inserts en tablas opcionales.
+
+7) Revisión de la `guia_estilo_blindaje` y grado de cumplimiento
+- La `guia_estilo_blindaje.txt` establece reglas estéticas y de validación (sidebar 220px, fondo #1a1a1a, breadcrumbs, SearchableCombo con strict validation, grid de 8 columnas, atomicidad SQL, etc.).
+- Cumplimiento observado:
+  - Sidebar ancho 220px: `main.py` crea `CTkFrame(self, width=220, ...)` — cumple con la especificación.
+  - Fondo oscuro: `fg_color` y `background` en `App.__init__()` apuntan a colores `#222831` y se hace un esfuerzo por forzar fondo nativo — parcialmente compatible con el "fondo negro profundo" de la guía. No se ve `#1a1a1a` exactamente, pero estilo es coherente.
+  - Breadcrumbs persistente: No se observa en los archivos leídos la implementación explícita de un breadcrumb en `base_module_view.py` o similar. La guía pide un CTkLabel persistente de ruta; no hay evidencia completa de cumplimiento.
+  - SearchableCombo: no se encontró un componente explícito con la interfaz "SearchableCombo PRO" en los archivos leídos; hay funciones de búsqueda y UI de búsqueda (`buscar_articulo` y plantillas `template_selection_overlay.py`) pero no está claro si implementan la navegación remota o el `Strict Mode` descrito.
+  - Grid 8 columnas: no se ha verificado la existencia de un Grid basado en 8 columnas para formularios complejos; `almacen_view.py` debe revisarse a fondo para confirmar.
+  - Atomicidad SQL: la guía exige atomicidad para guardado de producto/precios; `ticket_service.save_ticket()` sí usa transaccionalidad para tickets. No obstante, `db_init.py` es placeholder y no hay un helper transaccional central aparte de `save_ticket` y `create_cierre_atomic`.
+- Conclusión: parte de la guía se cumple (sidebar ancho, fondo oscuro), pero hay brechas en componentes reutilizables (SearchableCombo, breadcrumb, grid de formularios). Recomendación: implementar/validar componentes base en `kool_tpv/utils/templates/` para asegurar cumplimiento global.
+
+8) Estado del proyecto (hasta hoy)
+- Estructura de paquetes organizada y con lógica modular.
+- Implementadas las piezas críticas para funcionamiento de un TPV: UI principal, persistencia de tickets, cálculo de puntos, generación opcional de ticket textual, y cierres de caja.
+- Componentes de impresión y fidelización presentes e integrados, con fallback si no están disponibles.
+- Tests y scripts de integración presentes (`scripts/test_*`, `tests/*`) pero no se ha ejecutado la batería de pruebas en esta revisión.
+- `db_init.py` aún es un placeholder: su ausencia indica que la creación/actualización del esquema debe hacerse manualmente o mediante scripts de migración (hay carpeta `migraciones/base.sql`).
+
+9) Últimas implementaciones / Lo que se está implementando ahora
+- Evidencias en el código:
+  - `ticket_service.save_ticket()` muestra trabajo reciente en: manejo de puntos (fidelización), descuentos aplicados proporcionalmente por IVA, snapshot de ticket con `VentaTicketGenerator`, y updates de cliente con recalculo de niveles.
+  - `cierre_service.create_cierre_atomic()` implementa inserción atómica de cierres y actualización de tickets — funcionalidad crítica de cierre de caja.
+  - Uso de `buttons_config.json` para configurar menú principal sugiere trabajo en parametrización del UI.
+- En desarrollo implícito:
+  - Mejora de soporte de impresión y export (clases en `impresion/`).
+  - Limpieza de la inicialización de DB y migraciones (archivos bak en `base_datos/` y `migraciones/base.sql`).
+
+10) Calidad del código, robustez y prácticas observadas
+- Puntos positivos:
+  - Uso extensivo de logging con distintos niveles (info, warning, exception) para diagnosticar errores.
+  - Uso de transacciones en operaciones críticas (`save_ticket`, `create_cierre_atomic`).
+  - Manejo cuidadoso de `Decimal` para evitar problemas con dinero.
+  - Diseño modular con lazy imports para evitar dependencias circulares.
+- Áreas de mejora:
+  - El wrapper `Database` es básico: añadir `row_factory`, conversores de Decimal, y contexto (context manager) mejoraría robustez.
+  - Falta de tests unitarios que cubran `ticket_service` y `cierre_service` dado su carácter crítico.
+  - Repetición de queries dentro de bucles (consultar `sku` por `id` por cada línea). Mejor hacer JOIN o bulk read.
+  - Uso inconsistente de tipos: algunas funciones retornan strings para `pvp`, otras floats; estandarizar la API facilitaría integraciones.
+  - Gestión de migraciones y esquema: `db_init.py` es placeholder; se necesitan scripts automáticos de migración para entornos nuevos.
+
+11) Pros y Contras
+- Pros (puntos fuertes):
+  - Código modular y organizado por responsabilidades (UI, servicios, DB), lo que facilita extensión.
+  - Implementaciones críticas (guardado de tickets, cierres) usan transacciones y manejo de errores.
+  - Integración con módulos opcionales (impresión, fidelización) está pensada y con fallbacks.
+  - Log detallado que facilita depuración.
+  - Esquema de base de datos rico (puntos, cierres, auditoría, stock_movements) adecuado para un TPV profesional.
+- Contras (puntos débiles):
+  - Falta de pruebas automatizadas que validen flujos críticos.
+  - `db_init.py` no automatiza la creación del esquema: riesgo en despliegues nuevos.
+  - Inconsistencias en formatos de datos (strings vs Decimal/float) y ausencia de model layer que normalice tipos.
+  - Potenciales problemas de concurrencia si la app se ejecuta en contextos multi-hilo/híbridos: sqlite sin opciones puede arrojar `sqlite3.ProgrammingError`.
+  - Falta de componentes UI comunes que la `guia_estilo_blindaje` exige (SearchableCombo avanzado, Breadcrumbs, Grid 8 columnas), riesgo de inconsistencias visuales entre módulos.
+
+12) Recomendaciones y roadmap de mejoras (priorizadas)
+- Prioridad Alta (riesgo / impacto):
+  1. Implementar `db_init.py` o migrador (p. ej. usar `alembic`/`yoyo-migrations` o script SQL) para asegurar reproducibilidad del schema y facilitar pruebas. Razon: deploys reproducibles.
+  2. Añadir tests unitarios y de integración para `ticket_service` y `cierre_service` (crear DB en memoria `:memory:`). Razon: evitar regressiones en transacciones.
+  3. Estandarizar tipos monetarios: decidir si los servicios devuelven `Decimal` o `str` y aplicar conversores centrales en `db_wrapper` o `formatter_service`.
+  4. Añadir `row_factory` (p. ej. `sqlite3.Row`) y opciones de conexión para mejorar legibilidad y permitir named columns.
+- Prioridad Media (calidad/UX):
+  5. Implementar componentes UI base conforme a `guia_estilo_blindaje`: `SearchableCombo` con `Strict Mode`, `Breadcrumbs`, Grid de 8 columnas en `templates/base_module_view.py`.
+  6. Reducir queries por línea en `ticket_service` (bulk SELECT de `sku` para todos `producto_id`s en el ticket antes del bucle). Mejora rendimiento y reduce I/O.
+  7. Añadir validaciones previas en formularios que aborten operaciones si SearchableCombo inválido (según guía).
+- Prioridad Baja (mejoras y mantenimiento):
+  8. Añadir chequeos/monitoreo de integridad (scripts para validar que `ventas_totales` no diverge de suma de `ticket_lines`).
+  9. Añadir ejemplos y tests para `VentaTicketGenerator` y generar un snapshot que sea verificado.
+  10. Documentar workflows y añadir README con pasos para iniciar en local, ejecutar tests y migraciones.
+
+13) Lista de acciones sugeridas inmediatas (tareas concretas)
+- Crear `migrations/README.md` indicando cómo aplicar `migraciones/base.sql` y restaurar `kool_bd.db` desde backups.
+- Escribir test de integración para `save_ticket` en `scripts/test_save_ticket_integration.py` que use `:memory:` DB.
+- Refactorizar `db_wrapper.Database.connect()` para aceptar `**kwargs` de `sqlite3.connect()` y exponer `row_factory`.
+- Añadir un helper `db_wrapper.transaction()` como context manager para unificar patrones `BEGIN/COMMIT/ROLLBACK`.
+- Implementar `utils/components/searchable_combo.py` con el comportamiento exigido por la guía.
+
+14) Archivo de resumen guardado
+- He guardado este resumen en: `RESUMENES/RESUMEN_EXHAUSTIVO_2026-02-16.txt` dentro del workspace.
+
+15) Observaciones finales y próximos pasos que propongo
+- Puedo continuar con:
+  - (A) Implementar `db_init.py` o un script de migración que aplique `migraciones/base.sql` y cree las tablas necesarias.
+  - (B) Añadir tests unitarios/integración para `ticket_service.save_ticket()` y `cierre_service.create_cierre_atomic()`.
+  - (C) Refactorizar `db_wrapper` para mejor soporte de tipos y transacciones.
+  - (D) Implementar componentes UI obligatorios de la `guia_estilo_blindaje` y migrar vistas para usarlos.
+
+Fin del resumen.
+
+(Notas: Este resumen fue generado luego de lectura de los archivos indicados en el workspace. Si quieres que continúe con la implementación automática de algunas de las recomendaciones, dime cuál priorizamos y empezaré por crear la tarea e implementar los cambios.)

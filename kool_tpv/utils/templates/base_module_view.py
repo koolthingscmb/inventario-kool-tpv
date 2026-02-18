@@ -6,6 +6,7 @@ para que los módulos como `almacen` reutilicen la misma estética.
 from pathlib import Path
 import json
 import logging
+import re
 import customtkinter as ctk
 import tkinter as tk
 
@@ -92,18 +93,19 @@ class BaseModuleView:
             self.main_frame.pack(side='right', fill='both', expand=True)
             # Add breadcrumb / ruta label at the top of central area (fixed)
             try:
+                # Principal breadcrumb/título grande y único para todo el módulo
                 self.module_name = (config_section or 'MODULO').upper()
-                self.lbl_ruta_sistema = ctk.CTkLabel(
+                self.lbl_breadcrumb = ctk.CTkLabel(
                     self.main_frame,
                     text=f"SISTEMA_KOOL: / {self.module_name}",
-                    font=FONT_TERMINAL,
+                    font=(FONT_TERMINAL[0], 20, 'bold'),
                     text_color=COLOR_MATRIX,
                     anchor='w',
                     fg_color=COLOR_BG_TERMINAL,
                 )
-                self.lbl_ruta_sistema.pack(anchor='nw', fill='x', padx=12, pady=(8, 6))
+                self.lbl_breadcrumb.pack(anchor='nw', fill='x', padx=12, pady=(8, 6))
             except Exception:
-                logging.exception('Error creando lbl_ruta_sistema en BaseModuleView')
+                logging.exception('Error creando lbl_breadcrumb en BaseModuleView')
             # Alias usado por módulos: central_area (below the ruta label)
             self.central_area = ctk.CTkFrame(self.main_frame, fg_color=COLOR_BG_TERMINAL)
             self.central_area.pack(fill='both', expand=True)
@@ -160,7 +162,26 @@ class BaseModuleView:
 
             if widget is not None:
                 try:
+                    # Ensure widget exists before packing (it might have been destroyed)
+                    exists = True
+                    try:
+                        if hasattr(widget, 'winfo_exists'):
+                            exists = widget.winfo_exists()
+                    except Exception:
+                        exists = True
+                    if not exists:
+                        logging.warning('set_central_content: widget no existe, omitiendo pack')
+                        return
                     widget.pack(fill='both', expand=True)
+
+                    # AUTO-ACTUALIZAR BREADCRUMB para widgets empaquetados
+                    try:
+                        breadcrumb_name = self._extract_breadcrumb_name(content)
+                        if breadcrumb_name:
+                            self.actualizar_ruta(breadcrumb_name)
+                    except Exception:
+                        logging.exception('Error auto-actualizando breadcrumb')
+
                     return
                 except Exception:
                     pass
@@ -170,9 +191,26 @@ class BaseModuleView:
                 try:
                     # Ensure the content was created with central_area as parent; call pack to show
                     content.pack(fill='both', expand=True)
+
+                    # AUTO-ACTUALIZAR BREADCRUMB
+                    try:
+                        breadcrumb_name = self._extract_breadcrumb_name(content)
+                        if breadcrumb_name:
+                            self.actualizar_ruta(breadcrumb_name)
+                    except Exception:
+                        logging.exception('Error auto-actualizando breadcrumb')
+
                     return
                 except Exception:
                     logging.exception('Error al packear content en set_central_content')
+
+            # AUTO-ACTUALIZAR BREADCRUMB incluso si pack falla
+            try:
+                breadcrumb_name = self._extract_breadcrumb_name(content)
+                if breadcrumb_name:
+                    self.actualizar_ruta(breadcrumb_name)
+            except Exception:
+                logging.exception('Error auto-actualizando breadcrumb')
 
             logging.info('set_central_content: content tipo no reconocido, intentando insert directo')
         except Exception:
@@ -196,19 +234,75 @@ class BaseModuleView:
         Formato: SISTEMA_KOOL_TPV: / <MODULO> [ / <SUB_SECCION>]
         """
         try:
-            base = f"SISTEMA_KOOL: / {(getattr(self, 'module_name', 'MODULO') or '').upper()}"
+            base_module = (getattr(self, 'module_name', 'MODULO') or '').upper()
+            parts = [base_module]
             if sub_seccion:
-                base = f"{base} / {sub_seccion.upper()}"
-            if hasattr(self, 'lbl_ruta_sistema') and self.lbl_ruta_sistema is not None:
+                # Normalize: if sub_seccion already contains the module name, strip it to avoid duplication
+                s = sub_seccion.upper()
+                if s.startswith(base_module):
+                    s = s[len(base_module):].lstrip(' /')
+                if s:
+                    parts.append(s)
+            base = f"SISTEMA_KOOL: / {' / '.join(parts)}"
+            if hasattr(self, 'lbl_breadcrumb') and self.lbl_breadcrumb is not None:
                 try:
-                    self.lbl_ruta_sistema.configure(text=base)
+                    self.lbl_breadcrumb.configure(text=base)
                 except Exception:
                     try:
-                        self.lbl_ruta_sistema['text'] = base
+                        self.lbl_breadcrumb['text'] = base
                     except Exception:
                         pass
         except Exception:
             logging.exception('Error actualizando ruta en BaseModuleView')
+
+    def _extract_breadcrumb_name(self, content) -> str:
+        """Extraer nombre legible de la UI para breadcrumb.
+
+        Prioridad:
+        1. Si content tiene atributo breadcrumb_name, usar ese
+        2. Extraer de nombre de clase (ej: EntradaManualUI → ENTRADA MANUAL)
+        3. Fallback: None (no actualizar breadcrumb)
+
+        Args:
+            content: Objeto UI (EntradaManualUI, CrearProductoUI, etc.)
+
+        Returns:
+            str: Nombre legible en mayúsculas o None
+        """
+        try:
+            # Prioridad 1: atributo manual breadcrumb_name
+            if hasattr(content, 'breadcrumb_name'):
+                name = getattr(content, 'breadcrumb_name', '').strip()
+                if name:
+                    return name.upper()
+
+            # Prioridad 2: extraer de nombre de clase
+            class_name = content.__class__.__name__
+
+            # Remover sufijos comunes
+            for suffix in ['UI', 'View', 'Window', 'Frame']:
+                if class_name.endswith(suffix):
+                    class_name = class_name[:-len(suffix)]
+                    break
+
+            # Convertir CamelCase a palabras separadas
+            # Insertar espacio antes de mayúsculas
+            spaced = re.sub(r'([a-z])([A-Z])', r'\1 \2', class_name)
+            # Insertar espacio antes de número
+            spaced = re.sub(r'([a-zA-Z])(\d)', r'\1 \2', spaced)
+
+            # Limpiar y convertir a mayúsculas
+            result = spaced.strip().upper()
+
+            # Si el resultado es muy corto o vacío, retornar None
+            if len(result) < 3:
+                return None
+
+            return result
+
+        except Exception:
+            logging.exception('Error extrayendo breadcrumb_name')
+            return None
 
     def _on_volver(self):
         # Subclasses should override this to implement back-navigation

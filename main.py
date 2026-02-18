@@ -76,6 +76,16 @@ class App(ctk.CTk):
         # Ruta al archivo kool_bd.db dentro del paquete `kool_tpv/base_datos`
         project_root = os.path.dirname(os.path.abspath(__file__))
         db_path = os.path.join(project_root, "kool_tpv", "base_datos", "kool_bd.db")
+        # Ensure DB schema exists before connecting
+        try:
+            from kool_tpv.base_datos.db_init import initialize_database
+            try:
+                initialize_database(db_path)
+            except Exception:
+                logging.exception('initialize_database fallo; se continuará e intentará conectar de todas formas')
+        except Exception:
+            logging.exception('No se pudo importar initialize_database')
+
         self.db = Database(db_path)
         try:
             self.db.connect()

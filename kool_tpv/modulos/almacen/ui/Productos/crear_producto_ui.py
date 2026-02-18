@@ -1,0 +1,738 @@
+"""CrearProductoUI (refactor): Interfaz Terminal Pro para altas de producto.
+
+Nueva versión:
+- 2 pestañas: [01] GENERAL y [02] SHOPIFY
+- Grid de 8 columnas por fila para alineación.
+- Estilo Terminal: fondo #1a1a1a, `Courier New`, texto verde (#00FF00).
+- Searchable ComboBoxes con modo estricto (mapeo nombre->id).
+- Guardado con transacción que actualiza `productos` y `precios`.
+"""
+from typing import Dict, Optional, List, Tuple
+import logging
+import webbrowser
+import tkinter as tk
+
+import customtkinter as ctk
+
+from kool_tpv.utils.utils import (
+    COLOR_BG_TERMINAL,
+    COLOR_BG_SIDEBAR,
+    COLOR_MATRIX,
+    COLOR_ERROR,
+    FONT_TERMINAL,
+    FONT_BUTTONS,
+    SIDEBAR_WIDTH,
+)
+
+
+from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
+
+
+
+
+class CrearProductoUI:
+    def __init__(self, parent, db: Optional[object] = None, producto_id: Optional[int] = None):
+        self.parent = parent
+        self.db = db
+        self.container = ctk.CTkFrame(self.parent, fg_color=COLOR_BG_TERMINAL)
+
+        # Header removed: breadcrumb is provided by BaseModuleView
+
+        # Build stacked frames: GENERAL above SHOPIFY (no TabView)
+        self.general_frame = ctk.CTkFrame(self.container, fg_color=COLOR_BG_TERMINAL)
+        self.general_frame.pack(fill='both', expand=False, padx=12, pady=8)
+
+        self.shopify_frame = ctk.CTkFrame(self.container, fg_color=COLOR_BG_TERMINAL)
+        self.shopify_frame.pack(fill='both', expand=True, padx=12, pady=(0, 8))
+        # Common styles
+        lbl_font = FONT_TERMINAL
+        entry_kwargs = {"fg_color": COLOR_BG_TERMINAL, "text_color": COLOR_MATRIX, "border_width": 2, "border_color": COLOR_MATRIX, "corner_radius": 4}
+
+        # Build GENERAL frame with 8-column grid (7 filas requeridas)
+        for c in range(8):
+            self.general_frame.grid_columnconfigure(c, weight=1, uniform='col')
+
+        # Fila 1: ID (2 col block) | NOMBRE (6 col block)
+        ctk.CTkLabel(self.general_frame, text="ID:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=0, column=0, sticky='w', padx=6, pady=6)
+        self.e_id = ctk.CTkEntry(self.general_frame, placeholder_text="ID (auto)", state='disabled', fg_color=COLOR_BG_TERMINAL, text_color="#666666", border_color=COLOR_MATRIX)
+        self.e_id.grid(row=0, column=1, columnspan=1, sticky='ew', padx=6, pady=6)
+
+        ctk.CTkLabel(self.general_frame, text="NOMBRE:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=0, column=2, sticky='w', padx=6, pady=6)
+        self.e_nombre = ctk.CTkEntry(self.general_frame, placeholder_text="Nombre del producto", **entry_kwargs)
+        self.e_nombre.grid(row=0, column=3, columnspan=5, sticky='ew', padx=6, pady=6)
+
+        # Fila 2: SKU (4 col) | NOMBRE_BOTON (4 col)
+        ctk.CTkLabel(self.general_frame, text="SKU:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=1, column=0, sticky='w', padx=6, pady=6)
+        self.e_sku = ctk.CTkEntry(self.general_frame, placeholder_text='SKU', **entry_kwargs)
+        self.e_sku.grid(row=1, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
+
+        ctk.CTkLabel(self.general_frame, text="NOMBRE_BOTON:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=1, column=4, sticky='w', padx=6, pady=6)
+        self.e_nombre_btn = ctk.CTkEntry(self.general_frame, placeholder_text='Texto botón', **entry_kwargs)
+        self.e_nombre_btn.grid(row=1, column=5, columnspan=3, sticky='ew', padx=6, pady=6)
+
+        # Fila 3: CATEGORIA | TIPO | PROVEEDOR (distribuidos)
+        ctk.CTkLabel(self.general_frame, text="CATEGORÍA:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=2, column=0, sticky='w', padx=6, pady=6)
+        self.cb_categoria = SearchableCombo(self.general_frame, placeholder='Buscar categoría')
+        self.cb_categoria.grid(row=2, column=1, columnspan=2, sticky='ew', padx=6, pady=6)
+
+        ctk.CTkLabel(self.general_frame, text="TIPO:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=2, column=3, sticky='w', padx=6, pady=6)
+        self.cb_tipo = SearchableCombo(self.general_frame, placeholder='Buscar tipo')
+        self.cb_tipo.grid(row=2, column=4, columnspan=2, sticky='ew', padx=6, pady=6)
+
+        ctk.CTkLabel(self.general_frame, text="PROVEEDOR:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=2, column=6, sticky='w', padx=6, pady=6)
+        self.cb_proveedor = SearchableCombo(self.general_frame, placeholder='Buscar proveedor')
+        self.cb_proveedor.grid(row=2, column=7, sticky='ew', padx=6, pady=6)
+
+        # Fila 4: PVP (4 col) | COSTE (4 col)
+        ctk.CTkLabel(self.general_frame, text="PVP:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=3, column=0, sticky='w', padx=6, pady=6)
+        self.e_pvp = ctk.CTkEntry(self.general_frame, placeholder_text='0.00', **entry_kwargs)
+        self.e_pvp.grid(row=3, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
+
+        ctk.CTkLabel(self.general_frame, text="COSTE:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=3, column=4, sticky='w', padx=6, pady=6)
+        self.e_coste = ctk.CTkEntry(self.general_frame, placeholder_text='0.00', **entry_kwargs)
+        self.e_coste.grid(row=3, column=5, columnspan=3, sticky='ew', padx=6, pady=6)
+
+        # Fila 5: TIPO_IVA (4 col) | PVP_VARIABLE (4 col)
+        ctk.CTkLabel(self.general_frame, text="TIPO_IVA:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=4, column=0, sticky='w', padx=6, pady=6)
+        self.cb_iva = SearchableCombo(self.general_frame, placeholder='IVA (ej: 21)')
+        self.cb_iva.grid(row=4, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
+
+        ctk.CTkLabel(self.general_frame, text="PVP_VARIABLE:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=4, column=4, sticky='w', padx=6, pady=6)
+        self.chk_pvp_var = ctk.CTkCheckBox(self.general_frame, text='', fg_color=COLOR_MATRIX)
+        self.chk_pvp_var.grid(row=4, column=5, columnspan=3, sticky='w', padx=6, pady=6)
+
+        # Fila 6: STOCK_ACTUAL (4 col) | STOCK_MINIMO (4 col)
+        ctk.CTkLabel(self.general_frame, text="STOCK_ACTUAL:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=5, column=0, sticky='w', padx=6, pady=6)
+        self.e_stock_actual = ctk.CTkEntry(self.general_frame, placeholder_text='0', **entry_kwargs)
+        self.e_stock_actual.grid(row=5, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
+
+        ctk.CTkLabel(self.general_frame, text="STOCK_MINIMO:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=5, column=4, sticky='w', padx=6, pady=6)
+        self.e_stock_min = ctk.CTkEntry(self.general_frame, placeholder_text='0', **entry_kwargs)
+        self.e_stock_min.grid(row=5, column=5, columnspan=3, sticky='ew', padx=6, pady=6)
+
+        # Fila 7: VENTAS (read-only 4 col) | ESTADO (4 col)
+        ctk.CTkLabel(self.general_frame, text="VENTAS:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=6, column=0, sticky='w', padx=6, pady=6)
+        # Use a StringVar bound to the Entry so the UI can be updated even when readonly
+        try:
+            self.e_ventas_var = tk.StringVar(value='0')
+        except Exception:
+            self.e_ventas_var = None
+        try:
+            if self.e_ventas_var is not None:
+                self.e_ventas = ctk.CTkEntry(self.general_frame, textvariable=self.e_ventas_var, state='readonly', fg_color=COLOR_BG_TERMINAL, text_color="#666666", border_color="#00FF00", border_width=2)
+            else:
+                self.e_ventas = ctk.CTkEntry(self.general_frame, placeholder_text='0', state='readonly', fg_color=COLOR_BG_TERMINAL, text_color="#666666", border_color="#00FF00", border_width=2)
+        except Exception:
+            # fallback: disabled entry if readonly not supported
+            try:
+                self.e_ventas = ctk.CTkEntry(self.general_frame, placeholder_text='0', state='disabled', fg_color=COLOR_BG_TERMINAL, text_color="#666666", border_color="#00FF00", border_width=2)
+            except Exception:
+                self.e_ventas = tk.Entry(self.general_frame)
+        self.e_ventas.grid(row=6, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
+
+        ctk.CTkLabel(self.general_frame, text="ACTIVO:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=6, column=4, sticky='w', padx=6, pady=6)
+        # Use a BooleanVar to track activo state
+        self.chk_activo_var = tk.BooleanVar(value=True)
+        self.chk_activo = ctk.CTkCheckBox(self.general_frame, text='Producto activo', variable=self.chk_activo_var, fg_color=COLOR_MATRIX, text_color=COLOR_MATRIX)
+        # Marcado por defecto
+        try:
+            self.chk_activo_var.set(True)
+        except Exception:
+            pass
+        self.chk_activo.grid(row=6, column=5, columnspan=3, sticky='w', padx=6, pady=6)
+
+        # Fila 8: CÓDIGOS_DE_BARRAS (CSV separado por comas)
+        ctk.CTkLabel(self.general_frame, text="CÓDIGOS_DE_BARRAS (CSV separado por comas):", text_color=COLOR_MATRIX, font=lbl_font).grid(row=7, column=0, sticky='w', padx=6, pady=6, columnspan=8)
+        try:
+            self.e_codigos = ctk.CTkEntry(self.general_frame, placeholder_text='ean1,ean2,ean3', **entry_kwargs)
+        except Exception:
+            self.e_codigos = tk.Entry(self.general_frame)
+        self.e_codigos.grid(row=8, column=0, columnspan=8, sticky='nsew', padx=6, pady=6)
+
+        # Label separator for Shopify section (highlighted in yellow)
+        ctk.CTkLabel(self.general_frame, text='SHOPIFY', text_color='#f1c40f', font=lbl_font).grid(row=9, column=0, columnspan=8, sticky='w', padx=6, pady=(12, 6))
+
+        # Load options from DB if available
+        self._load_db_options()
+
+        # SHOPIFY tab: 6 filas, un campo por fila máximo orden
+        for c in range(8):
+            self.shopify_frame.grid_columnconfigure(c, weight=1, uniform='col')
+
+        # Fila 1: TITULO (Label + Entry, 8 col)
+        ctk.CTkLabel(self.shopify_frame, text='TITULO:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=0, column=0, sticky='w', padx=6, pady=6)
+        self.e_seo_title = ctk.CTkEntry(self.shopify_frame, placeholder_text='Título web', **entry_kwargs)
+        self.e_seo_title.grid(row=0, column=1, columnspan=7, sticky='ew', padx=6, pady=6)
+
+        # Fila 2: LINK (Label + Entry + Botón IR)
+        ctk.CTkLabel(self.shopify_frame, text='LINK:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=1, column=0, sticky='w', padx=6, pady=6)
+        self.e_shop_link = ctk.CTkEntry(self.shopify_frame, placeholder_text='https://…', **entry_kwargs)
+        self.e_shop_link.grid(row=1, column=1, columnspan=6, sticky='ew', padx=6, pady=6)
+        ctk.CTkButton(self.shopify_frame, text='IR', width=60, fg_color='#3498db', command=self._open_shop_link).grid(row=1, column=7, sticky='ew', padx=6, pady=6)
+
+        # Fila 3: TAXONOMY (static vinculado, 4 col) | TIPO_SHOP (label+entry, 4 col)
+        ctk.CTkLabel(self.shopify_frame, text='TAXONOMY:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=2, column=0, sticky='w', padx=6, pady=6)
+        # Readonly entry to allow selection/copy but prevent manual edits
+        try:
+            self.ent_taxonomy = ctk.CTkEntry(self.shopify_frame, placeholder_text='', state='readonly', fg_color="#000000", text_color="#00FF00", border_width=2, border_color="#00FF00", corner_radius=4)
+        except Exception:
+            # fallback if customtkinter does not support readonly state
+            self.ent_taxonomy = ctk.CTkEntry(self.shopify_frame, placeholder_text='', fg_color="#000000", text_color="#00FF00", border_width=2, border_color="#00FF00", corner_radius=4)
+            try:
+                self.ent_taxonomy.configure(state='readonly')
+            except Exception:
+                pass
+        # Make taxonomy wider (occupy 2 columns) and expand horizontally
+        self.ent_taxonomy.grid(row=2, column=1, columnspan=2, sticky='ew', padx=6, pady=6)
+
+        ctk.CTkLabel(self.shopify_frame, text='TIPO_SHOP:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=2, column=4, sticky='w', padx=6, pady=6)
+        self.e_tipo_shop = ctk.CTkEntry(self.shopify_frame, placeholder_text='Tipo shop', **entry_kwargs)
+        self.e_tipo_shop.grid(row=2, column=5, columnspan=3, sticky='ew', padx=6, pady=6)
+
+        # Fila 4: TAGS (ocupa toda la fila, 8 columnas)
+        ctk.CTkLabel(self.shopify_frame, text='TAGS:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=3, column=0, sticky='w', padx=6, pady=6)
+        self.e_tags = ctk.CTkEntry(self.shopify_frame, placeholder_text='tag1, tag2', **entry_kwargs)
+        self.e_tags.grid(row=3, column=1, columnspan=7, sticky='ew', padx=6, pady=6)
+
+        # Fila 5: SEO_TITLE (Label + Entry, 8 col)
+        ctk.CTkLabel(self.shopify_frame, text='SEO_TITLE:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=4, column=0, sticky='w', padx=6, pady=6)
+        self.e_seo_short = ctk.CTkEntry(self.shopify_frame, placeholder_text='SEO short title', **entry_kwargs)
+        self.e_seo_short.grid(row=4, column=1, columnspan=7, sticky='ew', padx=6, pady=6)
+
+        # Fila 6: SEO_DESCRIPTION (CTkTextbox, altura menor 80px, 8 col)
+        ctk.CTkLabel(self.shopify_frame, text='SEO_DESCRIPTION:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=5, column=0, sticky='nw', padx=6, pady=6)
+        try:
+            self.e_seo_desc = ctk.CTkTextbox(self.shopify_frame, width=800, height=80, fg_color="#000000", text_color="#00FF00", border_width=2, border_color="#00FF00")
+            self.e_seo_desc.grid(row=5, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
+            try:
+                # make Tab move to next widget instead of inserting a tab character
+                self.e_seo_desc.bind('<Tab>', lambda e: self._focus_next_widget(e))
+            except Exception:
+                pass
+        except Exception:
+            # fallback: wrap tk.Text in a framed CTkFrame to simulate border
+            frame = ctk.CTkFrame(self.shopify_frame, fg_color="#000000", border_width=2, border_color="#00FF00")
+            self.e_seo_desc = tk.Text(frame, bg="#000000", fg="#00FF00")
+            self.e_seo_desc.pack(fill='both', expand=True)
+            frame.grid(row=5, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
+
+        # Fila 7: DESCRIPCION (CTkTextbox grande, 8 col)
+        ctk.CTkLabel(self.shopify_frame, text='DESCRIPCION:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=6, column=0, sticky='nw', padx=6, pady=6)
+        try:
+            self.txt_description = ctk.CTkTextbox(self.shopify_frame, width=800, height=100, fg_color="#000000", text_color="#00FF00", border_width=2, border_color="#00FF00")
+            self.txt_description.grid(row=6, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
+            try:
+                # Tab from description should go directly to the Guardar button
+                try:
+                    self.txt_description.unbind('<Tab>')
+                except Exception:
+                    pass
+                self.txt_description.bind('<Tab>', lambda e: self._focus_to_guardar(e))
+            except Exception:
+                pass
+        except Exception:
+            frame2 = ctk.CTkFrame(self.shopify_frame, fg_color="#000000", border_width=2, border_color="#00FF00")
+            self.txt_description = tk.Text(frame2, bg="#000000", fg="#00FF00")
+            self.txt_description.pack(fill='both', expand=True)
+            frame2.grid(row=6, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
+        self.shopify_frame.grid_rowconfigure(6, weight=1)
+
+        # Bottom buttons (aligned left per style guide)
+        # Use terminal bg for footer to ensure buttons are visible and contrast correctly
+        self.btn_frame = ctk.CTkFrame(self.container, fg_color=COLOR_BG_TERMINAL)
+        self.btn_frame.pack(side='bottom', fill='x', padx=12, pady=12)
+        # Guardar (green)
+        self.btn_guardar = ctk.CTkButton(self.btn_frame, text='Guardar', fg_color='#2ecc71', text_color='black', command=self._on_save)
+        self.btn_guardar.pack(side='left', padx=8)
+        # Sincronizar (yellow, black text)
+        self.btn_sync = ctk.CTkButton(self.btn_frame, text='Sincronizar', fg_color='#f1c40f', text_color='black', command=self._on_sync)
+        self.btn_sync.pack(side='left', padx=8)
+        # Buscar data (yellow, black text)
+        self.btn_buscar = ctk.CTkButton(self.btn_frame, text='Buscar data', fg_color='#f1c40f', text_color='black', command=self._on_buscar_data)
+        self.btn_buscar.pack(side='left', padx=8)
+
+        # Trace category changes to update taxonomy (focusout and selection events)
+        try:
+            self.cb_categoria.entry.bind('<FocusOut>', lambda e: self._update_taxonomy_from_category())
+            self.cb_categoria.entry.bind('<<SearchableComboSelected>>', lambda e: self._update_taxonomy_from_category())
+            self.cb_categoria.entry.bind('<Return>', lambda e: self._update_taxonomy_from_category())
+        except Exception:
+            pass
+
+    def _add_label_entry(self, parent, label, row, col, colspan, entry_kwargs, lbl_font, placeholder=''):
+        ctk.CTkLabel(parent, text=f'{label}:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=row, column=col, sticky='w', padx=6, pady=6)
+        ent = ctk.CTkEntry(parent, placeholder_text=placeholder, **entry_kwargs)
+        ent.grid(row=row, column=col+1, columnspan=colspan-1, sticky='ew', padx=6, pady=6)
+        setattr(self, f'e_{label.lower()}', ent)
+        return ent
+
+    def _load_db_options(self):
+        try:
+            if not self.db:
+                logging.info('CrearProductoUI: no se recibió objeto db; cargando valores por defecto')
+                # defaults for IVA
+                try:
+                    self.cb_iva.set_options([(21, '21'), (4, '4')])
+                except Exception:
+                    pass
+                return
+            conn = getattr(self.db, 'connection', None)
+            if conn is None:
+                try:
+                    self.db.connect()
+                    conn = self.db.connection
+                except Exception:
+                    logging.exception('CrearProductoUI: fallo conectando con db en _load_db_options')
+                    conn = None
+            if conn is None:
+                logging.info('CrearProductoUI: no hay conexión de DB disponible en _load_db_options')
+                return
+            cur = conn.cursor()
+            # categorias
+            try:
+                cur.execute('SELECT id, nombre, shopify_taxonomy FROM categorias')
+                cats = cur.fetchall()
+                cat_opts = [(int(r[0]), r[1] or '') for r in cats]
+                self.cb_categoria.set_options([(r[0], r[1]) for r in cat_opts])
+                # save mapping for taxonomy
+                self._cat_taxonomy = {int(r[0]): (r[2] or '') for r in cats}
+            except Exception:
+                logging.exception('Error cargando categorias')
+            # tipos
+            try:
+                cur.execute('SELECT id, nombre FROM tipos')
+                tipos = cur.fetchall()
+                self.cb_tipo.set_options([(int(r[0]), r[1] or '') for r in tipos])
+            except Exception:
+                logging.exception('Error cargando tipos')
+            # proveedores
+            try:
+                cur.execute('SELECT id, nombre FROM proveedores')
+                provs = cur.fetchall()
+                self.cb_proveedor.set_options([(int(r[0]), r[1] or '') for r in provs])
+            except Exception:
+                logging.exception('Error cargando proveedores')
+            # IVA candidates: distinct from productos
+            try:
+                cur.execute('SELECT DISTINCT tipo_iva FROM productos')
+                ivs = cur.fetchall()
+                iva_opts = []
+                for r in ivs:
+                    try:
+                        if r[0] is not None:
+                            iva_opts.append((int(r[0]), str(int(r[0]))))
+                    except Exception:
+                        continue
+                if not iva_opts:
+                    iva_opts = [(21, '21'), (4, '4')]
+                self.cb_iva.set_options(iva_opts)
+            except Exception:
+                logging.exception('Error cargando IVA options')
+        except Exception:
+            logging.exception('Error en _load_db_options')
+
+    def _update_taxonomy_from_category(self):
+        try:
+            cid = self.cb_categoria.get_id()
+            if cid and hasattr(self, '_cat_taxonomy'):
+                tax = self._cat_taxonomy.get(cid, '')
+                try:
+                    # set readonly entry value
+                    if getattr(self, 'ent_taxonomy', None):
+                        try:
+                            # clear then insert value
+                            try:
+                                self.ent_taxonomy.configure(state='normal')
+                            except Exception:
+                                pass
+                            try:
+                                # some CTkEntry expose delete/insert
+                                self.ent_taxonomy.delete(0, 'end')
+                                self.ent_taxonomy.insert(0, tax)
+                            except Exception:
+                                try:
+                                    self.ent_taxonomy.configure(text=tax)
+                                except Exception:
+                                    pass
+                            try:
+                                self.ent_taxonomy.configure(state='readonly')
+                            except Exception:
+                                pass
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+        except Exception:
+            logging.exception('Error actualizando taxonomy')
+
+    def _open_shop_link(self):
+        link = (self.e_nombre.get() or '').strip()
+        # If shop_link entry exists, prefer it
+        try:
+            link_ent = getattr(self, 'e_shop_link', None)
+            if link_ent:
+                link = link_ent.get() or link
+        except Exception:
+            pass
+        if link:
+            try:
+                webbrowser.open(link)
+            except Exception:
+                logging.exception('Error abriendo shop link')
+
+    def get_widget(self):
+        return self.container
+
+    def _validate_strict(self) -> Tuple[bool, str]:
+        # Validate required fields and strict comboboxes
+        if not (self.e_nombre.get() or '').strip():
+            return False, 'Nombre obligatorio'
+        # strict comboboxes: category, tipo, proveedor, iva
+        combos = [
+            ('cb_categoria', 'Categoría'),
+            ('cb_tipo', 'Tipo'),
+            ('cb_proveedor', 'Proveedor'),
+            ('cb_iva', 'IVA'),
+        ]
+        for attr, label in combos:
+            try:
+                w = getattr(self, attr, None)
+                if w is None:
+                    continue
+                val = (w.get() or '').strip()
+                if not val:
+                    try:
+                        w.entry.configure(border_color=COLOR_ERROR)
+                    except Exception:
+                        pass
+                    return False, f"{label} obligatorio"
+                if w.get_id() is None:
+                    # force red border and return descriptive message
+                    try:
+                        w.entry.configure(border_color=COLOR_ERROR)
+                    except Exception:
+                        pass
+                    return False, f"La {label} '{val}' no existe"
+                else:
+                    try:
+                        w.entry.configure(border_color=COLOR_MATRIX)
+                    except Exception:
+                        pass
+            except Exception:
+                logging.exception('Error validando combo %s', attr)
+                return False, f'Error validando {label}'
+        return True, ''
+
+    def _on_save(self):
+        valid, msg = self._validate_strict()
+        if not valid:
+            try:
+                from kool_tpv.utils.custom_dialog import show_error
+                show_error(self.container, 'Validación', msg)
+            except Exception:
+                logging.error('Validación: %s', msg)
+            return
+
+        # Prepare data
+        sku = (getattr(self, 'e_sku', None) and self.e_sku.get()) or None
+        nombre = (self.e_nombre.get() or '').strip()
+        nombre_boton = (self.e_nombre_btn.get() or '').strip()
+        categoria_id = self.cb_categoria.get_id()
+        tipo_id = self.cb_tipo.get_id()
+        proveedor_id = self.cb_proveedor.get_id()
+        try:
+            pvp = float(self.e_pvp.get() or 0)
+        except Exception:
+            pvp = 0.0
+        try:
+            coste = float(self.e_coste.get() or 0)
+        except Exception:
+            coste = 0.0
+        # Sanitize decimals: allow comma as decimal separator and empty -> 0.0
+        try:
+            raw_pvp = (self.e_pvp.get() or '').strip()
+            if raw_pvp == '':
+                pvp = 0.0
+            else:
+                pvp = float(raw_pvp.replace(',', '.'))
+        except Exception:
+            pvp = 0.0
+        try:
+            raw_coste = (self.e_coste.get() or '').strip()
+            if raw_coste == '':
+                coste = 0.0
+            else:
+                coste = float(raw_coste.replace(',', '.'))
+        except Exception:
+            coste = 0.0
+        iva = self.cb_iva.get_id() or 21
+        try:
+            stock_actual = int(self.e_stock_actual.get() or 0)
+        except Exception:
+            stock_actual = 0
+        try:
+            stock_min = int(self.e_stock_min.get() or 0)
+        except Exception:
+            stock_min = 0
+        activo = 1 if getattr(self, 'chk_activo_var', None) and self.chk_activo_var.get() else 0
+        # shopify taxonomy value from readonly entry
+        try:
+            shopify_taxonomy = (getattr(self, 'ent_taxonomy', None) and self.ent_taxonomy.get()) or ''
+        except Exception:
+            shopify_taxonomy = ''
+
+        # capture SEO description and full description textbox contents
+        try:
+            seo_desc = ''
+            if getattr(self, 'e_seo_desc', None):
+                try:
+                    seo_desc = self.e_seo_desc.get('1.0', 'end-1c').strip()
+                except Exception:
+                    try:
+                        seo_desc = self.e_seo_desc.get().strip()
+                    except Exception:
+                        seo_desc = ''
+        except Exception:
+            seo_desc = ''
+        try:
+            descripcion_full = ''
+            if getattr(self, 'txt_description', None):
+                try:
+                    descripcion_full = self.txt_description.get('1.0', 'end-1c').strip()
+                except Exception:
+                    try:
+                        descripcion_full = self.txt_description.get().strip()
+                    except Exception:
+                        descripcion_full = ''
+        except Exception:
+            descripcion_full = ''
+
+        # Campos Shopify adicionales
+        try:
+            titulo = (getattr(self, 'e_seo_title', None) and self.e_seo_title.get()) or ''
+        except Exception:
+            titulo = ''
+
+        try:
+            seo_title = (getattr(self, 'e_seo_short', None) and self.e_seo_short.get()) or ''
+        except Exception:
+            seo_title = ''
+
+        try:
+            tipo_shop = (getattr(self, 'e_tipo_shop', None) and self.e_tipo_shop.get()) or ''
+        except Exception:
+            tipo_shop = ''
+
+        try:
+            etiquetas = (getattr(self, 'e_tags', None) and self.e_tags.get()) or ''
+        except Exception:
+            etiquetas = ''
+
+        # notas_internas field removed from UI and DB saving per spec
+
+        try:
+            shop_link = (getattr(self, 'e_shop_link', None) and self.e_shop_link.get()) or ''
+        except Exception:
+            shop_link = ''
+
+        # Transaction: insert/update productos and precios
+        try:
+            db = self.db
+            if db is None or getattr(db, 'connection', None) is None:
+                # try to use sqlite3 directly on default path
+                raise RuntimeError('Database no disponible')
+            conn = db.connection
+            cur = conn.cursor()
+            cur.execute('BEGIN')
+            # check if product exists by sku
+            prod_id = None
+            if sku:
+                cur.execute('SELECT id FROM productos WHERE sku = ?', (sku,))
+                r = cur.fetchone()
+                if r and r[0]:
+                    prod_id = int(r[0])
+
+            if prod_id is None:
+                # insert (include all editable fields as requested) - notas_internas removed
+                cur.execute('''INSERT INTO productos (nombre, nombre_boton, sku, categoria, tipo, proveedor_id, shopify_taxonomy, tipo_iva, stock_actual, stock_minimo, activo, pvp_variable, descripcion_shopify, titulo, seo_title, seo_description, tipo_shop, etiquetas, shop_link, pending_sync) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', (nombre, nombre_boton, sku, categoria_id, tipo_id, proveedor_id, shopify_taxonomy, iva, stock_actual, stock_min, activo, 0, descripcion_full, titulo, seo_title, seo_desc, tipo_shop, etiquetas, shop_link, 0))
+                prod_id = cur.lastrowid
+            else:
+                cur.execute('''UPDATE productos SET nombre=?, nombre_boton=?, categoria=?, tipo=?, proveedor_id=?, shopify_taxonomy=?, tipo_iva=?, stock_actual=?, stock_minimo=?, activo=?, descripcion_shopify=?, titulo=?, seo_title=?, seo_description=?, tipo_shop=?, etiquetas=?, shop_link=? WHERE id=?''', (nombre, nombre_boton, categoria_id, tipo_id, proveedor_id, shopify_taxonomy, iva, stock_actual, stock_min, activo, descripcion_full, titulo, seo_title, seo_desc, tipo_shop, etiquetas, shop_link, prod_id))
+
+            # Upsert precio: deactivate previous active precios for this product and insert new active
+            try:
+                cur.execute('UPDATE precios SET activo = 0 WHERE producto_id = ?', (prod_id,))
+            except Exception:
+                pass
+            cur.execute('INSERT INTO precios (producto_id, pvp, coste, activo) VALUES (?, ?, ?, 1)', (prod_id, float(pvp), float(coste)))
+
+            # Códigos de barras: limpiar y reinsertar por producto dentro de la misma transacción
+            try:
+                # obtener códigos desde Entry CSV (ean1,ean2,...)
+                codes_text = ''
+                try:
+                    if getattr(self, 'e_codigos', None):
+                        try:
+                            codes_text = self.e_codigos.get().strip()
+                        except Exception:
+                            codes_text = ''
+                except Exception:
+                    codes_text = ''
+                codes = [c.strip() for c in (codes_text or '').split(',') if c.strip()]
+                try:
+                    cur.execute('DELETE FROM codigos_barras WHERE producto_id = ?', (prod_id,))
+                except Exception:
+                    pass
+                if codes:
+                    try:
+                        cur.executemany('INSERT INTO codigos_barras (producto_id, ean) VALUES (?, ?)', [(prod_id, c) for c in codes])
+                    except Exception:
+                        logging.exception('Error insertando codigos de barras')
+            except Exception:
+                logging.exception('Error gestionando codigos de barras')
+
+            conn.commit()
+            try:
+                from kool_tpv.utils.custom_dialog import show_success
+                show_success(self.container, 'Guardado', 'Producto guardado correctamente')
+            except Exception:
+                logging.info('Producto guardado id=%s', prod_id)
+            # clear all fields to allow entering another product
+            try:
+                self._on_cancel()
+            except Exception:
+                pass
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            logging.exception('Error guardando producto, transacción revertida')
+            try:
+                from kool_tpv.utils.custom_dialog import show_error
+                show_error(self.container, 'Error', 'No se pudo guardar el producto')
+            except Exception:
+                pass
+
+    def _on_cancel(self):
+        try:
+            # limpiar campos manualmente
+            for attr in list(vars(self).keys()):
+                if attr.startswith('e_') or attr.startswith('cb_') or attr.startswith('txt_'):
+                    # Prefer clearing an associated variable if present (e.g., e_ventas_var)
+                    try:
+                        var_name = f"{attr}_var"
+                        if hasattr(self, var_name):
+                            var = getattr(self, var_name)
+                            try:
+                                if hasattr(var, 'set'):
+                                    var.set('')
+                                    continue
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+                    w = getattr(self, attr)
+                    try:
+                        if hasattr(w, 'delete'):
+                            if isinstance(w, SearchableCombo):
+                                w.set('')
+                            else:
+                                try:
+                                    w.delete(0, 'end')
+                                except Exception:
+                                    # readonly entries may not allow delete; try configure or variable
+                                    try:
+                                        w.configure(text='')
+                                    except Exception:
+                                        pass
+                        elif hasattr(w, 'configure'):
+                            w.configure(text='')
+                    except Exception:
+                        pass
+        except Exception:
+            logging.exception('Error en _on_cancel CrearProductoUI')
+
+    def _focus_next_widget(self, event):
+        try:
+            nxt = event.widget.tk_focusNext()
+            if nxt:
+                try:
+                    nxt.focus_set()
+                except Exception:
+                    try:
+                        nxt.focus()
+                    except Exception:
+                        pass
+        except Exception:
+            logging.exception('Error moviendo foco al siguiente widget')
+        return 'break'
+
+    def _focus_to_guardar(self, event):
+        try:
+            if getattr(self, 'btn_guardar', None):
+                try:
+                    self.btn_guardar.focus_set()
+                except Exception:
+                    try:
+                        self.btn_guardar.focus()
+                    except Exception:
+                        pass
+        except Exception:
+            logging.exception('Error moviendo foco a Guardar')
+        return 'break'
+
+    def _on_sync(self):
+        try:
+            logging.info('Sincronizar accion triggered')
+            try:
+                from kool_tpv.utils.custom_dialog import show_success
+                show_success(self.container, 'Sincronizar', 'Sincronización iniciada')
+            except Exception:
+                pass
+        except Exception:
+            logging.exception('Error en _on_sync')
+
+    def _on_buscar_data(self):
+        try:
+            logging.info('Buscar data accion triggered')
+            try:
+                from kool_tpv.utils.custom_dialog import show_success
+                show_success(self.container, 'Buscar data', 'Búsqueda iniciada')
+            except Exception:
+                pass
+        except Exception:
+            logging.exception('Error en _on_buscar_data')
+
+    def get_data(self) -> Dict[str, str]:
+        try:
+            return {
+                'nombre': (self.e_nombre.get() or '').strip(),
+                'nombre_boton': (self.e_nombre_btn.get() or '').strip(),
+                'sku': (getattr(self, 'e_sku', None) and self.e_sku.get()) or '',
+                'categoria_id': self.cb_categoria.get_id(),
+                'tipo_id': self.cb_tipo.get_id(),
+                'proveedor_id': self.cb_proveedor.get_id(),
+                'pvp': (self.e_pvp.get() or '').strip(),
+                'coste': (self.e_coste.get() or '').strip(),
+                'iva': self.cb_iva.get(),
+                'pvp_variable': bool(self.chk_pvp_var.get()),
+                'stock_actual': (getattr(self, 'e_stock_actual', None) and self.e_stock_actual.get()) or '0',
+                'stock_min': (getattr(self, 'e_stock_min', None) and self.e_stock_min.get()) or '0',
+                    'shopify_taxonomy': (getattr(self, 'ent_taxonomy', None) and self.ent_taxonomy.get()) or '',
+                    'descripcion_shopify': (lambda: (
+                        (lambda txt: txt.strip())(
+                            (self.txt_description.get('1.0', 'end-1c') if getattr(self, 'txt_description', None) and hasattr(self.txt_description, 'get') else (self.txt_description.get() if getattr(self, 'txt_description', None) and hasattr(self.txt_description, 'get') else ''))
+                        )
+                    ))(),
+                    'seo_description': (lambda: (
+                        (lambda txt: txt.strip())(
+                            (self.e_seo_desc.get('1.0', 'end-1c') if getattr(self, 'e_seo_desc', None) and hasattr(self.e_seo_desc, 'get') else (self.e_seo_desc.get() if getattr(self, 'e_seo_desc', None) and hasattr(self.e_seo_desc, 'get') else ''))
+                        )
+                    ))(),
+                    'codigos_barras': (getattr(self, 'e_codigos', None) and (self.e_codigos.get() or '').strip()) or '',
+            }
+        except Exception:
+            logging.exception('Error obteniendo datos CrearProductoUI')
+            return {}
+

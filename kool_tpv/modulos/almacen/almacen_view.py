@@ -8,6 +8,7 @@ from typing import Optional
 import logging
 import json
 from pathlib import Path
+import unicodedata
 
 import customtkinter as ctk
 import tkinter as tk
@@ -53,7 +54,7 @@ class AlmacenView(BaseModuleView):
         action_map = {
             'show_crear': self.show_crear,
             'show_busqueda': self.show_busqueda,
-            'show_compra': self.show_compra,
+            'show_albaranes': self.show_albaranes,
             'show_tipos': self.show_tipos,
             'show_categorias': self.show_categorias,
             'show_proveedores': self.show_proveedores,
@@ -61,28 +62,46 @@ class AlmacenView(BaseModuleView):
 
         # Iterate over configured buttons and rebind matching buttons in the UI
         try:
+            def _norm(s: str) -> str:
+                try:
+                    return ''.join(ch for ch in unicodedata.normalize("NFKD", (s or '')).upper() if not unicodedata.combining(ch)).strip()
+                except Exception:
+                    return (s or '').upper().strip()
+
             for b in buttons:
-                lbl = (b.get('label') or b.get('text') or '').upper()
+                lbl = (b.get('label') or b.get('text') or '')
                 action = b.get('action')
+                norm_lbl = _norm(lbl)
                 # find child button in menu_frame with same text
                 for child in list(self._menu_frame.winfo_children()):
                     try:
                         txt = child.cget('text') if hasattr(child, 'cget') else None
-                        if txt and txt.upper() == lbl:
+                        if txt and _norm(txt) == norm_lbl:
                             # bind the action if exists
                             if action in action_map:
+                                # wrap to capture exceptions when executing the bound action
+                                def _wrap(func):
+                                    def _wrapped(*a, **k):
+                                        try:
+                                            return func(*a, **k)
+                                        except Exception:
+                                            logging.exception("Error al ejecutar acción %r:", getattr(func, '__name__', str(func)))
+                                            raise
+                                    return _wrapped
                                 try:
-                                    child.configure(command=action_map[action])
+                                    child.configure(command=_wrap(action_map[action]))
                                 except Exception:
-                                    pass
+                                    logging.exception("Failed configuring command for %r", lbl)
+                            else:
+                                logging.warning("  Action %r not found in action_map", action)
                             break
                     except Exception:
-                        continue
+                        logging.exception("Error inspeccionando child en AlmacenView")
         except Exception:
             logging.exception('Error enlazando botones en AlmacenView')
 
     # Simple handlers that currently log actions — to be implemented
-    def show_crear(self):
+    def show_crear(self, producto_id: int = None):
         """Instancia y muestra la UI de creación en la zona central."""
         try:
             # update breadcrumb to indicate sub-section
@@ -90,23 +109,34 @@ class AlmacenView(BaseModuleView):
                 self.actualizar_ruta('ALMACEN / CREAR_PRODUCTO')
             except Exception:
                 pass
-            from .ui.crear_producto_ui import CrearProductoUI
-
-            # Lazy load the UI so we keep state while the module is open
-            if not hasattr(self, 'crear_ui') or self.crear_ui is None:
-                # pass the module DB so the UI can load options immediately
-                self.crear_ui = CrearProductoUI(self.central_area, db=self.db)
-
-            # Prefer using the widget returned by get_widget()
+            from .ui.Productos.crear_producto_ui import CrearProductoUI
+            # Always instantiate a fresh UI to avoid using destroyed widgets
             try:
-                widget = self.crear_ui.get_widget() if hasattr(self.crear_ui, 'get_widget') else self.crear_ui
-                self.set_central_content(widget)
-            except Exception:
-                # Fallback: try to pack the UI instance directly
+                crear_ui = CrearProductoUI(self.central_area, db=self.db, producto_id=producto_id)
+                # Prefer passing the actual widget to set_central_content to avoid
+                # ambiguous packing behavior if the instance exposes both
+                # get_widget() and pack(). This reduces race conditions with
+                # previously destroyed widgets.
                 try:
-                    self.crear_ui.pack(fill='both', expand=True)
+                    widget = crear_ui.get_widget() if hasattr(crear_ui, 'get_widget') else crear_ui
+                    self.set_central_content(widget)
                 except Exception:
-                    logging.exception('No fue posible mostrar CrearProductoUI en show_crear')
+                    # fallback: try passing the instance itself
+                    logging.exception('Error obteniendo widget desde CrearProductoUI, intentando pasar la instancia')
+                    self.set_central_content(crear_ui)
+
+                # If a producto_id was provided, attempt to prefill the UI using the loader
+                if producto_id is not None:
+                    try:
+                        from .ui.Productos.cargar_producto import CargarProductoUI
+                        loader = CargarProductoUI(self.central_area, db=self.db)
+                        applied = loader.apply_to_ui(producto_id, crear_ui)
+                        if not applied:
+                            logging.warning('CrearProductoUI: no se aplicaron datos para producto_id=%s', producto_id)
+                    except Exception:
+                        logging.exception('Error aplicando datos de producto a CrearProductoUI')
+            except Exception:
+                logging.exception('No fue posible instanciar/mostrar CrearProductoUI en show_crear')
 
             logging.info('Abriendo crear...')
         except Exception:
@@ -114,38 +144,88 @@ class AlmacenView(BaseModuleView):
 
     def show_busqueda(self):
         try:
-            self.actualizar_ruta('ALMACEN / BUSQUEDA')
+            try:
+                self.actualizar_ruta('ALMACEN / BUSQUEDA')
+            except Exception:
+                pass
+            from .ui.busqueda_ui import BusquedaUI
+            try:
+                busq = BusquedaUI(self.central_area, db=self.db, owner=self)
+                self.set_central_content(busq)
+            except Exception:
+                logging.exception('No fue posible instanciar BusquedaUI en show_busqueda')
+            logging.info('Abriendo búsqueda...')
         except Exception:
-            pass
-        logging.info('Abriendo búsqueda...')
+            logging.exception('Error abriendo busqueda en AlmacenView')
 
-    def show_compra(self):
+    def show_albaranes(self):
         try:
-            self.actualizar_ruta('ALMACEN / COMPRA')
+            try:
+                self.actualizar_ruta('ALMACEN / ALBARANES')
+            except Exception:
+                pass
+            from .ui.albaranes_ui import AlbaranesUI
+
+            try:
+                albaranes_ui = AlbaranesUI(self.central_area, db=self.db)
+                self.set_central_content(albaranes_ui)
+                logging.info('Abriendo albaranes...')
+            except Exception:
+                logging.exception('Error instanciando AlbaranesUI en show_albaranes')
         except Exception:
-            pass
-        logging.info('Abriendo compra...')
+            logging.exception('Error abriendo albaranes en AlmacenView')
 
     def show_tipos(self):
         try:
-            self.actualizar_ruta('ALMACEN / TIPOS')
+            try:
+                self.actualizar_ruta('ALMACEN / TIPOS')
+            except Exception:
+                pass
+            from .ui.tipos_ui import TiposUI
+
+            # Always create a fresh UI instance to avoid reusing destroyed widgets
+            try:
+                tipos_ui = TiposUI(self.central_area, db=self.db)
+                self.set_central_content(tipos_ui)
+                logging.info('Abriendo tipos...')
+            except Exception:
+                logging.exception('Error instanciando TiposUI en show_tipos')
         except Exception:
-            pass
-        logging.info('Abriendo tipos...')
+            logging.exception('Error abriendo tipos en AlmacenView')
 
     def show_categorias(self):
         try:
-            self.actualizar_ruta('ALMACEN / CATEGORIAS')
+            try:
+                self.actualizar_ruta('ALMACEN / CATEGORIAS')
+            except Exception:
+                pass
+            from .ui.categorias_ui import CategoriasUI
+
+            try:
+                categorias_ui = CategoriasUI(self.central_area, db=self.db)
+                self.set_central_content(categorias_ui)
+                logging.info('Abriendo categorías...')
+            except Exception:
+                logging.exception('Error instanciando CategoriasUI en show_categorias')
         except Exception:
-            pass
-        logging.info('Abriendo categorías...')
+            logging.exception('Error abriendo categorias en AlmacenView')
 
     def show_proveedores(self):
         try:
-            self.actualizar_ruta('ALMACEN / PROVEEDORES')
+            try:
+                self.actualizar_ruta('ALMACEN / PROVEEDORES')
+            except Exception:
+                pass
+            from .ui.proveedores_ui import ProveedoresUI
+
+            try:
+                proveedores_ui = ProveedoresUI(self.central_area, db=self.db)
+                self.set_central_content(proveedores_ui)
+                logging.info('Abriendo proveedores...')
+            except Exception:
+                logging.exception('Error instanciando ProveedoresUI en show_proveedores')
         except Exception:
-            pass
-        logging.info('Abriendo proveedores...')
+            logging.exception('Error abriendo proveedores en AlmacenView')
 
     # attach_to_nav kept for compatibility with main navigation
     def attach_to_nav(self, nav_frame, button_config: dict):
