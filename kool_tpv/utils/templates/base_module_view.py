@@ -11,6 +11,7 @@ import customtkinter as ctk
 import tkinter as tk
 
 from kool_tpv.utils.utils import SIDEBAR_WIDTH, COLOR_BG_TERMINAL, COLOR_BG_SIDEBAR, COLOR_MATRIX, FONT_TERMINAL
+from kool_tpv.utils.widgets.clickable_breadcrumb import ClickableBreadcrumb
 
 
 class BaseModuleView:
@@ -93,19 +94,19 @@ class BaseModuleView:
             self.main_frame.pack(side='right', fill='both', expand=True)
             # Add breadcrumb / ruta label at the top of central area (fixed)
             try:
-                # Principal breadcrumb/título grande y único para todo el módulo
+                # Breadcrumb clickeable
                 self.module_name = (config_section or 'MODULO').upper()
-                self.lbl_breadcrumb = ctk.CTkLabel(
-                    self.main_frame,
-                    text=f"SISTEMA_KOOL: / {self.module_name}",
-                    font=(FONT_TERMINAL[0], 20, 'bold'),
-                    text_color=COLOR_MATRIX,
-                    anchor='w',
-                    fg_color=COLOR_BG_TERMINAL,
-                )
-                self.lbl_breadcrumb.pack(anchor='nw', fill='x', padx=12, pady=(8, 6))
+                self.breadcrumb = ClickableBreadcrumb(self.main_frame)
+                self.breadcrumb.pack(anchor='nw', fill='x', padx=12, pady=(8, 6))
+
+                # Inicializar con módulo base
+                self.breadcrumb.update_parts([
+                    ('SISTEMA_KOOL:', None),
+                    (self.module_name, None)
+                ])
+
             except Exception:
-                logging.exception('Error creando lbl_breadcrumb en BaseModuleView')
+                logging.exception('Error creando breadcrumb en BaseModuleView')
             # Alias usado por módulos: central_area (below the ruta label)
             self.central_area = ctk.CTkFrame(self.main_frame, fg_color=COLOR_BG_TERMINAL)
             self.central_area.pack(fill='both', expand=True)
@@ -228,30 +229,40 @@ class BaseModuleView:
         except Exception:
             pass
 
-    def actualizar_ruta(self, sub_seccion: str = None):
+    def actualizar_ruta(self, sub_seccion: str = None, callbacks: dict = None):
         """Actualiza el texto de la ruta/breadcrumb mostrado arriba del área central.
 
         Formato: SISTEMA_KOOL_TPV: / <MODULO> [ / <SUB_SECCION>]
         """
         try:
             base_module = (getattr(self, 'module_name', 'MODULO') or '').upper()
-            parts = [base_module]
+
+            # Construir lista de partes
+            parts_data = [('SISTEMA_KOOL:', None), (base_module, None)]
+
             if sub_seccion:
-                # Normalize: if sub_seccion already contains the module name, strip it to avoid duplication
+                # Normalizar: eliminar módulo si está duplicado
                 s = sub_seccion.upper()
                 if s.startswith(base_module):
                     s = s[len(base_module):].lstrip(' /')
+
+                # Separar por " / " y añadir cada parte
                 if s:
-                    parts.append(s)
-            base = f"SISTEMA_KOOL: / {' / '.join(parts)}"
-            if hasattr(self, 'lbl_breadcrumb') and self.lbl_breadcrumb is not None:
+                    subsecciones = [p.strip() for p in s.split('/') if p.strip()]
+                    for subsec in subsecciones:
+                        # Buscar callback si existe
+                        callback = None
+                        if callbacks and subsec in callbacks:
+                            callback = callbacks[subsec]
+                        parts_data.append((subsec, callback))
+
+            # Actualizar widget breadcrumb
+            if hasattr(self, 'breadcrumb') and self.breadcrumb is not None:
                 try:
-                    self.lbl_breadcrumb.configure(text=base)
+                    self.breadcrumb.update_parts(parts_data)
                 except Exception:
-                    try:
-                        self.lbl_breadcrumb['text'] = base
-                    except Exception:
-                        pass
+                    logging.exception('Error actualizando breadcrumb widget')
+
         except Exception:
             logging.exception('Error actualizando ruta en BaseModuleView')
 

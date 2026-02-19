@@ -6,16 +6,15 @@ import customtkinter as ctk
 from kool_tpv.base_datos.albaran_service import AlbaranService
 from kool_tpv.base_datos.proveedor_service import ProveedorService
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL
-from kool_tpv.modulos.almacen.ui.albaranes.entrada_manual import EntradaManualUI
-from kool_tpv.modulos.almacen.ui.albaranes.consultar_albaran import ConsultarAlbaranUI
-from kool_tpv.modulos.almacen.ui.albaranes.detalle_albaran import DetalleAlbaranUI
+
 
 
 
 class AlbaranesUI:
-    def __init__(self, parent, db=None):
+    def __init__(self, parent, db=None, owner=None):
         self.parent = parent
         self.db = db
+        self.owner = owner
         self.albaran_service = AlbaranService(db)
         self.proveedor_service = ProveedorService(db)
 
@@ -50,17 +49,14 @@ class AlbaranesUI:
         return self.container
 
     def show_entrada_manual(self):
+        """Mostrar entrada manual (delega a owner)."""
         try:
-            for w in list(self.central_area.winfo_children()):
-                try:
-                    w.destroy()
-                except Exception:
-                    pass
-
-            entrada_ui = EntradaManualUI(self.central_area, db=self.db)
-            entrada_ui.get_widget().pack(fill='both', expand=True)
+            if getattr(self, 'owner', None) and hasattr(self.owner, 'show_entrada_manual'):
+                self.owner.show_entrada_manual()
+            else:
+                logging.warning('AlbaranesUI: owner no disponible para show_entrada_manual')
         except Exception:
-            logging.exception('Error cargando EntradaManualUI')
+            logging.exception('Error en show_entrada_manual')
 
     
 
@@ -68,48 +64,22 @@ class AlbaranesUI:
         logging.info('Función pendiente de implementar')
 
     def show_consultar(self):
-        """Mostrar UI de consulta de albaranes con filtros."""
+        """Mostrar consulta de albaranes (delega a owner)."""
         try:
-            # Limpiar central_area
-            for w in list(self.central_area.winfo_children()):
-                try:
-                    w.destroy()
-                except Exception:
-                    pass
-
-            # Instanciar y mostrar ConsultarAlbaranUI
-            consultar_ui = ConsultarAlbaranUI(self.central_area, db=self.db, owner=self)
-            try:
-                consultar_ui.get_widget().pack(fill='both', expand=True)
-            except Exception:
-                # Fallback: if widget is the instance itself
-                try:
-                    consultar_ui.pack(fill='both', expand=True)
-                except Exception:
-                    pass
+            if getattr(self, 'owner', None) and hasattr(self.owner, 'show_consultar'):
+                self.owner.show_consultar()
+            else:
+                logging.warning('AlbaranesUI: owner no disponible para show_consultar')
         except Exception:
-            logging.exception('Error cargando ConsultarAlbaranUI')
+            logging.exception('Error en show_consultar')
 
     def show_detalle_albaran(self, albaran_id):
-        """Mostrar detalle de albarán para consulta/edición."""
+        """Mostrar detalle de albarán (delega a owner)."""
         try:
-            # Limpiar central_area
-            for w in list(self.central_area.winfo_children()):
-                try:
-                    w.destroy()
-                except Exception:
-                    pass
-
-            # Instanciar y mostrar DetalleAlbaranUI
-            detalle_ui = DetalleAlbaranUI(self.central_area, db=self.db, albaran_id=albaran_id, owner=self)
-            try:
-                detalle_ui.get_widget().pack(fill='both', expand=True)
-            except Exception:
-                try:
-                    detalle_ui.pack(fill='both', expand=True)
-                except Exception:
-                    pass
-
-            logging.info(f'Detalle albarán {albaran_id} cargado correctamente')
+            if getattr(self, 'owner', None) and hasattr(self.owner, 'show_detalle_albaran'):
+                self.owner.show_detalle_albaran(albaran_id)
+                logging.info(f'Detalle albarán {albaran_id} cargado correctamente')
+            else:
+                logging.warning('AlbaranesUI: owner no disponible para show_detalle_albaran')
         except Exception:
-            logging.exception(f'Error cargando DetalleAlbaranUI para albarán {albaran_id}')
+            logging.exception(f'Error en show_detalle_albaran para albarán {albaran_id}')

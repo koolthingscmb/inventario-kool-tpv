@@ -58,6 +58,9 @@ class AlmacenView(BaseModuleView):
             'show_tipos': self.show_tipos,
             'show_categorias': self.show_categorias,
             'show_proveedores': self.show_proveedores,
+            'show_entrada_manual': self.show_entrada_manual,
+            'show_consultar': self.show_consultar,
+            'show_detalle_albaran': self.show_detalle_albaran,
         }
 
         # Iterate over configured buttons and rebind matching buttons in the UI
@@ -99,6 +102,14 @@ class AlmacenView(BaseModuleView):
                         logging.exception("Error inspeccionando child en AlmacenView")
         except Exception:
             logging.exception('Error enlazando botones en AlmacenView')
+
+        # Mapeo breadcrumb → callbacks para navegación clickeable
+        self.breadcrumb_callbacks = {
+            'ALMACÉN': self.show_albaranes, # Click en ALMACÉN vuelve a vista principal albaranes
+            'ALBARANES': self.show_albaranes,
+            'CONSULTAR': self.show_consultar,
+            'ENTRADA MANUAL': self.show_entrada_manual,
+        }
 
     # Simple handlers that currently log actions — to be implemented
     def show_crear(self, producto_id: int = None):
@@ -167,7 +178,7 @@ class AlmacenView(BaseModuleView):
             from .ui.albaranes_ui import AlbaranesUI
 
             try:
-                albaranes_ui = AlbaranesUI(self.central_area, db=self.db)
+                albaranes_ui = AlbaranesUI(self.central_area, db=self.db, owner=self)
                 self.set_central_content(albaranes_ui)
                 logging.info('Abriendo albaranes...')
             except Exception:
@@ -227,6 +238,59 @@ class AlmacenView(BaseModuleView):
         except Exception:
             logging.exception('Error abriendo proveedores en AlmacenView')
 
+    def show_entrada_manual(self):
+        """Mostrar UI de entrada manual de albaranes."""
+        try:
+            from .ui.albaranes.entrada_manual import EntradaManualUI
+
+            try:
+                entrada_ui = EntradaManualUI(self.central_area, db=self.db)
+                self.set_central_content(entrada_ui)
+                self.actualizar_ruta('ALBARANES / ENTRADA MANUAL', callbacks=self.breadcrumb_callbacks)
+                logging.info('Abriendo entrada manual...')
+            except Exception:
+                logging.exception('Error instanciando EntradaManualUI en show_entrada_manual')
+        except Exception:
+            logging.exception('Error abriendo entrada manual en AlmacenView')
+    
+    def show_consultar(self):
+        """Mostrar UI de consulta de albaranes con filtros."""
+        try:
+            from .ui.albaranes.consultar_albaran import ConsultarAlbaranUI
+
+            try:
+                consultar_ui = ConsultarAlbaranUI(self.central_area, db=self.db, owner=self)
+                self.set_central_content(consultar_ui)
+                self.actualizar_ruta('ALBARANES / CONSULTAR', callbacks=self.breadcrumb_callbacks)
+                logging.info('Abriendo consultar albaranes...')
+            except Exception:
+                logging.exception('Error instanciando ConsultarAlbaranUI en show_consultar')
+        except Exception:
+            logging.exception('Error abriendo consultar en AlmacenView')
+    
+    def show_detalle_albaran(self, albaran_id):
+        """Mostrar detalle de albarán para consulta/edición.
+
+        Args:
+            albaran_id (int): ID del albarán a mostrar
+        """
+        try:
+            from .ui.albaranes.detalle_albaran import DetalleAlbaranUI
+
+            try:
+                detalle_ui = DetalleAlbaranUI(
+                    self.central_area,
+                    db=self.db,
+                    albaran_id=albaran_id,
+                    owner=self,
+                )
+                self.set_central_content(detalle_ui)
+                self.actualizar_ruta('ALBARANES / CONSULTAR / DETALLE', callbacks=self.breadcrumb_callbacks)
+                logging.info(f'Abriendo detalle albarán {albaran_id}...')
+            except Exception:
+                logging.exception('Error instanciando DetalleAlbaranUI en show_detalle_albaran')
+        except Exception:
+            logging.exception(f'Error abriendo detalle albarán {albaran_id} en AlmacenView')
     # attach_to_nav kept for compatibility with main navigation
     def attach_to_nav(self, nav_frame, button_config: dict):
         try:

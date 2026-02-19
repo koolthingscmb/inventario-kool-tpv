@@ -1,0 +1,683 @@
+**RESUMEN EXHAUSTIVO - KOOL_TPV_V2**
+
+Fecha: 2026-02-19
+Alcance: Revisión técnica profunda y exhaustiva de los archivos que participan en el funcionamiento de la aplicación Kool TPV v2. Incluye estructura completa, análisis por módulo y archivo principal, estado actual, últimas implementaciones detectadas, schema de base de datos, pros y contras, y recomendaciones de mejora.
+
+---
+
+**ÍNDICE**
+- Resumen ejecutivo
+- Alcance y metodología
+- Estructura del repositorio (detallada)
+- Flujo de arranque y dependencias críticas
+- Análisis de la persistencia y schema de la base de datos (anexo)
+- Revisión por módulos: base_datos, modulos (tpv, almacen, clientes, impresion, configuracion), utils, assets, config
+- Análisis por archivo clave (lista y observaciones)
+- Estado del proyecto a fecha
+- Últimas implementaciones detectadas
+- Pruebas y cobertura
+- Calidad de código y mantenibilidad
+- Seguridad y manejo de datos sensibles
+- Rendimiento y concurrencia
+- Pros y contras del proyecto
+- Recomendaciones priorizadas (corto, medio y largo plazo)
+- Plan de migración/operaciones recomendado
+- Anexos: schema completo (extraído del fichero kool_bd.db), lista de archivos analizados, notas de estilo (guia_estilo_blindaje.txt)
+
+---
+
+**RESUMEN EJECUTIVO**
+
+Kool TPV v2 es una aplicación de punto de venta escrita principalmente con `customtkinter` sobre Python, organizada en un paquete `kool_tpv` con separación en módulos funcionales (TPV, Almacén, Clientes, Impresión, Configuración). La app usa SQLite (`kool_bd.db`) como persistencia embebida y un `Database` wrapper para accesos y transacciones. El repositorio contiene utilidades UI reutilizables, servicios por entidad (producto, ticket, albarán, proveedor, etc.) y una configuración JSON que define la UI de navegación.
+
+La revisión reitera que la arquitectura es modular y favorece la separación de responsabilidades, aunque varios archivos UI siguen mezclando layout y lógica, lo cual dificulta pruebas unitarias. El sistema implementa transacciones atómicas en puntos críticos (p. ej. `save_ticket`) pero usa prácticas en la numeración de tickets que pueden tener riesgos de colisión en entornos concurrentes. La guía de estilo interna («guia_estilo_blindaje.txt») establece estándares de UI y validación que el proyecto sigue parcialmente; recomiendan blindar componentes reusables (SearchableCombo, grid 8 columnas, atomicidad de guardado).
+
+Este documento ofrece un recorrido detallado por los archivos que realmente participan en el funcionamiento de la app (excluye scripts de prueba inútiles y ficheros de basura). El objetivo es proporcionar un punto de partida técnico y operacional para tomar decisiones de refactorización, pruebas y despliegue.
+
+---
+
+**ALCANCE Y METODOLOGÍA**
+
+- Alcance: archivos bajo `kool_tpv/` y `main.py` en la raíz que participan en el runtime normal de la aplicación.
+- Exclusiones: scripts temporales de pruebas, backups masivos y archivos no usados en runtime.
+- Metodología: lectura y análisis de archivos fuente, lectura del último resumen previo y la guía de estilo (ambos en `RESUMENES`), extracción del schema de la BBDD (incluido en anexo) y comprobación rápida de importabilidad/sintaxis donde fue necesario.
+
+---
+
+**ESTRUCTURA DEL REPOSITORIO (DETALLADA)**
+
+Raíz del proyecto (relevantes):
+- `main.py` - entrypoint del launcher de la aplicación (configura CTk, logging, DB y navegación)
+- `requirements.txt` - dependencias (customtkinter, pillow, etc.)
+- `kool_tpv/` - paquete principal
+- `RESUMENES/` - resúmenes técnicos y guía de estilo (origen consultado)
+- `scripts/` y `tests/` - utilidades y tests
+
+Dentro de `kool_tpv/` (estructura relevante):
+- `__init__.py`
+- `main.py` - (variante dentro del paquete que compone comportamiento similar al `main.py` de raíz)
+- `assets/` - imágenes, iconos y fuentes (dialogs, FONTS)
+- `base_datos/` - wrapper y servicios para cada entidad
+  - `db_wrapper.py` - Database wrapper
+  - `db_init.py` - lógica de migraciones y creación de esquema
+  - `producto_service.py`, `ticket_service.py`, `albaran_service.py`, etc.
+- `modulos/` - implementación por área
+  - `tpv/` - UI y lógica del TPV
+  - `almacen/` - UI y lógica de Almacén (productos, albaranes)
+  - `clientes/` - UI y lógica de clientes y fidelización
+  - `impresion/` - generadores de ticket y servicios de impresión
+  - `configuracion/`, `shopify/` etc.
+- `utils/` - utilidades UI (custom_dialogs, templates, widgets), formateadores y utilidades generales
+- `config/` - JSONs de configuración para menús y botones
+
+---
+
+**FLUJO DE ARRANQUE Y DEPENDENCIAS CRÍTICAS**
+
+1. `main.py` (raíz) inicializa `customtkinter` y logging, asegura carpeta `logs` y llama `initialize_database(db_path)` si procede.
+2. Se instancia la clase `App` (subclase de `ctk.CTk`), se configura la UI base (sidebar y main_frame) y se cargan los botones configurados en `config/buttons_config.json`.
+3. Al demandar un módulo (p. ej. TPV o Almacén) se importan lazy las vistas correspondientes desde `kool_tpv.modulos.*`.
+4. Las vistas principales (`BaseModuleView` y sus subclases) proveen `set_central_content()` para insertar widgets y actualizar breadcrumbs (cuando implementado).
+5. `Database` es instanciada con la ruta a `kool_bd.db` y `connect()`.
+
+Dependencias críticas: `customtkinter`, `Pillow` (para iconos), `sqlite3` (integrado), `kool_tpv.base_datos.db_wrapper.Database`.
+
+Observaciones operacionales: los lazy imports reducen tiempo de arranque y evitan dependencias circulares al inicio, pero los errores en imports tardíos pueden ocurrir en runtime y deben registrarse claramente.
+
+---
+
+**ANÁLISIS DE LA PERSISTENCIA Y SCHEMA DE LA BBDD (ANEXO)**
+
+Se incluye más adelante el dump (extracto) del schema de la base de datos `kool_bd.db` (extraído en la revisión previa). El schema contiene tablas para `productos`, `precios`, `tickets`, `ticket_lines`, `albaranes`, `albaran_lines`, `clientes`, `cierres_caja`, `stock_movements`, `points_movements`, `payments`, `audit_logs`, `categorias`, `tipos`, `proveedores`, `niveles_fidelidad`, índices y triggers para mantener `num_ventas` en `tickets`.
+
+Puntos importantes sobre el schema y la persistencia:
+- Se usan triggers para mantener contadores; esto es robusto pero complica migraciones si cambia la lógica.
+- `num_ticket` se calcula ocasionalmente con `SELECT MAX(num_ticket)`, lo que no es seguro en entornos concurrentes; recomendación: tabla `counters` o mecanismo de secuencia.
+- Uso mixto de tipos numéricos y `REAL` para importes: revisar consistencia y considerar `Decimal` en lógica de aplicación.
+- Existen tablas para movimientos y auditoría que facilitan trazabilidad, buena práctica.
+
+(El schema completo se encuentra en el anexo al final de este documento.)
+
+---
+
+**REVISIÓN POR MÓDULOS Y ARCHIVOS CLAVE**
+
+A continuación se presenta una revisión técnica por módulos y por archivos considerados críticos para el funcionamiento. Para cada archivo se indica su responsabilidad, áreas de riesgo, observaciones y recomendaciones de mejora concretas.
+
+1) `kool_tpv/main.py` (raíz)
+- Responsabilidad: inicialización de la app, logging, DB init y creación de la barra lateral.
+- Observaciones:
+  - Buena separación entre UI y lógica de arranque.
+  - Usa `initialize_database(db_path)` con try/except, escritura de logs a `logs/application.log`.
+  - Maneja `print_on_button` y carga dinámica de `ButtonFactory`.
+- Riesgos / mejoras:
+  - El método `load_tpv()` intenta importar `TpvView`; errores en su importación se capturan pero conviene agregar mensajes más concretos para debugging.
+  - Recomendación: añadir flag `--headless` o modo test para inicializar sin GUI y facilitar pruebas automáticas.
+
+2) `kool_tpv/base_datos/db_wrapper.py`
+- Responsabilidad: encapsular acceso a sqlite3 y ofrecer convenientes métodos de fetch/execute/transaction.
+- Observaciones:
+  - Implementa `transaction()` context manager — esencial para atomicidad.
+  - Usa `check_same_thread=False` en la conexión lo que permite accesos desde hilos, pero hay que tener cuidado con concurrencia desde múltiples procesos.
+- Riesgos / mejoras:
+  - Añadir logs de queries lentas y métricas de tiempo para identificar cuellos de botella.
+  - Verificar gestión de conexiones (pooling improbable con sqlite, pero cierre correcto es crítico).
+
+3) `kool_tpv/base_datos/ticket_service.py`
+- Responsabilidad: persistir tickets (ventas), actualizar stock, movimientos de puntos, payments y auditoría.
+- Observaciones:
+  - `save_ticket` encapsula muchos pasos; utiliza transacciones y snapshots.
+  - Se usan try/except para tablas opcionales (payments, audit_logs), lo que facilita despliegues parciales.
+- Riesgos / mejoras:
+  - `SELECT MAX(num_ticket)` es susceptible a race conditions; usar una tabla `counters` o NUMBER generator centralizado.
+  - Recomendación: estandarizar el uso de `Decimal` y convertir a STR únicamente en el boundary de la DB.
+  - Agregar tests de concurrencia y casos extremos (descuentos, devoluciones, pagos mixtos).
+
+4) `kool_tpv/modulos/tpv/tpv_view.py`
+- Responsabilidad: UI principal del TPV; incluye orquestación del carrito, búsqueda de artículos y botones de pago.
+- Observaciones:
+  - Archivo muy extenso y con mezcla de layout y comportamiento; buena candidata a dividir en componentes (ActionPanel, ProductGrid, PaymentDialog, CarritoController).
+  - Integra `BuscarArticuloPanel` que crea overlays; revisar uso de `place()` y tamaño para no chocar con versiones de `customtkinter`.
+- Riesgos / mejoras:
+  - Refactorizar en subcomponentes para aumentar la testabilidad.
+  - Extraer la lógica de `ButtonFactory` y `BuscarArticuloPanel` para que sean testables en aislamiento.
+
+5) `kool_tpv/modulos/almacen/almacen_view.py` y `kool_tpv/modulos/almacen/ui/albaranes_ui.py`
+- Responsabilidad: vistas de Almacén y UIs de albaranes (entrada manual, consultar, detalle).
+- Observaciones:
+  - `AlmacenView` actúa como owner que ahora centraliza breadcrumbs y show_* métodos (se han añadido mapping y delegación). Arquitectura consistente.
+  - `AlbaranesUI` es una UI que delega a `AlmacenView` para comportamiento, lo cual es correcto y reduce duplicación.
+- Riesgos / mejoras:
+  - Asegurarse que `ConsultarAlbaranUI` y `DetalleAlbaranUI` sean ligeros y reciban solo el `owner` necesario para callbacks.
+
+6) `kool_tpv/modulos/clientes/` y `fidelizacion_service.py`
+- Responsabilidad: gestión de clientes y aplicación de puntos (tesoro).
+- Observaciones:
+  - `FidelizacionService` es usado por `ticket_service` para computar puntos; revisar reglas (puntos por importe, redondeo, límites).
+- Riesgos / mejoras:
+  - Clarificar reglas de negocio y documentar invariantes (p. ej. la acumulación y caducidad de puntos).
+
+7) `kool_tpv/modulos/impresion/` y `venta_ticket_generator`
+- Responsabilidad: generar texto/plantilla del ticket y separar presentación de la persistencia.
+- Observaciones:
+  - `VentaTicketGenerator` produce snapshot textual usado por `save_ticket`.
+- Riesgos / mejoras:
+  - Añadir tests visuales y validación de templates con datos reales.
+
+8) `kool_tpv/utils/` (templates, widgets, custom_dialogs)
+- Responsabilidad: utilidades UI reutilizables y plantillas base.
+- Observaciones:
+  - `base_module_view.py` centraliza sidebar, breadcrumbs y `set_central_content()` lo cual deja la estética consistente.
+  - `SearchableCombo` debería cumplir la guía de blindaje (navegación sin perder foco, validación strict mode).
+- Riesgos / mejoras:
+  - Refactorizar `SearchableCombo` y crear tests UI headless donde sea posible. Documentar API (get_id, validate).
+
+9) `config/buttons_config.json` y `config/buttons_menu.json`
+- Responsabilidad: parametrizar la navegación y acciones.
+- Observaciones:
+  - Sistema de `action_map` en `AlmacenView` remapeará strings a funciones; esto facilita extensibilidad sin tocar código.
+- Riesgos / mejoras:
+  - Validar schema JSON y añadir un linter/config validator para evitar errores de mapping.
+
+---
+
+**ANÁLISIS POR ARCHIVO (SELECCIÓN RELEVANTE)**
+
+Nota: listado representativo. Para detalles línea por línea, revisar cada archivo en el repositorio. Aquí se señalan observaciones prácticas y recomendaciones.
+
+- `main.py` (raíz): mejorar mensajes de error al fallar imports de módulos para facilitar debugging; añadir flag test/headless.
+- `kool_tpv/main.py`: consolidar duplicidades con `main.py` raíz si aplican.
+- `kool_tpv/base_datos/db_wrapper.py`: instrumentar tiempos de consulta.
+- `kool_tpv/base_datos/db_init.py`: asegurar idempotencia en migraciones y versionado del schema.
+- `kool_tpv/base_datos/ticket_service.py`: refactorizar `save_ticket` en pasos testables; agregar tests de concurrencia.
+- `kool_tpv/modulos/tpv/tpv_view.py`: dividir en componentes (presentación vs lógica).
+- `kool_tpv/modulos/almacen/almacen_view.py`: action_map actualizado y delegación de owner — buena práctica.
+- `kool_tpv/modulos/almacen/ui/albaranes_ui.py`: limpiado y delegación a owner implementada — mejora de separación de responsabilidades.
+- `kool_tpv/utils/searchable_combo.py`: (si existe) implementar blindaje de búsqueda y validación strict mode.
+
+---
+
+**ESTADO DEL PROYECTO HASTA HOY**
+
+- Módulo TPV: funcionalidad central (carrito, add/remove artículos, cobro) implementada; tests manuales y logs muestran uso productivo.
+- Almacén: CRUD y gestion de albaranes implementada. Nuevas integraciones añadidas para delegación de owner y breadcrumbs.
+- Clientes: fidelización y movimientos implementados; pruebas limitadas.
+- Persistencia: SQLite con migraciones funcionales; triggers e índices presentes.
+- Tests: existen tests, pero cobertura incompleta en servicios críticos (tickets, carrito, save_ticket).
+
+---
+
+**ÚLTIMAS IMPLEMENTACIONES DETECTADAS**
+
+- Refactor en `AlmacenView` y `AlbaranesUI`: introducción de owner y delegación de show_* (breadcrumbs ahora centralizados en `AlmacenView`).
+- Limpieza de código en `albaranes_ui.py` — eliminación de código zombie y fallbacks redundantes.
+- Actualización de `action_map` en `AlmacenView` para mapear nuevas acciones.
+- Mejoras de logging y robustez en arranque de la aplicación.
+
+---
+
+**PRUEBAS Y COBERTURA**
+
+- Existen scripts en `tests/` y `scripts/` para pruebas básicas. Sin embargo, la cobertura no es suficiente para:
+  - `ticket_service.save_ticket` (escenarios de edge: devoluciones, pagos mixtos, concurrencia)
+  - `CarritoService` (persistencia y rollbacks)
+  - `SearchableCombo` (UI/validación)
+
+Recomendación: añadir suite de pruebas de integración que use `:memory:` SQLite y mock de `VentaTicketGenerator`.
+
+---
+
+**CALIDAD DE CÓDIGO Y MANTENIBILIDAD**
+
+- Estilo: mezcla de estilos; presencia de try/except amplios que mejoran robustez pero ocultan stack traces profundos.
+- Tipado: escaso uso de typing en los módulos; recomendar añadir type hints en servicios y boundaries.
+- Modularidad: buena separación por servicios; algunos archivos UI extensos requieren división.
+- Documentación: falta documentación formal de APIs internas (servicios públicos), lo que dificulta onboard de nuevos desarrolladores.
+
+---
+
+**SEGURIDAD Y MANEJO DE DATOS**
+
+- Datos sensibles (contrasenas de `usuarios`): almacenadas como texto en `usuarios.password` según schema. Recomendación: usar hash seguro (bcrypt/argon2) y no almacenar texto plano.
+- Logs: contienen información de operaciones; cuidar que no se registre información sensible (tarjetas, datos personales) en texto plano.
+- Acceso a BD: DB local (sqlite) no expuesta; si se migra a DB server, configurar ACL y cifrado en tránsito.
+
+---
+
+**RENDIMIENTO Y CONCURRENCIA**
+
+- SQLite soporta concurrencia limitada (lock por escritura). Para tiendas con múltiples procesos/terminales simultáneos, considerar migrar a PostgreSQL o añadir un servicio central de facturación.
+- Monitorear queries lentas: añadir logging y metrics para identificar cuellos.
+
+---
+
+**PROS Y CONTRAS (RESUMEN)**
+
+Pros:
+- Arquitectura modular y servicios bien separados.
+- Uso correcto de transacciones en operaciones críticas.
+- UI basada en `customtkinter` con plantilla central (`base_module_view`) que asegura coherencia estética.
+- Presencia de auditoría y movimientos que facilitan trazabilidad.
+
+Contras:
+- Archivos UI muy grandes mezclando layout y lógica.
+- Puntos críticos con potencial de race conditions (`SELECT MAX(num_ticket)`).
+- Almacenamiento de contraseñas en texto (riesgo).
+- Cobertura de tests insuficiente en servicios cruciales.
+- Uso de try/except amplio que puede ocultar errores en fases tempranas.
+
+---
+
+**RECOMENDACIONES (PRIORITIZADAS)**
+
+Corto plazo (1-2 semanas):
+- Añadir tests unitarios/integración para `ticket_service.save_ticket` usando DB `:memory:`.
+- Forzar hashing de contraseñas en `usuarios` y añadir utilidades de login.
+- Añadir validación JSON para `buttons_config.json`.
+
+Medio plazo (1-3 meses):
+- Refactorizar `tpv_view.py` en subcomponentes y mover lógica a servicios testeables.
+- Implementar `SearchableCombo` blindado según `guia_estilo_blindaje.txt`.
+- Reemplazar `SELECT MAX(num_ticket)` por tabla `counters` o mecanismo seguro.
+
+Largo plazo (6-12 meses):
+- Evaluar migración a PostgreSQL si hay necesidad de concurrencia multiproceso/multiserver.
+- Añadir CI con tests aislados (pytest + sqlite :memory:), linters y pre-commit.
+- Revisar y documentar el esquema de migraciones e introducir versión de esquema.
+
+---
+
+**PLAN DE MIGRACIÓN / OPERACIONES**
+
+- Mantener SQLite para entornos de una sola instancia; para multi-terminal, definir plan de migración a DB cliente/servidor.
+- Definir scripts de backup/restore de `kool_bd.db` con retención y verificación de checksum.
+
+---
+
+**ANEXO A: SCHEMA (EXTRACTO DEL KOOL_BD.DB)**
+
+(A continuación se incluye un extracto del schema tal como fue leído en la revisión previa; es esencialmente el contenido de sqlite_master y CREATE TABLE/INDEX/TRIGGER relevantes.)
+
+-- index idx_audit_entidad
+CREATE INDEX idx_audit_entidad ON audit_logs(entidad, entidad_id)
+
+-- index idx_cierres_cierre_num
+CREATE INDEX idx_cierres_cierre_num ON cierres_caja(cierre_num)
+
+-- index idx_cierres_fecha_hora
+CREATE INDEX idx_cierres_fecha_hora ON cierres_caja(fecha_hora)
+
+-- index idx_payments_ticket
+CREATE INDEX idx_payments_ticket ON payments(ticket_id)
+
+-- index idx_points_mov_cliente
+CREATE INDEX idx_points_mov_cliente ON points_movements(cliente_id)
+
+-- index idx_precios_activo
+CREATE INDEX "idx_precios_activo" ON "precios" ("producto_id", "activo")
+
+-- index idx_productos_categoria
+CREATE INDEX idx_productos_categoria ON productos(categoria)
+
+-- index idx_productos_tipo
+CREATE INDEX idx_productos_tipo ON productos(tipo)
+
+-- index idx_stock_mov_producto
+CREATE INDEX idx_stock_mov_producto ON stock_movements(producto_id)
+
+-- index idx_ticket_lines_ticket
+CREATE INDEX idx_ticket_lines_ticket ON ticket_lines(ticket_id)
+
+-- table albaran_lines
+CREATE TABLE albaran_lines (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    albaran_id INTEGER,
+    producto_id INTEGER,
+    ean TEXT,
+    nombre TEXT,
+    cantidad INTEGER,
+    coste REAL,
+    descuento REAL DEFAULT 0.0,
+    importe REAL,
+    tipo_iva INTEGER DEFAULT 21,
+    FOREIGN KEY(albaran_id) REFERENCES albaranes(id) ON DELETE CASCADE,
+    FOREIGN KEY(producto_id) REFERENCES productos(id)
+)
+
+-- table albaranes
+CREATE TABLE albaranes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    num_albaran INTEGER UNIQUE,
+    proveedor_id INTEGER,
+    fecha DATE,
+    total_neto REAL DEFAULT 0.0,
+    total_iva_4 REAL DEFAULT 0.0,
+    total_iva_10 REAL DEFAULT 0.0,
+    total_iva_21 REAL DEFAULT 0.0,
+    total REAL DEFAULT 0.0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(proveedor_id) REFERENCES proveedores(id)
+)
+
+-- table audit_logs
+CREATE TABLE audit_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  entidad TEXT,
+  entidad_id INTEGER,
+  accion TEXT,
+  usuario_id INTEGER,
+  datos_previos TEXT,
+  datos_nuevos TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+)
+
+-- table categorias
+CREATE TABLE "categorias" (
+	"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+	"nombre" TEXT UNIQUE,
+	"descripcion" TEXT,
+	"created_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+	"updated_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+	"shopify_taxonomy" TEXT,
+	"fide_porcentaje" REAL
+)
+
+-- table cierres_caja
+CREATE TABLE "cierres_caja" (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  cierre_num INTEGER,
+  fecha_hora TIMESTAMP,
+  cajero TEXT,
+  total_ingresos REAL,
+  num_ventas INTEGER,
+  rango_inicio_ticket INTEGER,
+  rango_fin_ticket INTEGER,
+  total_efectivo REAL DEFAULT 0.0,
+  total_tarjeta REAL DEFAULT 0.0,
+  total_web REAL DEFAULT 0.0,
+  total_devoluciones REAL DEFAULT 0.0,
+  total_descuentos REAL DEFAULT 0.0,
+  tesoro_ganado REAL DEFAULT 0.0,
+  tesoro_gastado REAL DEFAULT 0.0,
+  tesoro_total_ganado REAL DEFAULT 0.0,
+  tesoro_total_gastado REAL DEFAULT 0.0,
+  cierre_text TEXT,
+  usuario_id INTEGER
+, total_base_imponible REAL DEFAULT 0.0, total_iva REAL DEFAULT 0.0, base_21 REAL DEFAULT 0.0, iva_21 REAL DEFAULT 0.0, base_4 REAL DEFAULT 0.0, iva_4 REAL DEFAULT 0.0, iva_desglose TEXT DEFAULT '{}')
+
+-- table clientes
+CREATE TABLE "clientes" (
+	"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+	"nombre" TEXT,
+	"telefono" TEXT,
+	"email" TEXT,
+	"dni" TEXT,
+	"direccion" TEXT,
+	"ciudad" TEXT,
+	"cp" TEXT,
+	"pais" TEXT,
+	"fecha_nacimiento" DATE,
+	"tags" TEXT,
+	"notes_internas" TEXT,
+	"tesoro_total" REAL DEFAULT 0.0,
+	"tesoro_gastado_total" REAL DEFAULT 0.0,
+	"tesoro_historico" REAL DEFAULT 0.0,
+	"id_nivel" INTEGER,
+	"fidelidad_activa" INTEGER DEFAULT 1,
+	"fecha_alta" DATETIME DEFAULT CURRENT_TIMESTAMP
+)
+
+-- table codigos_barras
+CREATE TABLE codigos_barras (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            producto_id INTEGER,
+            ean TEXT NOT NULL,
+            FOREIGN KEY(producto_id) REFERENCES productos(id) ON DELETE CASCADE
+        )
+
+-- table configuracion
+CREATE TABLE configuracion (
+            clave TEXT PRIMARY KEY,
+            valor TEXT
+        )
+
+-- table niveles_fidelidad
+CREATE TABLE niveles_fidelidad (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            level INTEGER NOT NULL UNIQUE,
+            nombre_nivel TEXT NOT NULL,
+            grafismo_nivel TEXT,
+            gasto_minimo REAL NOT NULL DEFAULT 0.0
+        , tipo_recompensa TEXT, detalle_recompensa TEXT, producto_sku TEXT)
+
+-- table payments
+CREATE TABLE payments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ticket_id INTEGER NOT NULL,
+  metodo TEXT,
+  importe REAL NOT NULL,        -- positivo si cliente paga, negativo si tienda devuelve
+  referencia TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(ticket_id) REFERENCES "tickets_backup"(id) ON DELETE CASCADE
+)
+
+-- table points_movements
+CREATE TABLE points_movements (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  cliente_id INTEGER NOT NULL,
+  puntos REAL NOT NULL,         -- positivo/negativo
+  motivo TEXT,
+  ticket_id INTEGER,            -- referencia opcional al ticket
+  usuario_id INTEGER,           -- usuario que aplicó el movimiento
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(cliente_id) REFERENCES "clientes_old"(id),
+  FOREIGN KEY(ticket_id) REFERENCES "tickets_backup"(id)
+)
+
+-- table precios
+CREATE TABLE "precios" (
+	"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+	"producto_id" INTEGER,
+	"pvp" REAL DEFAULT 0.0,
+	"coste" REAL DEFAULT 0.0,
+	"fecha_registro" DATETIME DEFAULT CURRENT_TIMESTAMP,
+	"activo" INTEGER DEFAULT 1,
+	FOREIGN KEY("producto_id") REFERENCES "productos"("id") ON DELETE CASCADE
+)
+
+-- table productos
+CREATE TABLE "productos" (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL,
+    nombre_boton TEXT,
+    sku TEXT NOT NULL UNIQUE,
+    categoria INTEGER NOT NULL,
+    tipo INTEGER NOT NULL,
+    proveedor_id INTEGER,
+    tipo_iva INTEGER DEFAULT 0,
+    stock_actual INTEGER DEFAULT 0 NOT NULL,
+    stock_minimo INTEGER DEFAULT 0,
+    ventas_totales INTEGER DEFAULT 0,
+    pvp_variable INTEGER DEFAULT 0, -- 0 = No, 1 = Sí
+    descripcion_shopify TEXT,
+    notas_internas TEXT,
+    titulo TEXT,
+    activo INTEGER DEFAULT 1, -- 1 = Activo, 0 = Inactivo
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    pending_sync INTEGER DEFAULT 0,
+    seo_title TEXT,
+    seo_description TEXT,
+    tipo_shop TEXT,
+    etiquetas TEXT,
+    shop_link TEXT,
+    shopify_taxonomy TEXT,
+    FOREIGN KEY (categoria) REFERENCES "categorias_old"(id) ON DELETE RESTRICT,
+    FOREIGN KEY (tipo) REFERENCES "tipos_old"(id) ON DELETE RESTRICT,
+    FOREIGN KEY (proveedor_id) REFERENCES proveedores(id) ON DELETE SET NULL
+)
+
+-- table proveedores
+CREATE TABLE proveedores (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nombre TEXT,
+                que_vende TEXT,
+                nif_cif TEXT,
+                iva_intracom TEXT,
+                dir_fiscal TEXT,
+                dir_envio TEXT,
+                email TEXT,
+                telefono TEXT,
+                forma_pago TEXT,
+                persona_comercial TEXT,
+                telefono_comercial TEXT,
+                email_comercial TEXT,
+                web TEXT,
+                notas TEXT
+            )
+
+-- table sqlite_sequence
+CREATE TABLE sqlite_sequence(name,seq)
+
+-- table stock_movements
+CREATE TABLE stock_movements (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  producto_id INTEGER NOT NULL,
+  cantidad INTEGER NOT NULL,    -- positivo = entrada (devolución), negativo = salida (venta)
+  motivo TEXT,
+  ticket_line_id INTEGER,       -- referencia a ticket_lines.id (si aplica)
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(producto_id) REFERENCES productos(id),
+  FOREIGN KEY(ticket_line_id) REFERENCES ticket_lines(id)
+)
+
+-- table ticket_lines
+CREATE TABLE "ticket_lines" (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ticket_id INTEGER NOT NULL,
+  sku TEXT,
+  nombre TEXT,
+  cantidad REAL,
+  precio REAL,
+  iva REAL,
+  line_tipo TEXT DEFAULT 'venta',
+  producto_id INTEGER,
+  FOREIGN KEY(ticket_id) REFERENCES "tickets_backup"(id) ON DELETE CASCADE,
+  FOREIGN KEY(producto_id) REFERENCES productos(id) ON DELETE SET NULL
+)
+
+-- table tickets
+CREATE TABLE "tickets" (
+	"id"    INTEGER,
+	"created_at"    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	"cajero"    TEXT,
+	"cliente"    TEXT,
+	"cliente_id"    INTEGER,
+	"num_ticket"    INTEGER,
+	"forma_pago"    TEXT,
+	"total"    REAL NOT NULL,
+	"pagado"    REAL,
+	"cambio"    REAL,
+	"importe_efectivo"    REAL DEFAULT 0.0,
+	"importe_tarjeta"    REAL DEFAULT 0.0,
+	"descuento_euros"    REAL,
+	"descuento_tipo"    TEXT,
+	"descuento_valor"    REAL,
+	"cierre_id"    INTEGER,
+	"tesoro_ganado"    REAL DEFAULT 0,
+	"tesoro_gastado"    REAL DEFAULT 0,
+	"tesoro_total_ticket"    REAL DEFAULT 0,
+	"ticket_text"    TEXT,
+	"usuario_id"    INTEGER,
+	"num_ventas"    INTEGER DEFAULT 0,
+	"subtotal"    REAL DEFAULT 0.0,
+	PRIMARY KEY("id" AUTOINCREMENT)
+)
+
+-- table tipos
+CREATE TABLE "tipos" (
+	"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+	"nombre" TEXT UNIQUE,
+	"descripcion" TEXT,
+	"created_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+	"updated_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+	"shopify_taxonomy" TEXT,
+	"fide_porcentaje" REAL
+)
+
+-- table usuarios
+CREATE TABLE usuarios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL,
+    password TEXT NOT NULL,
+    rol TEXT NOT NULL,
+    permiso_cierre INTEGER DEFAULT 0,
+    permiso_descuento INTEGER DEFAULT 0,
+    permiso_devolucion INTEGER DEFAULT 0,
+    permiso_tickets INTEGER DEFAULT 0
+)
+
+-- trigger trg_ticket_lines_after_delete
+CREATE TRIGGER trg_ticket_lines_after_delete
+AFTER DELETE ON ticket_lines
+BEGIN
+  UPDATE tickets SET num_ventas = COALESCE((SELECT COUNT(*) FROM ticket_lines WHERE ticket_id = OLD.ticket_id),0) WHERE id = OLD.ticket_id;
+END
+
+-- trigger trg_ticket_lines_after_insert
+CREATE TRIGGER trg_ticket_lines_after_insert
+AFTER INSERT ON ticket_lines
+BEGIN
+  UPDATE tickets SET num_ventas = COALESCE((SELECT COUNT(*) FROM ticket_lines WHERE ticket_id = NEW.ticket_id),0) WHERE id = NEW.ticket_id;
+END
+
+-- trigger trg_ticket_lines_after_update_ticketid
+CREATE TRIGGER trg_ticket_lines_after_update_ticketid
+AFTER UPDATE OF ticket_id ON ticket_lines
+BEGIN
+  UPDATE tickets SET num_ventas = COALESCE((SELECT COUNT(*) FROM ticket_lines WHERE ticket_id = OLD.ticket_id),0) WHERE id = OLD.ticket_id;
+  UPDATE tickets SET num_ventas = COALESCE((SELECT COUNT(*) FROM ticket_lines WHERE ticket_id = NEW.ticket_id),0) WHERE id = NEW.ticket_id;
+END
+
+---
+
+**ANEXO B: GUIA DE ESTILO (resumen)**
+
+Se ha leído `RESUMENES/guia_estilo_blindaje.txt` y se incorporan sus criterios al checklist de aceptación: sidebar 220px, central fg_color negro profundo, breadcrumbs persistentes y SearchableCombo con strict mode.
+
+---
+
+**ANEXO C: LISTA DE ARCHIVOS ANALIZADOS (SELECCIÓN PRINCIPAL)**
+
+- main.py (raíz)
+- kool_tpv/main.py
+- kool_tpv/base_datos/db_wrapper.py
+- kool_tpv/base_datos/db_init.py
+- kool_tpv/base_datos/ticket_service.py
+- kool_tpv/base_datos/producto_service.py
+- kool_tpv/base_datos/albaran_service.py
+- kool_tpv/base_datos/proveedor_service.py
+- kool_tpv/modulos/tpv/tpv_view.py
+- kool_tpv/modulos/almacen/almacen_view.py
+- kool_tpv/modulos/almacen/ui/albaranes_ui.py
+- kool_tpv/modulos/almacen/ui/albaranes/entrada_manual.py (referenciado)
+- kool_tpv/modulos/almacen/ui/albaranes/consultar_albaran.py (referenciado)
+- kool_tpv/modulos/almacen/ui/albaranes/detalle_albaran.py (referenciado)
+- kool_tpv/modulos/clientes/fidelizacion_service.py
+- kool_tpv/modulos/impresion/venta_ticket_generator.py
+- kool_tpv/utils/templates/base_module_view.py
+- kool_tpv/utils/searchable_combo.py (si existe)
+- config/buttons_config.json
+- config/buttons_menu.json
+
+---
+
+**CONCLUSIÓN**
+
+Kool TPV v2 está en una posición sólida: las piezas clave están implementadas, la arquitectura es razonablemente modular y la base de datos incorpora los elementos necesarios para trazabilidad y operaciones del TPV. Las mejoras más valoradas son la solidificación de la lógica de numeración de tickets para evitar colisiones, aumento de cobertura de tests en servicios críticos, refactorización de UI monolítico en componentes y cumplir plenamente la guía de estilo (SearchableCombo y grid forms).
+
+He guardado este resumen en `RESUMENES/RESUMEN_EXHAUSTIVO_2026-02-19.txt` dentro del workspace.
+
+---
+
+Fin del resumen.
