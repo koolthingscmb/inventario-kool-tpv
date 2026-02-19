@@ -45,7 +45,9 @@ class CustomDialog(ctk.CTkToplevel):
         # Color de fondo según tipo
         colors = self.COLORS[self.tipo]
         try:
-            self.configure(fg_color='#2b2b2b')
+            # Fondo negro terminal + borde de color según tipo
+            self.configure(fg_color='#000000')
+            self.configure(border_width=4, border_color=colors['bg'])
         except Exception:
             pass
 
@@ -152,7 +154,9 @@ class CustomDialog(ctk.CTkToplevel):
         return None
 
     def _crear_contenido(self, titulo, mensaje, btn_text):
-        """Crear widgets del diálogo."""
+        """Crear widgets del diálogo - estilo terminal Matrix."""
+        colors = self.COLORS[self.tipo]
+
         # Frame principal
         main_frame = ctk.CTkFrame(self, fg_color='transparent')
         main_frame.pack(fill='both', expand=True, padx=20, pady=20)
@@ -163,72 +167,76 @@ class CustomDialog(ctk.CTkToplevel):
             icon_label = ctk.CTkLabel(main_frame, image=icon, text='')
             icon_label.pack(pady=(0, 10))
 
-        # Título
+        # Título (verde Matrix)
         if titulo:
             titulo_label = ctk.CTkLabel(
                 main_frame,
-                text=titulo,
-                font=('Roboto-Bold', 30),
-                text_color='#FFFFFF'
+                text=titulo.upper(),
+                font=('Courier New', 28, 'bold'),
+                text_color='#00FF00'
             )
             titulo_label.pack(pady=(10, 15))
 
-        # Mensaje
-        mensaje_label = ctk.CTkLabel(
-            main_frame,
-            text=mensaje,
-            font=('Roboto-Regular', 24),
-            text_color='#DDDDDD',
-            wraplength=450,
-            justify='center'
-        )
-        mensaje_label.pack(pady=(0, 25))
+        # Mensaje (color del tipo)
+        if mensaje:
+            mensaje_label = ctk.CTkLabel(
+                main_frame,
+                text=mensaje.upper(),
+                font=('Courier New', 20),
+                text_color=colors['bg'],
+                wraplength=450,
+                justify='center'
+            )
+            mensaje_label.pack(pady=(0, 25))
 
-        # Botones: si es confirm, mostrar Cancelar + Aceptar; si no, mostrar un solo botón
-        colors = self.COLORS[self.tipo]
+        # Botones
         if self.confirm:
             btn_frame = ctk.CTkFrame(main_frame, fg_color='transparent')
             btn_frame.pack()
-            # Cancelar
-            colors_cancel = {'bg': '#7f8c8d', 'hover': '#95a5a6'}
+
+            # CANCELAR (tono oscuro del color)
             btn_cancel = ctk.CTkButton(
                 btn_frame,
-                text='Cancelar',
+                text='CANCELAR',
                 command=self._on_cancel,
-                fg_color=colors_cancel['bg'],
-                hover_color=colors_cancel['hover'],
-                font=('Roboto-SemiBold', 20),
+                fg_color=colors['hover'],
+                hover_color=colors['bg'],
+                text_color='#000000',
+                font=('Courier New', 18, 'bold'),
                 width=140,
                 height=50,
-                corner_radius=10
+                corner_radius=0
             )
             btn_cancel.pack(side='left', padx=(0, 10))
 
-            # Aceptar
+            # ACEPTAR (color brillante)
             btn_accept = ctk.CTkButton(
                 btn_frame,
-                text=btn_text,
+                text=btn_text.upper(),
                 command=self._on_accept,
                 fg_color=colors['bg'],
                 hover_color=colors['hover'],
-                font=('Roboto-SemiBold', 20),
+                text_color='#000000',
+                font=('Courier New', 18, 'bold'),
                 width=140,
                 height=50,
-                corner_radius=10
+                corner_radius=0
             )
             btn_accept.pack(side='left')
             self.btn = btn_accept
         else:
+            # Botón único
             self.btn = ctk.CTkButton(
                 main_frame,
-                text=btn_text,
+                text=btn_text.upper(),
                 command=self._on_close,
                 fg_color=colors['bg'],
                 hover_color=colors['hover'],
-                font=('Roboto-SemiBold', 20),
+                text_color='#000000',
+                font=('Courier New', 18, 'bold'),
                 width=160,
                 height=50,
-                corner_radius=10
+                corner_radius=0
             )
             self.btn.pack()
 
@@ -283,17 +291,46 @@ class CustomDialog(ctk.CTkToplevel):
 
 def show_success(parent, titulo, mensaje, callback=None):
     """Mostrar diálogo de éxito."""
-    CustomDialog(parent, tipo='success', titulo=titulo, mensaje=mensaje, callback=callback)
+    """Mostrar diálogo de éxito.
+
+    Siempre devuelve True (el usuario confirmó haber visto el mensaje).
+    """
+    dlg = CustomDialog(parent, tipo='success', titulo=titulo, mensaje=mensaje, callback=callback)
+    try:
+        dlg.wait_window()
+    except Exception:
+        pass
+    return True  # Success siempre devuelve True (usuario vio el mensaje)
 
 
-def show_error(parent, titulo, mensaje, callback=None):
-    """Mostrar diálogo de error."""
-    CustomDialog(parent, tipo='error', titulo=titulo, mensaje=mensaje, callback=callback)
+def show_error(parent, titulo, mensaje, callback=None, confirm=False):
+    """Mostrar diálogo de error.
+
+    Si confirm=True, muestra botones 'Cancelar' y 'Aceptar' y devuelve True/False.
+    Útil para: "Error al guardar, ¿Reintentar?"
+    """
+    dlg = CustomDialog(parent, tipo='error', titulo=titulo, mensaje=mensaje, 
+                       callback=callback, confirm=confirm)
+    try:
+        dlg.wait_window()
+    except Exception:
+        pass
+    return getattr(dlg, 'result', False)
 
 
-def show_warning(parent, titulo, mensaje, callback=None):
-    """Mostrar diálogo de advertencia."""
-    CustomDialog(parent, tipo='warning', titulo=titulo, mensaje=mensaje, callback=callback)
+def show_warning(parent, titulo, mensaje, callback=None, confirm=False):
+    """Mostrar diálogo de advertencia.
+
+    Si confirm=True, muestra botones 'Cancelar' y 'Aceptar' y devuelve True/False.
+    """
+    dlg = CustomDialog(parent, tipo='warning', titulo=titulo, mensaje=mensaje, 
+                       callback=callback, confirm=confirm)
+    try:
+        # Bloquear ejecución hasta que el usuario responda
+        dlg.wait_window()
+    except Exception:
+        pass
+    return getattr(dlg, 'result', False)
 
 
 def show_info(parent, titulo, mensaje, callback=None, confirm=False):
@@ -304,7 +341,7 @@ def show_info(parent, titulo, mensaje, callback=None, confirm=False):
         dlg.wait_window()
     except Exception:
         pass
-    return getattr(dlg, 'result', True)
+    return getattr(dlg, 'result', False if confirm else True)
 
 
 class CustomInputDialog(ctk.CTkToplevel):
@@ -331,7 +368,10 @@ class CustomInputDialog(ctk.CTkToplevel):
         self.geometry("500x400")
         self.resizable(False, False)
         try:
-            self.configure(fg_color='#2b2b2b')
+            # Fondo negro terminal + borde azul (info style por defecto)
+            self.configure(fg_color='#000000')
+            color_borde = CustomDialog.COLORS.get(self.tipo, CustomDialog.COLORS['info'])
+            self.configure(border_width=4, border_color=color_borde['bg'])
         except Exception:
             pass
 
@@ -411,7 +451,9 @@ class CustomInputDialog(ctk.CTkToplevel):
         return None
 
     def _crear_contenido(self, titulo, mensaje, valor_defecto):
-        """Crear widgets del diálogo."""
+        """Crear widgets del diálogo InputDialog."""
+        colors = CustomDialog.COLORS[self.tipo]
+
         main_frame = ctk.CTkFrame(self, fg_color='transparent')
         main_frame.pack(fill='both', expand=True, padx=20, pady=20)
 
@@ -425,9 +467,9 @@ class CustomInputDialog(ctk.CTkToplevel):
         if titulo:
             titulo_label = ctk.CTkLabel(
                 main_frame,
-                text=titulo,
-                font=('Roboto-Bold', 30),
-                text_color='#FFFFFF'
+                text=titulo.upper(),
+                font=('Courier New', 28, 'bold'),
+                text_color='#00FF00'
             )
             titulo_label.pack(pady=(0, 15))
 
@@ -435,15 +477,15 @@ class CustomInputDialog(ctk.CTkToplevel):
         if mensaje:
             mensaje_label = ctk.CTkLabel(
                 main_frame,
-                text=mensaje,
-                font=('Roboto-Regular', 24),
-                text_color='#DDDDDD',
+                text=mensaje.upper(),
+                font=('Courier New', 20),
+                text_color=colors['bg'],
                 wraplength=450,
                 justify='center'
             )
             mensaje_label.pack(pady=(0, 20))
 
-        # Entry (campo de entrada)
+        # Entry
         self.entry = ctk.CTkEntry(
             main_frame,
             width=300,
@@ -456,40 +498,40 @@ class CustomInputDialog(ctk.CTkToplevel):
             self.entry.insert(0, str(valor_defecto))
             self.entry.select_range(0, 'end')
 
-        # Frame para botones
+        # Botones
         btn_frame = ctk.CTkFrame(main_frame, fg_color='transparent')
         btn_frame.pack()
 
-        # Botón Cancelar
-        colors_cancel = {'bg': '#7f8c8d', 'hover': '#95a5a6'}
+        # CANCELAR (tono oscuro)
         btn_cancel = ctk.CTkButton(
             btn_frame,
-            text='Cancelar',
+            text='CANCELAR',
             command=self._on_cancel,
-            fg_color=colors_cancel['bg'],
-            hover_color=colors_cancel['hover'],
-            font=('Roboto-SemiBold', 20),
+            fg_color=colors['hover'],
+            hover_color=colors['bg'],
+            text_color='#000000',
+            font=('Courier New', 18, 'bold'),
             width=140,
             height=50,
-            corner_radius=10
+            corner_radius=0
         )
         btn_cancel.pack(side='left', padx=(0, 10))
 
-        # Botón Aceptar
-        colors_accept = CustomDialog.COLORS[self.tipo]
+        # ACEPTAR (color brillante)
         btn_accept = ctk.CTkButton(
             btn_frame,
-            text='Aceptar',
+            text='ACEPTAR',
             command=self._on_accept,
-            fg_color=colors_accept['bg'],
-            hover_color=colors_accept['hover'],
-            font=('Roboto-SemiBold', 20),
+            fg_color=colors['bg'],
+            hover_color=colors['hover'],
+            text_color='#000000',
+            font=('Courier New', 18, 'bold'),
             width=140,
             height=50,
-            corner_radius=10
+            corner_radius=0
         )
         btn_accept.pack(side='left')
-        self.btn = btn_accept  # guardar referencia para focus
+        self.btn = btn_accept
 
     def _on_accept(self):
         """Aceptar: ejecutar callback con el valor ingresado."""

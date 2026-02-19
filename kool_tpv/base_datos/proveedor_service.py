@@ -85,3 +85,41 @@ class ProveedorService:
         except Exception:
             logging.exception('Error eliminando proveedor')
             return False
+
+    def get_mapeo_csv(self, proveedor_id):
+        """Obtener configuración de mapeo CSV del proveedor.
+
+        Args:
+            proveedor_id: ID del proveedor
+
+        Returns:
+            str: JSON string con mapeo o None si no existe
+        """
+        try:
+            query = "SELECT mapeo_csv FROM proveedores WHERE id = ?"
+            row = self.db.fetch_one(query, (proveedor_id,))
+            if row and row[0]:
+                return row[0]
+            return None
+        except Exception:
+            logging.exception(f'Error obteniendo mapeo_csv proveedor {proveedor_id}')
+            return None
+
+    def save_mapeo_csv(self, proveedor_id, mapeo_json):
+        """Guardar configuración de mapeo CSV del proveedor.
+
+        Args:
+            proveedor_id: ID del proveedor
+            mapeo_json: String JSON con configuración de mapeo
+
+        Returns:
+            bool: True si OK, False si error
+        """
+        try:
+            query = "UPDATE proveedores SET mapeo_csv = ? WHERE id = ?"
+            self.db.execute_query(query, (mapeo_json, proveedor_id))
+            logging.info(f'Mapeo CSV actualizado para proveedor {proveedor_id}')
+            return True
+        except Exception:
+            logging.exception(f'Error guardando mapeo_csv proveedor {proveedor_id}')
+            return False

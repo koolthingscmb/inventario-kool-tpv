@@ -47,7 +47,7 @@ class AlbaranService:
             logging.exception('Error buscando producto por EAN')
             return None
 
-    def save_albaran(self, num_albaran, proveedor_id, fecha, lines):
+    def save_albaran(self, num_albaran, proveedor_id, fecha, lines, tipo='ENTRADA'):
         """Guardar albarán con líneas y actualizar stock.
 
         Args:
@@ -98,14 +98,19 @@ class AlbaranService:
 
             total = total_neto + total_iva_4 + total_iva_10 + total_iva_21
 
-            # INSERT albarán
+            # Normalizar tipo y INSERT albarán (añadimos columna tipo)
+            try:
+                tipo = (tipo or 'ENTRADA')
+            except Exception:
+                tipo = 'ENTRADA'
+
             cur.execute("""
                 INSERT INTO albaranes (num_albaran, proveedor_id, fecha, total_neto, 
-                                      total_iva_4, total_iva_10, total_iva_21, total)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                      total_iva_4, total_iva_10, total_iva_21, total, tipo)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (num_albaran, proveedor_id, fecha, 
                   float(total_neto), float(total_iva_4), float(total_iva_10), 
-                  float(total_iva_21), float(total)))
+                  float(total_iva_21), float(total), tipo))
 
             albaran_id = cur.lastrowid
 
@@ -130,14 +135,20 @@ class AlbaranService:
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (albaran_id, producto_id, ean, nombre, cantidad, coste, descuento, importe, tipo_iva))
 
-                # Actualizar stock (SUMA)
+                # Actualizar stock según tipo (ENTRADA suma, SALIDA/DEVOLUCION resta)
                 if producto_id:
                     try:
+                        try:
+                            adj_tipo = (tipo or 'ENTRADA')
+                        except Exception:
+                            adj_tipo = 'ENTRADA'
+                        cantidad_ajuste = cantidad if adj_tipo == 'ENTRADA' else -cantidad
+
                         cur.execute("""
                             UPDATE productos 
                             SET stock_actual = stock_actual + ? 
                             WHERE id = ?
-                        """, (cantidad, producto_id))
+                        """, (cantidad_ajuste, producto_id))
                     except Exception as e:
                         logging.warning(f'Error actualizando stock producto {producto_id}: {e}')
 

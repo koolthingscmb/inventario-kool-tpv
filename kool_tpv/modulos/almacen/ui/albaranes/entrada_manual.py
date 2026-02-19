@@ -18,9 +18,10 @@ logger = logging.getLogger(__name__)
 
 
 class EntradaManualUI:
-    def __init__(self, parent, db=None):
+    def __init__(self, parent, db=None, tipo='ENTRADA'):
         self.parent = parent
         self.db = db
+        self.tipo = tipo  # 'ENTRADA', 'SALIDA', 'DEVOLUCION'
         self.albaran_service = AlbaranService(db)
         self.proveedor_service = ProveedorService(db)
 
@@ -61,8 +62,15 @@ class EntradaManualUI:
         self._row_bg_alt = '#111111'
         headers = ['EAN', 'NOMBRE', 'UDS', 'COSTE', 'DTO', 'IMPORTE']
 
-        # Label entrada
-        lbl_entrada = ctk.CTkLabel(self.container, text='INTRODUCIR DATOS LÍNEA ALBARÁN',
+        # Título dinámico según tipo
+        titulos = {
+            'ENTRADA': 'INTRODUCIR DATOS LÍNEA ALBARÁN - ENTRADA',
+            'SALIDA': 'INTRODUCIR DATOS LÍNEA ALBARÁN - SALIDA MANUAL',
+            'DEVOLUCION': 'INTRODUCIR DATOS LÍNEA ALBARÁN - DEVOLUCIÓN'
+        }
+        texto_titulo = titulos.get(self.tipo, 'INTRODUCIR DATOS LÍNEA ALBARÁN')
+
+        lbl_entrada = ctk.CTkLabel(self.container, text=texto_titulo,
                                    text_color=COLOR_MATRIX, font=('Courier New', 13, 'bold'), anchor='w')
         lbl_entrada.pack(fill='x', padx=6, pady=(6, 2))
 
@@ -229,6 +237,27 @@ class EntradaManualUI:
         self.lbl_total = ctk.CTkLabel(totales_frame, text='TOTAL: 0.00€', text_color='#FF0000', font=('Courier New', 16, 'bold'))
         self.lbl_total.pack(side='left', padx=12)
 
+        # Label informativo según tipo
+        try:
+            if self.tipo == 'SALIDA':
+                lbl_info = ctk.CTkLabel(
+                    totales_frame,
+                    text='⚠️ SE RESTARÁ DEL STOCK',
+                    text_color='#f39c12',  # Naranja warning
+                    font=('Courier New', 13, 'bold')
+                )
+                lbl_info.pack(side='left', padx=20)
+            elif self.tipo == 'DEVOLUCION':
+                lbl_info = ctk.CTkLabel(
+                    totales_frame,
+                    text='🔙 DEVOLUCIÓN - SE RESTARÁ DEL STOCK',
+                    text_color='#95a5a6',  # Gris
+                    font=('Courier New', 13, 'bold')
+                )
+                lbl_info.pack(side='left', padx=20)
+        except Exception:
+            pass
+
         # Footer
         footer = ctk.CTkFrame(self.container, fg_color='transparent')
         footer.pack(side='bottom', fill='x', padx=6, pady=12)
@@ -242,6 +271,17 @@ class EntradaManualUI:
 
     def get_widget(self):
         return self.container
+
+    def has_unsaved_changes(self):
+        """Verificar si hay líneas añadidas sin guardar.
+
+        Returns:
+            bool: True si hay líneas en memoria, False si está vacío
+        """
+        try:
+            return len(self.lines) > 0
+        except Exception:
+            return False
 
     def _load_proveedores(self):
         try:
@@ -444,11 +484,15 @@ class EntradaManualUI:
             prov_id = self.cb_proveedor.get_id()
             fecha = self.e_fecha.get()
 
-            if not prov_id:
-                logging.warning('Proveedor no válido')
-                return
+            # Validar proveedor solo si el tipo lo requiere
+            if self.tipo in ['ENTRADA', 'DEVOLUCION']:
+                if not prov_id:
+                    from kool_tpv.utils.custom_dialog import show_error
+                    show_error(self.container, 'Proveedor requerido',
+                               f'Debe seleccionar un proveedor para albaranes de tipo {self.tipo}')
+                    return
 
-            albaran_id = self.albaran_service.save_albaran(num, prov_id, fecha, self.lines)
+            albaran_id = self.albaran_service.save_albaran(num, prov_id, fecha, self.lines, tipo=self.tipo)
             if albaran_id:
                 logging.info(f'Albarán guardado: {albaran_id}')
                 try:
@@ -464,11 +508,23 @@ class EntradaManualUI:
             self.lines = []
             self.e_ean.delete(0, 'end')
             self.cb_nombre.set('')
+            try:
+                self.cb_proveedor.set('')
+            except Exception:
+                pass
             self.e_uds.delete(0, 'end')
             self.e_coste.delete(0, 'end')
             self.e_coste.insert(0, '0.00')
             self.e_dto.delete(0, 'end')
             self.e_dto.insert(0, '0')
+            # Limpiar importe
+            try:
+                self.e_importe.configure(state='normal')
+                self.e_importe.delete(0, 'end')
+                self.e_importe.insert(0, '0.00')
+                self.e_importe.configure(state='readonly')
+            except Exception:
+                pass
             self._render_lines()
             self._update_totals()
             self._set_next_num()

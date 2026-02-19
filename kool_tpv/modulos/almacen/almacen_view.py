@@ -109,17 +109,15 @@ class AlmacenView(BaseModuleView):
             'ALBARANES': self.show_albaranes,
             'CONSULTAR': self.show_consultar,
             'ENTRADA MANUAL': self.show_entrada_manual,
+            'SALIDA MANUAL': self.show_salida_manual,
+            'DEVOLUCIÓN': self.show_devolucion,
+            'PROVEEDORES': self.show_proveedores, # ← AÑADIDO para navegación clickeable
         }
 
     # Simple handlers that currently log actions — to be implemented
     def show_crear(self, producto_id: int = None):
         """Instancia y muestra la UI de creación en la zona central."""
         try:
-            # update breadcrumb to indicate sub-section
-            try:
-                self.actualizar_ruta('ALMACEN / CREAR_PRODUCTO')
-            except Exception:
-                pass
             from .ui.Productos.crear_producto_ui import CrearProductoUI
             # Always instantiate a fresh UI to avoid using destroyed widgets
             try:
@@ -128,13 +126,24 @@ class AlmacenView(BaseModuleView):
                 # ambiguous packing behavior if the instance exposes both
                 # get_widget() and pack(). This reduces race conditions with
                 # previously destroyed widgets.
+                navigated = False
                 try:
                     widget = crear_ui.get_widget() if hasattr(crear_ui, 'get_widget') else crear_ui
-                    self.set_central_content(widget)
+                    navigated = self.set_central_content(widget)
                 except Exception:
                     # fallback: try passing the instance itself
                     logging.exception('Error obteniendo widget desde CrearProductoUI, intentando pasar la instancia')
-                    self.set_central_content(crear_ui)
+                    try:
+                        navigated = self.set_central_content(crear_ui)
+                    except Exception:
+                        logging.exception('Fallo al pasar la instancia CrearProductoUI a set_central_content')
+
+                # Actualizar breadcrumb DESPUÉS de verificar cambios (solo si navegación exitosa)
+                if navigated:
+                    try:
+                        self.actualizar_ruta('ALMACEN / CREAR_PRODUCTO')
+                    except Exception:
+                        pass
 
                 # If a producto_id was provided, attempt to prefill the UI using the loader
                 if producto_id is not None:
@@ -155,14 +164,14 @@ class AlmacenView(BaseModuleView):
 
     def show_busqueda(self):
         try:
-            try:
-                self.actualizar_ruta('ALMACEN / BUSQUEDA')
-            except Exception:
-                pass
             from .ui.busqueda_ui import BusquedaUI
             try:
                 busq = BusquedaUI(self.central_area, db=self.db, owner=self)
-                self.set_central_content(busq)
+                if self.set_central_content(busq):
+                    try:
+                        self.actualizar_ruta('ALMACEN / BUSQUEDA')
+                    except Exception:
+                        pass
             except Exception:
                 logging.exception('No fue posible instanciar BusquedaUI en show_busqueda')
             logging.info('Abriendo búsqueda...')
@@ -171,16 +180,15 @@ class AlmacenView(BaseModuleView):
 
     def show_albaranes(self):
         try:
-            try:
-                self.actualizar_ruta('ALMACEN / ALBARANES')
-            except Exception:
-                pass
             from .ui.albaranes_ui import AlbaranesUI
-
             try:
                 albaranes_ui = AlbaranesUI(self.central_area, db=self.db, owner=self)
-                self.set_central_content(albaranes_ui)
-                logging.info('Abriendo albaranes...')
+                if self.set_central_content(albaranes_ui):
+                    try:
+                        self.actualizar_ruta('ALMACEN / ALBARANES')
+                    except Exception:
+                        pass
+                    logging.info('Abriendo albaranes...')
             except Exception:
                 logging.exception('Error instanciando AlbaranesUI en show_albaranes')
         except Exception:
@@ -188,17 +196,17 @@ class AlmacenView(BaseModuleView):
 
     def show_tipos(self):
         try:
-            try:
-                self.actualizar_ruta('ALMACEN / TIPOS')
-            except Exception:
-                pass
             from .ui.tipos_ui import TiposUI
 
             # Always create a fresh UI instance to avoid reusing destroyed widgets
             try:
                 tipos_ui = TiposUI(self.central_area, db=self.db)
-                self.set_central_content(tipos_ui)
-                logging.info('Abriendo tipos...')
+                if self.set_central_content(tipos_ui):
+                    try:
+                        self.actualizar_ruta('ALMACEN / TIPOS')
+                    except Exception:
+                        pass
+                    logging.info('Abriendo tipos...')
             except Exception:
                 logging.exception('Error instanciando TiposUI en show_tipos')
         except Exception:
@@ -206,16 +214,15 @@ class AlmacenView(BaseModuleView):
 
     def show_categorias(self):
         try:
-            try:
-                self.actualizar_ruta('ALMACEN / CATEGORIAS')
-            except Exception:
-                pass
             from .ui.categorias_ui import CategoriasUI
-
             try:
                 categorias_ui = CategoriasUI(self.central_area, db=self.db)
-                self.set_central_content(categorias_ui)
-                logging.info('Abriendo categorías...')
+                if self.set_central_content(categorias_ui):
+                    try:
+                        self.actualizar_ruta('ALMACEN / CATEGORIAS')
+                    except Exception:
+                        pass
+                    logging.info('Abriendo categorías...')
             except Exception:
                 logging.exception('Error instanciando CategoriasUI en show_categorias')
         except Exception:
@@ -223,46 +230,98 @@ class AlmacenView(BaseModuleView):
 
     def show_proveedores(self):
         try:
-            try:
-                self.actualizar_ruta('ALMACEN / PROVEEDORES')
-            except Exception:
-                pass
             from .ui.proveedores_ui import ProveedoresUI
-
             try:
-                proveedores_ui = ProveedoresUI(self.central_area, db=self.db)
-                self.set_central_content(proveedores_ui)
-                logging.info('Abriendo proveedores...')
+                proveedores_ui = ProveedoresUI(self.central_area, db=self.db, owner=self)
+                if self.set_central_content(proveedores_ui):
+                    try:
+                        self.actualizar_ruta('ALMACEN / PROVEEDORES')
+                    except Exception:
+                        pass
+                    logging.info('Abriendo proveedores...')
             except Exception:
                 logging.exception('Error instanciando ProveedoresUI en show_proveedores')
         except Exception:
             logging.exception('Error abriendo proveedores en AlmacenView')
 
+    def show_mapeo_csv(self, proveedor_id, proveedor_nombre=''):
+        """Mostrar UI de configuración de mapeo CSV para un proveedor.
+
+        Args:
+            proveedor_id: ID del proveedor
+            proveedor_nombre: Nombre del proveedor (para mostrar en UI)
+        """
+        try:
+            from .ui.mapeo_csv_ui import MapeoCsvUI
+
+            try:
+                mapeo_ui = MapeoCsvUI(
+                    self.central_area, 
+                    db=self.db, 
+                    proveedor_id=proveedor_id,
+                    proveedor_nombre=proveedor_nombre
+                )
+                if self.set_central_content(mapeo_ui):
+                    self.actualizar_ruta('PROVEEDORES / MAPEO CSV', callbacks=self.breadcrumb_callbacks)
+                logging.info(f'Abriendo mapeo CSV para proveedor {proveedor_id}...')
+            except Exception:
+                logging.exception('Error instanciando MapeoCsvUI en show_mapeo_csv')
+        except Exception:
+            logging.exception('Error abriendo mapeo CSV en AlmacenView')
+
     def show_entrada_manual(self):
         """Mostrar UI de entrada manual de albaranes."""
         try:
             from .ui.albaranes.entrada_manual import EntradaManualUI
-
             try:
                 entrada_ui = EntradaManualUI(self.central_area, db=self.db)
-                self.set_central_content(entrada_ui)
-                self.actualizar_ruta('ALBARANES / ENTRADA MANUAL', callbacks=self.breadcrumb_callbacks)
-                logging.info('Abriendo entrada manual...')
+                if self.set_central_content(entrada_ui):
+                    self.actualizar_ruta('ALBARANES / ENTRADA MANUAL', callbacks=self.breadcrumb_callbacks)
+                    logging.info('Abriendo entrada manual...')
             except Exception:
                 logging.exception('Error instanciando EntradaManualUI en show_entrada_manual')
         except Exception:
             logging.exception('Error abriendo entrada manual en AlmacenView')
     
+    def show_salida_manual(self):
+        """Mostrar UI de salida manual de albaranes."""
+        try:
+            from .ui.albaranes.salida_manual import SalidaManualUI
+
+            try:
+                salida_ui = SalidaManualUI(self.central_area, db=self.db)
+                if self.set_central_content(salida_ui):
+                    self.actualizar_ruta('ALBARANES / SALIDA MANUAL', callbacks=self.breadcrumb_callbacks)
+                logging.info('Abriendo salida manual...')
+            except Exception:
+                logging.exception('Error instanciando SalidaManualUI en show_salida_manual')
+        except Exception:
+            logging.exception('Error abriendo salida manual en AlmacenView')
+
+    def show_devolucion(self):
+        """Mostrar UI de devolución de albaranes."""
+        try:
+            from .ui.albaranes.devolucion import DevolucionUI
+
+            try:
+                devolucion_ui = DevolucionUI(self.central_area, db=self.db)
+                if self.set_central_content(devolucion_ui):
+                    self.actualizar_ruta('ALBARANES / DEVOLUCIÓN', callbacks=self.breadcrumb_callbacks)
+                logging.info('Abriendo devolución...')
+            except Exception:
+                logging.exception('Error instanciando DevolucionUI en show_devolucion')
+        except Exception:
+            logging.exception('Error abriendo devolución en AlmacenView')
+    
     def show_consultar(self):
         """Mostrar UI de consulta de albaranes con filtros."""
         try:
             from .ui.albaranes.consultar_albaran import ConsultarAlbaranUI
-
             try:
                 consultar_ui = ConsultarAlbaranUI(self.central_area, db=self.db, owner=self)
-                self.set_central_content(consultar_ui)
-                self.actualizar_ruta('ALBARANES / CONSULTAR', callbacks=self.breadcrumb_callbacks)
-                logging.info('Abriendo consultar albaranes...')
+                if self.set_central_content(consultar_ui):
+                    self.actualizar_ruta('ALBARANES / CONSULTAR', callbacks=self.breadcrumb_callbacks)
+                    logging.info('Abriendo consultar albaranes...')
             except Exception:
                 logging.exception('Error instanciando ConsultarAlbaranUI en show_consultar')
         except Exception:
@@ -276,7 +335,6 @@ class AlmacenView(BaseModuleView):
         """
         try:
             from .ui.albaranes.detalle_albaran import DetalleAlbaranUI
-
             try:
                 detalle_ui = DetalleAlbaranUI(
                     self.central_area,
@@ -284,9 +342,9 @@ class AlmacenView(BaseModuleView):
                     albaran_id=albaran_id,
                     owner=self,
                 )
-                self.set_central_content(detalle_ui)
-                self.actualizar_ruta('ALBARANES / CONSULTAR / DETALLE', callbacks=self.breadcrumb_callbacks)
-                logging.info(f'Abriendo detalle albarán {albaran_id}...')
+                if self.set_central_content(detalle_ui):
+                    self.actualizar_ruta('ALBARANES / CONSULTAR / DETALLE', callbacks=self.breadcrumb_callbacks)
+                    logging.info(f'Abriendo detalle albarán {albaran_id}...')
             except Exception:
                 logging.exception('Error instanciando DetalleAlbaranUI en show_detalle_albaran')
         except Exception:

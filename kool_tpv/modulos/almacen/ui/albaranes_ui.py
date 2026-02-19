@@ -30,8 +30,8 @@ class AlbaranesUI:
             ('IMPORTAR ALBARÁN', '#3498db', self._placeholder),
             ('CONSULTAR', '#9b59b6', self.show_consultar),
             ('EXPORTAR', '#e67e22', self._placeholder),
-            ('SALIDA MANUAL', '#e74c3c', self._placeholder),
-            ('DEVOLUCIÓN', '#95a5a6', self._placeholder)
+            ('SALIDA MANUAL', '#e74c3c', self.show_salida_manual),
+            ('DEVOLUCIÓN', '#95a5a6', self.show_devolucion)
         ]
 
         for texto, color, cmd in botones:
@@ -57,6 +57,26 @@ class AlbaranesUI:
                 logging.warning('AlbaranesUI: owner no disponible para show_entrada_manual')
         except Exception:
             logging.exception('Error en show_entrada_manual')
+
+    def show_salida_manual(self):
+        """Mostrar salida manual (delega a owner)."""
+        try:
+            if getattr(self, 'owner', None) and hasattr(self.owner, 'show_salida_manual'):
+                self.owner.show_salida_manual()
+            else:
+                logging.warning('AlbaranesUI: owner no disponible para show_salida_manual')
+        except Exception:
+            logging.exception('Error en show_salida_manual')
+
+    def show_devolucion(self):
+        """Mostrar devolución (delega a owner)."""
+        try:
+            if getattr(self, 'owner', None) and hasattr(self.owner, 'show_devolucion'):
+                self.owner.show_devolucion()
+            else:
+                logging.warning('AlbaranesUI: owner no disponible para show_devolucion')
+        except Exception:
+            logging.exception('Error en show_devolucion')
 
     
 

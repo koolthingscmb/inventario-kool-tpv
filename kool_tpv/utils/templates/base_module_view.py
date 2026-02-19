@@ -113,6 +113,19 @@ class BaseModuleView:
         except Exception:
             logging.exception('Error creando main_frame BaseModuleView')
 
+        # Interceptar cierre de ventana desde X del sistema operativo
+        try:
+            top = parent.winfo_toplevel()
+            if top:
+                try:
+                    # Vincular WM_DELETE_WINDOW a _on_power (verifica cambios)
+                    top.protocol("WM_DELETE_WINDOW", self._on_power)
+                    logging.info('Protocolo WM_DELETE_WINDOW vinculado a _on_power')
+                except Exception:
+                    logging.exception('Error vinculando WM_DELETE_WINDOW')
+        except Exception:
+            logging.exception('Error configurando protocolo cierre ventana')
+
     def set_central_content(self, content):
         """Replace the central area content with `content`.
 
@@ -123,6 +136,9 @@ class BaseModuleView:
         The method clears previous children in `central_area` before packing the new content.
         """
         try:
+            # Verificar cambios sin guardar ANTES de destruir UI actual
+            if not self._check_unsaved_changes():
+                return False
             # If content corresponds to an existing child, avoid destroying it
             candidate_widget = None
             try:
@@ -175,6 +191,16 @@ class BaseModuleView:
                         return
                     widget.pack(fill='both', expand=True)
 
+                    # Attach reference to the original UI instance if different
+                    try:
+                        if widget is not content:
+                            try:
+                                setattr(widget, '_ui_owner', content)
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+
                     # AUTO-ACTUALIZAR BREADCRUMB para widgets empaquetados
                     try:
                         breadcrumb_name = self._extract_breadcrumb_name(content)
@@ -183,7 +209,7 @@ class BaseModuleView:
                     except Exception:
                         logging.exception('Error auto-actualizando breadcrumb')
 
-                    return
+                    return True
                 except Exception:
                     pass
 
@@ -193,6 +219,12 @@ class BaseModuleView:
                     # Ensure the content was created with central_area as parent; call pack to show
                     content.pack(fill='both', expand=True)
 
+                    # If we packed an instance (not a raw widget), attach owner ref
+                    try:
+                        setattr(content, '_ui_owner', content)
+                    except Exception:
+                        pass
+
                     # AUTO-ACTUALIZAR BREADCRUMB
                     try:
                         breadcrumb_name = self._extract_breadcrumb_name(content)
@@ -201,7 +233,7 @@ class BaseModuleView:
                     except Exception:
                         logging.exception('Error auto-actualizando breadcrumb')
 
-                    return
+                    return True
                 except Exception:
                     logging.exception('Error al packear content en set_central_content')
 
@@ -213,21 +245,86 @@ class BaseModuleView:
             except Exception:
                 logging.exception('Error auto-actualizando breadcrumb')
 
+            # Guardar referencia a UI actual
+            try:
+                self._current_ui = content
+            except Exception:
+                pass
+
             logging.info('set_central_content: content tipo no reconocido, intentando insert directo')
         except Exception:
             logging.exception('Error en set_central_content BaseModuleView')
 
+        # Retornar True si llegamos aquí (navegación completada)
+        return True
+
     # Placeholder handlers que las subclases pueden sobrescribir
     def _on_power(self):
+        """Cerrar módulo/ventana verificando cambios sin guardar primero.
+
+        Detecta automáticamente si es:
+        - Ventana Toplevel separada → destruye ventana
+        - Módulo integrado (Frame) → desempaqueta y restaura menú principal
+        """
         try:
-            # Default: close parent window if it's a Toplevel, otherwise do nothing
-            top = self.sidebar.winfo_toplevel()
+            # Verificar cambios sin guardar
+            if not self._check_unsaved_changes():
+                return False  # Usuario canceló
+
+            # Detectar contexto: ¿Toplevel o Frame integrado?
             try:
-                top.destroy()
+                top = self.sidebar.winfo_toplevel()
+
+                # Si parent es Toplevel → ventana separada
+                try:
+                    if isinstance(self.parent, ctk.CTkToplevel) or isinstance(self.parent, tk.Toplevel):
+                        logging.info('Cerrando ventana Toplevel...')
+                        try:
+                            self.parent.destroy()
+                        except Exception:
+                            try:
+                                top.destroy()
+                            except Exception:
+                                pass
+                        return
+                except Exception:
+                    # Si customtkinter no expone CTkToplevel o falla isinstance, seguir
+                    pass
+
+                # Frame integrado → desempaquetar módulo
+                logging.info('Cerrando módulo integrado (Frame)...')
+
+                # Desempaquetar sidebar y main_frame
+                try:
+                    self.sidebar.pack_forget()
+                except Exception:
+                    pass
+
+                try:
+                    self.main_frame.pack_forget()
+                except Exception:
+                    pass
+
+                # Restaurar nav_frame del parent si existe
+                try:
+                    if hasattr(self.parent, 'nav_frame'):
+                        try:
+                            self.parent.nav_frame.pack(side='left', fill='y')
+                            logging.info('Menú principal restaurado')
+                        except Exception:
+                            logging.exception('Error restaurando nav_frame')
+                except Exception:
+                    logging.exception('Error comprobando/restaurando nav_frame')
+
             except Exception:
-                pass
+                logging.exception('Error detectando contexto en _on_power')
+                return False
+
+            return True
+
         except Exception:
-            pass
+            logging.exception('Error en _on_power')
+            return False
 
     def actualizar_ruta(self, sub_seccion: str = None, callbacks: dict = None):
         """Actualiza el texto de la ruta/breadcrumb mostrado arriba del área central.
@@ -314,6 +411,55 @@ class BaseModuleView:
         except Exception:
             logging.exception('Error extrayendo breadcrumb_name')
             return None
+
+    def _check_unsaved_changes(self):
+        """Verificar si la UI actual tiene cambios sin guardar.
+
+        Busca en central_area una UI con método has_unsaved_changes().
+        Si tiene cambios, muestra warning de confirmación.
+
+        Returns:
+            bool: True si puede continuar, False si usuario canceló
+        """
+        try:
+            # Buscar UI actual en central_area
+            for child in list(self.central_area.winfo_children()):
+                # First check if the child has an attached UI owner
+                owners = []
+                try:
+                    if hasattr(child, '_ui_owner'):
+                        owners.append(getattr(child, '_ui_owner'))
+                except Exception:
+                    pass
+
+                # Always include the widget itself as a fallback
+                owners.append(child)
+
+                for owner in owners:
+                    try:
+                        if hasattr(owner, 'has_unsaved_changes') and callable(owner.has_unsaved_changes):
+                            try:
+                                if owner.has_unsaved_changes():
+                                    # Hay cambios sin guardar → mostrar warning
+                                    from kool_tpv.utils.custom_dialog import show_warning
+                                    result = show_warning(
+                                        self.parent,
+                                        "Cambios sin guardar",
+                                        "Está procesando un albarán. Si sale perderá los cambios. ¿Continuar?",
+                                        confirm=True
+                                    )
+                                    return result
+                            except Exception:
+                                logging.exception('Error comprobando has_unsaved_changes en owner')
+                    except Exception:
+                        logging.exception('Error verificando owner en _check_unsaved_changes')
+
+            # No hay UI con cambios o no tiene el método
+            return True
+
+        except Exception:
+            logging.exception('Error en _check_unsaved_changes')
+            return True  # En caso de error, permitir continuar
 
     def _on_volver(self):
         # Subclasses should override this to implement back-navigation

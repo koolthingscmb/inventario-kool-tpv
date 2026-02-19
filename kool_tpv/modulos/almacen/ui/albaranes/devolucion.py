@@ -1,19 +1,22 @@
-"""UI de Devolución."""
+"""UI de Devolución de albaranes.
+
+Wrapper que reutiliza EntradaManualUI con tipo='DEVOLUCION'.
+"""
 import logging
-import customtkinter as ctk
-from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
+from .entrada_manual import EntradaManualUI
 
 logger = logging.getLogger(__name__)
 
-class DevolucionUI:
-    def __init__(self, parent, db=None):
-        self.parent = parent
-        self.db = db
-        self.container = ctk.CTkFrame(parent, fg_color=COLOR_BG_TERMINAL)
 
-        lbl = ctk.CTkLabel(self.container, text='DEVOLUCIÓN - En construcción',
-                           text_color=COLOR_MATRIX)
-        lbl.pack(expand=True)
+class DevolucionUI:
+    """Devolución a proveedor - resta stock del almacén."""
+
+    def __init__(self, parent, db=None):
+        # Delegar a EntradaManualUI con tipo='DEVOLUCION'
+        self._delegate = EntradaManualUI(parent, db=db, tipo='DEVOLUCION')
 
     def get_widget(self):
-        return self.container
+        return self._delegate.get_widget()
+
+    def has_unsaved_changes(self):
+        return self._delegate.has_unsaved_changes()

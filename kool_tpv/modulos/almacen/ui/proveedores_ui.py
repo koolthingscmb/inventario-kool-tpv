@@ -10,9 +10,10 @@ from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL,
 
 
 class ProveedoresUI:
-    def __init__(self, parent, db=None):
+    def __init__(self, parent, db=None, owner=None):
         self.parent = parent
         self.db = db
+        self.owner = owner
         self.service = ProveedorService(db)
         self.container = ctk.CTkFrame(self.parent, fg_color=COLOR_BG_TERMINAL)
 
@@ -119,6 +120,9 @@ class ProveedoresUI:
 
         self.btn_albaranes = ctk.CTkButton(self.footer, text='CONSULTAR ALBARANES', fg_color='#3498db', command=self._mostrar_albaranes)
         self.btn_albaranes.pack(side='left', padx=8)
+
+        self.btn_mapeo = ctk.CTkButton(self.footer, text='MAPEO CSV', fg_color='#9b59b6', command=self._editar_mapeo_csv)
+        self.btn_mapeo.pack(side='left', padx=8)
 
         # Load proveedores
         self.selected_chip = None
@@ -310,3 +314,41 @@ class ProveedoresUI:
 
     def _mostrar_albaranes(self):
         logging.info('Función CONSULTAR ALBARANES - pendiente implementar')
+
+    def _editar_mapeo_csv(self):
+        """Abrir editor de mapeo CSV delegando al owner."""
+        try:
+            # Obtener ID del proveedor actual
+            id_text = self.e_id.get().strip()
+            if not id_text:
+                from kool_tpv.utils.custom_dialog import show_warning
+                show_warning(self.container, 'Sin proveedor',
+                             'Selecciona un proveedor antes de configurar el mapeo CSV')
+                return
+
+            try:
+                prov_id = int(id_text)
+            except ValueError:
+                logging.error('ID proveedor no válido en _editar_mapeo_csv')
+                return
+
+            # Obtener nombre del proveedor
+            nombre_prov = self.e_nombre.get().strip() or 'Proveedor'
+
+            # Delegar a owner (AlmacenView)
+            if getattr(self, 'owner', None) and hasattr(self.owner, 'show_mapeo_csv'):
+                try:
+                    self.owner.show_mapeo_csv(prov_id, nombre_prov)
+                except Exception:
+                    logging.exception(f'Error llamando owner.show_mapeo_csv para {prov_id}')
+                    from kool_tpv.utils.custom_dialog import show_error
+                    show_error(self.container, 'Error', 'No se puede abrir editor de mapeo')
+            else:
+                logging.warning('ProveedoresUI: owner no disponible para show_mapeo_csv')
+                from kool_tpv.utils.custom_dialog import show_error
+                show_error(self.container, 'Error', 'No se puede abrir editor de mapeo')
+
+        except Exception:
+            logging.exception('Error en _editar_mapeo_csv')
+
+    

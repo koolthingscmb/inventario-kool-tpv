@@ -432,41 +432,25 @@ class App(ctk.CTk):
             # Define back callback to destroy almacen view and restore frames
             def _on_back():
                 try:
-                    # 1) Mostrar primero los elementos del menú principal
-                    try:
-                        self.nav_frame.pack(side='left', fill='y')
-                    except Exception:
-                        pass
-                    try:
-                        self.main_frame.pack(side='right', fill='both', expand=True)
-                    except Exception:
-                        pass
+                    # Delegar a _on_power para verificar cambios sin guardar
+                    if hasattr(self, 'almacen_view') and self.almacen_view:
+                        try:
+                            if not self.almacen_view._on_power():
+                                return  # Usuario canceló, no proceder
+                        except Exception:
+                            logging.exception('Error llamando a almacen_view._on_power')
+                            return
 
-                    # 2) Forzar a la interfaz a procesar el dibujado de los nuevos elementos
-                    try:
-                        self.update_idletasks()
-                    except Exception:
-                        pass
-
-                    # 3) Solo ahora, destruir el contenedor del módulo que estamos cerrando
+                    # Usuario aceptó o no hay cambios: limpiar referencias
                     try:
                         if getattr(self, 'almacen_view', None):
-                            try:
-                                if getattr(self.almacen_view, 'sidebar', None):
-                                    self.almacen_view.sidebar.destroy()
-                            except Exception:
-                                pass
-                            try:
-                                if getattr(self.almacen_view, 'main_frame', None):
-                                    self.almacen_view.main_frame.destroy()
-                            except Exception:
-                                pass
                             try:
                                 del self.almacen_view
                             except Exception:
                                 pass
                     except Exception:
-                        logging.exception('Error destruyendo almacen_view en _on_back')
+                        logging.exception('Error limpiando almacen_view en _on_back')
+
                 except Exception:
                     logging.exception('Error en callback de volver desde Almacen')
 

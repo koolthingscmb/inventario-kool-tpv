@@ -258,6 +258,23 @@ class DetalleAlbaranUI:
     def get_widget(self):
         return self.container
 
+    def has_unsaved_changes(self):
+        """Verificar si hay líneas nuevas añadidas sin guardar.
+
+        Detecta líneas que no tienen 'id' (aún no están en BD).
+
+        Returns:
+            bool: True si hay líneas nuevas, False si no
+        """
+        try:
+            # Buscar líneas sin 'id' (nuevas, no guardadas)
+            for line in self.lines:
+                if isinstance(line, dict) and 'id' not in line:
+                    return True
+            return False
+        except Exception:
+            return False
+
     def _load_albaran(self):
         """Cargar datos del albarán existente."""
         try:
