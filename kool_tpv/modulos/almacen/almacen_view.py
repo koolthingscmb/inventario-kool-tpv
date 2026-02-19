@@ -104,6 +104,9 @@ class AlmacenView(BaseModuleView):
             logging.exception('Error enlazando botones en AlmacenView')
 
         # Mapeo breadcrumb → callbacks para navegación clickeable
+        # Memoria para mantener contexto al navegar
+        self._last_proveedor_id = None
+
         self.breadcrumb_callbacks = {
             'ALMACÉN': self.show_albaranes, # Click en ALMACÉN vuelve a vista principal albaranes
             'ALBARANES': self.show_albaranes,
@@ -228,8 +231,12 @@ class AlmacenView(BaseModuleView):
         except Exception:
             logging.exception('Error abriendo categorias en AlmacenView')
 
-    def show_proveedores(self):
+    def show_proveedores(self, proveedor_id=None):
         try:
+            # Si no se pasa ID, usar el último recordado
+            if proveedor_id is None:
+                proveedor_id = getattr(self, '_last_proveedor_id', None)
+
             from .ui.proveedores_ui import ProveedoresUI
             try:
                 proveedores_ui = ProveedoresUI(self.central_area, db=self.db, owner=self)
@@ -238,6 +245,16 @@ class AlmacenView(BaseModuleView):
                         self.actualizar_ruta('ALMACEN / PROVEEDORES')
                     except Exception:
                         pass
+
+                    # Cargar proveedor si hay ID
+                    if proveedor_id:
+                        try:
+                            proveedores_ui.cargar_proveedor(proveedor_id)
+                            # Actualizar memoria con el ID cargado
+                            self._last_proveedor_id = proveedor_id
+                        except Exception:
+                            logging.exception(f'Error cargando proveedor {proveedor_id} en show_proveedores')
+
                     logging.info('Abriendo proveedores...')
             except Exception:
                 logging.exception('Error instanciando ProveedoresUI en show_proveedores')
@@ -252,14 +269,21 @@ class AlmacenView(BaseModuleView):
             proveedor_nombre: Nombre del proveedor (para mostrar en UI)
         """
         try:
+            # Guardar en memoria para breadcrumb
+            try:
+                self._last_proveedor_id = proveedor_id
+            except Exception:
+                pass
+
             from .ui.mapeo_csv_ui import MapeoCsvUI
 
             try:
                 mapeo_ui = MapeoCsvUI(
-                    self.central_area, 
-                    db=self.db, 
+                    self.central_area,
+                    db=self.db,
                     proveedor_id=proveedor_id,
-                    proveedor_nombre=proveedor_nombre
+                    proveedor_nombre=proveedor_nombre,
+                    owner=self
                 )
                 if self.set_central_content(mapeo_ui):
                     self.actualizar_ruta('PROVEEDORES / MAPEO CSV', callbacks=self.breadcrumb_callbacks)

@@ -35,6 +35,44 @@ class ProveedorService:
             logging.exception('Error obteniendo proveedores')
             return []
 
+    def get_proveedor(self, proveedor_id):
+        """Obtener un proveedor por ID.
+
+        Args:
+            proveedor_id: ID del proveedor
+
+        Returns:
+            dict con datos del proveedor o None si no existe
+        """
+        try:
+            query = "SELECT * FROM proveedores WHERE id = ?"
+            row = self.db.fetch_one(query, (proveedor_id,))
+
+            if not row:
+                return None
+
+            return {
+                'id': row[0],
+                'nombre': row[1] or '',
+                'que_vende': row[2] or '',
+                'nif_cif': row[3] or '',
+                'iva_intracom': row[4] or '',
+                'dir_fiscal': row[5] or '',
+                'dir_envio': row[6] or '',
+                'email': row[7] or '',
+                'telefono': row[8] or '',
+                'forma_pago': row[9] or '',
+                'persona_comercial': row[10] or '',
+                'telefono_comercial': row[11] or '',
+                'email_comercial': row[12] or '',
+                'web': row[13] or '',
+                'notas': row[14] or '',
+                'mapeo_csv': row[15] or None
+            }
+        except Exception:
+            logging.exception(f'Error obteniendo proveedor {proveedor_id}')
+            return None
+
     def save_proveedor(self, nombre, que_vende='', nif_cif='', iva_intracom='', 
                        dir_fiscal='', dir_envio='', email='', telefono='', 
                        forma_pago='', persona_comercial='', telefono_comercial='', 

@@ -12,56 +12,89 @@ logger = logging.getLogger(__name__)
 class MapeoCsvUI:
     """Editor de configuración JSON para importación CSV por proveedor."""
 
-    def __init__(self, parent, db=None, proveedor_id=None, proveedor_nombre=''):
+    def __init__(self, parent, db=None, proveedor_id=None, proveedor_nombre='', owner=None):
         self.parent = parent
         self.db = db
         self.proveedor_id = proveedor_id
         self.proveedor_nombre = proveedor_nombre
+        self.owner = owner
         self.proveedor_service = ProveedorService(db)
         self.mapeo_original = None
 
         self.container = ctk.CTkFrame(parent, fg_color=COLOR_BG_TERMINAL)
 
-        # Header: Tutorial
+        # Header: Tutorial en 2 columnas
         tutorial_frame = ctk.CTkFrame(self.container, fg_color='#1a1a1a', corner_radius=8)
         tutorial_frame.pack(fill='x', padx=12, pady=(12, 6))
 
         titulo_tutorial = ctk.CTkLabel(
             tutorial_frame,
             text='📋 GUÍA DE CONFIGURACIÓN',
-            font=('Courier New', 16, 'bold'),
+            font=('Courier New', 18, 'bold'),
             text_color='#9b59b6'
         )
-        titulo_tutorial.pack(pady=(10, 5))
+        titulo_tutorial.pack(pady=(10, 8))
 
-        tutorial_text = """
-    • columna_ean: Nombre de la columna con el código EAN/código de barras
-    • columna_cantidad: Nombre de la columna con las unidades compradas
-    • columna_precio: Nombre de la columna con el precio/coste unitario
+        # Frame para 2 columnas
+        columnas_frame = ctk.CTkFrame(tutorial_frame, fg_color='transparent')
+        columnas_frame.pack(fill='x', padx=20, pady=(0, 10))
 
-    • separador:
-    "," → CSV americano (Google Sheets, Excel inglés)
-    ";" → CSV europeo (Excel español)
+        # Columna IZQUIERDA - Campos del CSV
+        col_izq = ctk.CTkFrame(columnas_frame, fg_color='transparent')
+        col_izq.pack(side='left', fill='both', expand=True, padx=(0, 10))
 
-    • skip_rows:
-    0 → Lee desde línea 1 (cabecera incluida)
-    1 → Salta primera fila (si tiene título extra antes de cabecera)
+        texto_izq = """CAMPOS DEL CSV (cambiar VALORES):
 
-    • encoding: Codificación del archivo ("utf-8" o "latin-1")
+    • "columna_ean": "nombre_columna_ean"
+    • "columna_cantidad": "nombre_columna_cant"
+    • "columna_precio": "nombre_columna_precio"
 
-    NOTA: Con el EAN se obtiene automáticamente el nombre, IVA y otros datos desde la BD.
-    Si el precio difiere del registrado, se actualizará y se avisará.
-    """
+    EJEMPLO: Si tu CSV tiene cabecera:
+    "Código, Unidades, Precio"
 
-        tutorial_label = ctk.CTkLabel(
-            tutorial_frame,
-            text=tutorial_text.strip(),
-            font=('Courier New', 12),
+    Entonces configura:
+    "columna_ean": "Código"
+    "columna_cantidad": "Unidades"
+    "columna_precio": "Precio" """
+
+        lbl_izq = ctk.CTkLabel(
+            col_izq,
+            text=texto_izq.strip(),
+            font=('Courier New', 15),
             text_color='#CCCCCC',
             justify='left',
-            anchor='w'
+            anchor='nw'
         )
-        tutorial_label.pack(fill='x', padx=20, pady=(0, 10))
+        lbl_izq.pack(fill='both', expand=True)
+
+        # Columna DERECHA - Configuración técnica
+        col_der = ctk.CTkFrame(columnas_frame, fg_color='transparent')
+        col_der.pack(side='left', fill='both', expand=True, padx=(10, 0))
+
+        texto_der = """CONFIGURACIÓN TÉCNICA:
+
+    • separador:
+    "," → CSV normal (comas)
+    ";" → Excel español (puntos y coma)
+
+    • skip_rows: Filas a ignorar al inicio
+    0 → Sin saltar (normal)
+    1 → Saltar 1 fila (título duplicado)
+    2 → Saltar 2 filas, etc.
+
+    • encoding:
+    "utf-8" → Estándar
+    "latin-1" → Si hay caracteres raros"""
+
+        lbl_der = ctk.CTkLabel(
+            col_der,
+            text=texto_der.strip(),
+            font=('Courier New', 15),
+            text_color='#CCCCCC',
+            justify='left',
+            anchor='nw'
+        )
+        lbl_der.pack(fill='both', expand=True)
 
         # Label proveedor
         prov_label = ctk.CTkLabel(
@@ -83,7 +116,7 @@ class MapeoCsvUI:
 
         self.textbox = ctk.CTkTextbox(
             self.container,
-            font=('Courier New', 14),
+            font=('Courier New', 16),
             fg_color='#000000',
             text_color='#00FF00',
             border_color='#9b59b6',
@@ -208,6 +241,12 @@ class MapeoCsvUI:
                 show_success(self.container, 'Guardado', 'Mapeo CSV guardado correctamente')
                 self.mapeo_original = contenido  # Actualizar para has_unsaved_changes
                 logging.info(f'Mapeo CSV guardado para proveedor {self.proveedor_id}')
+                # Volver a vista proveedores con el mismo proveedor
+                try:
+                    if getattr(self, 'owner', None) and hasattr(self.owner, 'show_proveedores'):
+                        self.owner.show_proveedores(proveedor_id=self.proveedor_id)
+                except Exception:
+                    logging.exception('Error volviendo a proveedores desde mapeo')
             else:
                 show_error(self.container, 'Error', 'No se pudo guardar el mapeo CSV')
 
@@ -215,5 +254,14 @@ class MapeoCsvUI:
             logging.exception('Error guardando mapeo CSV')
 
     def _on_cancelar(self):
-        """Cancelar edición (verificado por warnings automáticos)."""
-        logging.info('Cancelando edición mapeo CSV')
+        """Cancelar edición y volver a proveedor."""
+        try:
+            logging.info('Cancelando edición mapeo CSV')
+            # Volver a vista proveedores con el mismo proveedor cargado
+            if getattr(self, 'owner', None) and hasattr(self.owner, 'show_proveedores'):
+                try:
+                    self.owner.show_proveedores(proveedor_id=self.proveedor_id)
+                except Exception:
+                    logging.exception('Error volviendo a proveedores desde cancelar mapeo')
+        except Exception:
+            logging.exception('Error en _on_cancelar de MapeoCsvUI')

@@ -178,6 +178,8 @@ class App(ctk.CTk):
                     cmd = self.load_tpv
                 elif cmd_name.lower() in ("open_almacen", "almacen", "open_almacen()"):
                     cmd = self.open_almacen
+                elif cmd_name.lower() in ("open_clientes", "clientes", "open_clientes()"):
+                    cmd = self.open_clientes
                 else:
                     # default: log action
                     cmd = (lambda name=cmd_name or text: logging.info(f"Nav action: {name}"))
@@ -466,6 +468,61 @@ class App(ctk.CTk):
 
         except Exception:
             logging.exception('Error en open_almacen')
+
+    def open_clientes(self):
+        """Open Clientes module: hide main nav and main_frame, instantiate ClientesView."""
+        try:
+            try:
+                self.nav_frame.pack_forget()
+            except Exception:
+                pass
+            try:
+                self.main_frame.pack_forget()
+            except Exception:
+                pass
+
+            try:
+                from kool_tpv.modulos.clientes.clientes_view import ClientesView
+            except Exception:
+                logging.exception('Error importando ClientesView')
+                return
+
+            try:
+                self.clientes_view = ClientesView(self, db=getattr(self, 'db', None))
+            except Exception:
+                logging.exception('Error instanciando ClientesView')
+                try:
+                    self.nav_frame.pack(side='left', fill='y')
+                except Exception:
+                    pass
+                try:
+                    self.main_frame.pack(side='right', fill='both', expand=True)
+                except Exception:
+                    pass
+                return
+
+            def _on_back_clientes():
+                try:
+                    if hasattr(self, 'clientes_view') and self.clientes_view:
+                        if self.clientes_view._on_power():
+                            try:
+                                del self.clientes_view
+                            except Exception:
+                                pass
+                except Exception:
+                    logging.exception('Error en callback volver Clientes')
+
+            try:
+                if getattr(self, 'clientes_view', None) and getattr(self.clientes_view, 'power_button', None):
+                    try:
+                        self.clientes_view.power_button.configure(command=_on_back_clientes)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+        except Exception:
+            logging.exception('Error abriendo clientes')
 
 
 if __name__ == "__main__":

@@ -69,11 +69,32 @@ class BaseModuleView:
         for b in buttons:
             try:
                 lbl = b.get('label') or b.get('text') or 'BTN'
-                color = b.get('color', '#CCCCCC')
                 action = b.get('action')
                 # default command: log action (caller can rebind)
                 cmd = (lambda name=action or lbl: logging.info(f'Menu action: {name}'))
-                btn = ctk.CTkButton(self._menu_frame, text=lbl.upper(), fg_color=color, hover_color=self.HOVER_COLOR, text_color='black', font=("Roboto-SemiBold", 24), command=cmd, height=56)
+                # Support BOTH styles: legacy (solid color) and new minimal (fg_color + border)
+                btn_kwargs = {
+                    'master': self._menu_frame,
+                    'text': lbl.upper(),
+                    'command': cmd,
+                    'font': ("Roboto-SemiBold", 24),
+                    'height': 56
+                }
+                # NEW minimal style with border
+                if 'fg_color' in b:
+                    btn_kwargs['fg_color'] = b.get('fg_color', '#000000')
+                    btn_kwargs['border_color'] = b.get('border_color', '#FFFFFF')
+                    btn_kwargs['border_width'] = b.get('border_width', 2)
+                    btn_kwargs['text_color'] = b.get('text_color', '#FFFFFF')
+                    btn_kwargs['hover_color'] = b.get('hover_color', b.get('border_color', '#FFFFFF'))
+                else:
+                    # LEGACY style: solid fill
+                    btn_kwargs['fg_color'] = b.get('color', '#CCCCCC')
+                    btn_kwargs['hover_color'] = b.get('hover_color', self.HOVER_COLOR)
+                    btn_kwargs['text_color'] = 'black'
+                    btn_kwargs['border_width'] = 0
+
+                btn = ctk.CTkButton(**btn_kwargs)
                 btn.pack(pady=14, padx=20, fill='x')
             except Exception:
                 logging.exception('Error creando boton menu BaseModuleView')

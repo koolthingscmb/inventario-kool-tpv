@@ -9,5 +9,55 @@
       { "label": "CATEGORÍAS", "color": "#C38D9E", "hover_color": "#DDAEC1", "action": "show_categorias" },
       { "label": "PROVEEDORES", "color": "#806AA8", "hover_color": "#9B8EDB", "action": "show_proveedores" }
     ]
+  },
+  "clientes": {
+    "title": "CLIENTES",
+    "buttons": [
+      {
+        "label": "+",
+        "fg_color": "#000000",
+        "border_color": "#ADFF2F",
+        "border_width": 4,
+        "text_color": "#ADFF2F",
+        "hover_color": "#ADFF2F",
+        "action": "show_crear_cliente"
+      },
+      {
+        "label": "CLIENTES",
+        "fg_color": "#000000",
+        "border_color": "#FFD700",
+        "border_width": 4,
+        "text_color": "#FFD700",
+        "hover_color": "#FFD700",
+        "action": "show_clientes"
+      },
+      {
+        "label": "TOPS",
+        "fg_color": "#000000",
+        "border_color": "#FFC107",
+        "border_width": 4,
+        "text_color": "#FFC107",
+        "hover_color": "#FFC107",
+        "action": "show_tops"
+      },
+      {
+        "label": "COMUNICACIÓN",
+        "fg_color": "#000000",
+        "border_color": "#FFEB3B",
+        "border_width": 4,
+        "text_color": "#FFEB3B",
+        "hover_color": "#FFEB3B",
+        "action": "show_comunicacion"
+      },
+      {
+        "label": "CONFIG",
+        "fg_color": "#000000",
+        "border_color": "#FF9800",
+        "border_width": 4,
+        "text_color": "#FF9800",
+        "hover_color": "#FF9800",
+        "action": "show_config"
+      }
+    ]
   }
 }

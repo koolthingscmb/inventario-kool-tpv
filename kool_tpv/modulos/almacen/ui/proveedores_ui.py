@@ -131,6 +131,42 @@ class ProveedoresUI:
     def get_widget(self):
         return self.container
 
+    def cargar_proveedor(self, proveedor_id):
+        """Cargar proveedor por ID en el formulario.
+
+        Args:
+            proveedor_id: ID del proveedor a cargar
+
+        Returns:
+            bool: True si se cargó correctamente, False si no existe
+        """
+        try:
+            # Obtener proveedor desde BD
+            prov = self.service.get_proveedor(proveedor_id)
+
+            if not prov:
+                logging.warning(f'Proveedor {proveedor_id} no encontrado')
+                return False
+
+            # Cargar en formulario
+            self._load_proveedor_into_form(prov)
+
+            # Seleccionar chip correspondiente
+            try:
+                for child in list(self.chips_frame.winfo_children()):
+                    if hasattr(child, '_prov_data') and child._prov_data.get('id') == proveedor_id:
+                        self._select_chip(child)
+                        break
+            except Exception:
+                logging.exception('Error seleccionando chip en cargar_proveedor')
+
+            logging.info(f'Proveedor {proveedor_id} cargado correctamente')
+            return True
+
+        except Exception:
+            logging.exception(f'Error cargando proveedor {proveedor_id}')
+            return False
+
     def _load_proveedores(self):
         try:
             for w in list(self.chips_frame.winfo_children()):
