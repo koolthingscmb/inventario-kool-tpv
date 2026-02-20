@@ -17,11 +17,29 @@ class ClientesView(BaseModuleView):
         except Exception:
             pass
 
+        # Breadcrumb callbacks
+        self.breadcrumb_callbacks = {
+            'CLIENTES': self.show_busqueda, # Breadcrumb vuelve a búsqueda
+            'BÚSQUEDA': self.show_busqueda,
+        }
+
         logging.info('ClientesView inicializado')
 
     # Placeholders para botones (se implementarán después)
-    def show_clientes(self):
-        logging.info('TODO: Implementar show_clientes')
+    def show_busqueda(self):
+        """Mostrar búsqueda de clientes."""
+        try:
+            from kool_tpv.modulos.almacen.ui.clientes.busqueda_clientes_ui import BusquedaClientesUI
+
+            try:
+                busqueda_ui = BusquedaClientesUI(self.central_area, db=self.db, owner=self, module_name='clientes')
+                if self.set_central_content(busqueda_ui):
+                    self.actualizar_ruta('CLIENTES / BÚSQUEDA', callbacks=self.breadcrumb_callbacks)
+                logging.info('Abriendo búsqueda clientes...')
+            except Exception:
+                logging.exception('Error instanciando BusquedaClientesUI')
+        except Exception:
+            logging.exception('Error abriendo búsqueda clientes')
 
     def show_tops(self):
         logging.info('TODO: Implementar show_tops')
@@ -33,4 +51,35 @@ class ClientesView(BaseModuleView):
         logging.info('TODO: Implementar show_config')
 
     def show_crear_cliente(self):
-        logging.info('TODO: Implementar show_crear_cliente')
+        """Mostrar UI de creación de cliente."""
+        try:
+            from kool_tpv.modulos.almacen.ui.clientes.crear_cliente_ui import CrearClienteUI
+
+            try:
+                crear_ui = CrearClienteUI(self.central_area, db=self.db, cliente_id=None, module_name='clientes')
+                if self.set_central_content(crear_ui):
+                    self.actualizar_ruta('CLIENTES / NUEVO', callbacks=self.breadcrumb_callbacks)
+                logging.info('Abriendo crear cliente...')
+            except Exception:
+                logging.exception('Error instanciando CrearClienteUI')
+        except Exception:
+            logging.exception('Error abriendo crear cliente')
+
+    def show_editar_cliente(self, cliente_id):
+        """Mostrar ficha de cliente en modo edición.
+
+        Args:
+            cliente_id: ID del cliente a editar
+        """
+        try:
+            from kool_tpv.modulos.almacen.ui.clientes.crear_cliente_ui import CrearClienteUI
+
+            try:
+                editar_ui = CrearClienteUI(self.central_area, db=self.db, cliente_id=cliente_id, module_name='clientes')
+                if self.set_central_content(editar_ui):
+                    self.actualizar_ruta('CLIENTES / EDITAR', callbacks=self.breadcrumb_callbacks)
+                logging.info(f'Abriendo edición cliente {cliente_id}...')
+            except Exception:
+                logging.exception(f'Error instanciando CrearClienteUI para edición {cliente_id}')
+        except Exception:
+            logging.exception('Error abriendo edición cliente')
