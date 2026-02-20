@@ -124,7 +124,7 @@ class AlmacenView(BaseModuleView):
             from .ui.Productos.crear_producto_ui import CrearProductoUI
             # Always instantiate a fresh UI to avoid using destroyed widgets
             try:
-                crear_ui = CrearProductoUI(self.central_area, db=self.db, producto_id=producto_id)
+                crear_ui = CrearProductoUI(self.central_area, db=self.db, producto_id=producto_id, module_name='almacen')
                 # Prefer passing the actual widget to set_central_content to avoid
                 # ambiguous packing behavior if the instance exposes both
                 # get_widget() and pack(). This reduces race conditions with

@@ -10,6 +10,7 @@ from kool_tpv.base_datos.proveedor_service import ProveedorService
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.custom_dialog import show_success
+from kool_tpv.utils.config_loader import create_action_button
 
 logger = logging.getLogger(__name__)
 
@@ -235,14 +236,21 @@ class DetalleAlbaranUI:
         self.lbl_total = ctk.CTkLabel(totales_frame, text='TOTAL: 0.00€', text_color='#FF0000', font=('Courier New', 16, 'bold'))
         self.lbl_total.pack(side='left', padx=12)
 
-        # Footer (solo GUARDAR + IMPRIMIR)
+        # Footer (solo GUARDAR + IMPRIMIR) desde config
         footer = ctk.CTkFrame(self.container, fg_color='transparent')
         footer.pack(side='bottom', fill='x', padx=6, pady=12)
         try:
-            ctk.CTkButton(footer, text='GUARDAR', fg_color='#2ecc71', command=self._save_albaran).pack(side='left', padx=8)
-            ctk.CTkButton(footer, text='IMPRIMIR', fg_color='#3498db', command=self._print_albaran).pack(side='left', padx=8)
+            btn_guardar = create_action_button(footer, 'guardar', self._save_albaran)
+            btn_guardar.pack(side='left', padx=8)
+            btn_imprimir = create_action_button(footer, 'imprimir', self._print_albaran)
+            btn_imprimir.pack(side='left', padx=8)
         except Exception:
-            pass
+            # fallback a CTkButton si hay error creando desde config
+            try:
+                ctk.CTkButton(footer, text='GUARDAR', fg_color='#2ecc71', command=self._save_albaran).pack(side='left', padx=8)
+                ctk.CTkButton(footer, text='IMPRIMIR', fg_color='#3498db', command=self._print_albaran).pack(side='left', padx=8)
+            except Exception:
+                pass
 
         # Estado
         self.lines = []

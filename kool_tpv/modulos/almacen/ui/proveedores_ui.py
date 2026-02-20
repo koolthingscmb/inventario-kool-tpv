@@ -7,6 +7,7 @@ import customtkinter as ctk
 
 from kool_tpv.base_datos.proveedor_service import ProveedorService
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL, FONT_BUTTONS
+from kool_tpv.utils.config_loader import create_action_button
 
 
 class ProveedoresUI:
@@ -105,23 +106,23 @@ class ProveedoresUI:
         self.chips_frame = ctk.CTkScrollableFrame(self.grid_frame, fg_color=COLOR_BG_TERMINAL)
         self.chips_frame.grid(row=9, column=0, columnspan=8, sticky='nsew', padx=6, pady=6)
 
-        # Footer buttons
+        # Footer buttons (desde config)
         self.footer = ctk.CTkFrame(self.container, fg_color='transparent')
         self.footer.pack(side='bottom', fill='x', padx=12, pady=12)
 
-        self.btn_nuevo = ctk.CTkButton(self.footer, text='NUEVO / LIMPIAR', fg_color='#7f8c8d', command=self.clear)
+        self.btn_nuevo = create_action_button(self.footer, 'nuevo_limpiar', self.clear)
         self.btn_nuevo.pack(side='left', padx=8)
 
-        self.btn_guardar = ctk.CTkButton(self.footer, text='GUARDAR', fg_color='#2ecc71', command=self.save)
+        self.btn_guardar = create_action_button(self.footer, 'guardar', self.save)
         self.btn_guardar.pack(side='left', padx=8)
 
-        self.btn_eliminar = ctk.CTkButton(self.footer, text='ELIMINAR', fg_color='#e74c3c', command=self.delete)
+        self.btn_eliminar = create_action_button(self.footer, 'eliminar', self.delete)
         self.btn_eliminar.pack(side='left', padx=8)
 
-        self.btn_albaranes = ctk.CTkButton(self.footer, text='CONSULTAR ALBARANES', fg_color='#3498db', command=self._mostrar_albaranes)
+        self.btn_albaranes = create_action_button(self.footer, 'consultar_albaranes', self._mostrar_albaranes)
         self.btn_albaranes.pack(side='left', padx=8)
 
-        self.btn_mapeo = ctk.CTkButton(self.footer, text='MAPEO CSV', fg_color='#9b59b6', command=self._editar_mapeo_csv)
+        self.btn_mapeo = create_action_button(self.footer, 'mapeo_csv', self._editar_mapeo_csv)
         self.btn_mapeo.pack(side='left', padx=8)
 
         # Load proveedores

@@ -70,8 +70,13 @@ class BaseModuleView:
             try:
                 lbl = b.get('label') or b.get('text') or 'BTN'
                 action = b.get('action')
-                # default command: log action (caller can rebind)
-                cmd = (lambda name=action or lbl: logging.info(f'Menu action: {name}'))
+                # Conectar a método real si existe, sino placeholder
+                if action and hasattr(self, action):
+                    cmd = getattr(self, action)
+                    logging.info(f'Botón {lbl} conectado a método {action}')
+                else:
+                    cmd = (lambda name=action or lbl: logging.info(f'Menu action pendiente: {name}'))
+                    logging.warning(f'Botón {lbl}: método {action} no encontrado, usando placeholder')
                 # Support BOTH styles: legacy (solid color) and new minimal (fg_color + border)
                 btn_kwargs = {
                     'master': self._menu_frame,

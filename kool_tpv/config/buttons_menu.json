@@ -23,13 +23,13 @@
         "action": "show_crear_cliente"
       },
       {
-        "label": "CLIENTES",
+        "label": "BÚSQUEDA",
         "fg_color": "#000000",
         "border_color": "#FFD700",
         "border_width": 4,
         "text_color": "#FFD700",
         "hover_color": "#FFD700",
-        "action": "show_clientes"
+        "action": "show_busqueda"
       },
       {
         "label": "TOPS",

@@ -6,6 +6,7 @@ import customtkinter as ctk
 from kool_tpv.base_datos.albaran_service import AlbaranService
 from kool_tpv.base_datos.proveedor_service import ProveedorService
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL
+from kool_tpv.utils.config_loader import create_action_button
 
 
 
@@ -25,17 +26,24 @@ class AlbaranesUI:
         btn_frame.pack(fill='x', padx=12, pady=8)
         btn_frame.pack_propagate(False)
 
+        # Prefer creating buttons from config when available, fallback to CTkButton
         botones = [
-            ('ENTRADA MANUAL', '#2ecc71', self.show_entrada_manual),
-            ('IMPORTAR ALBARÁN', '#3498db', self._placeholder),
-            ('CONSULTAR', '#9b59b6', self.show_consultar),
-            ('EXPORTAR', '#e67e22', self._placeholder),
-            ('SALIDA MANUAL', '#e74c3c', self.show_salida_manual),
-            ('DEVOLUCIÓN', '#95a5a6', self.show_devolucion)
+            ('ENTRADA MANUAL', 'entrada_manual', self.show_entrada_manual),
+            ('IMPORTAR ALBARÁN', 'importar_csv', self._placeholder),
+            ('CONSULTAR', 'consultar_albaranes', self.show_consultar),
+            ('EXPORTAR', None, self._placeholder),
+            ('SALIDA MANUAL', 'salida_manual', self.show_salida_manual),
+            ('DEVOLUCIÓN', 'devoluciones', self.show_devolucion)
         ]
 
-        for texto, color, cmd in botones:
-            btn = ctk.CTkButton(btn_frame, text=texto, fg_color=color, command=cmd)
+        for texto, key, cmd in botones:
+            if key:
+                try:
+                    btn = create_action_button(btn_frame, key, cmd)
+                except Exception:
+                    btn = ctk.CTkButton(btn_frame, text=texto, command=cmd)
+            else:
+                btn = ctk.CTkButton(btn_frame, text=texto, fg_color='#e67e22', command=cmd)
             btn.pack(side='left', padx=6)
 
         # Área central (cambia según botón)

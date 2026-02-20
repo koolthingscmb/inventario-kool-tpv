@@ -3,6 +3,7 @@ import logging
 import json
 import customtkinter as ctk
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
+from kool_tpv.utils.config_loader import create_action_button
 from kool_tpv.base_datos.proveedor_service import ProveedorService
 from kool_tpv.utils.custom_dialog import show_error, show_success
 
@@ -128,37 +129,15 @@ class MapeoCsvUI:
         # Cargar mapeo actual
         self._cargar_mapeo()
 
-        # Footer con botones
+        # Footer buttons (desde config)
         footer = ctk.CTkFrame(self.container, fg_color='transparent')
         footer.pack(side='bottom', fill='x', padx=12, pady=12)
 
-        btn_cancelar = ctk.CTkButton(
-            footer,
-            text='CANCELAR',
-            fg_color='#7f8c8d',
-            hover_color='#95a5a6',
-            text_color='#000000',
-            font=('Courier New', 18, 'bold'),
-            width=140,
-            height=50,
-            corner_radius=0,
-            command=self._on_cancelar
-        )
-        btn_cancelar.pack(side='left', padx=8)
+        self.btn_cancelar = create_action_button(footer, 'cancelar', self._on_cancelar)
+        self.btn_cancelar.pack(side='left', padx=8)
 
-        btn_guardar = ctk.CTkButton(
-            footer,
-            text='GUARDAR',
-            fg_color='#2ecc71',
-            hover_color='#27ae60',
-            text_color='#000000',
-            font=('Courier New', 18, 'bold'),
-            width=140,
-            height=50,
-            corner_radius=0,
-            command=self._on_guardar
-        )
-        btn_guardar.pack(side='left', padx=8)
+        self.btn_guardar = create_action_button(footer, 'guardar', self._on_guardar)
+        self.btn_guardar.pack(side='left', padx=8)
 
         # Foco en textbox
         try:

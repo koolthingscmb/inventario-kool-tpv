@@ -1,0 +1,62 @@
+{
+  "global": {
+    "bg_terminal": "#000000",
+    "bg_sidebar": "#1a1a1a",
+    "bg_dark": "#0d0d0d",
+    "bg_medium": "#2a2a2a",
+    "text_matrix": "#00FF00",
+    "text_white": "#FFFFFF",
+    "text_gray": "#CCCCCC",
+    "text_disabled": "#666666",
+    "success": "#2ecc71",
+    "error": "#e74c3c",
+    "warning": "#f39c12",
+    "info": "#3498db"
+  },
+  "almacen": {
+    "primary": "#00FF00",
+    "secondary": "#32CD32",
+    "accent": "#DAFCCF",
+    "light": "#5EE37E",
+    "border": "#00FF00",
+    "text": "#00FF00",
+    "description": "Verde Matrix - Gestión de stock y productos"
+  },
+  "clientes": {
+    "primary": "#FFD700",
+    "secondary": "#FFC107",
+    "accent": "#FFEB3B",
+    "light": "#FF9800",
+    "crear": "#ADFF2F",
+    "border": "#FFD700",
+    "text": "#FFD700",
+    "description": "Amarillo Sol - Gestión de clientes y fidelización"
+  },
+  "informes": {
+    "primary": "#FFFFFF",
+    "secondary": "#E0E0E0",
+    "accent": "#BDBDBD",
+    "light": "#F5F5F5",
+    "border": "#FFFFFF",
+    "text": "#FFFFFF",
+    "description": "Blanco - Reportes y análisis"
+  },
+  "shopify": {
+    "primary": "#00A4DF",
+    "secondary": "#3498db",
+    "accent": "#5DADE2",
+    "light": "#6FCFF5",
+    "border": "#00A4DF",
+    "text": "#00A4DF",
+    "description": "Azul Matrix - Integración tienda online"
+  },
+  "config": {
+    "primary": "#FF9800",
+    "secondary": "#F57C00",
+    "accent": "#FFB74D",
+    "light": "#FFCC80",
+    "border": "#FF9800",
+    "text": "#FF9800",
+    "description": "Naranja - Configuración del sistema"
+  }
+}

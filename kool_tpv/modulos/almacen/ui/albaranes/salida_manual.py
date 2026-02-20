@@ -11,9 +11,9 @@ logger = logging.getLogger(__name__)
 class SalidaManualUI:
     """Salida manual - resta stock del almacén."""
 
-    def __init__(self, parent, db=None):
+    def __init__(self, parent, db=None, module_name: str = 'almacen'):
         # Delegar a EntradaManualUI con tipo='SALIDA'
-        self._delegate = EntradaManualUI(parent, db=db, tipo='SALIDA')
+        self._delegate = EntradaManualUI(parent, db=db, tipo='SALIDA', module_name=module_name)
 
     def get_widget(self):
         return self._delegate.get_widget()

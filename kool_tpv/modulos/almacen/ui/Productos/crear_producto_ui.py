@@ -26,14 +26,21 @@ from kool_tpv.utils.utils import (
 
 
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
+from kool_tpv.utils.config_loader import create_action_button
 
 
 
 
 class CrearProductoUI:
-    def __init__(self, parent, db: Optional[object] = None, producto_id: Optional[int] = None):
+    def __init__(self, parent, db: Optional[object] = None, producto_id: Optional[int] = None, module_name: str = 'almacen'):
         self.parent = parent
         self.db = db
+        self.module_name = module_name
+        from kool_tpv.utils.config_loader import load_colors
+        try:
+            self.colors = load_colors(module_name)
+        except Exception:
+            self.colors = {'text': COLOR_MATRIX, 'primary': COLOR_MATRIX, 'accent': COLOR_MATRIX}
         self.container = ctk.CTkFrame(self.parent, fg_color=COLOR_BG_TERMINAL)
 
         # Header removed: breadcrumb is provided by BaseModuleView
@@ -46,72 +53,72 @@ class CrearProductoUI:
         self.shopify_frame.pack(fill='both', expand=True, padx=12, pady=(0, 8))
         # Common styles
         lbl_font = FONT_TERMINAL
-        entry_kwargs = {"fg_color": COLOR_BG_TERMINAL, "text_color": COLOR_MATRIX, "border_width": 2, "border_color": COLOR_MATRIX, "corner_radius": 4}
+        entry_kwargs = {"fg_color": COLOR_BG_TERMINAL, "text_color": self.colors['text'], "border_width": 2, "border_color": self.colors['primary'], "corner_radius": 4}
 
         # Build GENERAL frame with 8-column grid (7 filas requeridas)
         for c in range(8):
             self.general_frame.grid_columnconfigure(c, weight=1, uniform='col')
 
         # Fila 1: ID (2 col block) | NOMBRE (6 col block)
-        ctk.CTkLabel(self.general_frame, text="ID:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=0, column=0, sticky='w', padx=6, pady=6)
-        self.e_id = ctk.CTkEntry(self.general_frame, placeholder_text="ID (auto)", state='disabled', fg_color=COLOR_BG_TERMINAL, text_color="#666666", border_color=COLOR_MATRIX)
+        ctk.CTkLabel(self.general_frame, text="ID:", text_color=self.colors['text'], font=lbl_font).grid(row=0, column=0, sticky='w', padx=6, pady=6)
+        self.e_id = ctk.CTkEntry(self.general_frame, placeholder_text="ID (auto)", state='disabled', fg_color=COLOR_BG_TERMINAL, text_color="#666666", border_color=self.colors['primary'])
         self.e_id.grid(row=0, column=1, columnspan=1, sticky='ew', padx=6, pady=6)
 
-        ctk.CTkLabel(self.general_frame, text="NOMBRE:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=0, column=2, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.general_frame, text="NOMBRE:", text_color=self.colors['text'], font=lbl_font).grid(row=0, column=2, sticky='w', padx=6, pady=6)
         self.e_nombre = ctk.CTkEntry(self.general_frame, placeholder_text="Nombre del producto", **entry_kwargs)
         self.e_nombre.grid(row=0, column=3, columnspan=5, sticky='ew', padx=6, pady=6)
 
         # Fila 2: SKU (4 col) | NOMBRE_BOTON (4 col)
-        ctk.CTkLabel(self.general_frame, text="SKU:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=1, column=0, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.general_frame, text="SKU:", text_color=self.colors['text'], font=lbl_font).grid(row=1, column=0, sticky='w', padx=6, pady=6)
         self.e_sku = ctk.CTkEntry(self.general_frame, placeholder_text='SKU', **entry_kwargs)
         self.e_sku.grid(row=1, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
 
-        ctk.CTkLabel(self.general_frame, text="NOMBRE_BOTON:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=1, column=4, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.general_frame, text="NOMBRE_BOTON:", text_color=self.colors['text'], font=lbl_font).grid(row=1, column=4, sticky='w', padx=6, pady=6)
         self.e_nombre_btn = ctk.CTkEntry(self.general_frame, placeholder_text='Texto botón', **entry_kwargs)
         self.e_nombre_btn.grid(row=1, column=5, columnspan=3, sticky='ew', padx=6, pady=6)
 
         # Fila 3: CATEGORIA | TIPO | PROVEEDOR (distribuidos)
-        ctk.CTkLabel(self.general_frame, text="CATEGORÍA:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=2, column=0, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.general_frame, text="CATEGORÍA:", text_color=self.colors['text'], font=lbl_font).grid(row=2, column=0, sticky='w', padx=6, pady=6)
         self.cb_categoria = SearchableCombo(self.general_frame, placeholder='Buscar categoría')
         self.cb_categoria.grid(row=2, column=1, columnspan=2, sticky='ew', padx=6, pady=6)
 
-        ctk.CTkLabel(self.general_frame, text="TIPO:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=2, column=3, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.general_frame, text="TIPO:", text_color=self.colors['text'], font=lbl_font).grid(row=2, column=3, sticky='w', padx=6, pady=6)
         self.cb_tipo = SearchableCombo(self.general_frame, placeholder='Buscar tipo')
         self.cb_tipo.grid(row=2, column=4, columnspan=2, sticky='ew', padx=6, pady=6)
 
-        ctk.CTkLabel(self.general_frame, text="PROVEEDOR:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=2, column=6, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.general_frame, text="PROVEEDOR:", text_color=self.colors['text'], font=lbl_font).grid(row=2, column=6, sticky='w', padx=6, pady=6)
         self.cb_proveedor = SearchableCombo(self.general_frame, placeholder='Buscar proveedor')
         self.cb_proveedor.grid(row=2, column=7, sticky='ew', padx=6, pady=6)
 
         # Fila 4: PVP (4 col) | COSTE (4 col)
-        ctk.CTkLabel(self.general_frame, text="PVP:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=3, column=0, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.general_frame, text="PVP:", text_color=self.colors['text'], font=lbl_font).grid(row=3, column=0, sticky='w', padx=6, pady=6)
         self.e_pvp = ctk.CTkEntry(self.general_frame, placeholder_text='0.00', **entry_kwargs)
         self.e_pvp.grid(row=3, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
 
-        ctk.CTkLabel(self.general_frame, text="COSTE:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=3, column=4, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.general_frame, text="COSTE:", text_color=self.colors['text'], font=lbl_font).grid(row=3, column=4, sticky='w', padx=6, pady=6)
         self.e_coste = ctk.CTkEntry(self.general_frame, placeholder_text='0.00', **entry_kwargs)
         self.e_coste.grid(row=3, column=5, columnspan=3, sticky='ew', padx=6, pady=6)
 
         # Fila 5: TIPO_IVA (4 col) | PVP_VARIABLE (4 col)
-        ctk.CTkLabel(self.general_frame, text="TIPO_IVA:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=4, column=0, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.general_frame, text="TIPO_IVA:", text_color=self.colors['text'], font=lbl_font).grid(row=4, column=0, sticky='w', padx=6, pady=6)
         self.cb_iva = SearchableCombo(self.general_frame, placeholder='IVA (ej: 21)')
         self.cb_iva.grid(row=4, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
 
-        ctk.CTkLabel(self.general_frame, text="PVP_VARIABLE:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=4, column=4, sticky='w', padx=6, pady=6)
-        self.chk_pvp_var = ctk.CTkCheckBox(self.general_frame, text='', fg_color=COLOR_MATRIX)
+        ctk.CTkLabel(self.general_frame, text="PVP_VARIABLE:", text_color=self.colors['text'], font=lbl_font).grid(row=4, column=4, sticky='w', padx=6, pady=6)
+        self.chk_pvp_var = ctk.CTkCheckBox(self.general_frame, text='', fg_color=self.colors['primary'])
         self.chk_pvp_var.grid(row=4, column=5, columnspan=3, sticky='w', padx=6, pady=6)
 
         # Fila 6: STOCK_ACTUAL (4 col) | STOCK_MINIMO (4 col)
-        ctk.CTkLabel(self.general_frame, text="STOCK_ACTUAL:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=5, column=0, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.general_frame, text="STOCK_ACTUAL:", text_color=self.colors['text'], font=lbl_font).grid(row=5, column=0, sticky='w', padx=6, pady=6)
         self.e_stock_actual = ctk.CTkEntry(self.general_frame, placeholder_text='0', **entry_kwargs)
         self.e_stock_actual.grid(row=5, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
 
-        ctk.CTkLabel(self.general_frame, text="STOCK_MINIMO:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=5, column=4, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.general_frame, text="STOCK_MINIMO:", text_color=self.colors['text'], font=lbl_font).grid(row=5, column=4, sticky='w', padx=6, pady=6)
         self.e_stock_min = ctk.CTkEntry(self.general_frame, placeholder_text='0', **entry_kwargs)
         self.e_stock_min.grid(row=5, column=5, columnspan=3, sticky='ew', padx=6, pady=6)
 
         # Fila 7: VENTAS (read-only 4 col) | ESTADO (4 col)
-        ctk.CTkLabel(self.general_frame, text="VENTAS:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=6, column=0, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.general_frame, text="VENTAS:", text_color=self.colors['text'], font=lbl_font).grid(row=6, column=0, sticky='w', padx=6, pady=6)
         # Use a StringVar bound to the Entry so the UI can be updated even when readonly
         try:
             self.e_ventas_var = tk.StringVar(value='0')
@@ -130,10 +137,10 @@ class CrearProductoUI:
                 self.e_ventas = tk.Entry(self.general_frame)
         self.e_ventas.grid(row=6, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
 
-        ctk.CTkLabel(self.general_frame, text="ACTIVO:", text_color=COLOR_MATRIX, font=lbl_font).grid(row=6, column=4, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.general_frame, text="ACTIVO:", text_color=self.colors['text'], font=lbl_font).grid(row=6, column=4, sticky='w', padx=6, pady=6)
         # Use a BooleanVar to track activo state
         self.chk_activo_var = tk.BooleanVar(value=True)
-        self.chk_activo = ctk.CTkCheckBox(self.general_frame, text='Producto activo', variable=self.chk_activo_var, fg_color=COLOR_MATRIX, text_color=COLOR_MATRIX)
+        self.chk_activo = ctk.CTkCheckBox(self.general_frame, text='Producto activo', variable=self.chk_activo_var, fg_color=self.colors['primary'], text_color=self.colors['text'])
         # Marcado por defecto
         try:
             self.chk_activo_var.set(True)
@@ -142,7 +149,7 @@ class CrearProductoUI:
         self.chk_activo.grid(row=6, column=5, columnspan=3, sticky='w', padx=6, pady=6)
 
         # Fila 8: CÓDIGOS_DE_BARRAS (CSV separado por comas)
-        ctk.CTkLabel(self.general_frame, text="CÓDIGOS_DE_BARRAS (CSV separado por comas):", text_color=COLOR_MATRIX, font=lbl_font).grid(row=7, column=0, sticky='w', padx=6, pady=6, columnspan=8)
+        ctk.CTkLabel(self.general_frame, text="CÓDIGOS_DE_BARRAS (CSV separado por comas):", text_color=self.colors['text'], font=lbl_font).grid(row=7, column=0, sticky='w', padx=6, pady=6, columnspan=8)
         try:
             self.e_codigos = ctk.CTkEntry(self.general_frame, placeholder_text='ean1,ean2,ean3', **entry_kwargs)
         except Exception:
@@ -160,18 +167,18 @@ class CrearProductoUI:
             self.shopify_frame.grid_columnconfigure(c, weight=1, uniform='col')
 
         # Fila 1: TITULO (Label + Entry, 8 col)
-        ctk.CTkLabel(self.shopify_frame, text='TITULO:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=0, column=0, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.shopify_frame, text='TITULO:', text_color=self.colors['text'], font=lbl_font).grid(row=0, column=0, sticky='w', padx=6, pady=6)
         self.e_seo_title = ctk.CTkEntry(self.shopify_frame, placeholder_text='Título web', **entry_kwargs)
         self.e_seo_title.grid(row=0, column=1, columnspan=7, sticky='ew', padx=6, pady=6)
 
         # Fila 2: LINK (Label + Entry + Botón IR)
-        ctk.CTkLabel(self.shopify_frame, text='LINK:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=1, column=0, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.shopify_frame, text='LINK:', text_color=self.colors['text'], font=lbl_font).grid(row=1, column=0, sticky='w', padx=6, pady=6)
         self.e_shop_link = ctk.CTkEntry(self.shopify_frame, placeholder_text='https://…', **entry_kwargs)
         self.e_shop_link.grid(row=1, column=1, columnspan=6, sticky='ew', padx=6, pady=6)
         ctk.CTkButton(self.shopify_frame, text='IR', width=60, fg_color='#3498db', command=self._open_shop_link).grid(row=1, column=7, sticky='ew', padx=6, pady=6)
 
         # Fila 3: TAXONOMY (static vinculado, 4 col) | TIPO_SHOP (label+entry, 4 col)
-        ctk.CTkLabel(self.shopify_frame, text='TAXONOMY:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=2, column=0, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.shopify_frame, text='TAXONOMY:', text_color=self.colors['text'], font=lbl_font).grid(row=2, column=0, sticky='w', padx=6, pady=6)
         # Readonly entry to allow selection/copy but prevent manual edits
         try:
             self.ent_taxonomy = ctk.CTkEntry(self.shopify_frame, placeholder_text='', state='readonly', fg_color="#000000", text_color="#00FF00", border_width=2, border_color="#00FF00", corner_radius=4)
@@ -185,22 +192,22 @@ class CrearProductoUI:
         # Make taxonomy wider (occupy 2 columns) and expand horizontally
         self.ent_taxonomy.grid(row=2, column=1, columnspan=2, sticky='ew', padx=6, pady=6)
 
-        ctk.CTkLabel(self.shopify_frame, text='TIPO_SHOP:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=2, column=4, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.shopify_frame, text='TIPO_SHOP:', text_color=self.colors['text'], font=lbl_font).grid(row=2, column=4, sticky='w', padx=6, pady=6)
         self.e_tipo_shop = ctk.CTkEntry(self.shopify_frame, placeholder_text='Tipo shop', **entry_kwargs)
         self.e_tipo_shop.grid(row=2, column=5, columnspan=3, sticky='ew', padx=6, pady=6)
 
         # Fila 4: TAGS (ocupa toda la fila, 8 columnas)
-        ctk.CTkLabel(self.shopify_frame, text='TAGS:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=3, column=0, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.shopify_frame, text='TAGS:', text_color=self.colors['text'], font=lbl_font).grid(row=3, column=0, sticky='w', padx=6, pady=6)
         self.e_tags = ctk.CTkEntry(self.shopify_frame, placeholder_text='tag1, tag2', **entry_kwargs)
         self.e_tags.grid(row=3, column=1, columnspan=7, sticky='ew', padx=6, pady=6)
 
         # Fila 5: SEO_TITLE (Label + Entry, 8 col)
-        ctk.CTkLabel(self.shopify_frame, text='SEO_TITLE:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=4, column=0, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.shopify_frame, text='SEO_TITLE:', text_color=self.colors['text'], font=lbl_font).grid(row=4, column=0, sticky='w', padx=6, pady=6)
         self.e_seo_short = ctk.CTkEntry(self.shopify_frame, placeholder_text='SEO short title', **entry_kwargs)
         self.e_seo_short.grid(row=4, column=1, columnspan=7, sticky='ew', padx=6, pady=6)
 
         # Fila 6: SEO_DESCRIPTION (CTkTextbox, altura menor 80px, 8 col)
-        ctk.CTkLabel(self.shopify_frame, text='SEO_DESCRIPTION:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=5, column=0, sticky='nw', padx=6, pady=6)
+        ctk.CTkLabel(self.shopify_frame, text='SEO_DESCRIPTION:', text_color=self.colors['text'], font=lbl_font).grid(row=5, column=0, sticky='nw', padx=6, pady=6)
         try:
             self.e_seo_desc = ctk.CTkTextbox(self.shopify_frame, width=800, height=80, fg_color="#000000", text_color="#00FF00", border_width=2, border_color="#00FF00")
             self.e_seo_desc.grid(row=5, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
@@ -217,7 +224,7 @@ class CrearProductoUI:
             frame.grid(row=5, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
 
         # Fila 7: DESCRIPCION (CTkTextbox grande, 8 col)
-        ctk.CTkLabel(self.shopify_frame, text='DESCRIPCION:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=6, column=0, sticky='nw', padx=6, pady=6)
+        ctk.CTkLabel(self.shopify_frame, text='DESCRIPCION:', text_color=self.colors['text'], font=lbl_font).grid(row=6, column=0, sticky='nw', padx=6, pady=6)
         try:
             self.txt_description = ctk.CTkTextbox(self.shopify_frame, width=800, height=100, fg_color="#000000", text_color="#00FF00", border_width=2, border_color="#00FF00")
             self.txt_description.grid(row=6, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
@@ -241,14 +248,14 @@ class CrearProductoUI:
         # Use terminal bg for footer to ensure buttons are visible and contrast correctly
         self.btn_frame = ctk.CTkFrame(self.container, fg_color=COLOR_BG_TERMINAL)
         self.btn_frame.pack(side='bottom', fill='x', padx=12, pady=12)
-        # Guardar (green)
-        self.btn_guardar = ctk.CTkButton(self.btn_frame, text='Guardar', fg_color='#2ecc71', text_color='black', command=self._on_save)
+        # Guardar (desde config)
+        self.btn_guardar = create_action_button(self.btn_frame, 'guardar', self._on_save)
         self.btn_guardar.pack(side='left', padx=8)
-        # Sincronizar (yellow, black text)
-        self.btn_sync = ctk.CTkButton(self.btn_frame, text='Sincronizar', fg_color='#f1c40f', text_color='black', command=self._on_sync)
+        # Sincronizar (desde config)
+        self.btn_sync = create_action_button(self.btn_frame, 'sincronizar', self._on_sync)
         self.btn_sync.pack(side='left', padx=8)
-        # Buscar data (yellow, black text)
-        self.btn_buscar = ctk.CTkButton(self.btn_frame, text='Buscar data', fg_color='#f1c40f', text_color='black', command=self._on_buscar_data)
+        # Buscar data (desde config)
+        self.btn_buscar = create_action_button(self.btn_frame, 'buscar_data', self._on_buscar_data)
         self.btn_buscar.pack(side='left', padx=8)
 
         # Trace category changes to update taxonomy (focusout and selection events)
@@ -415,7 +422,7 @@ class CrearProductoUI:
                     return False, f"La {label} '{val}' no existe"
                 else:
                     try:
-                        w.entry.configure(border_color=COLOR_MATRIX)
+                        w.entry.configure(border_color=self.colors['primary'])
                     except Exception:
                         pass
             except Exception:

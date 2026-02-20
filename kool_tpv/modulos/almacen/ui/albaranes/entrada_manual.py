@@ -10,6 +10,7 @@ from kool_tpv.base_datos.proveedor_service import ProveedorService
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.custom_dialog import show_success
+from kool_tpv.utils.config_loader import create_action_button
 
 logger = logging.getLogger(__name__)
 
@@ -258,11 +259,13 @@ class EntradaManualUI:
         except Exception:
             pass
 
-        # Footer
+        # Footer (desde config)
         footer = ctk.CTkFrame(self.container, fg_color='transparent')
         footer.pack(side='bottom', fill='x', padx=6, pady=12)
-        ctk.CTkButton(footer, text='GUARDAR', fg_color='#2ecc71', command=self._save_albaran).pack(side='left', padx=8)
-        ctk.CTkButton(footer, text='CANCELAR', fg_color='#e74c3c', command=self._cancel).pack(side='left', padx=8)
+        btn_guardar = create_action_button(footer, 'guardar', self._save_albaran)
+        btn_guardar.pack(side='left', padx=8)
+        btn_cancelar = create_action_button(footer, 'cancelar', self._cancel)
+        btn_cancelar.pack(side='left', padx=8)
 
         # Estado
         self.lines = []

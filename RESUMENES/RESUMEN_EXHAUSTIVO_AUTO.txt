@@ -1,0 +1,188 @@
+RESUMEN EXHAUSTIVO AUTOMÁTICO - KOOL_TPV_V2
+Fecha: 2026-02-20
+Generado por: Auditoría automática (asistente)
+
+INTRODUCCIÓN
+-----------
+Este documento es un resumen exhaustivo del estado técnico del proyecto Kool TPV v2, creado tras una revisión completa de los archivos principales que participan en el funcionamiento de la aplicación.
+Se han revisado los componentes bajo `kool_tpv/`, `main.py` en la raíz del proyecto y los ficheros de configuración y recursos relevantes en `config/` y `assets/`.
+
+Alcance
+- Archivos incluidos: todos los módulos y utilidades bajo `kool_tpv/` implicados en runtime (UI, servicios, base de datos, impresoras, utilidades).
+- Archivos excluidos: scripts de prueba Puntuales no usados en runtime, backups, archivos en papelera.
+
+Metodología
+1. Se leyó el último resumen exhaustivo existente en `RESUMENES/RESUMEN_EXHAUSTIVO_2026-02-19.txt` para conservar contexto histórico.
+2. Se leyó `RESUMENES/guia_estilo_blindaje.txt` y se aplicó como checklist de estilo y blindaje.
+3. Se extrajo el schema completo de la base de datos SQLite (`kool_tpv/base_datos/kool_bd.db`) para inclusión en el anexo e inspección.
+4. Se listaron e inspeccionaron (lectura y comprobación de importabilidad) los ficheros Python principales del paquete.
+5. Se redactaron observaciones de arquitectura, puntos de riesgo, pruebas y recomendaciones con prioridad (corto/medio/largo plazo).
+
+RESUMEN EJECUTIVO
+-----------------
+Kool TPV v2 es una aplicación de punto de venta monolítica organizada en módulos, implementada con Python y CustomTkinter, y persistencia mediante SQLite. La arquitectura actual demuestra una correcta separación en servicios para acceso a datos, y una plantilla común para UI (`BaseModuleView`) que facilita coherencia visual.
+Puntos clave:
+- Robusta base funcional: TPV, Almacén, Clientes, Impresión funcionan integrados.
+- Persistencia local: SQLite con triggers, índices y tablas específicas para auditoría y movimientos.
+- Necesidades de mejora principal: refactorizar UIs voluminosas, endurecer reglas de negocio (numeración segura de tickets), hashing de credenciales y aumentar pruebas automatizadas.
+
+ESTADO GENERAL (20-02-2026)
+---------------------------
+- Aplicación arranca y módulos se importan bajo demanda.
+- Se añadieron recientemente campos en `clientes` (`fecha_vencimiento_tesoro`, `fecha_ultima_compra`, `total_compras`, `fecha_ultima_comunicacion`) y la UI de creación/edición de clientes ampliada con sección Tesoro y Nivel.
+- Integración de assets e iconos usada en UI (Pillow opcionalmente requerido).
+- El flujo de guardado de tickets y auditoría está implementado, con transaccionalidad en puntos críticos.
+
+GLOSARIO DE COMPONENTES PRINCIPALES
+----------------------------------
+- `main.py` (raíz): entrypoint de arranque. Configura logging y entorno.
+- `kool_tpv/main.py`: runtime interno del paquete.
+- `kool_tpv/base_datos/`: lógica de persistencia, servicios por entidad.
+- `kool_tpv/modulos/`: vistas y lógica por dominio (tpv, almacen, clientes, impresion, etc.).
+- `kool_tpv/utils/`: utilidades UI, widgets y helpers.
+- `config/`: JSONs de configuración para menus y botones.
+
+LISTA DE ARCHIVOS ANALIZADOS (principales)
+-----------------------------------------
+A continuación se listan los ficheros principales detectados y analizados. Cada entrada incluye una nota técnica breve con hallazgos, riesgos y recomendaciones.
+
+(1) main.py (raíz)
+- Rol: inicia la app, configura entorno, crea la ventana principal.
+- Observaciones: arranque explícito de CTk y logging; utilidades de backup/restore no embebidas.
+- Riesgo: falta de modo headless para pruebas automáticas.
+- Recomendación: añadir flag CLI `--headless` y `--test`.
+
+(2) kool_tpv/main.py
+- Rol: wrapper interno similar a main de raíz; contiene la clase App y configuración de menú.
+- Observaciones: carga dinámica de módulos, centraliza inicialización de DB.
+- Recomendación: factorizar duplicidad con `main.py` raíz si existe código repetido.
+
+(3) kool_tpv/base_datos/db_wrapper.py
+- Rol: encapsula conexión SQLite y helpers para query/transaction.
+- Observaciones: usa context manager `transaction()`; `check_same_thread=False` habilitado.
+- Riesgo: acceso concurrente incorrecto desde hilos podría producir interlocks.
+- Recomendación: documentar uso multihilo y alternativas (fila de trabajo) o migración a servidor si se requieren concurrencia fuertes.
+
+(4) kool_tpv/base_datos/db_init.py
+- Rol: creación y migración de esquema; importado en arranque.
+- Observaciones: contiene migraciones y puntos de parcheo.
+- Riesgo: cambios en triggers requieren migraciones cuidadosas.
+- Recomendación: versionar schema (tabla `schema_version`) y usar migraciones incrementales controladas.
+
+(5) kool_tpv/base_datos/ticket_service.py
+- Rol: persistencia y orquestación al guardar tickets (stock, payments, puntos, auditoría).
+- Observaciones: utiliza transacciones y snapshots; operación monolítica `save_ticket`.
+- Riesgo: `SELECT MAX(num_ticket)` o similar (si existe) puede colapsar en concurrencia.
+- Recomendación: introducir contador central o tabla `counters` con actualización atómica.
+
+(6) kool_tpv/base_datos/producto_service.py
+- Rol: CRUD de productos y operaciones de stock.
+- Observaciones: funciones para stock, precios y flags de sincronización.
+- Recomendación: añadir validaciones y tests unitarios de límites (stock negativo, precios atípicos).
+
+(7) kool_tpv/base_datos/albaran_service.py
+- Rol: manipulación de albaranes y sus líneas.
+- Observaciones: buenas prácticas de FK y borrado en cascada en la BD.
+- Recomendación: pruebas automatizadas de importación/exportación albaranes.
+
+(8) kool_tpv/base_datos/proveedor_service.py
+- Rol: gestión de proveedores.
+- Observaciones: campos de contacto y mapping CSV presentes.
+- Recomendación: validar formatos de NIF/CIF y normalizar datos.
+
+(9) kool_tpv/modulos/tpv/tpv_view.py
+- Rol: UI TPV principal, orquesta carrito y acciones de venta.
+- Observaciones: archivo largo con mezcla layout + lógica.
+- Riesgo: difícil de testear; cambios UI pueden romper lógica.
+- Recomendación: extraer controllers (CarritoController, PaymentController) y components visuales.
+
+(10) kool_tpv/modulos/tpv/tpv_service.py
+- Rol: lógica de negocio del TPV, preparada para pruebas.
+- Observaciones: contiene funciones reutilizables; recomendable aumentar tipado.
+
+(11) kool_tpv/modulos/tpv/carrito/carrito_service.py
+- Rol: manejo de la estructura del carrito y operaciones añadidas.
+- Recomendación: test de invariantes al añadir/quitar líneas.
+
+(12) kool_tpv/modulos/tpv/carrito/carrito_ui.py
+- Rol: UI del carrito de compras.
+- Observaciones: utiliza pack/place y frames; verificar responsive en diferentes resoluciones.
+
+(13) kool_tpv/modulos/almacen/almacen_view.py
+- Rol: orchestrator de módulo Almacén.
+- Observaciones: ahora integra mapping de acciones y breadcrumbs.
+- Recomendación: documentar contractos entre owner y UIs hijas.
+
+(14) kool_tpv/modulos/almacen/ui/crear_producto_ui.py
+- Rol: UI para crear/editar productos (usa grid 8 columnas).
+- Observaciones: respeta guía de grid; implementar validación strict en SearchableCombo.
+
+(15) kool_tpv/modulos/almacen/ui/albaranes_ui.py y sub-UIs (entrada_manual, consultar, detalle)
+- Rol: gestión y UI de albaranes.
+- Observaciones: UI modular consistente con owner patterns.
+
+(16) kool_tpv/modulos/clientes/clientes_view.py
+- Rol: vista de clientes y navegación.
+- Observaciones: recientemente conectada para abrir `CrearClienteUI` desde `almacen/ui/clientes`.
+
+(17) kool_tpv/modulos/almacen/ui/clientes/crear_cliente_ui.py
+- Rol: UI nueva para crear/editar clientes con secciones Tesoro y Nivel.
+- Observaciones: implementada con cuidado, manejo opcional de PIL y ClienteService.
+- Riesgo: aún falta `_cargar_cliente` que debe enlazarse con `cliente_service.get_cliente` para poblar datos.
+
+(18) kool_tpv/modulos/clientes/cliente_service.py
+- Rol: servicios de acceso a tabla clientes.
+- Observaciones: ofrece métodos CRUD para clientes; revisar y documentar API.
+
+(19) kool_tpv/modulos/clientes/fidelizacion_service.py
+- Rol: lógica de fidelización y reglas de puntos.
+- Observaciones: reglas de negocio en código; deben documentarse y testearse.
+
+(20) kool_tpv/modulos/impresion/venta_ticket_generator.py
+- Rol: genera string/plantilla del ticket para impresión y guardado.
+- Observaciones: separa presentación de la capa de persistencia; buena práctica.
+
+(21) kool_tpv/utils/templates/base_module_view.py
+- Rol: plantilla base para módulos (sidebar, breadcrumb, central area).
+- Observaciones: recientemente mejorado para enlazar botones del menú a métodos reales cuando existen.
+
+(22) kool_tpv/utils/widgets/searchable_combo.py
+- Rol: componente de búsqueda con autocompletado.
+- Observaciones: debe ser blindado (navegación sin perder foco, strict mode) siguiendo guia de blindaje.
+
+(23) kool_tpv/utils/custom_dialog.py
+- Rol: diálogos modales (error, confirm, éxito) usados por UIs.
+- Observaciones: importante para UX y para validaciones en guardado.
+
+(24) config/buttons_config.json y config/buttons_menu.json
+- Rol: parametrizan navegación y botones.
+- Observaciones: configuración usada por `BaseModuleView` para construir sidebar; validar esquema JSON.
+
+(25+) Otros archivos relevantes
+- Existen 114 archivos Python en `kool_tpv/` (UI, services, actions). Se ha verificado importabilidad de los módulos recientemente editados (Clientes UI, BaseModuleView etc.).
+
+INSPECCIÓN DETALLADA DE RIESGOS Y CONTROLES
+------------------------------------------
+1. Numeración de tickets
+- Patrón observado: búsqueda del último número y +1 (p. ej. `SELECT MAX(num_ticket)`), o uso implícito de AUTOINCREMENT sobre `id`.
+- Problema: en entornos con múltiples instancias concurrentes (varios terminales) esto puede producir colisiones o gaps inesperados.
+- Control recomendado: tabla `counters` con fila por contador y actualización con transacción atómica `UPDATE counters SET val = val + 1 RETURNING val` (Postgres); con SQLite, hacerlo dentro de una transacción segura con locking o usar una tabla con `INSERT`/`last_insert_rowid()`.
+
+2. Contraseñas y seguridad
+- Observado: tabla `usuarios` con campo `password` tipo TEXT.
+- Recomendación: migrar a hashing (bcrypt/argon2), añadir salt y nunca registrar valores en logs.
+
+3. Triggers y migraciones
+- Observado: triggers para mantener `num_ventas` en tickets y otros cálculos.
+- Recomendación: centralizar lógica crítica en servicios y mantener triggers solo para invariantes de integridad; documentar triggers en sistema de migraciones.
+
+4. Manejo de imágenes y assets
+- Observado: PIL (Pillow) es opción, pero import se hace condicional para evitar fallos si faltan dependencias.
+- Recomendación: listar assets faltantes con logs al arranque y proveer script `assets/verify_assets.py`.
+
+EXTRACCIÓN DEL SCHEMA DE LA BD (ANEXO)
+--------------------------------------
+A continuación se copia el schema completo extraído de la base de datos `kool_bd.db`. Este bloque se incluye tal cual del comando `.schema` de SQLite.
+
+[BEGIN_SCHEMA]
+
