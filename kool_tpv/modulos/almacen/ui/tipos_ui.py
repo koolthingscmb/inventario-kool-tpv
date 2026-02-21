@@ -13,11 +13,27 @@ from kool_tpv.utils.config_loader import create_action_button
 
 
 class TiposUI:
-    def __init__(self, parent, db=None):
+    def __init__(self, parent, db=None, module_name: str = 'almacen'):
         self.parent = parent
         self.db = db
+        self.module_name = module_name
+        from kool_tpv.utils.config_loader import load_colors
+        try:
+            self.colors = load_colors(module_name)
+        except Exception:
+            self.colors = {'text': COLOR_MATRIX, 'primary': COLOR_MATRIX, 'secondary': COLOR_MATRIX}
         self.service = TipoService(db)
-        self.container = ctk.CTkFrame(self.parent, fg_color=COLOR_BG_TERMINAL)
+        self.container = ctk.CTkFrame(self.parent, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
+        # defaults
+        default_entry_kw = {
+            'fg_color': self.colors.get('background', COLOR_BG_TERMINAL),
+            'text_color': self.colors.get('text', COLOR_MATRIX),
+            'border_color': self.colors.get('border', self.colors.get('primary')),
+            'height': 32
+        }
+        # buttons palette
+        _buttons_cfg = self.colors.get('buttons', {})
+        self._primary_btn = _buttons_cfg.get('primary', {})
 
         # Header removed — breadcrumb is provided by BaseModuleView
 
@@ -36,34 +52,48 @@ class TiposUI:
         lbl_font = FONT_TERMINAL
 
         # Fila 1: ID | NOMBRE
-        ctk.CTkLabel(self.grid_frame, text='ID:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=0, column=0, sticky='w', padx=6, pady=6)
-        self.e_id = ctk.CTkEntry(self.grid_frame, placeholder_text='ID', state='disabled', fg_color=COLOR_BG_TERMINAL, text_color='#666666')
+        ctk.CTkLabel(self.grid_frame, text='ID:', text_color=self.colors['text'], font=lbl_font).grid(row=0, column=0, sticky='w', padx=6, pady=6)
+        e_id_kw = default_entry_kw.copy()
+        e_id_kw.update({'state': 'disabled', 'text_color': self.colors.get('light', '#666666')})
+        self.e_id = ctk.CTkEntry(self.grid_frame, placeholder_text='ID', **e_id_kw)
         self.e_id.grid(row=0, column=1, columnspan=1, sticky='ew', padx=6, pady=6)
 
-        ctk.CTkLabel(self.grid_frame, text='NOMBRE:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=0, column=2, sticky='w', padx=6, pady=6)
-        self.e_nombre = ctk.CTkEntry(self.grid_frame, placeholder_text='Nombre del tipo', fg_color='#000000', text_color='#00FF00', border_width=2, border_color='#00FF00')
+        ctk.CTkLabel(self.grid_frame, text='NOMBRE:', text_color=self.colors['text'], font=lbl_font).grid(row=0, column=2, sticky='w', padx=6, pady=6)
+        nome_kw = default_entry_kw.copy()
+        nome_kw.update({'border_width': 2})
+        self.e_nombre = ctk.CTkEntry(self.grid_frame, placeholder_text='Nombre del tipo', **nome_kw)
         self.e_nombre.grid(row=0, column=3, columnspan=5, sticky='ew', padx=6, pady=6)
 
         # Fila 2: DESCRIPCION label
-        ctk.CTkLabel(self.grid_frame, text='DESCRIPCIÓN:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=1, column=0, columnspan=8, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.grid_frame, text='DESCRIPCIÓN:', text_color=self.colors['text'], font=lbl_font).grid(row=1, column=0, columnspan=8, sticky='w', padx=6, pady=6)
 
         # Fila 3: descripcion textbox (8 col)
         try:
-            self.txt_descripcion = ctk.CTkTextbox(self.grid_frame, width=900, height=120, fg_color='#000000', text_color='#00FF00', border_width=2, border_color='#00FF00')
+            self.txt_descripcion = ctk.CTkTextbox(
+                self.grid_frame,
+                width=900,
+                height=120,
+                fg_color=self.colors.get('background', '#000000'),
+                text_color=self.colors.get('text', COLOR_MATRIX),
+                border_width=2,
+                border_color=self.colors.get('border', self.colors.get('primary'))
+            )
             self.txt_descripcion.grid(row=2, column=0, columnspan=8, sticky='nsew', padx=6, pady=6)
         except Exception:
-            frame = ctk.CTkFrame(self.grid_frame, fg_color='#000000', border_width=2, border_color='#00FF00')
-            self.txt_descripcion = tk.Text(frame, bg='#000000', fg='#00FF00')
+            frame = ctk.CTkFrame(self.grid_frame, fg_color=self.colors.get('background', '#000000'), border_width=2, border_color=self.colors.get('border', self.colors.get('primary')))
+            self.txt_descripcion = tk.Text(frame, bg=self.colors.get('background', '#000000'), fg=self.colors.get('text', COLOR_MATRIX))
             self.txt_descripcion.pack(fill='both', expand=True)
             frame.grid(row=2, column=0, columnspan=8, sticky='nsew', padx=6, pady=6)
 
         # Fila 4: % TESORO
-        ctk.CTkLabel(self.grid_frame, text='% TESORO:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=3, column=0, sticky='w', padx=6, pady=6)
-        self.e_fide = ctk.CTkEntry(self.grid_frame, placeholder_text='0.0', fg_color='#000000', text_color='#00FF00', border_width=2, border_color='#00FF00')
+        ctk.CTkLabel(self.grid_frame, text='% TESORO:', text_color=self.colors['text'], font=lbl_font).grid(row=3, column=0, sticky='w', padx=6, pady=6)
+        fide_kw = default_entry_kw.copy()
+        fide_kw.update({'placeholder_text': '0.0', 'border_width': 2})
+        self.e_fide = ctk.CTkEntry(self.grid_frame, **fide_kw)
         self.e_fide.grid(row=3, column=1, columnspan=2, sticky='ew', padx=6, pady=6)
 
         # Chips area (list of tipos) inside a scrollable frame
-        self.chips_frame = ctk.CTkScrollableFrame(self.grid_frame, fg_color=COLOR_BG_TERMINAL)
+        self.chips_frame = ctk.CTkScrollableFrame(self.grid_frame, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
         self.chips_frame.grid(row=4, column=0, columnspan=8, sticky='nsew', padx=6, pady=6)
 
         # Footer buttons (desde config)
@@ -97,7 +127,15 @@ class TiposUI:
                 row = i // 6
                 col = i % 6
                 name = t.get('nombre') or ''
-                btn = ctk.CTkButton(self.chips_frame, text=name, fg_color='transparent', text_color=COLOR_MATRIX, border_width=2, border_color=COLOR_MATRIX, height=28)
+                btn = ctk.CTkButton(
+                    self.chips_frame,
+                    text=name,
+                    fg_color=self._primary_btn.get('bg', 'transparent'),
+                    text_color=self._primary_btn.get('text', self.colors['text']),
+                    border_width=2,
+                    border_color=self._primary_btn.get('border', self.colors.get('border', self.colors['primary'])),
+                    height=28
+                )
                 btn.grid(row=row, column=col, padx=5, pady=5, sticky='w')
                 # bind single and double click
                 btn.bind('<Button-1>', lambda e, btn=btn: self._select_chip(btn))
@@ -112,12 +150,12 @@ class TiposUI:
             # visual select: toggle border color brighter
             if self.selected_chip is not None:
                 try:
-                    self.selected_chip.configure(border_color='#00FF00')
+                    self.selected_chip.configure(border_color=self._primary_btn.get('border', self.colors.get('border', self.colors['primary'])))
                 except Exception:
                     pass
             self.selected_chip = btn
             try:
-                btn.configure(border_color='#00FFFF')
+                btn.configure(border_color=self._primary_btn.get('hover', self.colors.get('secondary', self.colors['primary'])))
             except Exception:
                 pass
         except Exception:

@@ -203,7 +203,7 @@ class AlmacenView(BaseModuleView):
 
             # Always create a fresh UI instance to avoid reusing destroyed widgets
             try:
-                tipos_ui = TiposUI(self.central_area, db=self.db)
+                tipos_ui = TiposUI(self.central_area, db=self.db, module_name='almacen')
                 if self.set_central_content(tipos_ui):
                     try:
                         self.actualizar_ruta('ALMACEN / TIPOS')
@@ -219,7 +219,7 @@ class AlmacenView(BaseModuleView):
         try:
             from .ui.categorias_ui import CategoriasUI
             try:
-                categorias_ui = CategoriasUI(self.central_area, db=self.db)
+                categorias_ui = CategoriasUI(self.central_area, db=self.db, module_name='almacen')
                 if self.set_central_content(categorias_ui):
                     try:
                         self.actualizar_ruta('ALMACEN / CATEGORIAS')
@@ -239,7 +239,7 @@ class AlmacenView(BaseModuleView):
 
             from .ui.proveedores_ui import ProveedoresUI
             try:
-                proveedores_ui = ProveedoresUI(self.central_area, db=self.db, owner=self)
+                proveedores_ui = ProveedoresUI(self.central_area, db=self.db, owner=self, module_name='almacen')
                 if self.set_central_content(proveedores_ui):
                     try:
                         self.actualizar_ruta('ALMACEN / PROVEEDORES')
@@ -298,7 +298,7 @@ class AlmacenView(BaseModuleView):
         try:
             from .ui.albaranes.entrada_manual import EntradaManualUI
             try:
-                entrada_ui = EntradaManualUI(self.central_area, db=self.db)
+                entrada_ui = EntradaManualUI(self.central_area, db=self.db, module_name='almacen')
                 if self.set_central_content(entrada_ui):
                     self.actualizar_ruta('ALBARANES / ENTRADA MANUAL', callbacks=self.breadcrumb_callbacks)
                     logging.info('Abriendo entrada manual...')
@@ -365,6 +365,7 @@ class AlmacenView(BaseModuleView):
                     db=self.db,
                     albaran_id=albaran_id,
                     owner=self,
+                    module_name='almacen',
                 )
                 if self.set_central_content(detalle_ui):
                     self.actualizar_ruta('ALBARANES / CONSULTAR / DETALLE', callbacks=self.breadcrumb_callbacks)

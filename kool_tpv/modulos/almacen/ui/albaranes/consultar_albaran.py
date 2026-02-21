@@ -22,8 +22,24 @@ class ConsultarAlbaranUI:
         self.owner = owner
         self.albaran_service = AlbaranService(db)
         self.proveedor_service = ProveedorService(db)
+        from kool_tpv.utils.config_loader import load_colors
+        try:
+            self.colors = load_colors('almacen')
+        except Exception:
+            self.colors = {'text': COLOR_MATRIX, 'primary': COLOR_MATRIX, 'secondary': COLOR_MATRIX, 'accent': COLOR_MATRIX}
 
-        self.container = ctk.CTkFrame(self.parent, fg_color=COLOR_BG_TERMINAL)
+        self.container = ctk.CTkFrame(self.parent, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
+
+        default_entry_kw = {
+            'fg_color': self.colors.get('background', COLOR_BG_TERMINAL),
+            'text_color': self.colors.get('text', COLOR_MATRIX),
+            'border_color': self.colors.get('border', self.colors.get('primary')),
+            'height': 32
+        }
+        _buttons_cfg = self.colors.get('buttons', {})
+        _primary_btn = _buttons_cfg.get('primary', {})
+        _secondary_btn = _buttons_cfg.get('secondary', {})
+        _accent_btn = _buttons_cfg.get('accent', {})
 
         # Fila de filtros
         filter_frame = ctk.CTkFrame(self.container, fg_color='transparent', height=50)
@@ -34,7 +50,7 @@ class ConsultarAlbaranUI:
         ctk.CTkLabel(
             filter_frame,
             text='Filtrar Albarán por Proveedor:',
-            text_color=COLOR_MATRIX,
+            text_color=self.colors.get('text', COLOR_MATRIX),
             font=FONT_TERMINAL
         ).pack(side='left', padx=(0, 8))
 
@@ -50,8 +66,9 @@ class ConsultarAlbaranUI:
             text='HOY',
             width=70,
             height=32,
-            fg_color='#2ecc71',
-            hover_color='#27ae60',
+            fg_color=_primary_btn.get('bg', '#2ecc71'),
+            hover_color=_primary_btn.get('hover', '#27ae60'),
+            text_color=_primary_btn.get('text', self.colors.get('text', COLOR_MATRIX)),
             command=self._preset_hoy
         )
         self.btn_hoy.pack(side='left', padx=4)
@@ -61,8 +78,9 @@ class ConsultarAlbaranUI:
             text='7 DÍAS',
             width=70,
             height=32,
-            fg_color='#3498db',
-            hover_color='#2980b9',
+            fg_color=_secondary_btn.get('bg', '#3498db'),
+            hover_color=_secondary_btn.get('hover', '#2980b9'),
+            text_color=_secondary_btn.get('text', self.colors.get('text', COLOR_MATRIX)),
             command=self._preset_7dias
         )
         self.btn_7dias.pack(side='left', padx=4)
@@ -72,8 +90,9 @@ class ConsultarAlbaranUI:
             text='MES',
             width=70,
             height=32,
-            fg_color='#9b59b6',
-            hover_color='#8e44ad',
+            fg_color=_accent_btn.get('bg', '#9b59b6'),
+            hover_color=_accent_btn.get('hover', '#8e44ad'),
+            text_color=_accent_btn.get('text', self.colors.get('text', COLOR_MATRIX)),
             command=self._preset_mes
         )
         self.btn_mes.pack(side='left', padx=4)
@@ -82,7 +101,7 @@ class ConsultarAlbaranUI:
         ctk.CTkLabel(
             filter_frame,
             text='Desde:',
-            text_color=COLOR_MATRIX,
+            text_color=self.colors.get('text', COLOR_MATRIX),
             font=FONT_TERMINAL
         ).pack(side='left', padx=(16, 4))
 
@@ -90,17 +109,14 @@ class ConsultarAlbaranUI:
             filter_frame,
             placeholder_text='DD-MM-YYYY',
             width=120,
-            height=32,
-            fg_color=COLOR_BG_TERMINAL,
-            text_color=COLOR_MATRIX,
-            border_color=COLOR_MATRIX
+            **default_entry_kw
         )
         self.e_desde.pack(side='left', padx=4)
 
         ctk.CTkLabel(
             filter_frame,
             text='Hasta:',
-            text_color=COLOR_MATRIX,
+            text_color=self.colors.get('text', COLOR_MATRIX),
             font=FONT_TERMINAL
         ).pack(side='left', padx=(8, 4))
 
@@ -108,10 +124,7 @@ class ConsultarAlbaranUI:
             filter_frame,
             placeholder_text='DD-MM-YYYY',
             width=120,
-            height=32,
-            fg_color=COLOR_BG_TERMINAL,
-            text_color=COLOR_MATRIX,
-            border_color=COLOR_MATRIX
+            **default_entry_kw
         )
         self.e_hasta.pack(side='left', padx=4)
 
@@ -121,8 +134,9 @@ class ConsultarAlbaranUI:
             text='APLICAR',
             width=100,
             height=32,
-            fg_color='#e67e22',
-            hover_color='#d35400',
+            fg_color=_accent_btn.get('bg', '#e67e22'),
+            hover_color=_accent_btn.get('hover', '#d35400'),
+            text_color=_accent_btn.get('text', self.colors.get('text', COLOR_MATRIX)),
             command=self._aplicar_filtros
         )
         self.btn_aplicar.pack(side='left', padx=(16, 0))
@@ -148,7 +162,14 @@ class ConsultarAlbaranUI:
 
             # botones: permitir foco via Tab y mostrar efecto visual al recibir foco
             try:
-                for btn, hover in ((self.btn_hoy, '#27ae60'), (self.btn_7dias, '#2980b9'), (self.btn_mes, '#8e44ad'), (self.btn_aplicar, '#d35400')):
+                # map buttons to palette hover colors
+                btn_hover_map = (
+                    (self.btn_hoy, _primary_btn.get('hover', '#27ae60')),
+                    (self.btn_7dias, _secondary_btn.get('hover', '#2980b9')),
+                    (self.btn_mes, _accent_btn.get('hover', '#8e44ad')),
+                    (self.btn_aplicar, _accent_btn.get('hover', '#d35400')),
+                )
+                for btn, hover in btn_hover_map:
                     try:
                         btn.bind('<Tab>', self._focus_next)
                         btn.bind('<Shift-Tab>', self._focus_prev)
@@ -176,8 +197,8 @@ class ConsultarAlbaranUI:
             lbl = ctk.CTkLabel(
                 hdr_frame,
                 text=h,
-                text_color=COLOR_MATRIX,
-                fg_color='#1a1a1a',
+                text_color=self.colors.get('text', COLOR_MATRIX),
+                fg_color=self.colors.get('bg_dark', '#1a1a1a'),
                 anchor='w',
                 font=('Courier New', 13, 'bold'),
                 width=col_widths[i] - 6,
@@ -188,13 +209,13 @@ class ConsultarAlbaranUI:
 
             # Separador vertical
             try:
-                sep = ctk.CTkFrame(hdr_frame, fg_color='#2a2a2a', width=1)
+                sep = ctk.CTkFrame(hdr_frame, fg_color=self.colors.get('bg_medium', '#2a2a2a'), width=1)
                 sep.place(x=sum(col_widths[:i+1]), y=2, height=28)
             except Exception:
                 pass
 
         # Data area scroll
-        self.data_frame = ctk.CTkScrollableFrame(self.container, fg_color=COLOR_BG_TERMINAL)
+        self.data_frame = ctk.CTkScrollableFrame(self.container, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
         self.data_frame.pack(fill='both', expand=True, padx=12, pady=6)
 
         # Cargar opciones proveedor
@@ -360,14 +381,14 @@ class ConsultarAlbaranUI:
 
     def _append_row(self, albaran: dict, index: int):
         """Añadir fila a la lista scroll."""
-        row_bg = '#1a1a1a' if (index % 2 == 0) else '#121212'
+        row_bg = self.colors.get('bg_dark', '#1a1a1a') if (index % 2 == 0) else self.colors.get('bg_medium', '#121212')
         row = ctk.CTkFrame(self.data_frame, fg_color=row_bg, height=30)
         row.pack(fill='x', pady=0)
 
         # Hover effect
         def on_enter(e, w=row):
             try:
-                w.configure(fg_color='#333333')
+                w.configure(fg_color=self.colors.get('bg_medium', '#333333'))
             except Exception:
                 pass
 
@@ -412,7 +433,7 @@ class ConsultarAlbaranUI:
             lbl = ctk.CTkLabel(
                 row,
                 text=v,
-                text_color=COLOR_MATRIX,
+                text_color=self.colors.get('text', COLOR_MATRIX),
                 fg_color='transparent',
                 anchor='w',
                 font=FONT_TERMINAL,

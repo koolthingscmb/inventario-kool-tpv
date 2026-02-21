@@ -272,5 +272,21 @@
     "anchor": "center",
     "compound": "left",
     "image": null
+  },
+  "exportar": {
+    "text": "EXPORTAR",
+    "fg_color": "#3498db",
+    "hover_color": "#e1e1e1",
+    "text_color": "#000000",
+    "border_color": "#000000",
+    "border_width": 2,
+    "corner_radius": 22,
+    "width": 160,
+    "height": 35,
+    "font": ["Courier New", 20, "bold"],
+    "state": "normal",
+    "anchor": "center",
+    "compound": "left",
+    "image": null
   }
 }

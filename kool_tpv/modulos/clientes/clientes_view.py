@@ -29,7 +29,7 @@ class ClientesView(BaseModuleView):
     def show_busqueda(self):
         """Mostrar búsqueda de clientes."""
         try:
-            from kool_tpv.modulos.almacen.ui.clientes.busqueda_clientes_ui import BusquedaClientesUI
+            from kool_tpv.modulos.clientes.busqueda_clientes_ui import BusquedaClientesUI
 
             try:
                 busqueda_ui = BusquedaClientesUI(self.central_area, db=self.db, owner=self, module_name='clientes')
@@ -53,7 +53,7 @@ class ClientesView(BaseModuleView):
     def show_crear_cliente(self):
         """Mostrar UI de creación de cliente."""
         try:
-            from kool_tpv.modulos.almacen.ui.clientes.crear_cliente_ui import CrearClienteUI
+            from kool_tpv.modulos.clientes.crear_cliente_ui import CrearClienteUI
 
             try:
                 crear_ui = CrearClienteUI(self.central_area, db=self.db, cliente_id=None, module_name='clientes')
@@ -72,7 +72,7 @@ class ClientesView(BaseModuleView):
             cliente_id: ID del cliente a editar
         """
         try:
-            from kool_tpv.modulos.almacen.ui.clientes.crear_cliente_ui import CrearClienteUI
+            from kool_tpv.modulos.clientes.crear_cliente_ui import CrearClienteUI
 
             try:
                 editar_ui = CrearClienteUI(self.central_area, db=self.db, cliente_id=cliente_id, module_name='clientes')

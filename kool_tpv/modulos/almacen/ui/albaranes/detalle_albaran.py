@@ -19,11 +19,17 @@ logger = logging.getLogger(__name__)
 
 
 class DetalleAlbaranUI:
-    def __init__(self, parent, db=None, albaran_id=None, owner=None):
+    def __init__(self, parent, db=None, albaran_id=None, owner=None, module_name: str = 'almacen'):
         self.parent = parent
         self.db = db
         self.albaran_id = albaran_id
         self.owner = owner
+        self.module_name = module_name
+        from kool_tpv.utils.config_loader import load_colors
+        try:
+            self.colors = load_colors(module_name)
+        except Exception:
+            self.colors = {'text': COLOR_MATRIX, 'primary': COLOR_MATRIX, 'secondary': COLOR_MATRIX, 'accent': COLOR_MATRIX}
         self.albaran_service = AlbaranService(db)
         self.proveedor_service = ProveedorService(db)
 
@@ -33,30 +39,30 @@ class DetalleAlbaranUI:
         header_frame = ctk.CTkFrame(self.container, fg_color='transparent')
         header_frame.pack(fill='x', padx=6, pady=2)
 
-        ctk.CTkLabel(header_frame, text='Nº ALBARÁN:', text_color=COLOR_MATRIX,
+        ctk.CTkLabel(header_frame, text='Nº ALBARÁN:', text_color=self.colors['text'],
                      font=FONT_TERMINAL).pack(side='left', padx=(0, 6))
         self.e_num_albaran = ctk.CTkEntry(header_frame, width=100, fg_color='#000000',
-                                         text_color=COLOR_MATRIX, border_color=COLOR_MATRIX,
-                                         state='readonly')
+                         text_color=self.colors['text'], border_color=self.colors['primary'],
+                         state='readonly')
         self.e_num_albaran.pack(side='left', padx=(0, 20))
 
-        ctk.CTkLabel(header_frame, text='PROVEEDOR:', text_color=COLOR_MATRIX,
+        ctk.CTkLabel(header_frame, text='PROVEEDOR:', text_color=self.colors['text'],
                      font=FONT_TERMINAL).pack(side='left', padx=(0, 6))
         self.e_proveedor = ctk.CTkEntry(header_frame, width=250, fg_color='#000000',
-                                        text_color=COLOR_MATRIX, border_color=COLOR_MATRIX,
-                                        state='readonly')
+                        text_color=self.colors['text'], border_color=self.colors['primary'],
+                        state='readonly')
         self.e_proveedor.pack(side='left', padx=(0, 20))
 
-        ctk.CTkLabel(header_frame, text='FECHA:', text_color=COLOR_MATRIX,
+        ctk.CTkLabel(header_frame, text='FECHA:', text_color=self.colors['text'],
                      font=FONT_TERMINAL).pack(side='left', padx=(0, 6))
         self.e_fecha = ctk.CTkEntry(header_frame, width=120, fg_color='#000000',
-                                    text_color=COLOR_MATRIX, border_color=COLOR_MATRIX,
-                                    state='readonly')
+                        text_color=self.colors['text'], border_color=self.colors['primary'],
+                        state='readonly')
         self.e_fecha.pack(side='left')
 
         # Label entrada
         lbl_entrada = ctk.CTkLabel(self.container, text='INTRODUCIR DATOS LÍNEA ALBARÁN',
-                                   text_color=COLOR_MATRIX, font=('Courier New', 13, 'bold'), anchor='w')
+                       text_color=self.colors['text'], font=('Courier New', 13, 'bold'), anchor='w')
         lbl_entrada.pack(fill='x', padx=6, pady=(6, 2))
 
         # Cabecera campos
@@ -70,7 +76,7 @@ class DetalleAlbaranUI:
 
         x = 6
         for i, h in enumerate(headers_input):
-            lbl = ctk.CTkLabel(cab_frame, text=h, text_color=COLOR_MATRIX, anchor='w',
+            lbl = ctk.CTkLabel(cab_frame, text=h, text_color=self.colors['text'], anchor='w',
                               font=('Courier New', 10), width=col_widths[i]-8)
             lbl.place(x=x, y=0)
             x += col_widths[i]
@@ -80,7 +86,7 @@ class DetalleAlbaranUI:
         self.input_frame.pack(fill='x', padx=6, pady=(0, 6))
         self.input_frame.pack_propagate(False)
 
-        entry_kw = {'fg_color': '#000000', 'text_color': COLOR_MATRIX, 'border_color': COLOR_MATRIX, 'height': 32}
+        entry_kw = {'fg_color': '#000000', 'text_color': self.colors['text'], 'border_color': self.colors['primary'], 'height': 32}
 
         self.e_ean = ctk.CTkEntry(self.input_frame, width=col_widths[0]-12, placeholder_text='Escanear EAN…', **entry_kw)
         self.e_ean.place(x=6, y=4)
@@ -206,7 +212,7 @@ class DetalleAlbaranUI:
 
         headers = ['EAN', 'NOMBRE', 'UDS', 'COSTE', 'DTO', 'IMPORTE']
         for i, h in enumerate(headers):
-            lbl = ctk.CTkLabel(hdr_frame, text=h, text_color='#FFFFFF',
+            lbl = ctk.CTkLabel(hdr_frame, text=h, text_color=self.colors['text'],
                               fg_color='#1a1a1a', anchor='w', font=('Courier New', 13, 'bold'),
                               width=col_widths[i]-6, height=28, corner_radius=0)
             lbl.place(x=sum(col_widths[:i]) + 6, y=2)
@@ -221,18 +227,18 @@ class DetalleAlbaranUI:
         totales_frame.pack_propagate(False)
 
         font_totales = ('Courier New', 15, 'bold')
-        self.lbl_neto = ctk.CTkLabel(totales_frame, text='Neto: 0.00€', text_color=COLOR_MATRIX, font=font_totales)
+        self.lbl_neto = ctk.CTkLabel(totales_frame, text='Neto: 0.00€', text_color=self.colors['text'], font=font_totales)
         self.lbl_neto.pack(side='left', padx=8)
-        ctk.CTkLabel(totales_frame, text='-', text_color=COLOR_MATRIX, font=font_totales).pack(side='left', padx=4)
-        self.lbl_iva4 = ctk.CTkLabel(totales_frame, text='IVA 4%: 0.00€', text_color=COLOR_MATRIX, font=font_totales)
+        ctk.CTkLabel(totales_frame, text='-', text_color=self.colors['text'], font=font_totales).pack(side='left', padx=4)
+        self.lbl_iva4 = ctk.CTkLabel(totales_frame, text='IVA 4%: 0.00€', text_color=self.colors['text'], font=font_totales)
         self.lbl_iva4.pack(side='left', padx=8)
-        ctk.CTkLabel(totales_frame, text='-', text_color=COLOR_MATRIX, font=font_totales).pack(side='left', padx=4)
-        self.lbl_iva10 = ctk.CTkLabel(totales_frame, text='IVA 10%: 0.00€', text_color=COLOR_MATRIX, font=font_totales)
+        ctk.CTkLabel(totales_frame, text='-', text_color=self.colors['text'], font=font_totales).pack(side='left', padx=4)
+        self.lbl_iva10 = ctk.CTkLabel(totales_frame, text='IVA 10%: 0.00€', text_color=self.colors['text'], font=font_totales)
         self.lbl_iva10.pack(side='left', padx=8)
-        ctk.CTkLabel(totales_frame, text='-', text_color=COLOR_MATRIX, font=font_totales).pack(side='left', padx=4)
-        self.lbl_iva21 = ctk.CTkLabel(totales_frame, text='IVA 21%: 0.00€', text_color=COLOR_MATRIX, font=font_totales)
+        ctk.CTkLabel(totales_frame, text='-', text_color=self.colors['text'], font=font_totales).pack(side='left', padx=4)
+        self.lbl_iva21 = ctk.CTkLabel(totales_frame, text='IVA 21%: 0.00€', text_color=self.colors['text'], font=font_totales)
         self.lbl_iva21.pack(side='left', padx=8)
-        ctk.CTkLabel(totales_frame, text='-', text_color=COLOR_MATRIX, font=font_totales).pack(side='left', padx=4)
+        ctk.CTkLabel(totales_frame, text='-', text_color=self.colors['text'], font=font_totales).pack(side='left', padx=4)
         self.lbl_total = ctk.CTkLabel(totales_frame, text='TOTAL: 0.00€', text_color='#FF0000', font=('Courier New', 16, 'bold'))
         self.lbl_total.pack(side='left', padx=12)
 
@@ -484,7 +490,12 @@ class DetalleAlbaranUI:
 
                 x = 6
                 for j, v in enumerate(values):
-                    lbl = ctk.CTkLabel(row, text=v, text_color='#FFFFFF', anchor='w',
+                    # accent for product name, cantidad, coste and importe
+                    if j in (1, 2, 3, 5):
+                        tc = self.colors.get('accent', self.colors.get('text'))
+                    else:
+                        tc = self.colors.get('text')
+                    lbl = ctk.CTkLabel(row, text=v, text_color=tc, anchor='w',
                                       font=FONT_TERMINAL, width=self.col_widths[j]-8, height=26)
                     lbl.place(x=x, y=1)
                     x += self.col_widths[j]

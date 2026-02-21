@@ -19,39 +19,62 @@ logger = logging.getLogger(__name__)
 
 
 class EntradaManualUI:
-    def __init__(self, parent, db=None, tipo='ENTRADA'):
+    def __init__(self, parent, db=None, tipo='ENTRADA', module_name: str = 'almacen'):
         self.parent = parent
         self.db = db
         self.tipo = tipo  # 'ENTRADA', 'SALIDA', 'DEVOLUCION'
+        self.module_name = module_name
+        from kool_tpv.utils.config_loader import load_colors
+        try:
+            self.colors = load_colors(module_name)
+        except Exception:
+            self.colors = {'text': COLOR_MATRIX, 'primary': COLOR_MATRIX, 'secondary': COLOR_MATRIX, 'accent': COLOR_MATRIX}
         self.albaran_service = AlbaranService(db)
         self.proveedor_service = ProveedorService(db)
 
-        self.container = ctk.CTkFrame(parent, fg_color=COLOR_BG_TERMINAL)
+        self.container = ctk.CTkFrame(parent, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
+
+        # entry defaults from palette
+        default_entry_kw = {
+            'fg_color': self.colors.get('background', COLOR_BG_TERMINAL),
+            'text_color': self.colors.get('text', COLOR_MATRIX),
+            'border_color': self.colors.get('border', self.colors.get('primary')),
+            'height': 32
+        }
+        # buttons palette (optional nested config)
+        _buttons_cfg = self.colors.get('buttons', {})
+        _primary_btn = _buttons_cfg.get('primary', {})
+        _secondary_btn = _buttons_cfg.get('secondary', {})
 
         # Header
         header_frame = ctk.CTkFrame(self.container, fg_color='transparent')
         header_frame.pack(fill='x', padx=6, pady=2)
 
-        ctk.CTkLabel(header_frame, text='Nº ALBARÁN:', text_color=COLOR_MATRIX,
+        ctk.CTkLabel(header_frame, text='Nº ALBARÁN:', text_color=self.colors['text'],
                      font=FONT_TERMINAL).pack(side='left', padx=(0, 6))
-        self.e_num_albaran = ctk.CTkEntry(header_frame, width=100, fg_color='#000000',
-                                         text_color=COLOR_MATRIX, border_color=COLOR_MATRIX)
+        self.e_num_albaran = ctk.CTkEntry(header_frame, width=100, **default_entry_kw)
         self.e_num_albaran.pack(side='left', padx=(0, 6))
 
-        btn_siguiente = ctk.CTkButton(header_frame, text='SIGUIENTE', width=100,
-                                      fg_color='#3498db', command=self._set_next_num)
+        btn_siguiente = ctk.CTkButton(
+            header_frame,
+            text='SIGUIENTE',
+            width=100,
+            fg_color=_primary_btn.get('bg', self.colors.get('primary', '#3498db')),
+            hover_color=_primary_btn.get('hover', self.colors.get('secondary', '#2d86c9')),
+            text_color=_primary_btn.get('text', self.colors.get('text', COLOR_MATRIX)),
+            command=self._set_next_num
+        )
         btn_siguiente.pack(side='left', padx=(0, 20))
 
-        ctk.CTkLabel(header_frame, text='PROVEEDOR:', text_color=COLOR_MATRIX,
+        ctk.CTkLabel(header_frame, text='PROVEEDOR:', text_color=self.colors['text'],
                      font=FONT_TERMINAL).pack(side='left', padx=(0, 6))
         self.cb_proveedor = SearchableCombo(header_frame, options=[], placeholder='Buscar proveedor', width=250)
         self.cb_proveedor.pack(side='left', padx=(0, 20))
         self._load_proveedores()
 
-        ctk.CTkLabel(header_frame, text='FECHA:', text_color=COLOR_MATRIX,
+        ctk.CTkLabel(header_frame, text='FECHA:', text_color=self.colors['text'],
                      font=FONT_TERMINAL).pack(side='left', padx=(0, 6))
-        self.e_fecha = ctk.CTkEntry(header_frame, width=120, fg_color='#000000',
-                                    text_color=COLOR_MATRIX, border_color=COLOR_MATRIX)
+        self.e_fecha = ctk.CTkEntry(header_frame, width=120, **default_entry_kw)
         self.e_fecha.pack(side='left')
         self.e_fecha.insert(0, date.today().strftime('%Y-%m-%d'))
 
@@ -59,8 +82,8 @@ class EntradaManualUI:
         self.col_widths = [160, 320, 90, 90, 90, 110]
         col_widths = self.col_widths
         # color de fila por defecto (se alternará en _render_lines)
-        self._row_bg_main = '#1a1a1a'
-        self._row_bg_alt = '#111111'
+        self._row_bg_main = self.colors.get('bg_dark', '#1a1a1a')
+        self._row_bg_alt = self.colors.get('bg_medium', '#111111')
         headers = ['EAN', 'NOMBRE', 'UDS', 'COSTE', 'DTO', 'IMPORTE']
 
         # Título dinámico según tipo
@@ -72,7 +95,7 @@ class EntradaManualUI:
         texto_titulo = titulos.get(self.tipo, 'INTRODUCIR DATOS LÍNEA ALBARÁN')
 
         lbl_entrada = ctk.CTkLabel(self.container, text=texto_titulo,
-                                   text_color=COLOR_MATRIX, font=('Courier New', 13, 'bold'), anchor='w')
+                       text_color=self.colors['text'], font=('Courier New', 13, 'bold'), anchor='w')
         lbl_entrada.pack(fill='x', padx=6, pady=(6, 2))
 
         # Cabecera campos
@@ -86,17 +109,17 @@ class EntradaManualUI:
 
         x = 6
         for i, h in enumerate(headers_input):
-            lbl = ctk.CTkLabel(cab_frame, text=h, text_color=COLOR_MATRIX, anchor='w',
+            lbl = ctk.CTkLabel(cab_frame, text=h, text_color=self.colors['text'], anchor='w',
                               font=('Courier New', 10), width=col_widths[i]-8)
             lbl.place(x=x, y=0)
             x += col_widths[i]
 
         # Fila de entrada
-        self.input_frame = ctk.CTkFrame(self.container, fg_color='#1a1a1a', height=40)
+        self.input_frame = ctk.CTkFrame(self.container, fg_color=self.colors.get('bg_dark', '#1a1a1a'), height=40)
         self.input_frame.pack(fill='x', padx=6, pady=(0, 6))
         self.input_frame.pack_propagate(False)
 
-        entry_kw = {'fg_color': '#000000', 'text_color': COLOR_MATRIX, 'border_color': COLOR_MATRIX, 'height': 32}
+        entry_kw = default_entry_kw.copy()
 
         self.e_ean = ctk.CTkEntry(self.input_frame, width=col_widths[0]-12, placeholder_text='Escanear EAN…', **entry_kw)
         self.e_ean.place(x=6, y=4)
@@ -146,14 +169,20 @@ class EntradaManualUI:
         self.e_importe.place(x=sum(col_widths[:5]) + 6, y=4)
         self.e_importe.insert(0, '0.00')
 
-        # Botón AÑADIR
-        _normal_fg = '#2ecc71'
-        _focus_fg = "#c6ef0e"
-        # color aplicado al pasar el ratón (hover)
-        _hover_fg = "#e0fc0f"
-        self.btn_add = ctk.CTkButton(self.input_frame, text='AÑADIR', width=80, height=32,
-                         fg_color=_normal_fg, hover_color=_hover_fg, text_color='black',
-                         command=self._add_line)
+        # Botón AÑADIR (usar botones config si existe)
+        _normal_fg = _primary_btn.get('bg', self.colors.get('primary', '#2ecc71'))
+        _focus_fg = _primary_btn.get('hover', self.colors.get('secondary', '#c6ef0e'))
+        _hover_fg = _primary_btn.get('hover', self.colors.get('secondary', '#e0fc0f'))
+        self.btn_add = ctk.CTkButton(
+            self.input_frame,
+            text='AÑADIR',
+            width=80,
+            height=32,
+            fg_color=_normal_fg,
+            hover_color=_hover_fg,
+            text_color=_primary_btn.get('text', self.colors.get('text', COLOR_MATRIX)),
+            command=self._add_line
+        )
 
         # permitir que el botón reciba foco por Tab
         try:
@@ -208,13 +237,13 @@ class EntradaManualUI:
         hdr_frame.pack_propagate(False)
 
         for i, h in enumerate(headers):
-            lbl = ctk.CTkLabel(hdr_frame, text=h, text_color='#FFFFFF',
-                              fg_color='#1a1a1a', anchor='w', font=('Courier New', 13, 'bold'),
+            lbl = ctk.CTkLabel(hdr_frame, text=h, text_color=self.colors['text'],
+                              fg_color=self.colors.get('bg_dark', '#1a1a1a'), anchor='w', font=('Courier New', 13, 'bold'),
                               width=col_widths[i]-6, height=28, corner_radius=0)
             lbl.place(x=sum(col_widths[:i]) + 6, y=2)
 
         # Área de líneas
-        self.lines_frame = ctk.CTkScrollableFrame(self.container, fg_color=COLOR_BG_TERMINAL)
+        self.lines_frame = ctk.CTkScrollableFrame(self.container, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
         self.lines_frame.pack(fill='both', expand=True, padx=6, pady=2)
 
         # Totales
@@ -223,19 +252,19 @@ class EntradaManualUI:
         totales_frame.pack_propagate(False)
 
         font_totales = ('Courier New', 15, 'bold')
-        self.lbl_neto = ctk.CTkLabel(totales_frame, text='Neto: 0.00€', text_color=COLOR_MATRIX, font=font_totales)
+        self.lbl_neto = ctk.CTkLabel(totales_frame, text='Neto: 0.00€', text_color=self.colors['text'], font=font_totales)
         self.lbl_neto.pack(side='left', padx=8)
-        ctk.CTkLabel(totales_frame, text='-', text_color=COLOR_MATRIX, font=font_totales).pack(side='left', padx=4)
-        self.lbl_iva4 = ctk.CTkLabel(totales_frame, text='IVA 4%: 0.00€', text_color=COLOR_MATRIX, font=font_totales)
+        ctk.CTkLabel(totales_frame, text='-', text_color=self.colors['text'], font=font_totales).pack(side='left', padx=4)
+        self.lbl_iva4 = ctk.CTkLabel(totales_frame, text='IVA 4%: 0.00€', text_color=self.colors['text'], font=font_totales)
         self.lbl_iva4.pack(side='left', padx=8)
-        ctk.CTkLabel(totales_frame, text='-', text_color=COLOR_MATRIX, font=font_totales).pack(side='left', padx=4)
-        self.lbl_iva10 = ctk.CTkLabel(totales_frame, text='IVA 10%: 0.00€', text_color=COLOR_MATRIX, font=font_totales)
+        ctk.CTkLabel(totales_frame, text='-', text_color=self.colors['text'], font=font_totales).pack(side='left', padx=4)
+        self.lbl_iva10 = ctk.CTkLabel(totales_frame, text='IVA 10%: 0.00€', text_color=self.colors['text'], font=font_totales)
         self.lbl_iva10.pack(side='left', padx=8)
-        ctk.CTkLabel(totales_frame, text='-', text_color=COLOR_MATRIX, font=font_totales).pack(side='left', padx=4)
-        self.lbl_iva21 = ctk.CTkLabel(totales_frame, text='IVA 21%: 0.00€', text_color=COLOR_MATRIX, font=font_totales)
+        ctk.CTkLabel(totales_frame, text='-', text_color=self.colors['text'], font=font_totales).pack(side='left', padx=4)
+        self.lbl_iva21 = ctk.CTkLabel(totales_frame, text='IVA 21%: 0.00€', text_color=self.colors['text'], font=font_totales)
         self.lbl_iva21.pack(side='left', padx=8)
-        ctk.CTkLabel(totales_frame, text='-', text_color=COLOR_MATRIX, font=font_totales).pack(side='left', padx=4)
-        self.lbl_total = ctk.CTkLabel(totales_frame, text='TOTAL: 0.00€', text_color='#FF0000', font=('Courier New', 16, 'bold'))
+        ctk.CTkLabel(totales_frame, text='-', text_color=self.colors['text'], font=font_totales).pack(side='left', padx=4)
+        self.lbl_total = ctk.CTkLabel(totales_frame, text='TOTAL: 0.00€', text_color=self.colors.get('error', '#FF0000'), font=('Courier New', 16, 'bold'))
         self.lbl_total.pack(side='left', padx=12)
 
         # Label informativo según tipo
@@ -244,7 +273,7 @@ class EntradaManualUI:
                 lbl_info = ctk.CTkLabel(
                     totales_frame,
                     text='⚠️ SE RESTARÁ DEL STOCK',
-                    text_color='#f39c12',  # Naranja warning
+                    text_color=self.colors.get('warning', '#f39c12'),
                     font=('Courier New', 13, 'bold')
                 )
                 lbl_info.pack(side='left', padx=20)
@@ -252,7 +281,7 @@ class EntradaManualUI:
                 lbl_info = ctk.CTkLabel(
                     totales_frame,
                     text='🔙 DEVOLUCIÓN - SE RESTARÁ DEL STOCK',
-                    text_color='#95a5a6',  # Gris
+                    text_color=self.colors.get('secondary', '#95a5a6'),
                     font=('Courier New', 13, 'bold')
                 )
                 lbl_info.pack(side='left', padx=20)
@@ -439,7 +468,12 @@ class EntradaManualUI:
 
                 x = 6
                 for j, v in enumerate(values):
-                    lbl = ctk.CTkLabel(row, text=v, text_color='#FFFFFF', anchor='w',
+                    # highlight product name, quantity, coste and importe with accent color
+                    if j in (1, 2, 3, 5):
+                        tc = self.colors.get('accent', self.colors.get('text'))
+                    else:
+                        tc = self.colors.get('text')
+                    lbl = ctk.CTkLabel(row, text=v, text_color=tc, anchor='w',
                                       font=FONT_TERMINAL, width=self.col_widths[j]-8, height=26)
                     lbl.place(x=x, y=1)
                     x += self.col_widths[j]

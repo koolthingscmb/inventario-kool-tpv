@@ -13,18 +13,33 @@ from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 
 
 class BusquedaUI:
-    def __init__(self, parent, db=None, owner=None):
+    def __init__(self, parent, db=None, owner=None, module_name: str = 'almacen'):
         self.parent = parent
         self.owner = owner  # AlmacenView instance to call show_crear
         self.db = db
         self.service = ProductoService(db)
-        self.container = ctk.CTkFrame(self.parent, fg_color=COLOR_BG_TERMINAL)
+        from kool_tpv.utils.config_loader import load_colors
+        try:
+            self.colors = load_colors(module_name)
+        except Exception:
+            self.colors = {'background': COLOR_BG_TERMINAL, 'text': COLOR_MATRIX, 'border': COLOR_MATRIX, 'primary': COLOR_MATRIX, 'secondary': COLOR_MATRIX, 'light': COLOR_MATRIX, 'accent': COLOR_MATRIX, 'error': '#FF0000', 'warning': '#FFFF00'}
+
+        self.container = ctk.CTkFrame(self.parent, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
 
         # Breadcrumb handled by BaseModuleView (owner)
 
         # Search entry
         self.search_var = tk.StringVar()
-        self.search_entry = ctk.CTkEntry(self.container, textvariable=self.search_var, placeholder_text='Buscar...', height=36, fg_color='#000000', text_color=COLOR_MATRIX, border_width=2, border_color=COLOR_MATRIX)
+        self.search_entry = ctk.CTkEntry(
+            self.container,
+            textvariable=self.search_var,
+            placeholder_text='Buscar...',
+            height=36,
+            fg_color=self.colors.get('background', COLOR_BG_TERMINAL),
+            text_color=self.colors.get('text', COLOR_MATRIX),
+            border_width=2,
+            border_color=self.colors.get('border', COLOR_MATRIX),
+        )
         self.search_entry.pack(fill='x', padx=12, pady=(12, 6))
         self.search_entry.bind('<KeyRelease>', lambda e: self._on_search())
 
@@ -34,14 +49,14 @@ class BusquedaUI:
         filter_frame.pack_propagate(False)
 
         # Label "Filtrar por:"
-        ctk.CTkLabel(filter_frame, text='Filtrar por:', text_color=COLOR_MATRIX, font=FONT_TERMINAL).pack(side='left', padx=(0, 12))
+        ctk.CTkLabel(filter_frame, text='Filtrar por:', text_color=self.colors.get('text', COLOR_MATRIX), font=FONT_TERMINAL).pack(side='left', padx=(0, 12))
 
         # Cargar opciones
         categorias = [{'id': None, 'nombre': 'Todas'}] + (self.service.listar_categorias() or [])
         tipos = [{'id': None, 'nombre': 'Todos'}] + (self.service.listar_tipos() or [])
 
         # Label Categorías
-        ctk.CTkLabel(filter_frame, text='Categorías:', text_color=COLOR_MATRIX, font=FONT_TERMINAL).pack(side='left', padx=(0, 4))
+        ctk.CTkLabel(filter_frame, text='Categorías:', text_color=self.colors.get('text', COLOR_MATRIX), font=FONT_TERMINAL).pack(side='left', padx=(0, 4))
         self.cat_combo = SearchableCombo(
             filter_frame,
             options=[(c['id'], c['nombre']) for c in categorias],
@@ -54,7 +69,7 @@ class BusquedaUI:
         self.cat_combo.pack(side='left', padx=(0, 12))
 
         # Label Tipos
-        ctk.CTkLabel(filter_frame, text='Tipos:', text_color=COLOR_MATRIX, font=FONT_TERMINAL).pack(side='left', padx=(0, 4))
+        ctk.CTkLabel(filter_frame, text='Tipos:', text_color=self.colors.get('text', COLOR_MATRIX), font=FONT_TERMINAL).pack(side='left', padx=(0, 4))
         self.tipo_combo = SearchableCombo(
             filter_frame,
             options=[(t['id'], t['nombre']) for t in tipos],
@@ -73,9 +88,33 @@ class BusquedaUI:
         self.check_sin_stock = tk.BooleanVar(value=True)
         self.check_archivado = tk.BooleanVar(value=False)
 
-        ctk.CTkCheckBox(estado_frame, text='Activos', variable=self.check_activo, text_color=COLOR_MATRIX, fg_color=COLOR_MATRIX, hover_color='#00AA00', command=self._on_search).pack(side='left', padx=4)
-        ctk.CTkCheckBox(estado_frame, text='Sin Stock', variable=self.check_sin_stock, text_color=COLOR_MATRIX, fg_color=COLOR_MATRIX, hover_color='#00AA00', command=self._on_search).pack(side='left', padx=4)
-        ctk.CTkCheckBox(estado_frame, text='Archivados', variable=self.check_archivado, text_color=COLOR_MATRIX, fg_color=COLOR_MATRIX, hover_color='#00AA00', command=self._on_search).pack(side='left', padx=4)
+        ctk.CTkCheckBox(
+            estado_frame,
+            text='Activos',
+            variable=self.check_activo,
+            text_color=self.colors.get('text', COLOR_MATRIX),
+            fg_color=self.colors.get('primary', COLOR_MATRIX),
+            hover_color=self.colors.get('light', '#00AA00'),
+            command=self._on_search,
+        ).pack(side='left', padx=4)
+        ctk.CTkCheckBox(
+            estado_frame,
+            text='Sin Stock',
+            variable=self.check_sin_stock,
+            text_color=self.colors.get('text', COLOR_MATRIX),
+            fg_color=self.colors.get('secondary', COLOR_MATRIX),
+            hover_color=self.colors.get('light', '#00AA00'),
+            command=self._on_search,
+        ).pack(side='left', padx=4)
+        ctk.CTkCheckBox(
+            estado_frame,
+            text='Archivados',
+            variable=self.check_archivado,
+            text_color=self.colors.get('text', COLOR_MATRIX),
+            fg_color=self.colors.get('accent', COLOR_MATRIX),
+            hover_color=self.colors.get('light', '#00AA00'),
+            command=self._on_search,
+        ).pack(side='left', padx=4)
 
         # Headers (static)
         hdr_frame = ctk.CTkFrame(self.container, fg_color='transparent', height=32)
@@ -88,8 +127,8 @@ class BusquedaUI:
             lbl = ctk.CTkLabel(
                 hdr_frame,
                 text=h,
-                text_color=COLOR_MATRIX,
-                fg_color='#1a1a1a',
+                text_color=self.colors.get('text', COLOR_MATRIX),
+                fg_color=self.colors.get('bg_sidebar', '#1a1a1a'),
                 anchor='w',
                 font=('Courier New', 13, 'bold'),
                 width=col_widths[i]-6,
@@ -99,13 +138,13 @@ class BusquedaUI:
             lbl.place(x=sum(col_widths[:i]) + 6, y=2)
             # vertical separator (right border)
             try:
-                sep = ctk.CTkFrame(hdr_frame, fg_color='#2a2a2a', width=1)
+                sep = ctk.CTkFrame(hdr_frame, fg_color=self.colors.get('bg_medium', '#2a2a2a'), width=1)
                 sep.place(x=sum(col_widths[:i+1]), y=2, height=28)
             except Exception:
                 pass
 
         # Data area
-        self.data_frame = ctk.CTkScrollableFrame(self.container, fg_color=COLOR_BG_TERMINAL)
+        self.data_frame = ctk.CTkScrollableFrame(self.container, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
         self.data_frame.pack(fill='both', expand=True, padx=12, pady=6)
 
         # pagination state
@@ -203,13 +242,13 @@ class BusquedaUI:
 
     def _append_row(self, item: dict, index: int):
         # Create a horizontal frame representing a row
-        row_bg = '#1a1a1a' if (index % 2 == 0) else '#121212'
+        row_bg = self.colors.get('bg_sidebar', '#1a1a1a') if (index % 2 == 0) else self.colors.get('bg_dark', '#121212')
         row = ctk.CTkFrame(self.data_frame, fg_color=row_bg, height=30)
         row.pack(fill='x', pady=0)
         # hover effect
         def on_enter(e, w=row):
             try:
-                w.configure(fg_color='#333333')
+                w.configure(fg_color=self.colors.get('bg_medium', '#333333'))
             except Exception:
                 pass
         def on_leave(e, w=row, bg=row_bg):
@@ -258,13 +297,13 @@ class BusquedaUI:
             # Determinar color según columna ESTADO
             if i == 9:
                 if v == 'Activo':
-                    color_texto = '#00FF00'
+                    color_texto = self.colors.get('primary', '#00FF00')
                 elif v == 'Sin Stock':
-                    color_texto = '#FFFF00'
+                    color_texto = self.colors.get('warning', '#FFFF00')
                 else:
-                    color_texto = '#FF0000'
+                    color_texto = self.colors.get('error', '#FF0000')
             else:
-                color_texto = COLOR_MATRIX
+                color_texto = self.colors.get('text', COLOR_MATRIX)
 
             lbl = ctk.CTkLabel(row, text=v, text_color=color_texto, fg_color='transparent', anchor='w', font=FONT_TERMINAL, width=col_widths[i]-8, height=28)
             lbl.place(x=x, y=2)
@@ -275,7 +314,7 @@ class BusquedaUI:
             x += col_widths[i]
         # thin separator line below row to emulate cell borders
         try:
-            sep = ctk.CTkFrame(self.data_frame, fg_color='#2a2a2a', height=1)
+            sep = ctk.CTkFrame(self.data_frame, fg_color=self.colors.get('bg_medium', '#2a2a2a'), height=1)
             sep.pack(fill='x')
         except Exception:
             pass

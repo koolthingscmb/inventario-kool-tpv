@@ -1,6 +1,7 @@
 {
   "global": {
     "bg_terminal": "#000000",
+    "background": "#000000",
     "bg_sidebar": "#1a1a1a",
     "bg_dark": "#0d0d0d",
     "bg_medium": "#2a2a2a",
@@ -12,15 +13,32 @@
     "error": "#e74c3c",
     "warning": "#f39c12",
     "info": "#3498db"
+  ,
+    "buttons": {
+      "primary": {"bg": "#2ecc71", "hover": "#27ae60", "text": "#000000", "border": "#1e8449"},
+      "secondary": {"bg": "#3498db", "hover": "#2d86c9", "text": "#FFFFFF", "border": "#2a7ab8"},
+      "accent": {"bg": "#f1c40f", "hover": "#f39c12", "text": "#000000", "border": "#d4ac0d"}
+    }
   },
   "almacen": {
     "primary": "#00FF00",
     "secondary": "#32CD32",
     "accent": "#DAFCCF",
-    "light": "#5EE37E",
-    "border": "#00FF00",
+    "light": "#99FF52",
+    "border": "#91FF00",
     "text": "#00FF00",
+    "background": "#000000",
+    "bg_dark": "#0d0d0d",
+    "bg_medium": "#1a1a1a",
+    "warning": "#f39c12",
+    "error": "#e74c3c",
     "description": "Verde Matrix - Gestión de stock y productos"
+  ,
+    "buttons": {
+      "primary": {"bg": "#5F9913", "hover": "#91E291", "text": "#000000", "border": "#61AA00"},
+      "secondary": {"bg": "#32CD32", "hover": "#99FF52", "text": "#000000", "border": "#91FF00"},
+      "accent": {"bg": "#DAFCCF", "hover": "#E6F8DF", "text": "#000000", "border": "#91FF00"}
+    }
   },
   "clientes": {
     "primary": "#FFD700",
@@ -30,7 +48,17 @@
     "crear": "#ADFF2F",
     "border": "#FFD700",
     "text": "#FFD700",
-    "description": "Amarillo Sol - Gestión de clientes y fidelización"
+    "background": "#000000",
+    "bg_dark": "#0d0d0d",
+    "bg_medium": "#1a1a1a",
+    "warning": "#f39c12",
+    "error": "#e74c3c",
+    "description": "Amarillo Sol - Gestión de clientes y fidelización",
+    "buttons": {
+      "primary": {"bg": "#FFD700", "hover": "#FFCA00", "text": "#000000", "border": "#E6BE00"},
+      "secondary": {"bg": "#FFC107", "hover": "#FFB000", "text": "#000000", "border": "#E0A800"},
+      "accent": {"bg": "#FFEB3B", "hover": "#FFF176", "text": "#000000", "border": "#F7E017"}
+    }
   },
   "informes": {
     "primary": "#FFFFFF",
@@ -39,7 +67,17 @@
     "light": "#F5F5F5",
     "border": "#FFFFFF",
     "text": "#FFFFFF",
-    "description": "Blanco - Reportes y análisis"
+    "background": "#000000",
+    "bg_dark": "#0d0d0d",
+    "bg_medium": "#1a1a1a",
+    "warning": "#f39c12",
+    "error": "#e74c3c",
+    "description": "Blanco - Reportes y análisis",
+    "buttons": {
+      "primary": {"bg": "#FFFFFF", "hover": "#F0F0F0", "text": "#000000", "border": "#E0E0E0"},
+      "secondary": {"bg": "#E0E0E0", "hover": "#D6D6D6", "text": "#000000", "border": "#CFCFCF"},
+      "accent": {"bg": "#BDBDBD", "hover": "#AFAFAF", "text": "#000000", "border": "#9E9E9E"}
+    }
   },
   "shopify": {
     "primary": "#00A4DF",
@@ -48,7 +86,17 @@
     "light": "#6FCFF5",
     "border": "#00A4DF",
     "text": "#00A4DF",
-    "description": "Azul Matrix - Integración tienda online"
+    "background": "#000000",
+    "bg_dark": "#0d0d0d",
+    "bg_medium": "#1a1a1a",
+    "warning": "#f39c12",
+    "error": "#e74c3c",
+    "description": "Azul Matrix - Integración tienda online",
+    "buttons": {
+      "primary": {"bg": "#00A4DF", "hover": "#008FC6", "text": "#FFFFFF", "border": "#0089BF"},
+      "secondary": {"bg": "#3498db", "hover": "#2d86c9", "text": "#FFFFFF", "border": "#2a7ab8"},
+      "accent": {"bg": "#5DADE2", "hover": "#4FB1E6", "text": "#FFFFFF", "border": "#4AA7D9"}
+    }
   },
   "config": {
     "primary": "#FF9800",
@@ -57,6 +105,16 @@
     "light": "#FFCC80",
     "border": "#FF9800",
     "text": "#FF9800",
-    "description": "Naranja - Configuración del sistema"
+    "background": "#000000",
+    "bg_dark": "#0d0d0d",
+    "bg_medium": "#1a1a1a",
+    "warning": "#f39c12",
+    "error": "#e74c3c",
+    "description": "Naranja - Configuración del sistema",
+    "buttons": {
+      "primary": {"bg": "#FF9800", "hover": "#F57C00", "text": "#000000", "border": "#E06700"},
+      "secondary": {"bg": "#F57C00", "hover": "#EB6A00", "text": "#000000", "border": "#D65D00"},
+      "accent": {"bg": "#FFB74D", "hover": "#FFAA33", "text": "#000000", "border": "#FFA033"}
+    }
   }
 }

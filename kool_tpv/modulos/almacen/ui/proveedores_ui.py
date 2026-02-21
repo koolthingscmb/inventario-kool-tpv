@@ -11,12 +11,29 @@ from kool_tpv.utils.config_loader import create_action_button
 
 
 class ProveedoresUI:
-    def __init__(self, parent, db=None, owner=None):
+    def __init__(self, parent, db=None, owner=None, module_name: str = 'almacen'):
         self.parent = parent
         self.db = db
         self.owner = owner
+        self.module_name = module_name
+        from kool_tpv.utils.config_loader import load_colors
+        try:
+            self.colors = load_colors(module_name)
+        except Exception:
+            self.colors = {'text': COLOR_MATRIX, 'primary': COLOR_MATRIX, 'secondary': COLOR_MATRIX}
         self.service = ProveedorService(db)
-        self.container = ctk.CTkFrame(self.parent, fg_color=COLOR_BG_TERMINAL)
+        self.container = ctk.CTkFrame(self.parent, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
+
+        # defaults for entries/textboxes and buttons palette
+        default_entry_kw = {
+            'fg_color': self.colors.get('background', COLOR_BG_TERMINAL),
+            'text_color': self.colors.get('text', COLOR_MATRIX),
+            'border_color': self.colors.get('border', self.colors.get('primary')),
+            'height': 32
+        }
+        self._buttons_cfg = self.colors.get('buttons', {})
+        self._primary_btn = self._buttons_cfg.get('primary', {})
+        self._secondary_btn = self._buttons_cfg.get('secondary', {})
 
         # Grid area
         self.grid_frame = ctk.CTkFrame(self.container, fg_color='transparent')
@@ -26,84 +43,100 @@ class ProveedoresUI:
             self.grid_frame.grid_columnconfigure(c, weight=1)
 
         lbl_font = FONT_TERMINAL
-        entry_kw = {'fg_color': '#000000', 'text_color': '#00FF00', 'border_width': 2, 'border_color': '#00FF00'}
+        entry_kw = default_entry_kw.copy()
+        entry_kw.update({'border_width': 2})
 
         # Fila 0: ID | NOMBRE
-        ctk.CTkLabel(self.grid_frame, text='ID:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=0, column=0, sticky='w', padx=6, pady=6)
-        self.e_id = ctk.CTkEntry(self.grid_frame, placeholder_text='ID', state='disabled', fg_color=COLOR_BG_TERMINAL, text_color='#666666')
+        ctk.CTkLabel(self.grid_frame, text='ID:', text_color=self.colors['text'], font=lbl_font).grid(row=0, column=0, sticky='w', padx=6, pady=6)
+        e_id_kwargs = default_entry_kw.copy()
+        e_id_kwargs.update({'state': 'disabled', 'text_color': self.colors.get('light', '#666666')})
+        self.e_id = ctk.CTkEntry(self.grid_frame, placeholder_text='ID', **e_id_kwargs)
         self.e_id.grid(row=0, column=1, sticky='ew', padx=6, pady=6)
 
-        ctk.CTkLabel(self.grid_frame, text='NOMBRE:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=0, column=2, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.grid_frame, text='NOMBRE:', text_color=self.colors['text'], font=lbl_font).grid(row=0, column=2, sticky='w', padx=6, pady=6)
         self.e_nombre = ctk.CTkEntry(self.grid_frame, placeholder_text='Nombre del proveedor', **entry_kw)
         self.e_nombre.grid(row=0, column=3, columnspan=5, sticky='ew', padx=6, pady=6)
 
         # Fila 1: QUE_VENDE (campo entry simple)
-        ctk.CTkLabel(self.grid_frame, text='QUÉ VENDE:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=1, column=0, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.grid_frame, text='QUÉ VENDE:', text_color=self.colors['text'], font=lbl_font).grid(row=1, column=0, sticky='w', padx=6, pady=6)
         self.e_que_vende = ctk.CTkEntry(self.grid_frame, placeholder_text='Descripción de productos/servicios', **entry_kw)
         self.e_que_vende.grid(row=1, column=1, columnspan=7, sticky='ew', padx=6, pady=6)
 
         # Fila 2: NIF_CIF | IVA_INTRACOM | FORMA_PAGO
-        ctk.CTkLabel(self.grid_frame, text='NIF/CIF:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=2, column=0, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.grid_frame, text='NIF/CIF:', text_color=self.colors['text'], font=lbl_font).grid(row=2, column=0, sticky='w', padx=6, pady=6)
         self.e_nif = ctk.CTkEntry(self.grid_frame, placeholder_text='NIF/CIF', **entry_kw)
         self.e_nif.grid(row=2, column=1, columnspan=2, sticky='ew', padx=6, pady=6)
 
-        ctk.CTkLabel(self.grid_frame, text='IVA INTRA:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=2, column=3, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.grid_frame, text='IVA INTRA:', text_color=self.colors['text'], font=lbl_font).grid(row=2, column=3, sticky='w', padx=6, pady=6)
         self.e_iva_intra = ctk.CTkEntry(self.grid_frame, placeholder_text='IVA Intracom', **entry_kw)
         self.e_iva_intra.grid(row=2, column=4, columnspan=1, sticky='ew', padx=6, pady=6)
 
-        ctk.CTkLabel(self.grid_frame, text='FORMA PAGO:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=2, column=5, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.grid_frame, text='FORMA PAGO:', text_color=self.colors['text'], font=lbl_font).grid(row=2, column=5, sticky='w', padx=6, pady=6)
         self.e_forma_pago = ctk.CTkEntry(self.grid_frame, placeholder_text='30 días...', **entry_kw)
         self.e_forma_pago.grid(row=2, column=6, columnspan=2, sticky='ew', padx=6, pady=6)
 
         # Fila 3: DIR_FISCAL (label)
-        ctk.CTkLabel(self.grid_frame, text='DIR. FISCAL:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=3, column=0, sticky='nw', padx=6, pady=6)
+        ctk.CTkLabel(self.grid_frame, text='DIR. FISCAL:', text_color=self.colors['text'], font=lbl_font).grid(row=3, column=0, sticky='nw', padx=6, pady=6)
         # Fila 3: DIR_ENVIO (label)
-        ctk.CTkLabel(self.grid_frame, text='DIR. ENVÍO:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=3, column=4, sticky='nw', padx=6, pady=6)
+        ctk.CTkLabel(self.grid_frame, text='DIR. ENVÍO:', text_color=self.colors['text'], font=lbl_font).grid(row=3, column=4, sticky='nw', padx=6, pady=6)
         # Fila 4: Textboxes de DIR_FISCAL y DIR_ENVIO en misma fila
-        self.txt_dir_fiscal = ctk.CTkTextbox(self.grid_frame, height=60, **entry_kw)
+        # CTkTextbox does not accept duplicate 'height' if present in entry_kw
+        txt_kwargs = entry_kw.copy()
+        txt_kwargs.pop('height', None)
+        self.txt_dir_fiscal = ctk.CTkTextbox(self.grid_frame, height=60, **txt_kwargs)
         self.txt_dir_fiscal.grid(row=4, column=0, columnspan=4, sticky='ew', padx=6, pady=6)
 
-        self.txt_dir_envio = ctk.CTkTextbox(self.grid_frame, height=60, **entry_kw)
+        txt_kwargs2 = entry_kw.copy()
+        txt_kwargs2.pop('height', None)
+        self.txt_dir_envio = ctk.CTkTextbox(self.grid_frame, height=60, **txt_kwargs2)
         self.txt_dir_envio.grid(row=4, column=4, columnspan=4, sticky='ew', padx=6, pady=6)
 
         # Fila 5: EMAIL | TELEFONO
-        ctk.CTkLabel(self.grid_frame, text='EMAIL:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=5, column=0, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.grid_frame, text='EMAIL:', text_color=self.colors['text'], font=lbl_font).grid(row=5, column=0, sticky='w', padx=6, pady=6)
         self.e_email = ctk.CTkEntry(self.grid_frame, placeholder_text='email@ejemplo.com', **entry_kw)
         self.e_email.grid(row=5, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
 
-        ctk.CTkLabel(self.grid_frame, text='TELÉFONO:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=5, column=4, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.grid_frame, text='TELÉFONO:', text_color=self.colors['text'], font=lbl_font).grid(row=5, column=4, sticky='w', padx=6, pady=6)
         self.e_telefono = ctk.CTkEntry(self.grid_frame, placeholder_text='Teléfono', **entry_kw)
         self.e_telefono.grid(row=5, column=5, columnspan=3, sticky='ew', padx=6, pady=6)
 
         # Fila 6: COMERCIAL | TLF_COMERCIAL | EMAIL_COMERCIAL
-        ctk.CTkLabel(self.grid_frame, text='COMERCIAL:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=6, column=0, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.grid_frame, text='COMERCIAL:', text_color=self.colors['text'], font=lbl_font).grid(row=6, column=0, sticky='w', padx=6, pady=6)
         self.e_comercial = ctk.CTkEntry(self.grid_frame, placeholder_text='Nombre', **entry_kw)
         self.e_comercial.grid(row=6, column=1, columnspan=2, sticky='ew', padx=6, pady=6)
 
-        ctk.CTkLabel(self.grid_frame, text='TLF:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=6, column=3, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.grid_frame, text='TLF:', text_color=self.colors['text'], font=lbl_font).grid(row=6, column=3, sticky='w', padx=6, pady=6)
         self.e_tlf_comercial = ctk.CTkEntry(self.grid_frame, placeholder_text='Teléfono', **entry_kw)
         self.e_tlf_comercial.grid(row=6, column=4, columnspan=1, sticky='ew', padx=6, pady=6)
 
-        ctk.CTkLabel(self.grid_frame, text='EMAIL:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=6, column=5, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.grid_frame, text='EMAIL:', text_color=self.colors['text'], font=lbl_font).grid(row=6, column=5, sticky='w', padx=6, pady=6)
         self.e_email_comercial = ctk.CTkEntry(self.grid_frame, placeholder_text='email comercial', **entry_kw)
         self.e_email_comercial.grid(row=6, column=6, columnspan=2, sticky='ew', padx=6, pady=6)
 
         # Fila 7: WEB | BTN_IR
-        ctk.CTkLabel(self.grid_frame, text='WEB:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=7, column=0, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.grid_frame, text='WEB:', text_color=self.colors['text'], font=lbl_font).grid(row=7, column=0, sticky='w', padx=6, pady=6)
         self.e_web = ctk.CTkEntry(self.grid_frame, placeholder_text='https://...', **entry_kw)
         self.e_web.grid(row=7, column=1, columnspan=6, sticky='ew', padx=6, pady=6)
 
-        self.btn_ir_web = ctk.CTkButton(self.grid_frame, text='IR', width=60, fg_color='#2980b9', command=self._abrir_web)
+        self.btn_ir_web = ctk.CTkButton(
+            self.grid_frame,
+            text='IR',
+            width=60,
+            fg_color=self._secondary_btn.get('bg', '#2980b9'),
+            hover_color=self._secondary_btn.get('hover', '#2a7ab8'),
+            text_color=self._secondary_btn.get('text', self.colors.get('text', COLOR_MATRIX)),
+            command=self._abrir_web
+        )
         self.btn_ir_web.grid(row=7, column=7, sticky='ew', padx=6, pady=6)
 
         # Fila 8: NOTAS (campo entry simple)
-        ctk.CTkLabel(self.grid_frame, text='NOTAS:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=8, column=0, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.grid_frame, text='NOTAS:', text_color=self.colors['text'], font=lbl_font).grid(row=8, column=0, sticky='w', padx=6, pady=6)
         self.e_notas = ctk.CTkEntry(self.grid_frame, placeholder_text='Observaciones internas', **entry_kw)
         self.e_notas.grid(row=8, column=1, columnspan=7, sticky='ew', padx=6, pady=6)
 
         # Fila 9: Chips area
         self.grid_frame.grid_rowconfigure(9, weight=1)
-        self.chips_frame = ctk.CTkScrollableFrame(self.grid_frame, fg_color=COLOR_BG_TERMINAL)
+        self.chips_frame = ctk.CTkScrollableFrame(self.grid_frame, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
         self.chips_frame.grid(row=9, column=0, columnspan=8, sticky='nsew', padx=6, pady=6)
 
         # Footer buttons (desde config)
@@ -170,20 +203,35 @@ class ProveedoresUI:
 
     def _load_proveedores(self):
         try:
+            logging.debug('ProveedoresUI: limpiando chips existentes')
             for w in list(self.chips_frame.winfo_children()):
                 try:
                     w.destroy()
                 except Exception:
                     pass
-
             provs = self.service.get_all_proveedores()
+            logging.info(f'ProveedoresUI: obtenidos {len(provs or [])} proveedores')
+            if not provs:
+                # show helpful placeholder so user sees empty state
+                try:
+                    ctk.CTkLabel(self.chips_frame, text='No hay proveedores', text_color=self.colors.get('text'), fg_color='transparent').grid(row=0, column=0, padx=6, pady=6)
+                except Exception:
+                    pass
+                return
+
             for i, p in enumerate(provs):
                 row = i // 6
                 col = i % 6
                 name = p.get('nombre') or ''
-                btn = ctk.CTkButton(self.chips_frame, text=name, fg_color='transparent',
-                                   text_color=COLOR_MATRIX, border_width=2,
-                                   border_color='#00FF00', height=28)
+                btn = ctk.CTkButton(
+                    self.chips_frame,
+                    text=name,
+                    fg_color=self._primary_btn.get('bg', 'transparent'),
+                    text_color=self._primary_btn.get('text', self.colors['text']),
+                    border_width=2,
+                    border_color=self._primary_btn.get('border', self.colors.get('border', self.colors['primary'])),
+                    height=28
+                )
                 btn.grid(row=row, column=col, padx=5, pady=5, sticky='w')
                 btn.bind('<Button-1>', lambda e, btn=btn: self._select_chip(btn))
                 btn.bind('<Double-Button-1>', lambda e, prov=p: self._load_proveedor_into_form(prov))
@@ -195,12 +243,12 @@ class ProveedoresUI:
         try:
             if self.selected_chip is not None:
                 try:
-                    self.selected_chip.configure(border_color='#00FF00')
+                    self.selected_chip.configure(border_color=self._primary_btn.get('border', self.colors.get('border', self.colors['primary'])))
                 except Exception:
                     pass
             self.selected_chip = btn
             try:
-                btn.configure(border_color='#00FFFF')
+                    btn.configure(border_color=self._primary_btn.get('hover', self.colors.get('secondary', self.colors['primary'])))
             except Exception:
                 pass
         except Exception:

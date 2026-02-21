@@ -12,6 +12,7 @@ import logging
 import tkinter as tk
 import customtkinter as ctk
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL
+from kool_tpv.utils.config_loader import load_colors
 
 
 class SearchableCombo(ctk.CTkFrame):
@@ -32,6 +33,7 @@ class SearchableCombo(ctk.CTkFrame):
         command: Optional[Callable] = None,
         placeholder: str = '',
         width: int = 240,
+        module_name: Optional[str] = None,
         **kwargs
     ):
         """Constructor unificado SearchableCombo.
@@ -45,6 +47,12 @@ class SearchableCombo(ctk.CTkFrame):
             placeholder: Texto placeholder del entry
             width: Ancho del entry
         """
+        # Si se pasó module_name, cargar paleta y no pasarla al super
+        try:
+            self._colors = load_colors(module_name) if module_name else None
+        except Exception:
+            self._colors = None
+
         super().__init__(master, **kwargs)
 
         # Modo de operación
@@ -75,13 +83,18 @@ class SearchableCombo(ctk.CTkFrame):
         self._var = tk.StringVar()
 
         # Entry
+        # Ajustar colores del entry según paleta del módulo si está disponible
+        entry_fg = self._colors.get('background') if self._colors else COLOR_BG_TERMINAL
+        entry_text = self._colors.get('text') if self._colors else COLOR_MATRIX
+        entry_border = self._colors.get('border') if self._colors else COLOR_MATRIX
+
         self.entry = ctk.CTkEntry(
             self,
             textvariable=self._var,
             width=width,
-            fg_color=COLOR_BG_TERMINAL,
-            text_color=COLOR_MATRIX,
-            border_color=COLOR_MATRIX,
+            fg_color=entry_fg,
+            text_color=entry_text,
+            border_color=entry_border,
             font=FONT_TERMINAL
         )
         self.entry.pack(fill='x', expand=True)
@@ -414,12 +427,17 @@ class SearchableCombo(ctk.CTkFrame):
                 self._dropdown.attributes('-topmost', True)
                 self._dropdown.configure(bg=COLOR_BG_TERMINAL)
 
+                # Listbox colors from module palette if available
+                lb_bg = self._colors.get('background') if self._colors else COLOR_BG_TERMINAL
+                lb_fg = self._colors.get('text') if self._colors else COLOR_MATRIX
+                lb_select_bg = self._colors.get('primary') if self._colors else '#03519F'
+
                 lb = tk.Listbox(
                     self._dropdown,
                     activestyle='dotbox',
-                    bg=COLOR_BG_TERMINAL,
-                    fg=COLOR_MATRIX,
-                    selectbackground='#03519F',
+                    bg=lb_bg,
+                    fg=lb_fg,
+                    selectbackground=lb_select_bg,
                     selectforeground='white',
                     highlightthickness=0,
                     bd=0

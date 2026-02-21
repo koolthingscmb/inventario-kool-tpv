@@ -19,6 +19,7 @@ from kool_tpv.utils.utils import (
     FONT_TERMINAL,
 )
 from kool_tpv.utils.config_loader import create_action_button, load_colors
+from kool_tpv.modulos.clientes.clientes_tickets import ClientesTicketsUI
 
 logger = logging.getLogger(__name__)
 
@@ -194,8 +195,20 @@ class CrearClienteUI:
         try:
             from pathlib import Path
             from PIL import Image
-            assets_path = Path(__file__).resolve().parents[4] / 'assets' / 'dialogs'
-            img_tesoro_path = assets_path / 'dialog_tesoro.png'
+
+            # Buscar la carpeta root del paquete `kool_tpv` para localizar `assets` de forma robusta
+            assets_base = None
+            this_path = Path(__file__).resolve()
+            for p in this_path.parents:
+                if (p / '__init__.py').exists() and p.name == 'kool_tpv':
+                    assets_base = p / 'assets'
+                    break
+            if assets_base is None:
+                # Fallback al comportamiento anterior
+                assets_base = this_path.parents[4] / 'assets'
+
+            assets_dialogs = assets_base / 'dialogs'
+            img_tesoro_path = assets_dialogs / 'dialog_tesoro.png'
 
             if img_tesoro_path.exists():
                 img_tesoro = Image.open(img_tesoro_path).convert('RGBA')
@@ -260,7 +273,16 @@ class CrearClienteUI:
         valores_frame.grid_columnconfigure(0, weight=1)
         valores_frame.grid_columnconfigure(1, weight=1)
 
-        iconos_path = Path(__file__).resolve().parents[4] / 'assets' / 'iconos'
+        # Localizar carpeta de iconos dentro de `kool_tpv/assets/iconos` de forma robusta
+        from pathlib import Path
+        this_path = Path(__file__).resolve()
+        iconos_path = None
+        for p in this_path.parents:
+            if (p / '__init__.py').exists() and p.name == 'kool_tpv':
+                iconos_path = p / 'assets' / 'iconos'
+                break
+        if iconos_path is None:
+            iconos_path = this_path.parents[4] / 'assets' / 'iconos'
 
         # === FILA 0, COLUMNA 0: TESORO ACTUAL ===
         fila0_col0 = ctk.CTkFrame(valores_frame, fg_color='transparent')
@@ -706,20 +728,50 @@ class CrearClienteUI:
             logger.exception('Error en sumar puntos')
 
     def _on_tickets(self):
-        """Mostrar tickets del cliente."""
+        """Abrir vista de tickets del cliente actual."""
         try:
+            # Validar que hay cliente cargado
             if not self.cliente_id:
-                from kool_tpv.utils.custom_dialog import show_warning
-                show_warning(self.container, 'Sin cliente', 
-                           'Guarda el cliente primero para ver sus tickets')
+                from kool_tpv.utils.custom_dialog import show_error
+                show_error(self.container, 'Tickets', 'Debes guardar el cliente primero')
                 return
 
-            # TODO: Mostrar grid de tickets
-            logger.info(f'TODO: Mostrar tickets del cliente {self.cliente_id}')
-            from kool_tpv.utils.custom_dialog import show_info
-            show_info(self.container, 'En desarrollo', 'Función TICKETS próximamente')
+            # Obtener nombre del cliente
+            cliente_nombre = (self.e_nombre.get() or '').strip() or f'Cliente {self.cliente_id}'
+
+            # Limpiar área central del padre (si procede)
+            if hasattr(self, 'parent') and hasattr(self.parent, 'winfo_children'):
+                try:
+                    for widget in list(self.parent.winfo_children()):
+                        widget.destroy()
+                except Exception:
+                    pass
+
+            # Crear y mostrar ClientesTicketsUI
+            tickets_ui = ClientesTicketsUI(
+                parent=self.parent,
+                db=self.db,
+                cliente_id=self.cliente_id,
+                cliente_nombre=cliente_nombre
+            )
+            try:
+                tickets_ui.get_widget().pack(fill='both', expand=True)
+            except Exception:
+                # Fallback: if template returns container via get_widget
+                try:
+                    self.parent.update()
+                except Exception:
+                    pass
+
+            logger.info(f'ClientesTicketsUI abierto para cliente_id={self.cliente_id}')
+
         except Exception:
-            logger.exception('Error mostrando tickets')
+            logger.exception('Error en _on_tickets')
+            try:
+                from kool_tpv.utils.custom_dialog import show_error
+                show_error(self.container, 'Error', 'No se pudo abrir vista de tickets')
+            except Exception:
+                pass
 
     def _on_comunicacion(self):
         """Abrir comunicación con cliente."""

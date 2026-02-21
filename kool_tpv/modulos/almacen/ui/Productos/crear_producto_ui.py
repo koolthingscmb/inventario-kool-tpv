@@ -40,20 +40,20 @@ class CrearProductoUI:
         try:
             self.colors = load_colors(module_name)
         except Exception:
-            self.colors = {'text': COLOR_MATRIX, 'primary': COLOR_MATRIX, 'accent': COLOR_MATRIX}
-        self.container = ctk.CTkFrame(self.parent, fg_color=COLOR_BG_TERMINAL)
+            self.colors = {'text': COLOR_MATRIX, 'primary': COLOR_MATRIX, 'accent': COLOR_MATRIX, 'background': COLOR_BG_TERMINAL, 'light': '#666666'}
+        self.container = ctk.CTkFrame(self.parent, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
 
         # Header removed: breadcrumb is provided by BaseModuleView
 
         # Build stacked frames: GENERAL above SHOPIFY (no TabView)
-        self.general_frame = ctk.CTkFrame(self.container, fg_color=COLOR_BG_TERMINAL)
+        self.general_frame = ctk.CTkFrame(self.container, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
         self.general_frame.pack(fill='both', expand=False, padx=12, pady=8)
 
-        self.shopify_frame = ctk.CTkFrame(self.container, fg_color=COLOR_BG_TERMINAL)
+        self.shopify_frame = ctk.CTkFrame(self.container, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
         self.shopify_frame.pack(fill='both', expand=True, padx=12, pady=(0, 8))
         # Common styles
         lbl_font = FONT_TERMINAL
-        entry_kwargs = {"fg_color": COLOR_BG_TERMINAL, "text_color": self.colors['text'], "border_width": 2, "border_color": self.colors['primary'], "corner_radius": 4}
+        entry_kwargs = {"fg_color": self.colors.get('background', COLOR_BG_TERMINAL), "text_color": self.colors['text'], "border_width": 2, "border_color": self.colors.get('border', self.colors.get('primary', COLOR_MATRIX)), "corner_radius": 4}
 
         # Build GENERAL frame with 8-column grid (7 filas requeridas)
         for c in range(8):
@@ -61,7 +61,7 @@ class CrearProductoUI:
 
         # Fila 1: ID (2 col block) | NOMBRE (6 col block)
         ctk.CTkLabel(self.general_frame, text="ID:", text_color=self.colors['text'], font=lbl_font).grid(row=0, column=0, sticky='w', padx=6, pady=6)
-        self.e_id = ctk.CTkEntry(self.general_frame, placeholder_text="ID (auto)", state='disabled', fg_color=COLOR_BG_TERMINAL, text_color="#666666", border_color=self.colors['primary'])
+        self.e_id = ctk.CTkEntry(self.general_frame, placeholder_text="ID (auto)", state='disabled', fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors.get('light', '#666666'), border_color=self.colors.get('border', self.colors.get('primary', COLOR_MATRIX)))
         self.e_id.grid(row=0, column=1, columnspan=1, sticky='ew', padx=6, pady=6)
 
         ctk.CTkLabel(self.general_frame, text="NOMBRE:", text_color=self.colors['text'], font=lbl_font).grid(row=0, column=2, sticky='w', padx=6, pady=6)
@@ -105,7 +105,7 @@ class CrearProductoUI:
         self.cb_iva.grid(row=4, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
 
         ctk.CTkLabel(self.general_frame, text="PVP_VARIABLE:", text_color=self.colors['text'], font=lbl_font).grid(row=4, column=4, sticky='w', padx=6, pady=6)
-        self.chk_pvp_var = ctk.CTkCheckBox(self.general_frame, text='', fg_color=self.colors['primary'])
+        self.chk_pvp_var = ctk.CTkCheckBox(self.general_frame, text='', fg_color=self.colors['secondary'])
         self.chk_pvp_var.grid(row=4, column=5, columnspan=3, sticky='w', padx=6, pady=6)
 
         # Fila 6: STOCK_ACTUAL (4 col) | STOCK_MINIMO (4 col)
@@ -126,13 +126,13 @@ class CrearProductoUI:
             self.e_ventas_var = None
         try:
             if self.e_ventas_var is not None:
-                self.e_ventas = ctk.CTkEntry(self.general_frame, textvariable=self.e_ventas_var, state='readonly', fg_color=COLOR_BG_TERMINAL, text_color="#666666", border_color="#00FF00", border_width=2)
+                self.e_ventas = ctk.CTkEntry(self.general_frame, textvariable=self.e_ventas_var, state='readonly', fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors.get('light', '#666666'), border_color=self.colors.get('border', self.colors.get('light', '#666666')), border_width=2)
             else:
-                self.e_ventas = ctk.CTkEntry(self.general_frame, placeholder_text='0', state='readonly', fg_color=COLOR_BG_TERMINAL, text_color="#666666", border_color="#00FF00", border_width=2)
+                self.e_ventas = ctk.CTkEntry(self.general_frame, placeholder_text='0', state='readonly', fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors.get('light', '#666666'), border_color=self.colors.get('border', self.colors.get('light', '#666666')), border_width=2)
         except Exception:
             # fallback: disabled entry if readonly not supported
             try:
-                self.e_ventas = ctk.CTkEntry(self.general_frame, placeholder_text='0', state='disabled', fg_color=COLOR_BG_TERMINAL, text_color="#666666", border_color="#00FF00", border_width=2)
+                self.e_ventas = ctk.CTkEntry(self.general_frame, placeholder_text='0', state='disabled', fg_color=COLOR_BG_TERMINAL, text_color="#666666", border_color=self.colors['light'], border_width=2)
             except Exception:
                 self.e_ventas = tk.Entry(self.general_frame)
         self.e_ventas.grid(row=6, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
@@ -140,7 +140,7 @@ class CrearProductoUI:
         ctk.CTkLabel(self.general_frame, text="ACTIVO:", text_color=self.colors['text'], font=lbl_font).grid(row=6, column=4, sticky='w', padx=6, pady=6)
         # Use a BooleanVar to track activo state
         self.chk_activo_var = tk.BooleanVar(value=True)
-        self.chk_activo = ctk.CTkCheckBox(self.general_frame, text='Producto activo', variable=self.chk_activo_var, fg_color=self.colors['primary'], text_color=self.colors['text'])
+        self.chk_activo = ctk.CTkCheckBox(self.general_frame, text='Producto activo', variable=self.chk_activo_var, fg_color=self.colors['secondary'], text_color=self.colors['secondary'])
         # Marcado por defecto
         try:
             self.chk_activo_var.set(True)
@@ -157,7 +157,7 @@ class CrearProductoUI:
         self.e_codigos.grid(row=8, column=0, columnspan=8, sticky='nsew', padx=6, pady=6)
 
         # Label separator for Shopify section (highlighted in yellow)
-        ctk.CTkLabel(self.general_frame, text='SHOPIFY', text_color='#f1c40f', font=lbl_font).grid(row=9, column=0, columnspan=8, sticky='w', padx=6, pady=(12, 6))
+        ctk.CTkLabel(self.general_frame, text='SHOPIFY', text_color=self.colors['secondary'], font=lbl_font).grid(row=9, column=0, columnspan=8, sticky='w', padx=6, pady=(12, 6))
 
         # Load options from DB if available
         self._load_db_options()
@@ -175,16 +175,24 @@ class CrearProductoUI:
         ctk.CTkLabel(self.shopify_frame, text='LINK:', text_color=self.colors['text'], font=lbl_font).grid(row=1, column=0, sticky='w', padx=6, pady=6)
         self.e_shop_link = ctk.CTkEntry(self.shopify_frame, placeholder_text='https://…', **entry_kwargs)
         self.e_shop_link.grid(row=1, column=1, columnspan=6, sticky='ew', padx=6, pady=6)
-        ctk.CTkButton(self.shopify_frame, text='IR', width=60, fg_color='#3498db', command=self._open_shop_link).grid(row=1, column=7, sticky='ew', padx=6, pady=6)
+        # IR button: prefer palette settings from colors_config.json
+        btn_cfg = self.colors.get('buttons', {}).get('primary', {})
+        btn_bg = btn_cfg.get('bg', self.colors.get('primary', '#3498db'))
+        btn_hover = btn_cfg.get('hover', btn_bg)
+        btn_text = btn_cfg.get('text', self.colors.get('text'))
+        try:
+            ctk.CTkButton(self.shopify_frame, text='IR', width=60, fg_color=btn_bg, hover_color=btn_hover, text_color=btn_text, command=self._open_shop_link).grid(row=1, column=7, sticky='ew', padx=6, pady=6)
+        except Exception:
+            ctk.CTkButton(self.shopify_frame, text='IR', width=60, fg_color=btn_bg, command=self._open_shop_link).grid(row=1, column=7, sticky='ew', padx=6, pady=6)
 
         # Fila 3: TAXONOMY (static vinculado, 4 col) | TIPO_SHOP (label+entry, 4 col)
         ctk.CTkLabel(self.shopify_frame, text='TAXONOMY:', text_color=self.colors['text'], font=lbl_font).grid(row=2, column=0, sticky='w', padx=6, pady=6)
         # Readonly entry to allow selection/copy but prevent manual edits
         try:
-            self.ent_taxonomy = ctk.CTkEntry(self.shopify_frame, placeholder_text='', state='readonly', fg_color="#000000", text_color="#00FF00", border_width=2, border_color="#00FF00", corner_radius=4)
+            self.ent_taxonomy = ctk.CTkEntry(self.shopify_frame, placeholder_text='', state='readonly', fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors['light'], border_width=2, border_color=self.colors.get('border', self.colors.get('secondary', COLOR_MATRIX)), corner_radius=4)
         except Exception:
             # fallback if customtkinter does not support readonly state
-            self.ent_taxonomy = ctk.CTkEntry(self.shopify_frame, placeholder_text='', fg_color="#000000", text_color="#00FF00", border_width=2, border_color="#00FF00", corner_radius=4)
+            self.ent_taxonomy = ctk.CTkEntry(self.shopify_frame, placeholder_text='', fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors['light'], border_width=2, border_color=self.colors['secondary'], corner_radius=4)
             try:
                 self.ent_taxonomy.configure(state='readonly')
             except Exception:
@@ -209,7 +217,7 @@ class CrearProductoUI:
         # Fila 6: SEO_DESCRIPTION (CTkTextbox, altura menor 80px, 8 col)
         ctk.CTkLabel(self.shopify_frame, text='SEO_DESCRIPTION:', text_color=self.colors['text'], font=lbl_font).grid(row=5, column=0, sticky='nw', padx=6, pady=6)
         try:
-            self.e_seo_desc = ctk.CTkTextbox(self.shopify_frame, width=800, height=80, fg_color="#000000", text_color="#00FF00", border_width=2, border_color="#00FF00")
+            self.e_seo_desc = ctk.CTkTextbox(self.shopify_frame, width=800, height=80, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors['light'], border_width=2, border_color=self.colors.get('border', self.colors.get('secondary', COLOR_MATRIX)))
             self.e_seo_desc.grid(row=5, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
             try:
                 # make Tab move to next widget instead of inserting a tab character
@@ -218,15 +226,15 @@ class CrearProductoUI:
                 pass
         except Exception:
             # fallback: wrap tk.Text in a framed CTkFrame to simulate border
-            frame = ctk.CTkFrame(self.shopify_frame, fg_color="#000000", border_width=2, border_color="#00FF00")
-            self.e_seo_desc = tk.Text(frame, bg="#000000", fg="#00FF00")
+            frame = ctk.CTkFrame(self.shopify_frame, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), border_width=2, border_color=self.colors.get('border', self.colors.get('secondary', COLOR_MATRIX)))
+            self.e_seo_desc = tk.Text(frame, bg=self.colors.get('background', COLOR_BG_TERMINAL), fg=self.colors['light'])
             self.e_seo_desc.pack(fill='both', expand=True)
             frame.grid(row=5, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
 
         # Fila 7: DESCRIPCION (CTkTextbox grande, 8 col)
         ctk.CTkLabel(self.shopify_frame, text='DESCRIPCION:', text_color=self.colors['text'], font=lbl_font).grid(row=6, column=0, sticky='nw', padx=6, pady=6)
         try:
-            self.txt_description = ctk.CTkTextbox(self.shopify_frame, width=800, height=100, fg_color="#000000", text_color="#00FF00", border_width=2, border_color="#00FF00")
+            self.txt_description = ctk.CTkTextbox(self.shopify_frame, width=800, height=100, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors['light'], border_width=2, border_color=self.colors.get('border', self.colors.get('secondary', COLOR_MATRIX)))
             self.txt_description.grid(row=6, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
             try:
                 # Tab from description should go directly to the Guardar button
@@ -238,15 +246,15 @@ class CrearProductoUI:
             except Exception:
                 pass
         except Exception:
-            frame2 = ctk.CTkFrame(self.shopify_frame, fg_color="#000000", border_width=2, border_color="#00FF00")
-            self.txt_description = tk.Text(frame2, bg="#000000", fg="#00FF00")
+            frame2 = ctk.CTkFrame(self.shopify_frame, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), border_width=2, border_color=self.colors.get('border', self.colors.get('secondary', COLOR_MATRIX)))
+            self.txt_description = tk.Text(frame2, bg=self.colors.get('background', COLOR_BG_TERMINAL), fg=self.colors['light'])
             self.txt_description.pack(fill='both', expand=True)
             frame2.grid(row=6, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
         self.shopify_frame.grid_rowconfigure(6, weight=1)
 
         # Bottom buttons (aligned left per style guide)
         # Use terminal bg for footer to ensure buttons are visible and contrast correctly
-        self.btn_frame = ctk.CTkFrame(self.container, fg_color=COLOR_BG_TERMINAL)
+        self.btn_frame = ctk.CTkFrame(self.container, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
         self.btn_frame.pack(side='bottom', fill='x', padx=12, pady=12)
         # Guardar (desde config)
         self.btn_guardar = create_action_button(self.btn_frame, 'guardar', self._on_save)
@@ -260,14 +268,20 @@ class CrearProductoUI:
 
         # Trace category changes to update taxonomy (focusout and selection events)
         try:
-            self.cb_categoria.entry.bind('<FocusOut>', lambda e: self._update_taxonomy_from_category())
-            self.cb_categoria.entry.bind('<<SearchableComboSelected>>', lambda e: self._update_taxonomy_from_category())
-            self.cb_categoria.entry.bind('<Return>', lambda e: self._update_taxonomy_from_category())
+            self.cb_categoria.entry.bind('<FocusOut>', lambda e: (self._validate_combo_focus(self.cb_categoria), self._update_taxonomy_from_category()))
+            self.cb_categoria.entry.bind('<<SearchableComboSelected>>', lambda e: (self._on_combo_selected(self.cb_categoria), self._update_taxonomy_from_category()))
+            self.cb_categoria.entry.bind('<Return>', lambda e: (self._validate_combo_focus(self.cb_categoria), self._update_taxonomy_from_category()))
+            self.cb_tipo.entry.bind('<FocusOut>', lambda e: self._validate_combo_focus(self.cb_tipo))
+            self.cb_tipo.entry.bind('<<SearchableComboSelected>>', lambda e: self._on_combo_selected(self.cb_tipo))
+            self.cb_tipo.entry.bind('<Return>', lambda e: self._validate_combo_focus(self.cb_tipo))
+            self.cb_proveedor.entry.bind('<FocusOut>', lambda e: self._validate_combo_focus(self.cb_proveedor))
+            self.cb_proveedor.entry.bind('<<SearchableComboSelected>>', lambda e: self._on_combo_selected(self.cb_proveedor))
+            self.cb_proveedor.entry.bind('<Return>', lambda e: self._validate_combo_focus(self.cb_proveedor))
         except Exception:
             pass
 
     def _add_label_entry(self, parent, label, row, col, colspan, entry_kwargs, lbl_font, placeholder=''):
-        ctk.CTkLabel(parent, text=f'{label}:', text_color=COLOR_MATRIX, font=lbl_font).grid(row=row, column=col, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(parent, text=f'{label}:', text_color=self.colors.get('text', COLOR_MATRIX), font=lbl_font).grid(row=row, column=col, sticky='w', padx=6, pady=6)
         ent = ctk.CTkEntry(parent, placeholder_text=placeholder, **entry_kwargs)
         ent.grid(row=row, column=col+1, columnspan=colspan-1, sticky='ew', padx=6, pady=6)
         setattr(self, f'e_{label.lower()}', ent)
@@ -371,6 +385,46 @@ class CrearProductoUI:
                     pass
         except Exception:
             logging.exception('Error actualizando taxonomy')
+
+    def _validate_combo_focus(self, combo):
+        try:
+            # If empty, reset border to normal
+            val = (combo.get() or '').strip()
+            if not val:
+                try:
+                    combo.entry.configure(border_color=self.colors.get('border', self.colors.get('primary', COLOR_MATRIX)))
+                except Exception:
+                    pass
+                return
+            # If value present but no id -> invalid, clear and mark error
+            try:
+                if combo.get_id() is None:
+                    try:
+                        combo.entry.configure(border_color=COLOR_ERROR)
+                    except Exception:
+                        pass
+                    try:
+                        if hasattr(combo, 'set'):
+                            combo.set('')
+                        else:
+                            combo.entry.delete(0, 'end')
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        combo.entry.configure(border_color=self.colors.get('border', self.colors.get('primary', COLOR_MATRIX)))
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+    def _on_combo_selected(self, combo):
+        try:
+            combo.entry.configure(border_color=self.colors.get('border', self.colors.get('primary', COLOR_MATRIX)))
+        except Exception:
+            pass
 
     def _open_shop_link(self):
         link = (self.e_nombre.get() or '').strip()

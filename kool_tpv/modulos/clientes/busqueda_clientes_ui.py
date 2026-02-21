@@ -26,7 +26,7 @@ class BusquedaClientesUI:
             self.colors = load_colors(self.module_name)
         except Exception:
             self.colors = {'text': COLOR_MATRIX, 'primary': COLOR_MATRIX, 'accent': COLOR_MATRIX}
-        self.container = ctk.CTkFrame(self.parent, fg_color=COLOR_BG_TERMINAL)
+        self.container = ctk.CTkFrame(self.parent, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
 
         # Search entry
         self.search_var = tk.StringVar()
@@ -35,7 +35,7 @@ class BusquedaClientesUI:
             textvariable=self.search_var,
             placeholder_text='Buscar cliente (nombre, DNI, teléfono)...',
             height=36,
-            fg_color='#000000',
+            fg_color=self.colors.get('background', COLOR_BG_TERMINAL),
             text_color=self.colors.get('text', COLOR_MATRIX),
             border_width=2,
             border_color=self.colors.get('primary', COLOR_MATRIX)
@@ -68,7 +68,7 @@ class BusquedaClientesUI:
             variable=self.check_tesoro_activo,
             text_color=self.colors.get('text', COLOR_MATRIX),
             fg_color=self.colors.get('primary', COLOR_MATRIX),
-            hover_color='#00AA00',
+            hover_color=self.colors.get('buttons', {}).get('primary', {}).get('hover', self.colors.get('secondary', '#00AA00')),
             command=self._on_search
         ).pack(side='left', padx=4)
 
@@ -78,7 +78,7 @@ class BusquedaClientesUI:
             variable=self.check_tesoro_inactivo,
             text_color=self.colors.get('text', COLOR_MATRIX),
             fg_color=self.colors.get('primary', COLOR_MATRIX),
-            hover_color='#00AA00',
+            hover_color=self.colors.get('buttons', {}).get('primary', {}).get('hover', self.colors.get('secondary', '#00AA00')),
             command=self._on_search
         ).pack(side='left', padx=4)
 
@@ -96,7 +96,7 @@ class BusquedaClientesUI:
                 hdr_frame,
                 text=h,
                 text_color=self.colors.get('text', COLOR_MATRIX),
-                fg_color='#1a1a1a',
+                fg_color=self.colors.get('bg_dark', '#1a1a1a'),
                 anchor='w',
                 font=('Courier New', 13, 'bold'),
                 width=col_widths[i]-6,
@@ -106,13 +106,13 @@ class BusquedaClientesUI:
             lbl.place(x=sum(col_widths[:i]) + 6, y=2)
             # Separador vertical
             try:
-                sep = ctk.CTkFrame(hdr_frame, fg_color='#2a2a2a', width=1)
+                sep = ctk.CTkFrame(hdr_frame, fg_color=self.colors.get('bg_medium', '#2a2a2a'), width=1)
                 sep.place(x=sum(col_widths[:i+1]), y=2, height=28)
             except Exception:
                 pass
 
         # Data area
-        self.data_frame = ctk.CTkScrollableFrame(self.container, fg_color=COLOR_BG_TERMINAL)
+        self.data_frame = ctk.CTkScrollableFrame(self.container, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
         self.data_frame.pack(fill='both', expand=True, padx=12, pady=6)
 
         # Paginación
@@ -243,14 +243,14 @@ class BusquedaClientesUI:
 
     def _append_row(self, cliente: dict, index: int):
         """Añadir fila de cliente al grid."""
-        row_bg = '#1a1a1a' if (index % 2 == 0) else '#121212'
+        row_bg = self.colors.get('bg_dark', '#1a1a1a') if (index % 2 == 0) else self.colors.get('bg_medium', '#121212')
         row = ctk.CTkFrame(self.data_frame, fg_color=row_bg, height=30)
         row.pack(fill='x', pady=0)
 
         # Hover effect
         def on_enter(e, w=row):
             try:
-                w.configure(fg_color='#333333')
+                w.configure(fg_color=self.colors.get('bg_medium', '#333333'))
             except Exception:
                 pass
 
@@ -280,7 +280,7 @@ class BusquedaClientesUI:
 
         # Determinar estado
         estado = 'ACTIVO' if cliente.get('fidelidad_activa') else 'INACTIVO'
-        color_estado = '#00FF00' if cliente.get('fidelidad_activa') else '#FF0000'
+        color_estado = self.colors.get('primary', '#00FF00') if cliente.get('fidelidad_activa') else self.colors.get('error', '#FF0000')
 
         values = [
             str(cliente.get('id', '')),
@@ -326,7 +326,7 @@ class BusquedaClientesUI:
 
         # Separador línea
         try:
-            sep = ctk.CTkFrame(self.data_frame, fg_color='#2a2a2a', height=1)
+            sep = ctk.CTkFrame(self.data_frame, fg_color=self.colors.get('bg_medium', '#2a2a2a'), height=1)
             sep.pack(fill='x')
         except Exception:
             pass
