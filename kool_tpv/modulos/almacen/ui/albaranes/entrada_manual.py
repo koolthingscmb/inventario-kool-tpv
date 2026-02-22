@@ -9,6 +9,7 @@ from kool_tpv.base_datos.albaran_service import AlbaranService
 from kool_tpv.base_datos.proveedor_service import ProveedorService
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
+from kool_tpv.utils.widgets.nav_list import NavList
 from kool_tpv.utils.custom_dialog import show_success
 from kool_tpv.utils.config_loader import create_action_button
 
@@ -19,11 +20,12 @@ logger = logging.getLogger(__name__)
 
 
 class EntradaManualUI:
-    def __init__(self, parent, db=None, tipo='ENTRADA', module_name: str = 'almacen'):
+    def __init__(self, parent, db=None, tipo='ENTRADA', module_name: str = 'almacen', keyboard_manager=None):
         self.parent = parent
         self.db = db
         self.tipo = tipo  # 'ENTRADA', 'SALIDA', 'DEVOLUCION'
         self.module_name = module_name
+        self.keyboard_mgr = keyboard_manager
         from kool_tpv.utils.config_loader import load_colors
         try:
             self.colors = load_colors(module_name)
@@ -242,9 +244,18 @@ class EntradaManualUI:
                               width=col_widths[i]-6, height=28, corner_radius=0)
             lbl.place(x=sum(col_widths[:i]) + 6, y=2)
 
-        # Área de líneas
-        self.lines_frame = ctk.CTkScrollableFrame(self.container, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
-        self.lines_frame.pack(fill='both', expand=True, padx=6, pady=2)
+        # Área de líneas -> NavList para soporte teclado y selección
+        self.columns_lines = [
+            ('EAN', 160), ('NOMBRE', 320), ('UDS', 90), ('COSTE', 90), ('DTO', 90), ('IMPORTE', 110)
+        ]
+        self.nav_list = NavList(
+            self.container,
+            columns=self.columns_lines,
+            module_name=self.module_name,
+            keyboard_manager=self.keyboard_mgr,
+            on_double_click=self._on_double_click_line,
+        )
+        self.nav_list.pack(fill='both', expand=True, padx=6, pady=2)
 
         # Totales
         totales_frame = ctk.CTkFrame(self.container, fg_color='transparent', height=50)
@@ -398,6 +409,78 @@ class EntradaManualUI:
         except Exception:
             logging.exception('Error escaneando EAN')
 
+    def _map_line_to_row(self, line: dict) -> dict:
+        try:
+            importe = (line.get('cantidad', 0) * line.get('coste', 0.0)) - line.get('descuento', 0.0)
+            mapped = {
+                'EAN': line.get('ean', ''),
+                'NOMBRE': line.get('nombre', ''),
+                'UDS': str(line.get('cantidad', '')),
+                'COSTE': f"{line.get('coste', 0.0):.2f}",
+                'DTO': f"{line.get('descuento', 0.0):.2f}",
+                'IMPORTE': f"{importe:.2f}",
+                '_idx': line.get('id') if 'id' in line else None
+            }
+            return mapped
+        except Exception:
+            logging.exception('Error mapeando línea a row')
+            return {}
+
+    def _on_double_click_line(self, data: dict):
+        try:
+            # Encontrar índice por id o por EAN+NOMBRE
+            idx = None
+            row_id = data.get('_idx')
+            if row_id:
+                for i, ln in enumerate(self.lines):
+                    if ln.get('id') == row_id:
+                        idx = i
+                        break
+            if idx is None:
+                for i, ln in enumerate(self.lines):
+                    if ln.get('ean') == data.get('EAN') and ln.get('nombre') == data.get('NOMBRE'):
+                        idx = i
+                        break
+            if idx is None:
+                return
+
+            line = self.lines[idx]
+            # Rellenar inputs para editar
+            try:
+                self.e_ean.delete(0, 'end')
+                self.e_ean.insert(0, line.get('ean', ''))
+            except Exception:
+                pass
+            try:
+                self.cb_nombre.set(line.get('nombre', ''))
+            except Exception:
+                pass
+            try:
+                self.e_uds.delete(0, 'end')
+                self.e_uds.insert(0, str(line.get('cantidad', '')))
+            except Exception:
+                pass
+            try:
+                self.e_coste.delete(0, 'end')
+                self.e_coste.insert(0, f"{line.get('coste', 0.0):.2f}")
+            except Exception:
+                pass
+            try:
+                self.e_dto.delete(0, 'end')
+                self.e_dto.insert(0, f"{line.get('descuento', 0.0):.2f}")
+            except Exception:
+                pass
+
+            # Marcar edición: reemplazaremos la línea al añadir
+            try:
+                self._editing_index = idx
+                self.e_uds.focus_set()
+            except Exception:
+                pass
+
+        except Exception:
+            logging.exception('Error manejando doble click en línea')
+
     def _add_line(self):
         try:
             uds = int(self.e_uds.get() or 0)
@@ -443,40 +526,19 @@ class EntradaManualUI:
 
     def _render_lines(self):
         try:
-            # Limpiar contenido previo
-            for w in list(self.lines_frame.winfo_children()):
-                try:
-                    w.destroy()
-                except Exception:
-                    pass
+            # Limpiar NavList
+            try:
+                self.nav_list.clear_items()
+            except Exception:
+                pass
 
-            # Dibujar cada línea usando self.col_widths
+            # Añadir cada línea al NavList
             for idx, line in enumerate(self.lines):
-                row_bg = self._row_bg_main if (idx % 2) == 0 else self._row_bg_alt
-                row = ctk.CTkFrame(self.lines_frame, fg_color=row_bg, height=26)
-                row.pack(fill='x', pady=0)
-
-                importe = (line['cantidad'] * line['coste']) - line['descuento']
-                values = [
-                    line.get('ean', ''),
-                    line.get('nombre', ''),
-                    str(line.get('cantidad', '')),
-                    f"{line.get('coste', 0.0):.2f}",
-                    f"{line.get('descuento', 0.0):.2f}",
-                    f"{importe:.2f}"
-                ]
-
-                x = 6
-                for j, v in enumerate(values):
-                    # highlight product name, quantity, coste and importe with accent color
-                    if j in (1, 2, 3, 5):
-                        tc = self.colors.get('accent', self.colors.get('text'))
-                    else:
-                        tc = self.colors.get('text')
-                    lbl = ctk.CTkLabel(row, text=v, text_color=tc, anchor='w',
-                                      font=FONT_TERMINAL, width=self.col_widths[j]-8, height=26)
-                    lbl.place(x=x, y=1)
-                    x += self.col_widths[j]
+                try:
+                    mapped = self._map_line_to_row(line)
+                    self.nav_list.add_item(mapped)
+                except Exception:
+                    logging.exception('Error añadiendo línea al NavList')
         except Exception:
             logging.exception('Error renderizando líneas')
 

@@ -13,13 +13,15 @@ from kool_tpv.base_datos.albaran_service import AlbaranService
 from kool_tpv.base_datos.proveedor_service import ProveedorService
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
+from kool_tpv.utils.widgets.nav_list import NavList
 
 
 class ConsultarAlbaranUI:
-    def __init__(self, parent, db=None, owner=None):
+    def __init__(self, parent, db=None, owner=None, keyboard_manager=None, module_name: str = 'almacen'):
         self.parent = parent
         self.db = db
         self.owner = owner
+        self.keyboard_mgr = keyboard_manager
         self.albaran_service = AlbaranService(db)
         self.proveedor_service = ProveedorService(db)
         from kool_tpv.utils.config_loader import load_colors
@@ -184,39 +186,20 @@ class ConsultarAlbaranUI:
         except Exception:
             pass
 
-        # Headers tabla
-        hdr_frame = ctk.CTkFrame(self.container, fg_color='transparent', height=32)
-        hdr_frame.pack(fill='x', padx=12, pady=(0, 2))
-        hdr_frame.pack_propagate(False)
+        # Crear NavList para mostrar resultados (reemplaza header + data_frame)
+        self.columns = [
+            ('ID', 50), ('FECHA', 100), ('PROVEEDOR', 200),
+            ('CANT. PROD.', 100), ('TOTAL NETO', 100), ('TOTAL IVA', 100), ('TOTAL', 100)
+        ]
 
-        # Anchos columnas: ID (50), Fecha (100), Proveedor (200), Cant.Prod (100), Total Neto (100), Total IVA (100), Total (100)
-        col_widths = [50, 100, 200, 100, 100, 100, 100]
-        headers = ['ID', 'FECHA', 'PROVEEDOR', 'CANT. PROD.', 'TOTAL NETO', 'TOTAL IVA', 'TOTAL']
-
-        for i, h in enumerate(headers):
-            lbl = ctk.CTkLabel(
-                hdr_frame,
-                text=h,
-                text_color=self.colors.get('text', COLOR_MATRIX),
-                fg_color=self.colors.get('bg_dark', '#1a1a1a'),
-                anchor='w',
-                font=('Courier New', 13, 'bold'),
-                width=col_widths[i] - 6,
-                height=28,
-                corner_radius=0
-            )
-            lbl.place(x=sum(col_widths[:i]) + 6, y=2)
-
-            # Separador vertical
-            try:
-                sep = ctk.CTkFrame(hdr_frame, fg_color=self.colors.get('bg_medium', '#2a2a2a'), width=1)
-                sep.place(x=sum(col_widths[:i+1]), y=2, height=28)
-            except Exception:
-                pass
-
-        # Data area scroll
-        self.data_frame = ctk.CTkScrollableFrame(self.container, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
-        self.data_frame.pack(fill='both', expand=True, padx=12, pady=6)
+        self.nav_list = NavList(
+            self.container,
+            columns=self.columns,
+            module_name=module_name,
+            keyboard_manager=self.keyboard_mgr,
+            on_double_click=self._on_double_click_row,
+        )
+        self.nav_list.pack(fill='both', expand=True, padx=12, pady=6)
 
         # Cargar opciones proveedor
         self._load_proveedores()
@@ -330,12 +313,11 @@ class ConsultarAlbaranUI:
     def _aplicar_filtros(self):
         """Ejecutar filtro y refrescar lista."""
         try:
-            # Limpiar data_frame
-            for w in list(self.data_frame.winfo_children()):
-                try:
-                    w.destroy()
-                except Exception:
-                    pass
+            # Limpiar NavList
+            try:
+                self.nav_list.clear_items()
+            except Exception:
+                pass
 
             # Obtener filtros
             proveedor_id = self.cb_proveedor.get_id()
@@ -372,31 +354,24 @@ class ConsultarAlbaranUI:
                 limit=200
             )
 
-            # Renderizar filas
+            # Renderizar filas en NavList
             for i, alb in enumerate(albaranes):
-                self._append_row(alb, i)
+                try:
+                    mapped = self._map_albaran_to_row(alb)
+                    self.nav_list.add_item(mapped)
+                except Exception:
+                    logging.exception('Error añadiendo albarán a NavList')
 
         except Exception:
             logging.exception('Error aplicando filtros albaranes')
 
     def _append_row(self, albaran: dict, index: int):
-        """Añadir fila a la lista scroll."""
-        row_bg = self.colors.get('bg_dark', '#1a1a1a') if (index % 2 == 0) else self.colors.get('bg_medium', '#121212')
-        row = ctk.CTkFrame(self.data_frame, fg_color=row_bg, height=30)
-        row.pack(fill='x', pady=0)
-
-        # Hover effect
-        def on_enter(e, w=row):
-            try:
-                w.configure(fg_color=self.colors.get('bg_medium', '#333333'))
-            except Exception:
-                pass
-
-        def on_leave(e, w=row, bg=row_bg):
-            try:
-                w.configure(fg_color=bg)
-            except Exception:
-                pass
+        """Compat wrapper: añade albarán a NavList."""
+        try:
+            mapped = self._map_albaran_to_row(albaran)
+            self.nav_list.add_item(mapped)
+        except Exception:
+            logging.exception('Error añadiendo fila a NavList (append)')
 
         row.bind('<Enter>', on_enter)
         row.bind('<Leave>', on_leave)
@@ -452,3 +427,31 @@ class ConsultarAlbaranUI:
             sep.pack(fill='x')
         except Exception:
             pass
+
+    def _map_albaran_to_row(self, albaran: dict) -> dict:
+        try:
+            mapped = {
+                'ID': str(albaran.get('id', '')),
+                'FECHA': albaran.get('fecha', ''),
+                'PROVEEDOR': albaran.get('proveedor_nombre', ''),
+                'CANT. PROD.': str(albaran.get('cant_productos', 0)),
+                'TOTAL NETO': f"{albaran.get('total_neto', 0.0):.2f}€",
+                'TOTAL IVA': f"{albaran.get('total_iva', 0.0):.2f}€",
+                'TOTAL': f"{albaran.get('total', 0.0):.2f}€",
+                '_id': albaran.get('id')
+            }
+            return mapped
+        except Exception:
+            logging.exception('Error mapeando albarán a row')
+            return {}
+
+    def _on_double_click_row(self, data: dict):
+        try:
+            alb_id = data.get('_id') if data.get('_id') is not None else data.get('ID')
+            if self.owner and hasattr(self.owner, 'show_detalle_albaran'):
+                try:
+                    self.owner.show_detalle_albaran(alb_id)
+                except Exception:
+                    logging.exception('Error llamando a show_detalle_albaran desde ConsultarAlbaranUI')
+        except Exception:
+            logging.exception('Error manejando doble click en NavList (albaranes)')

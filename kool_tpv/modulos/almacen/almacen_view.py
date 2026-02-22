@@ -24,9 +24,21 @@ class AlmacenView(BaseModuleView):
     `buttons_menu.json` a métodos `show_*` simples que por ahora solo loguean.
     """
 
-    def __init__(self, parent, db):
+    def __init__(self, parent, db, keyboard_manager=None):
         # Initialize base template with module key 'almacen'
         super().__init__(parent, config_section='almacen')
+        # Guardar referencia al KeyboardManager (opcional)
+        try:
+            self.keyboard_mgr = keyboard_manager
+        except Exception:
+            self.keyboard_mgr = None
+        # Asegurar clave de módulo para carga de paleta
+        try:
+            # store lowercase key for config lookup and keep display name
+            self._module_key = 'almacen'
+            self.module_name = 'almacen'
+        except Exception:
+            pass
         # update breadcrumb to module on entry
         try:
             self.actualizar_ruta('ALMACEN')
@@ -169,7 +181,7 @@ class AlmacenView(BaseModuleView):
         try:
             from .ui.busqueda_ui import BusquedaUI
             try:
-                busq = BusquedaUI(self.central_area, db=self.db, owner=self)
+                busq = BusquedaUI(self.central_area, db=self.db, owner=self, keyboard_manager=self.keyboard_mgr)
                 if self.set_central_content(busq):
                     try:
                         self.actualizar_ruta('ALMACEN / BUSQUEDA')
@@ -311,9 +323,8 @@ class AlmacenView(BaseModuleView):
         """Mostrar UI de salida manual de albaranes."""
         try:
             from .ui.albaranes.salida_manual import SalidaManualUI
-
             try:
-                salida_ui = SalidaManualUI(self.central_area, db=self.db)
+                salida_ui = SalidaManualUI(self.central_area, db=self.db, keyboard_manager=self.keyboard_mgr)
                 if self.set_central_content(salida_ui):
                     self.actualizar_ruta('ALBARANES / SALIDA MANUAL', callbacks=self.breadcrumb_callbacks)
                 logging.info('Abriendo salida manual...')
@@ -328,7 +339,7 @@ class AlmacenView(BaseModuleView):
             from .ui.albaranes.devolucion import DevolucionUI
 
             try:
-                devolucion_ui = DevolucionUI(self.central_area, db=self.db)
+                devolucion_ui = DevolucionUI(self.central_area, db=self.db, keyboard_manager=self.keyboard_mgr)
                 if self.set_central_content(devolucion_ui):
                     self.actualizar_ruta('ALBARANES / DEVOLUCIÓN', callbacks=self.breadcrumb_callbacks)
                 logging.info('Abriendo devolución...')
@@ -342,7 +353,7 @@ class AlmacenView(BaseModuleView):
         try:
             from .ui.albaranes.consultar_albaran import ConsultarAlbaranUI
             try:
-                consultar_ui = ConsultarAlbaranUI(self.central_area, db=self.db, owner=self)
+                consultar_ui = ConsultarAlbaranUI(self.central_area, db=self.db, owner=self, keyboard_manager=self.keyboard_mgr)
                 if self.set_central_content(consultar_ui):
                     self.actualizar_ruta('ALBARANES / CONSULTAR', callbacks=self.breadcrumb_callbacks)
                     logging.info('Abriendo consultar albaranes...')
@@ -366,6 +377,7 @@ class AlmacenView(BaseModuleView):
                     albaran_id=albaran_id,
                     owner=self,
                     module_name='almacen',
+                    keyboard_manager=self.keyboard_mgr,
                 )
                 if self.set_central_content(detalle_ui):
                     self.actualizar_ruta('ALBARANES / CONSULTAR / DETALLE', callbacks=self.breadcrumb_callbacks)

@@ -2,7 +2,7 @@
 
 Provee búsqueda en tiempo real y scroll infinito (paginado).
 """
-from typing import Optional
+from typing import Optional, List
 import logging
 import customtkinter as ctk
 import tkinter as tk
@@ -10,10 +10,11 @@ import tkinter as tk
 from kool_tpv.base_datos.producto_service import ProductoService
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
+from kool_tpv.utils.widgets.nav_list import NavList
 
 
 class BusquedaUI:
-    def __init__(self, parent, db=None, owner=None, module_name: str = 'almacen'):
+    def __init__(self, parent, db=None, owner=None, keyboard_manager=None, module_name: str = 'almacen'):
         self.parent = parent
         self.owner = owner  # AlmacenView instance to call show_crear
         self.db = db
@@ -25,6 +26,7 @@ class BusquedaUI:
             self.colors = {'background': COLOR_BG_TERMINAL, 'text': COLOR_MATRIX, 'border': COLOR_MATRIX, 'primary': COLOR_MATRIX, 'secondary': COLOR_MATRIX, 'light': COLOR_MATRIX, 'accent': COLOR_MATRIX, 'error': '#FF0000', 'warning': '#FFFF00'}
 
         self.container = ctk.CTkFrame(self.parent, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
+        self.keyboard_mgr = keyboard_manager
 
         # Breadcrumb handled by BaseModuleView (owner)
 
@@ -116,36 +118,21 @@ class BusquedaUI:
             command=self._on_search,
         ).pack(side='left', padx=4)
 
-        # Headers (static)
-        hdr_frame = ctk.CTkFrame(self.container, fg_color='transparent', height=32)
-        hdr_frame.pack(fill='x', padx=12, pady=(0, 2))
-        hdr_frame.pack_propagate(False) # Forzar altura fija
-        # Column widths (px): ID, SKU, NOMBRE, CATEGORÍA, TIPO, CÓDIGO BARRAS, PVP, STOCK, VENTAS, ESTADO
-        col_widths = [50, 140, 280, 140, 110, 130, 85, 75, 75, 95]
-        headers = ['ID', 'SKU', 'NOMBRE', 'CATEGORÍA', 'TIPO', 'CÓDIGO BARRAS', 'PVP', 'STOCK', 'VENTAS', 'ESTADO']
-        for i, h in enumerate(headers):
-            lbl = ctk.CTkLabel(
-                hdr_frame,
-                text=h,
-                text_color=self.colors.get('text', COLOR_MATRIX),
-                fg_color=self.colors.get('bg_sidebar', '#1a1a1a'),
-                anchor='w',
-                font=('Courier New', 13, 'bold'),
-                width=col_widths[i]-6,
-                height=28,
-                corner_radius=0,
-            )
-            lbl.place(x=sum(col_widths[:i]) + 6, y=2)
-            # vertical separator (right border)
-            try:
-                sep = ctk.CTkFrame(hdr_frame, fg_color=self.colors.get('bg_medium', '#2a2a2a'), width=1)
-                sep.place(x=sum(col_widths[:i+1]), y=2, height=28)
-            except Exception:
-                pass
+        # Crear NavList (reemplaza header + data area manual)
+        # Definimos columnas visibles y anchos (display keys)
+        self.columns = [
+            ('ID', 50), ('SKU', 140), ('NOMBRE', 280), ('CATEGORÍA', 140),
+            ('TIPO', 110), ('PVP', 85), ('STOCK', 75), ('ESTADO', 95)
+        ]
 
-        # Data area
-        self.data_frame = ctk.CTkScrollableFrame(self.container, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
-        self.data_frame.pack(fill='both', expand=True, padx=12, pady=6)
+        self.nav_list = NavList(
+            self.container,
+            columns=self.columns,
+            module_name=module_name,
+            keyboard_manager=self.keyboard_mgr,
+            on_double_click=self._on_double_click_row,
+        )
+        self.nav_list.pack(fill='both', expand=True, padx=12, pady=6)
 
         # pagination state
         self.page_limit = 50
@@ -157,7 +144,7 @@ class BusquedaUI:
         self.row_count = 0
 
         # attempt to access underlying canvas for scroll checks
-        self._canvas = getattr(self.data_frame, '_canvas', None)
+        self._canvas = getattr(self.nav_list, '_canvas', None)
 
         # start with first page
         self._reset_and_load()
@@ -182,12 +169,11 @@ class BusquedaUI:
         self._reset_and_load()
 
     def _reset_and_load(self):
-        # Clear existing rows
-        for w in list(self.data_frame.winfo_children()):
-            try:
-                w.destroy()
-            except Exception:
-                pass
+        # Clear NavList rows
+        try:
+            self.nav_list.clear_items()
+        except Exception:
+            pass
         self.offset = 0
         self.row_count = 0
         self._load_next_page()
@@ -232,7 +218,11 @@ class BusquedaUI:
                 self.loading = False
                 return
             for i, it in enumerate(items):
-                self._append_row(it, self.row_count + i)
+                try:
+                    mapped = self._map_item_to_row(it)
+                    self.nav_list.add_item(mapped)
+                except Exception:
+                    logging.exception('Error añadiendo item a NavList')
             self.row_count += len(items)
             self.offset += len(items)
         except Exception:
@@ -241,83 +231,33 @@ class BusquedaUI:
             self.loading = False
 
     def _append_row(self, item: dict, index: int):
-        # Create a horizontal frame representing a row
-        row_bg = self.colors.get('bg_sidebar', '#1a1a1a') if (index % 2 == 0) else self.colors.get('bg_dark', '#121212')
-        row = ctk.CTkFrame(self.data_frame, fg_color=row_bg, height=30)
-        row.pack(fill='x', pady=0)
-        # hover effect
-        def on_enter(e, w=row):
-            try:
-                w.configure(fg_color=self.colors.get('bg_medium', '#333333'))
-            except Exception:
-                pass
-        def on_leave(e, w=row, bg=row_bg):
-            try:
-                w.configure(fg_color=bg)
-            except Exception:
-                pass
-
-        row.bind('<Enter>', on_enter)
-        row.bind('<Leave>', on_leave)
-
-        # double click => open editor via owner
-        def on_double(e, prod_id=item.get('id')):
-            try:
-                if self.owner and hasattr(self.owner, 'show_crear'):
-                    try:
-                        self.owner.show_crear(producto_id=prod_id)
-                    except Exception:
-                        # fallback: attempt call without kw
-                        try:
-                            self.owner.show_crear(prod_id)
-                        except Exception:
-                            logging.exception('Error llamando a show_crear desde BusquedaUI')
-            except Exception:
-                logging.exception('Error en doble click fila')
-
-        row.bind('<Double-Button-1>', on_double)
-
-        # Column labels inside the row (follow same widths as header)
-        col_widths = [50, 140, 280, 140, 110, 130, 85, 75, 75, 95]
-        estado = item.get('estado', 'Activo')
-        values = [
-            str(item.get('id') or ''),
-            item.get('sku') or '',
-            item.get('nombre') or '',
-            item.get('categoria') or '',
-            item.get('tipo') or '',
-            item.get('ean') or 'Sin EAN',
-            item.get('pvp') or '0.00',
-            str(item.get('stock_actual') or 0),
-            str(item.get('ventas') or 0),
-            estado
-        ]
-        x = 6
-        for i, v in enumerate(values):
-            # Determinar color según columna ESTADO
-            if i == 9:
-                if v == 'Activo':
-                    color_texto = self.colors.get('primary', '#00FF00')
-                elif v == 'Sin Stock':
-                    color_texto = self.colors.get('warning', '#FFFF00')
-                else:
-                    color_texto = self.colors.get('error', '#FF0000')
-            else:
-                color_texto = self.colors.get('text', COLOR_MATRIX)
-
-            lbl = ctk.CTkLabel(row, text=v, text_color=color_texto, fg_color='transparent', anchor='w', font=FONT_TERMINAL, width=col_widths[i]-8, height=28)
-            lbl.place(x=x, y=2)
-            # forward events for double click and hover
-            lbl.bind('<Double-Button-1>', on_double)
-            lbl.bind('<Enter>', on_enter)
-            lbl.bind('<Leave>', on_leave)
-            x += col_widths[i]
-        # thin separator line below row to emulate cell borders
+        # Legacy compatibility: map and add to NavList
         try:
-            sep = ctk.CTkFrame(self.data_frame, fg_color=self.colors.get('bg_medium', '#2a2a2a'), height=1)
-            sep.pack(fill='x')
+            mapped = self._map_item_to_row(item)
+            self.nav_list.add_item(mapped)
         except Exception:
-            pass
+            logging.exception('Error añadiendo fila a NavList (append)')
+
+    def _map_item_to_row(self, item: dict) -> dict:
+        # Map DB row to NavList row keys (display headers)
+        try:
+            estado = item.get('estado', 'Activo')
+            mapped = {
+                'ID': str(item.get('id') or ''),
+                'SKU': item.get('sku') or '',
+                'NOMBRE': item.get('nombre') or '',
+                'CATEGORÍA': item.get('categoria') or '',
+                'TIPO': item.get('tipo') or '',
+                'PVP': str(item.get('pvp') or '0.00'),
+                'STOCK': str(item.get('stock_actual') or 0),
+                'ESTADO': estado,
+                # keep original id for callbacks
+                '_id': item.get('id')
+            }
+            return mapped
+        except Exception:
+            logging.exception('Error mapeando item a row')
+            return {}
 
     def _periodic_check(self):
         try:
@@ -336,3 +276,18 @@ class BusquedaUI:
             self.container.after(200, self._periodic_check)
         except Exception:
             pass
+
+    def _on_double_click_row(self, data: dict):
+        # Called by NavList when a row is double-clicked
+        try:
+            prod_id = data.get('_id') if data.get('_id') is not None else data.get('ID')
+            if self.owner and hasattr(self.owner, 'show_crear'):
+                try:
+                    self.owner.show_crear(producto_id=prod_id)
+                except Exception:
+                    try:
+                        self.owner.show_crear(prod_id)
+                    except Exception:
+                        logging.exception('Error llamando a show_crear desde BusquedaUI (double click)')
+        except Exception:
+            logging.exception('Error manejando doble click en NavList')

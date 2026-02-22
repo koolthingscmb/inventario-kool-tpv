@@ -430,7 +430,7 @@ class App(ctk.CTk):
 
             # Instantiate almacen view attached to the root (self)
             try:
-                self.almacen_view = AlmacenView(self, db=getattr(self, 'db', None))
+                self.almacen_view = AlmacenView(self, db=getattr(self, 'db', None), keyboard_manager=getattr(self, 'keyboard_mgr', None))
             except Exception:
                 logging.exception('Error instanciando AlmacenView')
                 # restore UI
