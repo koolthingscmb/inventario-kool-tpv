@@ -121,8 +121,10 @@ class BaseModuleView:
             # Add breadcrumb / ruta label at the top of central area (fixed)
             try:
                 # Breadcrumb clickeable
-                self.module_name = (config_section or 'MODULO').upper()
-                self.breadcrumb = ClickableBreadcrumb(self.main_frame)
+                # Preserve original config_section (lowercase key) for color lookup
+                self._module_key = (config_section or 'modulo')
+                self.module_name = (self._module_key or 'MODULO').upper()
+                self.breadcrumb = ClickableBreadcrumb(self.main_frame, module_name=self._module_key)
                 self.breadcrumb.pack(anchor='nw', fill='x', padx=12, pady=(8, 6))
 
                 # Inicializar con módulo base
@@ -130,6 +132,11 @@ class BaseModuleView:
                     ('SISTEMA_KOOL:', None),
                     (self.module_name, None)
                 ])
+                # Callbacks por defecto para el breadcrumb (se pueden mezclar luego)
+                try:
+                    self.breadcrumb_callbacks = {}
+                except Exception:
+                    self.breadcrumb_callbacks = {}
 
             except Exception:
                 logging.exception('Error creando breadcrumb en BaseModuleView')
@@ -231,7 +238,7 @@ class BaseModuleView:
                     try:
                         breadcrumb_name = self._extract_breadcrumb_name(content)
                         if breadcrumb_name:
-                            self.actualizar_ruta(breadcrumb_name)
+                            self.actualizar_ruta(breadcrumb_name, callbacks=getattr(self, 'breadcrumb_callbacks', None))
                     except Exception:
                         logging.exception('Error auto-actualizando breadcrumb')
 
@@ -255,7 +262,7 @@ class BaseModuleView:
                     try:
                         breadcrumb_name = self._extract_breadcrumb_name(content)
                         if breadcrumb_name:
-                            self.actualizar_ruta(breadcrumb_name)
+                            self.actualizar_ruta(breadcrumb_name, callbacks=getattr(self, 'breadcrumb_callbacks', None))
                     except Exception:
                         logging.exception('Error auto-actualizando breadcrumb')
 
@@ -267,7 +274,7 @@ class BaseModuleView:
             try:
                 breadcrumb_name = self._extract_breadcrumb_name(content)
                 if breadcrumb_name:
-                    self.actualizar_ruta(breadcrumb_name)
+                    self.actualizar_ruta(breadcrumb_name, callbacks=getattr(self, 'breadcrumb_callbacks', None))
             except Exception:
                 logging.exception('Error auto-actualizando breadcrumb')
 
@@ -360,8 +367,31 @@ class BaseModuleView:
         try:
             base_module = (getattr(self, 'module_name', 'MODULO') or '').upper()
 
-            # Construir lista de partes
-            parts_data = [('SISTEMA_KOOL:', None), (base_module, None)]
+            # Mezclar callbacks nuevos con los existentes del objeto
+            try:
+                existing = getattr(self, 'breadcrumb_callbacks', {}) or {}
+            except Exception:
+                existing = {}
+            if callbacks:
+                try:
+                    # Merge: callbacks override existing keys
+                    merged = dict(existing)
+                    merged.update(callbacks)
+                    self.breadcrumb_callbacks = merged
+                except Exception:
+                    self.breadcrumb_callbacks = existing
+            else:
+                merged = existing
+
+            # Construir lista de partes. Hacer clicable el módulo base si se proporciona callback.
+            base_module_callback = None
+            try:
+                if merged and base_module in merged:
+                    base_module_callback = merged[base_module]
+            except Exception:
+                base_module_callback = None
+
+            parts_data = [('SISTEMA_KOOL:', None), (base_module, base_module_callback)]
 
             if sub_seccion:
                 # Normalizar: eliminar módulo si está duplicado
@@ -375,8 +405,8 @@ class BaseModuleView:
                     for subsec in subsecciones:
                         # Buscar callback si existe
                         callback = None
-                        if callbacks and subsec in callbacks:
-                            callback = callbacks[subsec]
+                        if merged and subsec in merged:
+                            callback = merged[subsec]
                         parts_data.append((subsec, callback))
 
             # Actualizar widget breadcrumb

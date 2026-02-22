@@ -39,8 +39,18 @@
       "secondary": {"bg": "#32CD32", "hover": "#99FF52", "text": "#000000", "border": "#91FF00"},
       "accent": {"bg": "#DAFCCF", "hover": "#E6F8DF", "text": "#000000", "border": "#91FF00"}
     }
+    ,
+    "nav_list": {
+      "row_normal_bg": "#1a1a1a",
+      "row_normal_text": "#e0e0e0",
+      "row_hover_bg": "#2a2a2a",
+      "row_hover_text": "#ffffff",
+      "row_selected_bg": "#0d0d0d",
+      "row_selected_text": "#ffffff",
+      "row_selected_border": "primary",
+      "row_height": 35
+    }
   },
-  "almacen_navlist_placeholder": {},
   "clientes": {
     "primary": "#FFD700",
     "secondary": "#FFC107",

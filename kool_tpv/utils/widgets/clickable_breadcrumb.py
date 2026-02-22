@@ -6,6 +6,7 @@ excepto la última (vista actual).
 import logging
 import customtkinter as ctk
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL
+from kool_tpv.utils.config_loader import load_colors
 
 
 class ClickableBreadcrumb(ctk.CTkFrame):
@@ -20,9 +21,23 @@ class ClickableBreadcrumb(ctk.CTkFrame):
         ])
     """
 
-    def __init__(self, parent, **kwargs):
+    def __init__(self, parent, module_name=None, **kwargs):
+        """Constructor.
+
+        Args:
+            parent: widget padre.
+            module_name: nombre del módulo para cargar paleta (ej: 'clientes').
+        """
         super().__init__(parent, fg_color=COLOR_BG_TERMINAL, **kwargs)
         self.parts = []
+        # Cargar paleta de colores (fallback a COLOR_MATRIX si no existe)
+        try:
+            self.module_name = module_name
+            self.colors = load_colors(module_name) if module_name else {}
+        except Exception:
+            logging.exception('Error cargando paleta de colores para ClickableBreadcrumb')
+            self.colors = {}
+        self.text_color = self.colors.get('text', COLOR_MATRIX)
 
     def update_parts(self, parts: list):
         """Actualizar breadcrumb con nuevas partes.
@@ -45,7 +60,7 @@ class ClickableBreadcrumb(ctk.CTkFrame):
                     sep = ctk.CTkLabel(
                         self,
                         text='/',
-                        text_color=COLOR_MATRIX,
+                        text_color=self.text_color,
                         font=(FONT_TERMINAL[0], 20, 'bold')
                     )
                     sep.pack(side='left', padx=4)
@@ -58,7 +73,7 @@ class ClickableBreadcrumb(ctk.CTkFrame):
                     label = ctk.CTkLabel(
                         self,
                         text=text,
-                        text_color=COLOR_MATRIX,
+                        text_color=self.text_color,
                         font=(FONT_TERMINAL[0], 20, 'bold')
                     )
                     label.pack(side='left', padx=2)
@@ -67,7 +82,7 @@ class ClickableBreadcrumb(ctk.CTkFrame):
                     btn = ctk.CTkButton(
                         self,
                         text=text,
-                        text_color=COLOR_MATRIX,
+                        text_color=self.text_color,
                         fg_color='transparent',
                         hover_color='#333333',
                         font=(FONT_TERMINAL[0], 20, 'bold'),

@@ -53,40 +53,57 @@ class ClientesView(BaseModuleView):
         except Exception:
             logging.exception('Error abriendo búsqueda clientes')
 
-        def show_tickets(self, cliente_id: int, cliente_nombre: str = ''):
-            """Abrir vista de tickets de un cliente específico.
+    def show_tickets(self, cliente_id: int, cliente_nombre: str = ''):
+        """Abrir vista de tickets de un cliente específico.
 
-            Args:
-                cliente_id: ID del cliente
-                cliente_nombre: Nombre del cliente para breadcrumb
-            """
-            try:
-                tickets_ui = ClientesTicketsUI(
-                    parent=self.central_area,
-                    db=self.db,
-                    cliente_id=cliente_id,
-                    cliente_nombre=cliente_nombre,
-                    keyboard_manager=getattr(self, 'keyboard_mgr', None)
-                )
+        Args:
+            cliente_id: ID del cliente
+            cliente_nombre: Nombre del cliente para breadcrumb
+        """
+        try:
+            tickets_ui = ClientesTicketsUI(
+                parent=self.central_area,
+                db=self.db,
+                cliente_id=cliente_id,
+                cliente_nombre=cliente_nombre,
+                keyboard_manager=getattr(self, 'keyboard_mgr', None)
+            )
 
-                # Usar set_central_content para gestión automática
-                if self.set_central_content(tickets_ui):
-                    breadcrumb_text = f'CLIENTES / {cliente_nombre.upper()} / TICKETS'
+            # Usar set_central_content para gestión automática
+            if self.set_central_content(tickets_ui):
+                breadcrumb_text = f'CLIENTES / {cliente_nombre.upper()} / TICKETS'
+                try:
+                    # Ensure breadcrumb_callbacks exists and update it in-place (clean approach)
                     try:
-                        self.actualizar_ruta(breadcrumb_text, callbacks=self.breadcrumb_callbacks)
+                        if not hasattr(self, 'breadcrumb_callbacks') or self.breadcrumb_callbacks is None:
+                            self.breadcrumb_callbacks = {}
+                    except Exception:
+                        self.breadcrumb_callbacks = {}
+
+                    # Standard navigation: CLIENTES -> show_busqueda
+                    self.breadcrumb_callbacks['CLIENTES'] = self.show_busqueda
+
+                    # Make the client name clickable to edit that client
+                    try:
+                        self.breadcrumb_callbacks[cliente_nombre.upper()] = (lambda cid=cliente_id: self.show_editar_cliente(cid))
                     except Exception:
                         pass
-                    logging.info(f'Vista tickets abierta para cliente_id={cliente_id}')
-                else:
-                    logging.error('No fue posible montar ClientesTicketsUI')
 
-            except Exception:
-                logging.exception('Error abriendo vista tickets')
-                try:
-                    from kool_tpv.utils.custom_dialog import show_error
-                    show_error(self.central_area, 'Error', 'No se pudo abrir tickets del cliente')
+                    # Update breadcrumb using the centralized callbacks map
+                    self.actualizar_ruta(breadcrumb_text, callbacks=self.breadcrumb_callbacks)
                 except Exception:
                     pass
+                logging.info(f'Vista tickets abierta para cliente_id={cliente_id}')
+            else:
+                logging.error('No fue posible montar ClientesTicketsUI')
+
+        except Exception:
+            logging.exception('Error abriendo vista tickets')
+            try:
+                from kool_tpv.utils.custom_dialog import show_error
+                show_error(self.central_area, 'Error', 'No se pudo abrir tickets del cliente')
+            except Exception:
+                pass
 
     def show_tops(self):
         logging.info('TODO: Implementar show_tops')
