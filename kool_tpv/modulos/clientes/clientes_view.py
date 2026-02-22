@@ -1,6 +1,7 @@
 """Módulo Clientes - orchestrator."""
 import logging
 from kool_tpv.utils.templates.base_module_view import BaseModuleView
+from kool_tpv.modulos.clientes.clientes_tickets import ClientesTicketsUI
 
 
 class ClientesView(BaseModuleView):
@@ -40,6 +41,40 @@ class ClientesView(BaseModuleView):
                 logging.exception('Error instanciando BusquedaClientesUI')
         except Exception:
             logging.exception('Error abriendo búsqueda clientes')
+
+        def show_tickets(self, cliente_id: int, cliente_nombre: str = ''):
+            """Abrir vista de tickets de un cliente específico.
+
+            Args:
+                cliente_id: ID del cliente
+                cliente_nombre: Nombre del cliente para breadcrumb
+            """
+            try:
+                tickets_ui = ClientesTicketsUI(
+                    parent=self.central_area,
+                    db=self.db,
+                    cliente_id=cliente_id,
+                    cliente_nombre=cliente_nombre
+                )
+
+                # Usar set_central_content para gestión automática
+                if self.set_central_content(tickets_ui):
+                    breadcrumb_text = f'CLIENTES / {cliente_nombre.upper()} / TICKETS'
+                    try:
+                        self.actualizar_ruta(breadcrumb_text, callbacks=self.breadcrumb_callbacks)
+                    except Exception:
+                        pass
+                    logging.info(f'Vista tickets abierta para cliente_id={cliente_id}')
+                else:
+                    logging.error('No fue posible montar ClientesTicketsUI')
+
+            except Exception:
+                logging.exception('Error abriendo vista tickets')
+                try:
+                    from kool_tpv.utils.custom_dialog import show_error
+                    show_error(self.central_area, 'Error', 'No se pudo abrir tickets del cliente')
+                except Exception:
+                    pass
 
     def show_tops(self):
         logging.info('TODO: Implementar show_tops')

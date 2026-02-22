@@ -1,0 +1,434 @@
+RESUMEN EXHAUSTIVO - KOOL_TPV_V2
+
+Fecha: 2026-02-22
+
+Objetivo:
+Revisión técnica exhaustiva de los archivos principales que hacen funcionar
+la aplicación Kool TPV v2 (paquete `kool_tpv` y `main.py` raíz). Incluye notas
+por archivo, observaciones sobre el schema de la base de datos y recomendaciones.
+
+METODOLOGÍA
+- Lectura del último resumen previo en `RESUMENES`.
+- Exploración del árbol `kool_tpv` y lectura de los archivos clave.
+- Extracción del schema disponible en `RESUMENES/kool_bd_schema_2026-02-15.txt`.
+- Detección de inconsistencias entre el código y el schema, y propuesta de
+  acciones prioritarias.
+
+REVISIÓN POR ARCHIVO (anotaciones rápidas — cada entrada indica rol,
+observaciones y recomendaciones mínimas)
+
+Nota: las rutas están expresadas relativas a la raíz del workspace.
+
+1) [main.py](main.py)
+- Rol: entrypoint de la app, configura logging, inicia UI `App`.
+- Observaciones: maneja migraciones y conexión a DB; bloquea cierre si carrito
+  no está vacío.
+- Recomendación: añadir flag headless para entornos de test.
+
+2) [kool_tpv/main.py](kool_tpv/main.py)
+- Rol: helper para ejecutar la app desde el editor.
+- Observaciones: delega a `main.py` raíz usando `runpy`.
+
+3) [kool_tpv/__init__.py](kool_tpv/__init__.py)
+- Rol: inicialización del paquete; generalmente vacío o con metadata.
+
+4) [kool_tpv/main.py](kool_tpv/main.py)
+- Rol: launcher interno (ver `kool_tpv/main.py` arriba).
+
+5) [kool_tpv/base_datos/__init__.py](kool_tpv/base_datos/__init__.py)
+- Rol: expositor de submódulos de base_datos.
+
+6) [kool_tpv/base_datos/db_wrapper.py](kool_tpv/base_datos/db_wrapper.py)
+- Rol: wrapper de sqlite con helpers `connect`, `fetch_all`, `fetch_one`,
+  `execute_query` y `transaction`.
+- Observaciones: `check_same_thread=False` por defecto; transacción robusta.
+- Recomendación: instrumentar queries y tiempos.
+
+7) [kool_tpv/base_datos/db_init.py](kool_tpv/base_datos/db_init.py)
+- Rol: aplicación de script de migraciones `migraciones/base.sql` si faltan
+  tablas críticas.
+- Observaciones: no usa versionado de migraciones; ejecuta `executescript`.
+
+8) [kool_tpv/base_datos/producto_service.py](kool_tpv/base_datos/producto_service.py)
+- Rol: consultas y CRUD relacionadas con productos, búsquedas paginadas.
+- Observaciones: devuelve precios como strings para preservar precisión.
+
+9) [kool_tpv/base_datos/proveedor_service.py](kool_tpv/base_datos/proveedor_service.py)
+- Rol: CRUD proveedores y manejo de `mapeo_csv`.
+- Observaciones: puede asumir columnas que no existan en el schema; añadir
+  migración si `mapeo_csv` es requerida.
+
+10) [kool_tpv/base_datos/ticket_service.py](kool_tpv/base_datos/ticket_service.py)
+- Rol: persistencia de tickets, líneas, pagos, stock, puntos y auditoría.
+- Observaciones: implementa `save_ticket` con lógica compleja; usa
+  `SELECT MAX(num_ticket)` para numeración (riesgo de race condition).
+- Recomendación: usar contador/tabla de secuencia atómica.
+
+11) [kool_tpv/base_datos/cierre_service.py](kool_tpv/base_datos/cierre_service.py)
+- Rol: gestión de cierres de caja.
+
+12) [kool_tpv/base_datos/categoria_service.py](kool_tpv/base_datos/categoria_service.py)
+- Rol: CRUD categorías.
+
+13) [kool_tpv/base_datos/configuracion_service.py](kool_tpv/base_datos/configuracion_service.py)
+- Rol: lectura/gestión de claves de configuración en tabla `configuracion`.
+
+14) [kool_tpv/base_datos/albaran_service.py](kool_tpv/base_datos/albaran_service.py)
+- Rol: persistencia y consulta de albaranes y líneas.
+
+15) [kool_tpv/base_datos/tipo_service.py](kool_tpv/base_datos/tipo_service.py)
+- Rol: gestión de tipos (categorías secundarias de producto).
+
+16) [kool_tpv/base_datos/proveedor_service.py](kool_tpv/base_datos/proveedor_service.py)
+- (Repetido arriba) CRUD y mapeo CSV.
+
+17) [kool_tpv/base_datos/README.md] (si existe)
+- Rol: documentación de DB -> mantener sincronizada con migraciones.
+
+18) [kool_tpv/modulos/__init__.py](kool_tpv/modulos/__init__.py)
+- Rol: paquete de módulos (tpv, almacen, clientes, impresion, configuracion).
+
+19) [kool_tpv/modulos/tpv/__init__.py](kool_tpv/modulos/tpv/__init__.py)
+- Rol: export de subcomponentes del módulo TPV.
+
+20) [kool_tpv/modulos/tpv/tpv_view.py](kool_tpv/modulos/tpv/tpv_view.py)
+- Rol: vista principal del TPV — grid de botones, panel de búsqueda y panel
+  derecho con carrito.
+- Observaciones: archivo extenso (~1000+ líneas), mezcla layout y orquestación.
+- Recomendación: refactorizar en subcomponentes.
+
+21) [kool_tpv/modulos/tpv/tpv_service.py](kool_tpv/modulos/tpv/tpv_service.py)
+- Rol: lógic a de negocio del TPV (si existe); revisar responsabilidades.
+
+22) [kool_tpv/modulos/tpv/tpv_controller.py](kool_tpv/modulos/tpv/tpv_controller.py)
+- Rol: controlador para acciones del TPV; conecta eventos UI con servicios.
+
+23) [kool_tpv/modulos/tpv/tpv_db.py](kool_tpv/modulos/tpv/tpv_db.py)
+- Rol: adaptadores DB específicos para TPV si existen.
+
+24) [kool_tpv/modulos/tpv/ticket_service.py](kool_tpv/modulos/tpv/ticket_service.py)
+- Rol: wrapper local para operaciones de tickets específicas del módulo TPV.
+
+25) [kool_tpv/modulos/tpv/devoluciones_service.py](kool_tpv/modulos/tpv/devoluciones_service.py)
+- Rol: manejo de devoluciones; integrado con `save_ticket` cuando procede.
+
+26) [kool_tpv/modulos/tpv/carrito/__init__.py](kool_tpv/modulos/tpv/carrito/__init__.py)
+- Rol: paquete contenedor para `CarritoService` y `CarritoUI`.
+
+27) [kool_tpv/modulos/tpv/carrito/carrito_service.py](kool_tpv/modulos/tpv/carrito/carrito_service.py)
+- Rol: gestión de items, descuentos, canje de puntos y cálculo de totales.
+- Observaciones: uso correcto de `Decimal` y lógica de reparto de descuentos por
+  tramos de IVA — motor complejo que necesita tests.
+
+28) [kool_tpv/modulos/tpv/carrito/carrito_ui.py](kool_tpv/modulos/tpv/carrito/carrito_ui.py)
+- Rol: UI para mostrar y manipular el contenido del carrito.
+
+29) [kool_tpv/modulos/tpv/actions/*] (varios)
+- Observaciones: existe un conjunto de acciones especializadas (cash, tarjeta,
+  devolucion, buscar_articulo, cierre, tickets, etc.). Cada acción encapsula
+  la interacción y suele ofrecer `ejecutar()`.
+
+30) [kool_tpv/modulos/tpv/actions/cash.py](kool_tpv/modulos/tpv/actions/cash.py)
+- Rol: controller para cobros en efectivo y flujo de finalización de venta.
+
+31) [kool_tpv/modulos/tpv/actions/tarjeta.py](kool_tpv/modulos/tpv/actions/tarjeta.py)
+- Rol: controller para pagos con tarjeta (DirectPaymentController).
+
+32) [kool_tpv/modulos/tpv/actions/multi_s.py](kool_tpv/modulos/tpv/actions/multi_s.py)
+- Rol: controlador para pagos mixtos (efectivo+tarjeta, etc.).
+
+33) [kool_tpv/modulos/tpv/actions/descuento.py](kool_tpv/modulos/tpv/actions/descuento.py)
+- Rol: aplicación de descuentos; se integra con `CarritoService`.
+
+34) [kool_tpv/modulos/tpv/actions/cliente.py](kool_tpv/modulos/tpv/actions/cliente.py)
+- Rol: selección/gestión de cliente desde el TPV.
+
+35) [kool_tpv/modulos/tpv/actions/cajero.py](kool_tpv/modulos/tpv/actions/cajero.py)
+- Rol: autenticación de cajero y control de permisos.
+
+36) [kool_tpv/modulos/tpv/actions/devolucion.py](kool_tpv/modulos/tpv/actions/devolucion.py)
+- Rol: flujos de devolución y confirmación de pedidos devueltos.
+
+37) [kool_tpv/modulos/tpv/actions/cierres/*] (cierre_ui, cierre_controller...)
+- Rol: generación y consulta de cierres de caja.
+
+38) [kool_tpv/modulos/tpv/actions/tickets/*] (tickets_ui, tickets_handler...)
+- Rol: gestión y reimpresión de tickets.
+
+39) [kool_tpv/modulos/tpv/actions/Stock/*] (StockBase, stock_ui, etc.)
+- Rol: interfaces de consulta de stock y controladores asociados.
+
+40) [kool_tpv/modulos/almacen/almacen_view.py](kool_tpv/modulos/almacen/almacen_view.py)
+- Rol: vista principal del módulo Almacén. Usa `BaseModuleView` como plantilla.
+
+41) [kool_tpv/modulos/almacen/services/maestro_service.py](kool_tpv/modulos/almacen/services/maestro_service.py)
+- Rol: servicios de maestro de datos para Almacén (bulk import, mapeos CSV).
+
+42) [kool_tpv/modulos/almacen/ui/*] (varios UIs: albaranes_ui, productos, proveedores)
+- Rol: UIs concretas para CRUD y operaciones de Almacén; delegan en servicios.
+
+43) [kool_tpv/modulos/clientes/*] (clientes_view, cliente_service, fidelizacion_service...)
+- Rol: gestión de clientes y fidelización; `FidelizacionService` calcula puntos.
+
+44) [kool_tpv/modulos/impresion/*] (venta_ticket_generator, impresora_service...)
+- Rol: generación de texto del ticket e interfaz con la impresora (simulada).
+
+45) [kool_tpv/utils/*] (utils.py, formatter_service.py, config_loader.py, custom_dialog.py...)
+- Rol: utilidades transversales (formateo, diálogo, carga de configuración).
+
+46) [kool_tpv/utils/widgets/searchable_combo.py](kool_tpv/utils/widgets/searchable_combo.py)
+- Rol: widget de búsqueda con soporte dinámico; modo `search_function` y
+  `options`/`values`.
+
+47) [kool_tpv/utils/templates/base_module_view.py](kool_tpv/utils/templates/base_module_view.py)
+- Rol: plantilla para módulos, sidebar, breadcrumb y control de cambios no guardados.
+
+48) [kool_tpv/utils/widgets/ticket_display.py](kool_tpv/utils/widgets/ticket_display.py)
+- Rol: widget para mostrar texto del ticket en la UI.
+
+49) [kool_tpv/utils/global_buttons.py](kool_tpv/utils/global_buttons.py)
+- Rol: botones globales (power/close) reutilizables.
+
+50) [kool_tpv/utils/textview_dialog.py](kool_tpv/utils/textview_dialog.py)
+- Rol: diálogo para mostrar textos largos (ej: logs, tickets).
+
+51) [kool_tpv/scripts/*] (varios .py en scripts)
+- Rol: scripts auxiliares para testing/manual runs; no forman parte del runtime
+  normal salvo algunos integrados en procesos de debugging.
+
+52) [kool_tpv/modulos/configuracion/*] (configuracion_service, reset_service...)
+- Rol: servicios para configuración y reseteo.
+
+53) [kool_tpv/logs/__init__.py](kool_tpv/logs/__init__.py)
+- Rol: inicialización del paquete de logs (por convención interna).
+
+54) [kool_tpv/assets/*] (iconos, fonts, dialogs...)
+- Rol: recursos estáticos para la UI.
+
+55) [RESUMENES/kool_bd_schema_2026-02-15.txt](RESUMENES/kool_bd_schema_2026-02-15.txt)
+- Rol: dump del schema extraído previamente; usar como referencia para
+  conciliar diferencias entre DB y código.
+
+NOTAS ESPECÍFICAS SOBRE INCONSISTENCIAS DETECTADAS
+
+- Inserciones en `audit_logs` realizadas por `ticket_service` no coinciden con
+  las columnas presentes en la tabla `audit_logs` del schema; se debe alinear
+  nombres o usar columnas explícitas en INSERT.
+- `proveedores` es actualizado con `mapeo_csv` por `proveedor_service`, pero
+  la columna no aparece en el extracto del schema — crear migración si procede.
+- Referencias a tablas antiguas como `tickets_backup` y `clientes_old` sugieren
+  que el schema actual contiene legacy constraints; revisar y limpiar.
+
+ESTADO DEL PROYECTO (síntesis)
+
+- TPV: core funcional. Carrito, cobro y generación de tickets operan en flujo
+  normal. Reimpresión y cierres disponibles.
+- Módulos (Almacén, Clientes): funcionales pero con algunas integraciones que
+  requieren pruebas (import CSV, mapeo de proveedores).
+- Persistencia: SQLite con estructura suficiente, triggers e índices, pero con
+  campos esperados por el código ausentes o con nombres divergentes.
+
+PRIORIDADES Y PLAN DE ACCIÓN (inmediato)
+
+1) Corregir INSERT de auditoría en `ticket_service` para alinearlo con
+   `audit_logs` real o alterar la tabla para mantener compatibilidad.
+2) Añadir migración para `proveedores.mapeo_csv` si es necesaria.
+3) Implementar test de integración `pytest` que persista tickets en DB
+   `:memory:` y valide los efectos secundarios (tickets, ticket_lines,
+   stock_movements, payments, points_movements).
+4) Planificar refactor de `tpv_view.py` en subcomponentes (2-3 sprints).
+
+CONCLUSIÓN
+
+La base sobre la que está construida Kool TPV v2 es sólida: servicios por
+entidad, uso de transacciones y separación en módulos. Las mejoras críticas
+son de sincronización entre esquema y código, pruebas automáticas y
+refactorización de UIs pesadas para mejorar mantenibilidad.
+
+Si quieres, procedo a:
+- Generar las migraciones SQL necesarias (ALTER TABLE) para conciliar campos
+  detectados.
+- Crear los tests de integración básicos para `save_ticket` con DB en memoria.
+- Extraer y proponer un primer refactor de `tpv_view.py` por componentes.
+
+FIN DEL RESUMEN
+--- ANEXO: LISTADO DETALLADO DE ARCHIVOS PYTHON EN `kool_tpv` ---
+
+118) OTRAS RUTAS Y ARCHIVOS AUXILIARES (scripts, tests)
+ - Rol: utilidades de mantenimiento y pruebas; algunos scripts son para QA.
+
+--- FIN ANEXO ---
+
+--- NOTAS TÉCNICAS DETALLADAS (ARCHIVOS CRÍTICOS) ---
+
+A continuación se amplían las observaciones técnicas sobre los archivos más
+relevantes para el funcionamiento de la aplicación. Cada bloque incluye:
+- Responsabilidad
+- Flujo clave
+- Riesgos detectados
+- Sugerencias concretas de mejora (pasos accionables)
+
+A) `main.py` (raíz)
+- Responsabilidad:
+  - Punto de entrada de la aplicación, configuración de `customtkinter` y
+    logging, inicialización de la DB, creación de la ventana principal `App`.
+- Flujo clave:
+  - Se asegura carpeta `logs`, configura handlers (file + stdout).
+  - Llama `initialize_database(db_path)` para aplicar migraciones si faltan
+    tablas, luego instancia `Database(db_path)` y `db.connect()`.
+  - Construye la navegación (lectura JSON `config/buttons_config.json`) y crea
+    botones de la barra lateral con `ButtonFactory` si está disponible.
+- Riesgos detectados:
+  - Si `initialize_database` falla parcialmente, la app intenta continuar y
+    podría obtener una conexión inválida a la DB; preferible abortar con
+    mensaje claro en modo producción o debug según flag.
+  - Importaciones tardías retrasan errores a runtime; recomendable test de
+    arranque completo en CI para detectar import errors.
+- Pasos de mejora concretos:
+  1. Añadir `--headless` para inicializar sin UI (útil en CI).
+  2. Validar `buttons_config.json` con schema JSON y fallar si inválido.
+  3. Registrar versión del esquema DB en logs al iniciar para trazabilidad.
+
+B) `kool_tpv/base_datos/db_wrapper.py`
+- Responsabilidad:
+  - Abstraer conexion sqlite y ofrecer helpers de consulta y contexto de
+    transacción atómico.
+- Flujo clave:
+  - `connect()` asegura directorio padre y crea `sqlite3.Connection` con
+    `detect_types` y `row_factory = sqlite3.Row`.
+  - `transaction()` inicia `BEGIN`, hace `commit` o `rollback` según resultado.
+- Riesgos detectados:
+  - `check_same_thread=False` permite accesos desde múltiples hilos pero no
+    resuelve problemas de concurrencia de escritura en SQLite (lock).
+  - Falta de logging de latencia por query impide identificar consultas lentas.
+- Pasos de mejora concretos:
+  1. Añadir optional `query_logger` que emita log cuando una consulta tarda
+     más de X ms.
+  2. Exponer parámetro configurable `sqlite_kwargs` desde `config` para ajustar
+     `timeout` y `journal_mode` si se requiere (WAL para concurrencia lectura/escritura).
+
+C) `kool_tpv/base_datos/db_init.py`
+- Responsabilidad:
+  - Aplicar script de migración si faltan tablas críticas.
+- Flujo clave:
+  - Comprueba `sqlite_master` por tablas [`productos`, `tickets`, `cierres_caja`].
+  - Si faltan, lee `migraciones/base.sql` y ejecuta `executescript`.
+- Riesgos detectados:
+  - `executescript` aplica múltiples statements atómicamente en sqlite, pero
+    si el script está desactualizado respecto al código, el sistema quedará en
+    un estado incoherente.
+- Pasos de mejora concretos:
+  1. Implementar tabla `schema_version` y migraciones incrementales (one-step
+     migrations) en lugar de `base.sql` monolítico.
+  2. Incluir checksum/version del script en el repo y validar que el script
+     aplicado coincide con el esperado por la versión del código.
+
+D) `kool_tpv/base_datos/ticket_service.py` (detalle extendido)
+- Responsabilidad:
+  - Guardar ticket y líneas; actualizar stock y ventas; registrar pagos y puntos.
+- Flujo clave (resumen):
+  1. Inicia transacción explícita `BEGIN`.
+  2. Calcula puntos a otorgar/restar usando `FidelizacionService`.
+  3. Determina `num_ticket` con `SELECT MAX(num_ticket)` + 1.
+  4. Construye `ticket_text_snapshot` con `VentaTicketGenerator` y guarda en DB.
+  5. Inserta `ticket_lines`, actualiza `productos.stock_actual`, inserta
+     `stock_movements` y `payments` según corresponda.
+  6. Inserta `points_movements` y actualiza `clientes` (tesoro_total, historico).
+  7. Inserta entrada en `audit_logs` (nota: columnas posiblemente incorrectas).
+  8. Commit al final; rollback y log en excepciones.
+- Riesgos y problemas detectados:
+  - `SELECT MAX(num_ticket)` no garantiza atomicidad bajo concurrencia. En
+    escenarios con múltiples TPVs conectados a la misma DB (o procesos
+    simultáneos), pueden generarse duplicados.
+  - Inserción a `audit_logs` utiliza columnas que no existen en schema, lo
+    cual provoca excepciones (silenciadas) y pérdida de auditoría.
+  - Uso de `str()` para persistir Decimals en algunas columnas y floats en otras
+    genera mezcla de tipos; preferible normalizar antes de insertar.
+- Recomendaciones técnicas inmediatas:
+  1. Crear tabla `counters` con fila `key='num_ticket'` y operación atómica:
+     UPDATE counters SET val = val + 1 WHERE key='num_ticket'; SELECT val;
+     (en sqlite usar transaction para garantizar atomicidad local).
+  2. Cambiar INSERT en `audit_logs` para usar columnas reales o añadir
+     `ALTER TABLE` que añada las columnas necesarias con migración.
+  3. Documentar contrato de tipos en DB: usar siempre strings para texto,
+     Decimals convertidos a str al boundary y parseados en app cuando se lee.
+  4. Añadir tests de stress/concurrency para `save_ticket` con threads que
+     simulen ventas simultáneas.
+
+E) `kool_tpv/modulos/tpv/carrito/carrito_service.py` (detalle extendido)
+- Responsabilidad:
+  - Mantener estado del carrito, aplicar descuentos y canje de puntos,
+    devolver resumen financiero con desglose de IVA.
+- Flujo clave:
+  - Items como dicts con `id`, `nombre`, `pvp` (Decimal), `cantidad`, `tipo_iva`.
+  - `get_resumen_financiero()` calcula subtotal (sin IVA), desglose IVA por tipo,
+    total IVA, aplica descuento y canje proporcionalmente entre tramos de IVA.
+- Riesgos detectados:
+  - Lógica de reparto de descuento es compleja y delicada numéricamente;
+    necesita pruebas con decimales y casos borde (redondeos, devoluciones).
+- Recomendaciones:
+  1. Escribir testcases con ejemplos numéricos binarios (combinaciones de IVA
+     4%/21%, descuentos en %, descuentos directos, puntos canjeados).
+  2. Exponer funciones puras (ej. `recalcular_resumen(items, descuento, puntos)`) y
+     testearlas en aislamiento.
+
+F) `kool_tpv/utils/widgets/searchable_combo.py` (notas)
+- Responsabilidad:
+  - Proveer entrada con dropdown filtrable local o remoto.
+- Observaciones técnicas:
+  - Implementa dropdown con `tk.Toplevel` y `tk.Listbox` y bindings completos
+    para navegación keyboard.
+  - Mantiene `_last_results` cuando funciona en modo `search_function`.
+- Riesgos:
+  - Comportamiento del Toplevel y focus puede variar entre gestores de ventana;
+    testear en macOS (el entorno del usuario) es crítico.
+- Sugerencias:
+  1. Implementar modo `test` con mock de `search_function` y headless.
+  2. Documentar el contrato `search_function(text) -> list[{'id', 'nombre_display', ...}]`.
+
+G) `kool_tpv/utils/templates/base_module_view.py` (notas)
+- Responsabilidad:
+  - Plantilla usada por módulos (sidebar, central area, breadcrumb y checks de
+    cambios sin guardar).
+- Observaciones técnicas:
+  - `_check_unsaved_changes()` busca método `has_unsaved_changes` en los hijos
+    lo cual es una convención útil; documentar esa convención para los UIs.
+  - `set_central_content()` intenta ser robusto con distintos tipos de objetos,
+    pero puede ocultar errores si muchos try/except silencian excepciones.
+- Recomendaciones:
+  1. Añadir logs DEBUG más descriptivos cuando `set_central_content` falla.
+  2. Documentar patrón `has_unsaved_changes()` para implementadores de UIs.
+
+H) `kool_tpv/modulos/impresion/venta_ticket_generator.py`
+- Responsabilidad:
+  - Generar representación textual del ticket para impresión y snapshot.
+- Observaciones:
+  - `ticket_service` intenta usar el generated text como `ticket_text_snapshot`.
+  - Hay fallback a `ImpresoraService.generar_ticket_desde_id` si snapshot no existe.
+- Recomendaciones:
+  1. Unified contract: `generate(cfg, ticket_data, items, cliente)` debe devolver
+     siempre string (no None) o lanzar excepción clara.
+  2. Añadir tests templating con datos reales (artículos, descuentos, puntos).
+
+I) `kool_tpv/modulos/impresion/impresora_service.py`
+- Responsabilidad:
+  - Abstracción de impresión; actualmente simula mediante `print()` si no hay
+    impresora real.
+- Observaciones:
+  - Log de impresiones debería contener ticket_id y grave nivel INFO.
+- Recomendaciones:
+  1. Implementar queue de impresión asíncrona (Thread/Background) para no
+     bloquear flujo de venta durante impresión física.
+
+J) `kool_tpv/base_datos/producto_service.py` (puntos clave)
+- Observaciones:
+  - Las búsquedas paginadas usan subselects anidados y `GROUP_CONCAT`.
+  - Si la tabla `ticket_lines` crece, `ventas` subselect puede ser costoso.
+- Recomendaciones:
+  1. Denormalizar contadores de ventas en `productos` (campo `ventas_totales`)
+     y mantener con triggers (ya existe `ventas_totales` — verificar triggers
+     y consistencia).
+  2. Añadir índices en fields usados en WHERE/ORDER BY para mejorar búsqueda.
+
+--- FIN NOTAS TÉCNICAS DETALLADAS ---
+

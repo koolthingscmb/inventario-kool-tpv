@@ -45,30 +45,12 @@ class TicketDisplay(ctk.CTkFrame):
         super().__init__(
             parent,
             fg_color=self.colors.get('background', '#000000'),
-            border_color=self.colors.get('primary', '#00FF00'),
-            border_width=2,
+            border_width=0,
             corner_radius=8,
             **kwargs
         )
 
-        # Header del visor
-        self.header = ctk.CTkLabel(
-            self,
-            text='VISTA PREVIA TICKET',
-            font=('Courier New', 14, 'bold'),
-            text_color=self.colors.get('text', '#00FF00'),
-            fg_color='transparent',
-            anchor='center'
-        )
-        self.header.pack(side='top', fill='x', padx=8, pady=(8, 4))
-
-        # Separador
-        separador = ctk.CTkFrame(
-            self,
-            height=2,
-            fg_color=self.colors.get('primary', '#00FF00')
-        )
-        separador.pack(side='top', fill='x', padx=8, pady=(0, 8))
+        # (Header and separator removed for a cleaner, borderless display)
 
         # Textbox para contenido del ticket (con scroll)
         # Algunas versiones de customtkinter aceptan activate_scrollbars; intentamos y hacemos fallback.

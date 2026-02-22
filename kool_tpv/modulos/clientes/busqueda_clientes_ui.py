@@ -11,6 +11,8 @@ import tkinter as tk
 from kool_tpv.modulos.clientes.cliente_service import ClienteService
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL
 from kool_tpv.utils.config_loader import load_colors
+from kool_tpv.utils.keyboard_manager import KeyboardManager
+from kool_tpv.utils.widgets.nav_list import NavList
 
 
 class BusquedaClientesUI:
@@ -20,6 +22,19 @@ class BusquedaClientesUI:
         self.db = db
         self.module_name = module_name
         self.service = ClienteService(db)
+
+        # Inicializar KeyboardManager en el toplevel
+        try:
+            root = parent.winfo_toplevel()
+            if not hasattr(root, 'keyboard_manager'):
+                try:
+                    root.keyboard_manager = KeyboardManager(root)
+                except Exception:
+                    logging.exception('Error creando KeyboardManager en BusquedaClientesUI')
+                    root.keyboard_manager = None
+            self.keyboard_manager = getattr(root, 'keyboard_manager', None)
+        except Exception:
+            logging.exception('Error inicializando KeyboardManager (BusquedaClientesUI)')
 
         # Cargar paleta de colores para el módulo
         try:
@@ -82,38 +97,31 @@ class BusquedaClientesUI:
             command=self._on_search
         ).pack(side='left', padx=4)
 
-        # Headers (static)
-        hdr_frame = ctk.CTkFrame(self.container, fg_color='transparent', height=32)
-        hdr_frame.pack(fill='x', padx=12, pady=(0, 2))
-        hdr_frame.pack_propagate(False)
+        # Data area -> usar NavList para filas
+        columns = [
+            ('ID', 50), ('NOMBRE', 220), ('TELÉFONO', 120), ('EMAIL', 180), ('CIUDAD', 120),
+            ('TESORO', 90), ('NIVEL', 100), ('COMPRAS', 80), ('ÚLTIMA COMPRA', 120), ('ESTADO', 100)
+        ]
 
-        # Columnas: ID, NOMBRE, TELÉFONO, EMAIL, CIUDAD, TESORO, NIVEL, COMPRAS, ÚLTIMA COMPRA, ESTADO
-        col_widths = [50, 220, 120, 180, 120, 90, 100, 80, 120, 100]
-        headers = ['ID', 'NOMBRE', 'TELÉFONO', 'EMAIL', 'CIUDAD', 'TESORO', 'NIVEL', 'COMPRAS', 'ÚLTIMA COMPRA', 'ESTADO']
-
-        for i, h in enumerate(headers):
-            lbl = ctk.CTkLabel(
-                hdr_frame,
-                text=h,
-                text_color=self.colors.get('text', COLOR_MATRIX),
-                fg_color=self.colors.get('bg_dark', '#1a1a1a'),
-                anchor='w',
-                font=('Courier New', 13, 'bold'),
-                width=col_widths[i]-6,
-                height=28,
-                corner_radius=0,
+        try:
+            self.nav_list = NavList(
+                self.container,
+                columns=columns,
+                on_select=self._on_nav_select,
+                module_name=self.module_name,
+                keyboard_manager=self.keyboard_manager
             )
-            lbl.place(x=sum(col_widths[:i]) + 6, y=2)
-            # Separador vertical
-            try:
-                sep = ctk.CTkFrame(hdr_frame, fg_color=self.colors.get('bg_medium', '#2a2a2a'), width=1)
-                sep.place(x=sum(col_widths[:i+1]), y=2, height=28)
-            except Exception:
-                pass
+            self.nav_list.pack(fill='both', expand=True, padx=12, pady=6)
 
-        # Data area
-        self.data_frame = ctk.CTkScrollableFrame(self.container, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
-        self.data_frame.pack(fill='both', expand=True, padx=12, pady=6)
+            # Exponer alias usado por el código existente
+            self.data_frame = self.nav_list
+            # canvas para chequear scroll
+            self._canvas = getattr(self.nav_list, '_parent_canvas', getattr(self.nav_list, '_canvas', None))
+        except Exception:
+            logging.exception('Error creando NavList en BusquedaClientesUI')
+            # Fallback: crear data_frame clásico
+            self.data_frame = ctk.CTkScrollableFrame(self.container, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
+            self.data_frame.pack(fill='both', expand=True, padx=12, pady=6)
 
         # Paginación
         self.page_limit = 50
@@ -146,12 +154,22 @@ class BusquedaClientesUI:
         self._reset_and_load()
 
     def _reset_and_load(self):
-        # Limpiar filas existentes
-        for w in list(self.data_frame.winfo_children()):
-            try:
-                w.destroy()
-            except Exception:
-                pass
+        # Limpiar filas existentes (NavList o data_frame)
+        try:
+            if hasattr(self, 'nav_list') and self.nav_list is not None:
+                try:
+                    self.nav_list.clear_items()
+                except Exception:
+                    pass
+            else:
+                for w in list(self.data_frame.winfo_children()):
+                    try:
+                        w.destroy()
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
         self.offset = 0
         self.row_count = 0
         self._load_next_page()
@@ -183,8 +201,29 @@ class BusquedaClientesUI:
                 self.loading = False
                 return
 
-            for i, cliente in enumerate(items):
-                self._append_row(cliente, self.row_count + i)
+            # Añadir items a NavList o a data_frame tradicional
+            if hasattr(self, 'nav_list') and self.nav_list is not None:
+                for cliente in items:
+                    try:
+                        item = {
+                            'ID': cliente.get('id'),
+                            'NOMBRE': cliente.get('nombre'),
+                            'TELÉFONO': cliente.get('telefono'),
+                            'EMAIL': cliente.get('email'),
+                            'CIUDAD': cliente.get('ciudad'),
+                            'TESORO': f"{cliente.get('tesoro_total', 0.0):.2f}€",
+                            'NIVEL': cliente.get('nivel_nombre'),
+                            'COMPRAS': str(cliente.get('total_compras', 0)),
+                            'ÚLTIMA COMPRA': cliente.get('fecha_ultima_compra'),
+                            'ESTADO': 'ACTIVO' if cliente.get('fidelidad_activa') else 'INACTIVO',
+                            'cliente_id': cliente.get('id')
+                        }
+                        self.nav_list.add_item(item)
+                    except Exception:
+                        logging.exception('Error añadiendo item a NavList')
+            else:
+                for i, cliente in enumerate(items):
+                    self._append_row(cliente, self.row_count + i)
 
             self.row_count += len(items)
             self.offset += len(items)
@@ -242,92 +281,15 @@ class BusquedaClientesUI:
             return []
 
     def _append_row(self, cliente: dict, index: int):
-        """Añadir fila de cliente al grid."""
-        row_bg = self.colors.get('bg_dark', '#1a1a1a') if (index % 2 == 0) else self.colors.get('bg_medium', '#121212')
-        row = ctk.CTkFrame(self.data_frame, fg_color=row_bg, height=30)
-        row.pack(fill='x', pady=0)
+        """(Obsoleto) Añadir fila de cliente al grid.
 
-        # Hover effect
-        def on_enter(e, w=row):
-            try:
-                w.configure(fg_color=self.colors.get('bg_medium', '#333333'))
-            except Exception:
-                pass
-
-        def on_leave(e, w=row, bg=row_bg):
-            try:
-                w.configure(fg_color=bg)
-            except Exception:
-                pass
-
-        row.bind('<Enter>', on_enter)
-        row.bind('<Leave>', on_leave)
-
-        # Doble click → abrir ficha cliente
-        def on_double(e, cliente_id=cliente.get('id')):
-            try:
-                if self.owner and hasattr(self.owner, 'show_editar_cliente'):
-                    self.owner.show_editar_cliente(cliente_id)
-                else:
-                    logging.warning('Owner no tiene show_editar_cliente')
-            except Exception:
-                logging.exception('Error en doble click fila cliente')
-
-        row.bind('<Double-Button-1>', on_double)
-
-        # Columnas
-        col_widths = [50, 220, 120, 180, 120, 90, 100, 80, 120, 100]
-
-        # Determinar estado
-        estado = 'ACTIVO' if cliente.get('fidelidad_activa') else 'INACTIVO'
-        color_estado = self.colors.get('primary', '#00FF00') if cliente.get('fidelidad_activa') else self.colors.get('error', '#FF0000')
-
-        values = [
-            str(cliente.get('id', '')),
-            cliente.get('nombre', ''),
-            cliente.get('telefono', ''),
-            cliente.get('email', ''),
-            cliente.get('ciudad', ''),
-            f"{cliente.get('tesoro_total', 0.0):.2f}€",
-            cliente.get('nivel_nombre', 'Forastero'),
-            str(cliente.get('total_compras', 0)),
-            cliente.get('fecha_ultima_compra', 'Nunca'),
-            estado
-        ]
-
-        x = 6
-        for i, v in enumerate(values):
-            # Color según columna
-            if i == 9:  # ESTADO
-                color_texto = color_estado
-            elif i == 5:  # TESORO ⭐ DESTACA
-                color_texto = self.colors.get('accent', '#FFD700')
-            else:
-                color_texto = self.colors.get('text', COLOR_MATRIX)
-
-            lbl = ctk.CTkLabel(
-                row,
-                text=v,
-                text_color=color_texto,
-                fg_color='transparent',
-                anchor='w',
-                font=FONT_TERMINAL,
-                width=col_widths[i]-8,
-                height=28
-            )
-            lbl.place(x=x, y=2)
-
-            # Forward events
-            lbl.bind('<Double-Button-1>', on_double)
-            lbl.bind('<Enter>', on_enter)
-            lbl.bind('<Leave>', on_leave)
-
-            x += col_widths[i]
-
-        # Separador línea
+        Nota: si `NavList` está activo, este método ya no se usa.
+        """
         try:
-            sep = ctk.CTkFrame(self.data_frame, fg_color=self.colors.get('bg_medium', '#2a2a2a'), height=1)
-            sep.pack(fill='x')
+            # Mantener fallback para compatibilidad
+            row_bg = self.colors.get('bg_dark', '#1a1a1a') if (index % 2 == 0) else self.colors.get('bg_medium', '#121212')
+            row = ctk.CTkFrame(self.data_frame, fg_color=row_bg, height=30)
+            row.pack(fill='x', pady=0)
         except Exception:
             pass
 
@@ -348,3 +310,17 @@ class BusquedaClientesUI:
             self.container.after(200, self._periodic_check)
         except Exception:
             pass
+
+    def _on_nav_select(self, data):
+        """Callback cuando NavList selecciona un cliente."""
+        try:
+            cliente_id = None
+            if isinstance(data, dict):
+                cliente_id = data.get('cliente_id') or data.get('ID')
+            if cliente_id and self.owner and hasattr(self.owner, 'show_editar_cliente'):
+                try:
+                    self.owner.show_editar_cliente(cliente_id)
+                except Exception:
+                    logging.exception('Error llamando show_editar_cliente desde NavList')
+        except Exception:
+            logging.exception('Error en _on_nav_select')

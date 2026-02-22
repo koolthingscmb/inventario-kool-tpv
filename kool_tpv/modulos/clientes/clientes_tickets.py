@@ -19,6 +19,8 @@ from kool_tpv.utils.templates.pagina_con_visor import PaginaConVisor
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.config_loader import create_action_button
 from kool_tpv.utils.utils import FONT_TERMINAL
+from kool_tpv.utils.keyboard_manager import KeyboardManager
+from kool_tpv.utils.widgets.nav_list import NavList
 
 logger = logging.getLogger(__name__)
 
@@ -31,23 +33,24 @@ class ClientesTicketsUI(PaginaConVisor):
         self.cliente_nombre = cliente_nombre
         self.tickets_data: List[Tuple[int, str, float, str, int]] = []
         self.fila_seleccionada = None
-        self.indice_seleccionado = -1 # Índice actual en tickets_data
-        self.filas_widgets = [] # Lista de frames de filas
+        self.indice_seleccionado = -1
+        self.filas_widgets = []
+        # Preparar KeyboardManager en el toplevel (antes de construir plantilla)
+        try:
+            root = parent.winfo_toplevel()
+            if not hasattr(root, 'keyboard_manager'):
+                try:
+                    root.keyboard_manager = KeyboardManager(root)
+                except Exception:
+                    logger.exception('Error creando KeyboardManager en toplevel')
+                    root.keyboard_manager = None
+            self.keyboard_manager = getattr(root, 'keyboard_manager', None)
+            logger.info('KeyboardManager disponible en toplevel')
+        except Exception:
+            logger.exception('Error inicializando KeyboardManager (pre-super)')
 
         # Heredar de plantilla (module_name='clientes' → esquema de colores del módulo)
         super().__init__(parent, db=db, module_name='clientes')
-
-        # Bind flechas para navegación (Mac y PC)
-        try:
-            # Usar bind_all para captar teclas aunque el frame no tenga foco
-            self.bind_all('<Up>', self._on_arrow_up)
-            self.bind_all('<Down>', self._on_arrow_down)
-            try:
-                self.container.focus_set()
-            except Exception:
-                pass
-        except Exception:
-            pass
 
         # Breadcrumb personalizado (opcional para quien integre)
         try:
@@ -93,7 +96,7 @@ class ClientesTicketsUI(PaginaConVisor):
         header_content = ctk.CTkFrame(self.header, fg_color='transparent')
         header_content.pack(fill='x', padx=12, pady=12)
 
-        # === FILA 1: Filtros fecha ===
+        # FILA 1: Filtros fecha
         fecha_frame = ctk.CTkFrame(header_content, fg_color='transparent')
         fecha_frame.pack(fill='x', pady=(0, 8))
 
@@ -137,7 +140,7 @@ class ClientesTicketsUI(PaginaConVisor):
         self.entry_hasta.insert(0, fecha_hasta)
         self.entry_hasta.pack(side='left', padx=(0, 20))
 
-        # Botón FILTRAR (CTkButton con estilo del módulo)
+        # Botón FILTRAR
         btn_filtrar = ctk.CTkButton(
             fecha_frame,
             text='FILTRAR',
@@ -150,7 +153,7 @@ class ClientesTicketsUI(PaginaConVisor):
         )
         btn_filtrar.pack(side='left', padx=8)
 
-        # === FILA 2: Buscador producto ===
+        # FILA 2: Buscador producto
         buscar_frame = ctk.CTkFrame(header_content, fg_color='transparent')
         buscar_frame.pack(fill='x')
 
@@ -163,8 +166,8 @@ class ClientesTicketsUI(PaginaConVisor):
 
         self.combo_producto = SearchableCombo(
             buscar_frame,
-            placeholder='Nombre producto...',
-            module_name='clientes', # Usa colores del módulo clientes
+            placeholder='Escribe nombre y pulsa FILTRAR',
+            module_name='clientes',
             width=320
         )
         self.combo_producto.pack(side='left', fill='x', expand=True, padx=(0, 12))
@@ -177,30 +180,81 @@ class ClientesTicketsUI(PaginaConVisor):
 
         try:
             self.combo_producto.entry.bind('<Return>', lambda e: self._aplicar_filtros())
+            self.combo_producto.entry.bind('<KeyRelease>', self._on_combo_keyrelease)
         except Exception:
             pass
 
+    def _on_combo_keyrelease(self, event):
+        """Maneja teclas en el buscador: Enter aplica filtro; si el campo queda vacío
+        recarga la lista completa y limpia el visor."""
+        try:
+            texto = (self.combo_producto.get() or '').strip()
+            if event.keysym == 'Return':
+                try:
+                    self._aplicar_filtros()
+                except Exception:
+                    logger.exception('Error aplicando filtros desde _on_combo_keyrelease')
+                return
+
+            # Si el usuario ha borrado el texto, recargar listado completo
+            if texto == '':
+                try:
+                    self._cargar_tickets()
+                    try:
+                        self.update_visor('')
+                    except Exception:
+                        pass
+                except Exception:
+                    logger.exception('Error recargando tickets al vaciar buscador')
+        except Exception:
+            logger.exception('Error en _on_combo_keyrelease')
+
     def _build_grid(self):
         """Implementar grid de tickets."""
-        headers = ['ID TICKET', 'FECHA Y HORA', 'Nº ARTS', 'TOTAL']
-        widths = [100, 200, 100, 120]
+        # Usar NavList reutilizable para mostrar los tickets
+        columns = [
+            ('ID', 100),
+            ('FECHA', 200),
+            ('ARTS', 100),
+            ('TOTAL', 120)
+        ]
 
-        header_row = ctk.CTkFrame(
-            self.grid_scroll,
-            fg_color=self.colors.get('bg_dark', '#0d0d0d'),
-            height=40
-        )
-        header_row.pack(fill='x', padx=6, pady=(0, 6))
+        # Reemplazar grid_scroll por NavList dentro del left_container
+        try:
+            # Limpiar posibles widgets residuales en left_container (salvar header/footer)
+            try:
+                for child in list(self.left_container.winfo_children()):
+                    if child not in (self.header, self.footer):
+                        try:
+                            child.destroy()
+                        except Exception:
+                            pass
+            except Exception:
+                pass
 
-        for h, w in zip(headers, widths):
-            ctk.CTkLabel(
-                header_row,
-                text=h,
-                font=('Courier New', 14, 'bold'),
-                text_color=self.colors.get('secondary'),
-                width=w,
-                anchor='w'
-            ).pack(side='left', padx=8, pady=8)
+            # Destruir widget viejo grid_scroll si aún existe
+            try:
+                if hasattr(self, 'grid_scroll') and self.grid_scroll is not None:
+                    try:
+                        self.grid_scroll.destroy()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+            self.nav_list = NavList(
+                self.left_container,
+                columns=columns,
+                on_select=self._on_nav_select,
+                module_name='clientes',
+                keyboard_manager=self.keyboard_manager
+            )
+            self.nav_list.pack(side='top', fill='both', expand=True)
+
+            # Mantener compatibilidad con código previo
+            self.grid_scroll = self.nav_list
+        except Exception:
+            logger.exception('Error creando NavList en _build_grid')
 
     def _build_footer(self):
         """Implementar botones de acción: IMPRIMIR, EXPORTAR."""
@@ -281,32 +335,54 @@ class ClientesTicketsUI(PaginaConVisor):
 
     def _mostrar_tickets(self):
         """Renderizar filas de tickets en el grid."""
-        # Limpiar filas existentes (excepto header)
-        children = list(self.grid_scroll.winfo_children())
-        for widget in children[1:]:
-            try:
-                widget.destroy()
-            except Exception:
-                pass
+        # Usar NavList para renderizar filas
+        try:
+            if not hasattr(self, 'nav_list') or self.nav_list is None:
+                logger.warning('NavList no inicializado en _mostrar_tickets')
+                return
 
-        if not self.tickets_data:
-            ctk.CTkLabel(
-                self.grid_scroll,
-                text='No hay tickets para mostrar',
-                font=FONT_TERMINAL,
-                text_color=self.colors.get('text'),
-                fg_color='transparent'
-            ).pack(pady=40)
-            return
+            if not self.tickets_data:
+                try:
+                    self.nav_list.clear_items()
+                    self.update_visor('')
+                except Exception:
+                    logger.exception('Error limpiando NavList con no tickets')
+                return
 
-        # Guardar referencias a widgets de fila para navegación con teclado
-        self.filas_widgets = []
-        for i, (ticket_id, created_at, total, ticket_text, num_productos) in enumerate(self.tickets_data):
-            fila_widget = self._crear_fila_ticket(ticket_id, created_at, total, ticket_text, num_productos)
+            items = []
+            for ticket_id, created_at, total, ticket_text, num_productos in self.tickets_data:
+                items.append({
+                    'ID': ticket_id,
+                    'FECHA': created_at,
+                    'ARTS': num_productos,
+                    'TOTAL': f'{total:.2f}€',
+                    'ticket_id': ticket_id,
+                    'ticket_text': ticket_text
+                })
+
             try:
-                self.filas_widgets.append(fila_widget)
+                self.nav_list.set_items(items)
             except Exception:
-                pass
+                logger.exception('Error seteando items en NavList')
+
+            # No necesitamos filas_widgets manuales ya
+            self.filas_widgets = []
+            self.indice_seleccionado = -1
+        except Exception:
+            logger.exception('Error renderizando tickets con NavList')
+
+    def _on_nav_select(self, data):
+        """Callback desde NavList cuando se selecciona una fila."""
+        try:
+            ticket_id = data.get('ticket_id') if isinstance(data, dict) else None
+            ticket_text = data.get('ticket_text') if isinstance(data, dict) else ''
+            try:
+                # Llamar al handler de visualización (fila_frame no disponible en NavList)
+                self._on_ticket_click(ticket_id, ticket_text, None)
+            except Exception:
+                logger.exception('Error mostrando ticket desde _on_nav_select')
+        except Exception:
+            logger.exception('Error en _on_nav_select')
 
     def _crear_fila_ticket(self, ticket_id, created_at, total, ticket_text, num_productos):
         fila = ctk.CTkFrame(
@@ -339,37 +415,65 @@ class ClientesTicketsUI(PaginaConVisor):
 
     def _on_ticket_click(self, ticket_id, ticket_text, fila_frame):
         try:
-            # Restaurar color original de fila anterior
-            if self.fila_seleccionada:
+            # Restaurar color original de fila anterior (solo si trabajamos con widgets)
+            if fila_frame is not None:
+                if self.fila_seleccionada:
+                    try:
+                        self.fila_seleccionada.configure(
+                            fg_color=self.colors.get('bg_medium', '#1a1a1a'),
+                            border_width=0
+                        )
+                    except Exception:
+                        pass
+
+                # Highlight fila actual con borde amarillo ⭐
                 try:
-                    self.fila_seleccionada.configure(
-                        fg_color=self.colors.get('bg_medium', '#1a1a1a'),
-                        border_width=0
+                    fila_frame.configure(
+                        fg_color=self.colors.get('bg_dark', '#0d0d0d'),
+                        border_color=self.colors.get('primary', '#FFD700'),
+                        border_width=3 # Borde grueso amarillo
                     )
                 except Exception:
                     pass
-            # Highlight fila actual con borde amarillo ⭐
-            fila_frame.configure(
-                fg_color=self.colors.get('bg_dark', '#0d0d0d'),
-                border_color=self.colors.get('primary', '#FFD700'),
-                border_width=3 # Borde grueso amarillo
-            )
-            self.fila_seleccionada = fila_frame
 
-            # Actualizar índice seleccionado
-            try:
-                self.indice_seleccionado = self.filas_widgets.index(fila_frame)
-            except Exception:
+                self.fila_seleccionada = fila_frame
+
+                # Actualizar índice seleccionado si tenemos la lista de widgets
+                try:
+                    self.indice_seleccionado = self.filas_widgets.index(fila_frame)
+                except Exception:
+                    self.indice_seleccionado = -1
+            else:
+                # Selección desde NavList: limpiar selección visual previa
+                try:
+                    if self.fila_seleccionada:
+                        self.fila_seleccionada.configure(
+                            fg_color=self.colors.get('bg_medium', '#1a1a1a'),
+                            border_width=0
+                        )
+                except Exception:
+                    pass
+                self.fila_seleccionada = None
                 self.indice_seleccionado = -1
             # Dar foco al container para recibir eventos teclado
             try:
-                self.container.focus_set()
+                # Dar foco al toplevel para que KeyboardManager capture teclas
+                    try:
+                        self.container.winfo_toplevel().focus_set()
+                    except Exception:
+                        self.container.focus_set()
             except Exception:
                 pass
 
             # Mostrar en visor usando la plantilla
             self.update_visor(ticket_text or 'Ticket sin contenido')
             logger.debug(f'Ticket {ticket_id} mostrado en visor')
+
+            # Devolver foco a container para capturar flechas
+            try:
+                self.container.focus_set()
+            except Exception:
+                pass
         except Exception:
             logger.exception('Error mostrando ticket en visor')
 
@@ -381,7 +485,9 @@ class ClientesTicketsUI(PaginaConVisor):
             producto_id = None
             try:
                 producto_id = self.combo_producto.get_id()
+                texto_combo = (self.combo_producto.get() or '').strip()
             except Exception:
+                logger.exception('Error obteniendo producto_id')
                 producto_id = None
 
             query = """
@@ -408,6 +514,11 @@ class ClientesTicketsUI(PaginaConVisor):
             if producto_id:
                 query += " AND EXISTS (SELECT 1 FROM ticket_lines WHERE ticket_id = t.id AND producto_id = ?)"
                 params.append(producto_id)
+            else:
+                # Si no hay ID pero el usuario escribió texto, filtrar por nombre
+                if texto_combo:
+                    query += " AND EXISTS (SELECT 1 FROM ticket_lines tl2 WHERE tl2.ticket_id = t.id AND tl2.nombre LIKE ?)"
+                    params.append(f'%{texto_combo}%')
 
             query += " GROUP BY t.id ORDER BY t.created_at DESC"
 
@@ -475,6 +586,7 @@ class ClientesTicketsUI(PaginaConVisor):
     def _on_arrow_down(self, event):
         """Navegar al siguiente ticket con flecha abajo."""
         try:
+            logger.info('Navegación: flecha abajo recibida')
             if not self.filas_widgets:
                 return
 
@@ -505,6 +617,7 @@ class ClientesTicketsUI(PaginaConVisor):
     def _on_arrow_up(self, event):
         """Navegar al ticket anterior con flecha arriba."""
         try:
+            logger.info('Navegación: flecha arriba recibida')
             if not self.filas_widgets:
                 return
 
