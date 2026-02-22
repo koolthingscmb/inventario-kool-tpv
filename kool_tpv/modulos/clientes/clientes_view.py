@@ -7,10 +7,15 @@ from kool_tpv.modulos.clientes.clientes_tickets import ClientesTicketsUI
 class ClientesView(BaseModuleView):
     """Vista principal del módulo Clientes."""
 
-    def __init__(self, parent, db):
+    def __init__(self, parent, db, keyboard_manager=None):
         super().__init__(parent, config_section='clientes')
         self.parent = parent
         self.db = db
+        # Guardar referencia al KeyboardManager (opcional)
+        try:
+            self.keyboard_mgr = keyboard_manager
+        except Exception:
+            self.keyboard_mgr = None
 
         # Actualizar breadcrumb
         try:
@@ -33,7 +38,13 @@ class ClientesView(BaseModuleView):
             from kool_tpv.modulos.clientes.busqueda_clientes_ui import BusquedaClientesUI
 
             try:
-                busqueda_ui = BusquedaClientesUI(self.central_area, db=self.db, owner=self, module_name='clientes')
+                busqueda_ui = BusquedaClientesUI(
+                    self.central_area,
+                    db=self.db,
+                    owner=self,
+                    module_name='clientes',
+                    keyboard_manager=getattr(self, 'keyboard_mgr', None)
+                )
                 if self.set_central_content(busqueda_ui):
                     self.actualizar_ruta('CLIENTES / BÚSQUEDA', callbacks=self.breadcrumb_callbacks)
                 logging.info('Abriendo búsqueda clientes...')
@@ -54,7 +65,8 @@ class ClientesView(BaseModuleView):
                     parent=self.central_area,
                     db=self.db,
                     cliente_id=cliente_id,
-                    cliente_nombre=cliente_nombre
+                    cliente_nombre=cliente_nombre,
+                    keyboard_manager=getattr(self, 'keyboard_mgr', None)
                 )
 
                 # Usar set_central_content para gestión automática

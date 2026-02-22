@@ -16,23 +16,35 @@ from kool_tpv.utils.widgets.nav_list import NavList
 
 
 class BusquedaClientesUI:
-    def __init__(self, parent, db=None, owner=None, module_name: str = 'clientes'):
+    def __init__(self, parent, db=None, owner=None, module_name: str = 'clientes', keyboard_manager=None):
         self.parent = parent
         self.owner = owner  # ClientesView instance para llamar show_editar_cliente
         self.db = db
         self.module_name = module_name
         self.service = ClienteService(db)
 
-        # Inicializar KeyboardManager en el toplevel
+        # KeyboardManager: preferir la instancia pasada por parámetro (desde App/ClientesView),
+        # en caso contrario conservar la lógica anterior que crea/obtiene una en el toplevel.
         try:
-            root = parent.winfo_toplevel()
-            if not hasattr(root, 'keyboard_manager'):
+            if keyboard_manager is not None:
+                self.keyboard_mgr = keyboard_manager
                 try:
-                    root.keyboard_manager = KeyboardManager(root)
+                    self.keyboard_manager = self.keyboard_mgr
                 except Exception:
-                    logging.exception('Error creando KeyboardManager en BusquedaClientesUI')
-                    root.keyboard_manager = None
-            self.keyboard_manager = getattr(root, 'keyboard_manager', None)
+                    self.keyboard_manager = None
+            else:
+                root = parent.winfo_toplevel()
+                if not hasattr(root, 'keyboard_manager'):
+                    try:
+                        root.keyboard_manager = KeyboardManager(root)
+                    except Exception:
+                        logging.exception('Error creando KeyboardManager en BusquedaClientesUI')
+                        root.keyboard_manager = None
+                self.keyboard_manager = getattr(root, 'keyboard_manager', None)
+                try:
+                    self.keyboard_mgr = self.keyboard_manager
+                except Exception:
+                    self.keyboard_mgr = None
         except Exception:
             logging.exception('Error inicializando KeyboardManager (BusquedaClientesUI)')
 
@@ -108,6 +120,7 @@ class BusquedaClientesUI:
                 self.container,
                 columns=columns,
                 on_select=self._on_nav_select,
+                on_double_click=self._on_nav_double_click,
                 module_name=self.module_name,
                 keyboard_manager=self.keyboard_manager
             )
@@ -314,6 +327,33 @@ class BusquedaClientesUI:
     def _on_nav_select(self, data):
         """Callback cuando NavList selecciona un cliente."""
         try:
+            # Solo seleccionar / preparar preview. No abrir ficha en single-click.
+            # Dejamos la compatibilidad con usos futuros: exponer cliente seleccionado.
+            cliente_id = None
+            if isinstance(data, dict):
+                cliente_id = data.get('cliente_id') or data.get('ID')
+            # Exponer dato seleccionado en objeto (otras partes pueden leerlo)
+            try:
+                self.selected_cliente_id = cliente_id
+            except Exception:
+                pass
+            # Mover foco al NavList para capturar teclas de navegación
+            try:
+                if hasattr(self, 'nav_list') and self.nav_list is not None:
+                    try:
+                        self.nav_list.focus_set()
+                    except Exception:
+                        self.container.focus_set()
+                else:
+                    self.container.focus_set()
+            except Exception:
+                pass
+        except Exception:
+            logging.exception('Error en _on_nav_select')
+
+    def _on_nav_double_click(self, data):
+        """Doble-click: abrir ficha de cliente usando el owner (ClientesView)."""
+        try:
             cliente_id = None
             if isinstance(data, dict):
                 cliente_id = data.get('cliente_id') or data.get('ID')
@@ -321,6 +361,6 @@ class BusquedaClientesUI:
                 try:
                     self.owner.show_editar_cliente(cliente_id)
                 except Exception:
-                    logging.exception('Error llamando show_editar_cliente desde NavList')
+                    logging.exception('Error llamando show_editar_cliente desde on_double_click')
         except Exception:
-            logging.exception('Error en _on_nav_select')
+            logging.exception('Error en _on_nav_double_click')

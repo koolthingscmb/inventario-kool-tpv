@@ -28,24 +28,42 @@ logger = logging.getLogger(__name__)
 class ClientesTicketsUI(PaginaConVisor):
     """Vista de tickets de cliente con filtros y visor."""
 
-    def __init__(self, parent, db, cliente_id: int, cliente_nombre: str = ''):
+    def __init__(self, parent, db, cliente_id: int, cliente_nombre: str = '', keyboard_manager=None):
         self.cliente_id = cliente_id
         self.cliente_nombre = cliente_nombre
+        # Guardar referencia al KeyboardManager (si se provee desde la App)
+        try:
+            self.keyboard_mgr = keyboard_manager
+        except Exception:
+            self.keyboard_mgr = None
         self.tickets_data: List[Tuple[int, str, float, str, int]] = []
         self.fila_seleccionada = None
         self.indice_seleccionado = -1
         self.filas_widgets = []
-        # Preparar KeyboardManager en el toplevel (antes de construir plantilla)
+        # Preparar KeyboardManager: usar el pasado por parámetro si existe,
+        # si no, intentar reutilizar/crear en el toplevel como antes.
         try:
-            root = parent.winfo_toplevel()
-            if not hasattr(root, 'keyboard_manager'):
+            if getattr(self, 'keyboard_mgr', None) is not None:
                 try:
-                    root.keyboard_manager = KeyboardManager(root)
+                    self.keyboard_manager = self.keyboard_mgr
                 except Exception:
-                    logger.exception('Error creando KeyboardManager en toplevel')
-                    root.keyboard_manager = None
-            self.keyboard_manager = getattr(root, 'keyboard_manager', None)
-            logger.info('KeyboardManager disponible en toplevel')
+                    self.keyboard_manager = None
+                logger.info('KeyboardManager recibido en ClientesTicketsUI')
+            else:
+                root = parent.winfo_toplevel()
+                if not hasattr(root, 'keyboard_manager'):
+                    try:
+                        root.keyboard_manager = KeyboardManager(root)
+                    except Exception:
+                        logger.exception('Error creando KeyboardManager en toplevel')
+                        root.keyboard_manager = None
+                self.keyboard_manager = getattr(root, 'keyboard_manager', None)
+                # Mantener también self.keyboard_mgr para consistencia
+                try:
+                    self.keyboard_mgr = self.keyboard_manager
+                except Exception:
+                    pass
+                logger.info('KeyboardManager disponible en toplevel')
         except Exception:
             logger.exception('Error inicializando KeyboardManager (pre-super)')
 
@@ -246,6 +264,7 @@ class ClientesTicketsUI(PaginaConVisor):
                 self.left_container,
                 columns=columns,
                 on_select=self._on_nav_select,
+                on_double_click=self._on_nav_double_click,
                 module_name='clientes',
                 keyboard_manager=self.keyboard_manager
             )
@@ -383,6 +402,50 @@ class ClientesTicketsUI(PaginaConVisor):
                 logger.exception('Error mostrando ticket desde _on_nav_select')
         except Exception:
             logger.exception('Error en _on_nav_select')
+
+    def _on_nav_double_click(self, data):
+        """Doble-click en la lista de tickets: intentar abrir la ficha del cliente.
+
+        Buscar un ancestro que implemente `show_editar_cliente` (ClientesView) y
+        llamarlo con `self.cliente_id`.
+        """
+        try:
+            # Selección local primero: mantener comportamiento de _on_nav_select
+            try:
+                self._on_nav_select(data)
+            except Exception:
+                pass
+
+            # Buscar ancestro que tenga show_editar_cliente
+            widget = getattr(self, 'container', None) or getattr(self, 'master', None)
+            while widget is not None:
+                if hasattr(widget, 'show_editar_cliente'):
+                    try:
+                        widget.show_editar_cliente(self.cliente_id)
+                        return
+                    except Exception:
+                        logger.exception('Error llamando show_editar_cliente desde _on_nav_double_click')
+                        return
+                try:
+                    widget = getattr(widget, 'master', None)
+                except Exception:
+                    break
+
+            # Si no encontramos un ancestro, intentar llamar al toplevel si expone la vista
+            try:
+                root = self.container.winfo_toplevel()
+                if hasattr(root, 'show_editar_cliente'):
+                    try:
+                        root.show_editar_cliente(self.cliente_id)
+                        return
+                    except Exception:
+                        logger.exception('Error llamando show_editar_cliente en toplevel')
+            except Exception:
+                pass
+
+            logger.debug('No se encontró show_editar_cliente en ancestros al doble-click')
+        except Exception:
+            logger.exception('Error manejando doble-click en ClientesTicketsUI')
 
     def _crear_fila_ticket(self, ticket_id, created_at, total, ticket_text, num_productos):
         fila = ctk.CTkFrame(
@@ -583,64 +646,4 @@ class ClientesTicketsUI(PaginaConVisor):
         except Exception:
             logger.exception('Error en _on_exportar')
 
-    def _on_arrow_down(self, event):
-        """Navegar al siguiente ticket con flecha abajo."""
-        try:
-            logger.info('Navegación: flecha abajo recibida')
-            if not self.filas_widgets:
-                return
-
-            # Si no hay índice seleccionado, empezar por el primero
-            if self.indice_seleccionado < 0:
-                nuevo_indice = 0
-            else:
-                # Siguiente índice
-                nuevo_indice = min(len(self.filas_widgets) - 1, self.indice_seleccionado + 1)
-
-            if nuevo_indice != self.indice_seleccionado:
-                # Obtener datos del nuevo ticket
-                ticket_id, fecha, total, ticket_text, num_productos = self.tickets_data[nuevo_indice]
-                fila_widget = self.filas_widgets[nuevo_indice]
-
-                # Simular click
-                self._on_ticket_click(ticket_id, ticket_text, fila_widget)
-
-                # Scroll para hacer visible
-                try:
-                    fila_widget.update()
-                    self.grid_scroll._parent_canvas.yview_moveto(nuevo_indice / len(self.filas_widgets))
-                except Exception:
-                    pass
-        except Exception:
-            logger.exception('Error navegando con flecha abajo')
-
-    def _on_arrow_up(self, event):
-        """Navegar al ticket anterior con flecha arriba."""
-        try:
-            logger.info('Navegación: flecha arriba recibida')
-            if not self.filas_widgets:
-                return
-
-            # Si no hay índice seleccionado, empezar por el último
-            if self.indice_seleccionado < 0:
-                nuevo_indice = len(self.filas_widgets) - 1
-            else:
-                # Índice anterior
-                nuevo_indice = max(0, self.indice_seleccionado - 1)
-
-            if nuevo_indice != self.indice_seleccionado:
-                # Obtener datos del nuevo ticket
-                ticket_id, fecha, total, ticket_text, num_productos = self.tickets_data[nuevo_indice]
-                fila_widget = self.filas_widgets[nuevo_indice]
-
-                # Simular click
-                self._on_ticket_click(ticket_id, ticket_text, fila_widget)
-
-                # Scroll para hacer visible
-                try:
-                    fila_widget.update()
-                    self.grid_scroll._parent_canvas.yview_moveto(nuevo_indice / len(self.filas_widgets))
-                except Exception:
-                    pass
-        except Exception:
-            logger.exception('Error navegando con flecha arriba')
+    # Arrow navigation is handled globally by KeyboardManager; local handlers removed.

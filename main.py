@@ -8,6 +8,7 @@ from typing import List, Dict
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.tpv.actions.buscar_articulo import BuscarArticuloPanel
 from PIL import Image
+from kool_tpv.utils.keyboard_manager import KeyboardManager
 
 # Hover color used across the UI (matches TPV 'BUSCAR ARTÍCULO' hover)
 HOVER_COLOR = "#00A4DF"
@@ -99,6 +100,18 @@ class App(ctk.CTk):
         self.nav_buttons = {}
         self.current_view = None
         self.tpv_view = None
+
+        # Inicializar KeyboardManager global para la aplicación
+        try:
+            self.keyboard_mgr = KeyboardManager(self)
+            # Mantener compatibilidad con código que busca `keyboard_manager` en el root
+            try:
+                self.keyboard_manager = self.keyboard_mgr
+            except Exception:
+                pass
+            logging.info('KeyboardManager inicializado en App')
+        except Exception:
+            logging.exception('Error inicializando KeyboardManager en App')
 
         self.create_navigation()
 
@@ -488,7 +501,7 @@ class App(ctk.CTk):
                 return
 
             try:
-                self.clientes_view = ClientesView(self, db=getattr(self, 'db', None))
+                self.clientes_view = ClientesView(self, db=getattr(self, 'db', None), keyboard_manager=getattr(self, 'keyboard_mgr', None))
             except Exception:
                 logging.exception('Error instanciando ClientesView')
                 try:

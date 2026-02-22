@@ -27,6 +27,7 @@ class NavList(ctk.CTkScrollableFrame):
         parent,
         columns: List[Tuple[str, int]],  # [(header, width), ...]
         on_select: Optional[Callable[[Any], None]] = None,
+        on_double_click: Optional[Callable[[Any], None]] = None,
         module_name: str = 'clientes',
         keyboard_manager=None,
         **kwargs
@@ -62,6 +63,8 @@ class NavList(ctk.CTkScrollableFrame):
 
         self.columns = columns
         self.on_select_callback = on_select
+        # Callback para doble-click (p. ej. abrir ficha)
+        self.on_double_click_callback = on_double_click
         self.keyboard_manager = keyboard_manager
 
         # Estado interno
@@ -130,6 +133,8 @@ class NavList(ctk.CTkScrollableFrame):
             # Bind clicks
             try:
                 lbl.bind('<Button-1>', lambda e, idx=index: self._on_row_click(idx))
+                # doble-click separado (selección y acción distinta)
+                lbl.bind('<Double-Button-1>', lambda e, idx=index: self._on_row_double_click(idx))
             except Exception:
                 pass
 
@@ -138,8 +143,45 @@ class NavList(ctk.CTkScrollableFrame):
             row_frame.bind('<Enter>', lambda e, f=row_frame: self._on_row_enter(f))
             row_frame.bind('<Leave>', lambda e, f=row_frame: self._on_row_leave(f))
             row_frame.bind('<Button-1>', lambda e, idx=index: self._on_row_click(idx))
+            row_frame.bind('<Double-Button-1>', lambda e, idx=index: self._on_row_double_click(idx))
         except Exception:
             pass
+
+    def _on_row_double_click(self, index: int):
+        """Doble click en fila - ejecutar acción independiente de la selección."""
+        try:
+            # Asegurarnos de que la fila está seleccionada primero
+            self._select_row(index)
+
+            # Registrar como lista activa en KeyboardManager
+            if self.keyboard_manager:
+                try:
+                    self.keyboard_manager.set_active_list(self)
+                except Exception:
+                    pass
+
+            # Mover foco al NavList para que KeyboardManager no ignore teclas
+            try:
+                try:
+                    self.focus_set()
+                except Exception:
+                    try:
+                        self.winfo_toplevel().focus_set()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+            # Callback de doble-click (acción diferenciada)
+            if self.on_double_click_callback:
+                try:
+                    data, _ = self.rows_data[index]
+                    self.on_double_click_callback(data)
+                except Exception:
+                    logger.exception('Error ejecutando on_double_click callback')
+
+        except Exception:
+            logger.exception('Error manejando doble-click en fila')
 
     def clear_items(self):
         """Limpiar todas las filas (mantiene header)."""
@@ -223,6 +265,19 @@ class NavList(ctk.CTkScrollableFrame):
                     self.keyboard_manager.set_active_list(self)
                 except Exception:
                     pass
+
+            # Mover foco al NavList para que KeyboardManager no ignore teclas
+            try:
+                # Intentar dar foco al widget scrollable
+                try:
+                    self.focus_set()
+                except Exception:
+                    try:
+                        self.winfo_toplevel().focus_set()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
 
             # Callback
             if self.on_select_callback:
