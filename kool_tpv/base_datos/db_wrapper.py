@@ -30,7 +30,9 @@ class Database:
                     if db_dir and not os.path.exists(db_dir):
                         os.makedirs(db_dir, exist_ok=True)
 
-                self.connection = sqlite3.connect(self.db_path, detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES, **self._sqlite_kwargs)
+                # Do not use PARSE_DECLTYPES/PARSE_COLNAMES to avoid automatic
+                # conversion of date columns to datetime.date. Return dates as text.
+                self.connection = sqlite3.connect(self.db_path, **self._sqlite_kwargs)
                 # allow access by column name
                 try:
                     self.connection.row_factory = sqlite3.Row

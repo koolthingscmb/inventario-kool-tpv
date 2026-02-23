@@ -72,46 +72,74 @@ class ClienteService:
 			Dict con todos los campos del cliente + datos del nivel, o None si no existe
 		"""
 		try:
+			# Select explicit columns to avoid dependence on physical column order
 			query = """
-				SELECT c.*, 
-				       n.level, n.nombre_nivel, n.grafismo_nivel, n.gasto_minimo
-				FROM clientes c
-				LEFT JOIN niveles_fidelidad n ON c.id_nivel = n.id
-				WHERE c.id = ?
+			SELECT
+			    c.id AS id,
+			    c.nombre AS nombre,
+			    c.telefono AS telefono,
+			    c.email AS email,
+			    c.dni AS dni,
+			    c.direccion AS direccion,
+			    c.ciudad AS ciudad,
+			    c.cp AS cp,
+			    c.pais AS pais,
+			    c.fecha_nacimiento AS fecha_nacimiento,
+			    c.tags AS tags,
+			    c.notes_internas AS notes_internas,
+			    c.tesoro_total AS tesoro_total,
+			    c.tesoro_gastado_total AS tesoro_gastado_total,
+			    c.tesoro_historico AS tesoro_historico,
+			    c.id_nivel AS id_nivel,
+			    c.fidelidad_activa AS fidelidad_activa,
+			    c.fecha_alta AS fecha_alta,
+			    c.fecha_vencimiento_tesoro AS fecha_vencimiento_tesoro,
+			    c.fecha_ultima_compra AS fecha_ultima_compra,
+			    c.total_compras AS total_compras,
+			    c.fecha_ultima_comunicacion AS fecha_ultima_comunicacion,
+			    n.level AS nivel_level,
+			    n.nombre_nivel AS nivel_nombre,
+			    n.grafismo_nivel AS nivel_grafismo,
+			    n.gasto_minimo AS nivel_gasto_minimo
+			FROM clientes c
+			LEFT JOIN niveles_fidelidad n ON c.id_nivel = n.id
+			WHERE c.id = ?
 			"""
+
 			row = self.db.fetch_one(query, (cliente_id,))
 
 			if not row:
 				return None
 
+			# row is a sqlite3.Row (db_wrapper sets row_factory), access by name
 			return {
-				'id': row[0],
-				'nombre': row[1] or '',
-				'telefono': row[2] or '',
-				'email': row[3] or '',
-				'dni': row[4] or '',
-				'direccion': row[5] or '',
-				'ciudad': row[6] or '',
-				'cp': row[7] or '',
-				'pais': row[8] or '',
-				'fecha_nacimiento': row[9] or None,
-				'tags': row[10] or '',
-				'notes_internas': row[11] or '',
-				'tesoro_total': float(row[12] or 0.0),
-				'tesoro_gastado_total': float(row[13] or 0.0),
-				'tesoro_historico': float(row[14] or 0.0),
-				'id_nivel': row[15],
-				'fidelidad_activa': int(row[16] or 1),
-				'fecha_alta': row[17],
-				'fecha_vencimiento_tesoro': row[18] or None,
-				'fecha_ultima_compra': row[19] or None,
-				'total_compras': int(row[20] or 0),
-				'fecha_ultima_comunicacion': row[21] or None,
+				'id': row['id'],
+				'nombre': row['nombre'] or '',
+				'telefono': row['telefono'] or '',
+				'email': row['email'] or '',
+				'dni': row['dni'] or '',
+				'direccion': row['direccion'] or '',
+				'ciudad': row['ciudad'] or '',
+				'cp': row['cp'] or '',
+				'pais': row['pais'] or '',
+				'fecha_nacimiento': row['fecha_nacimiento'] or None,
+				'tags': row['tags'] or '',
+				'notes_internas': row['notes_internas'] or '',
+				'tesoro_total': float(row['tesoro_total'] or 0.0),
+				'tesoro_gastado_total': float(row['tesoro_gastado_total'] or 0.0),
+				'tesoro_historico': float(row['tesoro_historico'] or 0.0),
+				'id_nivel': row['id_nivel'],
+				'fidelidad_activa': int(row['fidelidad_activa'] or 1),
+				'fecha_alta': row['fecha_alta'],
+				'fecha_vencimiento_tesoro': row['fecha_vencimiento_tesoro'] or None,
+				'fecha_ultima_compra': row['fecha_ultima_compra'] or None,
+				'total_compras': int(row['total_compras'] or 0),
+				'fecha_ultima_comunicacion': row['fecha_ultima_comunicacion'] or None,
 				# Datos del nivel (desde JOIN)
-				'nivel_level': row[22] if len(row) > 22 else None,
-				'nivel_nombre': row[23] if len(row) > 23 else 'Forastero',
-				'nivel_grafismo': row[24] if len(row) > 24 else '~',
-				'nivel_gasto_minimo': float(row[25]) if len(row) > 25 and row[25] else 0.0
+				'nivel_level': row['nivel_level'] if 'nivel_level' in row.keys() else None,
+				'nivel_nombre': row['nivel_nombre'] if 'nivel_nombre' in row.keys() and row['nivel_nombre'] else 'Forastero',
+				'nivel_grafismo': row['nivel_grafismo'] if 'nivel_grafismo' in row.keys() and row['nivel_grafismo'] else '~',
+				'nivel_gasto_minimo': float(row['nivel_gasto_minimo']) if 'nivel_gasto_minimo' in row.keys() and row['nivel_gasto_minimo'] else 0.0
 			}
 		except Exception:
 			logging.exception(f'Error obteniendo cliente {cliente_id}')

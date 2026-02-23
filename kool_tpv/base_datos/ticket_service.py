@@ -505,25 +505,52 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
 
                 # Actualizar cliente: aplicar cambios en tesoro_total y tesoro_historico
                 try:
+                    # Calcular unidades vendidas en este ticket (no contar devoluciones)
+                    try:
+                        total_unidades_vendidas = 0
+                        for it in carrito_items or []:
+                            try:
+                                if str(it.get('line_tipo', 'venta')) != 'devolucion':
+                                    total_unidades_vendidas += int(it.get('cantidad', 0) or 0)
+                            except Exception:
+                                # si falla la conversión, omitir la línea
+                                continue
+                    except Exception:
+                        total_unidades_vendidas = 0
+
+                    # Actualizar cliente en una sola consulta: puntos + métricas acumuladas
                     cur.execute(
                         """
                         UPDATE clientes SET
                             tesoro_total = COALESCE(tesoro_total, 0) + ? - ?,
                             tesoro_historico = COALESCE(tesoro_historico, 0) + ? - ?,
-                            tesoro_gastado_total = COALESCE(tesoro_gastado_total, 0) + ?
+                            tesoro_gastado_total = COALESCE(tesoro_gastado_total, 0) + ?,
+                            total_compras = COALESCE(total_compras, 0) + 1,
+                            total_compras_euros = COALESCE(total_compras_euros, 0) + ?,
+                            total_unidades = COALESCE(total_unidades, 0) + ?,
+                            fecha_ultima_compra = ?
                         WHERE id = ?
                         """,
                         (
+                            # tesoro_total: +puntos_otorgar - (puntos_restar + puntos_gastados)
                             str(puntos_otorgar),
                             str(puntos_restar + puntos_gastados),
+                            # tesoro_historico: +puntos_otorgar - puntos_restar
                             str(puntos_otorgar),
                             str(puntos_restar),
+                            # tesoro_gastado_total: +puntos_gastados
                             str(puntos_gastados),
+                            # total_compras_euros: sumar el total del ticket
+                            str(total),
+                            # total_unidades: suma de cantidades (sin devoluciones)
+                            total_unidades_vendidas,
+                            # fecha_ultima_compra: guardar solo la fecha (YYYY-MM-DD)
+                            created_at.split(" ")[0] if created_at else None,
                             cliente_id,
                         ),
                     )
                 except Exception:
-                    logging.exception('Error actualizando cliente con puntos; rollback')
+                    logging.exception('Error actualizando cliente con puntos y métricas; rollback')
                     conn.rollback()
                     raise
 

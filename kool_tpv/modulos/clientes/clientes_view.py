@@ -106,7 +106,27 @@ class ClientesView(BaseModuleView):
                 pass
 
     def show_tops(self):
-        logging.info('TODO: Implementar show_tops')
+        try:
+            from kool_tpv.modulos.clientes.clientes_tops_ui import ClientesTopsUI
+
+            ui = ClientesTopsUI(
+                parent=self.central_area,
+                db=self.db,
+                owner=self,
+                keyboard_manager=getattr(self, 'keyboard_mgr', None),
+            )
+
+            if self.set_central_content(ui):
+                try:
+                    self.actualizar_ruta('CLIENTES / TOPS', callbacks=self.breadcrumb_callbacks)
+                except Exception:
+                    pass
+                logging.info('Mostrando TOPS clientes (UI)')
+            else:
+                logging.error('No fue posible montar ClientesTopsUI')
+
+        except Exception:
+            logging.exception('Error en show_tops')
 
     def show_comunicacion(self):
         logging.info('TODO: Implementar show_comunicacion')

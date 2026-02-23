@@ -85,7 +85,22 @@ class NavList(ctk.CTkScrollableFrame):
         )
         header_frame.pack(fill='x', padx=6, pady=(0, 6))
 
-        for header_text, width in self.columns:
+        for col in self.columns:
+            # columns entries can be (key, width) or (key, width, display_text)
+            try:
+                if len(col) == 2:
+                    header_text, width = col
+                else:
+                    header_text, width, display_text = col
+                    header_text = display_text
+            except Exception:
+                # Fallback: try unpacking directly
+                try:
+                    header_text, width = col
+                except Exception:
+                    header_text = str(col)
+                    width = 100
+
             ctk.CTkLabel(
                 header_frame,
                 text=header_text,
@@ -116,7 +131,20 @@ class NavList(ctk.CTkScrollableFrame):
         self.rows_data.append((data, row_frame))
 
         # Crear labels por columna
-        for (col_key, width) in self.columns:
+        for col in self.columns:
+            try:
+                if len(col) == 2:
+                    col_key, width = col
+                else:
+                    col_key, width, _ = col
+            except Exception:
+                try:
+                    col_key, width = col
+                except Exception:
+                    # Fallback: treat entire spec as key
+                    col_key = str(col)
+                    width = 100
+
             # col_key puede ser header o key; usar raw key si existe
             value = data.get(col_key, '')
 
