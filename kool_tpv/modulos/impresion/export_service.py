@@ -93,6 +93,131 @@ class ExportService:
             logging.exception('Error generando CSV para cierre %s', cierre_id)
             raise
 
+    def export_informe_ventas_csv(self, resumen: dict, ventas_diarias: list,
+                                   fecha_inicio: str, fecha_fin: str,
+                                   path: str) -> str:
+        """Exporta un informe de ventas (resumen + ventas_diarias) a CSV.
+
+        - `resumen`: dict con claves total_tickets, total_ventas, total_base, total_iva, ticket_medio
+        - `ventas_diarias`: lista de dicts con claves 'fecha' y 'total'
+        - `fecha_inicio`/`fecha_fin`: strings en formato YYYY-MM-DD
+        - `path`: ruta completa donde escribir el CSV (sobrescribe si existe)
+
+        Devuelve la ruta escrita.
+        """
+        try:
+            # Ensure path directory exists
+            dirp = os.path.dirname(path) or self.out_dir
+            try:
+                os.makedirs(dirp, exist_ok=True)
+            except Exception:
+                pass
+
+            with open(path, mode='w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+
+                # Metadata
+                writer.writerow(['Informe de Ventas'])
+                writer.writerow(['Generado', datetime.now().isoformat()])
+                writer.writerow(['Rango', fecha_inicio, fecha_fin])
+                writer.writerow([])
+
+                # Resumen
+                writer.writerow(['Resumen'])
+                writer.writerow(['Total tickets', resumen.get('total_tickets')])
+                writer.writerow(['Total ventas', resumen.get('total_ventas')])
+                writer.writerow(['Base imponible', resumen.get('total_base')])
+                writer.writerow(['Total IVA', resumen.get('total_iva')])
+                writer.writerow(['Ticket medio', resumen.get('ticket_medio')])
+                writer.writerow([])
+
+                # Ventas por dia
+                writer.writerow(['Ventas por día'])
+                writer.writerow(['Fecha', 'Total'])
+                for item in ventas_diarias or []:
+                    try:
+                        writer.writerow([item.get('fecha'), item.get('total')])
+                    except Exception:
+                        logging.exception('Error escribiendo fila en export_informe_ventas_csv')
+
+            return path
+        except Exception:
+            logging.exception('Error generando CSV para informe de ventas en %s', path)
+            raise
+
+    def export_report_csv(self, report_data: dict, path: str) -> str:
+        """Export a generic report structure to CSV.
+
+        The `report_data` is expected to be a dict with optional keys:
+        - title: str
+        - generated_at: str
+        - range: dict with 'start' and 'end'
+        - sections: list of sections where each section may contain
+          'title', 'headers' (list) and 'rows' (list of lists)
+
+        This method writes values as-is (no formatting) and does not add currency symbols.
+        It will create parent directories for `path` if necessary and return the written path.
+        """
+        try:
+            # Ensure parent dir exists
+            dirp = os.path.dirname(path) or self.out_dir
+            try:
+                os.makedirs(dirp, exist_ok=True)
+            except Exception:
+                pass
+
+            # Build rows in memory first so we can retry on PermissionError
+            csv_rows = []
+
+            # Metadata
+            csv_rows.append([report_data.get("title", "")])
+            generated_at = report_data.get("generated_at")
+            if generated_at:
+                csv_rows.append(["Generado", generated_at])
+
+            rango = report_data.get("range", {}) or {}
+            if rango:
+                csv_rows.append(["Rango inicio", rango.get("start")])
+                csv_rows.append(["Rango fin", rango.get("end")])
+
+            csv_rows.append([])
+
+            # Sections
+            for section in report_data.get("sections", []) or []:
+                if section.get("title"):
+                    csv_rows.append([section.get("title")])
+
+                headers = section.get("headers", []) or []
+                rows = section.get("rows", []) or []
+
+                if headers:
+                    csv_rows.append(headers)
+
+                for row in rows:
+                    try:
+                        csv_rows.append(row)
+                    except Exception:
+                        logging.exception('Error preparando fila en export_report_csv')
+
+                csv_rows.append([])
+
+            # Write to the requested path; surface PermissionError to caller
+            try:
+                with open(path, mode="w", newline="", encoding="utf-8") as f:
+                    writer = csv.writer(f)
+                    for r in csv_rows:
+                        writer.writerow(r)
+                return path
+            except PermissionError:
+                logging.exception('PermissionError al exportar CSV a %s', path)
+                raise
+            except Exception:
+                logging.exception('Error inesperado escribiendo CSV para report_data en %s', path)
+                raise
+        except Exception:
+            logging.exception('Error generando CSV para report_data en %s', path)
+            raise
+
     def export_text_to_pdf(self, text: str, path: Optional[str] = None) -> str:
         """Generar un PDF simple a partir de texto con reportlab.
 
@@ -274,6 +399,78 @@ class ExportService:
             path = self._timestamped_path('cierres_export', 'pdf')
 
         return self.export_text_to_pdf(combined, path=path)
+
+    def export_report_pdf(self, report_data: dict, path: str) -> str:
+        """Export a generic report structure to PDF using reportlab.
+
+        Minimal, clean PDF output built from `report_data` (title, metadata,
+        sections with headers and rows). Does not perform monetary formatting.
+        """
+        try:
+            # Local imports to avoid hard dependency at module import time
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+            from reportlab.lib import colors
+            from reportlab.lib.styles import getSampleStyleSheet
+            from reportlab.lib.units import inch
+        except Exception:
+            raise RuntimeError('Exportar a PDF requiere instalar `reportlab` (pip install reportlab)')
+
+        try:
+            doc = SimpleDocTemplate(path)
+            elements = []
+
+            styles = getSampleStyleSheet()
+
+            # Title
+            title = report_data.get('title', '')
+            if title:
+                elements.append(Paragraph(f"<b>{title}</b>", styles['Title']))
+                elements.append(Spacer(1, 0.3 * inch))
+
+            # Metadata
+            generated_at = report_data.get('generated_at')
+            if generated_at:
+                elements.append(Paragraph(f"Generado: {generated_at}", styles['Normal']))
+
+            rango = report_data.get('range', {}) or {}
+            if rango:
+                elements.append(Paragraph(f"Rango: {rango.get('start')} → {rango.get('end')}", styles['Normal']))
+
+            elements.append(Spacer(1, 0.3 * inch))
+
+            # Sections
+            for section in report_data.get('sections', []) or []:
+                if section.get('title'):
+                    elements.append(Paragraph(f"<b>{section.get('title')}</b>", styles.get('Heading2', styles['Heading2'])))
+                    elements.append(Spacer(1, 0.2 * inch))
+
+                headers = section.get('headers', []) or []
+                rows = section.get('rows', []) or []
+
+                data = []
+                if headers:
+                    data.append(headers)
+
+                for row in rows:
+                    data.append([str(cell) for cell in row])
+
+                if data:
+                    table = Table(data, hAlign='LEFT')
+                    table.setStyle(TableStyle([
+                        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.whitesmoke),
+                        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                        ('FONTSIZE', (0, 0), (-1, -1), 10),
+                        ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
+                    ]))
+                    elements.append(table)
+                    elements.append(Spacer(1, 0.4 * inch))
+
+            doc.build(elements)
+            return path
+        except Exception:
+            logging.exception('Error generando PDF para report_data en %s', path)
+            raise
 
     def _compute_aggregate_for_cierres(self, cierre_ids: List[int]) -> dict:
         """Compute aggregated totals across multiple cierres.

@@ -193,6 +193,8 @@ class App(ctk.CTk):
                     cmd = self.open_almacen
                 elif cmd_name.lower() in ("open_clientes", "clientes", "open_clientes()"):
                     cmd = self.open_clientes
+                elif cmd_name.lower() in ("open_informes", "informes", "open_informes()"):
+                    cmd = self.open_informes
                 else:
                     # default: log action
                     cmd = (lambda name=cmd_name or text: logging.info(f"Nav action: {name}"))
@@ -536,6 +538,70 @@ class App(ctk.CTk):
 
         except Exception:
             logging.exception('Error abriendo clientes')
+
+    def open_informes(self):
+        """Open Informes module: hide main nav and main_frame, instantiate InformesView."""
+        try:
+            try:
+                self.nav_frame.pack_forget()
+            except Exception:
+                pass
+            try:
+                self.main_frame.pack_forget()
+            except Exception:
+                pass
+
+            try:
+                from kool_tpv.modulos.informes.informes_view import InformesView
+            except Exception:
+                logging.exception('Error importando InformesView')
+                # restore UI
+                try:
+                    self.nav_frame.pack(side='left', fill='y')
+                except Exception:
+                    pass
+                try:
+                    self.main_frame.pack(side='right', fill='both', expand=True)
+                except Exception:
+                    pass
+                return
+
+            try:
+                self.informes_view = InformesView(self, db=getattr(self, 'db', None), keyboard_manager=getattr(self, 'keyboard_mgr', None))
+            except Exception:
+                logging.exception('Error instanciando InformesView')
+                try:
+                    self.nav_frame.pack(side='left', fill='y')
+                except Exception:
+                    pass
+                try:
+                    self.main_frame.pack(side='right', fill='both', expand=True)
+                except Exception:
+                    pass
+                return
+
+            def _on_back_informes():
+                try:
+                    if hasattr(self, 'informes_view') and self.informes_view:
+                        if self.informes_view._on_power():
+                            try:
+                                del self.informes_view
+                            except Exception:
+                                pass
+                except Exception:
+                    logging.exception('Error en callback volver Informes')
+
+            try:
+                if getattr(self, 'informes_view', None) and getattr(self.informes_view, 'power_button', None):
+                    try:
+                        self.informes_view.power_button.configure(command=_on_back_informes)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+        except Exception:
+            logging.exception('Error en open_informes')
 
 
 if __name__ == "__main__":
