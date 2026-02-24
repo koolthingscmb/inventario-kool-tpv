@@ -166,47 +166,125 @@ class ExportService:
             except Exception:
                 pass
 
-            # Build rows in memory first so we can retry on PermissionError
-            csv_rows = []
-
-            # Metadata
-            csv_rows.append([report_data.get("title", "")])
-            generated_at = report_data.get("generated_at")
-            if generated_at:
-                csv_rows.append(["Generado", generated_at])
-
-            rango = report_data.get("range", {}) or {}
-            if rango:
-                csv_rows.append(["Rango inicio", rango.get("start")])
-                csv_rows.append(["Rango fin", rango.get("end")])
-
-            csv_rows.append([])
-
-            # Sections
-            for section in report_data.get("sections", []) or []:
-                if section.get("title"):
-                    csv_rows.append([section.get("title")])
-
-                headers = section.get("headers", []) or []
-                rows = section.get("rows", []) or []
-
-                if headers:
-                    csv_rows.append(headers)
-
-                for row in rows:
-                    try:
-                        csv_rows.append(row)
-                    except Exception:
-                        logging.exception('Error preparando fila en export_report_csv')
-
-                csv_rows.append([])
-
-            # Write to the requested path; surface PermissionError to caller
+            # Write directly so we can apply per-section formatting (e.g. money columns)
             try:
                 with open(path, mode="w", newline="", encoding="utf-8") as f:
                     writer = csv.writer(f)
-                    for r in csv_rows:
-                        writer.writerow(r)
+
+                    # Metadata
+                    writer.writerow([report_data.get("title", "")])
+                    generated_at = report_data.get("generated_at")
+                    if generated_at:
+                        writer.writerow(["Generado", generated_at])
+
+                    rango = report_data.get("range", {}) or {}
+                    if rango:
+                        writer.writerow(["Rango inicio", rango.get("start")])
+                        writer.writerow(["Rango fin", rango.get("end")])
+
+                    writer.writerow([])
+
+                    # Sections
+                    for section in report_data.get("sections", []) or []:
+                        try:
+                            # Title for the section
+                            if section.get("title"):
+                                writer.writerow([section.get("title")])
+
+                            section_type = section.get("type")
+
+                            if section_type == "blocks":
+                                # Prefer analytic export_table if provided
+                                export_table = section.get("export_table")
+
+                                if export_table:
+                                    if section.get("title"):
+                                        writer.writerow([section["title"]])
+
+                                    headers = export_table.get("headers", []) or []
+                                    rows = export_table.get("rows", []) or []
+                                    money_columns = export_table.get("money_columns", []) or []
+
+                                    if headers:
+                                        writer.writerow(headers)
+
+                                    for row in rows:
+                                        try:
+                                            processed_row = []
+                                            for col_index, value in enumerate(row):
+                                                if col_index in money_columns:
+                                                    try:
+                                                        processed_row.append(f"{float(value):.2f}")
+                                                    except Exception:
+                                                        processed_row.append(value)
+                                                else:
+                                                    processed_row.append(value)
+                                            writer.writerow(processed_row)
+                                        except Exception:
+                                            logging.exception('Error escribiendo fila en export_table de blocks')
+
+                                    writer.writerow([])
+                                else:
+                                    # Fallback: convertir blocks a tabla horizontal
+                                    blocks = section.get("blocks", []) or []
+                                    if blocks:
+                                        # Extract headers from first block's fields
+                                        first_block = blocks[0]
+                                        fields = first_block.get("fields", []) or []
+
+                                        headers = ["Cajero"] + [f.get("label") for f in fields]
+                                        writer.writerow(headers)
+
+                                        for block in blocks:
+                                            block_title = block.get("title", "")
+                                            block_fields = block.get("fields", []) or []
+
+                                            row = [block_title]
+                                            for field in block_fields:
+                                                value = field.get("value")
+                                                is_money = field.get("is_money", False)
+
+                                                if is_money:
+                                                    try:
+                                                        row.append(f"{float(value):.2f}")
+                                                    except Exception:
+                                                        row.append(value)
+                                                else:
+                                                    row.append(value)
+
+                                            writer.writerow(row)
+
+                                    writer.writerow([])
+
+                            else:
+                                headers = section.get("headers", []) or []
+                                rows = section.get("rows", []) or []
+
+                                if headers:
+                                    writer.writerow(headers)
+
+                                # For each row, format money columns if provided in section
+                                for row in rows:
+                                    try:
+                                        processed_row = []
+                                        money_cols = section.get("money_columns", []) or []
+                                        for col_index, value in enumerate(row):
+                                            if col_index in money_cols:
+                                                try:
+                                                    processed_row.append(f"{float(value):.2f}")
+                                                except Exception:
+                                                    # Fallback to original value if conversion fails
+                                                    processed_row.append(value)
+                                            else:
+                                                processed_row.append(value)
+                                        writer.writerow(processed_row)
+                                    except Exception:
+                                        logging.exception('Error escribiendo fila en export_report_csv')
+
+                                writer.writerow([])
+                        except Exception:
+                            logging.exception('Error preparando sección en export_report_csv')
+
                 return path
             except PermissionError:
                 logging.exception('PermissionError al exportar CSV a %s', path)
@@ -430,7 +508,13 @@ class ExportService:
             # Metadata
             generated_at = report_data.get('generated_at')
             if generated_at:
-                elements.append(Paragraph(f"Generado: {generated_at}", styles['Normal']))
+                try:
+                    from datetime import datetime
+                    dt = datetime.fromisoformat(generated_at)
+                    fecha_fmt = dt.strftime("%d/%m/%Y %H:%M")
+                    elements.append(Paragraph(f"Generado: {fecha_fmt}", styles['Normal']))
+                except Exception:
+                    elements.append(Paragraph(f"Generado: {generated_at}", styles['Normal']))
 
             rango = report_data.get('range', {}) or {}
             if rango:
@@ -444,27 +528,80 @@ class ExportService:
                     elements.append(Paragraph(f"<b>{section.get('title')}</b>", styles.get('Heading2', styles['Heading2'])))
                     elements.append(Spacer(1, 0.2 * inch))
 
-                headers = section.get('headers', []) or []
-                rows = section.get('rows', []) or []
+                section_type = section.get('type')
 
-                data = []
-                if headers:
-                    data.append(headers)
+                if section_type == 'blocks':
+                    blocks = section.get('blocks', []) or []
 
-                for row in rows:
-                    data.append([str(cell) for cell in row])
+                    for block in blocks:
+                        block_title = block.get('title', '')
+                        elements.append(Paragraph(f"<b>{block_title}</b>", styles.get('Heading3', styles['Heading3'])))
 
-                if data:
-                    table = Table(data, hAlign='LEFT')
-                    table.setStyle(TableStyle([
-                        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-                        ('BACKGROUND', (0, 0), (-1, 0), colors.whitesmoke),
-                        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-                        ('FONTSIZE', (0, 0), (-1, -1), 10),
-                        ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
-                    ]))
-                    elements.append(table)
-                    elements.append(Spacer(1, 0.4 * inch))
+                        block_fields = block.get('fields', []) or []
+
+                        # Build vertical table for each block
+                        data = []
+                        for field in block_fields:
+                            label = field.get('label', '')
+                            value = field.get('value')
+                            is_money = field.get('is_money', False)
+
+                            if is_money:
+                                try:
+                                    value_str = f"{float(value):.2f} €"
+                                except Exception:
+                                    value_str = str(value)
+                            else:
+                                value_str = str(value)
+
+                            data.append([label, value_str])
+
+                        table = Table(data, colWidths=[3*inch, 2*inch], hAlign="LEFT")
+                        table.setStyle(TableStyle([
+                            ("GRID", (0,0), (-1,-1), 0.5, colors.grey),
+                            ("BACKGROUND", (0,0), (0,-1), colors.whitesmoke),
+                            ("FONTNAME", (0,0), (-1,-1), "Helvetica"),
+                            ("FONTSIZE", (0,0), (-1,-1), 10),
+                            ("ALIGN", (1,0), (1,-1), "RIGHT")
+                        ]))
+
+                        elements.append(table)
+                        elements.append(Spacer(1, 0.3 * inch))
+
+                else:
+                    headers = section.get('headers', []) or []
+                    rows = section.get('rows', []) or []
+
+                    data = []
+                    if headers:
+                        data.append(headers)
+
+                    for row in rows:
+                        # Format money columns to exactly 2 decimals when requested by section
+                        money_columns = section.get("money_columns", []) or []
+                        processed_row = []
+                        for col_index, cell in enumerate(row):
+                            if col_index in money_columns:
+                                try:
+                                    processed_row.append(f"{float(cell):.2f}")
+                                except Exception:
+                                    processed_row.append(str(cell))
+                            else:
+                                processed_row.append(str(cell))
+
+                        data.append(processed_row)
+
+                    if data:
+                        table = Table(data, hAlign='LEFT')
+                        table.setStyle(TableStyle([
+                            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                            ('BACKGROUND', (0, 0), (-1, 0), colors.whitesmoke),
+                            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                            ('FONTSIZE', (0, 0), (-1, -1), 10),
+                            ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
+                        ]))
+                        elements.append(table)
+                        elements.append(Spacer(1, 0.4 * inch))
 
             doc.build(elements)
             return path
