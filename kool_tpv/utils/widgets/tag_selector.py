@@ -1,4 +1,3 @@
-import tkinter as tk
 import customtkinter as ctk
 from typing import List, Optional, Callable
 import logging
@@ -102,8 +101,7 @@ class TagSelector(ctk.CTkFrame):
     def _on_item_selected(self, value: str):
         """Callback cuando se selecciona item del SearchableCombo."""
         try:
-            logging.info(f"TagSelector: item seleccionado = {value}")
-            logging.info(f"TagSelector: search_function = {self.search_combo.search_function}")
+            # Debug logging removed to reduce log noise
             # Obtener datos completos del item
             item_data = self.search_combo.get_producto_data()
 
