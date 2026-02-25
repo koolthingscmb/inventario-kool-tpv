@@ -18,7 +18,7 @@ import customtkinter as ctk
 from kool_tpv.utils.templates.pagina_con_visor import PaginaConVisor
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.config_loader import create_action_button
-from kool_tpv.utils.utils import FONT_TERMINAL
+from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.keyboard_manager import KeyboardManager
 from kool_tpv.utils.widgets.nav_list import NavList
 
@@ -81,7 +81,7 @@ class ClientesTicketsUI(PaginaConVisor):
             titulo_cliente = ctk.CTkLabel(
                 self.container,
                 text=f'TICKETS DE {cliente_nombre.upper()}',
-                font=('Courier New', 18, 'bold'),
+                font=get_font('title', module='clientes'),
                 text_color=self.colors.get('accent'),
                 fg_color='transparent'
             )
@@ -121,7 +121,7 @@ class ClientesTicketsUI(PaginaConVisor):
         ctk.CTkLabel(
             fecha_frame,
             text='DESDE:',
-            font=FONT_TERMINAL,
+            font=get_font('label', module='clientes'),
             text_color=self.colors.get('text')
         ).pack(side='left', padx=(0, 6))
 
@@ -134,14 +134,14 @@ class ClientesTicketsUI(PaginaConVisor):
             text_color=self.colors.get('text'),
             border_color=self.colors.get('primary'),
             border_width=2
-        )
+        , font=get_font('entry', module='clientes'))
         self.entry_desde.insert(0, fecha_desde)
         self.entry_desde.pack(side='left', padx=(0, 20))
 
         ctk.CTkLabel(
             fecha_frame,
             text='HASTA:',
-            font=FONT_TERMINAL,
+            font=get_font('label', module='clientes'),
             text_color=self.colors.get('text')
         ).pack(side='left', padx=(0, 6))
 
@@ -154,7 +154,7 @@ class ClientesTicketsUI(PaginaConVisor):
             text_color=self.colors.get('text'),
             border_color=self.colors.get('primary'),
             border_width=2
-        )
+        , font=get_font('entry', module='clientes'))
         self.entry_hasta.insert(0, fecha_hasta)
         self.entry_hasta.pack(side='left', padx=(0, 20))
 
@@ -167,7 +167,7 @@ class ClientesTicketsUI(PaginaConVisor):
             fg_color=self.colors.get('primary'),
             hover_color=self.colors.get('secondary'),
             text_color='#000000',
-            font=('Courier New', 14, 'bold')
+            font=get_font('button', module='clientes')
         )
         btn_filtrar.pack(side='left', padx=8)
 
@@ -178,7 +178,7 @@ class ClientesTicketsUI(PaginaConVisor):
         ctk.CTkLabel(
             buscar_frame,
             text='BUSCAR PRODUCTO:',
-            font=FONT_TERMINAL,
+            font=get_font('label', module='clientes'),
             text_color=self.colors.get('text')
         ).pack(side='left', padx=(0, 12))
 

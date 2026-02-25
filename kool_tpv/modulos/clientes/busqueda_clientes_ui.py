@@ -9,7 +9,8 @@ import customtkinter as ctk
 import tkinter as tk
 
 from kool_tpv.modulos.clientes.cliente_service import ClienteService
-from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL
+from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
+from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.config_loader import load_colors
 from kool_tpv.utils.keyboard_manager import KeyboardManager
 from kool_tpv.utils.widgets.nav_list import NavList
@@ -65,7 +66,8 @@ class BusquedaClientesUI:
             fg_color=self.colors.get('background', COLOR_BG_TERMINAL),
             text_color=self.colors.get('text', COLOR_MATRIX),
             border_width=2,
-            border_color=self.colors.get('primary', COLOR_MATRIX)
+            border_color=self.colors.get('primary', COLOR_MATRIX),
+            font=get_font('entry', module='clientes')
         )
         self.search_entry.pack(fill='x', padx=12, pady=(12, 6))
         self.search_entry.bind('<KeyRelease>', lambda e: self._on_search())
@@ -79,7 +81,7 @@ class BusquedaClientesUI:
             filter_frame,
             text='Filtrar por:',
             text_color=self.colors.get('text', COLOR_MATRIX),
-            font=FONT_TERMINAL
+            font=get_font('label', module='clientes')
         ).pack(side='left', padx=(0, 12))
 
         # Checkboxes estado

@@ -4,7 +4,7 @@ from typing import Optional
 import customtkinter as ctk
 
 from kool_tpv.utils.config_loader import load_colors
-from kool_tpv.utils.utils import COLOR_BG_TERMINAL, FONT_TERMINAL
+from kool_tpv.utils.utils import COLOR_BG_TERMINAL
 
 
 class ClientesComunicacionView:
@@ -33,10 +33,11 @@ class ClientesComunicacionView:
         center = ctk.CTkFrame(self.container, fg_color='transparent')
         center.pack(fill='both', expand=True)
 
+        from kool_tpv.utils.font_loader import get_font
         label = ctk.CTkLabel(
             center,
-            text='IMPLEMENTACIÓN FUTURA',
-            font=FONT_TERMINAL,
+            text='COMUNICACIÓN CLIENTE',
+            font=get_font('title', module='clientes'),
             text_color=self.colors.get('text', '#FFFFFF'),
             fg_color='transparent'
         )

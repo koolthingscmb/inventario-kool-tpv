@@ -16,8 +16,8 @@ except Exception:  # pragma: no cover - optional dependency during early UI dev
 from kool_tpv.utils.utils import (
     COLOR_BG_TERMINAL,
     COLOR_MATRIX,
-    FONT_TERMINAL,
 )
+from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.config_loader import create_action_button, load_colors
 from kool_tpv.modulos.clientes.clientes_tickets import ClientesTicketsUI
 
@@ -50,7 +50,7 @@ class CrearClienteUI:
         self.lbl_titulo = ctk.CTkLabel(
             self.container,
             text=titulo_text,
-            font=(FONT_TERMINAL[0], 20, "bold"),
+            font=get_font('title', module=self.module_name),
             text_color=self.colors.get('text', COLOR_MATRIX)
         )
         self.lbl_titulo.pack(anchor="w", padx=12, pady=(12, 8))
@@ -63,7 +63,7 @@ class CrearClienteUI:
         for c in range(8):
             self.main_scroll.grid_columnconfigure(c, weight=1, uniform='col')
 
-        lbl_font = FONT_TERMINAL
+        lbl_font = get_font('label', module=self.module_name)
         entry_kw = {
             "fg_color": COLOR_BG_TERMINAL,
             "text_color": self.colors.get('text', COLOR_MATRIX),

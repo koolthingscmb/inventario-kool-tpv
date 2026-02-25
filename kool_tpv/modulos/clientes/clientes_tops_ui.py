@@ -9,7 +9,7 @@ import customtkinter as ctk
 from kool_tpv.utils.config_loader import load_colors, create_action_button
 from kool_tpv.utils.widgets.nav_list import NavList
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
-from kool_tpv.utils.utils import FONT_TERMINAL
+from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.custom_dialog import show_warning
 from kool_tpv.modulos.clientes.services.clientes_tops_service import ClientesTopsService
 from kool_tpv.base_datos.categoria_service import CategoriaService
@@ -45,7 +45,7 @@ class ClientesTopsUI(ctk.CTkFrame):
             self.title_label = ctk.CTkLabel(
                 self.header_frame,
                 text='TOP CLIENTES',
-                font=('Roboto-SemiBold', 22),
+                font=get_font('title', module='clientes'),
                 text_color=self.colors.get('text', '#FFFFFF')
             )
             self.title_label.pack(anchor='w', padx=6, pady=6)
@@ -75,7 +75,7 @@ class ClientesTopsUI(ctk.CTkFrame):
                         hover_color=_primary_btn.get('hover', '#0091c2'),
                         text_color=_primary_btn.get('text', self.colors.get('text', '#FFFFFF')),
                         command=self._on_general,
-                        font=FONT_TERMINAL
+                        font=get_font('button', module='clientes')
                     )
                     btn_general.pack(side='left', padx=4)
 
@@ -91,7 +91,7 @@ class ClientesTopsUI(ctk.CTkFrame):
                         hover_color=_accent_btn.get('hover', '#8e44ad'),
                         text_color=_accent_btn.get('text', self.colors.get('text', '#FFFFFF')),
                         command=self._on_tesoro_actual,
-                        font=FONT_TERMINAL
+                        font=get_font('button', module='clientes')
                     )
                     btn_tesoro_actual.pack(side='left', padx=4)
 
@@ -104,7 +104,7 @@ class ClientesTopsUI(ctk.CTkFrame):
                         hover_color=_secondary_btn.get('hover', '#444444'),
                         text_color=_secondary_btn.get('text', self.colors.get('text', '#FFFFFF')),
                         command=self._on_tesoro_gastado,
-                        font=FONT_TERMINAL
+                        font=get_font('button', module='clientes')
                     )
                     btn_tesoro_gastado.pack(side='left', padx=4)
 
@@ -117,7 +117,7 @@ class ClientesTopsUI(ctk.CTkFrame):
                         hover_color=_accent_btn.get('hover', '#8e44ad'),
                         text_color=_accent_btn.get('text', self.colors.get('text', '#FFFFFF')),
                         command=self._on_tesoro_total,
-                        font=FONT_TERMINAL
+                        font=get_font('button', module='clientes')
                     )
                     btn_tesoro_total.pack(side='left', padx=4)
                 except Exception:
@@ -131,7 +131,7 @@ class ClientesTopsUI(ctk.CTkFrame):
                 self.search_frame.pack(fill='x', padx=6, pady=(4, 6))
                 try:
                     # Categoria
-                    lbl_cat = ctk.CTkLabel(self.search_frame, text='Categoría:', font=FONT_TERMINAL, text_color=self.colors.get('text', '#FFFFFF'))
+                    lbl_cat = ctk.CTkLabel(self.search_frame, text='Categoría:', font=get_font('label', module='clientes'), text_color=self.colors.get('text', '#FFFFFF'))
                     lbl_cat.pack(side='left', padx=(0, 6))
                     self.cb_categoria = SearchableCombo(
                         self.search_frame,
@@ -143,7 +143,7 @@ class ClientesTopsUI(ctk.CTkFrame):
                     self.cb_categoria.pack(side='left', padx=(0, 8))
 
                     # Tipo
-                    lbl_tipo = ctk.CTkLabel(self.search_frame, text='Tipo:', font=FONT_TERMINAL, text_color=self.colors.get('text', '#FFFFFF'))
+                    lbl_tipo = ctk.CTkLabel(self.search_frame, text='Tipo:', font=get_font('label', module='clientes'), text_color=self.colors.get('text', '#FFFFFF'))
                     lbl_tipo.pack(side='left', padx=(0, 6))
                     self.cb_tipo = SearchableCombo(
                         self.search_frame,
@@ -155,7 +155,7 @@ class ClientesTopsUI(ctk.CTkFrame):
                     self.cb_tipo.pack(side='left', padx=(0, 8))
 
                     # Producto (principal)
-                    lbl_prod = ctk.CTkLabel(self.search_frame, text='Producto:', font=FONT_TERMINAL, text_color=self.colors.get('text', '#FFFFFF'))
+                    lbl_prod = ctk.CTkLabel(self.search_frame, text='Producto:', font=get_font('label', module='clientes'), text_color=self.colors.get('text', '#FFFFFF'))
                     lbl_prod.pack(side='left', padx=(0, 6))
                     self.search_combo = SearchableCombo(
                         self.search_frame,
