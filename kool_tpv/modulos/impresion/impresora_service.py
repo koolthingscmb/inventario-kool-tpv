@@ -142,6 +142,20 @@ class ImpresoraService:
         except Exception:
             config['qr_url'] = ''
 
+        # Cargar headers y footers dinámicos
+        try:
+            rows = self.db.fetch_all(
+                "SELECT clave, valor FROM configuracion WHERE clave LIKE 'ticket_header_%' OR clave LIKE 'ticket_footer_%'"
+            )
+            if rows:
+                for row in rows:
+                    clave = row[0]
+                    valor = row[1]
+                    if clave and valor:
+                        config[clave] = valor
+        except Exception:
+            logging.exception('Error cargando headers/footers dinámicos')
+
         return config
 
     def imprimir_ticket(self, ticket_data, items, cliente_data=None, printer_name: Optional[str] = None):
@@ -446,6 +460,13 @@ class ImpresoraService:
         Reutiliza la lógica de impresión común para mantener compatibilidad con
         `imprimir_ticket` (simulación, modo texto/escpos, logo, dump).
         """
+        # Ensure latest config from DB before generating nivel ticket
+        try:
+            self.config = self._load_config_from_db()
+            self.logger.info('ImpresoraService: recargada configuración desde BD antes de generar ticket nivel')
+        except Exception:
+            self.logger.exception('ImpresoraService: error recargando config antes de generar ticket nivel')
+
         texto = self.nivel_ticket_generator.generate(self.config, nivel_data)
         # Usar el cliente o algún identificador como metadato para logs
         meta = {'num_ticket': nivel_data.get('cliente', '')}
@@ -461,6 +482,13 @@ class ImpresoraService:
             cliente_data: datos de cliente opcionales (usados por venta).
             printer_name: nombre de impresora opcional.
         """
+        # Ensure latest configuration is loaded before generating any ticket
+        try:
+            self.config = self._load_config_from_db()
+            self.logger.info('ImpresoraService: recargada configuración desde BD antes de imprimir')
+        except Exception:
+            self.logger.exception('ImpresoraService: error recargando config antes de imprimir')
+
         texto = None
         meta = {}
 

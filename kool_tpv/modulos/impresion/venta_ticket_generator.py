@@ -4,6 +4,7 @@ Generador de tickets de venta.
 Hereda de BaseTicketGenerator y usa sus helpers comunes.
 """
 from decimal import Decimal
+import logging
 from kool_tpv.modulos.impresion.base_ticket_generator import BaseTicketGenerator
 
 
@@ -70,6 +71,14 @@ class VentaTicketGenerator(BaseTicketGenerator):
         # Encabezado: soporte plantillas por tipo con fallback al header genérico
         header_key = f"ticket_header_{tipo}"
         footer_key = f"ticket_footer_{tipo}"
+        # Debug temporal: loggear keys y valores relacionados para diagnóstico
+        try:
+            logging.info(f"DEBUG: tipo={tipo}")
+            logging.info(f"DEBUG: header_key={header_key}")
+            logging.info(f"DEBUG: config keys={list(config.keys())}")
+            logging.info(f"DEBUG: header_val={config.get(header_key)}")
+        except Exception:
+            pass
         header_val = config.get(header_key)
         if header_val:
             lines.extend(self._render_template(header_val, context))

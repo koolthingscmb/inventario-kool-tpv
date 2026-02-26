@@ -67,6 +67,7 @@ class ConfigView(BaseModuleView):
             'open_config_general': self.show_general,
             'open_config_impresion': self.show_impresion,
             'open_config_usuario': self.show_usuario,
+            'show_usuarios': self.show_usuarios,
             'open_config_fidelizacion': self.show_fidelizacion,
         }
 
@@ -231,7 +232,11 @@ class ConfigView(BaseModuleView):
 
             if self.auth_service and self.auth_service.validate_admin_password(password):
                 logging.info('Config: abriendo USUARIO (autenticado)...')
-                # TODO: implementar UI de gestión de usuarios
+                # Si autenticado, mostrar UI de usuarios
+                try:
+                    self.show_usuarios()
+                except Exception:
+                    logging.exception('Error mostrando UI de usuarios')
             else:
                 show_warning(
                     parent,
@@ -305,6 +310,23 @@ class ConfigView(BaseModuleView):
         except Exception:
             logging.exception('Error en show_impresora_config')
 
+    def show_usuarios(self):
+        """Mostrar gestión de usuarios (clon de ProveedoresUI)."""
+        try:
+            from kool_tpv.modulos.configuracion.usuarios.usuarios_ui import UsuariosUI
+            try:
+                ui = UsuariosUI(self.central_area, db=self.db, module_name='config')
+                if self.set_central_content(ui):
+                    try:
+                        self.actualizar_ruta('CONFIG / USUARIOS', callbacks=self.breadcrumb_callbacks)
+                    except Exception:
+                        pass
+                    logging.info('Config: abriendo USUARIOS...')
+            except Exception:
+                logging.exception('Error instanciando UsuariosUI')
+        except Exception:
+            logging.exception('Error en show_usuarios')
+
     def show_textos_tickets(self):
         """Mostrar configuración de textos de tickets (Plantilla)."""
         try:
@@ -357,6 +379,7 @@ class ConfigView(BaseModuleView):
                 'open_config_general': self.show_general,
                 'open_config_impresion': self.show_impresion,
                 'open_config_usuario': self.show_usuario,
+                'show_usuarios': self.show_usuarios,
                 'open_config_fidelizacion': self.show_fidelizacion,
             }
 
