@@ -29,10 +29,7 @@ class VentaTicketGenerator(BaseTicketGenerator):
 
         lines = []
 
-        # Encabezado
-        lines.extend(self._format_header(config))
-
-        # Detectar si es ticket de devolución (por flag en ticket_data o por line_tipo en items)
+        # Determinar tipo de ticket (venta / devolucion)
         is_devolucion = False
         try:
             tipo_flag = str(ticket_data.get('tipo', '') or '')
@@ -49,11 +46,35 @@ class VentaTicketGenerator(BaseTicketGenerator):
                 except Exception:
                     continue
 
-        # Info venta
+        tipo = 'devolucion' if is_devolucion else 'venta'
+
+        # Construir contexto para placeholders
         fecha = ticket_data.get('fecha', '')
         hora = ticket_data.get('hora', '')
         cajero = ticket_data.get('cajero', '')
         num = ticket_data.get('num_ticket', '')
+        context = {
+            'fecha': fecha,
+            'hora': hora,
+            'cajero': cajero,
+            'num_ticket': num,
+            'total': self._format_currency(ticket_data.get('total', 0)),
+            'forma_pago': ticket_data.get('forma_pago', ''),
+        }
+        if cliente_data:
+            try:
+                context['cliente'] = cliente_data.get('nombre', '')
+            except Exception:
+                context['cliente'] = ''
+
+        # Encabezado: soporte plantillas por tipo con fallback al header genérico
+        header_key = f"ticket_header_{tipo}"
+        footer_key = f"ticket_footer_{tipo}"
+        header_val = config.get(header_key)
+        if header_val:
+            lines.extend(self._render_template(header_val, context))
+        else:
+            lines.extend(self._format_header(config))
 
         lines.append(self.DIVIDER)
         if is_devolucion:
@@ -269,7 +290,11 @@ class VentaTicketGenerator(BaseTicketGenerator):
             lines.append(self._format_line_lr("Tesoro ganado:", self._format_currency(ganado)))
             lines.append(self._format_line_lr("Tesoro Total:", self._format_currency(total_tesoro)))
 
-        # Pie
-        lines.extend(self._format_footer(config))
+        # Pie: soporte footer por tipo con fallback al footer genérico
+        footer_val = config.get(footer_key)
+        if footer_val:
+            lines.extend(self._render_template(footer_val, context))
+        else:
+            lines.extend(self._format_footer(config))
 
         return "\n".join(lines)

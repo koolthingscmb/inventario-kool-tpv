@@ -15,6 +15,7 @@ try:
     from kool_tpv.modulos.impresion.venta_ticket_generator import VentaTicketGenerator
 except Exception:
     VentaTicketGenerator = None
+from kool_tpv.base_datos.configuracion_service import ConfiguracionService
 
 
 def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None, cliente_id=None, forma_pago='Efectivo', importe_efectivo=0.0, importe_tarjeta=0.0, descuento_data=None, carrito_service=None, fidelizacion_service=None):
@@ -101,11 +102,20 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
             puntos_otorgar = Decimal('0')
             puntos_restar = Decimal('0')
 
-        # determine next num_ticket
-        cur.execute('SELECT MAX(num_ticket) FROM tickets')
-        row = cur.fetchone()
-        last = row[0] if row and row[0] is not None else 0
-        num_ticket = int(last) + 1
+        # determine next num_ticket (fiscal) using ConfiguracionService
+        try:
+            config_service = ConfiguracionService(db)
+            # get_next_ticket_number can accept an external cursor to reuse
+            # the current transaction and avoid nested transactions
+            num_ticket = config_service.get_next_ticket_number(cur)
+            logging.info("Asignado número fiscal %s", num_ticket)
+        except Exception:
+            logging.exception('Error obteniendo num_ticket fiscal; fallback numérico')
+            # Fallback legacy behaviour: sequential integer
+            cur.execute('SELECT MAX(num_ticket) FROM tickets')
+            row = cur.fetchone()
+            last = row[0] if row and row[0] is not None else 0
+            num_ticket = int(last) + 1
 
         created_at = datetime.now().isoformat(sep=' ', timespec='seconds')
         # Use Decimal for monetary values to keep precision and avoid float rounding

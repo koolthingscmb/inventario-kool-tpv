@@ -22,8 +22,27 @@ class CierreTicketGenerator(BaseTicketGenerator):
     def generate(self, config, cierre_data, tickets, totals: dict = None):
         lines = []
 
-        # Encabezado
-        lines.extend(self._format_header(config))
+        # Construir contexto para placeholders de cierre
+        fecha = cierre_data.get('fecha', '') if cierre_data else ''
+        hora = cierre_data.get('hora', '') if cierre_data else ''
+        usuario = cierre_data.get('usuario', '') if cierre_data else ''
+        cierre_id = cierre_data.get('cierre_id', '') if cierre_data else ''
+        context = {
+            'fecha': fecha,
+            'hora': hora,
+            'usuario': usuario,
+            'cierre_id': cierre_id,
+        }
+
+        # Soportar header por tipo 'cierre' con fallback al header genérico
+        header_key = 'ticket_header_cierre'
+        footer_key = 'ticket_footer_cierre'
+        header_val = config.get(header_key)
+        if header_val:
+            lines.extend(self._render_template(header_val, context))
+        else:
+            lines.extend(self._format_header(config))
+
         lines.append(self.DOUBLE_DIVIDER)
         lines.append('CIERRE DE CAJA'.center(self.WIDTH))
         lines.append(self.DIVIDER)
@@ -262,6 +281,11 @@ class CierreTicketGenerator(BaseTicketGenerator):
         except Exception:
             pass
 
-        # Nota: no añadir pie genérico "I.V.A Incluido" en ticket de cierre
+        # Footer para cierre: solo añadir si existe la clave específica en config
+        footer_val = config.get(footer_key)
+        if footer_val:
+            lines.extend(self._render_template(footer_val, context))
+
+        # Nota: si no hay footer específico, mantener comportamiento actual
 
         return "\n".join(lines)

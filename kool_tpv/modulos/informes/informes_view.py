@@ -10,6 +10,7 @@ import logging
 from kool_tpv.utils.config_loader import load_colors, create_action_button
 from kool_tpv.utils.templates.base_module_view import BaseModuleView
 from kool_tpv.utils.utils import FONT_TERMINAL
+from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.widgets.date_picker_entry import DatePickerEntry
 from kool_tpv.modulos.informes.informes_service import InformesService
 from kool_tpv.utils.formatter_service import FormatterService
@@ -148,14 +149,14 @@ class InformesView(BaseModuleView):
             header_frame = ctk.CTkFrame(content_frame, fg_color='transparent')
             header_frame.pack(fill='x', padx=12, pady=(12, 8))
 
-            title_lbl = ctk.CTkLabel(header_frame, text='GENERADOR DE INFORMES', font=FONT_TERMINAL, text_color=colors.get('text'))
+            title_lbl = ctk.CTkLabel(header_frame, text='GENERADOR DE INFORMES', font=get_font('title', module='informes'), text_color=colors.get('text'))
             title_lbl.pack(anchor='w', padx=6, pady=(0, 6))
 
             # Filters row
             filters_frame = ctk.CTkFrame(header_frame, fg_color='transparent')
             filters_frame.pack(fill='x', padx=6, pady=(4, 6))
 
-            lbl_tipo = ctk.CTkLabel(filters_frame, text='Tipo:', font=FONT_TERMINAL, text_color=colors.get('text'))
+            lbl_tipo = ctk.CTkLabel(filters_frame, text='Tipo:', font=get_font('label', module='informes'), text_color=colors.get('text'))
             lbl_tipo.pack(side='left', padx=(0, 6))
             self.cb_tipo_informe = ctk.CTkComboBox(
                 filters_frame,
@@ -168,7 +169,8 @@ class InformesView(BaseModuleView):
                     "Stock por tipo"
                 ],
                 state='readonly',
-                width=220
+                width=220,
+                font=get_font('entry', module='informes')
             )
             self.cb_tipo_informe.pack(side='left', padx=(0, 12))
 
@@ -179,14 +181,14 @@ class InformesView(BaseModuleView):
             except Exception:
                 pass
 
-            lbl_desde = ctk.CTkLabel(filters_frame, text='Desde:', font=FONT_TERMINAL, text_color=colors.get('text'))
+            lbl_desde = ctk.CTkLabel(filters_frame, text='Desde:', font=get_font('label', module='informes'), text_color=colors.get('text'))
             lbl_desde.pack(side='left', padx=(0, 6))
             # Guardar referencia para mostrar/ocultar dinámicamente
             self.lbl_desde = lbl_desde
             self.entry_fecha_inicio = DatePickerEntry(filters_frame, module_name='informes', width=140, allow_future=False)
             self.entry_fecha_inicio.pack(side='left', padx=(0, 12))
 
-            lbl_hasta = ctk.CTkLabel(filters_frame, text='Hasta:', font=FONT_TERMINAL, text_color=colors.get('text'))
+            lbl_hasta = ctk.CTkLabel(filters_frame, text='Hasta:', font=get_font('label', module='informes'), text_color=colors.get('text'))
             lbl_hasta.pack(side='left', padx=(0, 6))
             # Guardar referencia para mostrar/ocultar dinámicamente
             self.lbl_hasta = lbl_hasta
@@ -215,7 +217,7 @@ class InformesView(BaseModuleView):
 
             self.btn_generar = ctk.CTkButton(filters_frame, text='GENERAR', width=140, height=32,
                                              fg_color=btn_bg, hover_color=btn_hover, text_color=btn_text,
-                                             command=self._on_generar_click, font=FONT_TERMINAL)
+                                             command=self._on_generar_click, font=get_font('button', module='informes'))
             self.btn_generar.pack(side='left', padx=(6, 0))
 
             try:

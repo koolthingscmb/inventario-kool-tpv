@@ -15,6 +15,22 @@
     "compound": "left",
     "image": null
   },
+  "mostrar": {
+    "text": "MOSTRAR",
+    "fg_color": "#95a5a6",
+    "hover_color": "#e1e1e1",
+    "text_color": "#000000",
+    "border_color": "#000000",
+    "border_width": 2,
+    "corner_radius": 22,
+    "width": 140,
+    "height": 35,
+    "font": ["Courier New", 20, "bold"],
+    "state": "normal",
+    "anchor": "center",
+    "compound": "left",
+    "image": null
+  },
   "sincronizar": {
     "text": "SINCRONIZAR",
     "fg_color": "#FFEA00",

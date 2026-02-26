@@ -1,29 +1,23 @@
 """
-Interfaz para edición de plantillas de impresión (headers/footers) con preview.
+TextosPlantillaUI: edición de headers/footers con visor, basada en PaginaConVisor.
 
-Proporciona:
-- Selector de tipo de ticket (venta, devolucion, cierre, nivel)
-- Áreas de texto para Header y Footer (CTkTextbox)
-- Botones Guardar / Restaurar / Preview
-
-La persistencia se realiza en la tabla `configuracion` usando
-`INSERT OR REPLACE INTO configuracion (clave, valor)`.
-
-El preview reutiliza los generadores reales para mantener coherencia.
+Estructura: izquierda (selector + header/footer + botones) + derecha (visor)
 """
 import logging
 import re
 import customtkinter as ctk
-import tkinter as tk
-from typing import Optional
+from typing import List
+
+from kool_tpv.utils.templates.pagina_con_visor import PaginaConVisor
+from kool_tpv.utils.config_loader import create_action_button
+from kool_tpv.utils.font_loader import get_font
 
 from kool_tpv.modulos.impresion.venta_ticket_generator import VentaTicketGenerator
 from kool_tpv.modulos.impresion.cierre_ticket_generator import CierreTicketGenerator
 from kool_tpv.modulos.impresion.nivel_ticket_generator import NivelTicketGenerator
-from kool_tpv.utils.textview_dialog import show_text_viewer
 
 
-class TextosPlantillaUI:
+class TextosPlantillaUI(PaginaConVisor):
     ALLOWED_PLACEHOLDERS = {
         "fecha",
         "hora",
@@ -35,190 +29,264 @@ class TextosPlantillaUI:
         "nivel_nuevo",
         "total_acumulado",
     }
-    def __init__(self, parent, db, module_name: str = 'config'):
-        self.parent = parent
-        self.db = db
-        self.container = ctk.CTkFrame(self.parent)
 
-        # Generadores reales (usados para preview)
+    def __init__(self, parent, db, module_name: str = 'config'):
+        # Preparar datos antes del constructor base
+        self.tipos_ticket = ['venta', 'devolucion', 'cierre', 'nivel']
         self.venta_gen = VentaTicketGenerator()
         self.cierre_gen = CierreTicketGenerator()
         self.nivel_gen = NivelTicketGenerator()
 
-        # Tipos soportados
-        self.types = ['venta', 'devolucion', 'cierre', 'nivel']
+        # Inicializar plantilla (esto llamará a _build_header/_build_grid/_build_footer)
+        super().__init__(parent, db=db, module_name='config')
 
-        self._build_ui()
-
-    def get_widget(self):
-        return self.container
-
-    def _build_ui(self):
-        # Row 0: selector tipo
-        lbl = ctk.CTkLabel(self.container, text='Tipo de ticket:')
-        lbl.grid(row=0, column=0, sticky='w', padx=8, pady=6)
-
-        self.var_tipo = tk.StringVar(value=self.types[0])
-        self.cb_tipo = ctk.CTkComboBox(self.container, values=self.types, variable=self.var_tipo)
-        self.cb_tipo.grid(row=0, column=1, columnspan=3, sticky='we', padx=8, pady=6)
-        self.cb_tipo.configure(command=self._on_tipo_change)
-
-        # Row 1: Header label + textbox
-        lbl_h = ctk.CTkLabel(self.container, text='Header:')
-        lbl_h.grid(row=1, column=0, sticky='nw', padx=8, pady=6)
-        self.txt_header = ctk.CTkTextbox(self.container, width=800, height=120)
-        self.txt_header.grid(row=1, column=1, columnspan=3, sticky='we', padx=8, pady=6)
-
-        # Row 2: Footer label + textbox
-        lbl_f = ctk.CTkLabel(self.container, text='Footer:')
-        lbl_f.grid(row=2, column=0, sticky='nw', padx=8, pady=6)
-        self.txt_footer = ctk.CTkTextbox(self.container, width=800, height=120)
-        self.txt_footer.grid(row=2, column=1, columnspan=3, sticky='we', padx=8, pady=6)
-
-        # Row 3: botones
-        btn_save = ctk.CTkButton(self.container, text='Guardar', command=self._on_save)
-        btn_save.grid(row=3, column=1, sticky='we', padx=8, pady=12)
-
-        btn_restore = ctk.CTkButton(self.container, text='Restaurar', command=self._on_restore)
-        btn_restore.grid(row=3, column=2, sticky='we', padx=8, pady=12)
-
-        btn_preview = ctk.CTkButton(self.container, text='Preview', command=self._on_preview)
-        btn_preview.grid(row=3, column=3, sticky='we', padx=8, pady=12)
-
-        # inicializar valores
+        # Breadcrumb personalizado
         try:
-            self._load_current()
+            self.breadcrumb_text = "CONFIG > IMPRESIÓN > TEXTOS"
         except Exception:
-            logging.exception('Error cargando plantillas iniciales en TextosPlantillaUI')
+            pass
 
-    def _on_tipo_change(self, event=None):
-        # Cuando cambia el selector, recargar header/footer desde BD
-        self._load_current()
-
-    def _make_keys(self):
-        t = (self.var_tipo.get() or '').strip()
-        return f"ticket_header_{t}", f"ticket_footer_{t}"
-
-    def _load_current(self):
-        header_key, footer_key = self._make_keys()
-        header_val = ''
-        footer_val = ''
-        if not self.db:
-            # limpiar widgets
+    def _build_header(self):
+        """Minimal header: only the tipo combobox (no nav list)."""
+        try:
+            # Clear any existing widgets in header
             try:
-                self.txt_header.delete('0.0', 'end')
-                self.txt_footer.delete('0.0', 'end')
+                for c in list(self.header.winfo_children()):
+                    try:
+                        c.destroy()
+                    except Exception:
+                        pass
             except Exception:
                 pass
+
+            header_content = ctk.CTkFrame(self.header, fg_color='transparent')
+            header_content.pack(fill='x', padx=12, pady=(6, 6))
+
+            ctk.CTkLabel(
+                header_content,
+                text='TIPO DE TICKET:',
+                font=get_font('label', module='config'),
+                text_color=self.colors.get('text')
+            ).pack(side='left', padx=(0, 12))
+
+            self.combo_tipo = ctk.CTkComboBox(
+                header_content,
+                values=self.tipos_ticket,
+                width=200,
+                fg_color=self.colors.get('background'),
+                text_color=self.colors.get('text'),
+                border_color=self.colors.get('primary'),
+                button_color=self.colors.get('primary'),
+                button_hover_color=self.colors.get('secondary'),
+                dropdown_fg_color=self.colors.get('background'),
+                dropdown_text_color=self.colors.get('text'),
+                font=get_font('entry', module='config'),
+                command=self._on_tipo_change
+            )
+            try:
+                self.combo_tipo.set(self.tipos_ticket[0])
+            except Exception:
+                pass
+            self.combo_tipo.pack(side='left')
+            self.label_seleccionado = ctk.CTkLabel(
+                header_content,
+                text='Seleccionado ticket de VENTA',
+                font=get_font('label', module='config'),
+                text_color=self.colors.get('accent')
+            )
+            self.label_seleccionado.pack(side='left', padx=(20, 0))
+        except Exception:
+            logging.exception('Error building minimal header in TextosPlantillaUI')
+
+    def _build_grid(self):
+        """Grid izquierdo: Entry header + Entry footer."""
+        # Remove any existing grid/scrollable nav content created by base
+        try:
+            if hasattr(self, 'grid_scroll') and self.grid_scroll is not None:
+                try:
+                    self.grid_scroll.pack_forget()
+                except Exception:
+                    pass
+                try:
+                    self.grid_scroll.destroy()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # Frame contenedor dentro de left_container
+        grid_content = ctk.CTkFrame(self.left_container, fg_color='transparent')
+        grid_content.pack(fill='both', expand=True, padx=12, pady=(6, 6))
+
+        # Label + Entry Header
+        ctk.CTkLabel(
+            grid_content,
+            text='HEADER:',
+            font=get_font('label', module='config'),
+            text_color=self.colors.get('text')
+        ).pack(anchor='w', pady=(0, 6))
+
+        self.entry_header = ctk.CTkTextbox(
+            grid_content,
+            width=400,
+            height=120,
+            fg_color=self.colors.get('background'),
+            text_color=self.colors.get('text'),
+            border_color=self.colors.get('primary'),
+            border_width=2,
+            font=get_font('entry', module='config')
+        )
+        self.entry_header.pack(fill='both', expand=True, pady=(0, 20))
+
+        # Label + Entry Footer
+        ctk.CTkLabel(
+            grid_content,
+            text='FOOTER:',
+            font=get_font('label', module='config'),
+            text_color=self.colors.get('text')
+        ).pack(anchor='w', pady=(0, 6))
+
+        self.entry_footer = ctk.CTkTextbox(
+            grid_content,
+            width=400,
+            height=120,
+            fg_color=self.colors.get('background'),
+            text_color=self.colors.get('text'),
+            border_color=self.colors.get('primary'),
+            border_width=2,
+            font=get_font('entry', module='config')
+        )
+        self.entry_footer.pack(fill='both', expand=True)
+
+        # Cargar valores iniciales
+        try:
+            self._cargar_valores()
+        except Exception:
+            logging.exception('Error cargando valores iniciales en TextosPlantillaUI')
+
+    def _build_footer(self):
+        """Footer: botones Guardar y Mostrar."""
+        self.btn_guardar = create_action_button(
+            self.footer,
+            'guardar',
+            self._on_guardar
+        )
+        self.btn_guardar.pack(side='left', padx=8)
+
+        self.btn_mostrar = create_action_button(
+            self.footer,
+            'mostrar',
+            self._on_mostrar
+        )
+        self.btn_mostrar.pack(side='left', padx=8)
+
+    # --- Auxiliares funcionales solicitados ---
+    def _on_tipo_change(self, event=None):
+        """Al cambiar tipo, recargar header/footer desde BD."""
+        self._cargar_valores()
+        try:
+            tipo_texto = self.combo_tipo.get().upper()
+            try:
+                self.label_seleccionado.configure(
+                    text=f'Seleccionado ticket de {tipo_texto}'
+                )
+            except Exception:
+                pass
+        except Exception:
+            logging.exception('Error actualizando label_seleccionado en _on_tipo_change')
+
+    def _cargar_valores(self):
+        """Cargar header y footer desde BD según tipo seleccionado."""
+        tipo = self.combo_tipo.get()
+        header_key = f"ticket_header_{tipo}"
+        footer_key = f"ticket_footer_{tipo}"
+
+        header_val = ""
+        footer_val = ""
+
+        if self.db:
+            try:
+                row = self.db.fetch_one(
+                    "SELECT valor FROM configuracion WHERE clave = ?",
+                    (header_key,)
+                )
+                if row and row[0]:
+                    header_val = str(row[0])
+            except Exception:
+                pass
+
+            try:
+                row = self.db.fetch_one(
+                    "SELECT valor FROM configuracion WHERE clave = ?",
+                    (footer_key,)
+                )
+                if row and row[0]:
+                    footer_val = str(row[0])
+            except Exception:
+                pass
+
+        try:
+            self.entry_header.delete('1.0', 'end')
+            self.entry_header.insert('1.0', header_val)
+
+            self.entry_footer.delete('1.0', 'end')
+            self.entry_footer.insert('1.0', footer_val)
+        except Exception:
+            logging.exception('Error actualizando widgets en _cargar_valores')
+
+    def _on_guardar(self):
+        """Guardar header y/o footer en BD."""
+        header_text = self.entry_header.get('1.0', 'end').rstrip('\n')
+        footer_text = self.entry_footer.get('1.0', 'end').rstrip('\n')
+
+        if not header_text and not footer_text:
+            from kool_tpv.utils.custom_dialog import show_warning
+            show_warning(
+                self.container,
+                'Guardar',
+                'No hay información para guardar'
+            )
             return
 
-        try:
-            row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = ?", (header_key,))
-            if row and row[0] is not None:
-                header_val = str(row[0])
-        except Exception:
-            logging.exception('Error leyendo header desde BD')
+        tipo = self.combo_tipo.get()
+        header_key = f"ticket_header_{tipo}"
+        footer_key = f"ticket_footer_{tipo}"
 
         try:
-            row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = ?", (footer_key,))
-            if row and row[0] is not None:
-                footer_val = str(row[0])
-        except Exception:
-            logging.exception('Error leyendo footer desde BD')
-
-        try:
-            self.txt_header.delete('0.0', 'end')
-            self.txt_header.insert('1.0', header_val)
-            self.txt_footer.delete('0.0', 'end')
-            self.txt_footer.insert('1.0', footer_val)
-        except Exception:
-            logging.exception('Error actualizando widgets de header/footer')
-
-    def _on_restore(self):
-        # Restaurar contenido desde la BD (descartar cambios no guardados)
-        self._load_current()
-
-    def _validate_placeholders(self, text: str) -> list[str]:
-        """Detecta placeholders del tipo {{name}} y devuelve los nombres
-        que NO están en ALLOWED_PLACEHOLDERS. Resultado sin duplicados.
-        """
-        if not text:
-            return []
-        found = re.findall(r"\{\{\s*([A-Za-z0-9_]+)\s*\}\}", text)
-        invalid = set()
-        for name in found:
-            if name not in self.ALLOWED_PLACEHOLDERS:
-                invalid.add(name)
-        return list(invalid)
-
-    def _validate_syntax(self, text: str) -> bool:
-        """Validación básica de sintaxis de placeholders.
-
-        - Cuenta '{{' vs '}}' deben coincidir.
-        - Si hay '{{' pero no coinciden con el patrón {{name}} válido => False.
-        """
-        if not text:
-            return True
-        open_cnt = text.count("{{")
-        close_cnt = text.count("}}")
-        if open_cnt != close_cnt:
-            return False
-        # Contar ocurrencias válidas del patrón {{name}}
-        valid_pairs = re.findall(r"\{\{\s*[A-Za-z0-9_]+\s*\}\}", text)
-        if len(valid_pairs) != open_cnt:
-            return False
-        return True
-
-    def _on_save(self):
-        if not self.db:
-            return
-        header_key, footer_key = self._make_keys()
-        try:
-            header_text = self.txt_header.get('1.0', 'end').rstrip('\n')
-            footer_text = self.txt_footer.get('1.0', 'end').rstrip('\n')
-
-            # Validación estricta de sintaxis: llaves balanceadas y patrones válidos
-            if not self._validate_syntax(header_text) or not self._validate_syntax(footer_text):
-                from kool_tpv.utils.custom_dialog import show_error
-                show_error(
-                    self.container,
-                    'Error de sintaxis',
-                    'La sintaxis de placeholders es inválida.\nRevise que todas las llaves {{ }} estén correctamente cerradas.'
-                )
-                return
-
-            # Validar placeholders y avisar si hay desconocidos (no bloquea)
-            invalid = set()
-            invalid.update(self._validate_placeholders(header_text))
-            invalid.update(self._validate_placeholders(footer_text))
-            if invalid:
-                from kool_tpv.utils.custom_dialog import show_warning
-                show_warning(
-                    self.container,
-                    'Placeholders desconocidos',
-                    'Los siguientes placeholders no son válidos:\n' + ', '.join(sorted(invalid))
+            if header_text:
+                self.db.execute_query(
+                    "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES (?, ?)",
+                    (header_key, header_text)
                 )
 
-            conn = self.db.connection
-            cur = conn.cursor()
-            cur.execute('BEGIN')
-            cur.execute("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES (?, ?)", (header_key, header_text))
-            cur.execute("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES (?, ?)", (footer_key, footer_text))
-            conn.commit()
+            if footer_text:
+                self.db.execute_query(
+                    "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES (?, ?)",
+                    (footer_key, footer_text)
+                )
 
             from kool_tpv.utils.custom_dialog import show_success
-            show_success(self.container, 'Guardado', 'Plantillas guardadas')
+            show_success(self.container, 'Guardado', 'Textos guardados correctamente')
         except Exception:
-            try:
-                conn.rollback()
-            except Exception:
-                pass
-            logging.exception('Error guardando plantillas en BD')
+            logging.exception('Error guardando textos')
             from kool_tpv.utils.custom_dialog import show_error
-            show_error(self.container, 'Error', 'No se pudo guardar plantillas')
+            show_error(self.container, 'Error', 'No se pudo guardar')
 
-    def _on_preview(self):
-        # Construir contexto mock
+    def _on_mostrar(self):
+        """Generar preview y mostrar en visor."""
+        tipo = self.combo_tipo.get()
+        header_text = self.entry_header.get('1.0', 'end').rstrip('\n')
+        footer_text = self.entry_footer.get('1.0', 'end').rstrip('\n')
+
+        header_key = f"ticket_header_{tipo}"
+        footer_key = f"ticket_footer_{tipo}"
+
+        config_preview = {
+            header_key: header_text,
+            footer_key: footer_text
+        }
+
+        # Contexto mock
         mock = {
             'fecha': '2026-01-01',
             'hora': '12:00',
@@ -231,29 +299,9 @@ class TextosPlantillaUI:
             'total_acumulado': '150.00'
         }
 
-        t = (self.var_tipo.get() or '').strip()
         texto = ''
         try:
-            # Construir configuración temporal a partir de los textbox (preview en vivo)
-            header_key, footer_key = self._make_keys()
-            header_text = self.txt_header.get('1.0', 'end').rstrip('\n')
-            footer_text = self.txt_footer.get('1.0', 'end').rstrip('\n')
-            config_preview = {header_key: header_text, footer_key: footer_text}
-
-            # Validar placeholders y avisar si hay desconocidos (no bloquea)
-            invalid = set()
-            invalid.update(self._validate_placeholders(header_text))
-            invalid.update(self._validate_placeholders(footer_text))
-            if invalid:
-                from kool_tpv.utils.custom_dialog import show_warning
-                show_warning(
-                    self.container,
-                    'Placeholders desconocidos',
-                    'Los siguientes placeholders no son válidos:\n' + ', '.join(sorted(invalid))
-                )
-
-            if t == 'venta' or t == 'devolucion':
-                # Construir datos mínimos para VentaTicketGenerator
+            if tipo == 'venta' or tipo == 'devolucion':
                 ticket_data = {
                     'fecha': mock['fecha'],
                     'hora': mock['hora'],
@@ -266,14 +314,18 @@ class TextosPlantillaUI:
                     'entregado': mock['total'],
                     'cambio': '0.00'
                 }
-                if t == 'devolucion':
+                if tipo == 'devolucion':
                     ticket_data['tipo'] = 'devolucion'
                 texto = self.venta_gen.generate(config_preview, ticket_data, [], {'nombre': mock['cliente']})
-            elif t == 'cierre':
-                cierre_data = {'fecha': mock['fecha'], 'hora': mock['hora'], 'usuario': 'DEMO', 'cierre_id': 'C-001'}
-                tickets = []
-                texto = self.cierre_gen.generate(config_preview, cierre_data, tickets, totals={})
-            elif t == 'nivel':
+            elif tipo == 'cierre':
+                cierre_data = {
+                    'fecha': mock['fecha'],
+                    'hora': mock['hora'],
+                    'usuario': 'DEMO',
+                    'cierre_id': 'C-001'
+                }
+                texto = self.cierre_gen.generate(config_preview, cierre_data, [], totals={})
+            elif tipo == 'nivel':
                 nivel_data = {
                     'fecha': mock['fecha'],
                     'hora': mock['hora'],
@@ -285,13 +337,44 @@ class TextosPlantillaUI:
                 }
                 texto = self.nivel_gen.generate(config_preview, nivel_data)
 
-            # Mostrar preview en diálogo monoespaciado
-            show_text_viewer(self.parent, 'Preview plantilla', texto or '')
+            self.update_visor(texto or 'Sin contenido')
         except Exception:
-            logging.exception('Error generando preview de plantilla')
-"""
-Placeholder for Textos UI (TEXTOS TICKETS configuration).
-Currently a stub — to be implemented later.
-"""
+            logging.exception('Error generando preview')
+            self.update_visor('Error generando preview')
 
-# Minimal placeholder file — real UI will be implemented later.
+    # --- Mantener validación de placeholders/sintaxis ---
+    def _validate_placeholders(self, text: str) -> List[str]:
+        if not text:
+            return []
+        found = re.findall(r"\{\{\s*([A-Za-z0-9_]+)\s*\}\}", text)
+        invalid = set()
+        for name in found:
+            if name not in self.ALLOWED_PLACEHOLDERS:
+                invalid.add(name)
+        return list(invalid)
+
+    def _validate_syntax(self, text: str) -> bool:
+        if not text:
+            return True
+
+        open_count = text.count("{{")
+        close_count = text.count("}}")
+        if open_count != close_count:
+            return False
+
+        balance = 0
+        i = 0
+        while i < len(text):
+            if text[i:i+2] == "{{":
+                balance += 1
+                i += 2
+                continue
+            elif text[i:i+2] == "}}":
+                balance -= 1
+                if balance < 0:
+                    return False
+                i += 2
+                continue
+            i += 1
+
+        return balance == 0

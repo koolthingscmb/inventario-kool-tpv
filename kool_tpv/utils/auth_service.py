@@ -41,10 +41,17 @@ class AuthService:
 
             # Verificar si alguno coincide
             for admin in admins:
-                stored_hash = admin.get('password', '')
-                if stored_hash == password_hash:
-                    logging.info('Autenticación admin exitosa para: %s', admin.get('nombre'))
-                    return True
+                try:
+                    # fetch_all devuelve tuplas/Rows: índices 0=id, 1=nombre, 2=password
+                    stored_hash = admin[2] if len(admin) > 2 else ''
+                    admin_nombre = admin[1] if len(admin) > 1 else 'desconocido'
+
+                    if stored_hash and stored_hash.lower() == password_hash.lower():
+                        logging.info('Autenticación admin exitosa para: %s', admin_nombre)
+                        return True
+                except Exception:
+                    logging.exception('Error procesando admin en validación')
+                    continue
 
             logging.warning('Password admin incorrecto')
             return False
@@ -67,7 +74,43 @@ class AuthService:
             """
             rows = self.db.fetch_all(query) or []
             # Normalizar salida: solo id y nombre
-            return [{'id': r.get('id'), 'nombre': r.get('nombre')} for r in rows]
+            return [{'id': r[0] if len(r) > 0 else None, 'nombre': r[1] if len(r) > 1 else None} for r in rows]
         except Exception:
             logging.exception('Error obteniendo usuarios admin')
             return []
+
+    def validate_user_password(self, user_id: int, password: str) -> bool:
+        """Valida contraseña de un usuario específico.
+
+        Args:
+            user_id: ID del usuario en tabla usuarios
+            password: Contraseña en texto plano
+
+        Returns:
+            True si password correcto, False si no
+        """
+        try:
+            # Hash del password ingresado
+            password_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
+
+            # Obtener hash almacenado para este usuario
+            query = "SELECT password FROM usuarios WHERE id = ?"
+            row = self.db.fetch_one(query, (user_id,))
+
+            if not row:
+                logging.warning(f'Usuario {user_id} no encontrado en BD')
+                return False
+
+            # fetch_one devuelve tupla/Row: acceder por índice
+            stored_hash = row[0] if len(row) > 0 else ''
+
+            if not stored_hash:
+                logging.warning(f'Usuario {user_id} tiene password vacío')
+                return False
+
+            # Comparar hashes (case-insensitive)
+            return password_hash.lower() == stored_hash.lower()
+
+        except Exception:
+            logging.exception(f'Error validando password para usuario {user_id}')
+            return False

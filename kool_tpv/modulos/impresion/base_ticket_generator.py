@@ -6,6 +6,9 @@ para todos los tipos de tickets.
 """
 from abc import ABC, abstractmethod
 from decimal import Decimal, InvalidOperation
+import re
+from typing import List
+
 from kool_tpv.utils.formatter_service import FormatterService
 
 
@@ -84,6 +87,46 @@ class BaseTicketGenerator(ABC):
         pie = config.get('pie_texto', '')
         if pie:
             lines.append(pie.center(self.WIDTH))
+        return lines
+
+    def _render_template(self, template: str, context: dict) -> List[str]:
+        """Renderizar un template simple con placeholders del tipo {{var}}.
+
+        Reemplaza cada aparición de "{{nombre}}" por el valor de
+        ``context.get('nombre', '')``. No usa eval ni formateo inseguro.
+
+        - Si ``template`` es None o vacío devuelve lista vacía.
+        - Soporta múltiples placeholders por línea.
+        - Centra cada línea al ancho ``self.WIDTH`` antes de devolverla.
+
+        Args:
+            template: texto del template (puede contener saltos de línea)
+            context: diccionario de valores para placeholders
+
+        Returns:
+            Lista de líneas centradas (str)
+        """
+        if not template:
+            return []
+
+        # patrón simple para {{ nombre }} con letras, números y guión bajo
+        pattern = re.compile(r"\{\{\s*(?P<name>[A-Za-z0-9_]+)\s*\}\}")
+
+        def _repl(match: re.Match) -> str:
+            name = match.group('name')
+            val = context.get(name, '')
+            try:
+                return '' if val is None else str(val)
+            except Exception:
+                return ''
+
+        rendered = pattern.sub(_repl, template)
+
+        lines = []
+        for ln in rendered.split('\n'):
+            # Centrar cada línea según ancho definido
+            lines.append(ln.center(self.WIDTH))
+
         return lines
 
     @abstractmethod

@@ -1,0 +1,66 @@
+{
+  "default": {
+    "family": "Courier New",
+    "size": 16,
+    "weight": "normal",
+    "fallback": ["Courier New", "Menlo", "DejaVu Sans Mono"],
+    "line_height": 1.2
+  },
+  "label": {
+    "family": "Courier New",
+    "size": 16,
+    "weight": "normal",
+    "fallback": ["Courier New", "Menlo"]
+  },
+  "entry": {
+    "family": "Courier New",
+    "size": 14,
+    "weight": "normal",
+    "fallback": ["Courier New", "Menlo"]
+  },
+  "title": {
+    "family": "Courier New",
+    "size": 22,
+    "weight": "bold",
+    "fallback": ["Courier New"]
+  },
+  "subtitle": {
+    "family": "Courier New",
+    "size": 20,
+    "weight": "bold",
+    "fallback": ["Courier New"]
+  },
+  "breadcrumb": {
+    "family": "Courier New",
+    "size": 20,
+    "weight": "bold",
+    "fallback": ["Courier New"]
+  },
+  "caption": {
+    "family": "Courier New",
+    "size": 12,
+    "weight": "normal",
+    "fallback": ["Courier New"]
+  },
+  "large": {
+    "family": "Courier New",
+    "size": 26,
+    "weight": "bold",
+    "fallback": ["Courier New"]
+  },
+  "button": {
+    "family": "Courier New",
+    "size": 16,
+    "weight": "bold",
+    "fallback": ["Courier New"]
+  },
+  "modules": {
+    "config": {
+      "label": { "size": 16 },
+      "entry": { "size": 14 }
+    }
+  },
+  "scale": {
+    "global_factor": 1.0
+  }
+}

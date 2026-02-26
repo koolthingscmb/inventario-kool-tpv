@@ -3,6 +3,8 @@ import sys
 import logging
 import os
 import json
+import tkinter as tk
+import tkinter.font as tkfont
 from pathlib import Path
 from typing import List, Dict
 from kool_tpv.base_datos.db_wrapper import Database
@@ -12,6 +14,9 @@ from kool_tpv.utils.keyboard_manager import KeyboardManager
 
 # Hover color used across the UI (matches TPV 'BUSCAR ARTÍCULO' hover)
 HOVER_COLOR = "#00A4DF"
+# Navigation button padding (centralized)
+NAV_BTN_PADY = 14
+NAV_BTN_PADX = 20
 
 # Asegurar carpeta de logs
 os.makedirs("logs", exist_ok=True)
@@ -145,8 +150,8 @@ class App(ctk.CTk):
                 text="PRINT ON",
                 fg_color="#00BFFF",
                 hover_color=HOVER_COLOR,
-                text_color="black",
-                font=("Roboto-SemiBold", 12),
+                text_color="white",
+                font=("Courier New", 12),
                 height=28,
             )
             # No hacer pack() aquí: se packeará al entrar en TPV
@@ -163,17 +168,6 @@ class App(ctk.CTk):
                     data = json.load(fh)
                 main_menu = data.get("main_menu") or []
 
-            if not main_menu:
-                # Fallback a la configuración hardcoded anterior
-                main_menu = [
-                    {"text": "TPV", "color": "#FF8C00", "command": "load_tpv", "hover_color": None},
-                    {"text": "ALMACÉN", "color": "#32CD32", "command": "open_almacen", "hover_color": None},
-                    {"text": "CLIENTES", "color": "#9ACD32", "command": "open_clientes", "hover_color": None},
-                    {"text": "INFORMES", "color": "#FF1493", "command": "open_informes", "hover_color": None},
-                    {"text": "SHOPIFY", "color": "#1E90FF", "command": "open_shopify", "hover_color": None},
-                    {"text": "CONFIG", "color": "#FF4500", "command": "open_config", "hover_color": None},
-                ]
-
             # Import ButtonFactory lazily to avoid circular imports on startup
             try:
                 from kool_tpv.modulos.tpv.tpv_view import ButtonFactory
@@ -182,9 +176,19 @@ class App(ctk.CTk):
 
             for item in main_menu:
                 text = item.get("text") or item.get("label") or ""
-                color = item.get("color", "#CCCCCC")
+                color = item.get("color")
                 hover = item.get("hover_color")
                 cmd_name = (item.get("command") or "").strip()
+                text_color = item.get("text_color")
+                font_family = item.get("font_family")
+                font_size = item.get("font_size")
+                font_weight = item.get("font_weight")
+                font_fallback = item.get("font_fallback")
+                width = item.get("width")
+                height = item.get("height")
+                corner_radius = item.get("corner_radius")
+                border_color = item.get("border_color")
+                border_width = item.get("border_width")
 
                 # map known commands to methods
                 if cmd_name.lower() in ("tpv", "load_tpv", "load_tpv()"):
@@ -195,12 +199,23 @@ class App(ctk.CTk):
                     cmd = self.open_clientes
                 elif cmd_name.lower() in ("open_informes", "informes", "open_informes()"):
                     cmd = self.open_informes
+                
+                
+                elif cmd_name.lower() in ("open_config", "config", "open_config()"):
+                    cmd = self.open_config
                 else:
                     # default: log action
                     cmd = (lambda name=cmd_name or text: logging.info(f"Nav action: {name}"))
 
-                # use ButtonFactory when available for consistent style
+                # Create button using factory when available, passing through JSON parameters
                 try:
+                    # Build font object using fallback list/weight if provided
+                    font_obj = None
+                    try:
+                        font_obj = self._build_font(font_family=font_family, size=font_size, weight=font_weight, fallback=font_fallback)
+                    except Exception:
+                        font_obj = (font_family, font_size) if font_family and font_size else None
+
                     if ButtonFactory is not None:
                         btn = ButtonFactory.create_button(
                             parent=self.nav_frame,
@@ -208,12 +223,30 @@ class App(ctk.CTk):
                             color=color,
                             hover_color=hover,
                             command=cmd,
-                            font=self.tpv_font if text.upper() == "TPV" else self.button_font,
-                            height=100 if text.upper() == "TPV" else 56,
+                            text_color=text_color,
+                            font=font_obj,
+                            width=width,
+                            height=height,
+                            corner_radius=corner_radius,
+                            border_color=border_color,
+                            border_width=border_width,
                         )
                     else:
-                        btn = self.create_nav_button(text, color, height=(100 if text.upper() == "TPV" else 56), command=cmd, font=(self.tpv_font if text.upper() == "TPV" else self.button_font))
-                    btn.pack(pady=14, padx=20, fill="x")
+                        btn = self.create_nav_button(
+                            text=text,
+                            color=color,
+                            height=height,
+                            command=cmd,
+                            hover_color=hover,
+                            text_color=text_color,
+                            font=font_obj,
+                            width=width,
+                            corner_radius=corner_radius,
+                            border_color=border_color,
+                            border_width=border_width,
+                        )
+                    # pack using centralized padding constants
+                    btn.pack(pady=NAV_BTN_PADY, padx=NAV_BTN_PADX, fill="x")
                     try:
                         self.nav_buttons[text] = btn
                     except Exception:
@@ -232,33 +265,133 @@ class App(ctk.CTk):
         self.main_frame = ctk.CTkFrame(self, fg_color="#222831")
         self.main_frame.pack(side="right", fill="both", expand=True)
 
-    def create_nav_button(self, text, color, height=56, command=None, font=None):
-        """Función para crear botones de la navegación lateral.
+    def create_nav_button(
+        self,
+        text,
+        color,
+        height=56,
+        command=None,
+        hover_color=None,
+        text_color=None,
+        font=None,
+        font_family=None,
+        font_size=None,
+        width=None,
+        corner_radius=None,
+        border_color=None,
+        border_width=None,
+    ):
+        """Crea un `CTkButton` para la navegación usando parámetros pasados (idealmente desde JSON).
 
-        Args:
-            text: Texto del botón.
-            color: Color de fondo del botón.
-            height: Altura del botón en píxeles (útil para pantallas táctiles).
-            command: Función a ejecutar al pulsar.
+        Todos los parámetros de estilo provienen del JSON y se aplican directamente.
+        Esta función NO hace `pack()` — el llamador debe decidir el layout.
         """
-        btn_font = font or getattr(self, "button_font", ("Roboto-SemiBold", 16))
-        btn = ctk.CTkButton(
-            self.nav_frame,
+        # If an explicit font object was provided, use it
+        if font is not None:
+            btn_font = font
+        else:
+            # Construir la tupla de font si se proporcionó
+            if font_family and font_size:
+                btn_font = (font_family, int(font_size))
+            else:
+                # Ensure default is a tuple (family, size)
+                default_font = getattr(self, "button_font", ("Roboto-SemiBold", 24))
+                if isinstance(default_font, (list, tuple)):
+                    btn_font = (default_font[0], int(default_font[1]))
+                else:
+                    btn_font = default_font
+
+        params = dict(
+            master=self.nav_frame,
             text=(text or "").upper(),
             fg_color=color,
-            hover_color=HOVER_COLOR,
-            text_color="black",
-            font=btn_font,
             command=command,
-            height=height,
         )
-        btn.pack(pady=14, padx=20, fill="x")
+
+        if hover_color is not None:
+            params["hover_color"] = hover_color
+        if text_color is not None:
+            params["text_color"] = text_color
+        if btn_font is not None:
+            params["font"] = btn_font
+        if height is not None:
+            params["height"] = height
+        if width is not None:
+            params["width"] = width
+        if corner_radius is not None:
+            params["corner_radius"] = corner_radius
+        if border_color is not None:
+            params["border_color"] = border_color
+        if border_width is not None:
+            params["border_width"] = border_width
+
+        btn = ctk.CTkButton(**params)
+
         # Guardar referencia para poder ocultar/mostrar desde otras vistas
         try:
             self.nav_buttons[text] = btn
         except Exception:
             pass
         return btn
+
+    def _build_font(self, font_family=None, size=None, weight=None, fallback=None):
+        """Return a tkfont.Font or a (family, size) tuple.
+
+        - `fallback` can be a list of families (preferred order) or a single family string.
+        - If no available family is found, returns a tuple using `font_family` or the app default.
+        """
+        try:
+            # Normalize fallback to list
+            candidates = []
+            if fallback:
+                if isinstance(fallback, str):
+                    candidates = [fallback]
+                elif isinstance(fallback, (list, tuple)):
+                    candidates = list(fallback)
+            # Add explicit font_family at end if provided
+            if font_family:
+                candidates.append(font_family)
+
+            available = []
+            try:
+                available = list(tkfont.families())
+            except Exception:
+                # If families() fails (rare), fallback to defaults
+                available = []
+
+            chosen = None
+            for fam in candidates:
+                if fam and fam in available:
+                    chosen = fam
+                    break
+
+            if not chosen:
+                # Final fallback: use the first available common monospace
+                for common in ("Courier New", "Menlo", "DejaVu Sans Mono", "Liberation Mono", "Consolas"):
+                    if common in available:
+                        chosen = common
+                        break
+
+            if not chosen:
+                # give up and use app default family
+                try:
+                    chosen = getattr(self, "button_font", ("Roboto-SemiBold", 24))[0]
+                except Exception:
+                    chosen = "TkDefaultFont"
+
+            if size is None:
+                size = getattr(self, "button_font", (None, 24))[1]
+
+            # Create a tkfont.Font object
+            # Return a tuple accepted by CustomTkinter, e.g. (family, size) or (family, size, weight)
+            if weight:
+                return (chosen, int(size), weight)
+            return (chosen, int(size))
+        except Exception:
+            # Return simple tuple as fallback
+            if font_family and size:
+                return (font_family, size)
+            return getattr(self, "button_font", ("Roboto-SemiBold", 24))
 
     def load_tpv(self):
         """Carga TPV en el main_frame (placeholder).
@@ -602,6 +735,69 @@ class App(ctk.CTk):
 
         except Exception:
             logging.exception('Error en open_informes')
+
+    def open_config(self):
+        """Open Config module: hide main nav and main_frame, instantiate ConfigView."""
+        try:
+            try:
+                self.nav_frame.pack_forget()
+            except Exception:
+                pass
+            try:
+                self.main_frame.pack_forget()
+            except Exception:
+                pass
+
+            try:
+                from kool_tpv.modulos.configuracion.config_view import ConfigView
+            except Exception:
+                logging.exception('Error importando ConfigView')
+                try:
+                    self.nav_frame.pack(side='left', fill='y')
+                except Exception:
+                    pass
+                try:
+                    self.main_frame.pack(side='right', fill='both', expand=True)
+                except Exception:
+                    pass
+                return
+
+            try:
+                self.config_view = ConfigView(self, db=getattr(self, 'db', None), keyboard_manager=getattr(self, 'keyboard_mgr', None))
+            except Exception:
+                logging.exception('Error instanciando ConfigView')
+                try:
+                    self.nav_frame.pack(side='left', fill='y')
+                except Exception:
+                    pass
+                try:
+                    self.main_frame.pack(side='right', fill='both', expand=True)
+                except Exception:
+                    pass
+                return
+
+            def _on_back_config():
+                try:
+                    if hasattr(self, 'config_view') and self.config_view:
+                        if self.config_view._on_power():
+                            try:
+                                del self.config_view
+                            except Exception:
+                                pass
+                except Exception:
+                    logging.exception('Error en callback volver Config')
+
+            try:
+                if getattr(self, 'config_view', None) and getattr(self.config_view, 'power_button', None):
+                    try:
+                        self.config_view.power_button.configure(command=_on_back_config)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+        except Exception:
+            logging.exception('Error en open_config')
 
 
 if __name__ == "__main__":

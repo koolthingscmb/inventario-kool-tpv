@@ -345,9 +345,12 @@ def show_info(parent, titulo, mensaje, callback=None, confirm=False):
 
 
 class CustomInputDialog(ctk.CTkToplevel):
-    """Diálogo de entrada personalizado con icono y validación."""
+    """Diálogo de entrada personalizado con icono y validación.
 
-    def __init__(self, parent, tipo='success', titulo='', mensaje='', valor_defecto='', callback=None):
+    Soporta enmascarado cuando se solicita un `password` (show='*').
+    """
+
+    def __init__(self, parent, tipo='success', titulo='', mensaje='', valor_defecto='', callback=None, password=False):
         """
         Args:
             parent: Ventana padre
@@ -362,6 +365,7 @@ class CustomInputDialog(ctk.CTkToplevel):
         self.callback = callback
         self.tipo = tipo if tipo in CustomDialog.COLORS else 'success'
         self.result = None
+        self.password = bool(password)
 
         # Configurar ventana
         self.title(titulo)
@@ -486,13 +490,18 @@ class CustomInputDialog(ctk.CTkToplevel):
             mensaje_label.pack(pady=(0, 20))
 
         # Entry
-        self.entry = ctk.CTkEntry(
-            main_frame,
-            width=300,
-            height=50,
-            font=('Roboto-Regular', 24),
-            justify='center'
-        )
+        entry_params = {
+            "master": main_frame,
+            "width": 300,
+            "height": 35,
+            "font": ("Roboto-Regular", 16),
+            "justify": 'center'
+        }
+
+        if self.password:
+            entry_params["show"] = "*"
+
+        self.entry = ctk.CTkEntry(**entry_params)
         self.entry.pack(pady=(0, 25))
         if valor_defecto:
             self.entry.insert(0, str(valor_defecto))
@@ -567,10 +576,23 @@ class CustomInputDialog(ctk.CTkToplevel):
         return self.result
 
 
-def show_input_dialog(parent, titulo, mensaje, tipo='success', valor_defecto='', callback=None):
-    """Mostrar diálogo de entrada y devolver valor ingresado o None si canceló."""
-    dialog = CustomInputDialog(parent, tipo=tipo, titulo=titulo, mensaje=mensaje, valor_defecto=valor_defecto, callback=callback)
+def show_input_dialog(parent, titulo, mensaje, tipo='success', valor_defecto='', callback=None, password=False):
+    """Mostrar diálogo de entrada y devolver valor ingresado o None si canceló.
+
+    Args:
+        password: si True, el campo será enmascarado (show='*').
+    """
+    dialog = CustomInputDialog(parent, tipo=tipo, titulo=titulo, mensaje=mensaje, valor_defecto=valor_defecto, callback=callback, password=password)
     return dialog.get_input()
+
+
+def show_password_dialog(parent, titulo="Contraseña", mensaje="Introduce tu contraseña:"):
+    """Mostrar diálogo de input enmascarado para password.
+
+    Returns:
+        str o None: Password ingresado o None si canceló
+    """
+    return show_input_dialog(parent, titulo=titulo, mensaje=mensaje, tipo="info", password=True)
 
 
 def show_text_viewer(parent, titulo, texto, width=600, height=800, callback=None):

@@ -56,6 +56,36 @@ def initialize_database(db_path: str) -> None:
 					pass
 				raise
 
+		# After base migrations, ensure num_ticket column is TEXT; if it's INTEGER, apply specific migration
+		try:
+			rows = db.fetch_all("PRAGMA table_info('tickets')")
+			# rows have columns: cid, name, type, notnull, dflt_value, pk
+			col_type = None
+			for r in rows or []:
+				if r[1] == 'num_ticket':
+					col_type = (r[2] or '').upper()
+					break
+			if col_type and 'INT' in col_type:
+				# apply migration file 002 if present
+				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '002_num_ticket_text.sql'
+				if mig_path.exists():
+					try:
+						logging.info('num_ticket column is INTEGER; applying 002_num_ticket_text.sql migration')
+						cur = db.connection.cursor()
+						cur.executescript(mig_path.read_text(encoding='utf-8'))
+						db.connection.commit()
+						logging.info('Migration 002 applied successfully')
+					except Exception:
+						logging.exception('Error applying migration 002')
+						try:
+							db.connection.rollback()
+						except Exception:
+							pass
+				else:
+					logging.warning('Migration file 002_num_ticket_text.sql not found; skipping')
+		except Exception:
+			logging.exception('Error checking/updating tickets.num_ticket type')
+
 		# Validate again
 		try:
 			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table'")

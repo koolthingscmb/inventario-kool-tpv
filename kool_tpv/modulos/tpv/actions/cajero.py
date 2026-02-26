@@ -3,11 +3,11 @@ Acción: seleccionar y autenticar cajero.
 
 Muestra lista de cajeros, valida password con SHA-256 y actualiza sesión.
 """
-import hashlib
 import logging
 from typing import Dict, List, Optional
 
-from kool_tpv.utils.custom_dialog import show_warning, show_input_dialog
+from kool_tpv.utils.custom_dialog import show_warning, show_password_dialog
+from kool_tpv.utils.auth_service import AuthService
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.tpv.ui.cajero_ui import UICajero
 
@@ -23,6 +23,10 @@ class CajeroAction:
         """
         self.view = view
         self.db = db
+        try:
+            self.auth_service = AuthService(db)
+        except Exception:
+            self.auth_service = None
 
     def ejecutar(self) -> None:
         """Mostrar UI de selección de cajero."""
@@ -61,41 +65,7 @@ class CajeroAction:
             logging.exception("Error obteniendo cajeros desde BD")
             return []
 
-    def validar_password(self, cajero_id: int, password_plain: str) -> bool:
-        """Validar contraseña ingresada contra hash en BD.
-
-        Args:
-            cajero_id: ID del cajero
-            password_plain: Contraseña en texto plano
-
-        Returns:
-            True si password es correcto, False si no
-        """
-        try:
-            # Obtener hash desde BD
-            row = self.db.fetch_one(
-                "SELECT password FROM usuarios WHERE id = ?",
-                (cajero_id,),
-            )
-
-            if not row:
-                logging.warning(f"Cajero {cajero_id} no encontrado en BD")
-                return False
-
-            hash_bd: Optional[str] = row[0]
-            if not hash_bd:
-                logging.warning(f"Cajero {cajero_id} tiene password vacío en BD")
-                return False
-
-            # Hashear input con SHA-256
-            hash_input = hashlib.sha256(password_plain.encode("utf-8")).hexdigest()
-
-            # Comparar (case-insensitive por seguridad)
-            return hash_input.lower() == hash_bd.lower()
-
-        except Exception:
-            logging.exception(f"Error validando password para cajero {cajero_id}")
-            return False
+    
 
     def _on_cajero_selected(self, cajero_data: Dict) -> None:
         """Callback interno cuando se selecciona un cajero.
@@ -115,13 +85,12 @@ class CajeroAction:
                     except Exception:
                         parent = self.view
 
-            # Pedir contraseña con CustomInputDialog
+            # Pedir contraseña enmascarada con CustomInputDialog
             nombre = cajero_data.get("nombre", "Cajero")
-            password = show_input_dialog(
+            password = show_password_dialog(
                 parent,
                 titulo="Autenticación",
-                mensaje=f"Introduce la contraseña de {nombre}:",
-                tipo="info",
+                mensaje=f"Introduce la contraseña de {nombre}:"
             )
 
             # Si canceló o dejó vacío, salir
@@ -134,7 +103,7 @@ class CajeroAction:
                 logging.warning("_cajero_selected: cajero_data sin id")
                 return
 
-            if self.validar_password(cajero_id, password):
+            if self.auth_service and self.auth_service.validate_user_password(cajero_id, password):
                 # ✅ Password correcto
                 self._actualizar_sesion(cajero_data)
             else:
@@ -206,7 +175,7 @@ if __name__ == "__main__":
     print("\n🔐 Test validación password:")
     try:
         test_password = input("Introduce password de EGON para test: ")
-        valido = action.validar_password(1, test_password)
+        valido = action.auth_service.validate_user_password(1, test_password) if getattr(action, 'auth_service', None) else False
         print(f"  Resultado: {'✅ VÁLIDO' if valido else '❌ INVÁLIDO'}")
     except Exception:
         logging.exception("Error en test de password")

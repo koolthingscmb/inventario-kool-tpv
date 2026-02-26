@@ -7,6 +7,7 @@ import logging
 import customtkinter as ctk
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL
 from kool_tpv.utils.config_loader import load_colors
+from kool_tpv.utils.font_loader import get_font
 
 
 class ClickableBreadcrumb(ctk.CTkFrame):
@@ -61,7 +62,7 @@ class ClickableBreadcrumb(ctk.CTkFrame):
                         self,
                         text='/',
                         text_color=self.text_color,
-                        font=(FONT_TERMINAL[0], 20, 'bold')
+                        font=get_font('breadcrumb', module=self.module_name)
                     )
                     sep.pack(side='left', padx=4)
 
@@ -74,7 +75,7 @@ class ClickableBreadcrumb(ctk.CTkFrame):
                         self,
                         text=text,
                         text_color=self.text_color,
-                        font=(FONT_TERMINAL[0], 20, 'bold')
+                        font=get_font('breadcrumb', module=self.module_name)
                     )
                     label.pack(side='left', padx=2)
                 else:
@@ -85,7 +86,7 @@ class ClickableBreadcrumb(ctk.CTkFrame):
                         text_color=self.text_color,
                         fg_color='transparent',
                         hover_color='#333333',
-                        font=(FONT_TERMINAL[0], 20, 'bold'),
+                        font=get_font('breadcrumb', module=self.module_name),
                         command=callback,
                         width=len(text) * 12,  # Ancho aproximado según texto
                         height=28,
@@ -96,13 +97,17 @@ class ClickableBreadcrumb(ctk.CTkFrame):
                     # Subrayado en hover
                     def _on_enter(e, button=btn):
                         try:
-                            button.configure(font=(FONT_TERMINAL[0], 20, 'bold', 'underline'))
+                            f = get_font('breadcrumb', module=self.module_name)
+                            try:
+                                button.configure(font=(f[0], f[1], f[2], 'underline'))
+                            except Exception:
+                                button.configure(font=f)
                         except Exception:
                             pass
 
                     def _on_leave(e, button=btn):
                         try:
-                            button.configure(font=(FONT_TERMINAL[0], 20, 'bold'))
+                            button.configure(font=get_font('breadcrumb', module=self.module_name))
                         except Exception:
                             pass
 
