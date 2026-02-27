@@ -80,6 +80,30 @@ class VentaTicketGenerator(BaseTicketGenerator):
         except Exception:
             pass
         header_val = config.get(header_key)
+        try:
+            logging.info(f"DEBUG GENERATOR: tipo={tipo}")
+            logging.info(f"DEBUG GENERATOR: header_key={header_key}")
+            logging.info(f"DEBUG GENERATOR: header_val={header_val}")
+        except Exception:
+            pass
+
+        # Enhanced debug for header selection and fallback
+        try:
+            logging.info(f"DEBUG GEN: header_key={header_key}, header_val={header_val}, bool={bool(header_val)}")
+        except Exception:
+            pass
+        if header_val:
+            try:
+                logging.info("DEBUG GEN: Usando _render_template")
+            except Exception:
+                pass
+            lines.extend(self._render_template(header_val, context))
+        else:
+            try:
+                logging.info("DEBUG GEN: Usando _format_header (FALLBACK)")
+            except Exception:
+                pass
+            lines.extend(self._format_header(config))
         if header_val:
             lines.extend(self._render_template(header_val, context))
         else:

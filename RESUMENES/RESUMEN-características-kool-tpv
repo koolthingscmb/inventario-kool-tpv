@@ -15,6 +15,40 @@ Tecnologías y stack:
 - Imagenes/fuentes: carpeta `kool_tpv/assets` con recursos (PIL usado si
   está disponible, con fallbacks a `tk.PhotoImage`).
 
+Estado actual de la base de datos (hallazgos):
+- Archivo principal de BD: `kool_tpv/base_datos/kool_bd.db` (hay archivos
+  WAL/SHM activos y múltiples backups en
+  `kool_tpv/base_datos/archivo/` como `kool_bd_backup_*.db`).
+- Migraciones: existe `migraciones/base.sql` que crea el esquema base y
+  scripts auxiliares como `002_num_ticket_text.sql` y migraciones
+  por script Python (`2026_02_23_clientes_fecha_migration.py`). La
+  inicialización de la BD aplica estas migraciones automáticamente desde
+  `db_init.py` cuando faltan tablas críticas.
+- Tablas clave presentes y notas rápidas:
+  - `tickets`: contiene ahora `num_ticket` como TEXT (migración `002`),
+    y almacena `ticket_text` (snapshot textual del ticket) para reimpresiones.
+  - `ticket_lines`, `payments`, `stock_movements`: estructura estándar
+    para líneas, pagos y movimientos de stock con triggers para mantener
+    `num_ventas` en `tickets`.
+  - `productos`: esquema rico (sku único, stock_actual, precios en tabla
+    `precios`, campos SEO/Shopify, flags de sync y timestamps `created_at`/`updated_at`).
+  - `clientes`: incluye datos de contacto, campos de fidelidad (`tesoro_*`),
+    y se aplican migraciones para normalizar fechas (`fecha_ultima_compra`).
+  - `usuarios`: tabla con `nombre`, `password` (hash), `rol` y permisos
+    booleanos (`permiso_cierre`, `permiso_descuento`, `permiso_devolucion`, `permiso_tickets`).
+  - `configuracion`: clave/valor sencilla. En `base.sql` se insertan
+    valores semilla como `ticket_nombre_negocio`, `ticket_pie_texto` y
+    `fide_porcentaje_general`.
+- Observaciones operativas:
+  - La aplicación tiene scripts y servicios que gestionan migraciones y
+    backups (ver `kool_tpv/base_datos/db_init.py` y carpeta `archivo`).
+  - Las plantillas y textos de ticket se almacenan en `configuracion` bajo
+    claves tipo `ticket_header_*` / `ticket_footer_*`; revise su sintaxis
+    (la lógica de render espera plantillas con `{{nombre}}` para
+    sustitución segura).
+  - Hay utilidades en `base_datos/migraciones/` para cambios seguros de
+    esquema en SQLite (ej. reemplazo de tablas para modificar tipos).
+
 Arquitectura y patrones:
 - Separación clara entre UI y lógica de negocio: módulos `modulos/*`
   contienen vistas y acciones, `kool_tpv/base_datos/*` contiene servicios

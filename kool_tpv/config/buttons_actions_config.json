@@ -305,4 +305,21 @@
     "compound": "left",
     "image": null
   }
+  ,
+  "nuevo_nivel": {
+    "text": "NUEVO NIVEL",
+    "fg_color": "#FFB74D",
+    "hover_color": "#FFA726",
+    "text_color": "#000000",
+    "border_color": "#000000",
+    "border_width": 2,
+    "corner_radius": 22,
+    "width": 150,
+    "height": 35,
+    "font": ["Courier New", 20, "bold"],
+    "state": "normal",
+    "anchor": "center",
+    "compound": "left",
+    "image": null
+  }
 }

@@ -111,5 +111,17 @@ Notas:
     - Internamente despacha a `VentaTicketGenerator`, `CierreTicketGenerator` o `NivelTicketGenerator`.
     - Reusa `_imprimir_texto_generico()` para simulación/escpos/validación/printer_name/logo/dump.
     - Deja `imprimir_ticket()` e `imprimir_ticket_nivel()` intactos para compatibilidad retroactiva.
+    - Actualizaciones recientes (resumen corto):
+      - Se implementó soporte para QR nativo en ESC/POS en `EscPosRenderer` y se
+        expone `qr_enabled`/`qr_url` desde `configuracion` para control dinámico.
+      - `ImpresoraService` ahora construye rutas absolutas para el `logo` desde
+        la carpeta `assets/logo` y registra advertencias si el archivo no existe.
+      - Se añadió recarga automática de la configuración desde la BD justo antes de
+        generar o imprimir tickets para que cambios en `configuracion` tengan efecto
+        inmediato sin reiniciar procesos.
+      - Se añadieron logs debug en lugares críticos (`generar_ticket_desde_id`,
+        `VentaTicketGenerator` y `_render_template`) para diagnosticar plantillas
+        y valores usados; esto permitió detectar que las plantillas deben usar
+        `{{nombre}}` (doble llave) para que `_render_template` sustituya correctamente.
 
 ```

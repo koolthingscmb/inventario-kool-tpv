@@ -39,3 +39,20 @@ Notas:
 - `ConfigView` gestiona navegación y protección por contraseña para acciones
   sensibles (usuarios, fidelización). El resto de módulos son stubs/placeholders
   listos para implementación posterior.
+
+Actualizaciones recientes (resumen corto):
+- Se añadió la gestión de usuarios (`UsuarioService` y `UsuariosUI`) integrada
+  desde `ConfigView` con validaciones de password, campos adicionales en BD
+  (`created_at`, `telefono`, `email`) y reglas de guardado/actualización.
+- Se añadió la edición de plantillas de ticket (`ticket_header_*`,
+  `ticket_footer_*`) en la UI de `IMPRESIÓN` y validaciones para la sintaxis
+  de placeholders (se espera `{{nombre}}`).
+- Se aplicó una mejora para recargar la configuración desde BD justo antes de
+  generar/imprimir tickets para evitar que instancias con config en memoria
+  emitan tickets usando valores antiguos.
+- Nota operativa: las plantillas en la BD deben usar `{{...}}` (doble llave);
+  tickets guardados previamente como `ticket_text` en la tabla `tickets`
+  seguirán mostrando el contenido literal hasta que se regenere el snapshot.
+  - Preparé un script de respaldo y actualización para reemplazar automáticamente
+    `{nombre}` → `{{nombre}}` en todas las claves `ticket_header_*` y
+    `ticket_footer_*` si el equipo quiere aplicar la corrección masiva.

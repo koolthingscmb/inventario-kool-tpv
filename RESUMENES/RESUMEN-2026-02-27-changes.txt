@@ -1,0 +1,29 @@
+Resumen de cambios realizados el 2026-02-27
+
+Resumen breve:
+- Corrigido y validado `reset_ui.py` (reemplazo de entidades HTML `&lt;` por `<`, reparación de cadenas SQL partidas). Archivo: kool_tpv/modulos/configuracion/reset_ui.py
+- Reemplazado contenido corrupto y asegurado `ResetService` en: kool_tpv/modulos/configuracion/reset_service.py
+- Movido/registrado `action_map` y `setattr` ANTES de llamar a `super().__init__()` en: kool_tpv/modulos/configuracion/config_view.py. Eliminadas duplicaciones.
+- Añadidos y ejecutados scripts de inspección: scripts/inspect_bindings.py y scripts/inspect_breadcrumb.py. Resultados volcados en archivos de salida junto al script.
+- Ejecutadas pruebas locales: `python main.py` para verificar bindings y flujo de autenticación (logs muestran conexiones y bindings correctos).
+
+Detalles técnicos:
+- Problema inicial: `reset_ui.py` tenía entidades HTML (`&lt;`) y SQL divididas que provocaban SyntaxError en la importación.
+- Solución aplicada: corregidas las comparaciones (`len(query) < 2`) y reunidas las consultas SQL en una sola línea; ver `reset_ui.py`.
+- Problema de comportamiento: los botones del sidebar usaban placeholders porque `BaseModuleView` creaba los botones durante su `__init__` antes de que `ConfigView` registrase los handlers.
+- Solución aplicada: registrar los métodos (usar `setattr(self, 'open_config_reset', self.show_reset)` etc.) antes de llamar a `super().__init__()` para que `BaseModuleView` encuentre los métodos y enlace los botones correctamente.
+- Verificación: arranqué la app y comprobé en logs que aparece "Botón RESET conectado a método open_config_reset" y que al reentrar el prompt de contraseña aparece correctamente.
+
+Archivos tocados importantes:
+- kool_tpv/modulos/configuracion/reset_ui.py (correcciones de sintaxis y SQL)
+- kool_tpv/modulos/configuracion/reset_service.py (implementación ResetService)
+- kool_tpv/modulos/configuracion/config_view.py (mover registro de actions antes de super())
+- scripts/inspect_bindings.py (creado)
+- scripts/inspect_breadcrumb.py (creado)
+
+Notas y recomendaciones:
+- Reiniciar la aplicación tras aplicar cambios para asegurar que los procesos carguen la versión corregida.
+- Antes de ejecutar operaciones destructivas de `ResetService`, hacer copia de seguridad de la base de datos.
+- Considerar mantener la registración de handlers (action_map) claramente documentada en `ConfigView` para evitar regressiones.
+
+Hecho por: asistente (operaciones automáticas en el repo).

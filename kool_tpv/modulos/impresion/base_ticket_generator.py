@@ -7,6 +7,7 @@ para todos los tipos de tickets.
 from abc import ABC, abstractmethod
 from decimal import Decimal, InvalidOperation
 import re
+import logging
 from typing import List
 
 from kool_tpv.utils.formatter_service import FormatterService
@@ -126,6 +127,12 @@ class BaseTicketGenerator(ABC):
         for ln in rendered.split('\n'):
             # Centrar cada línea según ancho definido
             lines.append(ln.center(self.WIDTH))
+
+        try:
+            logging.info(f"DEBUG TEMPLATE IN: {template[:50]}")
+            logging.info(f"DEBUG TEMPLATE OUT: {lines}")
+        except Exception:
+            pass
 
         return lines
 

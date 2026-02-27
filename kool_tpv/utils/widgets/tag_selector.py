@@ -20,6 +20,7 @@ class TagSelector(ctk.CTkFrame):
         master,
         module_name: Optional[str] = None,
         placeholder: str = 'Buscar...',
+        on_change: Optional[Callable] = None,
         **kwargs
     ):
         super().__init__(master, **kwargs)
@@ -32,6 +33,9 @@ class TagSelector(ctk.CTkFrame):
 
         # Estado interno: {id: nombre}
         self._selected_items = {}
+
+        # Callback opcional llamado cuando cambia la selección
+        self.on_change_callback = on_change
 
         # SearchableCombo para buscar
         self.search_combo = SearchableCombo(
@@ -86,6 +90,12 @@ class TagSelector(ctk.CTkFrame):
             if tag_id not in self._selected_items:
                 self._selected_items[tag_id] = tag_name
                 self._render_tags()
+                # Notificar cambio
+                if self.on_change_callback:
+                    try:
+                        self.on_change_callback()
+                    except Exception:
+                        logging.exception('Error ejecutando on_change callback')
         except Exception:
             logging.exception('Error añadiendo tag')
 
@@ -95,6 +105,12 @@ class TagSelector(ctk.CTkFrame):
             if tag_id in self._selected_items:
                 del self._selected_items[tag_id]
                 self._render_tags()
+                # Notificar cambio
+                if self.on_change_callback:
+                    try:
+                        self.on_change_callback()
+                    except Exception:
+                        logging.exception('Error ejecutando on_change callback')
         except Exception:
             logging.exception('Error eliminando tag')
 

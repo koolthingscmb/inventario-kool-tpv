@@ -323,6 +323,22 @@
         "border_color": "#FF9800",
         "border_width": 4
       }
+      ,
+      {
+        "text": "RESET",
+        "fg_color": "#000000",
+        "hover_color": "#8A3A3A",
+        "text_color": "#FF9800",
+        "border_color": "#FF9800",
+        "border_width": 4,
+        "font_family": "Courier New",
+        "font_size": 26,
+        "font_weight": "bold",
+        "action": "open_config_reset",
+        "width": 200,
+        "height": 56,
+        "corner_radius": 8
+      }
     ]
     ,
     "impresion_submenu": {
@@ -384,5 +400,101 @@
         }
       ]
     }
+      ,
+      "fidelizacion_submenu": {
+        "title": "FIDELIZACIÓN",
+        "buttons": [
+          {
+            "text": "GENERAL",
+            "color": "#000000",
+            "fg_color": "#000000",
+            "hover_color": "#8A3A3A",
+            "action": "show_fidelizacion_general",
+            "font_family": "Courier New",
+            "font_size": 26,
+            "font_weight": "bold",
+            "font_fallback": ["Courier New", "Menlo", "DejaVu Sans Mono"],
+            "text_color": "#FF9800",
+            "width": 200,
+            "height": 56,
+            "corner_radius": 8,
+            "image": null,
+            "border_color": "#FF9800",
+            "border_width": 4
+          },
+          {
+            "text": "CATEGORÍAS",
+            "color": "#000000",
+            "fg_color": "#000000",
+            "hover_color": "#8A3A3A",
+            "action": "show_fidelizacion_categorias",
+            "font_family": "Courier New",
+            "font_size": 26,
+            "font_weight": "bold",
+            "font_fallback": ["Courier New", "Menlo", "DejaVu Sans Mono"],
+            "text_color": "#FF9800",
+            "width": 200,
+            "height": 56,
+            "corner_radius": 8,
+            "image": null,
+            "border_color": "#FF9800",
+            "border_width": 4
+          },
+          {
+            "text": "TIPOS",
+            "color": "#000000",
+            "fg_color": "#000000",
+            "hover_color": "#8A3A3A",
+            "action": "show_fidelizacion_tipos",
+            "font_family": "Courier New",
+            "font_size": 26,
+            "font_weight": "bold",
+            "font_fallback": ["Courier New", "Menlo", "DejaVu Sans Mono"],
+            "text_color": "#FF9800",
+            "width": 200,
+            "height": 56,
+            "corner_radius": 8,
+            "image": null,
+            "border_color": "#FF9800",
+            "border_width": 4
+          },
+          {
+            "text": "PRODUCTOS",
+            "color": "#000000",
+            "fg_color": "#000000",
+            "hover_color": "#8A3A3A",
+            "action": "show_fidelizacion_productos",
+            "font_family": "Courier New",
+            "font_size": 26,
+            "font_weight": "bold",
+            "font_fallback": ["Courier New", "Menlo", "DejaVu Sans Mono"],
+            "text_color": "#FF9800",
+            "width": 200,
+            "height": 56,
+            "corner_radius": 8,
+            "image": null,
+            "border_color": "#FF9800",
+            "border_width": 4
+          },
+          {
+            "text": "NIVELES",
+            "color": "#000000",
+            "fg_color": "#000000",
+            "hover_color": "#8A3A3A",
+            "action": "show_fidelizacion_niveles",
+            "font_family": "Courier New",
+            "font_size": 26,
+            "font_weight": "bold",
+            "font_fallback": ["Courier New", "Menlo", "DejaVu Sans Mono"],
+            "text_color": "#FF9800",
+            "width": 200,
+            "height": 56,
+            "corner_radius": 8,
+            "image": null,
+            "border_color": "#FF9800",
+            "border_width": 4
+          }
+        ]
+      }
   }
 }

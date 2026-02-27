@@ -11,17 +11,55 @@ from kool_tpv.modulos.configuracion.impresion.textos_ui import TextosPlantillaUI
 
 class ConfigView(BaseModuleView):
     def __init__(self, parent, db, keyboard_manager=None):
+        # Pre-initialize attributes so action methods can be registered before
+        # the base class runs (BaseModuleView may probe with hasattr).
+        # Set basic instance attributes
+        # `parent`, `db` and `auth_service` were initialized before calling super().
+        # No need to reassign them here.
+
+        # action_map: register method names as attributes so BaseModuleView
+        # can find them during its own initialization
+        # Reuse `action_map` already registered before super().__init__()
+
+        # action_map: register method names as attributes so BaseModuleView
+        # can find them during its own initialization (buttons are created
+        # in BaseModuleView.__init__ and probe via hasattr).
+        action_map = {
+            'open_config_general': getattr(self, 'show_general', None),
+            'open_config_impresion': getattr(self, 'show_impresion', None),
+            'open_config_usuario': getattr(self, 'show_usuario', None),
+            'show_usuarios': getattr(self, 'show_usuarios', None),
+            'open_config_fidelizacion': getattr(self, 'show_fidelizacion', None),
+            'open_config_reset': getattr(self, 'show_reset', None),
+            'show_fidelizacion_general': getattr(self, 'show_fidelizacion_general', None),
+            'show_fidelizacion_categorias': getattr(self, 'show_fidelizacion_categorias', None),
+            'show_fidelizacion_tipos': getattr(self, 'show_fidelizacion_tipos', None),
+            'show_fidelizacion_productos': getattr(self, 'show_fidelizacion_productos', None),
+            'show_fidelizacion_niveles': getattr(self, 'show_fidelizacion_niveles', None),
+        }
+
+        # Registrar métodos como atributos para que BaseModuleView los encuentre
+        for action_name, method in action_map.items():
+            if method is not None:
+                try:
+                    setattr(self, action_name, method)
+                except Exception:
+                    logging.exception('Error registrando action %s', action_name)
+
         # Initialize base template with module key 'config'
         super().__init__(parent, config_section='config')
+
         try:
             self.keyboard_mgr = keyboard_manager
         except Exception:
             self.keyboard_mgr = None
+
         try:
             self._module_key = 'config'
             self.module_name = 'config'
         except Exception:
             pass
+
         # Mapeo breadcrumb callbacks para navegación clickeable
         self.breadcrumb_callbacks = {
             'CONFIG': None,  # se asigna después de los handlers
@@ -29,6 +67,12 @@ class ConfigView(BaseModuleView):
             'GENERAL': None,
             'USUARIO': None,
             'FIDELIZACIÓN': None,
+            'GENERAL FIDE': None,
+            'CATEGORÍAS FIDE': None,
+            'TIPOS FIDE': None,
+            'PRODUCTOS FIDE': None,
+            'NIVELES FIDE': None,
+            'RESET': None,
             'IMPRESORA': None,
             'TEXTOS TICKETS': None,
             'PLANTILLAS': None,
@@ -63,13 +107,7 @@ class ConfigView(BaseModuleView):
             logging.exception('Error leyendo buttons_menu.json en ConfigView')
             buttons = []
 
-        action_map = {
-            'open_config_general': self.show_general,
-            'open_config_impresion': self.show_impresion,
-            'open_config_usuario': self.show_usuario,
-            'show_usuarios': self.show_usuarios,
-            'open_config_fidelizacion': self.show_fidelizacion,
-        }
+        
 
         try:
             def _norm(s: str) -> str:
@@ -115,6 +153,12 @@ class ConfigView(BaseModuleView):
                 'GENERAL': self.show_general,
                 'USUARIO': self.show_usuario,
                 'FIDELIZACIÓN': self.show_fidelizacion,
+                'GENERAL FIDE': self.show_fidelizacion_general,
+                'CATEGORÍAS FIDE': self.show_fidelizacion_categorias,
+                'TIPOS FIDE': self.show_fidelizacion_tipos,
+                'PRODUCTOS FIDE': self.show_fidelizacion_productos,
+                'NIVELES FIDE': self.show_fidelizacion_niveles,
+                'RESET': self.show_reset,
                 'IMPRESORA': self.show_impresora_config,
                 'TEXTOS TICKETS': self.show_textos_tickets,
                 'PLANTILLAS': self.show_plantillas,
@@ -249,10 +293,9 @@ class ConfigView(BaseModuleView):
             logging.exception('Error en show_usuario')
 
     def show_fidelizacion(self):
-        """Mostrar config de fidelización (protegido por password admin)."""
+        """Abrir submenu de Fidelización: cambia sidebar y muestra opciones."""
         try:
             parent = self._get_dialog_parent()
-
             from kool_tpv.utils.custom_dialog import show_password_dialog, show_warning
 
             password = show_password_dialog(
@@ -264,16 +307,83 @@ class ConfigView(BaseModuleView):
             if password is None or password == "":
                 return
 
-            if self.auth_service and self.auth_service.validate_admin_password(password):
-                logging.info('Config: abriendo FIDELIZACIÓN (autenticado)...')
-                # TODO: implementar UI de gestión de fidelización
-            else:
+            if not (self.auth_service and self.auth_service.validate_admin_password(password)):
                 show_warning(
                     parent,
                     "ACCESO DENEGADO",
                     "Contraseña incorrecta.\nInténtalo de nuevo.",
                     callback=self.show_fidelizacion
                 )
+                return
+
+            # Autenticado: cargar submenu
+            base = Path(__file__).resolve().parents[2]
+            cfg_file = base / 'config' / 'buttons_menu.json'
+            cfg = {}
+            if cfg_file.exists():
+                with cfg_file.open('r', encoding='utf-8') as fh:
+                    cfg = json.load(fh)
+
+            submenu = cfg.get('config', {}).get('fidelizacion_submenu', {})
+            buttons = submenu.get('buttons', [])
+
+            # Limpiar sidebar actual
+            for child in list(self._menu_frame.winfo_children()):
+                try:
+                    child.destroy()
+                except Exception:
+                    pass
+
+            # Recrear botones del submenu
+            action_map = {
+                'show_fidelizacion_general': self.show_fidelizacion_general,
+                'show_fidelizacion_categorias': self.show_fidelizacion_categorias,
+                'show_fidelizacion_tipos': self.show_fidelizacion_tipos,
+                'show_fidelizacion_productos': self.show_fidelizacion_productos,
+                'show_fidelizacion_niveles': self.show_fidelizacion_niveles,
+            }
+
+            def _norm(s: str) -> str:
+                try:
+                    return ''.join(ch for ch in unicodedata.normalize("NFKD", (s or '')).upper() if not unicodedata.combining(ch)).strip()
+                except Exception:
+                    return (s or '').upper().strip()
+
+            for b in buttons:
+                text = b.get('text', '')
+                fg_color = b.get('fg_color', '#000000')
+                hover_color = b.get('hover_color', '#8A3A3A')
+                text_color = b.get('text_color', '#FF9800')
+                border_color = b.get('border_color', '#FF9800')
+                border_width = b.get('border_width', 4)
+                action = b.get('action')
+
+                btn = ctk.CTkButton(
+                    self._menu_frame,
+                    text=text,
+                    fg_color=fg_color,
+                    hover_color=hover_color,
+                    text_color=text_color,
+                    border_color=border_color,
+                    border_width=border_width,
+                    font=("Courier New", 26, "bold"),
+                    width=200,
+                    height=56,
+                    corner_radius=8
+                )
+
+                if action in action_map:
+                    btn.configure(command=action_map[action])
+
+                btn.pack(pady=8, padx=12, fill='x')
+
+            # Actualizar breadcrumb
+            try:
+                self.actualizar_ruta('CONFIG / FIDELIZACIÓN', callbacks=self.breadcrumb_callbacks)
+            except Exception:
+                pass
+
+            logging.info('Config: submenu FIDELIZACIÓN cargado')
 
         except Exception:
             logging.exception('Error en show_fidelizacion')
@@ -426,3 +536,128 @@ class ConfigView(BaseModuleView):
 
         except Exception:
             logging.exception('Error en show_config_root')
+
+    def show_fidelizacion_general(self):
+        """Mostrar configuración de % general de fidelización."""
+        try:
+            from kool_tpv.modulos.configuracion.fidelizacion.fidelizacion_general_ui import FidelizacionGeneralUI
+            try:
+                ui = FidelizacionGeneralUI(self.central_area, db=self.db, module_name='config')
+                if self.set_central_content(ui):
+                    try:
+                        self.actualizar_ruta('CONFIG / FIDELIZACIÓN / GENERAL', callbacks=self.breadcrumb_callbacks)
+                    except Exception:
+                        pass
+                    logging.info('Config: abriendo FIDELIZACIÓN GENERAL...')
+            except Exception:
+                logging.exception('Error instanciando FidelizacionGeneralUI')
+        except Exception:
+            logging.exception('Error en show_fidelizacion_general')
+
+    def show_fidelizacion_categorias(self):
+        """Mostrar configuración de % por categorías."""
+        try:
+            from kool_tpv.modulos.configuracion.fidelizacion.fidelizacion_categorias_ui import FidelizacionCategoriasUI
+            try:
+                ui = FidelizacionCategoriasUI(self.central_area, db=self.db, module_name='config')
+                if self.set_central_content(ui):
+                    try:
+                        self.actualizar_ruta('CONFIG / FIDELIZACIÓN / CATEGORÍAS', callbacks=self.breadcrumb_callbacks)
+                    except Exception:
+                        pass
+                    logging.info('Config: abriendo FIDELIZACIÓN CATEGORÍAS...')
+            except Exception:
+                logging.exception('Error instanciando FidelizacionCategoriasUI')
+        except Exception:
+            logging.exception('Error en show_fidelizacion_categorias')
+
+    def show_fidelizacion_tipos(self):
+        """Mostrar configuración de % por tipos."""
+        try:
+            from kool_tpv.modulos.configuracion.fidelizacion.fidelizacion_tipos_ui import FidelizacionTiposUI
+            try:
+                ui = FidelizacionTiposUI(self.central_area, db=self.db, module_name='config')
+                if self.set_central_content(ui):
+                    try:
+                        self.actualizar_ruta('CONFIG / FIDELIZACIÓN / TIPOS', callbacks=self.breadcrumb_callbacks)
+                    except Exception:
+                        pass
+                    logging.info('Config: abriendo FIDELIZACIÓN TIPOS...')
+            except Exception:
+                logging.exception('Error instanciando FidelizacionTiposUI')
+        except Exception:
+            logging.exception('Error en show_fidelizacion_tipos')
+
+    def show_fidelizacion_productos(self):
+        """Mostrar configuración de puntos por productos."""
+        try:
+            from kool_tpv.modulos.configuracion.fidelizacion.fidelizacion_productos_ui import FidelizacionProductosUI
+            try:
+                ui = FidelizacionProductosUI(self.central_area, db=self.db, module_name='config')
+                if self.set_central_content(ui):
+                    try:
+                        self.actualizar_ruta('CONFIG / FIDELIZACIÓN / PRODUCTOS', callbacks=self.breadcrumb_callbacks)
+                    except Exception:
+                        pass
+                    logging.info('Config: abriendo FIDELIZACIÓN PRODUCTOS...')
+            except Exception:
+                logging.exception('Error instanciando FidelizacionProductosUI')
+        except Exception:
+            logging.exception('Error en show_fidelizacion_productos')
+
+    def show_fidelizacion_niveles(self):
+        """Mostrar gestión de niveles de fidelización."""
+        try:
+            from kool_tpv.modulos.configuracion.fidelizacion.fidelizacion_niveles_ui import FidelizacionNivelesUI
+            try:
+                ui = FidelizacionNivelesUI(self.central_area, db=self.db, module_name='config', keyboard_manager=self.keyboard_mgr)
+                if self.set_central_content(ui):
+                    try:
+                        self.actualizar_ruta('CONFIG / FIDELIZACIÓN / NIVELES', callbacks=self.breadcrumb_callbacks)
+                    except Exception:
+                        pass
+                    logging.info('Config: abriendo FIDELIZACIÓN NIVELES...')
+            except Exception:
+                logging.exception('Error instanciando FidelizacionNivelesUI')
+        except Exception:
+            logging.exception('Error en show_fidelizacion_niveles')
+
+    def show_reset(self):
+        """Mostrar herramienta de reset (protegido por password admin)."""
+        try:
+            parent = self._get_dialog_parent()
+            from kool_tpv.utils.custom_dialog import show_password_dialog, show_warning
+
+            password = show_password_dialog(
+                parent,
+                titulo="Autenticación Admin",
+                mensaje="⚠️ HERRAMIENTA DE DESARROLLO\nIntroduce contraseña de administrador:"
+            )
+
+            if password is None or password == "":
+                return
+
+            if not (self.auth_service and self.auth_service.validate_admin_password(password)):
+                show_warning(
+                    parent,
+                    "ACCESO DENEGADO",
+                    "Contraseña incorrecta.\nInténtalo de nuevo.",
+                    callback=self.show_reset
+                )
+                return
+
+            # Autenticado: mostrar UI de reset
+            from kool_tpv.modulos.configuracion.reset_ui import ResetUI
+            try:
+                ui = ResetUI(self.central_area, db=self.db, module_name='config')
+                if self.set_central_content(ui):
+                    try:
+                        self.actualizar_ruta('CONFIG / RESET', callbacks=self.breadcrumb_callbacks)
+                    except Exception:
+                        pass
+                    logging.info('Config: abriendo RESET (autenticado)...')
+            except Exception:
+                logging.exception('Error instanciando ResetUI')
+
+        except Exception:
+            logging.exception('Error en show_reset')
