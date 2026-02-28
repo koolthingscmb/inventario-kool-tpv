@@ -79,12 +79,12 @@ class ClientesTicketsUI(PaginaConVisor):
         # --- Título fijo encima del contenido ---
         try:
             titulo_cliente = ctk.CTkLabel(
-                self.container,
-                text=f'TICKETS DE {cliente_nombre.upper()}',
-                font=get_font('title', module='clientes'),
-                text_color=self.colors.get('accent'),
-                fg_color='transparent'
-            )
+                    self.container,
+                    text=f'TICKETS DE {cliente_nombre.upper()}',
+                    font=get_font('title', module=self.module_name),
+                    text_color=self.colors.get('accent'),
+                    fg_color='transparent'
+                )
             titulo_cliente.grid(row=0, column=0, columnspan=2, sticky='w', padx=20, pady=(12, 0))
             # Ajustar layout: desplazar left_container y ticket_display a row=1
             try:
@@ -121,7 +121,7 @@ class ClientesTicketsUI(PaginaConVisor):
         ctk.CTkLabel(
             fecha_frame,
             text='DESDE:',
-            font=get_font('label', module='clientes'),
+            font=get_font('label', module=self.module_name),
             text_color=self.colors.get('text')
         ).pack(side='left', padx=(0, 6))
 
@@ -134,14 +134,14 @@ class ClientesTicketsUI(PaginaConVisor):
             text_color=self.colors.get('text'),
             border_color=self.colors.get('primary'),
             border_width=2
-        , font=get_font('entry', module='clientes'))
+        , font=get_font('entry', module=self.module_name))
         self.entry_desde.insert(0, fecha_desde)
         self.entry_desde.pack(side='left', padx=(0, 20))
 
         ctk.CTkLabel(
             fecha_frame,
             text='HASTA:',
-            font=get_font('label', module='clientes'),
+            font=get_font('label', module=self.module_name),
             text_color=self.colors.get('text')
         ).pack(side='left', padx=(0, 6))
 
@@ -154,7 +154,7 @@ class ClientesTicketsUI(PaginaConVisor):
             text_color=self.colors.get('text'),
             border_color=self.colors.get('primary'),
             border_width=2
-        , font=get_font('entry', module='clientes'))
+        , font=get_font('entry', module=self.module_name))
         self.entry_hasta.insert(0, fecha_hasta)
         self.entry_hasta.pack(side='left', padx=(0, 20))
 
@@ -167,7 +167,7 @@ class ClientesTicketsUI(PaginaConVisor):
             fg_color=self.colors.get('primary'),
             hover_color=self.colors.get('secondary'),
             text_color='#000000',
-            font=get_font('button', module='clientes')
+            font=get_font('button', module=self.module_name)
         )
         btn_filtrar.pack(side='left', padx=8)
 
@@ -178,14 +178,14 @@ class ClientesTicketsUI(PaginaConVisor):
         ctk.CTkLabel(
             buscar_frame,
             text='BUSCAR PRODUCTO:',
-            font=get_font('label', module='clientes'),
+            font=get_font('label', module=self.module_name),
             text_color=self.colors.get('text')
         ).pack(side='left', padx=(0, 12))
 
         self.combo_producto = SearchableCombo(
             buscar_frame,
             placeholder='Escribe nombre y pulsa FILTRAR',
-            module_name='clientes',
+            module_name=self.module_name,
             width=320
         )
         self.combo_producto.pack(side='left', fill='x', expand=True, padx=(0, 12))

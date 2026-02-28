@@ -1,0 +1,147 @@
+Resumen exhaustivo de main.py
+
+Descripción general
+-------------------
+`main.py` es el punto de entrada de la aplicación de escritorio "Kool TPV". Define la clase `App` (subclase de `customtkinter.CTk`) que configura la apariencia de la ventana, inicializa la base de datos, prepara la navegación lateral y gestiona la carga/desmontaje de los distintos módulos (TPV, Almacén, Clientes, Informes, Configuración). El script también configura el logging y expone `App()` en el bloque `if __name__ == "__main__"` para iniciar la aplicación.
+
+Importaciones y constantes
+-------------------------
+- Librerías: `customtkinter` (CTk), `tkinter` y `tkinter.font` para manejo de fuentes, `logging`, `os`, `sys`, `json`, `pathlib.Path`, `PIL.Image` (importada aunque no usada explícitamente en el archivo), y tipos (`List`, `Dict`).
+- Módulos del paquete: `kool_tpv.base_datos.db_wrapper.Database`, `kool_tpv.modulos.tpv.actions.buscar_articulo.BuscarArticuloPanel` (importado aunque no usado en este fichero), `kool_tpv.utils.keyboard_manager.KeyboardManager`.
+- Constantes de UI: `HOVER_COLOR = "#00A4DF"`, `NAV_BTN_PADY = 14`, `NAV_BTN_PADX = 20`.
+
+Configuración de logging y preparación de carpeta
+------------------------------------------------
+- Se asegura que exista la carpeta `logs` con `os.makedirs("logs", exist_ok=True)`.
+- `logging.basicConfig` configura un manejador de archivo `logs/application.log` (UTF-8) y un `StreamHandler` a `stdout`. Nivel por defecto `INFO` y formato con timestamp y nivel.
+
+Clase App: responsabilidad general
+---------------------------------
+La clase `App(ctk.CTk)` encapsula la UI principal y comportamientos globales:
+
+- Apariencia y fuentes:
+  - Se intenta forzar `ctk.set_appearance_mode("dark")` (captura excepciones si falla).
+  - Define atributos de fuente reutilizables: `base_font`, `button_font`, `tpv_font` (tuplas). Estas se usan como valores por defecto para etiquetas y botones.
+
+- Configuración de ventana:
+  - Título: "Kool TPV".
+  - Geometría fija: `1600x960` (también `minsize` y `resizable(False, False)`), con intentos defensivos de `update_idletasks()` y manejo de excepciones para compatibilidad.
+  - Fondo oscuro: `fg_color` y `background` se configuran con múltiples `try/except` para mayor robustez con distintas versiones/librerías.
+
+- Inicialización de la base de datos:
+  - Construye la ruta al archivo de base de datos `kool_bd.db` dentro del paquete (resolviendo `project_root` con `__file__`).
+  - Intenta importar `initialize_database` desde `kool_tpv.base_datos.db_init` y ejecutarlo sobre `db_path` (captura excepciones y registra errores, pero continúa aunque falle la inicialización).
+  - Instancia `self.db = Database(db_path)` y llama `self.db.connect()` protegiendo con `try/except`. Si falla, `self.db` queda en `None` y se registra el error.
+
+- KeyboardManager global:
+  - Intenta inicializar `KeyboardManager(self)` y lo guarda en `self.keyboard_mgr`. También mantiene compatibilidad asignando `self.keyboard_manager` si es posible.
+
+- Gestión de vistas y navegación:
+  - Contenedores: `self.nav_buttons` (dict para referencias), `self.current_view`, `self.tpv_view`.
+  - Crea la UI de navegación con `create_navigation()`.
+
+Método create_navigation
+------------------------
+- Construye `self.nav_frame` (barra lateral) como `CTkFrame` de ancho mayor para soportar botones táctiles y lo fija a la izquierda.
+- Crea un botón power/genérico llamando a `kool_tpv.utils.global_buttons.create_global_close_button(self.nav_frame, command=self.close_app)` si está disponible; se empaqueta con `pady` y `padx` protegidos por excepciones.
+- Crea `self.print_on_button` (CTkButton) preparado pero no empacado: se mostrará únicamente cuando se cargue la vista TPV.
+- Lee `kool_tpv/config/buttons_config.json` (si existe) para cargar `main_menu` con configuración de botones.
+  - Importa `ButtonFactory` de `kool_tpv.modulos.tpv.tpv_view` de forma perezosa (siempre en try/except para evitar cargas circulares en startup).
+  - Para cada item en `main_menu` mapea el campo `command` a métodos de la `App` (`load_tpv`, `open_almacen`, `open_clientes`, `open_informes`, `open_config`). Si no reconoce el comando crea una lambda que solo hace `logging.info`.
+  - Crea botones con `ButtonFactory.create_button(...)` cuando existe, o con `self.create_nav_button(...)` en caso contrario. Empaqueta cada botón usando constantes `NAV_BTN_PADY` y `NAV_BTN_PADX` y guarda la referencia en `self.nav_buttons[text]`.
+- Añade un label footer con versión "KOOL TPV V1.0".
+- Crea `self.main_frame` (CTkFrame) que actúa como contenedor principal de contenido dinámico a la derecha.
+
+Helper create_nav_button
+------------------------
+- Normaliza parámetros de fuente: acepta `font` ya construido o construye una tupla `(family, size)` usando `font_family` y `font_size`, o usa `self.button_font` por defecto.
+- Construye un diccionario `params` con todos los parámetros aplicables (texto en mayúsculas, colores, tamaños, bordes, etc.) y crea un `CTkButton(**params)` y guarda referencia en `self.nav_buttons`.
+
+Helper _build_font
+------------------
+- Objetivo: construir una familia/tupla de fuente robusta.
+- Acepta `font_family`, `size`, `weight` y `fallback` (que puede ser una cadena o lista de familias). Recupera las familias disponibles con `tkfont.families()` y elige la primera candidata existente; si no hay coincidencias intenta familias comunes (`Courier New`, `Menlo`, `DejaVu Sans Mono`, etc.). Si todo falla devuelve la fuente por defecto de la app.
+- Devuelve una tupla que `customtkinter` acepta: `(family, size)` o `(family, size, weight)`.
+
+load_tpv: cargar la vista TPV
+----------------------------
+- Limpia hijos existentes de `self.main_frame`.
+- Intenta importar y crear `TpvView` desde `kool_tpv.modulos.tpv.tpv_view`.
+  - Oculta botones de navegación (`btn.pack_forget()` para cada uno en `self.nav_buttons`).
+  - Ensambla y muestra `self.print_on_button` en la barra lateral.
+  - Instancia `view = TpvView(self.main_frame, db=getattr(self, "db", None))`, guarda referencia en `self.tpv_view` y marca `self.current_view = "tpv"`.
+  - Llama `view.show()` si existe; en caso de excepción muestra una etiqueta fallback "Módulo TPV cargado correctamente".
+- Si la importación o instancia falla, registra excepción y muestra etiqueta fallback.
+
+close_app: lógica de cierre / volver atrás
+----------------------------------------
+- Comportamiento dual:
+  - Si `current_view == "tpv"`: en lugar de cerrar la app actúa como "volver" a la navegación principal.
+    - Si `tpv_view` existe, busca `carrito_service` y comprueba si está vacío. Usa preferentemente `carrito.is_empty()` si existe, o `carrito.get_item_count()` o `len(carrito.get_items())` con defensas contra excepciones.
+    - Si el carrito NO está vacío muestra un diálogo de error (`kool_tpv.utils.custom_dialog.show_error`) y cancela el cierre.
+    - Si puede salir del TPV llama `tpv.teardown()`, destruye widgets en `main_frame`, re-expone la barra de navegación con los botones y oculta `print_on_button`.
+  - En el caso contrario (no en TPV): intenta cerrar la conexión a BD `self.db.close_connection()` y luego destruye la ventana y llama `sys.exit(0)`.
+
+open_almacen / open_clientes / open_informes / open_config
+---------------------------------------------------------
+Patrón común en los cuatro métodos:
+- Ocultan `nav_frame` y `main_frame` con `pack_forget()` para reemplazar la UI principal por la vista del módulo.
+- Importan la clase de vista correspondiente perezosamente (ej. `AlmacenView`, `ClientesView`, `InformesView`, `ConfigView`) con manejo de excepciones para registrar errores y restaurar la UI si la importación falla.
+- Instancian la vista con `self` como raíz y pasan `db=getattr(self, 'db', None)` y `keyboard_manager=getattr(self, 'keyboard_mgr', None)` cuando procede.
+- Definen un callback local `_on_back*` que invoca el método `_on_power()` del view para chequear cambios/no guardados; si `_on_power()` retorna verdadero, destruyen la vista y limpian referencias. Este callback se asigna al `power_button` del view (si existe) para que el botón lateral actúe como "volver".
+- Si la instanciación falla se restaura la UI principal empaquetando nuevamente `nav_frame` y `main_frame`.
+
+Estilo y filosofía de código
+----------------------------
+- Código defensivo y tolerante a fallos: abundan `try/except` para: imports perezosos, inicialización de recursos, creación de widgets y operaciones de empaquetado.
+- Minimiza fallos de arranque: si algo falla en la inicialización no evita que la aplicación arranque (se usan fallbacks y mensajes).
+- Se privilegia la separación de responsabilidades: `main.py` maneja ventana, navegación y ciclo de vida; módulos específicos (TPV, Almacén, Clientes, etc.) viven dentro de `kool_tpv.modulos.*`.
+
+Efectos secundarios y dependencias externas
+-------------------------------------------
+- Archivos y rutas esperados:
+  - `kool_tpv/base_datos/kool_bd.db` (archivo de base de datos en el paquete).
+  - `kool_tpv/base_datos/db_init.py` con `initialize_database` (opcional pero intentado).
+  - `kool_tpv/config/buttons_config.json` para la configuración del menú principal.
+- Logs: escribe en `logs/application.log`.
+- Base de datos: intenta conectar y mantiene `self.db`; si la conexión falla la app sigue funcionando pero con `db = None` y algunas funcionalidades pueden no estar disponibles.
+
+Puntos importantes a revisar (recomendaciones)
+--------------------------------------------
+- Algunos imports están presentes aunque no se usan directamente en `main.py` (p. ej. `BuscarArticuloPanel`, `PIL.Image`) — podrían limpiarse si no son necesarios.
+- `print_on_button` se crea pero su comportamiento (command) no se fija aquí: se espera que la vista TPV lo configure o que sea simplemente un indicador. Revisar si debe tener `command` asociado.
+- Las rutas a recursos usan `os.path.dirname(os.path.abspath(__file__))` y `Path(...).parents[0]` — consistentes pero conviene homologar el uso de `Pathlib` en todo el fichero.
+- Considerar extraer la lógica de build de botones fuera de `main.py` si la fábrica `ButtonFactory` queda disponible para simplificar `create_navigation`.
+
+Cómo ejecutar
+-------------
+Ejecutar localmente desde la raíz del proyecto:
+
+```bash
+python main.py
+```
+
+Observaciones finales
+---------------------
+`main.py` es un lanzador bien estructurado y muy defensivo para una aplicación de TPV con múltiples módulos. Se centra en:
+- configuración global (UI, logging, DB),
+- creación dinámica del menú y botones desde JSON,
+- carga perezosa de módulos para evitar dependencias circulares en el inicio,
+- manejo seguro de la navegación entre vistas y comprobación de estados (por ejemplo, carrito no vacío al salir del TPV).
+
+Fin del resumen.
+
+- Comportamiento principal:
+  - Calcula `project_root = Path(__file__).resolve().parents[1]` (nivel superior
+    que `kool_tpv/`).
+  - Busca `main.py` en la raíz del proyecto (`project_root / "main.py"`).
+  - Si el archivo existe: añade `project_root` al `sys.path` (si no está)
+    y ejecuta `runpy.run_path(str(main_file), run_name="__main__")` para
+    arrancar la aplicación como si se ejecutara `python main.py` desde la raíz.
+  - Si no existe: registra una advertencia en `logging` indicando cómo
+    ejecutar la aplicación correctamente.
+
+- Notas de uso:
+  - Muy útil para depuración desde IDEs que abren `kool_tpv/main.py` como
+    script activo; evita tener que cambiar el CWD manualmente.
+  - No contiene lógica de negocio; es un launcher/compat shim.

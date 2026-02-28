@@ -11,7 +11,8 @@ import customtkinter as ctk
 
 from kool_tpv.base_datos.albaran_service import AlbaranService
 from kool_tpv.base_datos.proveedor_service import ProveedorService
-from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL
+from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
+from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.widgets.nav_list import NavList
 
@@ -22,6 +23,7 @@ class ConsultarAlbaranUI:
         self.db = db
         self.owner = owner
         self.keyboard_mgr = keyboard_manager
+        self.module_name = module_name
         self.albaran_service = AlbaranService(db)
         self.proveedor_service = ProveedorService(db)
         from kool_tpv.utils.config_loader import load_colors
@@ -53,7 +55,7 @@ class ConsultarAlbaranUI:
             filter_frame,
             text='Filtrar Albarán por Proveedor:',
             text_color=self.colors.get('text', COLOR_MATRIX),
-            font=FONT_TERMINAL
+            font=get_font('label', module=self.module_name)
         ).pack(side='left', padx=(0, 8))
 
         self.cb_proveedor = SearchableCombo(
@@ -104,7 +106,7 @@ class ConsultarAlbaranUI:
             filter_frame,
             text='Desde:',
             text_color=self.colors.get('text', COLOR_MATRIX),
-            font=FONT_TERMINAL
+            font=get_font('label', module=self.module_name)
         ).pack(side='left', padx=(16, 4))
 
         self.e_desde = ctk.CTkEntry(
@@ -119,7 +121,7 @@ class ConsultarAlbaranUI:
             filter_frame,
             text='Hasta:',
             text_color=self.colors.get('text', COLOR_MATRIX),
-            font=FONT_TERMINAL
+            font=get_font('label', module=self.module_name)
         ).pack(side='left', padx=(8, 4))
 
         self.e_hasta = ctk.CTkEntry(

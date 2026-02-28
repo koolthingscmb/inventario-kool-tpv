@@ -8,7 +8,8 @@ import tkinter as tk
 import customtkinter as ctk
 
 from kool_tpv.base_datos.tipo_service import TipoService
-from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL, FONT_BUTTONS
+from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
+from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.config_loader import create_action_button
 
 
@@ -49,7 +50,7 @@ class TiposUI:
         except Exception:
             pass
 
-        lbl_font = FONT_TERMINAL
+        lbl_font = get_font('label', module=self.module_name)
 
         # Fila 1: ID | NOMBRE
         ctk.CTkLabel(self.grid_frame, text='ID:', text_color=self.colors['text'], font=lbl_font).grid(row=0, column=0, sticky='w', padx=6, pady=6)

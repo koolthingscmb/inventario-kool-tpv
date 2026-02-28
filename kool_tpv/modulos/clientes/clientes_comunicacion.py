@@ -37,7 +37,7 @@ class ClientesComunicacionView:
         label = ctk.CTkLabel(
             center,
             text='COMUNICACIÓN CLIENTE',
-            font=get_font('title', module='clientes'),
+            font=get_font('title', module=self.module_name),
             text_color=self.colors.get('text', '#FFFFFF'),
             fg_color='transparent'
         )

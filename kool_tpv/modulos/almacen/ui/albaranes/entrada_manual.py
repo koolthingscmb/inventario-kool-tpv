@@ -7,7 +7,8 @@ import customtkinter as ctk
 
 from kool_tpv.base_datos.albaran_service import AlbaranService
 from kool_tpv.base_datos.proveedor_service import ProveedorService
-from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL
+from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
+from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.widgets.nav_list import NavList
 from kool_tpv.utils.custom_dialog import show_success
@@ -53,7 +54,7 @@ class EntradaManualUI:
         header_frame.pack(fill='x', padx=6, pady=2)
 
         ctk.CTkLabel(header_frame, text='Nº ALBARÁN:', text_color=self.colors['text'],
-                     font=FONT_TERMINAL).pack(side='left', padx=(0, 6))
+                 font=get_font('label', module=self.module_name)).pack(side='left', padx=(0, 6))
         self.e_num_albaran = ctk.CTkEntry(header_frame, width=100, **default_entry_kw)
         self.e_num_albaran.pack(side='left', padx=(0, 6))
 
@@ -69,13 +70,13 @@ class EntradaManualUI:
         btn_siguiente.pack(side='left', padx=(0, 20))
 
         ctk.CTkLabel(header_frame, text='PROVEEDOR:', text_color=self.colors['text'],
-                     font=FONT_TERMINAL).pack(side='left', padx=(0, 6))
+                 font=get_font('label', module=self.module_name)).pack(side='left', padx=(0, 6))
         self.cb_proveedor = SearchableCombo(header_frame, options=[], placeholder='Buscar proveedor', width=250)
         self.cb_proveedor.pack(side='left', padx=(0, 20))
         self._load_proveedores()
 
         ctk.CTkLabel(header_frame, text='FECHA:', text_color=self.colors['text'],
-                     font=FONT_TERMINAL).pack(side='left', padx=(0, 6))
+                 font=get_font('label', module=self.module_name)).pack(side='left', padx=(0, 6))
         self.e_fecha = ctk.CTkEntry(header_frame, width=120, **default_entry_kw)
         self.e_fecha.pack(side='left')
         self.e_fecha.insert(0, date.today().strftime('%Y-%m-%d'))

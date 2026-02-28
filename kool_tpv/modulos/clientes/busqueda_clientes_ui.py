@@ -67,7 +67,7 @@ class BusquedaClientesUI:
             text_color=self.colors.get('text', COLOR_MATRIX),
             border_width=2,
             border_color=self.colors.get('primary', COLOR_MATRIX),
-            font=get_font('entry', module='clientes')
+            font=get_font('entry', module=self.module_name)
         )
         self.search_entry.pack(fill='x', padx=12, pady=(12, 6))
         self.search_entry.bind('<KeyRelease>', lambda e: self._on_search())
@@ -81,7 +81,7 @@ class BusquedaClientesUI:
             filter_frame,
             text='Filtrar por:',
             text_color=self.colors.get('text', COLOR_MATRIX),
-            font=get_font('label', module='clientes')
+            font=get_font('label', module=self.module_name)
         ).pack(side='left', padx=(0, 12))
 
         # Checkboxes estado

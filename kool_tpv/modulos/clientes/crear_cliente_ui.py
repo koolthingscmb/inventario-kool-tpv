@@ -43,7 +43,7 @@ class CrearClienteUI:
 
         self.cliente_service = ClienteService(db) if db else None
 
-        self.container = ctk.CTkFrame(parent, fg_color=COLOR_BG_TERMINAL)
+        self.container = ctk.CTkFrame(parent, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
 
         # Header
         titulo_text = "> EDITAR_CLIENTE" if cliente_id else "> NUEVO_CLIENTE_SISTEMA"
@@ -56,7 +56,7 @@ class CrearClienteUI:
         self.lbl_titulo.pack(anchor="w", padx=12, pady=(12, 8))
 
         # Main area con scroll
-        self.main_scroll = ctk.CTkScrollableFrame(self.container, fg_color=COLOR_BG_TERMINAL)
+        self.main_scroll = ctk.CTkScrollableFrame(self.container, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
         self.main_scroll.pack(fill='both', expand=True, padx=12, pady=8)
 
         # Grid 8 columnas
@@ -65,7 +65,7 @@ class CrearClienteUI:
 
         lbl_font = get_font('label', module=self.module_name)
         entry_kw = {
-            "fg_color": COLOR_BG_TERMINAL,
+            "fg_color": self.colors.get('background', COLOR_BG_TERMINAL),
             "text_color": self.colors.get('text', COLOR_MATRIX),
             "border_width": 2,
             "border_color": self.colors.get('primary', COLOR_MATRIX),
@@ -80,7 +80,7 @@ class CrearClienteUI:
             self.main_scroll,
             placeholder_text="ID (auto)",
             state='disabled',
-            fg_color=COLOR_BG_TERMINAL,
+            fg_color=self.colors.get('background', COLOR_BG_TERMINAL),
             text_color=self.colors.get('text', "#666666"),
             border_color=self.colors.get('primary', COLOR_MATRIX)
         )

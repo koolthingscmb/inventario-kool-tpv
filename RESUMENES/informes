@@ -1,0 +1,59 @@
+Resumen del módulo: kool_tpv/modulos/informes
+
+- File: kool_tpv/modulos/informes/__init__.py
+  - Inicializador del paquete `informes`. Exporta `InformesView` e
+    Resumen exhaustivo: `kool_tpv/modulos/informes`
+
+    Este documento resume archivo por archivo el paquete `kool_tpv.modulos.informes`.
+
+    Archivo: kool_tpv/modulos/informes/__init__.py
+    - Propósito: inicializador de paquete (docstring breve). Marca el paquete `informes`.
+
+    Archivo: kool_tpv/modulos/informes/informes_service.py
+    - Propósito: capa de servicio enfocada en la generación y agregación de datos para informes.
+    - Responsabilidad principal:
+      - Construir consultas y estructuras agregadas consumibles por la UI (`InformesView`) y por servicios de exportación.
+      - Normalizar resultados (tipos, monetario), agrupar resultados y devolver estructuras serializables (`report_data`) con secciones tipadas (`summary`, `table`, `blocks`).
+    - API pública y métodos importantes:
+      - `get_resumen_ventas_por_rango(fecha_inicio, fecha_fin) -> dict` : devuelve totales agregados (total_tickets, total_ventas, total_base, total_iva, ticket_medio).
+      - `get_ventas_diarias_por_rango(fecha_inicio, fecha_fin) -> list[dict]` : lista de días con totales.
+      - `get_informe_ventas_por_rango(fecha_inicio, fecha_fin) -> dict` : construye `report_data` con `summary` + `table (ventas por día)`.
+      - `get_informe_ventas_por_cajero(fecha_inicio, fecha_fin) -> dict` : devuelve `blocks` por cajero con métricas (tickets, ventas, efectivo/tarjeta, descuentos, ticket medio).
+      - `get_informe_ventas_por_categoria(fecha_inicio, fecha_fin, categorias=None) -> dict` : tabla agregada por categoría (tickets, unidades, total ventas); acepta filtrado por lista de `categorias`.
+      - `get_informe_ventas_por_tipo(fecha_inicio, fecha_fin, tipos=None) -> dict` : similar a categorías pero por `tipo`.
+      - `buscar_categorias_dinamico(texto)`, `buscar_tipos_dinamico(texto)` : helpers para `TagSelector` (devuelven [{'id', 'nombre_display'}]).
+      - `get_informe_stock_por_categoria(categoria_ids=None) -> dict` : report_data con `blocks` por categoría y una `export_table` con filas listas para CSV/analítica.
+      - `get_informe_stock_por_tipo(tipo_ids=None) -> dict` : análogo por tipo.
+    - Detalles de implementación y decisiones técnicas:
+      - Usa `Decimal` (y método `_money`) para normalizar montos a 2 decimales con `ROUND_HALF_UP`, pero en la práctica devuelve floats (conversión explícita) para compatibilidad con UI/serialización.
+      - Todas las consultas usan parámetros `?` para evitar inyección; cuando construye consultas dinámicas con listas (IN), genera placeholders `?` y pasa `params` adecuadamente.
+      - Código defensivo: cada fila puede ser `sqlite3.Row` (dict-like) o `tuple`; el código intenta ambos accesos y continúa ante filas mal formadas.
+      - Salida: `report_data` con metadatos (`title`, `generated_at`, `range`) y `sections` tipadas que la UI renderiza (summary/table/blocks). Las secciones incluyen `money_columns` para formateo en UI.
+    - Observaciones, riesgos y recomendaciones:
+      - Rendimiento: consultas SUM/GROUP BY pueden ser costosas en rangos amplios; considerar paginación o agregaciones precomputadas si los datos crecen mucho.
+      - Tipo monetario: actualmente normaliza a float para salida; si se necesita precisión en exportación, conservar Decimal o strings en el `export_table`.
+      - Tests: recomiendo tests para cada informe usando DB `:memory:` y fixtures (tickets y ticket_lines) para validar agregaciones, agrupados y casos borde (devoluciones, tickets con total 0, tickets con múltiples formas de pago).
+
+    Archivo: kool_tpv/modulos/informes/informes_view.py
+    - Propósito: interfaz de usuario mínima para generar y visualizar informes desde la app.
+    - Comportamiento principal:
+      - Hereda de `BaseModuleView` y monta un generador de informes con filtros: `tipo` (ComboBox), `fecha_inicio` y `fecha_fin` (`DatePickerEntry`), y un `TagSelector` para filtros por categoría/tipo.
+      - Al pulsar `GENERAR` valida filtros (fechas requeridas para informes no-stock) y delega a `InformesService` para obtener `report_data` según el `tipo` seleccionado.
+      - Renderiza `report_data` en un `CTkTextbox` usando `FormatterService` para formatear fechas y precios; soporta secciones `summary`, `table` y `blocks`.
+      - Proporciona exportación: botón `Exportar` que invoca `ExportService` (CSV/PDF) usando el `report_data` ya generado.
+    - Detalles UI/UX y fallbacks:
+      - `TagSelector` se configura dinámicamente: busca categorías o tipos usando los métodos `buscar_*` de `InformesService` cuando el tipo de informe lo requiere.
+      - El `result_textbox` se hace de solo lectura mediante filtrado de teclas para permitir selección/copia pero evitar edición accidental.
+      - La vista pausa el `keyboard_manager` (si existe) al entrar y lo reanuda al destruir para evitar atajos globales interfiriendo en la UI.
+      - El `ExportService` se invoca con el `report_data` ya generado; la exportación maneja CSV y PDF según la extensión seleccionada.
+    - Observaciones y recomendaciones:
+      - Validaciones: la UI valida rango de fechas y previene generación inválida; debería añadirse validación adicional para rangos demasiado amplios y ofrecer feedback (p. ej. advertencia de tiempo de ejecución largo).
+      - Experiencia: para informes pesados, considerar mostrar un spinner o ejecutar la generación en hilo/background para no bloquear la UI.
+      - Tests de interfaz: unit tests limitados posibles (verificar que la selección de tipo configura `TagSelector` correctamente). Tests de integración end-to-end pueden usar DB en memoria y simular clicks.
+
+    Siguientes pasos sugeridos:
+    - Crear pruebas unitarias para `InformesService` usando `db_init.initialize_database(':memory:')` y fixtures de `tickets`/`ticket_lines` para cubrir: ventas por rango, ventas por cajero, ventas por categoría/tipo, stock por categoría/tipo.
+    - Añadir límites/paginación para consultas de `ventas por rango` si los datos crecen (para evitar memoria excesiva al renderizar `ventas_diarias`).
+    - Añadir logs y métricas de tiempo (timing) en `InformesService` para detectar consultas lentas y optimizarlas con índices si es necesario.
+
+    Fin del resumen del paquete `informes`.

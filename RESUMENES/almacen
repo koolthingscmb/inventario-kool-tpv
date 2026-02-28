@@ -1,0 +1,128 @@
+Resumen del paquete `configuracion` (kool_tpv/modulos/configuracion)
+
+Este documento resume archivo por archivo los componentes encontrados en `kool_tpv/modulos/configuracion`.
+
+Archivo: kool_tpv/modulos/configuracion/config_view.py
+- Propósito: Orquestador del módulo `config` (hereda de `BaseModuleView`). Maneja el sidebar/submenus y la navegación hacia las UIs de configuración.
+- Comportamiento principal:
+  - Registra handlers (`show_general`, `show_impresion`, `show_usuario`, `show_fidelizacion`, `show_reset`, etc.) y los asocia con botones definidos en `config/buttons_menu.json`.
+  - Implementa submenus dinámicos para `IMPRESIÓN` y `FIDELIZACIÓN` (lee estructuras JSON y reconstruye el sidebar con acciones específicas).
+  - Protege ciertas acciones tras autenticación de administrador (`show_usuario`, `show_fidelizacion`, `show_reset`) usando `AuthService` y diálogos de password.
+  - Expone métodos de navegación: `show_general`, `show_impresion`, `show_impresora_config`, `show_usuarios`, `show_textos_tickets`, `show_fidelizacion_*`, `show_reset`, `show_config_root`, `show_plantillas`.
+  - Actualiza `breadcrumb_callbacks` para navegación clickeable y reutiliza importaciones perezosas para las UIs.
+- Robustez: uso extensivo de `try/except` para evitar romper la UI por faltas de recursos; logging detallado en fallos.
+- Recomendaciones: probar los flujos de submenu con `buttons_menu.json` real y añadir tests de integración de autenticación para las rutas protegidas.
+
+Archivo: kool_tpv/modulos/configuracion/config_general_ui.py
+- Propósito: UI para parámetros generales y fiscales de la tienda (identidad comercial, IVA, recargo de equivalencia, datos fiscales).
+- Componentes y comportamiento:
+  - Formulario con campos: nombre comercial, web, teléfono, email, nombre fiscal, NIF/CIF, dirección fiscal, IVA general/reducido/superreducido, RE (activación y porcentajes).
+  - Carga inicial de valores desde la tabla `configuracion` (`_load_data`) y mapeo a widgets.
+  - Guardado atómico de todos los campos en `_on_save` usando `BEGIN`/`commit` sobre `self.db.connection` y `INSERT OR REPLACE INTO configuracion`.
+  - Manejo especial de checkbox `re_activo` como valor '1'/'0'.
+- Detalles técnicos:
+  - Usa `load_colors` y `font_loader` para coherencia visual con el resto de la app.
+  - Implementa rollback en caso de error y muestra diálogos (success/error).
+- Recomendaciones: validar formatos (emails, NIFs, porcentajes numéricos) antes del persistido; extraer la lista de claves a una constante compartida para evitar duplicación.
+
+Archivo: kool_tpv/modulos/configuracion/configuracion_service.py
+- Propósito: placeholder (archivo presente pero sin implementación). Se espera que contenga utilidades para lectura/escritura centralizada de parámetros y lógica de negocio relacionada con configuración.
+- Recomendación: implementar un wrapper que use `Database.transaction()` para operaciones atómicas sobre `configuracion`, y exponer API como `get(key, default)`, `set(key, value)`, `get_int`, `get_decimal`, `get_bool`.
+
+Archivo: kool_tpv/modulos/configuracion/reset_ui.py
+- Propósito: UI de herramientas de reset/limpieza (solo desarrollo). Presenta acciones destructivas: reset de tesoro, borrado de tickets, borrar productos, borrar cierres, reset contadores y reset completo.
+- Comportamiento principal:
+  - Ofrece selectores (`TagSelector`) para seleccionar clientes/productos y botones claros para operaciones selectivas o globales.
+  - Botones críticos ejecutan confirmaciones anidadas y llaman a `ResetService` para las operaciones.
+  - Diseñado para uso en entorno de pruebas; la UI advierte visualmente del peligro.
+  - Incluye resets de contadores fiscales (tickets/cierres/albaranes/facturas) y un `RESET COMPLETO` que borra múltiples tablas y restablece contadores.
+- Recomendaciones: asegurar protección por password en `ConfigView.show_reset` (ya aplicada) y añadir logs/auditoría para operaciones destructivas incluso en staging.
+
+Archivo: kool_tpv/modulos/configuracion/reset_service.py
+- Propósito: Lógica de backend para operaciones destructivas/administrativas expuestas desde `ResetUI`.
+- Funcionalidad principal:
+  - `reset_tesoro_clientes(cliente_ids=None)`: resetea puntos (selectivo o global).
+  - `borrar_tickets(ticket_nums=None)`, `borrar_cierres()`, `borrar_albaranes(albaran_ids=None)`, `borrar_productos(producto_ids)`.
+  - Reseteo de contadores: `reset_ticket_counter`, `reset_cierre_counter`, `reset_albaran_counter`, `reset_factura_counter` (inserta valores en `configuracion`).
+  - `borrar_facturas(factura_ids=None)` y `reset_completo()` que ejecuta borrados masivos y resetea contadores y tesoro clientes.
+- Implementación:
+  - Usa transacciones (`BEGIN` / `commit` / rollback en excepción) sobre `self.db.connection` y logging de advertencia para operaciones globales.
+  - Devuelve booleano indicando éxito/fracaso.
+- Riesgos y recomendaciones:
+  - Estas operaciones son irreversibles; imponer doble confirmación, registro de usuario que ejecuta la acción y exportación de backup automático antes de ejecutar `reset_completo`.
+  - Añadir tests en entorno controlado y proteger la ejecución por entorno (solo dev/staging).
+
+Carpetas internas (alto nivel):
+- `impresion/`: contiene UIs/servicios relacionados con impresión (p. ej. `impresora_ui`, `textos_ui`, plantillas). `ConfigView` integra este submenu dinámicamente.
+- `fidelizacion/`: contiene UIs para `fidelizacion_general`, `fidelizacion_categorias`, `fidelizacion_tipos`, `fidelizacion_productos`, `fidelizacion_niveles`. `ConfigView` protege acceso con password.
+- `usuarios/`: UI/servicios para gestión de usuarios administradores (acceso protegido).
+
+Observaciones transversales y recomendaciones generales para `configuracion`:
+- Seguridad: el módulo ya protege rutas críticas con `AuthService` y diálogos de password; recomendar auditoría adicional (quién ejecutó qué y cuándo) y logs estructurados para acciones destructivas.
+- Cohesión: `config_general_ui` persiste directamente en la tabla `configuracion`; sería útil disponer de `configuracion_service` para centralizar lógica y validaciones.
+- Transaccionalidad: las UIs críticas usan `BEGIN`/`commit`; preferir la abstracción `Database.transaction()` para consistencia y tests.
+- Tests: crear tests que verifiquen guardado/recuperación de claves de `configuracion`, y tests de `ResetService` en base de datos `:memory:` con fixtures que simulen datos a borrar.
+
+Siguientes pasos sugeridos:
+- ¿Quieres que amplíe el análisis leyendo los archivos dentro de `impresion/`, `fidelizacion/` y `usuarios/` para añadir resúmenes por archivo? Puedo hacerlo y luego actualizar `RESUMENES/almacen` con la versión extendida.
+- Puedo implementar `configuracion_service` minimal que normalice get/set y correr tests rápidos con `:memory:`.
+
+Fin del resumen del paquete `configuracion`.
+Resumen del módulo: kool_tpv/modulos/almacen
+
+- File: kool_tpv/modulos/almacen/almacen_view.py
+  - Contiene `AlmacenView` (extiende BaseModuleView). Mapea acciones del módulo
+    a handlers que muestran distintas UIs del módulo (productos, categorias,
+    proveedores, albaranes, etc.). Gestiona breadcrumb y delega la lógica de
+    negocio a servicios (MaestroService / ProductoService).
+
+- File: kool_tpv/modulos/almacen/services/maestro_service.py
+  - `MaestroService`: fachada que delega operaciones CRUD a servicios de DB
+    (principalmente ProductoService). Provee helpers genéricos para tablas
+    permitidas y métodos reutilizables para listados, guardado y actualización.
+
+- File: kool_tpv/modulos/almacen/ui/albaranes_ui.py
+  - `AlbaranesUI`: interfaz para gestionar albaranes (entrada manual, consulta,
+    devoluciones). Crea botones desde la configuración, abre modales y llama a
+    `AlbaranService` para persistencia y lógica de stock/IVA.
+
+- File: kool_tpv/modulos/almacen/ui/busqueda_ui.py
+  - `BusquedaUI`: formulario de búsqueda y filtros para productos. Implementa
+    paginación y carga incremental usando `ProductoService.buscar_productos_paginados`.
+    Presenta resultados en un NavList / tarjetas y expone callbacks para selección.
+
+- File: kool_tpv/modulos/almacen/ui/categorias_ui.py
+  - `CategoriasUI`: CRUD para categorías con UI basada en chips. Usa
+    `CategoriaService` para obtener, crear, actualizar y eliminar categorías.
+
+- File: kool_tpv/modulos/almacen/ui/crear_producto_ui.py
+  - `CrearProductoUI`: editor de producto con pestañas (GENERAL / SHOPIFY), campos
+    de precios, imágenes y validaciones. Valida entradas y guarda en transacción
+    (crea/actualiza producto y precios relacionados) a través de `ProductoService`.
+  - Incluye `SearchableCombo`, un widget para seleccionar valores con búsqueda.
+
+- File: kool_tpv/modulos/almacen/ui/mapeo_csv_ui.py
+  - `MapeoCsvUI`: editor JSON para configurar mapeo CSV por proveedor. Valida
+    JSON y delega almacenamiento a `ProveedorService.save_mapeo_csv`.
+
+- File: kool_tpv/modulos/almacen/ui/Productos/cargar_producto.py
+  - `CargarProductoUI`: utilitario para cargar un producto completo desde la DB
+    (`get_producto_completo`) y rellenar la vista `CrearProductoUI` con los datos.
+
+- File: kool_tpv/modulos/almacen/ui/proveedores_ui.py
+  - `ProveedoresUI`: manejo CRUD de proveedores con chips y formularios. Permite
+    abrir el editor de mapeo CSV y usar `ProveedorService` para persistencia.
+
+- File: kool_tpv/modulos/almacen/ui/tipos_ui.py
+  - `TiposUI`: UI de gestión de tipos (grid estilo "Matrix"). Listado en chips,
+    formulario para crear/editar/borrar; usa `TipoService` para operaciones DB.
+
+- File: kool_tpv/modulos/almacen/__init__.py
+  - Inicializador de paquete (contenido mínimo). Expone el módulo `almacen`.
+
+Notas:
+- La mayoría de UIs reutilizan loaders de configuración (colores, botones)
+  y delegan la lógica de negocio a los servicios bajo `kool_tpv.base_datos`.
+- Las operaciones de guardado importantes (producto, albaranes, ticketes)
+  se realizan dentro de transacciones y actualizan stock/ventas/puntos según
+  la lógica de los servicios.

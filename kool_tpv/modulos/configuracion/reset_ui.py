@@ -155,7 +155,7 @@ class ResetUI:
         if not self.db or not query or len(query) < 2:
             return []
         try:
-            sql = "SELECT id, nombre FROM clientes WHERE nombre LIKE ? OR nif LIKE ? ORDER BY nombre LIMIT 20"
+            sql = "SELECT id, nombre FROM clientes WHERE nombre LIKE ? OR dni LIKE ? ORDER BY nombre LIMIT 20"
             rows = self.db.fetch_all(sql, (f'%{query}%', f'%{query}%'))
             results = []
             for row in rows:

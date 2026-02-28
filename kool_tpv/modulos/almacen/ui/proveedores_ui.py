@@ -6,7 +6,8 @@ import tkinter as tk
 import customtkinter as ctk
 
 from kool_tpv.base_datos.proveedor_service import ProveedorService
-from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL, FONT_BUTTONS
+from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
+from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.config_loader import create_action_button
 
 
@@ -42,7 +43,7 @@ class ProveedoresUI:
         for c in range(8):
             self.grid_frame.grid_columnconfigure(c, weight=1)
 
-        lbl_font = FONT_TERMINAL
+        lbl_font = get_font('label', module=self.module_name)
         entry_kw = default_entry_kw.copy()
         entry_kw.update({'border_width': 2})
 

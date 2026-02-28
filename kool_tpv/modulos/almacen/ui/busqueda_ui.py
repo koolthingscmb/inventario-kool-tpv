@@ -8,7 +8,7 @@ import customtkinter as ctk
 import tkinter as tk
 
 from kool_tpv.base_datos.producto_service import ProductoService
-from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL
+from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.widgets.nav_list import NavList
 
@@ -23,9 +23,10 @@ class BusquedaUI:
         try:
             self.colors = load_colors(module_name)
         except Exception:
-            self.colors = {'background': COLOR_BG_TERMINAL, 'text': COLOR_MATRIX, 'border': COLOR_MATRIX, 'primary': COLOR_MATRIX, 'secondary': COLOR_MATRIX, 'light': COLOR_MATRIX, 'accent': COLOR_MATRIX, 'error': '#FF0000', 'warning': '#FFFF00'}
+            self.colors = {'background': '#1a1a1a', 'text': '#00FF00', 'border': '#00FF00', 'primary': '#00FF00', 'secondary': '#00FF00', 'light': '#00AA00', 'accent': '#00FF00', 'error': '#FF0000', 'warning': '#FFFF00'}
 
-        self.container = ctk.CTkFrame(self.parent, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
+        self.container = ctk.CTkFrame(self.parent, fg_color=self.colors.get('background', '#1a1a1a'))
+        self.module_name = module_name
         self.keyboard_mgr = keyboard_manager
 
         # Breadcrumb handled by BaseModuleView (owner)
@@ -37,10 +38,10 @@ class BusquedaUI:
             textvariable=self.search_var,
             placeholder_text='Buscar...',
             height=36,
-            fg_color=self.colors.get('background', COLOR_BG_TERMINAL),
-            text_color=self.colors.get('text', COLOR_MATRIX),
+            fg_color=self.colors.get('background', '#1a1a1a'),
+            text_color=self.colors.get('text', '#00FF00'),
             border_width=2,
-            border_color=self.colors.get('border', COLOR_MATRIX),
+            border_color=self.colors.get('border', '#00FF00'),
         )
         self.search_entry.pack(fill='x', padx=12, pady=(12, 6))
         self.search_entry.bind('<KeyRelease>', lambda e: self._on_search())
@@ -51,14 +52,14 @@ class BusquedaUI:
         filter_frame.pack_propagate(False)
 
         # Label "Filtrar por:"
-        ctk.CTkLabel(filter_frame, text='Filtrar por:', text_color=self.colors.get('text', COLOR_MATRIX), font=FONT_TERMINAL).pack(side='left', padx=(0, 12))
+        ctk.CTkLabel(filter_frame, text='Filtrar por:', text_color=self.colors.get('text', '#00FF00'), font=get_font('label', module=self.module_name)).pack(side='left', padx=(0, 12))
 
         # Cargar opciones
         categorias = [{'id': None, 'nombre': 'Todas'}] + (self.service.listar_categorias() or [])
         tipos = [{'id': None, 'nombre': 'Todos'}] + (self.service.listar_tipos() or [])
 
         # Label Categorías
-        ctk.CTkLabel(filter_frame, text='Categorías:', text_color=self.colors.get('text', COLOR_MATRIX), font=FONT_TERMINAL).pack(side='left', padx=(0, 4))
+        ctk.CTkLabel(filter_frame, text='Categorías:', text_color=self.colors.get('text', '#00FF00'), font=get_font('label', module=self.module_name)).pack(side='left', padx=(0, 4))
         self.cat_combo = SearchableCombo(
             filter_frame,
             options=[(c['id'], c['nombre']) for c in categorias],
@@ -71,7 +72,7 @@ class BusquedaUI:
         self.cat_combo.pack(side='left', padx=(0, 12))
 
         # Label Tipos
-        ctk.CTkLabel(filter_frame, text='Tipos:', text_color=self.colors.get('text', COLOR_MATRIX), font=FONT_TERMINAL).pack(side='left', padx=(0, 4))
+        ctk.CTkLabel(filter_frame, text='Tipos:', text_color=self.colors.get('text', '#00FF00'), font=get_font('label', module=self.module_name)).pack(side='left', padx=(0, 4))
         self.tipo_combo = SearchableCombo(
             filter_frame,
             options=[(t['id'], t['nombre']) for t in tipos],
@@ -94,8 +95,8 @@ class BusquedaUI:
             estado_frame,
             text='Activos',
             variable=self.check_activo,
-            text_color=self.colors.get('text', COLOR_MATRIX),
-            fg_color=self.colors.get('primary', COLOR_MATRIX),
+            text_color=self.colors.get('text', '#00FF00'),
+            fg_color=self.colors.get('primary', '#00FF00'),
             hover_color=self.colors.get('light', '#00AA00'),
             command=self._on_search,
         ).pack(side='left', padx=4)
@@ -103,8 +104,8 @@ class BusquedaUI:
             estado_frame,
             text='Sin Stock',
             variable=self.check_sin_stock,
-            text_color=self.colors.get('text', COLOR_MATRIX),
-            fg_color=self.colors.get('secondary', COLOR_MATRIX),
+            text_color=self.colors.get('text', '#00FF00'),
+            fg_color=self.colors.get('secondary', '#00FF00'),
             hover_color=self.colors.get('light', '#00AA00'),
             command=self._on_search,
         ).pack(side='left', padx=4)
@@ -112,8 +113,8 @@ class BusquedaUI:
             estado_frame,
             text='Archivados',
             variable=self.check_archivado,
-            text_color=self.colors.get('text', COLOR_MATRIX),
-            fg_color=self.colors.get('accent', COLOR_MATRIX),
+            text_color=self.colors.get('text', '#00FF00'),
+            fg_color=self.colors.get('accent', '#00FF00'),
             hover_color=self.colors.get('light', '#00AA00'),
             command=self._on_search,
         ).pack(side='left', padx=4)

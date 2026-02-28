@@ -32,6 +32,14 @@ class UIClientes:
         self.on_cliente_selected = on_cliente_selected
         self._visible = False
 
+        # module name for colors/fonts
+        self.module_name = 'clientes'
+        try:
+            from kool_tpv.utils.config_loader import load_colors
+            self.colors = load_colors(self.module_name)
+        except Exception:
+            self.colors = {}
+
         # UI configurable defaults
         cfg = {
             'top_height': 130,
@@ -116,7 +124,7 @@ class UIClientes:
         # Create overlay on the root (or action_panel if root missing)
         parent_for_overlay = self.root if self.root is not None else self.action_panel
         try:
-            self.overlay = ctk.CTkFrame(parent_for_overlay, fg_color="#393E46")
+            self.overlay = ctk.CTkFrame(parent_for_overlay, fg_color=self.colors.get('background', "#393E46"))
 
             # create global close button (same import pattern as BuscarArticuloPanel)
             from kool_tpv.utils.global_buttons import create_global_close_button
@@ -136,8 +144,8 @@ class UIClientes:
             self.top_buttons.pack_propagate(False)
 
             # Header: large title and horizontal control row (search + accept + add)
-            header_font = ("Roboto", 34, "bold")
-            self.header_label = ctk.CTkLabel(self.top_buttons, text="CLIENTE", font=header_font)
+            from kool_tpv.utils.font_loader import get_font
+            self.header_label = ctk.CTkLabel(self.top_buttons, text="CLIENTE", font=get_font('title', module=self.module_name))
             self.header_label.pack(side="top", anchor="w", padx=(0, 12), pady=(6, 0))
 
             # Search controls: entry and action buttons aligned in a single row

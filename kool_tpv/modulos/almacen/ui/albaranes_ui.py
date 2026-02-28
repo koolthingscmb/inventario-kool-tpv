@@ -5,8 +5,7 @@ import customtkinter as ctk
 
 from kool_tpv.base_datos.albaran_service import AlbaranService
 from kool_tpv.base_datos.proveedor_service import ProveedorService
-from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL
-from kool_tpv.utils.config_loader import create_action_button
+from kool_tpv.utils.config_loader import create_action_button, load_colors
 
 
 
@@ -16,10 +15,15 @@ class AlbaranesUI:
         self.parent = parent
         self.db = db
         self.owner = owner
+        self.module_name = 'almacen'
+        try:
+            self.colors = load_colors(self.module_name)
+        except Exception:
+            self.colors = {'background': '#1a1a1a', 'text': '#00FF00'}
         self.albaran_service = AlbaranService(db)
         self.proveedor_service = ProveedorService(db)
 
-        self.container = ctk.CTkFrame(self.parent, fg_color=COLOR_BG_TERMINAL)
+        self.container = ctk.CTkFrame(self.parent, fg_color=self.colors.get('background', '#1a1a1a'))
 
         # Botones superiores
         btn_frame = ctk.CTkFrame(self.container, fg_color='transparent', height=50)
@@ -47,7 +51,7 @@ class AlbaranesUI:
             btn.pack(side='left', padx=6)
 
         # Área central (cambia según botón)
-        self.central_area = ctk.CTkFrame(self.container, fg_color=COLOR_BG_TERMINAL)
+        self.central_area = ctk.CTkFrame(self.container, fg_color=self.colors.get('background', '#1a1a1a'))
         self.central_area.pack(fill='both', expand=True, padx=12, pady=6)
 
         # Estado inicial vacío

@@ -27,6 +27,7 @@ from kool_tpv.utils.utils import (
 
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.config_loader import create_action_button
+from kool_tpv.utils.font_loader import get_font
 
 
 
@@ -52,7 +53,7 @@ class CrearProductoUI:
         self.shopify_frame = ctk.CTkFrame(self.container, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
         self.shopify_frame.pack(fill='both', expand=True, padx=12, pady=(0, 8))
         # Common styles
-        lbl_font = FONT_TERMINAL
+        lbl_font = get_font('label', module=self.module_name)
         entry_kwargs = {"fg_color": self.colors.get('background', COLOR_BG_TERMINAL), "text_color": self.colors['text'], "border_width": 2, "border_color": self.colors.get('border', self.colors.get('primary', COLOR_MATRIX)), "corner_radius": 4}
 
         # Build GENERAL frame with 8-column grid (7 filas requeridas)

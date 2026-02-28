@@ -30,10 +30,11 @@ class ClientesTopsUI(ctk.CTkFrame):
         self.db = db
         self.owner = owner
         self.keyboard_manager = keyboard_manager
+        self.module_name = 'clientes'
 
         # Colores por módulo
         try:
-            self.colors = load_colors('clientes')
+            self.colors = load_colors(self.module_name)
         except Exception:
             self.colors = {}
 
@@ -45,7 +46,7 @@ class ClientesTopsUI(ctk.CTkFrame):
             self.title_label = ctk.CTkLabel(
                 self.header_frame,
                 text='TOP CLIENTES',
-                font=get_font('title', module='clientes'),
+                font=get_font('title', module=self.module_name),
                 text_color=self.colors.get('text', '#FFFFFF')
             )
             self.title_label.pack(anchor='w', padx=6, pady=6)
@@ -75,7 +76,7 @@ class ClientesTopsUI(ctk.CTkFrame):
                         hover_color=_primary_btn.get('hover', '#0091c2'),
                         text_color=_primary_btn.get('text', self.colors.get('text', '#FFFFFF')),
                         command=self._on_general,
-                        font=get_font('button', module='clientes')
+                        font=get_font('button', module=self.module_name)
                     )
                     btn_general.pack(side='left', padx=4)
 
@@ -91,7 +92,7 @@ class ClientesTopsUI(ctk.CTkFrame):
                         hover_color=_accent_btn.get('hover', '#8e44ad'),
                         text_color=_accent_btn.get('text', self.colors.get('text', '#FFFFFF')),
                         command=self._on_tesoro_actual,
-                        font=get_font('button', module='clientes')
+                        font=get_font('button', module=self.module_name)
                     )
                     btn_tesoro_actual.pack(side='left', padx=4)
 
@@ -104,7 +105,7 @@ class ClientesTopsUI(ctk.CTkFrame):
                         hover_color=_secondary_btn.get('hover', '#444444'),
                         text_color=_secondary_btn.get('text', self.colors.get('text', '#FFFFFF')),
                         command=self._on_tesoro_gastado,
-                        font=get_font('button', module='clientes')
+                        font=get_font('button', module=self.module_name)
                     )
                     btn_tesoro_gastado.pack(side='left', padx=4)
 
@@ -131,36 +132,36 @@ class ClientesTopsUI(ctk.CTkFrame):
                 self.search_frame.pack(fill='x', padx=6, pady=(4, 6))
                 try:
                     # Categoria
-                    lbl_cat = ctk.CTkLabel(self.search_frame, text='Categoría:', font=get_font('label', module='clientes'), text_color=self.colors.get('text', '#FFFFFF'))
+                    lbl_cat = ctk.CTkLabel(self.search_frame, text='Categoría:', font=get_font('label', module=self.module_name), text_color=self.colors.get('text', '#FFFFFF'))
                     lbl_cat.pack(side='left', padx=(0, 6))
                     self.cb_categoria = SearchableCombo(
                         self.search_frame,
                         placeholder='Buscar categoría...',
-                        module_name='clientes',
+                        module_name=self.module_name,
                         width=220,
                         command=lambda value: self._on_categoria_selected()
                     )
                     self.cb_categoria.pack(side='left', padx=(0, 8))
 
                     # Tipo
-                    lbl_tipo = ctk.CTkLabel(self.search_frame, text='Tipo:', font=get_font('label', module='clientes'), text_color=self.colors.get('text', '#FFFFFF'))
+                    lbl_tipo = ctk.CTkLabel(self.search_frame, text='Tipo:', font=get_font('label', module=self.module_name), text_color=self.colors.get('text', '#FFFFFF'))
                     lbl_tipo.pack(side='left', padx=(0, 6))
                     self.cb_tipo = SearchableCombo(
                         self.search_frame,
                         placeholder='Buscar tipo...',
-                        module_name='clientes',
+                        module_name=self.module_name,
                         width=220,
                         command=lambda value: self._on_tipo_selected()
                     )
                     self.cb_tipo.pack(side='left', padx=(0, 8))
 
                     # Producto (principal)
-                    lbl_prod = ctk.CTkLabel(self.search_frame, text='Producto:', font=get_font('label', module='clientes'), text_color=self.colors.get('text', '#FFFFFF'))
+                    lbl_prod = ctk.CTkLabel(self.search_frame, text='Producto:', font=get_font('label', module=self.module_name), text_color=self.colors.get('text', '#FFFFFF'))
                     lbl_prod.pack(side='left', padx=(0, 6))
                     self.search_combo = SearchableCombo(
                         self.search_frame,
                         placeholder='Buscar producto...',
-                        module_name='clientes',
+                        module_name=self.module_name,
                         width=420,
                         command=lambda value: self._on_producto_selected()
                     )
@@ -196,17 +197,13 @@ class ClientesTopsUI(ctk.CTkFrame):
 
             # on_double_click: abrir ficha de cliente en el owner si existe
             def _on_double_click(data):
-                print("DOBLE CLICK DATA:", data)
                 if self.owner:
-                    print("OWNER OK")
-                    print("CLIENTE_ID:", data.get("cliente_id"))
                     try:
                         self.owner.show_editar_cliente(data.get("cliente_id"))
-                    except Exception as e:
-                        print("ERROR EN show_editar_cliente:", e)
+                    except Exception:
                         raise
 
-            self.nav_list = NavList(self, columns=columns, module_name='clientes', keyboard_manager=self.keyboard_manager, on_double_click=_on_double_click)
+            self.nav_list = NavList(self, columns=columns, module_name=self.module_name, keyboard_manager=self.keyboard_manager, on_double_click=_on_double_click)
             self.nav_list.pack(fill='both', expand=True, padx=12, pady=6)
 
             # Cargar datos

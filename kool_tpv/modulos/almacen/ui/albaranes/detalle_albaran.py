@@ -7,7 +7,8 @@ import customtkinter as ctk
 
 from kool_tpv.base_datos.albaran_service import AlbaranService
 from kool_tpv.base_datos.proveedor_service import ProveedorService
-from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL
+from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
+from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.widgets.nav_list import NavList
 from kool_tpv.utils.custom_dialog import show_success
@@ -35,28 +36,28 @@ class DetalleAlbaranUI:
         self.albaran_service = AlbaranService(db)
         self.proveedor_service = ProveedorService(db)
 
-        self.container = ctk.CTkFrame(parent, fg_color=COLOR_BG_TERMINAL)
+        self.container = ctk.CTkFrame(parent, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
 
         # Header READONLY
         header_frame = ctk.CTkFrame(self.container, fg_color='transparent')
         header_frame.pack(fill='x', padx=6, pady=2)
 
         ctk.CTkLabel(header_frame, text='Nº ALBARÁN:', text_color=self.colors['text'],
-                     font=FONT_TERMINAL).pack(side='left', padx=(0, 6))
+                 font=get_font('label', module=self.module_name)).pack(side='left', padx=(0, 6))
         self.e_num_albaran = ctk.CTkEntry(header_frame, width=100, fg_color='#000000',
                          text_color=self.colors['text'], border_color=self.colors['primary'],
                          state='readonly')
         self.e_num_albaran.pack(side='left', padx=(0, 20))
 
         ctk.CTkLabel(header_frame, text='PROVEEDOR:', text_color=self.colors['text'],
-                     font=FONT_TERMINAL).pack(side='left', padx=(0, 6))
+                 font=get_font('label', module=self.module_name)).pack(side='left', padx=(0, 6))
         self.e_proveedor = ctk.CTkEntry(header_frame, width=250, fg_color='#000000',
                         text_color=self.colors['text'], border_color=self.colors['primary'],
                         state='readonly')
         self.e_proveedor.pack(side='left', padx=(0, 20))
 
         ctk.CTkLabel(header_frame, text='FECHA:', text_color=self.colors['text'],
-                     font=FONT_TERMINAL).pack(side='left', padx=(0, 6))
+                 font=get_font('label', module=self.module_name)).pack(side='left', padx=(0, 6))
         self.e_fecha = ctk.CTkEntry(header_frame, width=120, fg_color='#000000',
                         text_color=self.colors['text'], border_color=self.colors['primary'],
                         state='readonly')

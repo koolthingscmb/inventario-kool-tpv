@@ -3,7 +3,8 @@ import logging
 import json
 import customtkinter as ctk
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
-from kool_tpv.utils.config_loader import create_action_button
+from kool_tpv.utils.config_loader import create_action_button, load_colors
+from kool_tpv.utils.font_loader import get_font
 from kool_tpv.base_datos.proveedor_service import ProveedorService
 from kool_tpv.utils.custom_dialog import show_error, show_success
 
@@ -22,7 +23,12 @@ class MapeoCsvUI:
         self.proveedor_service = ProveedorService(db)
         self.mapeo_original = None
 
-        self.container = ctk.CTkFrame(parent, fg_color=COLOR_BG_TERMINAL)
+        try:
+            self.colors = load_colors('almacen')
+        except Exception:
+            self.colors = {'text': COLOR_MATRIX, 'background': COLOR_BG_TERMINAL}
+
+        self.container = ctk.CTkFrame(parent, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
 
         # Header: Tutorial en 2 columnas
         tutorial_frame = ctk.CTkFrame(self.container, fg_color='#1a1a1a', corner_radius=8)
@@ -102,7 +108,7 @@ class MapeoCsvUI:
             self.container,
             text=f'PROVEEDOR: {self.proveedor_nombre}',
             font=('Courier New', 14, 'bold'),
-            text_color=COLOR_MATRIX
+            text_color=self.colors.get('text', COLOR_MATRIX)
         )
         prov_label.pack(pady=(6, 6), padx=12, anchor='w')
 

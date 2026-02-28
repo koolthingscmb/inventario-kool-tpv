@@ -1,4 +1,16 @@
-Resumen carpeta: kool_tpv/config
+Resumen exhaustivo: carpeta `kool_tpv/config`
+
+Este documento resume cada archivo de configuración presente en `kool_tpv/config`, describe su estructura, claves relevantes, cómo se usa desde la aplicación y recomendaciones.
+
+1) `buttons_actions_config.json`
+- Propósito: definición centralizada de estilos y propiedades reutilizables para botones de acciones (generalmente en formularios y sub-vistas).
+- Estructura y contenido:
+  - Es un objeto cuyo primer nivel son identificadores de acción (`guardar`, `mostrar`, `sincronizar`, `cancelar`, `nuevo_limpiar`, etc.).
+  - Cada entrada contiene propiedades visuales y de comportamiento usadas por fábricas de botones:
+    - `text`: texto a mostrar
+    - `fg_color`, `hover_color`, `text_color`, `border_color`, `border_width`
+    - `corner_radius`, `width`, `height`
+    - `font`: lista/tupla con `[family, size, weight?]` (ej. `[Resumen carpeta: kool_tpv/config
 
 - kool_tpv/config/buttons_actions_config.json: Definición de estilos y propiedades para botones de acción reutilizables (guardar, sincronizar, cancelar, imprimir, importar, etc.). Cada entrada contiene texto, colores (`fg_color`, `hover_color`, `text_color`), dimensiones (`width`, `height`), `font` y estado (`normal`/`disabled`). Usado para construir botones de acciones en vistas CRUD y formularios.
 
