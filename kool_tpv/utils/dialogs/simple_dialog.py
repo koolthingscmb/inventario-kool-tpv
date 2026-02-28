@@ -210,12 +210,12 @@ class SimpleDialog(BaseDialog):
         """Configurar bindings de teclado."""
         if self.confirm:
             # Modo confirmación: Escape=Cancelar, Enter=Aceptar
-            self.bind('&lt;Escape&gt;', lambda e: self._on_cancel())
-            self.bind('&lt;Return&gt;', lambda e: self._on_accept())
+            self.bind('<Escape>', lambda e: self._on_cancel())
+            self.bind('<Return>', lambda e: self._on_accept())
         else:
             # Modo simple: ambas teclas cierran
-            self.bind('&lt;Escape&gt;', lambda e: self._on_close())
-            self.bind('&lt;Return&gt;', lambda e: self._on_close())
+            self.bind('<Escape>', lambda e: self._on_close())
+            self.bind('<Return>', lambda e: self._on_close())
 
     def _on_close(self):
         """Cerrar (botón único, retorna True)."""
