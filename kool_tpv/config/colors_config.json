@@ -1,5 +1,11 @@
 {
   "global": {
+    "dialog_bg": "#000000",
+    "dialog_text": "#00FF00",
+    "success_hover": "#27ae60",
+    "error_hover": "#c0392b",
+    "warning_hover": "#d68910",
+    "info_hover": "#2980b9",
     "bg_terminal": "#000000",
     "background": "#000000",
     "bg_sidebar": "#1a1a1a",

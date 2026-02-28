@@ -1,0 +1,45 @@
+{
+  "global": {
+    "width": 700,
+    "height": 500,
+    "border_width": 4,
+    "corner_radius": 0,
+    "bg_color_key": "dialog_bg",
+    "icon_size": 120,
+    "title_font": "title",
+    "message_font": "subtitle",
+    "padding": 30
+  },
+  "types": {
+    "success": {
+      "icon": "dialog_success.png",
+      "border_color_key": "success",
+      "title_color_key": "success"
+    },
+    "error": {
+      "icon": "dialog_error.png",
+      "border_color_key": "error",
+      "title_color_key": "error"
+    },
+    "warning": {
+      "icon": "dialog_warning.png",
+      "border_color_key": "warning",
+      "title_color_key": "warning"
+    },
+    "info": {
+      "icon": "dialog_info.png",
+      "border_color_key": "info",
+      "title_color_key": "info"
+    },
+    "tesoro": {
+      "icon": "dialog_tesoro.png",
+      "border_color_key": "accent",
+      "title_color_key": "accent"
+    },
+    "password": {
+      "icon": "dialog_info.png",
+      "border_color_key": "primary",
+      "title_color_key": "primary"
+    }
+  }
+}
