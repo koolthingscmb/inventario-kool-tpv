@@ -1,0 +1,41 @@
+Resumen del módulo: kool_tpv/modulos/configuracion
+
+- File: kool_tpv/modulos/configuracion/config_view.py
+  - `ConfigView`: Orquestador del módulo `config`. Carga el menú desde
+    `config/buttons_menu.json`, enlaza botones a handlers y expone vistas
+    para `GENERAL`, `IMPRESIÓN`, `USUARIO`, `FIDELIZACIÓN`, `IMPRESORA`,
+    `TEXTOS TICKETS` y `PLANTILLAS`. Implementa comprobación de password
+    para acciones administrativas y utilidades para recargar sidebars.
+
+- File: kool_tpv/modulos/configuracion/config_general_ui.py
+  - `ConfigGeneralUI`: UI para parámetros generales y fiscales (nombre
+    comercial, web, teléfono, email, IVA y recargo de equivalencia, datos
+    fiscales). Lee/guarda valores en la tabla `configuracion` y muestra
+    controles con validación/rollback en transacción.
+
+- File: kool_tpv/modulos/configuracion/configuracion_service.py
+  - Placeholder para lógica de acceso/abstracción de la tabla `configuracion`.
+    Actualmente vacío (comentario), su intención es centralizar lecturas/escrituras
+    de ajustes en el futuro.
+
+- File: kool_tpv/modulos/configuracion/reset_service.py
+  - Placeholder para utilidades de reset / restauración de tablas o datos.
+
+- File: kool_tpv/modulos/configuracion/__init__.py
+  - Inicializador de paquete (docstring breve).
+
+- File: kool_tpv/modulos/configuracion/impresion/impresora_ui.py
+  - `ImpresoraUI`: Interfaz para seleccionar impresora local, configurar ancho
+    de papel (58/80mm), probar impresión (intenta `win32print` en Windows o
+    `lpstat` en Unix) y guardar `printer_name`/`printer_width` en tabla
+    `configuracion`.
+
+- File: kool_tpv/modulos/configuracion/impresion/textos_ui.py
+  - Placeholder para la UI de textos de tickets (`TEXTOS TICKETS`).
+
+Notas:
+- `ConfigGeneralUI` y `ImpresoraUI` son las piezas con funcionalidad real: ambas
+  leen/escriben en la tabla `configuracion` y usan transacciones para guardar.
+- `ConfigView` gestiona navegación y protección por contraseña para acciones
+  sensibles (usuarios, fidelización). El resto de módulos son stubs/placeholders
+  listos para implementación posterior.

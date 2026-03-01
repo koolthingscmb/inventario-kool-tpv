@@ -1,0 +1,34 @@
+Resumen del módulo: kool_tpv/modulos/informes
+
+- File: kool_tpv/modulos/informes/__init__.py
+  - Inicializador del paquete `informes`. Exporta `InformesView` e
+    `InformesService` para consumo por la aplicación.
+
+- File: kool_tpv/modulos/informes/informes_view.py
+  - `InformesView`: vista principal del módulo Informes (extiende `BaseModuleView`).
+    Provee un generador de informes UI: selección de tipo (ventas por rango,
+    cajero, categoría, tipo; stock por categoría/tipo), pickers de fecha,
+    `TagSelector` para filtros y área de resultado (CTkTextbox). Llama a
+    `InformesService` para obtener datos, renderiza el informe y permite
+    exportar mediante botones configurados.
+
+- File: kool_tpv/modulos/informes/informes_service.py
+  - `InformesService`: capa de servicio que implementa consultas y cálculos
+    para informes. Métodos principales:
+    - `get_resumen_ventas_por_rango`, `get_ventas_diarias_por_rango`,
+      `get_informe_ventas_por_rango` (estructura lista para exportación).
+    - `get_informe_ventas_por_cajero`, `get_informe_ventas_por_categoria`,
+      `get_informe_ventas_por_tipo` (agrupaciones y normalización monetaria).
+    - `get_informe_stock_por_categoria`, `get_informe_stock_por_tipo` (agrupan
+      productos por categoría/tipo y construyen `blocks` y tablas de exportación).
+    - Utilidades de búsqueda dinámica para `categorias` y `tipos`.
+  - Implementa manejo defensivo de filas (sqlite Row vs tuplas) y normalización
+    de valores monetarios con `Decimal` y redondeo HALF_UP.
+
+Notas:
+- El módulo `informes` está bastante implementado en `InformesService` con
+  consultas SQL listas para producir report_data consumible por la UI y
+  por `ExportService` (CSV/PDF). `InformesView` ofrece una UI funcional que
+  invoca estos servicios y muestra los resultados en pantalla.
+- Los métodos de `InformesService` devuelven estructuras estándar `report_data`
+  con `sections` (type: summary/table/blocks) para facilitar exportación.

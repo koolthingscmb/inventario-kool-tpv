@@ -12,11 +12,37 @@ from kool_tpv.modulos.tpv.actions.buscar_articulo import BuscarArticuloPanel
 from PIL import Image
 from kool_tpv.utils.keyboard_manager import KeyboardManager
 
-# Hover color used across the UI (matches TPV 'BUSCAR ARTÍCULO' hover)
-HOVER_COLOR = "#00A4DF"
-# Navigation button padding (centralized)
-NAV_BTN_PADY = 14
-NAV_BTN_PADX = 20
+
+def load_layout_config():
+    try:
+        base = Path(__file__).resolve().parents[0]
+        config_path = base / "kool_tpv" / "config" / "layout_config.json"
+        with open(config_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def load_colors_config():
+    try:
+        base = Path(__file__).resolve().parents[0]
+        config_path = base / "kool_tpv" / "config" / "colors_config.json"
+        with open(config_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def load_font_config():
+    try:
+        base = Path(__file__).resolve().parents[0]
+        config_path = base / "kool_tpv" / "config" / "font_config.json"
+        with open(config_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+# Navigation padding and hover values are read from config (no hardcoded globals)
 
 # Asegurar carpeta de logs
 os.makedirs("logs", exist_ok=True)
@@ -42,41 +68,81 @@ class App(ctk.CTk):
         except Exception:
             pass
 
-        # Tipografías configurables (modifica aquí si quieres tamaños distintos)
-        # Usamos las familias Roboto provistas en assets-fonts: Roboto-Regular y Roboto-SemiBold
-        self.base_font = ("Roboto-Regular", 18)
-        self.button_font = ("Roboto-SemiBold", 24)
-        self.tpv_font = ("Roboto-SemiBold", 60)
+        # Tipografías configurables (leídas desde kool_tpv/config/font_config.json)
+        font_config = load_font_config()
+        app_fonts = font_config.get("app", {})
+
+        def build_font(cfg, default=("Courier New", 18)):
+            family = cfg.get("family", default[0])
+            size = cfg.get("size", default[1])
+            weight = cfg.get("weight", "normal")
+            try:
+                size = int(size)
+            except Exception:
+                size = default[1]
+            if weight and weight != "normal":
+                return (family, size, weight)
+            return (family, size)
+
+        self.base_font = build_font(app_fonts.get("base_font", {}))
+        self.button_font = build_font(app_fonts.get("nav_button", {}))
+        self.tpv_font = build_font(app_fonts.get("tpv_large", {}))
 
         # Configuración de la ventana principal
         self.title("Kool TPV")
-        # Tamaño fijo para TPV profesional (25% más grande)
-        self.geometry("1600x960")
+        # Tamaño configurable desde layout_config.json
+        try:
+            layout_config = load_layout_config()
+            window_cfg = layout_config.get("global", {}).get("window", {})
+            win_width = window_cfg.get("width", 1600)
+            win_height = window_cfg.get("height", 960)
+            min_width = window_cfg.get("min_width", win_width)
+            min_height = window_cfg.get("min_height", win_height)
+            self.geometry(f"{win_width}x{win_height}")
+        except Exception:
+            # fallback hardcoded size
+            try:
+                self.geometry("1600x960")
+            except Exception:
+                pass
         # Forzar aplicación de la geometría antes de mostrar (evita tamaño inicial diminuto)
         try:
             self.update_idletasks()
         except Exception:
             pass
-        # Asegurar que no pueda reducirse por debajo de este tamaño
+        # Asegurar que no pueda reducirse por debajo de este tamaño (leer minsize desde config)
         try:
-            self.minsize(1600, 960)
+            try:
+                min_width
+            except NameError:
+                layout_config = load_layout_config()
+                window_cfg = layout_config.get("global", {}).get("window", {})
+                min_width = window_cfg.get("min_width", 1600)
+                min_height = window_cfg.get("min_height", 960)
+            self.minsize(min_width, min_height)
         except Exception:
             pass
         # No redimensionable
         self.resizable(False, False)
-        # Fondo oscuro: asegurar tanto el CTk como el Tk nativo
+        # Fondo oscuro: asegurar tanto el CTk como el Tk nativo (colores desde config)
         try:
-            self.configure(fg_color="#222831")
-            # Forzar también el fondo a nivel nativo Tkinter para evitar flashes
+            colors_cfg = load_colors_config()
+            layout_colors = colors_cfg.get("global", {}).get("layout", {})
+            app_bg = layout_colors.get("app_background", "#222831")
             try:
-                self.config(background="#222831")
+                self.configure(fg_color=app_bg)
+                # Forzar también el fondo a nivel nativo Tkinter para evitar flashes
+                try:
+                    self.config(background=app_bg)
+                except Exception:
+                    pass
             except Exception:
-                pass
+                try:
+                    self.configure(bg=app_bg)
+                except Exception:
+                    pass
         except Exception:
-            try:
-                self.configure(bg="#222831")
-            except Exception:
-                pass
+            pass
 
         # Inicializar y conectar base de datos
         # Ruta al archivo kool_bd.db dentro del paquete `kool_tpv/base_datos`
@@ -126,7 +192,31 @@ class App(ctk.CTk):
     def create_navigation(self):
         # Frame lateral (barra de navegación)
         # Barra lateral más ancha para botones táctiles
-        self.nav_frame = ctk.CTkFrame(self, width=220, corner_radius=0, fg_color="#393E46")
+        layout_config = load_layout_config()
+        # Navigation padding from layout config
+        nav_layout = layout_config.get("global", {}).get("navigation", {})
+        nav_padx = nav_layout.get("button_padx", 20)
+        nav_pady = nav_layout.get("button_pady", 14)
+        # Expose to instance for other methods (restore packing etc.)
+        self.nav_padx = nav_padx
+        self.nav_pady = nav_pady
+        sidebar_width = (
+            layout_config
+            .get("modules", {})
+            .get("sidebar", {})
+            .get("width", 220)
+        )
+        # Load sidebar colors from colors_config
+        try:
+            colors_cfg = load_colors_config()
+            layout_colors = colors_cfg.get("global", {}).get("layout", {})
+            sidebar_bg = layout_colors.get("sidebar_background", "#393E46")
+            text_primary = layout_colors.get("text_primary", "#FFFFFF")
+        except Exception:
+            sidebar_bg = "#393E46"
+            text_primary = "#FFFFFF"
+
+        self.nav_frame = ctk.CTkFrame(self, width=sidebar_width, corner_radius=0, fg_color=sidebar_bg)
         self.nav_frame.pack(side="left", fill="y")
         self.nav_frame.pack_propagate(False)
 
@@ -142,19 +232,35 @@ class App(ctk.CTk):
         except Exception:
             logging.exception("Error creando botón global power desde utils.global_buttons")
 
-        # Preparar botón "PRINT ON" pero NO mostrarlo en la pantalla inicial.
-        # Se mostrará únicamente cuando se cargue la vista TPV.
+        # Preparar botón "PRINT ON" configurable desde JSON (no hacer pack aquí)
         try:
+            colors_cfg = load_colors_config()
+            font_cfg = load_font_config()
+            layout_cfg = load_layout_config()
+
+            print_cfg = colors_cfg.get("global", {}).get("layout", {}).get("print_on_button", {})
+            print_font_cfg = font_cfg.get("app", {}).get("print_on", {})
+            print_layout = layout_cfg.get("components", {}).get("print_on_button", {})
+
+            print_font = self._font_from_cfg(print_font_cfg, default=("Courier New", 12))
+            cmd = getattr(self, "toggle_print", None)
+
+            # hover fallback from colors config (secondary button hover)
+            hover_fallback = (
+                colors_cfg.get("global", {}).get("buttons", {}).get("secondary", {}).get("hover")
+            )
+            hover_val = print_cfg.get("hover") or hover_fallback
+
             self.print_on_button = ctk.CTkButton(
                 master=self.nav_frame,
-                text="PRINT ON",
-                fg_color="#00BFFF",
-                hover_color=HOVER_COLOR,
-                text_color="white",
-                font=("Courier New", 12),
-                height=28,
+                text=print_cfg.get("label", "PRINT ON"),
+                fg_color=print_cfg.get("bg", "#00BFFF"),
+                hover_color=hover_val,
+                text_color=print_cfg.get("text", "white"),
+                font=print_font,
+                height=print_layout.get("height", 28),
+                command=cmd,
             )
-            # No hacer pack() aquí: se packeará al entrar en TPV
         except Exception:
             logging.exception("Error creando botón PRINT ON")
 
@@ -246,7 +352,7 @@ class App(ctk.CTk):
                             border_width=border_width,
                         )
                     # pack using centralized padding constants
-                    btn.pack(pady=NAV_BTN_PADY, padx=NAV_BTN_PADX, fill="x")
+                    btn.pack(pady=self.nav_pady, padx=self.nav_padx, fill="x")
                     try:
                         self.nav_buttons[text] = btn
                     except Exception:
@@ -258,11 +364,23 @@ class App(ctk.CTk):
             logging.exception("Error cargando main_menu desde JSON")
 
         # Footer con versión
-        footer = ctk.CTkLabel(self.nav_frame, text="KOOL TPV V1.0", text_color="white", font=self.base_font)
+        footer = ctk.CTkLabel(self.nav_frame, text="KOOL TPV V1.0", text_color=text_primary, font=self.base_font)
         footer.pack(side="bottom", pady=10)
 
-        # Frame principal para cargar contenido dinámico (fondo oscuro)
-        self.main_frame = ctk.CTkFrame(self, fg_color="#222831")
+        # Frame principal para cargar contenido dinámico (usar color desde config)
+        try:
+            # app_bg may have been read earlier from colors_cfg
+            app_bg = locals().get('app_bg') or globals().get('app_bg')
+        except Exception:
+            app_bg = None
+        if app_bg is None:
+            try:
+                colors_cfg = load_colors_config()
+                app_bg = colors_cfg.get("global", {}).get("layout", {}).get("app_background", "#222831")
+            except Exception:
+                app_bg = "#222831"
+
+        self.main_frame = ctk.CTkFrame(self, fg_color=app_bg)
         self.main_frame.pack(side="right", fill="both", expand=True)
 
     def create_nav_button(
@@ -393,6 +511,24 @@ class App(ctk.CTk):
                 return (font_family, size)
             return getattr(self, "button_font", ("Roboto-SemiBold", 24))
 
+    def _font_from_cfg(self, cfg, default=("Courier New", 12)):
+        """Build a (family, size) or (family, size, weight) tuple from a small config dict."""
+        try:
+            if not cfg:
+                return default
+            family = cfg.get("family", default[0])
+            size = cfg.get("size", default[1])
+            try:
+                size = int(size)
+            except Exception:
+                size = default[1]
+            weight = cfg.get("weight", "normal")
+            if weight and weight != "normal":
+                return (family, size, weight)
+            return (family, size)
+        except Exception:
+            return default
+
     def load_tpv(self):
         """Carga TPV en el main_frame (placeholder).
 
@@ -432,7 +568,7 @@ class App(ctk.CTk):
                 label = ctk.CTkLabel(
                     self.main_frame,
                     text="Módulo TPV cargado correctamente",
-                    font=("Roboto-Regular", 20),
+                        font=self.base_font,
                     text_color="white",
                 )
                 label.pack(expand=True)
@@ -442,7 +578,7 @@ class App(ctk.CTk):
             label = ctk.CTkLabel(
                 self.main_frame,
                 text="Módulo TPV cargado correctamente",
-                font=("Roboto-Regular", 20),
+                font=self.base_font,
                 text_color="white",
             )
             label.pack(expand=True)
@@ -515,7 +651,7 @@ class App(ctk.CTk):
 
                 for key, btn in list(self.nav_buttons.items()):
                     try:
-                        btn.pack(pady=14, padx=20, fill="x")
+                        btn.pack(pady=getattr(self, 'nav_pady', 14), padx=getattr(self, 'nav_padx', 20), fill="x")
                     except Exception:
                         pass
             except Exception:

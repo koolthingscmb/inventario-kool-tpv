@@ -1,0 +1,132 @@
+{
+  "global": {
+    "spacing": {
+      "xs": 4,
+      "sm": 8,
+      "md": 12,
+      "lg": 20,
+      "xl": 32
+    },
+    "window": {
+      "width": 1600,
+      "height": 960,
+      "min_width": 1600,
+      "min_height": 960
+    }
+    ,
+    "navigation": {
+      "button_padx": 20,
+      "button_pady": 14
+    }
+  },
+
+  "components": {
+    "action_button": {
+      "width": 160,
+      "height": 35,
+      "corner_radius": 22,
+      "border_width": 2
+    },
+    "dialog": {
+      "default_width": 700,
+      "default_height": 450,
+      "border_width": 4,
+      "icon_size": 120,
+      "button_width": 160,
+      "button_height": 55,
+      "corner_radius": 20,
+      "wraplength": 500,
+      "focus_border_width": 3
+    },
+    "nav_list": {
+      "row_height": 35,
+      "header_height": 40
+    }
+    ,
+    "print_on_button": {
+      "height": 28
+    }
+  },
+
+  "modules": {
+    "sidebar": {
+      "width": 220
+    },
+
+    "tpv": {
+      "center": {
+        "search_button": {
+          "height": 80,
+          "corner_radius": 18
+        },
+        "grid": {
+          "columns": 4,
+          "rows": 3,
+          "spacing": 12,
+          "min_button_size": 120,
+          "max_button_size": 400
+        }
+      },
+
+      "ticket_carrito": {
+        "width": 420,
+        "header_height": 120,
+        "footer_height": 140,
+        "spacing": 12
+      }
+    ,
+    "carrito_nav_list": {
+      "row_height": 35,
+      "column_widths": {
+        "producto": 180,
+        "cantidad": 50,
+        "precio": 80,
+        "total": 85
+      }
+    }
+    }
+    ,
+    "almacen": {
+      "sidebar_button": {
+        "width": 200,
+        "height": 56,
+        "corner_radius": 8,
+        "border_width": 4
+      }
+    }
+    ,
+    "clientes": {
+      "sidebar_button": {
+        "width": 200,
+        "height": 56,
+        "corner_radius": 8,
+        "border_width": 5
+      }
+    },
+    "shopify": {
+      "sidebar_button": {
+        "width": 200,
+        "height": 56,
+        "corner_radius": 8,
+        "border_width": 4
+      }
+    },
+    "config": {
+      "sidebar_button": {
+        "width": 200,
+        "height": 56,
+        "corner_radius": 8,
+        "border_width": 4
+      }
+    }
+    ,
+    "informes": {
+      "sidebar_button": {
+        "width": 200,
+        "height": 56,
+        "corner_radius": 8,
+        "border_width": 4
+      }
+    }
+  }
+}

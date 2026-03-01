@@ -1,0 +1,58 @@
+Resumen del módulo: kool_tpv/modulos/almacen
+
+- File: kool_tpv/modulos/almacen/almacen_view.py
+  - Contiene `AlmacenView` (extiende BaseModuleView). Mapea acciones del módulo
+    a handlers que muestran distintas UIs del módulo (productos, categorias,
+    proveedores, albaranes, etc.). Gestiona breadcrumb y delega la lógica de
+    negocio a servicios (MaestroService / ProductoService).
+
+- File: kool_tpv/modulos/almacen/services/maestro_service.py
+  - `MaestroService`: fachada que delega operaciones CRUD a servicios de DB
+    (principalmente ProductoService). Provee helpers genéricos para tablas
+    permitidas y métodos reutilizables para listados, guardado y actualización.
+
+- File: kool_tpv/modulos/almacen/ui/albaranes_ui.py
+  - `AlbaranesUI`: interfaz para gestionar albaranes (entrada manual, consulta,
+    devoluciones). Crea botones desde la configuración, abre modales y llama a
+    `AlbaranService` para persistencia y lógica de stock/IVA.
+
+- File: kool_tpv/modulos/almacen/ui/busqueda_ui.py
+  - `BusquedaUI`: formulario de búsqueda y filtros para productos. Implementa
+    paginación y carga incremental usando `ProductoService.buscar_productos_paginados`.
+    Presenta resultados en un NavList / tarjetas y expone callbacks para selección.
+
+- File: kool_tpv/modulos/almacen/ui/categorias_ui.py
+  - `CategoriasUI`: CRUD para categorías con UI basada en chips. Usa
+    `CategoriaService` para obtener, crear, actualizar y eliminar categorías.
+
+- File: kool_tpv/modulos/almacen/ui/crear_producto_ui.py
+  - `CrearProductoUI`: editor de producto con pestañas (GENERAL / SHOPIFY), campos
+    de precios, imágenes y validaciones. Valida entradas y guarda en transacción
+    (crea/actualiza producto y precios relacionados) a través de `ProductoService`.
+  - Incluye `SearchableCombo`, un widget para seleccionar valores con búsqueda.
+
+- File: kool_tpv/modulos/almacen/ui/mapeo_csv_ui.py
+  - `MapeoCsvUI`: editor JSON para configurar mapeo CSV por proveedor. Valida
+    JSON y delega almacenamiento a `ProveedorService.save_mapeo_csv`.
+
+- File: kool_tpv/modulos/almacen/ui/Productos/cargar_producto.py
+  - `CargarProductoUI`: utilitario para cargar un producto completo desde la DB
+    (`get_producto_completo`) y rellenar la vista `CrearProductoUI` con los datos.
+
+- File: kool_tpv/modulos/almacen/ui/proveedores_ui.py
+  - `ProveedoresUI`: manejo CRUD de proveedores con chips y formularios. Permite
+    abrir el editor de mapeo CSV y usar `ProveedorService` para persistencia.
+
+- File: kool_tpv/modulos/almacen/ui/tipos_ui.py
+  - `TiposUI`: UI de gestión de tipos (grid estilo "Matrix"). Listado en chips,
+    formulario para crear/editar/borrar; usa `TipoService` para operaciones DB.
+
+- File: kool_tpv/modulos/almacen/__init__.py
+  - Inicializador de paquete (contenido mínimo). Expone el módulo `almacen`.
+
+Notas:
+- La mayoría de UIs reutilizan loaders de configuración (colores, botones)
+  y delegan la lógica de negocio a los servicios bajo `kool_tpv.base_datos`.
+- Las operaciones de guardado importantes (producto, albaranes, ticketes)
+  se realizan dentro de transacciones y actualizan stock/ventas/puntos según
+  la lógica de los servicios.

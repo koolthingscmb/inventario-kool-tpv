@@ -18,12 +18,103 @@
     "success": "#2ecc71",
     "error": "#e74c3c",
     "warning": "#f39c12",
-    "info": "#3498db"
-  ,
+    "info": "#3498db",
     "buttons": {
       "primary": {"bg": "#2ecc71", "hover": "#27ae60", "text": "#000000", "border": "#1e8449"},
       "secondary": {"bg": "#3498db", "hover": "#2d86c9", "text": "#FFFFFF", "border": "#2a7ab8"},
       "accent": {"bg": "#f1c40f", "hover": "#f39c12", "text": "#000000", "border": "#d4ac0d"}
+    },
+    "layout": {
+      "app_background": "#222831",
+      "sidebar_background": "#393E46",
+      "text_primary": "#FFFFFF",
+      "print_on_button": {
+        "bg": "#00BFFF",
+        "hover": "#00A4DF",
+        "text": "#FFFFFF"
+      }
+    },
+    "components": {
+      "action_buttons": {
+        "primary": {"bg": "#2ecc71", "hover": "#27ae60", "text": "#000000", "border": "#000000"},
+        "secondary": {"bg": "#95a5a6", "hover": "#7f8c8d", "text": "#000000", "border": "#000000"},
+        "danger": {"bg": "#DB3D21", "hover": "#c0392b", "text": "#000000", "border": "#000000"},
+        "warning": {"bg": "#f39c12", "hover": "#d68910", "text": "#000000", "border": "#000000"},
+        "info": {"bg": "#3498db", "hover": "#2980b9", "text": "#000000", "border": "#000000"},
+        "special": {"bg": "#9b59b6", "hover": "#8e44ad", "text": "#000000", "border": "#000000"}
+      }
+    },
+    "dialogs": {
+      "info": {
+        "bg": "#000000",
+        "border": "#3498db",
+        "border_hover": "#2980b9",
+        "title_text": "#00FF00",
+        "message_text": "#3498db",
+        "button_bg": "#3498db",
+        "button_hover": "#2980b9",
+        "button_text": "#000000",
+        "cancel_bg": "#2980b9",
+        "cancel_hover": "#3498db"
+      ,
+        "button_focus_border": "#5DADE2"
+      },
+      "success": {
+        "bg": "#000000",
+        "border": "#2ecc71",
+        "border_hover": "#27ae60",
+        "title_text": "#00FF00",
+        "message_text": "#2ecc71",
+        "button_bg": "#2ecc71",
+        "button_hover": "#27ae60",
+        "button_text": "#000000",
+        "cancel_bg": "#27ae60",
+        "cancel_hover": "#2ecc71"
+      ,
+        "button_focus_border": "#00FF00"
+      },
+      "warning": {
+        "bg": "#000000",
+        "border": "#f39c12",
+        "border_hover": "#d68910",
+        "title_text": "#00FF00",
+        "message_text": "#f39c12",
+        "button_bg": "#f39c12",
+        "button_hover": "#d68910",
+        "button_text": "#000000",
+        "cancel_bg": "#d68910",
+        "cancel_hover": "#f39c12"
+      ,
+        "button_focus_border": "#FFD700"
+      },
+      "error": {
+        "bg": "#000000",
+        "border": "#e74c3c",
+        "border_hover": "#c0392b",
+        "title_text": "#00FF00",
+        "message_text": "#e74c3c",
+        "button_bg": "#e74c3c",
+        "button_hover": "#c0392b",
+        "button_text": "#000000",
+        "cancel_bg": "#c0392b",
+        "cancel_hover": "#e74c3c"
+      ,
+        "button_focus_border": "#FF6B6B"
+      },
+      "password": {
+        "bg": "#000000",
+        "border": "#9b59b6",
+        "border_hover": "#8e44ad",
+        "title_text": "#00FF00",
+        "message_text": "#9b59b6",
+        "button_bg": "#9b59b6",
+        "button_hover": "#8e44ad",
+        "button_text": "#FFFFFF",
+        "cancel_bg": "#8e44ad",
+        "cancel_hover": "#9b59b6"
+      ,
+        "button_focus_border": "#C39BD3"
+      }
     }
   },
   "almacen": {
@@ -38,14 +129,12 @@
     "bg_medium": "#1a1a1a",
     "warning": "#f39c12",
     "error": "#e74c3c",
-    "description": "Verde Matrix - Gestión de stock y productos"
-  ,
+    "description": "Verde Matrix - Gestión de stock y productos",
     "buttons": {
       "primary": {"bg": "#5F9913", "hover": "#91E291", "text": "#000000", "border": "#61AA00"},
       "secondary": {"bg": "#32CD32", "hover": "#99FF52", "text": "#000000", "border": "#91FF00"},
       "accent": {"bg": "#DAFCCF", "hover": "#E6F8DF", "text": "#000000", "border": "#91FF00"}
-    }
-    ,
+    },
     "nav_list": {
       "row_normal_bg": "#1a1a1a",
       "row_normal_text": "#e0e0e0",
@@ -53,8 +142,7 @@
       "row_hover_text": "#ffffff",
       "row_selected_bg": "#0d0d0d",
       "row_selected_text": "#ffffff",
-      "row_selected_border": "primary",
-      "row_height": 35
+      "row_selected_border": "primary"
     }
   },
   "clientes": {
@@ -75,8 +163,7 @@
       "primary": {"bg": "#FFD700", "hover": "#FFCA00", "text": "#000000", "border": "#E6BE00"},
       "secondary": {"bg": "#FFC107", "hover": "#FFB000", "text": "#000000", "border": "#E0A800"},
       "accent": {"bg": "#FFEB3B", "hover": "#FFF176", "text": "#000000", "border": "#F7E017"}
-    }
-    ,
+    },
     "nav_list": {
       "row_normal_bg": "#1a1a1a",
       "row_normal_text": "#e0e0e0",
@@ -84,8 +171,7 @@
       "row_hover_text": "#ffffff",
       "row_selected_bg": "#0d0d0d",
       "row_selected_text": "#ffffff",
-      "row_selected_border": "primary",
-      "row_height": 35
+      "row_selected_border": "primary"
     }
   },
   "informes": {
@@ -105,8 +191,7 @@
       "primary": {"bg": "#FFFFFF", "hover": "#F0F0F0", "text": "#000000", "border": "#E0E0E0"},
       "secondary": {"bg": "#E0E0E0", "hover": "#D6D6D6", "text": "#000000", "border": "#CFCFCF"},
       "accent": {"bg": "#BDBDBD", "hover": "#AFAFAF", "text": "#000000", "border": "#9E9E9E"}
-    }
-    ,
+    },
     "nav_list": {
       "row_normal_bg": "#1a1a1a",
       "row_normal_text": "#e0e0e0",
@@ -114,8 +199,7 @@
       "row_hover_text": "#ffffff",
       "row_selected_bg": "#0d0d0d",
       "row_selected_text": "#ffffff",
-      "row_selected_border": "primary",
-      "row_height": 35
+      "row_selected_border": "primary"
     }
   },
   "shopify": {
@@ -135,8 +219,7 @@
       "primary": {"bg": "#00A4DF", "hover": "#008FC6", "text": "#FFFFFF", "border": "#0089BF"},
       "secondary": {"bg": "#3498db", "hover": "#2d86c9", "text": "#FFFFFF", "border": "#2a7ab8"},
       "accent": {"bg": "#5DADE2", "hover": "#4FB1E6", "text": "#FFFFFF", "border": "#4AA7D9"}
-    }
-    ,
+    },
     "nav_list": {
       "row_normal_bg": "#1a1a1a",
       "row_normal_text": "#e0e0e0",
@@ -144,8 +227,7 @@
       "row_hover_text": "#ffffff",
       "row_selected_bg": "#0d0d0d",
       "row_selected_text": "#ffffff",
-      "row_selected_border": "primary",
-      "row_height": 35
+      "row_selected_border": "primary"
     }
   },
   "config": {
@@ -165,8 +247,7 @@
       "primary": {"bg": "#FF9800", "hover": "#F57C00", "text": "#000000", "border": "#E06700"},
       "secondary": {"bg": "#F57C00", "hover": "#EB6A00", "text": "#000000", "border": "#D65D00"},
       "accent": {"bg": "#FFB74D", "hover": "#FFAA33", "text": "#000000", "border": "#FFA033"}
-    }
-    ,
+    },
     "nav_list": {
       "row_normal_bg": "#1a1a1a",
       "row_normal_text": "#e0e0e0",
@@ -174,8 +255,70 @@
       "row_hover_text": "#ffffff",
       "row_selected_bg": "#0d0d0d",
       "row_selected_text": "#ffffff",
-      "row_selected_border": "primary",
-      "row_height": 35
+      "row_selected_border": "primary"
+    }
+  },
+  "tpv": {
+    "search_button": {
+      "bg": "#00BFFF",
+      "hover": "#00A4DF",
+      "text": "#000000"
+    },
+    "grid_buttons": {
+      "config": {"bg": "#E85217", "hover": "#F2A07B"},
+      "stock": {"bg": "#C38D9E", "hover": "#DDAEC1"},
+      "multi": {"bg": "#97DBA7", "hover": "#62C9B9"},
+      "web": {"bg": "#00FF00", "hover": "#806AA8"},
+      "cierre": {"bg": "#DB0202", "hover": "#FF8A7F"},
+      "descuento": {"bg": "#FF00D1", "hover": "#F9D6D5"},
+      "cliente": {"bg": "#EEFF00", "hover": "#A8BEE2"},
+      "tarjeta": {"bg": "#8EFABB", "hover": "#9BC767"},
+      "tickets": {"bg": "#FF0037", "hover": "#F9C542"},
+      "devolucion": {"bg": "#DE8CFA", "hover": "#9BC767"},
+      "cajero": {"bg": "#FFE600", "hover": "#80698F"},
+      "cash": {"bg": "#2E8B57", "hover": "#4B9E75"}
+    }
+    ,
+    "ticket_carrito": {
+      "header": {
+        "bg": "#000000",
+        "text_info": "#00FF00",
+        "text_cliente": "#FFD700",
+        "text_tesoro": "#FFD700"
+      },
+      "body": {
+        "bg": "#000000",
+        "header_text": "#00FF00"
+      },
+      "footer": {
+        "bg": "#1a1a1a",
+        "bg_active_efectivo": "#2ecc71",
+        "bg_active_tarjeta": "#3498db",
+        "bg_active_web": "#88B04B",
+        "text": "#FFFFFF",
+        "text_totales": "#00FF00"
+      }
+    },
+    "carrito_nav_list": {
+      "line_normal": {
+        "bg": "#1a1a1a",
+        "text": "#e0e0e0",
+        "hover_bg": "#2a2a2a",
+        "selected_bg": "#0d0d0d",
+        "selected_border": "#00FF00"
+      },
+      "line_descuento": {
+        "bg": "#2a1a1a",
+        "text": "#ff6b6b"
+      },
+      "line_devolucion": {
+        "bg": "#1a1a2a",
+        "text": "#d9534f"
+      },
+      "line_tesoro": {
+        "bg": "#1a2a1a",
+        "text": "#FFD700"
+      }
     }
   }
 }

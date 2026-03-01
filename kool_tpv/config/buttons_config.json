@@ -1,19 +1,22 @@
 {
+  "search_button": {
+    "label": "BUSCAR ARTÍCULO",
+    "command": "buscar_articulo"
+  },
   "buttons": [
-    { "label": "CONFIG", "color": "#E85217", "hover_color": "#F2A07B", "font_family": "Roboto-SemiBold", "font_size": 36, "width": 200, "height": 200, "command": "pagar" },
-    { "label": "STOCK", "color": "#C38D9E", "hover_color": "#DDAEC1", "font_family": "Roboto-SemiBold", "font_size": 36, "width": 200, "height": 200, "command": "stock" },
-    { "label": "MULTI $", "color": "#97DBA7", "hover_color": "#62C9B9", "font_family": "Roboto-SemiBold", "font_size": 36, "width": 200, "height": 200, "command": "Multicobro" },
-    { "label": "WEB", "color": "#00FF00", "hover_color": "#806AA8", "font_family": "Roboto-SemiBold", "font_size": 36, "width": 200, "height": 200, "command": "Pagar en Web" },
-    { "label": "CIERRE", "color": "#DB0202", "hover_color": "#FF8A7F", "font_family": "Roboto-SemiBold", "font_size": 36, "width": 200, "height": 200, "command": "Cierres de caja" },
-    { "label": "DESCUENTO", "color": "#FF00D1", "hover_color": "#F9D6D5", "font_family": "Roboto-SemiBold", "font_size": 36, "width": 200, "height": 200, "command": "Hacer dto directo o %" },
-    { "label": "CLIENTE", "color": "#EEFF00", "hover_color": "#A8BEE2", "font_family": "Roboto-SemiBold", "font_size": 36, "width": 200, "height": 200, "command": "Asignar Cliente" },
-    { "label": "TARJETA", "color": "#8EFABB", "hover_color": "#9BC767", "font_family": "Roboto-SemiBold", "font_size": 36, "width": 200, "height": 200, "command": "Pagar con Tarjeta" },
-    { "label": "TICKETS", "color": "#FF0037", "hover_color": "#F9C542", "font_family": "Roboto-SemiBold", "font_size": 36, "width": 200, "height": 200, "command": "Abrir Tickets" },
-    { "label": "DEVOLUCIÓN", "color": "#DE8CFA", "hover_color": "#9BC767", "font_family": "Roboto-SemiBold", "font_size": 36, "width": 200, "height": 200, "command": "Realizar Devolución" },
-    { "label": "CAJERO", "color": "#FFE600", "hover_color": "#80698F", "font_family": "Roboto-SemiBold", "font_size": 36, "width": 200, "height": 200, "command": "Asignar Cajero" },
-    { "label": "CASH", "color": "#2E8B57", "hover_color": "#4B9E75", "font_family": "Roboto-SemiBold", "font_size": 36, "width": 200, "height": 200, "command": "Pagar en Efectivo" }
-  ]
-  ,
+    {"label": "CONFIG", "color_key": "config", "command": "pagar"},
+    {"label": "STOCK", "color_key": "stock", "command": "stock"},
+    {"label": "MULTI $", "color_key": "multi", "command": "Multicobro"},
+    {"label": "WEB", "color_key": "web", "command": "Pagar en Web"},
+    {"label": "CIERRE", "color_key": "cierre", "command": "Cierres de caja"},
+    {"label": "DESCUENTO", "color_key": "descuento", "command": "Hacer dto directo o %"},
+    {"label": "CLIENTE", "color_key": "cliente", "command": "Asignar Cliente"},
+    {"label": "TARJETA", "color_key": "tarjeta", "command": "Pagar con Tarjeta"},
+    {"label": "TICKETS", "color_key": "tickets", "command": "Abrir Tickets"},
+    {"label": "DEVOLUCIÓN", "color_key": "devolucion", "command": "Realizar Devolución"},
+    {"label": "CAJERO", "color_key": "cajero", "command": "Asignar Cajero"},
+    {"label": "CASH", "color_key": "cash", "command": "Pagar en Efectivo"}
+  ],
   "main_menu": [
     {
       "text": "TPV",
@@ -130,6 +133,12 @@
         "height": 110,
         "corner_radius": 18,
         "command": "close_app"
+      }
+      ,
+      {
+        "id": "print_on",
+        "label": "PRINT ON",
+        "command": "toggle_print"
       }
     ]
 }

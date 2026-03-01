@@ -1,13 +1,9 @@
 """Config Loader - Helper para cargar configuraciones centralizadas.
 
 Provee funciones para:
-
-    - Cargar paletas de colores por módulo
-    - Cargar estilos de botones de acción
-    - Crear botones automáticamente desde config
-
-Uso:
-    from kool_tpv.utils.config_loader import load_colors, load_button_style, create_action_button
+ - Cargar paletas de colores por módulo
+ - Cargar estilos de botones de acción (resolviendo el `style` hacia paleta)
+ - Crear botones automáticamente desde config centralizada
 """
 from __future__ import annotations
 
@@ -23,184 +19,159 @@ logger = logging.getLogger(__name__)
 # Paths a archivos de configuración
 _CONFIG_DIR = Path(__file__).resolve().parents[1] / "config"
 _COLORS_CONFIG = _CONFIG_DIR / "colors_config.json"
+_FONT_CONFIG = _CONFIG_DIR / "font_config.json"
+_LAYOUT_CONFIG = _CONFIG_DIR / "layout_config.json"
 _BUTTONS_ACTIONS_CONFIG = _CONFIG_DIR / "buttons_actions_config.json"
 
 # Cache para evitar leer JSON múltiples veces
 _colors_cache: Optional[Dict[str, Any]] = None
+_fonts_cache: Optional[Dict[str, Any]] = None
+_layout_cache: Optional[Dict[str, Any]] = None
 _buttons_cache: Optional[Dict[str, Any]] = None
 
 
-def load_colors(module: Optional[str] = None) -> Dict[str, Any]:
-    """Cargar paleta de colores desde colors_config.json.
-
-    Args:
-        module: Nombre del módulo ('almacen', 'clientes', etc.)
-                Si None, retorna todo el config.
-
-    Returns:
-        Dict con paleta de colores del módulo o config completo.
-        Si hay error o módulo no existe, retorna colores por defecto.
-    """
-    global _colors_cache
-
+def _load_json(path: Path) -> Dict[str, Any]:
     try:
-        # Leer cache o cargar desde archivo
-        if _colors_cache is None:
-            if not _COLORS_CONFIG.exists():
-                logger.error(f'colors_config.json NO encontrado en: {_COLORS_CONFIG}')
-                return _get_default_colors()
-
-            with open(_COLORS_CONFIG, 'r', encoding='utf-8') as f:
-                _colors_cache = json.load(f)
-
-        # Retornar todo o módulo específico
-        if module is None:
-            return _colors_cache  # type: ignore[return-value]
-
-        if module in _colors_cache:  # type: ignore[arg-type]
-            return _colors_cache[module]  # type: ignore[return-value]
-        else:
-            logger.warning(f'Módulo "{module}" no encontrado en colors_config.json')
-            return _get_default_colors()
-
+        if not path.exists():
+            logger.warning('%s no encontrado', path)
+            return {}
+        with path.open('r', encoding='utf-8') as fh:
+            return json.load(fh) or {}
     except Exception:
-        logger.exception('Error cargando colors_config.json')
-        return _get_default_colors()
+        logger.exception('Error leyendo JSON: %s', path)
+        return {}
+
+
+def load_colors(module: Optional[str] = None) -> Dict[str, Any]:
+    global _colors_cache
+    if _colors_cache is None:
+        _colors_cache = _load_json(_COLORS_CONFIG)
+    if module is None:
+        return _colors_cache
+    return _colors_cache.get(module, {})
+
+
+def load_font_config() -> Dict[str, Any]:
+    global _fonts_cache
+    if _fonts_cache is None:
+        _fonts_cache = _load_json(_FONT_CONFIG)
+    return _fonts_cache
+
+
+def load_layout_config() -> Dict[str, Any]:
+    global _layout_cache
+    if _layout_cache is None:
+        _layout_cache = _load_json(_LAYOUT_CONFIG)
+    return _layout_cache
 
 
 def load_button_style(button_key: str) -> Dict[str, Any]:
-    """Cargar estilo de botón desde buttons_actions_config.json.
+    """Leer mapping minimalista de `buttons_actions_config.json`.
 
-    Args:
-        button_key: Clave del botón ('guardar', 'cancelar', etc.)
-
-    Returns:
-        Dict con config del botón o config por defecto si no existe.
+    El archivo ahora contiene solo `text` y `style` (y opcional `state`).
     """
     global _buttons_cache
-
-    try:
-        # Leer cache o cargar desde archivo
-        if _buttons_cache is None:
-            if not _BUTTONS_ACTIONS_CONFIG.exists():
-                logger.error(f'buttons_actions_config.json NO encontrado en: {_BUTTONS_ACTIONS_CONFIG}')
-                return _get_default_button_style()
-
-            with open(_BUTTONS_ACTIONS_CONFIG, 'r', encoding='utf-8') as f:
-                _buttons_cache = json.load(f)
-
-        if button_key in _buttons_cache:  # type: ignore[arg-type]
-            return _buttons_cache[button_key]  # type: ignore[return-value]
-        else:
-            logger.warning(f'Botón "{button_key}" no encontrado en buttons_actions_config.json')
-            return _get_default_button_style()
-
-    except Exception:
-        logger.exception('Error cargando buttons_actions_config.json')
-        return _get_default_button_style()
+    if _buttons_cache is None:
+        _buttons_cache = _load_json(_BUTTONS_ACTIONS_CONFIG)
+    return _buttons_cache.get(button_key, {})
 
 
 def create_action_button(parent, button_key: str, command, **overrides) -> ctk.CTkButton:
-    """Crear botón desde config con command personalizado.
+    """Crear botón de acción usando estilos centralizados.
 
-    Args:
-        parent: Widget padre donde se colocará el botón
-        button_key: Clave del botón en buttons_actions_config.json
-        command: Función a ejecutar al hacer click
-        **overrides: Parámetros para sobrescribir config (ej: state='disabled')
+    Resolución de propiedades:
+    - Color: `colors_config.components.action_buttons[style]`
+    - Fuente: `font_config.components.action_button`
+    - Geometría: `layout_config.components.action_button`
 
-    Returns:
-        CTkButton configurado y listo para usar.
+    `buttons_actions_config.json` aporta `text` y `style`.
     """
     try:
-        # Cargar config base
-        config = load_button_style(button_key)
+        btn_entry = load_button_style(button_key) or {}
 
-        # Aplicar overrides (no mutar cache: hacer copia)
-        cfg = dict(config)
-        cfg.update(overrides)
+        # Base text and state
+        text = btn_entry.get('text', button_key.upper())
+        state = btn_entry.get('state', 'normal')
 
-        # Convertir font array a tuple
-        font_tuple = tuple(cfg.get('font', ['Courier New', 16, 'bold']))
+        # Palette from colors config
+        colors_root = load_colors() or {}
+        components = colors_root.get('components', {}) if isinstance(colors_root, dict) else {}
+        action_palettes = components.get('action_buttons', {}) if isinstance(components, dict) else {}
+        style = btn_entry.get('style', 'primary')
+        palette = action_palettes.get(style, {}) if isinstance(action_palettes, dict) else {}
 
-        # Crear botón con todos los parámetros
-        btn_params = {
+        # Font from font_config
+        fonts = load_font_config() or {}
+        comp_fonts = fonts.get('components', {}) if isinstance(fonts, dict) else {}
+        action_font = comp_fonts.get('action_button', {}) if isinstance(comp_fonts, dict) else {}
+
+        # Layout geometry
+        layout = load_layout_config() or {}
+        comp_layout = layout.get('components', {}) if isinstance(layout, dict) else {}
+        action_layout = comp_layout.get('action_button', {}) if isinstance(comp_layout, dict) else {}
+
+        # Build CTk params with defaults and fallbacks
+        fg_color = palette.get('bg') or palette.get('fg') or '#CCCCCC'
+        hover_color = palette.get('hover') or '#DDDDDD'
+        text_color = palette.get('text') or '#000000'
+        border_color = palette.get('border') or '#000000'
+
+        width = action_layout.get('width', 140)
+        height = action_layout.get('height', 35)
+        corner_radius = action_layout.get('corner_radius', 6)
+        border_width = action_layout.get('border_width', 0)
+
+        # Font tuple
+        try:
+            family = action_font.get('family', 'Courier New')
+            size = int(action_font.get('size', 16))
+            weight = action_font.get('weight')
+            font_tuple = (family, size, weight) if weight else (family, size)
+        except Exception:
+            font_tuple = ('Courier New', 16)
+
+        # Build params and apply overrides
+        btn_params: Dict[str, Any] = {
             'master': parent,
-            'text': cfg.get('text', 'BOTÓN'),
-            'fg_color': cfg.get('fg_color', '#CCCCCC'),
-            'hover_color': cfg.get('hover_color', '#DDDDDD'),
-            'text_color': cfg.get('text_color', '#000000'),
-            'border_color': cfg.get('border_color', '#000000'),
-            'border_width': cfg.get('border_width', 0),
-            'corner_radius': cfg.get('corner_radius', 6),
-            'width': cfg.get('width', 140),
-            'height': cfg.get('height', 50),
+            'text': text,
+            'fg_color': fg_color,
+            'hover_color': hover_color,
+            'text_color': text_color,
+            'border_color': border_color,
+            'border_width': border_width,
+            'corner_radius': corner_radius,
+            'width': width,
+            'height': height,
             'font': font_tuple,
-            'anchor': cfg.get('anchor', 'center'),
-            'compound': cfg.get('compound', 'left'),
             'command': command
         }
 
-        # State se aplica después de crear
-        state = cfg.get('state', 'normal')
+        # Allow overrides to replace any of these
+        if overrides:
+            btn_params.update(overrides)
 
-        # Crear botón
         btn = ctk.CTkButton(**btn_params)
 
-        # Aplicar state
         if state == 'disabled':
             try:
                 btn.configure(state='disabled')
             except Exception:
                 pass
 
-        logger.debug(f'Botón "{button_key}" creado desde config')
+        logger.debug('Botón "%s" creado desde config (style=%s)', button_key, style)
         return btn
 
     except Exception:
-        logger.exception(f'Error creando botón "{button_key}" desde config')
-        # Fallback: botón básico
+        logger.exception('Error creando botón "%s" desde config', button_key)
         try:
             return ctk.CTkButton(parent, text=button_key.upper(), command=command)
         except Exception:
-            # último recurso: raise
             raise
 
 
 def _get_default_colors() -> Dict[str, str]:
-    """Colores por defecto si falla carga de config."""
-    return {
-        'primary': '#00FF00',
-        'secondary': '#32CD32',
-        'accent': '#7FFF00',
-        'border': '#00FF00',
-        'text': '#00FF00'
-    }
+    return {'primary': '#00FF00', 'secondary': '#32CD32', 'accent': '#7FFF00', 'border': '#00FF00', 'text': '#00FF00'}
 
 
 def _get_default_button_style() -> Dict[str, Any]:
-    """Estilo botón por defecto si falla carga de config."""
-    return {
-        'text': 'BOTÓN',
-        'fg_color': '#CCCCCC',
-        'hover_color': '#DDDDDD',
-        'text_color': '#000000',
-        'border_color': '#000000',
-        'border_width': 2,
-        'corner_radius': 6,
-        'width': 140,
-        'height': 50,
-        'font': ['Courier New', 16, 'bold'],
-        'state': 'normal',
-        'anchor': 'center',
-        'compound': 'left',
-        'image': None
-    }
-
-
-def reload_configs() -> None:
-    """Forzar recarga de configs (útil para desarrollo/testing)."""
-    global _colors_cache, _buttons_cache
-    _colors_cache = None
-    _buttons_cache = None
-    logger.info('Configs recargados desde archivos')
+    return {'text': 'BOTÓN', 'fg_color': '#CCCCCC', 'hover_color': '#DDDDDD', 'text_color': '#000000', 'border_color': '#000000', 'border_width': 2, 'corner_radius': 6, 'width': 140, 'height': 50, 'font': ['Courier New', 16, 'bold'], 'state': 'normal'}

@@ -30,73 +30,115 @@ from kool_tpv.utils.custom_dialog import show_error, show_success, show_info, sh
 from kool_tpv.modulos.tpv.actions.descuento import DescuentoAction
 
 
-# --- Configuración editable de botones (texto y color). Modifica aquí. ---
-BUTTON_CONFIG: List[Dict[str, str]] = [
-    {"text": "COBRAR", "color": "#E27D60"},
-    {"text": "PENDIENTE", "color": "#C38D9E"},
-    {"text": "DESCUENTO", "color": "#41B3A3"},
-    {"text": "CLIENTE", "color": "#6B5B95"},
-    {"text": "PRODUCTOS", "color": "#FF6F61"},
-    {"text": "CANCELAR", "color": "#F7CAC9"},
-    {"text": "BUSCAR", "color": "#92A8D1"},
-    {"text": "REIMPRIMIR", "color": "#034F84"},
-    {"text": "RECARGO", "color": "#F7B32B"},
-    {"text": "IMPRIMIR", "color": "#88B04B"},
-    {"text": "CONFIG", "color": "#6C5B7B"},
-    {"text": "OTROS", "color": "#2E8B57"},
-]
+def _load_tpv_theme():
+    """Load TPV-related colors, fonts and buttons config from project config files.
 
-
-def load_button_config_from_json() -> List[Dict]:
-    """Attempt to read button definitions from kool_tpv/config/buttons_config.json.
-
-    Returns a list of button config dicts. If the file is missing or invalid,
-    returns the in-code BUTTON_CONFIG as fallback (mapped to same shape).
+    Returns a dict with keys: 'colors', 'fonts', 'buttons_cfg'. Each may be empty
+    dict if the corresponding file is missing or invalid.
     """
+    base = Path(__file__).resolve().parents[2]
+    cfg_dir = base / "config"
+    colors = {}
+    fonts = {}
+    buttons_cfg = {}
     try:
-        base = Path(__file__).resolve().parents[2]  # kool_tpv/
-        cfg_file = base / "config" / "buttons_config.json"
-        if cfg_file.exists():
-            with cfg_file.open("r", encoding="utf-8") as fh:
-                data = json.load(fh)
-            buttons = data.get("buttons") or []
-            parsed = []
-            for b in buttons:
-                parsed.append(
-                    {
-                        "text": b.get("label", ""),
-                        "color": b.get("color", "#CCCCCC"),
-                        "hover_color": b.get("hover_color"),
-                        "font_size": b.get("font_size"),
-                        "width": b.get("width"),
-                        "height": b.get("height"),
-                        "command": b.get("command"),
-                    }
-                )
-            if parsed:
-                return parsed
+        cfile = cfg_dir / "colors_config.json"
+        if cfile.exists():
+            with cfile.open("r", encoding="utf-8") as fh:
+                all_colors = json.load(fh)
+                colors = all_colors.get("tpv", {}) or {}
     except Exception:
-        logging.exception("Error leyendo buttons_config.json")
+        logging.exception("Error leyendo colors_config.json para TPV")
 
-    # Fallback: map BUTTON_CONFIG to expected shape
-    fallback = []
-    for b in BUTTON_CONFIG:
-        fallback.append({
-            "text": b.get("text"),
-            "color": b.get("color"),
-            "hover_color": None,
-            "font_size": None,
-            "width": None,
-            "height": None,
-            "command": None,
-        })
-    return fallback
+    try:
+        ffile = cfg_dir / "font_config.json"
+        if ffile.exists():
+            with ffile.open("r", encoding="utf-8") as fh:
+                all_fonts = json.load(fh)
+                fonts = all_fonts.get("tpv", {}) or {}
+    except Exception:
+        logging.exception("Error leyendo font_config.json para TPV")
+
+    try:
+        bfile = cfg_dir / "buttons_config.json"
+        if bfile.exists():
+            with bfile.open("r", encoding="utf-8") as fh:
+                buttons_cfg = json.load(fh) or {}
+    except Exception:
+        logging.exception("Error leyendo buttons_config.json para TPV")
+
+    return {"colors": colors, "fonts": fonts, "buttons_cfg": buttons_cfg}
+
+
+# Load once at import time
+TPV_THEME = _load_tpv_theme()
+
+
+def load_layout_config():
+    try:
+        base = Path(__file__).resolve().parents[2]
+        config_path = base / "config" / "layout_config.json"
+        with open(config_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def load_button_config_from_json() -> Dict:
+    """Return a dict with keys 'search_button' and 'buttons'.
+
+    - 'search_button' is a dict with label, command, color, hover_color, text_color, font
+    - 'buttons' is a list of dicts with text, command, color, hover_color, font
+    """
+    result = {"search_button": {}, "buttons": []}
+    try:
+        data = TPV_THEME.get("buttons_cfg") or {}
+
+        # Prepare search button
+        sb = data.get("search_button") or {"label": "BUSCAR ARTÍCULO", "command": None}
+        sb_colors = TPV_THEME.get("colors", {}).get("search_button", {}) or {}
+        sb_font_cfg = TPV_THEME.get("fonts", {}).get("search_button", {}) or {}
+        sb_font = (sb_font_cfg.get("family"), int(sb_font_cfg.get("size"))) if sb_font_cfg.get("family") and sb_font_cfg.get("size") else None
+
+        result["search_button"] = {
+            "label": sb.get("label"),
+            "command": sb.get("command"),
+            "color": sb_colors.get("bg"),
+            "hover_color": sb_colors.get("hover"),
+            "text_color": sb_colors.get("text"),
+            "corner_radius": sb_colors.get("corner_radius"),
+            "font": sb_font,
+        }
+
+        # Prepare grid buttons
+        buttons = data.get("buttons") or []
+        grid_colors = TPV_THEME.get("colors", {}).get("grid_buttons", {}) or {}
+        grid_font_cfg = TPV_THEME.get("fonts", {}).get("grid_button", {}) or {}
+        grid_font = (grid_font_cfg.get("family"), int(grid_font_cfg.get("size"))) if grid_font_cfg.get("family") and grid_font_cfg.get("size") else None
+
+        for b in buttons:
+            key = b.get("color_key")
+            color_spec = grid_colors.get(key, {}) if key else {}
+            parsed = {
+                "text": b.get("label"),
+                "command": b.get("command"),
+                "color": color_spec.get("bg"),
+                "hover_color": color_spec.get("hover"),
+                "text_color": color_spec.get("text"),
+                "font": grid_font,
+            }
+            result["buttons"].append(parsed)
+
+        # If no buttons defined, fallback to empty list (caller may repeat)
+        return result
+    except Exception:
+        logging.exception("Error procesando configuración de botones TPV")
+        return result
 
 # Tamaños base / constantes
 RIGHT_WIDTH = 420
 INFO_BAR_HEIGHT = 90
-# Hover color shared with main navigation
-HOVER_COLOR = "#00A4DF"
+# Hover color shared with main navigation (use theme values when available)
 
 
 class ButtonFactory:
@@ -111,9 +153,9 @@ class ButtonFactory:
         parent,
         text: str,
         command=None,
-        font=("Roboto-SemiBold", 14),
-        color="#FFFFFF",
-        text_color="black",
+        font=None,
+        color=None,
+        text_color=None,
         hover_color=None,
         width: Optional[int] = None,
         height: Optional[int] = None,
@@ -121,7 +163,7 @@ class ButtonFactory:
         **kwargs,
     ) -> ctk.CTkButton:
         # Use shared HOVER_COLOR when none provided
-        _hover = hover_color if hover_color is not None else HOVER_COLOR
+        _hover = hover_color if hover_color is not None else None
         params = dict(
             master=parent,
             text=(text or "").upper(),
@@ -321,10 +363,13 @@ class TpvView:
             right_w = RIGHT_WIDTH
             action_w = max(200, total_w - right_w)
 
-            # grid: 4 columnas x 3 filas
-            cols = 4
-            rows = 3
-            spacing = 12
+            # grid layout: read values set when `show()` ran (fallback to defaults)
+            cols = getattr(self, '_tpv_cols', 4)
+            rows = getattr(self, '_tpv_rows', 3)
+            spacing = getattr(self, '_tpv_spacing', 12)
+            min_btn_size = getattr(self, '_tpv_min_btn_size', 120)
+            max_btn_size = getattr(self, '_tpv_max_btn_size', 400)
+
             horizontal_padding = spacing * (cols + 1)
             vertical_padding = spacing * (rows + 1)
 
@@ -335,8 +380,8 @@ class TpvView:
             btn_w = int(available_w / cols)
             btn_h = int(available_h / rows)
 
-            # elegir tamaño cuadrado para botones, limitado
-            btn_size = max(80, min(btn_w, btn_h, 400))
+            # elegir tamaño cuadrado para botones, limitado por min/max desde config
+            btn_size = max(min_btn_size, min(btn_w, btn_h, max_btn_size))
 
             # Tamaño del search button: ancho completo del action panel menos márgenes
             search_h = int(max(40, min(80, total_h * 0.07)))
@@ -381,44 +426,82 @@ class TpvView:
                 pass
 
         # Left action panel
-        self.action_panel = ctk.CTkFrame(self.parent, fg_color="#393E46")
+        panel_bg = TPV_THEME.get("colors", {}).get("panel_bg")
+        self.action_panel = ctk.CTkFrame(self.parent, fg_color=panel_bg) if panel_bg is not None else ctk.CTkFrame(self.parent)
         self.action_panel.pack(side="left", fill="both", expand=True)
         self.action_panel.pack_propagate(False)
 
-        # Search button (ancho grande, comportamiento como botón)
+        # Read layout config for search button geometry
+        layout_cfg = load_layout_config()
+        search_cfg = (
+            layout_cfg
+            .get("modules", {})
+            .get("tpv", {})
+            .get("center", {})
+            .get("search_button", {})
+        )
+
+        search_height = search_cfg.get("height", 80)
+        search_corner = search_cfg.get("corner_radius", 18)
+
+        # Search button (style from config)
+        btn_cfg = load_button_config_from_json().get("search_button", {})
+        sb_font = btn_cfg.get("font")
         self.search_button = ButtonFactory.create_button(
             parent=self.action_panel,
-            text="BUSCAR ARTÍCULO",
-            command=None,
-            font=("Roboto-SemiBold", 24),
-            color="#00BFFF",
-            text_color="#000000",
-            hover_color="#00A4DF",
-            corner_radius=18,
+            text=btn_cfg.get("label") or "BUSCAR ARTÍCULO",
+            command=btn_cfg.get("command"),
+            font=sb_font,
+            color=btn_cfg.get("color"),
+            text_color=btn_cfg.get("text_color"),
+            hover_color=btn_cfg.get("hover_color"),
+            corner_radius=search_corner,
+            height=search_height,
         )
         self.search_button.pack(pady=(18, 8), padx=20)
 
-        # Grid frame para 4x3 botones
+        # Load layout config for TPV grid (columns/rows/spacing/sizes)
+        layout_cfg = load_layout_config()
+        grid_cfg = (
+            layout_cfg
+            .get("modules", {})
+            .get("tpv", {})
+            .get("center", {})
+            .get("grid", {})
+        )
+
+        cols = grid_cfg.get("columns", 4)
+        rows = grid_cfg.get("rows", 3)
+        spacing = grid_cfg.get("spacing", 12)
+        min_btn_size = grid_cfg.get("min_button_size", 120)
+        max_btn_size = grid_cfg.get("max_button_size", 400)
+
+        # Store on instance so _on_resize can use them
+        self._tpv_cols = cols
+        self._tpv_rows = rows
+        self._tpv_spacing = spacing
+        self._tpv_min_btn_size = min_btn_size
+        self._tpv_max_btn_size = max_btn_size
+
+        # Grid frame for buttons
         self.grid_frame = ctk.CTkFrame(self.action_panel, fg_color="transparent")
-        self.grid_frame.pack(fill="both", expand=True, padx=12, pady=12)
+        self.grid_frame.pack(fill="both", expand=True, padx=spacing, pady=spacing)
 
-        # Crear botones desde configuración JSON (o fallback interno)
+        # Create buttons from JSON (or fallback); ensure we have cols*rows entries
         self.grid_buttons = []
-        cfg_list = load_button_config_from_json()
-        # ensure we have at least 12 entries by repeating if necessary
-        if len(cfg_list) < 12:
-            times = (12 + len(cfg_list) - 1) // max(1, len(cfg_list)) if cfg_list else 12
-            cfg_list = (cfg_list * times)[:12]
+        cfg_bundle = load_button_config_from_json()
+        cfg_list = cfg_bundle.get("buttons", []) or []
+        total = cols * rows
+        if len(cfg_list) < total:
+            times = (total + len(cfg_list) - 1) // max(1, len(cfg_list)) if cfg_list else total
+            cfg_list = (cfg_list * times)[:total]
 
-        for idx in range(12):
+        for idx in range(total):
             cfg = cfg_list[idx]
-            row = idx // 4
-            col = idx % 4
+            row = idx // cols
+            col = idx % cols
             # derive font tuple
-            font_size = cfg.get("font_size") or 36
-            # prefer explicit font_family from config, fallback to Roboto-SemiBold
-            fam = cfg.get("font_family") or "Roboto-SemiBold"
-            font = (fam, int(font_size))
+            font = cfg.get("font")
             hover = cfg.get("hover_color")
             # Create button without fixed pixel width/height so it can be
             # resized responsively in `_on_resize`.
@@ -435,29 +518,29 @@ class TpvView:
                 text=cfg.get("text", f"BTN{idx+1}"),
                 command=_btn_cmd,
                 font=font,
-                color=cfg.get("color", "#CCCCCC"),
-                text_color="#000000",
+                color=cfg.get("color"),
+                text_color=cfg.get("text_color"),
                 hover_color=hover,
                 corner_radius=28,
             )
             # place button centered in its cell; sizing handled in _on_resize
-            btn.grid(row=row, column=col, padx=12, pady=12)
+            btn.grid(row=row, column=col, padx=spacing, pady=spacing)
             self.grid_frame.grid_columnconfigure(col, weight=1)
             self.grid_frame.grid_rowconfigure(row, weight=1)
             # store base font size so _on_resize can scale relative to it
             try:
-                btn._base_font_size = int(font_size)
+                btn._base_font_size = int(font[1]) if font and len(font) > 1 and font[1] is not None else 36
             except Exception:
                 btn._base_font_size = 36
             self.grid_buttons.append(btn)
 
         # Right container (fijo en la derecha)
-        self.right_container = ctk.CTkFrame(self.parent, fg_color="#222831", width=RIGHT_WIDTH)
+        self.right_container = ctk.CTkFrame(self.parent, width=RIGHT_WIDTH)
         self.right_container.pack(side="right", fill="y")
         self.right_container.pack_propagate(False)
 
         # Info bar (blanca) encima del cart_view
-        info_bar = ctk.CTkFrame(self.right_container, height=INFO_BAR_HEIGHT, fg_color="#FFFFFF")
+        info_bar = ctk.CTkFrame(self.right_container, height=INFO_BAR_HEIGHT)
         info_bar.pack(side="top", fill="x")
         info_bar.pack_propagate(False)
 
@@ -479,15 +562,15 @@ class TpvView:
         self.info_label = ctk.CTkLabel(
             info_bar,
             text="",
-            font=("Roboto-Regular", 18),
-            text_color="#000000",
+            font=None,
+            text_color=None,
             anchor="center",
             justify="center",
         )
         self.info_label.pack(fill="both", expand=True)
 
         # Cart view (negra) - keep as attribute for external wiring
-        self.cart_view = ctk.CTkFrame(self.right_container, fg_color="#000000")
+        self.cart_view = ctk.CTkFrame(self.right_container)
         self.cart_view.pack(side="top", fill="both", expand=True)
         self.cart_view.pack_propagate(False)
 
@@ -869,14 +952,14 @@ class TpvView:
                     self._tarjeta_controller = None
 
                 try:
-                    self._web_controller = DirectPaymentController(
+                        self._web_controller = DirectPaymentController(
                         self.carrito_ui,
                         self.carrito_service,
                         on_finalize=_on_finalize,
                         payment_method='Web',
                         banner_text='Finalizar venta WEB?',
-                        banner_color='#88B04B',
-                        help_bg_color='#6A8E3D',
+                        banner_color=None,
+                        help_bg_color=None,
                     )
                 except Exception:
                     self._web_controller = None

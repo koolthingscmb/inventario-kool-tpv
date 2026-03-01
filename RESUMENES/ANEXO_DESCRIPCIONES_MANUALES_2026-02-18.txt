@@ -1,0 +1,71 @@
+Manual refined descriptions — archivos prioritarios
+
+Archivo: kool_tpv/modulos/tpv/tpv_view.py
+ - Doc: Orquestador principal de la interfaz TPV; coordina módulos, overlays y flujo de venta.
+ - Área funcional: tpv, ui, carrito, clientes, impresion
+ - Clases principales: TPVView (vista principal), SideBar, TopBar
+ - Riesgos: Código muy largo y acoplado; mezcla lógica de negocio y presentación.
+ - Recomendaciones: Extraer controladores, reducir tamaño del archivo, añadir pruebas de UI.
+
+Archivo: kool_tpv/modulos/tpv/carrito/carrito_service.py
+ - Doc: Lógica de negocio del carrito: añadir/quitar ítems, descuentos, cálculos de totales.
+ - Área funcional: tpv, carrito, ticket, promociones
+ - Clases principales: CarritoService
+ - Riesgos: Cálculos monetarios en punto flotante; transacciones parcialmente controladas.
+ - Recomendaciones: Usar decimales, cubrir con tests unitarios y garantizar atomicidad con DB wrapper.
+
+Archivo: kool_tpv/modulos/tpv/carrito/carrito_ui.py
+ - Doc: Componentes UI del carrito: lista de líneas, selección, editores de cantidad/descuento.
+ - Área funcional: tpv, ui
+ - Clases principales: CarritoUI, LineEditor
+ - Riesgos: Eventos acoplados a la lógica del servicio; difícil testear sin entorno gráfico.
+ - Recomendaciones: Aplicar patrón MVC/MVP, desacoplar vía interfaces y facilitar pruebas headless.
+
+Archivo: kool_tpv/modulos/impresion/venta_ticket_generator.py
+ - Doc: Generador de contenido imprimible para tickets; formatea líneas, totales y pagos.
+ - Área funcional: impresion, ticket
+ - Funciones top-level: build_ticket_text, format_line
+ - Riesgos: Formateo frágil dependiente de longitud fija; falta manejo de internacionalización.
+ - Recomendaciones: Separar plantilla de lógica, permitir plantillas configurables y tests de snapshot.
+
+Archivo: kool_tpv/base_datos/db_wrapper.py
+ - Doc: Wrapper de acceso a SQLite; maneja conexiones, cursores y transacciones context-managed.
+ - Área funcional: base_datos, persistencia
+ - Clases principales: Database, Transaction
+ - Riesgos: Reintentos/rollback incompletos en errores no controlados; posibles fugas de cursores.
+ - Recomendaciones: Añadir tests de concurrencia, robustecer manejo de excepciones y documentar contrato.
+
+Archivo: kool_tpv/base_datos/db_init.py
+ - Doc: Inicialización y migraciones de esquema; aplica SQL de migraciones/ según versión.
+ - Área funcional: base_datos, migraciones
+ - Funciones top-level: apply_migrations, ensure_schema
+ - Riesgos: Migraciones no idempotentes o mal versionadas pueden romper instalaciones.
+ - Recomendaciones: Versionado claro, comprobar idempotencia y añadir rollback/backup automatizado.
+
+Archivo: kool_tpv/base_datos/producto_service.py
+ - Doc: Consultas y persistencia relativas a productos y precios; búsqueda y filtrado.
+ - Área funcional: productos, catalogo, stock
+ - Clases principales: ProductoService
+ - Riesgos: Consultas con parámetros sin sanitizar en rutas externas; carga de inventario pesada.
+ - Recomendaciones: Parametrizar queries, paginación para búsquedas y añadir índices si faltan.
+
+Archivo: kool_tpv/modulos/almacen/almacen_view.py
+ - Doc: Vista de gestión de almacén: movimientos, ajustes, listados y filtros.
+ - Área funcional: almacen, stock, ui
+ - Clases principales: AlmacenView
+ - Riesgos: Operaciones de ajuste que no registran auditoría clara.
+ - Recomendaciones: Asegurar logging/auditoría y validar límites antes de aplicar movimientos.
+
+Archivo: kool_tpv/modulos/clientes/fidelizacion_service.py
+ - Doc: Cálculo y registro de puntos de fidelización; reglas de acumulación y consumo.
+ - Área funcional: clientes, fidelizacion, promociones
+ - Clases principales: FidelizacionService
+ - Riesgos: Reglas de negocio codificadas sin pruebas; inconsistencias posibles en puntos.
+ - Recomendaciones: Externalizar reglas configurables y añadir tests de reglas y reconciliación.
+
+Archivo: kool_tpv/modulos/tpv/actions/cajero.py
+ - Doc: Gestión de autenticación y acciones del cajero (login, permisos, cierre de sesión).
+ - Área funcional: seguridad, tpv
+ - Funciones top-level: authenticate_cashier, require_permission
+ - Riesgos: Manejo de credenciales y sesiones sin expiración documentada.
+ - Recomendaciones: Usar almacenamiento seguro para credenciales, logging de accesos y timeouts.
