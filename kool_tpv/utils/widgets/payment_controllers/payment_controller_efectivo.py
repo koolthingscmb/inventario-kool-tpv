@@ -60,7 +60,7 @@ class PaymentControllerEfectivo(ctk.CTkFrame):
         logger.info("PaymentControllerEfectivo inicializado")
 
     def _create_widgets(self):
-        """Crear widgets del controller."""
+        """Crear widgets del controller (grid 2x2 compacto)."""
         btn_font_cfg = self.fonts.get("components", {}).get("action_button", {})
         btn_font = (
             btn_font_cfg.get("family", "Courier New"),
@@ -71,83 +71,101 @@ class PaymentControllerEfectivo(ctk.CTkFrame):
         entry_font_cfg = self.fonts.get("entry", {})
         entry_font = (
             entry_font_cfg.get("family", "Courier New"),
-            entry_font_cfg.get("size", 14)
+            entry_font_cfg.get("size", 16)
+        )
+
+        label_font = (
+            entry_font_cfg.get("family", "Courier New"),
+            entry_font_cfg.get("size", 14),
+            "bold"
         )
 
         btn_layout = self.layout.get("components", {}).get("action_button", {})
         action_btn_cfg = self.colors.get("global", {}).get("components", {}).get("action_buttons", {}).get("primary", {})
 
-        # Label total
-        total_label = ctk.CTkLabel(
-            self,
-            text=f"Total a cobrar: {self.total:.2f}€",
-            font=btn_font,
-            text_color="#000000"
-        )
-        total_label.pack(pady=(12, 4))
+        # Container principal con padding
+        main_container = ctk.CTkFrame(self, fg_color="transparent")
+        main_container.pack(fill="both", expand=True, padx=20, pady=12)
 
-        # Label instrucción
-        instruccion = ctk.CTkLabel(
-            self,
+        # Grid 2×2
+        grid_frame = ctk.CTkFrame(main_container, fg_color="transparent")
+        grid_frame.pack(fill="x", pady=(0, 12))
+
+        # Configurar columnas
+        grid_frame.grid_columnconfigure(0, weight=0)  # Labels (ancho fijo)
+        grid_frame.grid_columnconfigure(1, weight=1)  # Entry/valores (expandible)
+
+        # FILA 1: Cantidad entregada + Entry
+        ctk.CTkLabel(
+            grid_frame,
             text="Cantidad entregada:",
-            font=entry_font,
-            text_color="#000000"
-        )
-        instruccion.pack(pady=(4, 4))
+            font=label_font,
+            text_color="#000000",
+            anchor="e"
+        ).grid(row=0, column=0, sticky="e", padx=(0, 12), pady=8)
 
-        # Entry cantidad
         self.entry_cantidad = ctk.CTkEntry(
-            self,
-            width=200,
+            grid_frame,
+            width=150,
             height=40,
             font=entry_font,
             justify="center"
         )
-        self.entry_cantidad.pack(pady=(0, 8))
+        self.entry_cantidad.grid(row=0, column=1, sticky="w", pady=8)
         self.entry_cantidad.bind('<KeyRelease>', self._on_cantidad_change)
         self.entry_cantidad.bind('<Return>', lambda e: self._on_finalizar())
 
-        # Focus automático
-        try:
-            self.entry_cantidad.focus_set()
-        except Exception:
-            pass
+        # FILA 2: Cambio + Label dinámico
+        ctk.CTkLabel(
+            grid_frame,
+            text="Cambio:",
+            font=label_font,
+            text_color="#000000",
+            anchor="e"
+        ).grid(row=1, column=0, sticky="e", padx=(0, 12), pady=8)
 
-        # Label cambio (dinámico)
         self.cambio_label = ctk.CTkLabel(
-            self,
-            text="Cambio: 0.00€",
+            grid_frame,
+            text="0.00€",
             font=btn_font,
-            text_color="#000000"
+            text_color="#000000",
+            anchor="w"
         )
-        self.cambio_label.pack(pady=(0, 4))
+        self.cambio_label.grid(row=1, column=1, sticky="w", pady=8)
 
-        # Label error (oculto por defecto)
+        # Label error (debajo del grid)
         self.error_label = ctk.CTkLabel(
-            self,
+            main_container,
             text="",
             font=entry_font,
-            text_color="#e74c3c"
+            text_color="#e74c3c",
+            anchor="center"
         )
         self.error_label.pack(pady=(0, 8))
 
         # Botón Finalizar
         self.btn_finalizar = ctk.CTkButton(
-            self,
+            main_container,
             text="FINALIZAR VENTA",
             command=self._on_finalizar,
             fg_color=action_btn_cfg.get("bg", "#2ecc71"),
             hover_color=action_btn_cfg.get("hover", "#27ae60"),
             text_color=action_btn_cfg.get("text", "#000000"),
             font=btn_font,
-            width=btn_layout.get("width", 160),
-            height=btn_layout.get("height", 35),
+            width=btn_layout.get("width", 200),
+            height=btn_layout.get("height", 45),
             corner_radius=btn_layout.get("corner_radius", 22),
             border_width=btn_layout.get("border_width", 2),
             border_color=action_btn_cfg.get("border", "#000000"),
             state="disabled"
         )
-        self.btn_finalizar.pack(pady=(0, 12))
+        self.btn_finalizar.pack(pady=(0, 8))
+
+        # Focus automático
+        try:
+            self.entry_cantidad.focus_set()
+        except Exception:
+            pass
 
     def _on_cantidad_change(self, event=None):
         """Handler cuando cambia la cantidad en el entry."""
