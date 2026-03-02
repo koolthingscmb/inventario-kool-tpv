@@ -299,6 +299,61 @@
         "text_totales": "#00FF00"
       }
     },
+    "payment_controllers": {
+      "efectivo": {
+        "bg": "#000000",
+        "border": "#2cff00",
+        "border_hover": "#27ae60",
+        "text_titulo": "#2cff00",
+        "text_label": "#2cff00",
+        "text_cambio": "#2cff00",
+        "text_error": "#e74c3c",
+        "button": {
+          "bg": "#000000",
+          "hover": "#2cff00",
+          "text": "#2cff00",
+          "border": "#2cff00"
+        }
+      },
+      "tarjeta": {
+        "bg": "#000000",
+        "border": "#53ffb1",
+        "border_hover": "#2980b9",
+        "text_titulo": "#53ffb1",
+        "button": {
+          "bg": "#000000",
+          "hover": "#2980b9",
+          "text": "#53ffb1",
+          "border": "#53ffb1"
+        }
+      },
+      "web": {
+        "bg": "#000000",
+        "border": "#9be74a",
+        "border_hover": "#6a8e3a",
+        "text_titulo": "#9be74a",
+        "button": {
+          "bg": "#000000",
+          "hover": "#6a8e3a",
+          "text": "#9be74a",
+          "border": "#9be74a"
+        }
+      },
+      "multi": {
+        "bg": "#000000",
+        "border": "#b4ea0a",
+        "border_hover": "#8e44ad",
+        "text_titulo": "#b4ea0a",
+        "text_label": "#FFFFFF",
+        "text_error": "#e74c3c",
+        "button": {
+          "bg": "#000000",
+          "hover": "#8e44ad",
+          "text": "#b4ea0a",
+          "border": "#b4ea0a"
+        }
+      }
+    },
     "carrito_nav_list": {
       "line_normal": {
         "bg": "#1a1a1a",

@@ -90,7 +90,7 @@
         },
 
         "body": {
-          "height": 350,
+          "height": 450,
           "padding_horizontal": 12,
           "padding_vertical_top": 4,
           "padding_vertical_bottom": 0
@@ -111,6 +111,48 @@
           "payment_area": {
             "padding_top": 8,
             "padding_bottom": 8
+          }
+        }
+      ,
+        "payment_controllers": {
+          "border_width": 5,
+          "corner_radius": 18,
+          "padding": 20,
+          "spacing": 12,
+
+          "button_spacing_top": 0,
+          "button_spacing_bottom": 8,
+
+          "efectivo": {
+            "entry_width": 112,
+            "entry_height": 40,
+            "titulo_bottom": 12,
+            "grid_bottom": 2,
+            "label_padx_right": 8,
+            "entry_padx_right": 12,
+            "error_top": 4,
+            "error_bottom": 8
+          },
+
+          "simple": {
+            "titulo_bottom": 12,
+            "button_spacing": 12
+          },
+
+          "multi": {
+            "entry_width": 120,
+            "entry_height": 40,
+            "titulo_bottom": 12,
+            "entries_spacing": 16,
+            "entries_bottom": 8,
+            "error_bottom": 8
+          },
+
+          "button": {
+            "width": 200,
+            "height": 45,
+            "corner_radius": 22,
+            "border_width": 2
           }
         }
       },

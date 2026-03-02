@@ -23,6 +23,24 @@ def load_config(config_name: str) -> dict:
         return {}
 
 
+def _norm_color(val: str) -> str:
+    try:
+        if not val:
+            return ''
+        if not isinstance(val, str):
+            return val
+        s = val.strip()
+        if not s:
+            return ''
+        s_low = s.lower()
+        if s_low in ("transparent", "none"):
+            return s_low
+        s = s.lstrip('#')
+        return '#' + s
+    except Exception:
+        return val
+
+
 class PaymentControllerSimple(ctk.CTkFrame):
     """Controller simple: solo botón Finalizar Venta."""
 
@@ -47,17 +65,37 @@ class PaymentControllerSimple(ctk.CTkFrame):
         self.layout = load_config("layout_config.json")
 
         # Extraer configuraciones
-        footer_colors = self.colors.get("tpv", {}).get("ticket_carrito", {}).get("footer", {})
+        # Determinar key según tipo de pago
+        tipo_key = "tarjeta" if tipo_pago.lower() == "tarjeta" else "web"
 
-        # Fondo según tipo de pago
-        if tipo_pago.lower() == "tarjeta":
-            bg_active = footer_colors.get("bg_active_tarjeta", "#3498db")
-        elif tipo_pago.lower() == "web":
-            bg_active = footer_colors.get("bg_active_web", "#88B04B")
+        # Leer configuración específica
+        pc_colors = self.colors.get("tpv", {}).get("payment_controllers", {}).get(tipo_key, {})
+        pc_layout = self.layout.get("modules", {}).get("tpv", {}).get("ticket_carrito", {}).get("payment_controllers", {})
+
+        # Aplicar desde config (si bg es 'transparent' usar footer.bg como fallback)
+        footer_bg = self.colors.get("tpv", {}).get("ticket_carrito", {}).get("footer", {}).get("bg", "#1a1a1a")
+        raw_bg = (pc_colors.get("bg", "transparent") or "").strip()
+        if raw_bg.lower() in ("transparent", "none", ""):
+            final_bg = _norm_color(footer_bg)
         else:
-            bg_active = footer_colors.get("bg", "#1a1a1a")
+            final_bg = _norm_color(raw_bg)
 
-        super().__init__(parent, fg_color=bg_active, **kwargs)
+        # Debug: log raw and normalized colors to trace invalid values
+        try:
+            logger.debug(f"PaymentControllerSimple raw_bg={raw_bg!r}, footer_bg={footer_bg!r}, final_bg={final_bg!r}, border={pc_colors.get('border')!r}")
+        except Exception:
+            pass
+
+        super().__init__(
+            parent,
+            fg_color=final_bg,
+            border_width=pc_layout.get("border_width", 3),
+            border_color=_norm_color(pc_colors.get("border", "#3498db")),
+            corner_radius=pc_layout.get("corner_radius", 18),
+            **kwargs
+        )
+
+        self.bg_active = self.cget("fg_color")
 
         self.tipo_pago = tipo_pago
         self.total = total
@@ -70,16 +108,26 @@ class PaymentControllerSimple(ctk.CTkFrame):
 
     def _create_widgets(self):
         """Crear widgets del controller."""
-        action_btn_cfg = self.colors.get("global", {}).get("components", {}).get("action_buttons", {}).get("primary", {})
+        # Obtener tokens según tipo de pago
+        tp_key = "tarjeta" if self.tipo_pago.lower() == "tarjeta" else ("web" if self.tipo_pago.lower() == "web" else "simple")
+        pcfg = self.colors.get("tpv", {}).get("payment_controllers", {}).get(tp_key, {})
+        fonts_cfg = self.fonts.get("modules", {}).get("tpv", {}).get("payment_controllers", {})
+        layout_cfg = self.layout.get("modules", {}).get("tpv", {}).get("payment_controllers", {})
 
-        btn_font_cfg = self.fonts.get("components", {}).get("action_button", {})
-        btn_font = (
-            btn_font_cfg.get("family", "Courier New"),
-            btn_font_cfg.get("size", 20),
-            btn_font_cfg.get("weight", "bold")
+        # Fonts and layout
+        title_font = (
+            fonts_cfg.get("titulo", {}).get("family", "Courier New"),
+            fonts_cfg.get("titulo", {}).get("size", 20),
+            fonts_cfg.get("titulo", {}).get("weight", "bold")
         )
+        btn_layout = layout_cfg.get("button", {})
+        btn_cfg = pcfg.get("button", {})
 
-        btn_layout = self.layout.get("components", {}).get("action_button", {})
+        # Container principal con padding
+        main_container = ctk.CTkFrame(self, fg_color="transparent")
+        main_container.pack(fill="both", expand=True,
+            padx=layout_cfg.get("padding", 20),
+            pady=layout_cfg.get("spacing", 12))
 
         # Label informativo según tipo de pago
         if self.tipo_pago.lower() == "tarjeta":
@@ -89,30 +137,46 @@ class PaymentControllerSimple(ctk.CTkFrame):
         else:
             texto_info = f"Pago: {self.tipo_pago}"
 
+        def _choose_text_color(cfg_color: str, bg: str) -> str:
+            c = _norm_color(cfg_color) if cfg_color else cfg_color
+            if not c:
+                return '#FFFFFF'
+            if _norm_color(c) == _norm_color(bg):
+                return '#FFFFFF'
+            return c
+
         info_label = ctk.CTkLabel(
-            self,
+            main_container,
             text=texto_info,
-            font=btn_font,
-            text_color="#FFFFFF"
+            font=title_font,
+            text_color=_choose_text_color(pcfg.get("text_titulo", "#FFFFFF"), self.bg_active)
         )
-        info_label.pack(pady=(12, 8))
+        simple_cfg = layout_cfg.get("simple", {})
+        info_label.pack(pady=(0, simple_cfg.get("titulo_bottom", 8)))
+
+        # normalize button cfg
+        btn_cfg = pcfg.get("button", {})
+        btn_cfg = {k: _norm_color(v) if isinstance(v, str) else v for k, v in btn_cfg.items()}
 
         # Botón Finalizar Venta
         self.btn_finalizar = ctk.CTkButton(
-            self,
+            main_container,
             text="FINALIZAR VENTA",
             command=self._on_finalizar,
-            fg_color=action_btn_cfg.get("bg", "#2ecc71"),
-            hover_color=action_btn_cfg.get("hover", "#27ae60"),
-            text_color=action_btn_cfg.get("text", "#000000"),
-            font=btn_font,
+            fg_color=btn_cfg.get("bg", "#2ecc71"),
+            hover_color=btn_cfg.get("hover", "#27ae60"),
+            text_color=_norm_color(btn_cfg.get("text", "#000000")),
+            font=(btn_cfg.get("family", title_font[0]), btn_cfg.get("size", title_font[1])),
             width=btn_layout.get("width", 160),
             height=btn_layout.get("height", 35),
             corner_radius=btn_layout.get("corner_radius", 22),
             border_width=btn_layout.get("border_width", 2),
-            border_color=action_btn_cfg.get("border", "#000000")
+            border_color=_norm_color(btn_cfg.get("border", "#000000"))
         )
-        self.btn_finalizar.pack(pady=(0, 12))
+        btn_spacing_top = layout_cfg.get("button_spacing_top", 12)
+        btn_spacing_bottom = layout_cfg.get("button_spacing_bottom", 8)
+
+        self.btn_finalizar.pack(pady=(btn_spacing_top, btn_spacing_bottom))
 
         # Binding Enter
         try:

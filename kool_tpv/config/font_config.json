@@ -160,6 +160,15 @@
         "footer_labels": {"family": "Courier New", "size": 14, "weight": "bold"},
         "footer_totales": {"family": "Courier New", "size": 16, "weight": "bold"}
       }
+      ,
+      "payment_controllers": {
+        "titulo": { "family": "Courier New", "size": 20, "weight": "bold" },
+        "label": { "family": "Courier New", "size": 18, "weight": "bold" },
+        "entry": { "family": "Courier New", "size": 20, "weight": "normal" },
+        "cambio": { "family": "Courier New", "size": 18, "weight": "bold" },
+        "button": { "family": "Courier New", "size": 20, "weight": "bold" },
+        "error": { "family": "Courier New", "size": 12, "weight": "normal" }
+      }
     }
   },
   "scale": {
