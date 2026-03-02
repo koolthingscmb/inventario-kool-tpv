@@ -90,9 +90,10 @@
         },
 
         "body": {
+          "height": 250,
           "padding_horizontal": 12,
           "padding_vertical_top": 4,
-          "padding_vertical_bottom": 1
+          "padding_vertical_bottom": 0
         },
 
         "footer": {

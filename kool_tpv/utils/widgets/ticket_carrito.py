@@ -232,8 +232,8 @@ class TicketCarrito(ctk.CTkFrame):
         body_cfg = self.ticket_colors.get("body", {})
         body_layout = self.ticket_layout.get("body", {})
 
-        # Determinar altura fija para el body (puede venir de config); usar 250 por defecto
-        body_height = body_layout.get("height") or body_layout.get("fixed_height") or 250
+        # Determinar altura fija para el body desde config (por defecto 250)
+        body_height = body_layout.get("height", 250)
 
         self.body_frame = ctk.CTkFrame(
             self,
@@ -271,11 +271,10 @@ class TicketCarrito(ctk.CTkFrame):
     def _create_footer(self):
         """Crear zona de footer (totales + formas de pago)."""
         footer_cfg = self.ticket_colors.get("footer", {})
-        footer_height = self.ticket_layout.get("footer_height", 140)
 
+        # Footer SIN altura fija - se expande según contenido (payment controllers)
         self.footer_frame = ctk.CTkFrame(
             self,
-            height=footer_height,
             fg_color=footer_cfg.get("bg", "#1a1a1a")
         )
         footer_layout = self.ticket_layout.get("footer", {})
@@ -287,7 +286,6 @@ class TicketCarrito(ctk.CTkFrame):
                 footer_layout.get("padding_vertical_bottom", 12)
             )
         )
-        self.footer_frame.pack_propagate(False)
 
         # Container para totales
         self.totales_container = ctk.CTkFrame(self.footer_frame, fg_color="transparent")
