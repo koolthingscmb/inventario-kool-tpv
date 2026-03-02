@@ -1,0 +1,228 @@
+"""
+PaymentControllerEfectivo - Widget para pago en efectivo
+Entry + cálculo de cambio + validación
+"""
+import logging
+from pathlib import Path
+import json
+import customtkinter as ctk
+from typing import Optional, Callable
+
+logger = logging.getLogger(__name__)
+
+
+def load_config(config_name: str) -> dict:
+    """Cargar archivo de configuración."""
+    try:
+        base = Path(__file__).resolve().parents[3]
+        config_path = base / "config" / config_name
+        with open(config_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        logger.exception(f"Error cargando {config_name}")
+        return {}
+
+
+class PaymentControllerEfectivo(ctk.CTkFrame):
+    """Controller efectivo: entry + cambio + validación."""
+
+    def __init__(
+        self,
+        parent,
+        total: float = 0.0,
+        on_finalizar: Optional[Callable] = None,
+        **kwargs
+    ):
+        """
+        Args:
+            parent: Widget padre
+            total: Total a cobrar
+            on_finalizar: Callback cuando se pulsa Finalizar
+        """
+        # Cargar configs
+        self.colors = load_config("colors_config.json")
+        self.fonts = load_config("font_config.json")
+        self.layout = load_config("layout_config.json")
+
+        # Fondo activo para efectivo
+        footer_colors = self.colors.get("tpv", {}).get("ticket_carrito", {}).get("footer", {})
+        bg_active = footer_colors.get("bg_active_efectivo", "#2ecc71")
+
+        super().__init__(parent, fg_color=bg_active, **kwargs)
+
+        self.total = total
+        self.on_finalizar_callback = on_finalizar
+        self.cantidad_entregada = 0.0
+
+        # Crear UI
+        self._create_widgets()
+
+        logger.info("PaymentControllerEfectivo inicializado")
+
+    def _create_widgets(self):
+        """Crear widgets del controller."""
+        btn_font_cfg = self.fonts.get("components", {}).get("action_button", {})
+        btn_font = (
+            btn_font_cfg.get("family", "Courier New"),
+            btn_font_cfg.get("size", 20),
+            btn_font_cfg.get("weight", "bold")
+        )
+
+        entry_font_cfg = self.fonts.get("entry", {})
+        entry_font = (
+            entry_font_cfg.get("family", "Courier New"),
+            entry_font_cfg.get("size", 14)
+        )
+
+        btn_layout = self.layout.get("components", {}).get("action_button", {})
+        action_btn_cfg = self.colors.get("global", {}).get("components", {}).get("action_buttons", {}).get("primary", {})
+
+        # Label total
+        total_label = ctk.CTkLabel(
+            self,
+            text=f"Total a cobrar: {self.total:.2f}€",
+            font=btn_font,
+            text_color="#000000"
+        )
+        total_label.pack(pady=(12, 4))
+
+        # Label instrucción
+        instruccion = ctk.CTkLabel(
+            self,
+            text="Cantidad entregada:",
+            font=entry_font,
+            text_color="#000000"
+        )
+        instruccion.pack(pady=(4, 4))
+
+        # Entry cantidad
+        self.entry_cantidad = ctk.CTkEntry(
+            self,
+            width=200,
+            height=40,
+            font=entry_font,
+            justify="center"
+        )
+        self.entry_cantidad.pack(pady=(0, 8))
+        self.entry_cantidad.bind('<KeyRelease>', self._on_cantidad_change)
+        self.entry_cantidad.bind('<Return>', lambda e: self._on_finalizar())
+
+        # Focus automático
+        try:
+            self.entry_cantidad.focus_set()
+        except Exception:
+            pass
+
+        # Label cambio (dinámico)
+        self.cambio_label = ctk.CTkLabel(
+            self,
+            text="Cambio: 0.00€",
+            font=btn_font,
+            text_color="#000000"
+        )
+        self.cambio_label.pack(pady=(0, 4))
+
+        # Label error (oculto por defecto)
+        self.error_label = ctk.CTkLabel(
+            self,
+            text="",
+            font=entry_font,
+            text_color="#e74c3c"
+        )
+        self.error_label.pack(pady=(0, 8))
+
+        # Botón Finalizar
+        self.btn_finalizar = ctk.CTkButton(
+            self,
+            text="FINALIZAR VENTA",
+            command=self._on_finalizar,
+            fg_color=action_btn_cfg.get("bg", "#2ecc71"),
+            hover_color=action_btn_cfg.get("hover", "#27ae60"),
+            text_color=action_btn_cfg.get("text", "#000000"),
+            font=btn_font,
+            width=btn_layout.get("width", 160),
+            height=btn_layout.get("height", 35),
+            corner_radius=btn_layout.get("corner_radius", 22),
+            border_width=btn_layout.get("border_width", 2),
+            border_color=action_btn_cfg.get("border", "#000000"),
+            state="disabled"
+        )
+        self.btn_finalizar.pack(pady=(0, 12))
+
+    def _on_cantidad_change(self, event=None):
+        """Handler cuando cambia la cantidad en el entry."""
+        try:
+            texto = self.entry_cantidad.get().strip()
+
+            if not texto:
+                self.cantidad_entregada = 0.0
+                self.cambio_label.configure(text="Cambio: 0.00€")
+                self.error_label.configure(text="")
+                try:
+                    self.btn_finalizar.configure(state="disabled")
+                except Exception:
+                    pass
+                return
+
+            # Intentar convertir a float
+            try:
+                cantidad = float(texto.replace(',', '.'))
+            except ValueError:
+                self.error_label.configure(text="Cantidad no válida")
+                try:
+                    self.btn_finalizar.configure(state="disabled")
+                except Exception:
+                    pass
+                return
+
+            self.cantidad_entregada = cantidad
+
+            # Calcular cambio
+            cambio = cantidad - self.total
+
+            if cambio < 0:
+                # Cantidad insuficiente
+                self.cambio_label.configure(text=f"Falta: {abs(cambio):.2f}€")
+                self.error_label.configure(text="Cantidad insuficiente")
+                try:
+                    self.btn_finalizar.configure(state="disabled")
+                except Exception:
+                    pass
+            else:
+                # Cantidad correcta
+                self.cambio_label.configure(text=f"Cambio: {cambio:.2f}€")
+                self.error_label.configure(text="")
+                try:
+                    self.btn_finalizar.configure(state="normal")
+                except Exception:
+                    pass
+
+        except Exception:
+            logger.exception("Error calculando cambio")
+
+    def _on_finalizar(self):
+        """Handler botón Finalizar."""
+        try:
+            if self.cantidad_entregada < self.total:
+                self.error_label.configure(text="Cantidad insuficiente")
+                return
+
+            if self.on_finalizar_callback:
+                cambio = self.cantidad_entregada - self.total
+                self.on_finalizar_callback({
+                    "tipo_pago": "Efectivo",
+                    "total": self.total,
+                    "cantidad_entregada": self.cantidad_entregada,
+                    "cambio": cambio
+                })
+        except Exception:
+            logger.exception("Error en _on_finalizar")
+
+    def set_total(self, total: float):
+        """Actualizar total a cobrar."""
+        self.total = total
+        # Recalcular cambio
+        try:
+            self._on_cantidad_change()
+        except Exception:
+            pass

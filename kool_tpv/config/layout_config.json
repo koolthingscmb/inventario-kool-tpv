@@ -70,20 +70,58 @@
 
       "ticket_carrito": {
         "width": 420,
-        "header_height": 120,
-        "footer_height": 140,
-        "spacing": 12
+
+        "header": {
+          "padding_horizontal": 12,
+          "padding_vertical_top": 8,
+          "padding_vertical_bottom": 2,
+
+          "info_section": {
+            "label_height": 20,
+            "spacing_top": 4,
+            "spacing_bottom": 2
+          },
+
+          "cliente_section": {
+            "label_height": 24,
+            "spacing_top": 4,
+            "spacing_bottom": 2
+          }
+        },
+
+        "body": {
+          "padding_horizontal": 12,
+          "padding_vertical_top": 4,
+          "padding_vertical_bottom": 8
+        },
+
+        "footer": {
+          "padding_horizontal": 12,
+          "padding_vertical_top": 8,
+          "padding_vertical_bottom": 12,
+
+          "totales_section": {
+            "padding_top": 8,
+            "separator_height": 2,
+            "separator_padding": 8,
+            "grid_padding": 12
+          },
+
+          "payment_area": {
+            "padding_top": 8,
+            "padding_bottom": 8
+          }
+        }
+      },
+      "carrito_nav_list": {
+        "row_height": 35,
+        "column_widths": {
+          "producto": 180,
+          "cantidad": 50,
+          "precio": 80,
+          "total": 85
+        }
       }
-    ,
-    "carrito_nav_list": {
-      "row_height": 35,
-      "column_widths": {
-        "producto": 180,
-        "cantidad": 50,
-        "precio": 80,
-        "total": 85
-      }
-    }
     }
     ,
     "almacen": {

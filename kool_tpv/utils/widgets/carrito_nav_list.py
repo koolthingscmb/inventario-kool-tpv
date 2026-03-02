@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 def load_config(config_name: str) -> dict:
     """Cargar archivo de configuración."""
     try:
-        base = Path(__file__).resolve().parents[3]
+        base = Path(__file__).resolve().parents[2]
         config_path = base / "config" / config_name
         with open(config_path, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -73,10 +73,10 @@ class CarritoNavList(NavList):
         # Configurar colores específicos del carrito (override)
         self._apply_carrito_colors()
 
-        # Bindings específicos del carrito
-        self._setup_carrito_bindings()
-
         logger.info("CarritoNavList inicializado")
+
+        # Bindings específicos del carrito (DESPUÉS de super init)
+        self._setup_carrito_bindings()
 
     def _apply_carrito_colors(self):
         """Aplicar colores específicos del carrito sobre los de NavList base."""
@@ -94,47 +94,101 @@ class CarritoNavList(NavList):
     def _setup_carrito_bindings(self):
         """Configurar bindings específicos del carrito."""
         try:
-            # Enter: añadir +1 unidad
-            self._tree.bind('<Return>', lambda e: self._on_enter_key())
+            # Hacer bind en el widget principal (self), no en _tree
+            # NavList base ya gestiona flechas arriba/abajo internamente
+
+            # Enter: añadir +1 unidad (handler recibe event y puede prevenir propagación)
+            self.bind('<Return>', self._on_enter_key)
+            self.bind('<KP_Enter>', self._on_enter_key)  # Enter del teclado numérico
 
             # Suprimir/BackSpace: reducir -1 unidad
-            self._tree.bind('<Delete>', lambda e: self._on_delete_key())
-            self._tree.bind('<BackSpace>', lambda e: self._on_delete_key())
+            self.bind('<Delete>', self._on_delete_key)
+            self.bind('<BackSpace>', self._on_delete_key)
+
+            # Dar foco al widget para que reciba eventos de teclado
+            self.focus_set()
+
         except Exception:
             logger.exception("Error configurando bindings carrito")
 
-    def _on_enter_key(self):
-        """Handler Enter: añadir +1 unidad al item seleccionado."""
+    def _on_enter_key(self, event=None):
+        """Handler Enter: añadir +1 unidad al item seleccionado.
+
+        Se acepta `event` para poder devolver "break" y evitar propagación
+        que pueda cambiar foco o seleccionar otra cosa.
+        """
         try:
             if self.selected_index < 0:
-                return
+                return "break"
 
-            data, _ = self.rows_data[self.selected_index]
+            current_index = self.selected_index
+            data, _ = self.rows_data[current_index]
 
             # No permitir añadir unidades a líneas especiales
             line_tipo = data.get("line_tipo", "normal")
             if line_tipo in ("descuento", "tesoro"):
-                return
+                return "break"
 
             if self.on_item_change_callback:
-                self.on_item_change_callback(data, "add")
+                # Ejecutar callback que probablemente actualice el servicio y la lista
+                try:
+                    self.on_item_change_callback(data, "add")
+                except Exception:
+                    logger.exception("Error ejecutando on_item_change_callback add")
+
+                # Re-seleccionar la misma fila después de cualquier reconstrucción
+                try:
+                    self.after_idle(lambda: self._select_row(current_index))
+                except Exception:
+                    pass
+
+            # Mantener foco en el widget
+            try:
+                self.focus_set()
+            except Exception:
+                pass
+
+            return "break"
 
         except Exception:
             logger.exception("Error en _on_enter_key")
+            return "break"
 
-    def _on_delete_key(self):
-        """Handler Suprimir: reducir -1 unidad al item seleccionado."""
+    def _on_delete_key(self, event=None):
+        """Handler Suprimir: reducir -1 unidad al item seleccionado.
+
+        Acepta `event` y devuelve "break" para evitar pérdida de selección por
+        propagación del evento.
+        """
         try:
             if self.selected_index < 0:
-                return
+                return "break"
 
-            data, _ = self.rows_data[self.selected_index]
+            current_index = self.selected_index
+            data, _ = self.rows_data[current_index]
 
             if self.on_item_change_callback:
-                self.on_item_change_callback(data, "remove")
+                try:
+                    self.on_item_change_callback(data, "remove")
+                except Exception:
+                    logger.exception("Error ejecutando on_item_change_callback remove")
+
+                # Re-seleccionar la misma fila después de actualización
+                try:
+                    self.after_idle(lambda: self._select_row(current_index))
+                except Exception:
+                    pass
+
+            try:
+                self.focus_set()
+            except Exception:
+                pass
+
+            return "break"
 
         except Exception:
             logger.exception("Error en _on_delete_key")
+            return "break"
 
     def add_item(self, data: dict):
         """Override: añadir item con soporte para tipos de línea."""
@@ -145,9 +199,18 @@ class CarritoNavList(NavList):
             # Añadir item usando método padre
             super().add_item(data)
 
+            # IMPORTANTE: Guardar line_tipo en el frame para referencias futuras
+            index = len(self.rows_data) - 1
+            if 0 <= index < len(self.rows_data):
+                _, frame = self.rows_data[index]
+                try:
+                    frame._line_tipo = line_tipo  # Guardar como atributo del frame
+                except Exception:
+                    pass
+
             # Aplicar estilo según tipo
             if line_tipo != "normal":
-                self._apply_line_style(len(self.rows_data) - 1, line_tipo)
+                self._apply_line_style(index, line_tipo)
 
         except Exception:
             logger.exception("Error añadiendo item al carrito")
@@ -180,3 +243,55 @@ class CarritoNavList(NavList):
 
         except Exception:
             logger.exception(f"Error aplicando estilo {line_tipo}")
+
+    def _select_row(self, index: int):
+        """Override: seleccionar fila manteniendo colores especiales."""
+        try:
+            # Guardar índice anterior antes de delegar
+            prev_index = self.selected_index
+
+            # Llamar al método padre para gestionar selección visual básica
+            super()._select_row(index)
+
+            # Re-aplicar estilo especial en fila nueva (usar atributo del frame)
+            if 0 <= index < len(self.rows_data):
+                _, frame = self.rows_data[index]
+                line_tipo = getattr(frame, '_line_tipo', 'normal')
+                if line_tipo != 'normal':
+                    self._apply_line_style(index, line_tipo)
+
+            # Re-aplicar estilo especial en fila previa (si existe y diferente)
+            if 0 <= prev_index < len(self.rows_data) and prev_index != index:
+                _, prev_frame = self.rows_data[prev_index]
+                prev_tipo = getattr(prev_frame, '_line_tipo', 'normal')
+                if prev_tipo != 'normal':
+                    self._apply_line_style(prev_index, prev_tipo)
+
+        except Exception:
+            logger.exception("Error en _select_row override")
+
+    def _on_row_click(self, index: int):
+        """Override: click en fila manteniendo colores especiales."""
+        try:
+            # Guardar índice anterior
+            prev_index = self.selected_index
+
+            # Llamar al método padre
+            super()._on_row_click(index)
+
+            # Re-aplicar colores especiales en fila actual
+            if 0 <= index < len(self.rows_data):
+                _, frame = self.rows_data[index]
+                line_tipo = getattr(frame, '_line_tipo', 'normal')
+                if line_tipo != 'normal':
+                    self._apply_line_style(index, line_tipo)
+
+            # Re-aplicar colores especiales en fila anterior (deseleccionada)
+            if 0 <= prev_index < len(self.rows_data) and prev_index != index:
+                _, prev_frame = self.rows_data[prev_index]
+                prev_tipo = getattr(prev_frame, '_line_tipo', 'normal')
+                if prev_tipo != 'normal':
+                    self._apply_line_style(prev_index, prev_tipo)
+
+        except Exception:
+            logger.exception("Error en _on_row_click override")

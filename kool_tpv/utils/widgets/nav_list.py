@@ -241,6 +241,12 @@ class NavList(ctk.CTkScrollableFrame):
     def _on_row_enter(self, frame):
         """Hover sobre fila - solo si no está seleccionada."""
         try:
+            # Si la fila tiene un tipo especial (p.ej. 'descuento'/'tesoro'),
+            # no aplicar el efecto hover para preservar su estilo.
+            line_tipo = getattr(frame, '_line_tipo', 'normal')
+            if line_tipo != 'normal':
+                return
+
             # No aplicar hover si es la fila seleccionada
             if self.selected_index >= 0:
                 _, selected_frame = self.rows_data[self.selected_index]
@@ -263,6 +269,11 @@ class NavList(ctk.CTkScrollableFrame):
     def _on_row_leave(self, frame):
         """Salir de hover - restaurar color normal."""
         try:
+            # Si la fila tiene un tipo especial, no tocar su estilo al salir
+            line_tipo = getattr(frame, '_line_tipo', 'normal')
+            if line_tipo != 'normal':
+                return
+
             # No restaurar si es la fila seleccionada
             if self.selected_index >= 0:
                 _, selected_frame = self.rows_data[self.selected_index]
