@@ -581,9 +581,19 @@ class TpvView:
         try:
             from kool_tpv.modulos.tpv.carrito.carrito_service import CarritoService
             from kool_tpv.modulos.tpv.carrito.carrito_ui import CarritoUI
+            from kool_tpv.utils.widgets.ticket_carrito import TicketCarrito
             self.carrito_service = CarritoService()
-            # CarritoUI expects a tk-compatible parent; CTkFrame works as master
-            self.carrito_ui = CarritoUI(self.cart_view, self.carrito_service)
+
+            # TicketCarrito nuevo (reemplaza CarritoUI)
+            self.ticket_carrito = TicketCarrito(
+                parent=self.cart_view,
+                carrito_service=self.carrito_service,
+                keyboard_manager=None  # Por ahora None, luego conectaremos
+            )
+            self.ticket_carrito.pack(fill="both", expand=True)
+
+            # Mantener referencia como carrito_ui para compatibilidad con código existente
+            self.carrito_ui = self.ticket_carrito
 
             # ticket_display removed in rollback — no widget created here
 
@@ -967,11 +977,11 @@ class TpvView:
                 # if import fails, ensure safe defaults
                 self._tarjeta_controller = None
                 self._web_controller = None
-            # initial display
-            try:
-                self.carrito_ui.update_display()
-            except Exception:
-                pass
+            # initial display (comentado hasta conectar update_carrito)
+            # try:
+            #     self.carrito_ui.update_display()
+            # except Exception:
+            #     pass
             # Instantiate impresora service (simulada) for printing tickets
             try:
                 if ImpresoraService is not None:
