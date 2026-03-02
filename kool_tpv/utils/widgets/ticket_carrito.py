@@ -230,15 +230,21 @@ class TicketCarrito(ctk.CTkFrame):
     def _create_body(self):
         """Crear zona del cuerpo con CarritoNavList."""
         body_cfg = self.ticket_colors.get("body", {})
+        body_layout = self.ticket_layout.get("body", {})
+
+        # Determinar altura fija para el body (puede venir de config); usar 250 por defecto
+        body_height = body_layout.get("height") or body_layout.get("fixed_height") or 250
 
         self.body_frame = ctk.CTkFrame(
             self,
+            height=body_height,
             fg_color=body_cfg.get("bg", "#000000")
         )
-        body_layout = self.ticket_layout.get("body", {})
+
+        # Empaquetar como caja fija en vertical: no expandir, ocupar solo el ancho
         self.body_frame.pack(
-            fill="both",
-            expand=True,
+            fill="x",
+            expand=False,
             padx=body_layout.get("padding_horizontal", 12),
             pady=(
                 body_layout.get("padding_vertical_top", 4),
@@ -246,7 +252,10 @@ class TicketCarrito(ctk.CTkFrame):
             )
         )
 
-        # CarritoNavList
+        # Asegurar que el tamaño no sea modificado por el contenido
+        self.body_frame.pack_propagate(False)
+
+        # CarritoNavList (rellena el interior fijo)
         try:
             self.carrito_nav_list = CarritoNavList(
                 parent=self.body_frame,
