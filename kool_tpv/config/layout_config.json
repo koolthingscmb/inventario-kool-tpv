@@ -54,6 +54,8 @@
     },
 
     "tpv": {
+      "sidebar_width": 220,
+      "right_width": 420,
       "center": {
         "search_button": {
           "height": 80,

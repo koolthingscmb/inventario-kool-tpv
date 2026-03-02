@@ -25,6 +25,7 @@ except Exception:
     ImpresoraService = None
 
 import customtkinter as ctk
+from kool_tpv.utils.widgets.tpv_layout_base import TpvLayoutBase
 import tkinter as tk
 from kool_tpv.utils.custom_dialog import show_error, show_success, show_info, show_warning
 from kool_tpv.modulos.tpv.actions.descuento import DescuentoAction
@@ -359,9 +360,10 @@ class TpvView:
             total_w = max(1, self.parent.winfo_width())
             total_h = max(1, self.parent.winfo_height())
 
-            # espacio reservado para la columna derecha fija
-            right_w = RIGHT_WIDTH
-            action_w = max(200, total_w - right_w)
+            # espacio reservado para columnas fijas (sidebar + derecha)
+            sidebar_w = getattr(self.tpv_layout, 'sidebar_width', 220) if getattr(self, 'tpv_layout', None) is not None else 220
+            right_w = getattr(self.tpv_layout, 'right_width', 420) if getattr(self, 'tpv_layout', None) is not None else RIGHT_WIDTH
+            action_w = max(200, total_w - sidebar_w - right_w)
 
             # grid layout: read values set when `show()` ran (fallback to defaults)
             cols = getattr(self, '_tpv_cols', 4)
@@ -425,11 +427,22 @@ class TpvView:
             except Exception:
                 pass
 
-        # Left action panel
+        # Left action panel -> integrado en TpvLayoutBase
+        layout_cfg = load_layout_config()
+        sidebar_w = layout_cfg.get("modules", {}).get("sidebar", {}).get("width", 220)
+        ticket_w = layout_cfg.get("modules", {}).get("tpv", {}).get("ticket_carrito", {}).get("width", 420)
+
+        self.tpv_layout = TpvLayoutBase(
+            self.parent,
+            sidebar_width=sidebar_w,
+            right_width=ticket_w
+        )
+        self.tpv_layout.pack(fill="both", expand=True)
+
+        # Action panel ahora es el centro del layout
         panel_bg = TPV_THEME.get("colors", {}).get("panel_bg")
-        self.action_panel = ctk.CTkFrame(self.parent, fg_color=panel_bg) if panel_bg is not None else ctk.CTkFrame(self.parent)
-        self.action_panel.pack(side="left", fill="both", expand=True)
-        self.action_panel.pack_propagate(False)
+        self.action_panel = ctk.CTkFrame(self.tpv_layout.get_center_frame(), fg_color=panel_bg) if panel_bg is not None else ctk.CTkFrame(self.tpv_layout.get_center_frame())
+        self.tpv_layout.set_center_content(self.action_panel)
 
         # Read layout config for search button geometry
         layout_cfg = load_layout_config()
@@ -534,10 +547,9 @@ class TpvView:
                 btn._base_font_size = 36
             self.grid_buttons.append(btn)
 
-        # Right container (fijo en la derecha)
-        self.right_container = ctk.CTkFrame(self.parent, width=RIGHT_WIDTH)
-        self.right_container.pack(side="right", fill="y")
-        self.right_container.pack_propagate(False)
+        # Right container ahora va en la zona derecha del layout
+        self.right_container = ctk.CTkFrame(self.tpv_layout.get_right_frame())
+        self.tpv_layout.set_right_content(self.right_container)
 
         # Info bar (blanca) encima del cart_view
         info_bar = ctk.CTkFrame(self.right_container, height=INFO_BAR_HEIGHT)
