@@ -81,10 +81,17 @@ class PaymentControllerSimple(ctk.CTkFrame):
 
         btn_layout = self.layout.get("components", {}).get("action_button", {})
 
-        # Label informativo
+        # Label informativo según tipo de pago
+        if self.tipo_pago.lower() == "tarjeta":
+            texto_info = "Pago con tarjeta"
+        elif self.tipo_pago.lower() == "web":
+            texto_info = "Pago en la Web"
+        else:
+            texto_info = f"Pago: {self.tipo_pago}"
+
         info_label = ctk.CTkLabel(
             self,
-            text=f"Total a cobrar: {self.total:.2f}€",
+            text=texto_info,
             font=btn_font,
             text_color="#FFFFFF"
         )
@@ -127,7 +134,5 @@ class PaymentControllerSimple(ctk.CTkFrame):
     def set_total(self, total: float):
         """Actualizar total a cobrar."""
         self.total = total
-        # Re-crear widgets para actualizar label (o actualizar label directamente)
-        for widget in self.winfo_children():
-            widget.destroy()
-        self._create_widgets()
+        # El total no se muestra en este controller, solo actualizar internamente
+        # No necesita recrear widgets
