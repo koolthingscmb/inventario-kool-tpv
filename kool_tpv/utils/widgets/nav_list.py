@@ -14,7 +14,7 @@ from typing import List, Tuple, Callable, Optional, Any
 import customtkinter as ctk
 import tkinter as tk
 
-from kool_tpv.utils.config_loader import load_colors
+from kool_tpv.utils.config_loader import load_colors, load_layout_config
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,22 @@ class NavList(ctk.CTkScrollableFrame):
         else:
             self.row_selected_border = border_key
 
-        self.row_height = nav_cfg.get('row_height', 35)
+        # Layout config: permitir wraplength y override de row_height desde layout_config
+        layout_root = load_layout_config() or {}
+        nav_layout = layout_root.get('components', {}).get('nav_list', {}) or {}
+        module_cfg = layout_root.get('modules', {}).get(module_name, {}) if isinstance(layout_root.get('modules', {}), dict) else {}
+        # Soporte específico para módulos que agrupan la config bajo una clave (p.ej. 'carrito_nav_list')
+        if isinstance(module_cfg, dict):
+            # Preferir clave específica del módulo (p.ej. carrito_nav_list) si existe
+            if 'carrito_nav_list' in module_cfg:
+                nav_layout = {**nav_layout, **module_cfg.get('carrito_nav_list', {})}
+            elif 'nav_list' in module_cfg:
+                nav_layout = {**nav_layout, **module_cfg.get('nav_list', {})}
+
+        # Row height: layout overrides color config
+        self.row_height = nav_layout.get('row_height', nav_cfg.get('row_height', 35))
+        # Optional wraplength: if present, allow labels to wrap and let rows expand in height
+        self.wraplength = nav_layout.get('wraplength', None)
 
         # Frame scroll
         super().__init__(
@@ -117,13 +132,17 @@ class NavList(ctk.CTkScrollableFrame):
             data: Dict que debe contener keys según columnas + cualquier dato extra
         """
         # Crear frame de fila
-        row_frame = ctk.CTkFrame(
-            self,
-            fg_color=self.row_normal_bg,
-            corner_radius=6,
-            height=self.row_height,
-            border_width=0
-        )
+        # If wrapping is enabled, avoid forcing a fixed row height so the row can expand.
+        row_frame_params = {
+            'master': self,
+            'fg_color': self.row_normal_bg,
+            'corner_radius': 6,
+            'border_width': 0
+        }
+        if not self.wraplength:
+            row_frame_params['height'] = self.row_height
+
+        row_frame = ctk.CTkFrame(**row_frame_params)
         row_frame.pack(fill='x', padx=6, pady=3)
 
         # Guardar referencia
@@ -148,14 +167,19 @@ class NavList(ctk.CTkScrollableFrame):
             # col_key puede ser header o key; usar raw key si existe
             value = data.get(col_key, '')
 
-            lbl = ctk.CTkLabel(
-                row_frame,
-                text=str(value),
-                font=('Courier New', 12),
-                text_color=self.row_normal_text,
-                width=width,
-                anchor='w'
-            )
+            lbl_params = {
+                'master': row_frame,
+                'text': str(value),
+                'font': ('Courier New', 12),
+                'text_color': self.row_normal_text,
+                'width': width,
+                'anchor': 'w'
+            }
+            if self.wraplength:
+                lbl_params['wraplength'] = self.wraplength
+                lbl_params['justify'] = 'left'
+
+            lbl = ctk.CTkLabel(**lbl_params)
             lbl.pack(side='left', padx=8, pady=8)
 
             # Bind clicks

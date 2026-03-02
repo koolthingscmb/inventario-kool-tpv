@@ -157,7 +157,8 @@
         }
       },
       "carrito_nav_list": {
-        "row_height": 35,
+          "row_height": 35,
+          "wraplength": 170,
         "column_widths": {
           "producto": 180,
           "cantidad": 50,

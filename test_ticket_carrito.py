@@ -17,10 +17,10 @@ class MockCarritoService:
 
     def _add_test_items(self):
         """Añadir items de prueba con los 4 tipos de línea."""
-        # Item normal 1
+        # Item normal 1 (nombre muy largo para probar wrap)
         self.items.append({
             "id": 1,
-            "nombre": "Camiseta Basic",
+            "nombre": "Camiseta Extra Larga Super Stretch Comfort Edition - Edición Limitada con Estampado Multicolor y Características Técnicas Avanzadas, incluye bolsillos ocultos, costuras reforzadas y tratamiento antiolor para uso prolongado",
             "cantidad": 2,
             "pvp": 19.99,
             "total": 39.98,
