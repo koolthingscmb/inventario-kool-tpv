@@ -287,9 +287,11 @@ class TicketCarrito(ctk.CTkFrame):
             )
         )
 
-        # Container para totales
+        # Container para totales (leer estructura anidada desde config)
+        totales_cfg = footer_layout.get("totales_section", {})
+
         self.totales_container = ctk.CTkFrame(self.footer_frame, fg_color="transparent")
-        tot_pad_top = footer_layout.get("totales_padding_top", 8)
+        tot_pad_top = totales_cfg.get("padding_top", 8)
         self.totales_container.pack(fill="x", pady=(tot_pad_top, 0))
 
         # Separador visual
@@ -299,15 +301,23 @@ class TicketCarrito(ctk.CTkFrame):
             fg_color=footer_cfg.get("text", "#FFFFFF")
         )
         pad_h = footer_layout.get("padding_horizontal", 12)
-        sep_pad = footer_layout.get("separator_padding", 8)
+        sep_pad = totales_cfg.get("separator_padding", 8)
         separator.pack(fill="x", padx=pad_h, pady=(0, sep_pad))
 
         # Grid para totales (3 columnas)
         self._create_totales_grid()
 
         # Área para payment controllers (se llenará dinámicamente)
+        payment_cfg = footer_layout.get("payment_area", {})
         self.payment_area = ctk.CTkFrame(self.footer_frame, fg_color="transparent")
-        self.payment_area.pack(fill="both", expand=True, pady=(footer_layout.get("totales_padding_top", 8), footer_layout.get("padding_vertical_bottom", 12)))
+        self.payment_area.pack(
+            fill="both",
+            expand=True,
+            pady=(
+                payment_cfg.get("padding_top", 8),
+                payment_cfg.get("padding_bottom", 12)
+            )
+        )
 
     def _create_totales_grid(self):
         """Crear grid de totales con 3 columnas."""
