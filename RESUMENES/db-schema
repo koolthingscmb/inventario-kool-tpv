@@ -1,3 +1,44 @@
+db-schema — Análisis resumido del esquema de la base de datos
+
+- Fuentes consultadas:
+  - `kool_tpv/base_datos/migraciones/base.sql` (DDL base)
+  - `kool_tpv/base_datos/migraciones/002_num_ticket_text.sql` (migra num_ticket a TEXT)
+  - Servicios en `kool_tpv/base_datos/*` (ej. `ticket_service.py`) que usan tablas.
+
+- Tablas principales observadas y columnas relevantes (resumen):
+  - `tickets`:
+    - `id` (PK), `created_at` (timestamp), `total` (REAL/NUMERIC), `ticket_text` (TEXT),
+      `cliente_id` (FK opcional), `num_ticket` (TEXT tras migración), otros campos de pago.
+
+  - `ticket_lines`:
+    - `id` (PK), `ticket_id` (FK -> tickets.id), `producto_id`, `nombre`, `cantidad`,
+      `precio`, `descuento`, campos para impuestos y costeo.
+
+  - `productos`:
+    - `id`, `nombre`, `precio`, `stock`, `categoria_id`, `proveedor_id`, `tipo_id`, etc.
+
+  - `clientes`, `usuarios`, `proveedores`, `categorias`, `tipos`:
+    - Tablas maestras para entidades; CRUD y campos de contacto/metadatos.
+
+  - `configuracion`:
+    - Claves/valores para parámetros globales, incluye contador/semilla de tickets.
+
+  - `cierres`, `albaranes`, `niveles`:
+    - Entidades para cierres diarios, documentos de albarán y niveles/umbrales de stock.
+
+- Índices/constraints:
+  - Se observan claves primarias y varias consultas que dependen de `ticket_id` y
+    `created_at` para ordenación; recomendar indices en `tickets(created_at)` y
+    `ticket_lines(ticket_id)` si no existen.
+
+- Migraciones importantes:
+  - `002_num_ticket_text.sql` cambia el tipo de `num_ticket` a TEXT (para permitir
+    formatos alfanuméricos y ceros a la izquierda).
+
+- Recomendaciones para auditoría completa:
+  - Ejecutar `PRAGMA table_info(<table>)` y `PRAGMA index_list(<table>)` contra
+    `kool_tpv/base_datos/kool_bd.db` para obtener esquema exacto y listas de índices.
+  - Revisar `migraciones/base.sql` para DDL exacto (FK, ON DELETE behavior, tipos).
 Resumen exhaustivo del esquema de la base de datos
 Origen: kool_tpv/base_datos/kool_bd.db
 Generado automáticamente: 2026-02-28

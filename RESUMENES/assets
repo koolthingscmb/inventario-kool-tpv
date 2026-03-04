@@ -1,3 +1,12 @@
+assets — Resumen
+
+- Estructura principal:
+  - `dialogs/` : definiciones/plantillas de diálogos y textos.
+  - `FONTS/` : fuentes usadas por la app (evitar licencias comerciales sin revisión).
+  - `iconos/`, `logo/`: imágenes y assets gráficos para la UI.
+
+- Notas:
+  - Actualizar `README` o `RESUMENES` si se añaden fuentes externas (licencia).
 Resumen del directorio: kool_tpv/assets
 
 - Contenido raíz:

@@ -1,3 +1,21 @@
+main.py — Resumen
+
+- Propósito: Punto de entrada de la aplicación GUI. Inicializa configuración, logging,
+  carga fuentes/colores/layout, crea la conexión a la base de datos y monta la
+  navegación principal (módulos: TPV, Almacén, Clientes, Informes, Config).
+
+- Comportamiento clave:
+  - Lee JSONs de configuración en `kool_tpv/config` (layout, fonts, colors, buttons).
+  - Inicializa `Database` y aplica migraciones si es necesario.
+  - Crea `KeyboardManager` en el toplevel y lo propaga a vistas.
+  - Construye la barra de navegación a partir de `buttons_menu.json` y enlaza
+    handlers para abrir módulos (load_tpv, open_almacen, open_clientes, open_informes, open_config).
+  - Maneja el ciclo principal de la app y el teardown seguro de recursos.
+
+- Notas de mantenimiento:
+  - Evitar importaciones circulares entre vistas y servicios; `main.py` usa
+    cargas perezosas para algunos módulos.
+  - Verificar que la ruta al archivo DB (`kool_bd.db`) y backups existan.
 Resumen exhaustivo de main.py
 
 Descripción general

@@ -1,3 +1,22 @@
+almacen — Resumen
+
+- `almacen_view.py`:
+  Vista principal del módulo Almacén; extiende `BaseModuleView`. Mapea botones
+  del menú a vistas internas (crear producto, buscar, categorias, albaranes).
+
+- `ui/crear_producto_ui.py`:
+  Formulario de creación/edición de productos: campos, selección de proveedor,
+  categorías y tipo; usa `SearchableCombo` y validaciones de entrada.
+
+- `ui/categorias_ui.py`, `ui/busqueda_ui.py`, `ui/albaranes_ui.py`:
+  Vistas auxiliares para gestión de categorías, búsqueda de productos y albaranes.
+
+- `maestro_service.py` (si presente):
+  Lógica de negocio para sincronizar catálogos, importación masiva y helpers CRUD.
+
+- Notas:
+  - Interacciones con `base_datos.producto_service` para persistencia.
+  - UI diseñada para teclado/terminal (KeyboardManager) y entrada rápida.
 Resumen del paquete `configuracion` (kool_tpv/modulos/configuracion)
 
 Este documento resume archivo por archivo los componentes encontrados en `kool_tpv/modulos/configuracion`.

@@ -1,3 +1,18 @@
+utils — Resumen archivo-por-archivo
+
+- `templates/`:
+  - `pagina_con_visor.py` / `pagina_con_visor_tickets.py`: plantillas de layout
+    (grid izquierda + visor derecha) usadas por TPV y vistas similares.
+
+- `widgets/`:
+  - `NavList`, `SearchableCombo`, `TicketDisplay`, `ClickableBreadcrumb`, `custom_dialog`.
+  - Reutilizables para listas, selects, diálogos y visor de tickets.
+
+- `font_loader.py`, `config_loader.py`, `keyboard_manager.py`:
+  - Helpers para cargar fuentes, configurar botones y gestionar atajos/teclado.
+
+- Notas:
+  - `ClickableBreadcrumb` es la implementación compacta usada para evitar huecos verticales.
 Resumen del paquete: kool_tpv/utils
 
 - File: kool_tpv/utils/__init__.py

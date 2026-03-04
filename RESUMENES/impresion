@@ -1,3 +1,15 @@
+impresion — Resumen
+
+- Propósito: Módulo responsable de imprimir tickets, facturas o documentos.
+
+- Archivos clave:
+  - Vistas/handlers que preparan `ticket_text` y llaman a librerías de impresión
+    (escpos/debug_escpos wrappers presentes en workspace).
+  - Plantillas de impresión y adaptadores para impresoras térmicas.
+
+- Notas:
+  - Actualmente hay módulos `debug_escpos` y `debug_escpos_test` para pruebas.
+  - Validar drivers y conexiones USB/serial en la máquina objetivo.
 **Resumen del paquete**: `kool_tpv/modulos/tpv`
 
 Visión general

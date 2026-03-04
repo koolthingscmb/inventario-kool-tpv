@@ -1,3 +1,15 @@
+configuracion — Resumen
+
+- Propósito: Módulo que permite ajustar parámetros globales de la aplicación
+  (impuestos, formatos, números de ticket, opciones de impresión, comportamientos).
+
+- Archivos clave:
+  - Vistas para editar parámetros (UI que carga/guarda via `configuracion_service`).
+  - `configuracion_service.py`: persistencia y getters/setters para opciones globales.
+
+- Notas:
+  - Cambios en configuraciones pueden afectar `ticket_service` (numeración),
+    y layout/colores si se exponen opciones visuales.
 Resumen del módulo: kool_tpv/modulos/configuracion
 
 - File: kool_tpv/modulos/configuracion/config_view.py

@@ -232,38 +232,7 @@ class App(ctk.CTk):
         except Exception:
             logging.exception("Error creando botón global power desde utils.global_buttons")
 
-        # Preparar botón "PRINT ON" configurable desde JSON (no hacer pack aquí)
-        try:
-            colors_cfg = load_colors_config()
-            font_cfg = load_font_config()
-            layout_cfg = load_layout_config()
-
-            print_cfg = colors_cfg.get("global", {}).get("layout", {}).get("print_on_button", {})
-            print_font_cfg = font_cfg.get("app", {}).get("print_on", {})
-            print_layout = layout_cfg.get("components", {}).get("print_on_button", {})
-
-            print_font = self._font_from_cfg(print_font_cfg, default=("Courier New", 12))
-            cmd = getattr(self, "toggle_print", None)
-
-            # hover fallback from colors config (secondary button hover)
-            hover_fallback = (
-                colors_cfg.get("global", {}).get("buttons", {}).get("secondary", {}).get("hover")
-            )
-            hover_val = print_cfg.get("hover") or hover_fallback
-
-            self.print_on_button = ctk.CTkButton(
-                master=self.nav_frame,
-                text=print_cfg.get("label", "PRINT ON"),
-                fg_color=print_cfg.get("bg", "#00BFFF"),
-                hover_color=hover_val,
-                text_color=print_cfg.get("text", "white"),
-                font=print_font,
-                height=print_layout.get("height", 28),
-                command=cmd,
-            )
-        except Exception:
-            logging.exception("Error creando botón PRINT ON")
-
+        
         # Cargar configuración de botones del menú principal desde JSON
         try:
             base = Path(__file__).resolve().parents[0]
@@ -540,7 +509,7 @@ class App(ctk.CTk):
             widget.destroy()
 
         try:
-            from kool_tpv.modulos.tpv.tpv_view import TpvView
+            from kool_tpv.modulos.tpv.tpv_view_new import TpvView
 
             # Ocultar botones de navegación (mantener visible el power_button)
             try:
@@ -560,18 +529,7 @@ class App(ctk.CTk):
             # Guardar referencia para poder gestionar el teardown del reloj
             self.tpv_view = view
             self.current_view = "tpv"
-            try:
-                view.show()
-            except Exception:
-                logging.exception("Error mostrando TpvView")
-                # fallback label below
-                label = ctk.CTkLabel(
-                    self.main_frame,
-                    text="Módulo TPV cargado correctamente",
-                        font=self.base_font,
-                    text_color="white",
-                )
-                label.pack(expand=True)
+            view.pack(fill="both", expand=True)  # Vista ya está construida en __init__
         except Exception:
             logging.exception("Error cargando módulo TPV")
             # Fallback sencillo si hay algún error al importar/mostrar la vista

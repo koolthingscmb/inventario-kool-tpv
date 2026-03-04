@@ -1,3 +1,22 @@
+clientes — Resumen
+
+- `busqueda_clientes_ui.py`:
+  Interfaz de búsqueda/selección de clientes; utilizada por TPV y otros módulos.
+
+- `clientes_tickets.py`:
+  Vista `ClientesTicketsUI` (leída completamente): lista temporal/filtrada de tickets
+  del cliente a la izquierda y visor a la derecha; filtros por fecha y producto;
+  soporta impresión/exportación (placeholders), navegación por teclado y selección.
+
+- `cliente_service.py` / `clientes_db.py`:
+  Lógica de negocio y DAO para clientes: CRUD, búsquedas y utilidades para datos de cliente.
+
+- `clientes_comunicacion.py`:
+  Vistas/handlers para comunicación con clientes (notificaciones, exportación).
+
+- Notas:
+  - `ClientesTicketsUI` reutiliza `NavList` y `PaginaConVisor`.
+  - Revisar dependencias con `configuracion_service` si se requiere formato de tickets.
 Resumen exhaustivo: módulo `kool_tpv/modulos/clientes`
 
 Este documento ofrece un resumen archivo por archivo del módulo `clientes`.

@@ -1,3 +1,21 @@
+tpv — Resumen
+
+- `tpv_view.py`:
+  Vista principal del TPV. Integra la plantilla `PaginaConVisorTickets` y monta
+  `TicketCarrito` en la zona derecha; el grid izquierdo contiene la rejilla 3x4
+  dentro de `grid_scroll`.
+
+- `PaginaConVisorTickets` (plantilla en `kool_tpv/utils/templates`):
+  - Exposición de `header`, `grid_scroll` y `ticket_carrito` para que TPV
+    inyecte `search_button` y contenido.
+  - Breadcrumb moved into header to avoid reserving extra grid row (fix hueco).
+
+- Config y comportamiento:
+  - `ticket_carrito` width se lee desde `layout_config.json` (modules.tpv.ticket_carrito.width).
+  - Se eliminaron dobles `pack()` para evitar TclError; ahora cada widget lo empaqueta su owner.
+
+- Notas:
+  - Revisar runtime si el usuario revirtió cambios; plantilla y vista deben estar sincronizadas.
 Resumen del módulo: kool_tpv/modulos/tpv
 
 - File: kool_tpv/modulos/tpv/__init__.py

@@ -55,8 +55,7 @@
         "button_hover": "#2980b9",
         "button_text": "#000000",
         "cancel_bg": "#2980b9",
-        "cancel_hover": "#3498db"
-      ,
+        "cancel_hover": "#3498db",
         "button_focus_border": "#5DADE2"
       },
       "success": {
@@ -69,8 +68,7 @@
         "button_hover": "#27ae60",
         "button_text": "#000000",
         "cancel_bg": "#27ae60",
-        "cancel_hover": "#2ecc71"
-      ,
+        "cancel_hover": "#2ecc71",
         "button_focus_border": "#00FF00"
       },
       "warning": {
@@ -83,8 +81,7 @@
         "button_hover": "#d68910",
         "button_text": "#000000",
         "cancel_bg": "#d68910",
-        "cancel_hover": "#f39c12"
-      ,
+        "cancel_hover": "#f39c12",
         "button_focus_border": "#FFD700"
       },
       "error": {
@@ -97,8 +94,7 @@
         "button_hover": "#c0392b",
         "button_text": "#000000",
         "cancel_bg": "#c0392b",
-        "cancel_hover": "#e74c3c"
-      ,
+        "cancel_hover": "#e74c3c",
         "button_focus_border": "#FF6B6B"
       },
       "password": {
@@ -111,11 +107,22 @@
         "button_hover": "#8e44ad",
         "button_text": "#FFFFFF",
         "cancel_bg": "#8e44ad",
-        "cancel_hover": "#9b59b6"
-      ,
+        "cancel_hover": "#9b59b6",
         "button_focus_border": "#C39BD3"
       }
     }
+  },
+  "main_menu": {
+    "menu_tpv": { "bg": "#FF9D00", "hover": "#A17A3B", "text": "#000000", "border": "#000000" },
+    "menu_almacen": { "bg": "#000000", "hover": "#2B782B", "text": "#00FF00", "border": "#00FF00" },
+    "menu_clientes": { "bg": "#000000", "hover": "#A18D27", "text": "#FFD700", "border": "#FFD700" },
+    "menu_informes": { "bg": "#000000", "hover": "#7A7A79", "text": "#FFFFFF", "border": "#FFFFFF" },
+    "menu_shopify": { "bg": "#000000", "hover": "#3A758A", "text": "#00A4DF", "border": "#00A4DF" },
+    "menu_config": { "bg": "#000000", "hover": "#8A3A3A", "text": "#FF9800", "border": "#FF9800" }
+  },
+  "global_buttons": {
+    "power_btn": { "bg": "#FF0000", "hover": "#00A4DF", "text": "", "border": "" },
+    "print_btn": { "bg": "#00BFFF", "hover": "#00A4DF", "text": "#FFFFFF", "border": "" }
   },
   "almacen": {
     "primary": "#00FF00",
@@ -259,26 +266,106 @@
     }
   },
   "tpv": {
-    "search_button": {
-      "bg": "#00BFFF",
-      "hover": "#00A4DF",
-      "text": "#000000"
-    },
     "grid_buttons": {
-      "config": {"bg": "#E85217", "hover": "#F2A07B"},
-      "stock": {"bg": "#C38D9E", "hover": "#DDAEC1"},
-      "multi": {"bg": "#97DBA7", "hover": "#62C9B9"},
-      "web": {"bg": "#00FF00", "hover": "#806AA8"},
-      "cierre": {"bg": "#DB0202", "hover": "#FF8A7F"},
-      "descuento": {"bg": "#FF00D1", "hover": "#F9D6D5"},
-      "cliente": {"bg": "#EEFF00", "hover": "#A8BEE2"},
-      "tarjeta": {"bg": "#8EFABB", "hover": "#9BC767"},
-      "tickets": {"bg": "#FF0037", "hover": "#F9C542"},
-      "devolucion": {"bg": "#DE8CFA", "hover": "#9BC767"},
-      "cajero": {"bg": "#FFE600", "hover": "#80698F"},
-      "cash": {"bg": "#2E8B57", "hover": "#4B9E75"}
-    }
-    ,
+      "buscar_articulo": {
+        "bg": "#000000",
+        "hover": "#025736",
+        "text": "#00FF9D",
+        "border": "#00FF9D",
+        "border_width": 5
+      },
+      "print_on": {
+        "bg": "#000000",
+        "hover": "#999696",
+        "text": "#FFFFFF",
+        "border": "#FFFFFF",
+        "border_width": 3
+      },
+      "config": {
+        "bg": "#000000",
+        "hover": "#853211",
+        "text": "#E85217",
+        "border": "#E85217",
+        "border_width": 3
+      },
+      "stock": {
+        "bg": "#000000",
+        "hover": "#48702C",
+        "text": "#A1FA61",
+        "border": "#A1FA61",
+        "border_width": 3
+      },
+      "multi": {
+        "bg": "#000000",
+        "hover": "#035C03",
+        "text": "#00FF00",
+        "border": "#00FF00",
+        "border_width": 3
+      },
+      "web": {
+        "bg": "#000000",
+        "hover": "#035C03",
+        "text": "#00FF00",
+        "border": "#00FF00",
+        "border_width": 3
+      },
+      "cierre": {
+        "bg": "#000000",
+        "hover": "#7A0707",
+        "text": "#FF0000",
+        "border": "#FF0000",
+        "border_width": 3
+      },
+      "descuento": {
+        "bg": "#000000",
+        "hover": "#664156",
+        "text": "#C27EA4",
+        "border": "#C27EA4",
+        "border_width": 3
+      },
+      "cliente": {
+        "bg": "#000000",
+        "hover": "#827314",
+        "text": "#E3C509",
+        "border": "#E3C509",
+        "border_width": 3
+      },
+      "tarjeta": {
+        "bg": "#000000",
+        "hover": "#035C03",
+        "text": "#00FF00",
+        "border": "#00FF00",
+        "border_width": 3
+      },
+      "tickets": {
+        "bg": "#000000",
+        "hover": "#7A0707",
+        "text": "#FF0000",
+        "border": "#FF0000",
+        "border_width": 3
+      },
+      "devolucion": {
+        "bg": "#000000",
+        "hover": "#664156",
+        "text": "#C27EA4",
+        "border": "#C27EA4",
+        "border_width": 3
+      },
+      "cajero": {
+        "bg": "#000000",
+        "hover": "#827314",
+        "text": "#E3C509",
+        "border": "#E3C509",
+        "border_width": 3
+      },
+      "cash": {
+       "bg": "#000000",
+        "hover": "#035C03",
+        "text": "#00FF00",
+        "border": "#00FF00",
+        "border_width": 5
+      }
+    },
     "ticket_carrito": {
       "header": {
         "bg": "#000000",

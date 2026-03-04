@@ -1,3 +1,23 @@
+config — Resumen archivo-por-archivo
+
+- `layout_config.json`:
+  Contiene tamaños y anchos por módulo. Importante: `modules.tpv.ticket_carrito.width`
+  (valor por defecto observado: 420). También define márgenes y mínimas dimensiones.
+
+- `font_config.json`:
+  Definición de fuentes por rol (title, label, entry, button). Breadcrumb usa tamaño
+  grande (~20) que afecta el alto de cabeceras si no se empaqueta dentro del header.
+
+- `colors_config.json`:
+  Paleta centralizada (background, primary, secondary, accent, tpv-specific colors).
+
+- `buttons_config.json`, `buttons_actions_config.json`, `buttons_menu.json`:
+  Mapeos de botones, labels, iconos y acciones para construir la navegación y
+  botones de cada módulo desde JSON.
+
+- Notas:
+  - Cambios en `font_config.json` pueden alterar la altura de cabeceras y breadcrumbs.
+  - `layout_config.json` es la fuente a ajustar para hacer `ticket_carrito` horizontalmente configurable.
 Resumen exhaustivo: carpeta `kool_tpv/config`
 
 Este documento resume cada archivo de configuración presente en `kool_tpv/config`, describe su estructura, claves relevantes, cómo se usa desde la aplicación y recomendaciones.

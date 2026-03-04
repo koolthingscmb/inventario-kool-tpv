@@ -1,3 +1,42 @@
+base_datos — Resumen archivo-por-archivo
+
+- `db_wrapper.py`:
+  Database wrapper ligero: `connect`, `execute`, `fetchall`, `transaction` helper,
+  manejo básico de commits/rollbacks.
+
+- `db_init.py`:
+  Inicialización y aplicación de migraciones. Aplica `migraciones/base.sql` y
+  otras migraciones detectadas; asegura tablas mínimas.
+
+- `ticket_service.py`:
+  Lógica compleja de persistencia de tickets: genera número de ticket (via
+  `configuracion_service`), inserta `tickets` y `ticket_lines`, decrementa stock,
+  registra pagos, puntos y maneja transacciones atómicas.
+
+- `producto_service.py`:
+  Operaciones CRUD para productos, búsqueda, ajuste de stock y consultas de catálogo.
+
+- `usuario_service.py`:
+  Gestión de usuarios (login, permisos, CRUD básico).
+
+- `proveedor_service.py`, `categoria_service.py`, `tipo_service.py`, `niveles_service.py`:
+  Servicios específicos para cada entidad: CRUD y consultas de soporte.
+
+- `configuracion_service.py`:
+  Lectura/actualización de parámetros globales (incluye `next_ticket_number` y
+  settings que afectan la generación de tickets).
+
+- `cierre_service.py`, `albaran_service.py`:
+  Lógica para cierres diarios y albaranes (movimientos de inventario y cierres).
+
+- `migraciones/`:
+  - `base.sql`: DDL base con creación de tablas principales.
+  - `002_num_ticket_text.sql`: migración que cambia el tipo de `num_ticket` a TEXT.
+  - `2026_02_23_clientes_fecha_migration.py`: script/ayuda para migración de clientes.
+
+- Notas:
+  - Las transacciones críticas (tickets, cierres) se manejan con cuidado.
+  - Revisar indices y foreign keys en `migraciones/base.sql` para mejoras de rendimiento.
 Resumen exhaustivo: carpeta `kool_tpv/base_datos`
 
 Este documento ofrece un análisis archivo por archivo del paquete `kool_tpv.base_datos`. Incluye la responsabilidad principal de cada módulo, la API pública (clases y funciones importantes), detalles de comportamiento (transacciones, rollbacks, conversiones), dependencias relevantes y recomendaciones prácticas.

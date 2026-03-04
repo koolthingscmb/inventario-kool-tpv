@@ -54,7 +54,7 @@
     "weight": "bold",
     "fallback": ["Courier New"]
   },
-  
+
   "app": {
     "base_font": {
       "family": "Courier New",
@@ -70,8 +70,7 @@
       "family": "Courier New",
       "size": 60,
       "weight": "bold"
-    }
-    ,
+    },
     "print_on": {
       "family": "Courier New",
       "size": 12,
@@ -126,6 +125,14 @@
       }
     }
   },
+  "main_menu": {
+    "menu_tpv": { "family": "Courier New", "size": 75, "weight": "bold" },
+    "menu_almacen": { "family": "Courier New", "size": 26, "weight": "bold" },
+    "menu_clientes": { "family": "Courier New", "size": 26, "weight": "bold" },
+    "menu_informes": { "family": "Courier New", "size": 26, "weight": "bold" },
+    "menu_shopify": { "family": "Courier New", "size": 26, "weight": "bold" },
+    "menu_config": { "family": "Courier New", "size": 26, "weight": "bold" }
+  },
   "modules": {
     "config": {
       "label": {
@@ -159,8 +166,7 @@
         "nav_producto": {"family": "Courier New", "size": 12, "weight": "normal"},
         "footer_labels": {"family": "Courier New", "size": 14, "weight": "bold"},
         "footer_totales": {"family": "Courier New", "size": 16, "weight": "bold"}
-      }
-      ,
+      },
       "payment_controllers": {
         "titulo": { "family": "Courier New", "size": 20, "weight": "bold" },
         "label": { "family": "Courier New", "size": 18, "weight": "bold" },

@@ -1,4 +1,0 @@
-2026-02-09 10:30:46,518 - INFO - Conectado a la base de datos: C:\Users\koold\Desktop\EGON\KOOL_TPV_V2\kool_tpv\base_datos\kool_bd.db
-2026-02-09 10:30:46,519 - INFO - Conexi¾n a la base de datos establecida con Úxito.
-2026-02-09 10:30:46,586 - INFO - Aplicaci¾n iniciada correctamente.
-2026-02-09 10:30:49,448 - INFO - Conexi¾n a la base de datos cerrada.

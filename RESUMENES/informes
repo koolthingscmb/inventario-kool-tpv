@@ -1,3 +1,13 @@
+informes — Resumen
+
+- Propósito: Módulo para generar informes (ventas, stock, cierres).
+
+- Archivos clave:
+  - Vistas que permiten filtrar fechas, generar reportes y exportarlos.
+  - Integración con servicios de `base_datos` para consultas agregadas.
+
+- Notas:
+  - Los informes consumen consultas SQL complejas; revisar índices en DB para rendimiento.
 Resumen del módulo: kool_tpv/modulos/informes
 
 - File: kool_tpv/modulos/informes/__init__.py
