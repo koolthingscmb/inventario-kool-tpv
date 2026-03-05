@@ -144,6 +144,20 @@
           "precio": 80,
           "total": 85
         }
+      },
+      "buscar_overlay": {
+        "top_buttons_height": 130,
+        "top_buttons_padding_left": 12,
+        "main_button_width": 250,
+        "main_button_height": 100,
+        "categories_section_height": 300,
+        "articles_section_height": 400,
+        "button_width": 180,
+        "category_button_height": 45,
+        "article_button_height": 56,
+        "spacing": 12,
+        "category_button_min_width": 130,
+        "category_grid_spacing": 3
       }
     },
     "almacen": {

@@ -39,7 +39,7 @@ class BuscarArticuloPanel:
         cfg = {
             'top_height': 130,
             'top_left': 280,
-            'reserved_right': 420,
+            'reserved_right': 740,
             'min_overlay_w': 360,
             'categories_height': None,  # si None => expand=True (proporcional)
             'articles_height': None,    # si None => expand=True (proporcional)

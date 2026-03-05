@@ -461,6 +461,36 @@
         "bg": "#1a2a1a",
         "text": "#FFD700"
       }
+    },
+    "buscar_overlay": {
+      "bg": "#393E46",
+      "main_buttons": {
+        "bg": "#000000",
+        "hover": "#709412",
+        "text": "#BBF527",
+        "text_active": "#FFFFFF",
+        "bg_active": "#00A4DF",
+        "border": "#BBF527",
+        "border_width": 5
+      },
+      "category_buttons": {
+        "bg": "#000000",
+        "hover": "#00A4DF",
+        "text": "#E0F545",
+        "text_selected": "#FFFFFF",
+        "bg_selected": "#00A4DF",
+        "border": "#E0F545",
+        "border_width": 3
+      },
+      "article_buttons": {
+        "bg": "#000000",
+        "hover": "#00A4DF",
+        "text": "#A5D600",
+        "border": "#A5D600",
+        "border_width": 2
+      },
+      "categories_area_bg": "#444444",
+      "articles_area_bg": "#333333"
     }
   }
 }

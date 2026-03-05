@@ -1,4 +1,5 @@
 import customtkinter as ctk
+from kool_tpv.modulos.tpv.actions.buscar_articulo import BuscarArticuloPanel
 import json
 from pathlib import Path
 from typing import Optional, Dict
@@ -98,8 +99,12 @@ class TpvView(ctk.CTkFrame):
         self.grid_frame = ctk.CTkFrame(self.center_area, fg_color="transparent")
         self.grid_frame.pack(side="top", fill="both", expand=True, padx=20, pady=20)
 
+        # Crear panel de búsqueda (oculto por defecto)
+        self.panel_buscar = BuscarArticuloPanel(self)
+        
         self._build_grid_buttons()
 
+        
     def _build_grid_buttons(self):
         cols = 4
         rows = 4
@@ -123,8 +128,15 @@ class TpvView(ctk.CTkFrame):
             key = btn_data.get("color_key")
             style = colors_map.get(key, {"bg": "#555", "hover": "#666", "text": "white"})
 
+            # Detectar si es el botón de búsqueda y asignarle el comando correcto
+            if key == "buscar_articulo":
+                cmd = self.panel_buscar.show
+            else:
+                cmd = None
+            
             btn = ButtonFactory.create_button(
                 parent=self.grid_frame, text=btn_data.get("label", "???"),
+                command=cmd,
                 color=style.get("bg"), hover_color=style.get("hover"), text_color=style.get("text"),
                 font=font_grid, corner_radius=18,
                 border_color=style.get("border"), border_width=style.get("border_width", 0)

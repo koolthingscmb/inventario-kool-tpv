@@ -1,0 +1,65 @@
+Resumen del módulo: kool_tpv/modulos/clientes
+
+- File: kool_tpv/modulos/clientes/clientes_view.py
+  - `ClientesView`: Orquestador del módulo clientes (extiende `BaseModuleView`).
+    Define handlers para mostrar vistas: búsqueda de clientes, tickets por cliente,
+    tops y comunicación; actualiza breadcrumb y pasa `db` y `keyboard_manager`.
+
+- File: kool_tpv/modulos/clientes/cliente_service.py
+  - `ClienteService`: Capa de negocio que usa `ClientesDB` (DAO). Expones:
+    `buscar_clientes`, `get_cliente`, `save_cliente`, `update_cliente` y utilidades
+    como `formatear_nivel`. Realiza queries y mapea filas a diccionarios.
+
+- File: kool_tpv/modulos/clientes/clientes_tops_ui.py
+  - `ClientesTopsUI`: UI para mostrar rankings (TOPS) de clientes. Usa
+    `ClientesTopsService` para obtener datos y expone filtros (categoría, tipo,
+    producto, modos por "tesoro"). Presenta resultados en `NavList`.
+
+- File: kool_tpv/modulos/clientes/clientes_db.py
+  - `ClientesDB`: DAO con métodos como `get_clientes` (búsqueda LIKE
+    paginada/ordenada por `tesoro_total`). Abstrae consultas SQL hacia `clientes`.
+
+- File: kool_tpv/modulos/clientes/clientes_tickets.py
+  - `ClientesTicketsUI`: Vista de tickets de un cliente (pagina con visor). Implementa
+    filtros por fecha/producto, carga de tickets desde la BD, render en `NavList`
+    y visor de texto del ticket; incluye imprimir/exportar placeholders.
+
+- File: kool_tpv/modulos/clientes/clientes_comunicacion.py
+  - `ClientesComunicacionView`: Componente placeholder para funcionalidades de
+    comunicación (mensajería/newsletters). Expone `get_widget()` para montarse.
+
+- File: kool_tpv/modulos/clientes/__init__.py
+  - Inicializador de paquete (docstring breve). Marca el paquete `clientes`.
+
+- File: kool_tpv/modulos/clientes/ui_clientes.py
+  - `UIClientes`: Overlay de selección/búsqueda de clientes (Treeview + búsqueda,
+    paginación, selección y botones "Aceptar/Añadir"). Reusa `ClienteService`.
+
+- File: kool_tpv/modulos/clientes/fidelizacion_service.py
+  - `FidelizacionService`: Lógica de cálculo de puntos (Decimal), busca porcentaje
+    aplicable por jerarquía (tipo→categoría→config global) y calcula puntos ganados
+    por items del carrito teniendo en cuenta canjes.
+
+- File: kool_tpv/modulos/clientes/crear_cliente_ui.py
+  - `CrearClienteUI`: Formulario completo para crear/editar cliente (datos de
+    contacto, tesoro, nivel, iconos y visualización de métricas). Interactúa con
+    `ClienteService` y muestra campos avanzados (tesoro, nivel gráfico).
+
+- File: kool_tpv/modulos/clientes/busqueda_clientes_ui.py
+  - `BusquedaClientesUI`: Interfaz de búsqueda/paginación (clon adaptado de
+    `busqueda_ui.py`). Usa `ClienteService` para búsquedas paginadas y muestra
+    resultados en `NavList`, con filtrado por estado de fidelidad.
+
+- File: kool_tpv/modulos/clientes/services/clientes_tops_service.py
+  - `ClientesTopsService`: Backend con consultas para generar rankings (top
+    general, por producto/categoría/tipo o por tesoro). Expone `_rows_to_result`
+    para normalizar filas SQL a diccionarios usados por la UI.
+
+Notas:
+- Las UIs reutilizan loaders de configuración (colores, botones, fonts) y widgets
+  comunes como `NavList` y `SearchableCombo`.
+- La lógica de negocio (búsquedas, cálculos de fidelización, tops) está
+  separada en servicios/DAOs (`ClienteService`, `ClientesDB`, `FidelizacionService`,
+  `ClientesTopsService`).
+- Operaciones críticas de lectura en estas piezas usan `Database`/`db.connection`
+  directamente; los cambios persistentes pasan por servicios que usan `Database`.

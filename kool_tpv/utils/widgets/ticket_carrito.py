@@ -320,9 +320,10 @@ class TicketCarrito(ctk.CTkFrame):
         )
 
     def _create_totales_grid(self):
-        """Crear grid de totales con 3 columnas."""
+        """Crear zona de totales usando columnas Pack para estabilidad visual."""
         footer_cfg = self.ticket_colors.get("footer", {})
 
+        # Fuentes (reutilizando las del config si existen, o defaults seguros)
         labels_font_cfg = self.ticket_fonts.get("footer_labels", {})
         labels_font = (
             labels_font_cfg.get("family", "Courier New"),
@@ -338,63 +339,40 @@ class TicketCarrito(ctk.CTkFrame):
         )
 
         footer_layout = self.ticket_layout.get("footer", {})
-        # Frame para el grid
-        grid_frame = ctk.CTkFrame(self.totales_container, fg_color="transparent")
+
+        # 1. Contenedor "Caja Fuerte" (Altura fija compacta)
+        # Altura suficiente para Título + Valor (aprox 20+25 = 45px) + márgenes
+        grid_frame = ctk.CTkFrame(self.totales_container, fg_color="transparent", height=80)
+        grid_frame.pack_propagate(False)  # <--- CLAVE: Impide estiramiento
+
         pad_h = footer_layout.get("padding_horizontal", 12)
         grid_frame.pack(fill="x", padx=pad_h)
 
-        # Configurar 3 columnas
-        grid_frame.grid_columnconfigure(0, weight=1)
-        grid_frame.grid_columnconfigure(1, weight=1)
-        grid_frame.grid_columnconfigure(2, weight=1)
+        # 2. Columnas (Izquierda, Centro, Derecha)
 
-        # Columna 1: SUBTOTAL
-        ctk.CTkLabel(
-            grid_frame,
-            text="SUBTOTAL",
-            font=labels_font,
-            text_color=footer_cfg.get("text", "#FFFFFF"),
-            anchor="w"
-        ).grid(row=0, column=0, sticky="w", padx=(0, 8))
+        # Columna 1: SUBTOTAL (Alineada izquierda)
+        col_sub = ctk.CTkFrame(grid_frame, fg_color="transparent")
+        col_sub.pack(side="left", fill="y", anchor="w")
 
-        self.subtotal_label = ctk.CTkLabel(
-            grid_frame,
-            text="0.00€",
-            font=totales_font,
-            text_color=footer_cfg.get("text", "#FFFFFF"),
-            anchor="w"
-        )
-        self.subtotal_label.grid(row=1, column=0, sticky="w", padx=(0, 8))
+        ctk.CTkLabel(col_sub, text="SUBTOTAL", font=labels_font, text_color=footer_cfg.get("text", "#FFFFFF")).pack(anchor="w")
+        self.subtotal_label = ctk.CTkLabel(col_sub, text="0.00€", font=totales_font, text_color=footer_cfg.get("text", "#FFFFFF"))
+        self.subtotal_label.pack(anchor="w")
 
-        # Columna 2: DESGLOSE IVA (contenedor dinámico)
-        ctk.CTkLabel(
-            grid_frame,
-            text="DESGLOSE IVA",
-            font=labels_font,
-            text_color=footer_cfg.get("text", "#FFFFFF"),
-            anchor="center"
-        ).grid(row=0, column=1, sticky="ew", padx=8)
+        # Columna 3: TOTAL (Alineada derecha - La creamos antes para que se pegue al borde derecho)
+        col_tot = ctk.CTkFrame(grid_frame, fg_color="transparent")
+        col_tot.pack(side="right", fill="y", anchor="e")
 
-        self.iva_container = ctk.CTkFrame(grid_frame, fg_color="transparent")
-        self.iva_container.grid(row=1, column=1, sticky="ew", padx=8)
+        ctk.CTkLabel(col_tot, text="TOTAL", font=labels_font, text_color=footer_cfg.get("text_totales", "#00FF00")).pack(anchor="e")
+        self.total_label = ctk.CTkLabel(col_tot, text="0.00€", font=totales_font, text_color=footer_cfg.get("text_totales", "#00FF00"))
+        self.total_label.pack(anchor="e")
 
-        # Columna 3: TOTAL
-        ctk.CTkLabel(
-            grid_frame,
-            text="TOTAL",
-            font=labels_font,
-            text_color=footer_cfg.get("text_totales", "#00FF00"),
-            anchor="e"
-        ).grid(row=0, column=2, sticky="e", padx=(8, 0))
+        # Columna 2: IVA (Centro - Ocupa el espacio restante)
+        col_iva = ctk.CTkFrame(grid_frame, fg_color="transparent")
+        col_iva.pack(side="left", fill="both", expand=True) # Rellena hueco central
 
-        self.total_label = ctk.CTkLabel(
-            grid_frame,
-            text="0.00€",
-            font=totales_font,
-            text_color=footer_cfg.get("text_totales", "#00FF00"),
-            anchor="e"
-        )
-        self.total_label.grid(row=1, column=2, sticky="e", padx=(8, 0))
+        ctk.CTkLabel(col_iva, text="DESGLOSE IVA", font=labels_font, text_color=footer_cfg.get("text", "#FFFFFF")).pack(anchor="center")
+        self.iva_container = ctk.CTkFrame(col_iva, fg_color="transparent")
+        self.iva_container.pack(anchor="center")
 
     def _clear_payment_area(self):
         """Limpiar el área de payment controllers."""
@@ -572,9 +550,21 @@ class TicketCarrito(ctk.CTkFrame):
                     iva_font_cfg.get("weight", "normal")
                 )
 
-                for idx, item in enumerate(desglose_iva):
-                    tipo = item.get("tipo", 0)
-                    iva_amount = item.get("iva", 0)
+                # CORRECCIÓN: Manejar tanto lista como diccionario
+                if isinstance(desglose_iva, dict):
+                    # Si es dict {21: 1.50}, lo convertimos a iterador
+                    items_iva = desglose_iva.items()
+                else:
+                    # Si es lista [{'tipo': 21, 'iva': 1.50}], extraemos valores
+                    items_iva = [(item.get('tipo'), item.get('iva')) for item in desglose_iva]
+
+                for tipo, iva_amount in items_iva:
+                    # Asegurar tipos numéricos
+                    try:
+                        tipo = int(tipo)
+                        iva_amount = float(iva_amount)
+                    except:
+                        continue
 
                     if iva_amount > 0:
                         label = ctk.CTkLabel(
@@ -590,28 +580,24 @@ class TicketCarrito(ctk.CTkFrame):
             logger.exception("Error actualizando totales")
 
     def _on_item_change(self, item_data: dict, action: str):
-        """Handler cuando se modifica un item desde el NavList.
-
-        Args:
-            item_data: Datos del item
-            action: 'add' o 'remove'
-        """
+        """Handler cuando se modifica un item desde el NavList."""
         try:
             if not self.carrito_service:
                 return
 
             if action == "add":
-                # Añadir +1 unidad
-                self.carrito_service.add_item(item_data)
+                # CORRECCIÓN: Forzar cantidad 1 para sumar una unidad, no doblar
+                item_delta = item_data.copy()
+                item_delta['cantidad'] = 1
+                self.carrito_service.add_item(item_delta)
+
             elif action == "remove":
-                # Reducir -1 unidad o eliminar
-                # (el carrito_service ya tiene esta lógica)
                 item_id = item_data.get("id")
                 items = self.carrito_service.get_items() or []
 
                 for idx, item in enumerate(items):
                     if item.get("id") == item_id:
-                        current_qty = item.get("cantidad", 0)
+                        current_qty = int(item.get("cantidad", 0))
                         if current_qty > 1:
                             self.carrito_service.update_cantidad(idx, current_qty - 1)
                         else:
@@ -625,12 +611,22 @@ class TicketCarrito(ctk.CTkFrame):
             logger.exception("Error en _on_item_change")
 
     def update_carrito(self):
-        """Actualizar display del carrito desde carrito_service."""
+        """Actualizar display del carrito manteniendo scroll."""
         try:
             if not self.carrito_service:
                 return
 
-            # Limpiar nav_list
+            # Guardar posición scroll (donde estaba mirando el usuario)
+            scroll_pos = 0.0
+            try:
+                if hasattr(self, 'carrito_nav_list'):
+                    # El canvas es el panel interno del scroll
+                    # Intentamos leer la posición Y actual (devuelve tupla, ej: (0.0, 0.4))
+                    scroll_pos = self.carrito_nav_list._parent_canvas.yview()[0]
+            except Exception:
+                pass
+
+            # Limpiar nav_list (borra todo)
             if hasattr(self, 'carrito_nav_list'):
                 self.carrito_nav_list.clear_items()
 
@@ -639,7 +635,14 @@ class TicketCarrito(ctk.CTkFrame):
 
                 # Añadir items al nav_list
                 for item in items:
+                    item['total'] = item.get('total_linea', 0.0) # Asegurar que el item tenga el campo 'total' para mostrar en la lista
                     self.carrito_nav_list.add_item(item)
+
+                # Restaurar scroll (volver a donde estaba)
+                try:
+                    self.carrito_nav_list._parent_canvas.yview_moveto(scroll_pos)
+                except Exception:
+                    pass
 
                 # Actualizar totales
                 resumen = self.carrito_service.get_resumen_financiero() or {}
@@ -647,7 +650,7 @@ class TicketCarrito(ctk.CTkFrame):
                 total = resumen.get("total", 0.0)
 
                 # Obtener desglose de IVA (si el servicio lo proporciona)
-                desglose_iva = resumen.get("desglose_iva", [])
+                desglose_iva = resumen.get("iva_desglose", [])
 
                 self.update_totales(subtotal, total, desglose_iva)
 
@@ -657,6 +660,9 @@ class TicketCarrito(ctk.CTkFrame):
                         self.active_payment_controller.set_total(total)
                     except Exception:
                         logger.exception("Error actualizando total en payment controller")
+
+            # Forzar pintado inmediato para evitar negro
+            self.update_idletasks()
 
         except Exception:
             logger.exception("Error actualizando carrito")

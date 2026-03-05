@@ -29,5 +29,11 @@
   "global_buttons": [
     {"id": "power", "style_key": "power_btn", "command": "close_app", "image": "assets/power.png"},
     {"id": "print_on", "label": "PRINT ON", "style_key": "print_btn", "command": "toggle_print"}
-  ]
+  ],
+  "buscar_overlay": {
+    "main_buttons": [
+      {"label": "CATEGORÍAS", "key": "categorias", "command": "show_categorias"},
+      {"label": "TIPOS", "key": "tipos", "command": "show_tipos"}
+    ]
+  }
 }
