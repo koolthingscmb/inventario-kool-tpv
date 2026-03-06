@@ -1,5 +1,17 @@
 import customtkinter as ctk
-from kool_tpv.modulos.tpv.actions.buscar_articulo import BuscarArticuloPanel
+# Prefer experimental BuscarArticuloPanelV2 if available (safe fallback to BuscarArticuloPanel)
+try:
+    # Prefer a dedicated v2 module if present
+    from kool_tpv.modulos.tpv.actions.buscar_articulo_v2 import BuscarArticuloPanel
+except Exception:
+    try:
+        import importlib
+        _mod = importlib.import_module('kool_tpv.modulos.tpv.actions.buscar_articulo')
+        BuscarArticuloPanel = getattr(_mod, 'BuscarArticuloPanelV2', getattr(_mod, 'BuscarArticuloPanel', None))
+        if BuscarArticuloPanel is None:
+            from kool_tpv.modulos.tpv.actions.buscar_articulo import BuscarArticuloPanel
+    except Exception:
+        from kool_tpv.modulos.tpv.actions.buscar_articulo import BuscarArticuloPanel
 import json
 from pathlib import Path
 from typing import Optional, Dict

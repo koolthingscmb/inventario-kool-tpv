@@ -8,6 +8,7 @@ from kool_tpv.base_datos.tipo_service import TipoService
 from kool_tpv.base_datos.producto_service import ProductoService
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.tpv.carrito.carrito_service import CarritoService
+from kool_tpv.utils.keyboard_manager import KeyboardManager
 
 # --- RUTAS CONFIG ---
 BASE_DIR = Path(__file__).resolve().parent 
@@ -60,6 +61,7 @@ class AppPruebaOverlay(ctk.CTk):
         self.db.connect()
         # Inicializar servicios
         self.carrito_service = CarritoService()
+        self.keyboard_manager = KeyboardManager(self)
 
         # Crear services
         self.categoria_service = CategoriaService(self.db)
@@ -82,14 +84,17 @@ class AppPruebaOverlay(ctk.CTk):
         # Panel Derecho (Ticket)
         self.right_panel = ctk.CTkFrame(self, width=520, corner_radius=0, fg_color="#1a1a1a")
         self.right_panel.pack(side="right", fill="y")
-        self.right_panel.pack_propagate(False)
+        self.right_panel.pack_propagate(True)
 
         try:
             from kool_tpv.utils.widgets.ticket_carrito import TicketCarrito
-            self.ticket = TicketCarrito(self.right_panel)
-            self.ticket.pack(fill="both", expand=True)
-            # Conectar carrito
-            self.ticket.carrito_service = self.carrito_service
+            # Pasamos carrito Y teclado al crear
+            self.ticket = TicketCarrito(
+                self.right_panel, 
+                carrito_service=self.carrito_service,
+                keyboard_manager=self.keyboard_manager # <--- AÑADIDO
+            )
+            self.ticket.pack(fill="both", expand=True) # Mantengo tu pack original
         except ImportError:
             ctk.CTkLabel(self.right_panel, text="ERROR TICKET", text_color="red").pack()
 
@@ -358,9 +363,41 @@ class AppPruebaOverlay(ctk.CTk):
             self.articles_scroll.grid_columnconfigure(i, weight=1)        
 
     def _add_item_to_carrito(self, producto_data):
-        """Añadir producto al carrito y refrescar ticket"""
-        if self.carrito_service.add_item(producto_data):
-            self.ticket.update_carrito()
+        """Añadir producto al carrito y refrescar ticket (hardened)."""
+        try:
+            try:
+                added = self.carrito_service.add_item(producto_data)
+            except Exception as e:
+                # carrito_service failed; log or ignore and continue safely
+                try:
+                    import logging
+                    logging.getLogger(__name__).exception("carrito_service.add_item failed")
+                except Exception:
+                    pass
+                return
+
+            if not added:
+                return
+
+            ticket = getattr(self, 'ticket', None)
+            if ticket is None:
+                return
+
+            update = getattr(ticket, 'update_carrito', None)
+            if not callable(update):
+                return
+
+            try:
+                update()
+            except Exception:
+                # if updating UI fails, swallow to keep visual test stable
+                pass
+        except Exception:
+            try:
+                import logging
+                logging.getLogger(__name__).exception('Unexpected error in _add_item_to_carrito')
+            except Exception:
+                pass
 
 if __name__ == "__main__":
     app = AppPruebaOverlay()

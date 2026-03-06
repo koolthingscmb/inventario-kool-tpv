@@ -173,7 +173,27 @@
         "entry": { "family": "Courier New", "size": 20, "weight": "normal" },
         "cambio": { "family": "Courier New", "size": 18, "weight": "bold" },
         "button": { "family": "Courier New", "size": 20, "weight": "bold" },
-        "error": { "family": "Courier New", "size": 12, "weight": "normal" }
+        "error": { "family": "Courier New", "size": 20, "weight": "normal" }
+      },
+      "buscar_overlay": {
+        "main_buttons": {
+          "family": "Courier New",
+          "size": 30,
+          "weight": "bold",
+          "fallback": ["Courier New"]
+        },
+        "category_buttons": {
+          "family": "Arial",
+          "size": 18,
+          "weight": "bold",
+          "fallback": ["Arial"]
+        },
+        "article_buttons": {
+          "family": "Arial",
+          "size": 18,
+          "weight": "bold",
+          "fallback": ["Arial"]
+        }
       }
     }
   },

@@ -397,7 +397,7 @@
         "text_error": "#e74c3c",
         "button": {
           "bg": "#000000",
-          "hover": "#2cff00",
+          "hover": "#197307",
           "text": "#2cff00",
           "border": "#2cff00"
         }
@@ -405,11 +405,11 @@
       "tarjeta": {
         "bg": "#000000",
         "border": "#53ffb1",
-        "border_hover": "#2980b9",
+        "border_hover": "#E3FFEE",
         "text_titulo": "#53ffb1",
         "button": {
           "bg": "#000000",
-          "hover": "#2980b9",
+          "hover": "#2A7D58",
           "text": "#53ffb1",
           "border": "#53ffb1"
         }
@@ -417,7 +417,7 @@
       "web": {
         "bg": "#000000",
         "border": "#9be74a",
-        "border_hover": "#6a8e3a",
+        "border_hover": "#E9FAD7",
         "text_titulo": "#9be74a",
         "button": {
           "bg": "#000000",
@@ -429,13 +429,13 @@
       "multi": {
         "bg": "#000000",
         "border": "#b4ea0a",
-        "border_hover": "#8e44ad",
+        "border_hover": "#678508",
         "text_titulo": "#b4ea0a",
         "text_label": "#FFFFFF",
         "text_error": "#e74c3c",
         "button": {
           "bg": "#000000",
-          "hover": "#8e44ad",
+          "hover": "#678508",
           "text": "#b4ea0a",
           "border": "#b4ea0a"
         }
@@ -463,34 +463,40 @@
       }
     },
     "buscar_overlay": {
-      "bg": "#393E46",
+      "bg": "#000000",
+      "categories_area_bg": "#000000",
+      "articles_area_bg": "#000000",
+      "breadcrumb": {
+        "text": "#BBF527",
+        "text_hover": "#FFFFFF",
+        "bg_hover": "#bababa"
+      },
       "main_buttons": {
         "bg": "#000000",
-        "hover": "#709412",
+        "hover": "#333333",
         "text": "#BBF527",
-        "text_active": "#FFFFFF",
-        "bg_active": "#00A4DF",
+        "text_active": "#000000",
+        "bg_active": "#BBF527",
         "border": "#BBF527",
-        "border_width": 5
+        "border_width": 2
       },
       "category_buttons": {
-        "bg": "#000000",
-        "hover": "#00A4DF",
+        "bg": "#111111",
+        "hover": "#333333",
         "text": "#E0F545",
-        "text_selected": "#FFFFFF",
-        "bg_selected": "#00A4DF",
+        "text_selected": "#000000",
+        "bg_selected": "#E0F545",
         "border": "#E0F545",
-        "border_width": 3
+        "border_width": 2
       },
       "article_buttons": {
         "bg": "#000000",
-        "hover": "#00A4DF",
+        "hover": "#A5D600",
         "text": "#A5D600",
+        "text_hover": "#4f6601",
         "border": "#A5D600",
-        "border_width": 2
-      },
-      "categories_area_bg": "#444444",
-      "articles_area_bg": "#333333"
+        "border_width": 1
+      }
     }
   }
 }

@@ -69,6 +69,7 @@ class TicketCarrito(ctk.CTkFrame):
         self._create_header()
         self._create_body()
         self._create_footer()
+        self._start_clock()
 
         logger.info("TicketCarrito inicializado")
 
@@ -342,7 +343,7 @@ class TicketCarrito(ctk.CTkFrame):
 
         # 1. Contenedor "Caja Fuerte" (Altura fija compacta)
         # Altura suficiente para Título + Valor (aprox 20+25 = 45px) + márgenes
-        grid_frame = ctk.CTkFrame(self.totales_container, fg_color="transparent", height=80)
+        grid_frame = ctk.CTkFrame(self.totales_container, fg_color="transparent", height=100)
         grid_frame.pack_propagate(False)  # <--- CLAVE: Impide estiramiento
 
         pad_h = footer_layout.get("padding_horizontal", 12)
@@ -489,6 +490,17 @@ class TicketCarrito(ctk.CTkFrame):
 
     # Métodos públicos para actualizar desde el controller
 
+    def _start_clock(self):
+        """Actualizar reloj interno cada segundo."""
+        from datetime import datetime
+        try:
+            now = datetime.now()
+            hora_str = now.strftime("%H:%M:%S - %d/%m/%Y")
+            self.hora_label.configure(text=hora_str)
+            self.after(1000, self._start_clock)  # Repetir en 1s
+        except Exception:
+            pass
+    
     def update_hora(self, hora_str: str):
         """Actualizar hora en tiempo real."""
         try:

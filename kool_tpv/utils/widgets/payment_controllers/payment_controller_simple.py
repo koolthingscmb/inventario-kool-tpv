@@ -104,17 +104,24 @@ class PaymentControllerSimple(ctk.CTkFrame):
         # Crear UI
         self._create_widgets()
 
+        # Focus automático al botón
+        try:
+            if hasattr(self, 'btn_finalizar'):
+                self.after_idle(lambda: self.btn_finalizar.focus_set())
+        except Exception:
+            pass
+
         logger.info(f"PaymentControllerSimple ({tipo_pago}) inicializado")
 
     def _create_widgets(self):
         """Crear widgets del controller."""
-        # Obtener tokens según tipo de pago
+        # Configuración
         tp_key = "tarjeta" if self.tipo_pago.lower() == "tarjeta" else ("web" if self.tipo_pago.lower() == "web" else "simple")
         pcfg = self.colors.get("tpv", {}).get("payment_controllers", {}).get(tp_key, {})
         fonts_cfg = self.fonts.get("modules", {}).get("tpv", {}).get("payment_controllers", {})
         layout_cfg = self.layout.get("modules", {}).get("tpv", {}).get("payment_controllers", {})
 
-        # Fonts and layout
+        # Fuentes
         title_font = (
             fonts_cfg.get("titulo", {}).get("family", "Courier New"),
             fonts_cfg.get("titulo", {}).get("size", 20),
@@ -122,67 +129,65 @@ class PaymentControllerSimple(ctk.CTkFrame):
         )
         btn_layout = layout_cfg.get("button", {})
         btn_cfg = pcfg.get("button", {})
+        # Normalizar colores del botón
+        btn_cfg = {k: _norm_color(v) if isinstance(v, str) else v for k, v in btn_cfg.items()}
 
-        # Container principal con padding
+        # Container
         main_container = ctk.CTkFrame(self, fg_color="transparent")
         main_container.pack(fill="both", expand=True,
             padx=layout_cfg.get("padding", 20),
             pady=layout_cfg.get("spacing", 12))
 
-        # Label informativo según tipo de pago
-        if self.tipo_pago.lower() == "tarjeta":
-            texto_info = "Pago con tarjeta"
-        elif self.tipo_pago.lower() == "web":
-            texto_info = "Pago en la Web"
-        else:
-            texto_info = f"Pago: {self.tipo_pago}"
+        # Título
+        texto_info = "Pago con tarjeta"
+        if self.tipo_pago.lower() == "web": texto_info = "Pago en la Web"
+        elif self.tipo_pago.lower() not in ["tarjeta", "web"]: texto_info = f"Pago: {self.tipo_pago}"
 
-        def _choose_text_color(cfg_color: str, bg: str) -> str:
-            c = _norm_color(cfg_color) if cfg_color else cfg_color
-            if not c:
-                return '#FFFFFF'
-            if _norm_color(c) == _norm_color(bg):
-                return '#FFFFFF'
-            return c
+        # Color texto título
+        color_titulo = _norm_color(pcfg.get("text_titulo", "#FFFFFF"))
+        if not color_titulo or color_titulo == self.bg_active: color_titulo = "#FFFFFF"
 
-        info_label = ctk.CTkLabel(
+        ctk.CTkLabel(
             main_container,
             text=texto_info,
             font=title_font,
-            text_color=_choose_text_color(pcfg.get("text_titulo", "#FFFFFF"), self.bg_active)
-        )
-        simple_cfg = layout_cfg.get("simple", {})
-        info_label.pack(pady=(0, simple_cfg.get("titulo_bottom", 8)))
+            text_color=color_titulo
+        ).pack(pady=(0, layout_cfg.get("simple", {}).get("titulo_bottom", 8)))
 
-        # normalize button cfg
-        btn_cfg = pcfg.get("button", {})
-        btn_cfg = {k: _norm_color(v) if isinstance(v, str) else v for k, v in btn_cfg.items()}
+        # Color Borde Normal y Hover (Foco)
+        color_borde_normal = _norm_color(btn_cfg.get("border", "#000000"))
+        # Usamos border_hover del padre (azul) para máxima visibilidad, o fallback al hover del botón
+        color_borde_foco = _norm_color(pcfg.get("border_hover")) 
+        if not color_borde_foco: color_borde_foco = _norm_color(btn_cfg.get("hover", "#FFFFFF"))
 
-        # Botón Finalizar Venta
+        # BOTÓN FINALIZAR
         self.btn_finalizar = ctk.CTkButton(
             main_container,
             text="FINALIZAR VENTA",
             command=self._on_finalizar,
-            fg_color=btn_cfg.get("bg", "#2ecc71"),
-            hover_color=btn_cfg.get("hover", "#27ae60"),
+            fg_color=_norm_color(btn_cfg.get("bg", "#2ecc71")),
+            hover_color=_norm_color(btn_cfg.get("hover", "#27ae60")),
             text_color=_norm_color(btn_cfg.get("text", "#000000")),
             font=(btn_cfg.get("family", title_font[0]), btn_cfg.get("size", title_font[1])),
             width=btn_layout.get("width", 160),
             height=btn_layout.get("height", 35),
             corner_radius=btn_layout.get("corner_radius", 22),
             border_width=btn_layout.get("border_width", 2),
-            border_color=_norm_color(btn_cfg.get("border", "#000000"))
+            border_color=color_borde_normal # Estado inicial
         )
+
         btn_spacing_top = layout_cfg.get("button_spacing_top", 12)
         btn_spacing_bottom = layout_cfg.get("button_spacing_bottom", 8)
-
         self.btn_finalizar.pack(pady=(btn_spacing_top, btn_spacing_bottom))
 
-        # Binding Enter
-        try:
-            self.btn_finalizar.bind('<Return>', lambda e: self._on_finalizar())
-        except Exception:
-            pass
+        # BINDINGS
+        # 1. Enter para activar
+        self.btn_finalizar.bind('<Return>', lambda e: self._on_finalizar())
+
+        # 2. Feedback visual de foco (Borde Azul/Hover)
+        self.btn_finalizar.bind("<FocusIn>", lambda e: self.btn_finalizar.configure(border_color=color_borde_foco))
+        self.btn_finalizar.bind("<FocusOut>", lambda e: self.btn_finalizar.configure(border_color=color_borde_normal))
+
 
     def _on_finalizar(self):
         """Handler botón Finalizar."""

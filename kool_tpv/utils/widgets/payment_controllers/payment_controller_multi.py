@@ -7,6 +7,7 @@ from pathlib import Path
 import json
 import customtkinter as ctk
 from typing import Optional, Callable
+from decimal import Decimal, InvalidOperation
 
 logger = logging.getLogger(__name__)
 
@@ -254,8 +255,8 @@ class PaymentControllerMulti(ctk.CTkFrame):
                 return
 
             try:
-                self.efectivo = float(texto.replace(',', '.'))
-            except ValueError:
+                self.efectivo = Decimal(texto.replace(',', '.'))
+            except (ValueError, InvalidOperation):
                 return
 
             # Auto-balance: calcular tarjeta
@@ -284,8 +285,8 @@ class PaymentControllerMulti(ctk.CTkFrame):
                 return
 
             try:
-                self.tarjeta = float(texto.replace(',', '.'))
-            except ValueError:
+                self.tarjeta = Decimal(texto.replace(',', '.'))
+            except (ValueError, InvalidOperation):
                 return
 
             # Auto-balance: calcular efectivo
@@ -309,7 +310,7 @@ class PaymentControllerMulti(ctk.CTkFrame):
             if self.efectivo <= 0 or self.tarjeta <= 0:
                 self.error_label.configure(text="Ambos importes deben ser > 0")
                 self.btn_finalizar.configure(state="disabled")
-            elif abs(suma - self.total) > 0.01:  # Tolerancia para decimales
+            elif abs(suma - self.total) > Decimal("0.01"):  # Tolerancia para decimales
                 self.error_label.configure(text=f"Suma incorrecta: {suma:.2f}€")
                 self.btn_finalizar.configure(state="disabled")
             else:
@@ -325,7 +326,7 @@ class PaymentControllerMulti(ctk.CTkFrame):
             if self.efectivo <= 0 or self.tarjeta <= 0:
                 return
 
-            if abs((self.efectivo + self.tarjeta) - self.total) > 0.01:
+            if abs((self.efectivo + self.tarjeta) - self.total) > Decimal("0.01"):
                 return
 
             if self.on_finalizar_callback:
@@ -340,13 +341,13 @@ class PaymentControllerMulti(ctk.CTkFrame):
 
     def set_total(self, total: float):
         """Actualizar total a cobrar."""
-        self.total = total
+        self.total = Decimal(str(total))
         # Reset entries
         try:
             self.entry_efectivo.delete(0, 'end')
             self.entry_tarjeta.delete(0, 'end')
         except Exception:
             pass
-        self.efectivo = 0.0
-        self.tarjeta = 0.0
+        self.efectivo = Decimal("0.0")
+        self.tarjeta = Decimal("0.0")
         self._validate()

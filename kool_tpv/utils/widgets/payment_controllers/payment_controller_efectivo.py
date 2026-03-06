@@ -7,6 +7,7 @@ from pathlib import Path
 import json
 import customtkinter as ctk
 from typing import Optional, Callable
+from decimal import Decimal, InvalidOperation
 
 logger = logging.getLogger(__name__)
 
@@ -258,8 +259,8 @@ class PaymentControllerEfectivo(ctk.CTkFrame):
 
             # Intentar convertir a float
             try:
-                cantidad = float(texto.replace(',', '.'))
-            except ValueError:
+                cantidad = Decimal(texto.replace(',', '.'))
+            except (ValueError, InvalidOperation):
                 self.error_label.configure(text="Cantidad no válida")
                 try:
                     self.btn_finalizar.configure(state="disabled")

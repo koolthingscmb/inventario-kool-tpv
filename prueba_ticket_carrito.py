@@ -45,6 +45,7 @@ class TestApp(ctk.CTk):
         ctk.CTkLabel(self.left_panel, text="PRODUCTOS DE PRUEBA", font=("Arial", 20, "bold")).pack(pady=20)
 
         self._cargar_botones_productos()
+        self._crear_botones_pago()
 
     def _cargar_botones_productos(self):
         """Crea botones para los primeros 10 productos de la BD."""
@@ -63,6 +64,35 @@ class TestApp(ctk.CTk):
     def _add_producto(self, producto_data):
         self.carrito_service.add_item(producto_data)
         self.ticket.update_carrito()
+
+    def _crear_botones_pago(self):
+        frame_pagos = ctk.CTkFrame(self.left_panel)
+        frame_pagos.pack(pady=20, fill="x")
+
+        ctk.CTkLabel(frame_pagos, text="FORMAS DE PAGO", font=("Arial", 16, "bold")).pack()
+
+        # DEFINIR CALLBACK DE PAGO
+        def on_pago(datos):
+            print(f"PAGO RECIBIDO: {datos}")
+            lbl = ctk.CTkLabel(self, text="VENTA FINALIZADA", font=("Arial", 40), text_color="green")
+            lbl.place(relx=0.5, rely=0.5, anchor="center")
+            self.after(2000, lbl.destroy)
+            self.ticket.desactivar_pago()
+
+        # Botones con callback
+        ctk.CTkButton(frame_pagos, text="EFECTIVO", 
+            command=lambda: self.ticket.activar_pago_efectivo(on_finalizar=on_pago)).pack(pady=5)
+
+        ctk.CTkButton(frame_pagos, text="TARJETA", 
+            command=lambda: self.ticket.activar_pago_tarjeta(on_finalizar=on_pago)).pack(pady=5)
+
+        ctk.CTkButton(frame_pagos, text="WEB", 
+            command=lambda: self.ticket.activar_pago_web(on_finalizar=on_pago)).pack(pady=5)
+
+        ctk.CTkButton(frame_pagos, text="MULTI", 
+            command=lambda: self.ticket.activar_pago_multi(on_finalizar=on_pago)).pack(pady=5)
+
+        ctk.CTkButton(frame_pagos, text="CANCELAR PAGO", fg_color="red", command=self.ticket.desactivar_pago).pack(pady=10)
 
 if __name__ == "__main__":
     app = TestApp()
