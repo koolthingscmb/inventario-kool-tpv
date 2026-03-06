@@ -5,6 +5,8 @@ Centraliza la asignación de comandos a botones del grid.
 Facilita mantenimiento y evita código repetitivo.
 """
 import logging
+import re
+import unicodedata
 from typing import Dict, Callable, Any
 
 logger = logging.getLogger(__name__)
@@ -31,6 +33,8 @@ BUTTON_ACTIONS: Dict[str, Callable[[Any], None]] = {
     'TARJETA': lambda view: _activate_payment(view, 'tarjeta'),
     'CARD': lambda view: _activate_payment(view, 'tarjeta'),
     'WEB': lambda view: _activate_payment(view, 'web'),
+    'CONFIG': lambda view: _open_config(view),
+    'PRINT ON': lambda view: _toggle_print(view),
 }
 
 
@@ -156,6 +160,44 @@ def _open_tickets_guarded(view):
         logger.exception('Error abriendo TicketsUI')
 
 
+def _open_config(view):
+    """Intentar invocar `open_config` en la vista o en su contenedor/principal."""
+    try:
+        # Preferir método directo en la view
+        if getattr(view, 'open_config', None) and callable(view.open_config):
+            view.open_config()
+            return
+
+        # Probar en container o parent (main app)
+        parent = getattr(view, 'container', None) or getattr(view, 'parent', None)
+        if parent and getattr(parent, 'open_config', None) and callable(parent.open_config):
+            parent.open_config()
+            return
+
+        logger.warning('open_config no disponible en view ni en su contenedor')
+    except Exception:
+        logger.exception('Error invocando open_config')
+
+
+def _toggle_print(view):
+    """Intentar activar/desactivar impresión mediante `toggle_print` disponible en main/app."""
+    try:
+        # Preferir método en la view
+        if getattr(view, 'toggle_print', None) and callable(view.toggle_print):
+            view.toggle_print()
+            return
+
+        # Probar en container o parent (main app)
+        parent = getattr(view, 'container', None) or getattr(view, 'parent', None)
+        if parent and getattr(parent, 'toggle_print', None) and callable(parent.toggle_print):
+            parent.toggle_print()
+            return
+
+        logger.warning('toggle_print no disponible en view ni en su contenedor')
+    except Exception:
+        logger.exception('Error invocando toggle_print')
+
+
 def _attempt_devolucion(view):
     """Intentar abrir devolución con validación de venta activa."""
     try:
@@ -206,9 +248,22 @@ def rebind_buttons(view):
         rebound_count = 0
         for btn in buttons:
             try:
-                text = (btn.cget('text') or '').strip().upper()
+                text = (btn.cget('text') or '').strip()
 
-                action = BUTTON_ACTIONS.get(text)
+                # Normalize original and accentless/cleaned variants to improve matching
+                def _normalize(s: str) -> str:
+                    if not s:
+                        return ''
+                    # Remove diacritics
+                    s_norm = unicodedata.normalize('NFKD', s)
+                    s_norm = ''.join(ch for ch in s_norm if not unicodedata.combining(ch))
+                    # Remove punctuation/symbols, keep letters, numbers and spaces
+                    s_norm = re.sub(r'[^A-Za-z0-9 ]+', '', s_norm)
+                    return s_norm.strip().upper()
+
+                text_norm = _normalize(text)
+
+                action = BUTTON_ACTIONS.get(text.upper()) or BUTTON_ACTIONS.get(text_norm)
                 if action:
                     btn.configure(command=lambda v=view, a=action: a(v))
                     rebound_count += 1

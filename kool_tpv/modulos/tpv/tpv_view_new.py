@@ -50,6 +50,9 @@ class TpvView(ctk.CTkFrame):
         super().__init__(parent)
         self.db = db
 
+        # Referencia al contenedor para diálogos (requerido por TpvController)
+        self.container = self
+
         # INICIALIZAR EL SERVICIO
         self.carrito_service = CarritoService()
 
@@ -69,6 +72,9 @@ class TpvView(ctk.CTkFrame):
             # Pasamos el servicio al ticket
             self.ticket_widget = TicketCarrito(self.right_container, carrito_service=self.carrito_service)
             self.ticket_widget.pack(fill="both", expand=True)
+
+            # Alias para compatibilidad con TpvController
+            self.ticket_carrito = self.ticket_widget
         except ImportError:
             ctk.CTkLabel(self.right_container, text="[ ERROR TICKET ]", text_color="red").pack()
 
@@ -86,6 +92,9 @@ class TpvView(ctk.CTkFrame):
         self.grid_frame = ctk.CTkFrame(self.center_area, fg_color="transparent")
         self.grid_frame.pack(side="top", fill="both", expand=True, padx=20, pady=20)
 
+        # Lista para referencias a botones del grid (requerido por button_action_mapper)
+        self.grid_buttons = []
+
         # PANEL DE BÚSQUEDA (Con los datos pasados explícitamente)
         self.panel_buscar = BuscarArticuloPanel(
             self, 
@@ -94,6 +103,15 @@ class TpvView(ctk.CTkFrame):
         )
 
         self._build_grid_buttons()
+        # Instanciar controlador (gestiona payment controllers, acciones y rebind de botones)
+        try:
+            from kool_tpv.modulos.tpv.tpv_controller import TpvController
+            self.controller = TpvController(self, db=self.db)
+        except Exception:
+            # No queremos que la vista deje de inicializarse si el controlador falla
+            self.controller = None
+
+        # Crear controlador (gestiona payment controllers, acciones y rebind)
 
     def _build_grid_buttons(self):
         cols = 4
@@ -123,6 +141,8 @@ class TpvView(ctk.CTkFrame):
                 border_color=style.get("border"), border_width=style.get("border_width", 0)
             )
             btn.grid(row=row, column=col, columnspan=grid_info.get("colspan", 1), rowspan=grid_info.get("rowspan", 1), padx=10, pady=10, sticky="nsew")
+            # Guardar referencia para mapper (lista de widgets, como espera el mapper)
+            self.grid_buttons.append(btn)
 
     def teardown(self):
         pass
