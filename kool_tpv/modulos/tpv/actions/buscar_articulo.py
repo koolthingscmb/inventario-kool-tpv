@@ -63,6 +63,14 @@ class BuscarArticuloPanel:
             self.overlay.pack_propagate(False)
         except Exception:
             pass
+        # Place overlay off-screen initially so it's pre-created but invisible
+        try:
+            self.overlay.place(x=-9999, y=-9999, width=1, height=1)
+        except Exception:
+            try:
+                self.overlay.place(x=0, y=0, width=1, height=1)
+            except Exception:
+                pass
 
         # Instantiate widget if possible
         if self.db and self.carrito_service and BuscarArticuloWidget is not None:
@@ -131,6 +139,17 @@ class BuscarArticuloPanel:
                 except Exception:
                     pass
 
+            # Force geometry and paint before lifting to avoid flash
+            try:
+                self.overlay.update_idletasks()
+            except Exception:
+                pass
+
+            try:
+                self.overlay.lift()
+            except Exception:
+                pass
+
             # Ensure overlay does not shrink to fit children
             try:
                 self.overlay.pack_propagate(False)
@@ -163,10 +182,23 @@ class BuscarArticuloPanel:
             logger.exception("Error mostrando overlay")
 
     def hide(self):
+        # Instead of removing the overlay from the layout (which causes a redraw
+        # and may produce a visible flash), simply lower it and keep it placed
+        # off-screen for fast reuse.
         try:
-            self.overlay.place_forget()
+            # Lower under other widgets
+            self.overlay.lower()
+            # Move off-screen to ensure no accidental catches
+            try:
+                self.overlay.place(x=-9999, y=-9999, width=1, height=1)
+            except Exception:
+                pass
         except Exception:
-            pass
+            try:
+                self.overlay.place_forget()
+            except Exception:
+                pass
+
         self._visible = False
         if callable(self.on_close):
             try:
