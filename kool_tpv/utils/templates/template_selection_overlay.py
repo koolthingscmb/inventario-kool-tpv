@@ -146,6 +146,44 @@ class SelectionOverlayTemplate:
             from kool_tpv.utils.global_buttons import create_global_close_button
 
             self.close_btn = create_global_close_button(self.overlay, command=self.hide)
+            # Registrar el handler de este overlay en el root (si la app expone la API)
+            try:
+                app_root = self.root
+                if app_root is not None and hasattr(app_root, 'register_power_handler'):
+                    try:
+                        app_root.register_power_handler(self.hide, owner=self)
+                        logging.info('SelectionOverlayTemplate: power handler registrado en root')
+                        # Configurar el botón para delegar siempre al dispatcher central
+                        try:
+                            if hasattr(app_root, '_dispatch_power') and self.close_btn is not None:
+                                self.close_btn.configure(command=app_root._dispatch_power)
+                        except Exception:
+                            pass
+                    except Exception:
+                        logging.exception('SelectionOverlayTemplate: error registrando power handler en root')
+            except Exception:
+                logging.exception('SelectionOverlayTemplate: error comprobando registro power handler')
+            # Desregistrar handler al destruir el overlay
+            try:
+                def _on_destroy(event=None):
+                    try:
+                        app = self.root
+                        if app is not None and hasattr(app, 'unregister_power_handler'):
+                            try:
+                                app.unregister_power_handler(owner=self)
+                                logging.info('SelectionOverlayTemplate: power handler desregistrado en destroy')
+                            except Exception:
+                                logging.exception('SelectionOverlayTemplate: error desregistrando power handler')
+                    except Exception:
+                        pass
+
+                try:
+                    if getattr(self, 'overlay', None) is not None:
+                        self.overlay.bind('<Destroy>', _on_destroy)
+                except Exception:
+                    pass
+            except Exception:
+                logging.exception('SelectionOverlayTemplate: error vinculando Destroy para desregistro')
         except Exception:
             logging.exception("Error inicializando SelectionOverlayTemplate overlay")
 
@@ -360,6 +398,16 @@ class SelectionOverlayTemplate:
             except Exception:
                 logging.exception("Error colocando overlay SelectionOverlayTemplate")
             self.overlay.lift()
+            # Ensure global floating power stays on top
+            try:
+                app = getattr(self, 'root', None)
+                if app is not None and hasattr(app, 'power_floating'):
+                    try:
+                        app.power_floating.lift()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
             # Ensure layout metrics are computed now that the overlay is visible
             try:
                 self._on_overlay_configure()
@@ -420,6 +468,16 @@ class SelectionOverlayTemplate:
                             self.close_btn.place(x=12, y=12)
                         except Exception:
                             pass
+                    # Ensure the handler remains registered while overlay is visible
+                    try:
+                        app_root = self.root
+                        if app_root is not None and hasattr(app_root, 'register_power_handler'):
+                            try:
+                                app_root.register_power_handler(self.hide, owner=self)
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
             except Exception:
                 pass
 

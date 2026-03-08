@@ -36,15 +36,105 @@ class BaseModuleView:
 
         # Top area for power button and optional header
         try:
-            from kool_tpv.utils.global_buttons import create_global_close_button
-            self.power_button = create_global_close_button(self.sidebar, command=self._on_power)
-            if self.power_button is not None:
-                try:
-                    self.power_button.pack(pady=(12, 20))
-                except Exception:
-                    pass
+            # Prefer reusing the application's floating power button if available
+            app_root = getattr(self, 'parent', None)
+            reused = False
+            try:
+                if app_root is not None and hasattr(app_root, 'power_floating_btn') and getattr(app_root, 'power_floating_btn') is not None:
+                    # Do not reparent the global button; keep a spacer in the sidebar
+                    self.power_button = app_root.power_floating_btn
+                    # Try to reserve the same visual space in the sidebar so layout remains consistent
+                    try:
+                        if hasattr(app_root, 'reserve_power_space'):
+                            spacer = app_root.reserve_power_space(self.sidebar)
+                            if spacer is not None:
+                                try:
+                                    children = list(self.sidebar.winfo_children())
+                                    if children:
+                                        spacer.pack(side='top', before=children[0])
+                                    else:
+                                        spacer.pack(side='top')
+                                except Exception:
+                                    try:
+                                        spacer.pack(side='top')
+                                    except Exception:
+                                        pass
+                    except Exception:
+                        pass
+                    # Ensure the floating container and button are on top and
+                    # visible when a module is opened.
+                    try:
+                        if hasattr(app_root, 'power_floating') and getattr(app_root, 'power_floating') is not None:
+                            try:
+                                app_root.power_floating.lift()
+                            except Exception:
+                                pass
+                        try:
+                            app_root.power_floating_btn.lift()
+                        except Exception:
+                            pass
+                        # Ensure the floating button delegates to central dispatcher
+                        try:
+                            if hasattr(app_root, '_dispatch_power'):
+                                app_root.power_floating_btn.configure(command=app_root._dispatch_power)
+                        except Exception:
+                            pass
+                    except Exception:
+                        pass
+
+                    reused = True
+            except Exception:
+                reused = False
+
+            if not reused:
+                from kool_tpv.utils.global_buttons import create_global_close_button
+                self.power_button = create_global_close_button(self.sidebar, command=self._on_power)
+                if self.power_button is not None:
+                    try:
+                        self.power_button.pack(pady=(12, 20))
+                    except Exception:
+                        pass
         except Exception:
             logging.exception('Error creando botón power en BaseModuleView')
+
+        # Registrar handler de power en el root (si existe la API)
+        try:
+            app_root = getattr(self, 'parent', None)
+            if app_root is not None and hasattr(app_root, 'register_power_handler'):
+                try:
+                    app_root.register_power_handler(self._on_power, owner=self)
+                    logging.info('BaseModuleView: power handler registrado en root')
+                    # Re-configurar el botón local para delegar al dispatcher central
+                    try:
+                        if hasattr(app_root, '_dispatch_power') and self.power_button is not None:
+                            self.power_button.configure(command=app_root._dispatch_power)
+                    except Exception:
+                        pass
+                except Exception:
+                    logging.exception('BaseModuleView: error registrando power handler en root')
+        except Exception:
+            logging.exception('BaseModuleView: error comprobando registro power handler')
+
+        # Desregistrar handler automáticamente al destruir el sidebar
+        try:
+            def _on_destroy(event=None):
+                try:
+                    app = getattr(self, 'parent', None)
+                    if app is not None and hasattr(app, 'unregister_power_handler'):
+                        try:
+                            app.unregister_power_handler(owner=self)
+                            logging.info('BaseModuleView: power handler desregistrado en destroy')
+                        except Exception:
+                            logging.exception('BaseModuleView: error desregistrando power handler')
+                except Exception:
+                    pass
+
+            try:
+                self.sidebar.bind('<Destroy>', _on_destroy)
+            except Exception:
+                pass
+        except Exception:
+            logging.exception('BaseModuleView: error vinculando Destroy para desregistro')
 
         # Container for menu buttons
         self._menu_frame = ctk.CTkFrame(self.sidebar, fg_color='transparent')
@@ -338,7 +428,7 @@ class BaseModuleView:
                 except Exception:
                     pass
 
-                # Restaurar nav_frame del parent si existe
+                # Restaurar nav_frame y main_frame del parent si existen
                 try:
                     if hasattr(self.parent, 'nav_frame'):
                         try:
@@ -346,8 +436,16 @@ class BaseModuleView:
                             logging.info('Menú principal restaurado')
                         except Exception:
                             logging.exception('Error restaurando nav_frame')
+                    # Es importante también volver a mostrar el main_frame del parent
+                    # porque muchos módulos hacen `parent.main_frame.pack_forget()` al abrirse.
+                    if hasattr(self.parent, 'main_frame'):
+                        try:
+                            self.parent.main_frame.pack(side='right', fill='both', expand=True)
+                            logging.info('Main frame restaurado')
+                        except Exception:
+                            logging.exception('Error restaurando main_frame')
                 except Exception:
-                    logging.exception('Error comprobando/restaurando nav_frame')
+                    logging.exception('Error comprobando/restaurando nav_frame/main_frame')
 
             except Exception:
                 logging.exception('Error detectando contexto en _on_power')

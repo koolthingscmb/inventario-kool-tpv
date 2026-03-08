@@ -72,6 +72,59 @@ class BuscarArticuloPanel:
             except Exception:
                 pass
 
+        # Create a close/power button for this overlay (so it shows the global power position)
+        try:
+            from kool_tpv.utils.global_buttons import create_global_close_button
+        except Exception:
+            create_global_close_button = None
+
+        if create_global_close_button is not None:
+            try:
+                self.close_btn = create_global_close_button(self.overlay, command=self.hide)
+            except Exception:
+                self.close_btn = None
+                logger.exception('Error creando close_btn en BuscarArticuloPanel')
+
+            if getattr(self, 'close_btn', None) is not None:
+                try:
+                    app_root = getattr(self.view, 'parent', None) or getattr(self.view, 'root', None) or self.root
+                except Exception:
+                    app_root = None
+
+                if app_root is not None and hasattr(app_root, 'register_power_handler'):
+                    try:
+                        app_root.register_power_handler(self.hide, owner=self)
+                    except Exception:
+                        logger.exception('Error registrando power handler desde BuscarArticuloPanel')
+
+                # Prefer central dispatcher for the button if available
+                try:
+                    if app_root is not None and hasattr(app_root, '_dispatch_power'):
+                        self.close_btn.configure(command=app_root._dispatch_power)
+                except Exception:
+                    pass
+
+                # Ensure we unregister the handler when the overlay is destroyed
+                try:
+                    def _on_destroy(event=None):
+                        try:
+                            if app_root is not None and hasattr(app_root, 'unregister_power_handler'):
+                                try:
+                                    app_root.unregister_power_handler(owner=self)
+                                    logger.info('BuscarArticuloPanel: power handler desregistrado en destroy')
+                                except Exception:
+                                    logger.exception('Error desregistrando power handler en destroy')
+                        except Exception:
+                            pass
+
+                    try:
+                        if getattr(self, 'overlay', None) is not None:
+                            self.overlay.bind('<Destroy>', _on_destroy)
+                    except Exception:
+                        pass
+                except Exception:
+                    logger.exception('Error vinculando Destroy para desregistro en BuscarArticuloPanel')
+
         # Instantiate widget if possible
         if self.db and self.carrito_service and BuscarArticuloWidget is not None:
             try:
@@ -172,6 +225,79 @@ class BuscarArticuloPanel:
             except Exception:
                 pass
 
+            # Re-register power handler when shown to ensure this overlay has
+            # precedence over other handlers while visible.
+            try:
+                app_root = getattr(self, 'root', None) or getattr(self.view, 'root', None) or getattr(self.view, 'parent', None)
+                if app_root is not None and hasattr(app_root, 'register_power_handler'):
+                    try:
+                        app_root.register_power_handler(self.hide, owner=self)
+                        logger.info('BuscarArticuloPanel: power handler (re)registrado en show')
+                    except Exception:
+                        logger.exception('BuscarArticuloPanel: error re-registrando power handler en show')
+            except Exception:
+                pass
+
+            # Ensure global floating power (if any) remains on top
+            try:
+                app_root = getattr(self, 'root', None) or getattr(self.view, 'root', None) or getattr(self.view, 'parent', None)
+                if app_root is not None and hasattr(app_root, 'power_floating'):
+                    try:
+                        app_root.power_floating.lift()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+            # Position close button to match global power button location
+            try:
+                if getattr(self, 'close_btn', None) is not None:
+                    app_root = self.root
+                    nav = getattr(app_root, 'nav_frame', None)
+                    try:
+                        if app_root is not None:
+                            app_root.update_idletasks()
+                    except Exception:
+                        pass
+                    try:
+                        self.overlay.update_idletasks()
+                    except Exception:
+                        pass
+
+                    if nav is not None:
+                        ov_x = self.overlay.winfo_rootx()
+                        ov_y = self.overlay.winfo_rooty()
+                        try:
+                            pb = getattr(app_root, 'power_button', None)
+                            if pb is not None:
+                                pb_rootx = pb.winfo_rootx()
+                                pb_rooty = pb.winfo_rooty()
+                                rel_x = pb_rootx - ov_x
+                                rel_y = pb_rooty - ov_y
+                            else:
+                                nav_x = nav.winfo_rootx()
+                                nav_y = nav.winfo_rooty()
+                                rel_x = 12 + (nav_x - ov_x)
+                                rel_y = 12 + (nav_y - ov_y)
+                        except Exception:
+                            try:
+                                nav_x = nav.winfo_rootx()
+                                nav_y = nav.winfo_rooty()
+                                rel_x = 12 + (nav_x - ov_x)
+                                rel_y = 12 + (nav_y - ov_y)
+                            except Exception:
+                                rel_x, rel_y = 12, 12
+                        try:
+                            self.close_btn.place(x=rel_x, y=rel_y)
+                            self.close_btn.lift()
+                        except Exception:
+                            try:
+                                self.close_btn.place(x=12, y=12)
+                            except Exception:
+                                pass
+            except Exception:
+                logger.exception('Error posicionando close_btn en BuscarArticuloPanel')
+
             # Focus hint
             if self.widget and hasattr(self.widget, 'btn_cat_mode'):
                 try:
@@ -205,6 +331,25 @@ class BuscarArticuloPanel:
                 self.on_close()
             except Exception:
                 logger.exception("Error ejecutando on_close callback")
+
+        # Indicate the action was handled so the global dispatcher does not
+        # run the app-level fallback (`close_app`). Returning True signals
+        # the dispatcher to stop propagation.
+        try:
+            # Unregister handler now that overlay is hidden
+            try:
+                app_root = getattr(self, 'root', None) or getattr(self.view, 'root', None) or getattr(self.view, 'parent', None)
+                if app_root is not None and hasattr(app_root, 'unregister_power_handler'):
+                    try:
+                        app_root.unregister_power_handler(owner=self)
+                    except Exception:
+                        logger.exception('BuscarArticuloPanel: error desregistrando power handler en hide')
+            except Exception:
+                pass
+
+            return True
+        except Exception:
+            return True
 
     def set_ui_config(self, **kwargs):
         pass

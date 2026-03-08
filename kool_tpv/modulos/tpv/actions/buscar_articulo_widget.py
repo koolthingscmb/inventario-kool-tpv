@@ -99,24 +99,54 @@ class BuscarArticuloWidget(ctk.CTkFrame):
         self.grid_rowconfigure(2, weight=30) # 30% Categorías
         self.grid_rowconfigure(3, weight=70) # 70% Productos
 
-        # 1. Breadcrumb
+        # 1+2. Header area (breadcrumb + top buttons) inside a container so we
+        # can reserve space for the global power button at the left.
         bread_font = self._get_font("breadcrumb")
         bread_cfg = self.overlay_colors.get("breadcrumb", {})
 
+        header_frame = ctk.CTkFrame(self, fg_color="transparent")
+        header_frame.grid(row=0, column=0, sticky="ew", padx=20, pady=(10, 5))
+        header_frame.pack_propagate(False)
+
+        # Try to reserve the power-space using the app helper if available
+        try:
+            app = self.winfo_toplevel()
+        except Exception:
+            app = None
+
+        spacer = None
+        try:
+            if app is not None and hasattr(app, 'reserve_power_space'):
+                try:
+                    spacer = app.reserve_power_space(header_frame, margin=12)
+                except Exception:
+                    spacer = None
+        except Exception:
+            spacer = None
+
+        if spacer is None:
+            spacer = ctk.CTkFrame(header_frame, width=12, height=12, fg_color="transparent")
+
+        spacer.pack(side='left')
+
+        # Content container holds breadcrumb (top row) and top buttons (below)
+        content_container = ctk.CTkFrame(header_frame, fg_color="transparent")
+        content_container.pack(side='left', fill='both', expand=True)
+
         self.breadcrumb = ClickableBreadcrumb(
-            self, 
-            font=bread_font, 
+            content_container,
+            font=bread_font,
             text_color=bread_cfg.get("text", "white"),
             hover_color=bread_cfg.get("text_hover", "green"),
             bg_hover=bread_cfg.get("bg_hover", "#333"),
             height=40
         )
-        self.breadcrumb.grid(row=0, column=0, sticky="ew", padx=20, pady=(10, 5))
+        self.breadcrumb.pack(fill='x', pady=(0, 5))
 
         # 2. Botones Superiores
         top_h = self.overlay_layout.get("top_buttons_height", 130)
-        top_frame = ctk.CTkFrame(self, height=top_h, fg_color="transparent")
-        top_frame.grid(row=1, column=0, sticky="ew", padx=20, pady=5)
+        top_frame = ctk.CTkFrame(content_container, height=top_h, fg_color="transparent")
+        top_frame.pack(fill='x')
         top_frame.pack_propagate(False)
 
         btn_w = self.overlay_layout.get("main_button_width", 250)

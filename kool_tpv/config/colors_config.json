@@ -1,4 +1,10 @@
 {
+  "_comments": {
+    "overview": "Paleta y colores por módulo. Afecta apariencia general y botones.",
+    "global.background": "Color de fondo principal de la app.",
+    "components.action_buttons.<style>": "Cada 'style' (primary, secondary, etc.) define bg/hover/text/border usados por botones.",
+    "modules.<module>.buttons.primary.bg": "Color primario de botones del módulo (ej. tpv, almacen)."
+  },
   "global": {
     "dialog_bg": "#000000",
     "dialog_text": "#00FF00",

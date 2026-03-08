@@ -1,4 +1,9 @@
 {
+  "_comments": {
+    "overview": "Mapa de menús por módulo. Cada módulo tiene 'title' y 'buttons' con 'id','text' y 'action'.",
+    "buttons[]": "Acciones internas del módulo; 'action' debe coincidir con un handler en la app.",
+    "impresion_submenu": "Ejemplo de submenú para la sección de impresión dentro de 'config'."
+  },
   "almacen": {
     "title": "ALMACÉN",
     "buttons": [

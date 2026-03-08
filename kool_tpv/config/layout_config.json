@@ -1,4 +1,11 @@
 {
+  "_comments": {
+    "overview": "Ajustes de layout y geometría de la UI. Cambios requieren reinicio.",
+    "global.window": "Tamaño inicial de la ventana principal (width, height, min_*).",
+    "global.spacing": "Valores reusables de spacing: xs, sm, md, lg, xl.",
+    "components.action_button": "Dimensiones por defecto usadas por botones de acción (create_action_button).",
+    "modules.tpv.ticket_carrito.width": "Ancho del panel 'ticket_carrito' en TPV, ajustar para visualizar más/menos columnas."
+  },
   "global": {
     "spacing": {
       "xs": 4,
@@ -16,6 +23,39 @@
     "navigation": {
       "button_padx": 20,
       "button_pady": 14
+    }
+    ,
+    "main_menu_layout": {
+      "side": "top",
+      "padx": 20,
+      "pady": 14,
+      "fill": "x",
+      "button_width": 500,
+      "placement": "place",
+      "offset_x": 0,
+      "offset_y": 180,
+      "anchor": "nw",
+      "container_height": 600,
+      "container_width": 220
+    }
+    ,
+    "main_menu_styles": {
+      "menu_tpv": { "width": 500, "height": 120, "corner_radius": 18 },
+      "menu_almacen": { "width": 220, "height": 56 },
+      "menu_clientes": { "width": 220, "height": 56 },
+      "menu_informes": { "width": 220, "height": 56 },
+      "menu_shopify": { "width": 220, "height": 56 },
+      "menu_config": { "width": 220, "height": 56 }
+    }
+    ,
+    "power": {
+      "margin": 12,
+      "extra_padding": 8,
+      "reserved_width": null,
+      "reserved_height": null,
+      "anchor": "top-left",
+      "offset_x": 40,
+      "offset_y": 12
     }
   },
   "components": {
@@ -50,7 +90,7 @@
     },
     "tpv": {
       "sidebar_width": 220,
-      "right_width": 420,
+      "right_width": 520,
       "center": {
         "grid": {
           "columns": 4,
@@ -147,17 +187,12 @@
       },
       "buscar_overlay": {
         "top_buttons_height": 130,
-        "top_buttons_padding_left": 12,
         "main_button_width": 250,
         "main_button_height": 100,
-        "categories_section_height": 300,
-        "articles_section_height": 400,
-        "button_width": 180,
-        "category_button_height": 45,
+        "category_button_min_width": 120,
+        "category_button_height": 48,
         "article_button_height": 56,
-        "spacing": 12,
-        "category_button_min_width": 130,
-        "category_grid_spacing": 3
+        "grid_spacing": 12
       }
     },
     "almacen": {

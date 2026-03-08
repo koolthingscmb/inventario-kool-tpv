@@ -1,4 +1,10 @@
 {
+  "_comments": {
+    "overview": "Mapeo de acciones a texto/estilo. 'style' se resuelve contra colors_config.components.action_buttons.",
+    "text": "Etiqueta que aparecerá en el botón.",
+    "style": "Clave de paleta (primary, secondary, danger, ...).",
+    "state": "Opcional: 'disabled' para deshabilitar el botón por defecto."
+  },
   "guardar": {"text": "GUARDAR", "style": "primary"},
   "mostrar": {"text": "MOSTRAR", "style": "secondary"},
   "sincronizar": {"text": "SINCRONIZAR", "style": "warning"},
