@@ -8,7 +8,6 @@ import json
 import logging
 import re
 import customtkinter as ctk
-import tkinter as tk
 
 from kool_tpv.utils.utils import SIDEBAR_WIDTH, COLOR_BG_TERMINAL, COLOR_BG_SIDEBAR, COLOR_MATRIX, FONT_TERMINAL
 from kool_tpv.utils.widgets.clickable_breadcrumb import ClickableBreadcrumb
@@ -86,14 +85,9 @@ class BaseModuleView:
             except Exception:
                 reused = False
 
-            if not reused:
-                from kool_tpv.utils.global_buttons import create_global_close_button
-                self.power_button = create_global_close_button(self.sidebar, command=self._on_power)
-                if self.power_button is not None:
-                    try:
-                        self.power_button.pack(pady=(12, 20))
-                    except Exception:
-                        pass
+            # If we couldn't reuse the application's global power button,
+            # the application is expected to expose one. No local fallback
+            # is created here to avoid duplicated/global button instances.
         except Exception:
             logging.exception('Error creando botón power en BaseModuleView')
 
@@ -383,75 +377,33 @@ class BaseModuleView:
 
     # Placeholder handlers que las subclases pueden sobrescribir
     def _on_power(self):
-        """Cerrar módulo/ventana verificando cambios sin guardar primero.
+        """Gestionar botón Power: cerrar sub-vista o indicar al padre que cierre el módulo.
 
-        Detecta automáticamente si es:
-        - Ventana Toplevel separada → destruye ventana
-        - Módulo integrado (Frame) → desempaqueta y restaura menú principal
+        Returns:
+            bool: True si cerró sub-vista (no cerrar módulo), False si módulo debe cerrarse
         """
         try:
-            # Verificar cambios sin guardar
-            if not self._check_unsaved_changes():
-                return False  # Usuario canceló
+            # 1. ¿Hay sub-vista abierta en central_area?
+            if self.central_area.winfo_children():
+                # Verificar cambios sin guardar
+                if not self._check_unsaved_changes():
+                    return True  # Usuario canceló, NO cerrar nada
 
-            # Detectar contexto: ¿Toplevel o Frame integrado?
-            try:
-                top = self.sidebar.winfo_toplevel()
+                # Destruir sub-vista
+                for widget in self.central_area.winfo_children():
+                    widget.destroy()
 
-                # Si parent es Toplevel → ventana separada
+                # Actualizar breadcrumb al nivel del módulo
                 try:
-                    if isinstance(self.parent, ctk.CTkToplevel) or isinstance(self.parent, tk.Toplevel):
-                        logging.info('Cerrando ventana Toplevel...')
-                        try:
-                            self.parent.destroy()
-                        except Exception:
-                            try:
-                                top.destroy()
-                            except Exception:
-                                pass
-                        return
-                except Exception:
-                    # Si customtkinter no expone CTkToplevel o falla isinstance, seguir
-                    pass
-
-                # Frame integrado → desempaquetar módulo
-                logging.info('Cerrando módulo integrado (Frame)...')
-
-                # Desempaquetar sidebar y main_frame
-                try:
-                    self.sidebar.pack_forget()
+                    base_module = (getattr(self, 'module_name', 'MODULO') or '').upper()
+                    self.actualizar_ruta(base_module)
                 except Exception:
                     pass
 
-                try:
-                    self.main_frame.pack_forget()
-                except Exception:
-                    pass
+                return True  # Gestioné el Power (cerré sub-vista), NO cerrar módulo
 
-                # Restaurar nav_frame y main_frame del parent si existen
-                try:
-                    if hasattr(self.parent, 'nav_frame'):
-                        try:
-                            self.parent.nav_frame.pack(side='left', fill='y')
-                            logging.info('Menú principal restaurado')
-                        except Exception:
-                            logging.exception('Error restaurando nav_frame')
-                    # Es importante también volver a mostrar el main_frame del parent
-                    # porque muchos módulos hacen `parent.main_frame.pack_forget()` al abrirse.
-                    if hasattr(self.parent, 'main_frame'):
-                        try:
-                            self.parent.main_frame.pack(side='right', fill='both', expand=True)
-                            logging.info('Main frame restaurado')
-                        except Exception:
-                            logging.exception('Error restaurando main_frame')
-                except Exception:
-                    logging.exception('Error comprobando/restaurando nav_frame/main_frame')
-
-            except Exception:
-                logging.exception('Error detectando contexto en _on_power')
-                return False
-
-            return True
+            # 2. Central_area vacío → Permitir que main.py cierre el módulo
+            return False  # No gestioné, puedes cerrarme
 
         except Exception:
             logging.exception('Error en _on_power')
