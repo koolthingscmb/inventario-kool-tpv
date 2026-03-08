@@ -1,11 +1,4 @@
 {
-  "_comments": {
-    "overview": "Ajustes de layout y geometría de la UI. Cambios requieren reinicio.",
-    "global.window": "Tamaño inicial de la ventana principal (width, height, min_*).",
-    "global.spacing": "Valores reusables de spacing: xs, sm, md, lg, xl.",
-    "components.action_button": "Dimensiones por defecto usadas por botones de acción (create_action_button).",
-    "modules.tpv.ticket_carrito.width": "Ancho del panel 'ticket_carrito' en TPV, ajustar para visualizar más/menos columnas."
-  },
   "global": {
     "spacing": {
       "xs": 4,

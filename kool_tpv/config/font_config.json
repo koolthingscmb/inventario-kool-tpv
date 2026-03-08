@@ -1,10 +1,4 @@
 {
-  "_comments": {
-    "overview": "Configuración de fuentes. Cambios afectan tamaños/familias globales.",
-    "default.family|size": "Fuente y tamaño por defecto para elementos que no se especifican explícitamente.",
-    "components.action_button": "Fuente usada por botones de acción; cambiar aquí afecta create_action_button().",
-    "scale.global_factor": "Multiplica tamaños principales (útil para aumentar/ reducir toda la UI)."
-  },
   "default": {
     "family": "Courier New",
     "size": 16,

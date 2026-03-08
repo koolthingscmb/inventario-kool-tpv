@@ -1,11 +1,4 @@
 {
- "_comments": {
-   "overview": "Definición de botones principales y menú. Cada botón debe tener 'label' y 'command' o 'color_key'.",
-   "buttons[]": "Lista de botones grandes del TPV. 'grid' controla posición en la cuadrícula del TPV.",
-   "main_menu": "Botones laterales principales; 'style_key' referencia estilos en colors_config.json main_menu.",
-   "global_buttons": "Botones globales (power, print_on). 'reserved_width/height' permiten reservar espacio en la UI.",
-   "buscar_overlay": "Config para botones de la ventana de búsqueda (categorías/tipos)."
- },
  "buttons": [
     {"label": "BUSCAR ARTÍCULO", "color_key": "buscar_articulo", "command": "buscar_articulo", "grid": {"row": 0, "col": 0, "colspan": 2}},
     {"label": "CASH", "color_key": "cash", "command": "Pagar en Efectivo", "grid": {"row": 0, "col": 2, "colspan": 2}},
