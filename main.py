@@ -14,33 +14,24 @@ from kool_tpv.utils.keyboard_manager import KeyboardManager
 
 
 def load_layout_config():
-    try:
-        base = Path(__file__).resolve().parents[0]
-        config_path = base / "kool_tpv" / "config" / "layout_config.json"
-        with open(config_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
+    base = Path(__file__).resolve().parents[0]
+    config_path = base / "kool_tpv" / "config" / "layout_config.json"
+    with open(config_path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 def load_colors_config():
-    try:
-        base = Path(__file__).resolve().parents[0]
-        config_path = base / "kool_tpv" / "config" / "colors_config.json"
-        with open(config_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
+    base = Path(__file__).resolve().parents[0]
+    config_path = base / "kool_tpv" / "config" / "colors_config.json"
+    with open(config_path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 def load_font_config():
-    try:
-        base = Path(__file__).resolve().parents[0]
-        config_path = base / "kool_tpv" / "config" / "font_config.json"
-        with open(config_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
+    base = Path(__file__).resolve().parents[0]
+    config_path = base / "kool_tpv" / "config" / "font_config.json"
+    with open(config_path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 # Navigation padding and hover values are read from config (no hardcoded globals)
 
@@ -91,80 +82,51 @@ class App(ctk.CTk):
         # Configuración de la ventana principal
         self.title("Kool TPV")
         # Tamaño configurable desde layout_config.json
-        try:
-            layout_config = load_layout_config()
-            window_cfg = layout_config.get("global", {}).get("window", {})
-            win_width = window_cfg.get("width", 1600)
-            win_height = window_cfg.get("height", 960)
-            min_width = window_cfg.get("min_width", win_width)
-            min_height = window_cfg.get("min_height", win_height)
-            self.geometry(f"{win_width}x{win_height}")
-        except Exception:
-            # fallback hardcoded size
-            try:
-                self.geometry("1600x960")
-            except Exception:
-                pass
+        layout_config = load_layout_config()
+        window_cfg = layout_config.get("global", {}).get("window", {})
+        win_width = window_cfg.get("width", 1600)
+        win_height = window_cfg.get("height", 960)
+        min_width = window_cfg.get("min_width", win_width)
+        min_height = window_cfg.get("min_height", win_height)
+        self.geometry(f"{win_width}x{win_height}")
         # Forzar aplicación de la geometría antes de mostrar (evita tamaño inicial diminuto)
         try:
             self.update_idletasks()
         except Exception:
             pass
         # Asegurar que no pueda reducirse por debajo de este tamaño (leer minsize desde config)
-        try:
-            try:
-                min_width
-            except NameError:
-                layout_config = load_layout_config()
-                window_cfg = layout_config.get("global", {}).get("window", {})
-                min_width = window_cfg.get("min_width", 1600)
-                min_height = window_cfg.get("min_height", 960)
-            self.minsize(min_width, min_height)
-        except Exception:
-            pass
+        self.minsize(min_width, min_height)
         # No redimensionable
         self.resizable(False, False)
         # Fondo oscuro: asegurar tanto el CTk como el Tk nativo (colores desde config)
+        colors_cfg = load_colors_config()
+        layout_colors = colors_cfg.get("global", {}).get("layout", {})
+        app_bg = layout_colors.get("app_background", "#222831")
         try:
-            colors_cfg = load_colors_config()
-            layout_colors = colors_cfg.get("global", {}).get("layout", {})
-            app_bg = layout_colors.get("app_background", "#222831")
+            self.configure(fg_color=app_bg)
+            # Forzar también el fondo a nivel nativo Tkinter para evitar flashes
             try:
-                self.configure(fg_color=app_bg)
-                # Forzar también el fondo a nivel nativo Tkinter para evitar flashes
-                try:
-                    self.config(background=app_bg)
-                except Exception:
-                    pass
+                self.config(background=app_bg)
             except Exception:
-                try:
-                    self.configure(bg=app_bg)
-                except Exception:
-                    pass
+                logging.exception('Error aplicando background en config nativa')
         except Exception:
-            pass
+            try:
+                self.configure(bg=app_bg)
+            except Exception:
+                logging.exception('Error aplicando background en CTk')
 
         # Inicializar y conectar base de datos
         # Ruta al archivo kool_bd.db dentro del paquete `kool_tpv/base_datos`
         project_root = os.path.dirname(os.path.abspath(__file__))
         db_path = os.path.join(project_root, "kool_tpv", "base_datos", "kool_bd.db")
         # Ensure DB schema exists before connecting
-        try:
-            from kool_tpv.base_datos.db_init import initialize_database
-            try:
-                initialize_database(db_path)
-            except Exception:
-                logging.exception('initialize_database fallo; se continuará e intentará conectar de todas formas')
-        except Exception:
-            logging.exception('No se pudo importar initialize_database')
+        from kool_tpv.base_datos.db_init import initialize_database
+        initialize_database(db_path)
 
         self.db = Database(db_path)
-        try:
-            self.db.connect()
-            logging.info("Conexión a la base de datos establecida con éxito.")
-        except Exception as e:
-            logging.error(f"Error en la conexión a la base de datos: {e}")
-            self.db = None
+        # Fail fast: if the DB can't connect, raise the exception so it is visible
+        self.db.connect()
+        logging.info("Conexión a la base de datos establecida con éxito.")
 
         # Inicializar UI
         # Contenedor para referencias a botones de navegación
@@ -380,15 +342,11 @@ class App(ctk.CTk):
             .get("sidebar", {})
             .get("width", 220)
         )
-        # Load sidebar colors from colors_config
-        try:
-            colors_cfg = load_colors_config()
-            layout_colors = colors_cfg.get("global", {}).get("layout", {})
-            sidebar_bg = layout_colors.get("sidebar_background", "#393E46")
-            text_primary = layout_colors.get("text_primary", "#FFFFFF")
-        except Exception:
-            sidebar_bg = "#393E46"
-            text_primary = "#FFFFFF"
+        # Load sidebar colors from colors_config (fail fast if config invalid)
+        colors_cfg = load_colors_config()
+        layout_colors = colors_cfg.get("global", {}).get("layout", {})
+        sidebar_bg = layout_colors.get("sidebar_background", "#393E46")
+        text_primary = layout_colors.get("text_primary", "#FFFFFF")
 
         self.nav_frame = ctk.CTkFrame(self, width=sidebar_width, corner_radius=0, fg_color=sidebar_bg)
         self.nav_frame.pack(side="left", fill="y")
@@ -522,14 +480,13 @@ class App(ctk.CTk):
 
     
         # Cargar configuración de botones del menú principal desde JSON
-        try:
-            base = Path(__file__).resolve().parents[0]
-            cfg_file = base / "kool_tpv" / "config" / "buttons_config.json"
-            main_menu: List[Dict] = []
-            if cfg_file.exists():
-                with cfg_file.open("r", encoding="utf-8") as fh:
-                    data = json.load(fh)
-                main_menu = data.get("main_menu") or []
+        base = Path(__file__).resolve().parents[0]
+        cfg_file = base / "kool_tpv" / "config" / "buttons_config.json"
+        main_menu: List[Dict] = []
+        if cfg_file.exists():
+            with cfg_file.open("r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            main_menu = data.get("main_menu") or []
 
             # Import ButtonFactory lazily to avoid circular imports on startup
             try:
@@ -653,8 +610,7 @@ class App(ctk.CTk):
                 except Exception:
                     logging.exception("Error creando botón del menú desde JSON")
 
-        except Exception:
-            logging.exception("Error cargando main_menu desde JSON")
+        
 
         # Footer con versión
         footer = ctk.CTkLabel(self.nav_frame, text="KOOL TPV V1.0", text_color=text_primary, font=self.base_font)
