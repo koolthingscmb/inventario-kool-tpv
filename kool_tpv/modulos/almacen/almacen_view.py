@@ -230,6 +230,31 @@ class AlmacenView(BaseModuleView):
             'PROVEEDORES': self.show_proveedores, # ← AÑADIDO para navegación clickeable
         }
 
+    def _on_power(self):
+        """Gestiona el botón Power en el contexto del módulo Almacén.
+
+        Returns:
+            True si gestionó la acción (cerró sub-vista), False si debe cerrarse el módulo.
+        """
+        try:
+            # ¿Hay contenido en la zona central?
+            if self.central_area.winfo_children():
+                # SÍ → Destruir la sub-vista actual
+                for widget in self.central_area.winfo_children():
+                    widget.destroy()
+                # Actualizar breadcrumb a nivel raíz
+                try:
+                    self.actualizar_ruta('ALMACÉN')
+                except Exception:
+                    pass
+                return True  # "Ya gestioné el Power, NO me cierres"
+            else:
+                # NO → Zona vacía, permite que main.py cierre el módulo
+                return False  # "Ciérrame completamente"
+        except Exception:
+            logging.exception('Error en _on_power de AlmacenView')
+            return False  # En caso de fallo, permitir cerrar el módulo
+    
     # Simple handlers that currently log actions — to be implemented
     def show_crear(self, producto_id: int = None):
         """Instancia y muestra la UI de creación en la zona central."""
@@ -487,11 +512,22 @@ class AlmacenView(BaseModuleView):
                 logging.exception('Error instanciando DetalleAlbaranUI en show_detalle_albaran')
         except Exception:
             logging.exception(f'Error abriendo detalle albarán {albaran_id} en AlmacenView')
-    # attach_to_nav kept for compatibility with main navigation
+    
     def attach_to_nav(self, nav_frame, button_config: dict):
+        """Adjunta el botón del módulo al frame de navegación usando ButtonFactory."""
         try:
-            from kool_tpv.utils.global_buttons import create_nav_button
-            btn = create_nav_button(nav_frame, text=button_config.get('text', 'ALMACÉN'), fg_color=button_config.get('color', '#32CD32'), hover_color=button_config.get('hover_color', '#00A4DF'), command=self.open)
+            from kool_tpv.utils.factories.button_factory import ButtonFactory
+
+            btn = ButtonFactory.create_button(
+                parent=nav_frame,
+                text=button_config.get('text', 'ALMACÉN'),
+                color=button_config.get('color', '#32CD32'),
+                hover_color=button_config.get('hover_color', '#00A4DF'),
+                command=self.open,
+                width=button_config.get('width'),
+                height=button_config.get('height'),
+                corner_radius=button_config.get('corner_radius')
+            )
             btn.pack(side='left', padx=6)
             return btn
         except Exception:

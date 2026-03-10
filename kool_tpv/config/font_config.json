@@ -126,7 +126,7 @@
     }
   },
   "main_menu": {
-    "menu_tpv": { "family": "Courier New", "size": 75, "weight": "bold" },
+    "menu_tpv": { "family": "Courier New", "size": 60, "weight": "bold" },
     "menu_almacen": { "family": "Courier New", "size": 26, "weight": "bold" },
     "menu_clientes": { "family": "Courier New", "size": 26, "weight": "bold" },
     "menu_informes": { "family": "Courier New", "size": 26, "weight": "bold" },

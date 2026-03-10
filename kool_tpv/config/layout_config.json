@@ -44,10 +44,10 @@
     "power": {
       "margin": 12,
       "extra_padding": 8,
-      "reserved_width": null,
-      "reserved_height": null,
+      "reserved_width": 230,
+      "reserved_height": 200,
       "anchor": "top-left",
-      "offset_x": 40,
+      "offset_x": 30,
       "offset_y": 12
     }
   },

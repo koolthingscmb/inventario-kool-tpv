@@ -138,7 +138,7 @@
     "error": "#e74c3c",
     "description": "Verde Matrix - Gestión de stock y productos",
     "buttons": {
-      "primary": {"bg": "#5F9913", "hover": "#91E291", "text": "#000000", "border": "#61AA00"},
+      "primary": {"bg": "#000000", "hover": "#91E291", "text": "#00FF00", "border": "#00FF00"},
       "secondary": {"bg": "#32CD32", "hover": "#99FF52", "text": "#000000", "border": "#91FF00"},
       "accent": {"bg": "#DAFCCF", "hover": "#E6F8DF", "text": "#000000", "border": "#91FF00"}
     },

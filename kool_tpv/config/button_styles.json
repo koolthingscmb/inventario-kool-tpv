@@ -1,0 +1,105 @@
+{
+  "menu_almacen": {
+    "type": "outline",
+    "bg_token": "black_base",
+    "text_token": "green_matrix",
+    "border_token": "green_matrix",
+    "hover_token": "green_success",
+    "width": 220,
+    "height": 56,
+    "corner_radius": 12,
+    "border_width": 2,
+    "font_size": 20
+  },
+
+  "menu_clientes": {
+    "type": "outline",
+    "bg_token": "black_base",
+    "text_token": "yellow_sun",
+    "border_token": "yellow_sun",
+    "hover_token": "yellow_sun",
+    "width": 220,
+    "height": 56,
+    "corner_radius": 12,
+    "border_width": 2,
+    "font_size": 20
+  },
+
+  "menu_informes": {
+    "type": "outline",
+    "bg_token": "black_base",
+    "text_token": "white_base",
+    "border_token": "white_base",
+    "hover_token": "gray_light",
+    "width": 220,
+    "height": 56,
+    "corner_radius": 12,
+    "border_width": 2,
+    "font_size": 20
+  },
+
+  "menu_shopify": {
+    "type": "outline",
+    "bg_token": "black_base",
+    "text_token": "blue_matrix",
+    "border_token": "blue_matrix",
+    "hover_token": "blue_action",
+    "width": 220,
+    "height": 56,
+    "corner_radius": 12,
+    "border_width": 2,
+    "font_size": 20
+  },
+
+  "menu_config": {
+    "type": "outline",
+    "bg_token": "black_base",
+    "text_token": "orange_config",
+    "border_token": "orange_config",
+    "hover_token": "orange_config",
+    "width": 220,
+    "height": 56,
+    "corner_radius": 12,
+    "border_width": 2,
+    "font_size": 20
+  },
+
+  "almacen_outline": {
+    "type": "outline",
+    "bg_token": "black_base",
+    "text_token": "green_matrix",
+    "border_token": "green_matrix",
+    "hover_token": "green_success",
+    "width": 180,
+    "height": 48,
+    "corner_radius": 12,
+    "border_width": 2,
+    "font_size": 16
+  },
+
+  "clientes_outline": {
+    "type": "outline",
+    "bg_token": "black_base",
+    "text_token": "yellow_sun",
+    "border_token": "yellow_sun",
+    "hover_token": "yellow_sun",
+    "width": 180,
+    "height": 48,
+    "corner_radius": 12,
+    "border_width": 2,
+    "font_size": 16
+  },
+
+  "danger_solid": {
+    "type": "solid",
+    "bg_token": "red_danger",
+    "text_token": "white_base",
+    "border_token": null,
+    "hover_token": "red_soft",
+    "width": 180,
+    "height": 48,
+    "corner_radius": 12,
+    "border_width": 0,
+    "font_size": 16
+  }
+}

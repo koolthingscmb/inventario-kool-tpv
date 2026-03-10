@@ -108,7 +108,7 @@ class ConfigView(BaseModuleView):
             buttons = []
 
         
-
+        # Aplicar estilos desde configs (colors, fonts, layout)
         try:
             def _norm(s: str) -> str:
                 try:
@@ -116,14 +116,61 @@ class ConfigView(BaseModuleView):
                 except Exception:
                     return (s or '').upper().strip()
 
+            # Cargar configs de estilos
+            try:
+                base_cfg = Path(__file__).resolve().parents[2]
+
+                # Colors
+                colors_cfg = {}
+                cfile = base_cfg / 'config' / 'colors_config.json'
+                if cfile.exists():
+                    with cfile.open('r', encoding='utf-8') as fh:
+                        colors_cfg = json.load(fh) or {}
+                module_colors = colors_cfg.get('config', {}) if isinstance(colors_cfg, dict) else {}
+                button_palette = (module_colors.get('buttons', {}) or {}).get('primary', {}) or {}
+            except Exception:
+                logging.exception('Error cargando colors_config para ConfigView')
+                module_colors = {}
+                button_palette = {}
+
+            try:
+                # Fonts
+                font_cfg = {}
+                ffile = base_cfg / 'config' / 'font_config.json'
+                if ffile.exists():
+                    with ffile.open('r', encoding='utf-8') as fh:
+                        font_cfg = json.load(fh) or {}
+                module_font_cfg = (font_cfg.get('modules', {}) or {}).get('config', {})
+                app_nav_font = (font_cfg.get('app', {}) or {}).get('nav_button', {})
+            except Exception:
+                logging.exception('Error cargando font_config para ConfigView')
+                module_font_cfg = {}
+                app_nav_font = {}
+
+            try:
+                # Layout
+                layout_cfg = {}
+                lfile = base_cfg / 'config' / 'layout_config.json'
+                if lfile.exists():
+                    with lfile.open('r', encoding='utf-8') as fh:
+                        layout_cfg = json.load(fh) or {}
+                config_layout = (layout_cfg.get('modules', {}) or {}).get('config', {}) or {}
+                sidebar_btn_layout = config_layout.get('sidebar_button', {}) or {}
+            except Exception:
+                logging.exception('Error cargando layout_config para ConfigView')
+                sidebar_btn_layout = {}
+
+            # Aplicar estilos a cada botón
             for b in buttons:
                 lbl = (b.get('label') or b.get('text') or '')
                 action = b.get('action')
                 norm_lbl = _norm(lbl)
+
                 for child in list(self._menu_frame.winfo_children()):
                     try:
                         txt = child.cget('text') if hasattr(child, 'cget') else None
                         if txt and _norm(txt) == norm_lbl:
+                            # Rebind command
                             if action in action_map:
                                 def _wrap(func):
                                     def _wrapped(*a, **k):
@@ -133,6 +180,64 @@ class ConfigView(BaseModuleView):
                                             logging.exception("Error al ejecutar acción %r:", getattr(func, '__name__', str(func)))
                                             raise
                                     return _wrapped
+
+                                # Aplicar estilos visuales desde configs
+                                try:
+                                    fg = button_palette.get('bg') or module_colors.get('primary') or b.get('fg_color')
+                                    hover = button_palette.get('hover') or module_colors.get('hover') or b.get('hover_color')
+                                    text_color = button_palette.get('text') or b.get('text_color') or '#FFFFFF'
+                                    border = button_palette.get('border') or b.get('border_color')
+                                    corner = sidebar_btn_layout.get('corner_radius', b.get('corner_radius'))
+                                    width = sidebar_btn_layout.get('width', b.get('width'))
+                                    height = sidebar_btn_layout.get('height', b.get('height'))
+                                    border_w = sidebar_btn_layout.get('border_width', b.get('border_width'))
+
+                                    # Font
+                                    chosen_font_cfg = None
+                                    if isinstance(module_font_cfg, dict) and module_font_cfg.get('label'):
+                                        chosen_font_cfg = module_font_cfg.get('label')
+                                    elif isinstance(app_nav_font, dict) and app_nav_font.get('family'):
+                                        chosen_font_cfg = app_nav_font
+
+                                    font_tuple = None
+                                    try:
+                                        if chosen_font_cfg:
+                                            family = chosen_font_cfg.get('family') or chosen_font_cfg.get('font_family')
+                                            size = int(chosen_font_cfg.get('size') or chosen_font_cfg.get('font_size') or 24)
+                                            weight = chosen_font_cfg.get('weight')
+                                            font_tuple = (family, size, weight) if weight and weight != 'normal' else (family, size)
+                                    except Exception:
+                                        font_tuple = None
+
+                                    # Aplicar configuración
+                                    cfg = {}
+                                    if fg is not None:
+                                        cfg['fg_color'] = fg
+                                    if hover is not None:
+                                        cfg['hover_color'] = hover
+                                    if text_color is not None:
+                                        cfg['text_color'] = text_color
+                                    if border is not None:
+                                        cfg['border_color'] = border
+                                    if border_w is not None:
+                                        cfg['border_width'] = border_w
+                                    if corner is not None:
+                                        cfg['corner_radius'] = corner
+                                    if width is not None:
+                                        cfg['width'] = width
+                                    if height is not None:
+                                        cfg['height'] = height
+                                    if font_tuple is not None:
+                                        cfg['font'] = font_tuple
+
+                                    if cfg:
+                                        try:
+                                            child.configure(**cfg)
+                                        except Exception:
+                                            logging.exception('Error aplicando estilos al botón %r', lbl)
+                                except Exception:
+                                    logging.exception('Error preparando estilos para botón %r', lbl)
+
                                 try:
                                     child.configure(command=_wrap(action_map[action]))
                                 except Exception:
