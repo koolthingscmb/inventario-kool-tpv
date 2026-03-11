@@ -192,7 +192,7 @@
     "bg_token": "black_base",
     "text_token": "yellow_sun",
     "border_token": "yellow_sun",
-    "hover_token": "yellow_sun",
+    "hover_token": "yellow_hover_strong",
     "height": 56,
     "corner_radius": 8,
     "border_width": 5,
@@ -466,6 +466,32 @@
     "min_width": 80,
     "corner_radius": 8,
     "border_width": 2,
+    "font_size": 14
+  }
+,
+  "action_warning_small": {
+    "type": "solid",
+    "bg_token": "orange_config",
+    "text_token": "white_base",
+    "border_token": null,
+    "hover_token": "orange_hover",
+    "height": 36,
+    "min_width": 140,
+    "corner_radius": 8,
+    "border_width": 0,
+    "font_size": 14
+  },
+
+  "action_danger_small": {
+    "type": "solid",
+    "bg_token": "red_danger",
+    "text_token": "white_base",
+    "border_token": null,
+    "hover_token": "red_soft",
+    "height": 36,
+    "min_width": 140,
+    "corner_radius": 8,
+    "border_width": 0,
     "font_size": 14
   }
 }

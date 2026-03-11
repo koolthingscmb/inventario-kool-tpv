@@ -7,6 +7,7 @@ import customtkinter as ctk
 
 from kool_tpv.base_datos.usuario_service import UsuarioService
 from kool_tpv.utils.config_loader import create_action_button, load_colors
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.custom_dialog import show_success, show_error
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL
@@ -134,15 +135,11 @@ class UsuariosUI:
                 row = i // 6
                 col = i % 6
                 name = u.get('nombre') or ''
-                btn = ctk.CTkButton(
-                    self.chips_frame,
+                btn = ButtonFactory.create_button(
+                    parent=self.chips_frame,
                     text=name,
-                    fg_color=self._primary_btn.get('bg', 'transparent'),
-                    text_color=self._primary_btn.get('text', self.colors.get('text', '#FFFFFF')),
-                    border_width=2,
-                    border_color=self._primary_btn.get('border', self.colors.get('border', self.colors.get('primary'))),
-                    hover_color=self._primary_btn.get('hover', self.colors.get('secondary')),
-                    height=28
+                    command=None,
+                    style_key="chip_default"
                 )
                 btn.grid(row=row, column=col, padx=5, pady=5, sticky='w')
                 btn.bind('<Button-1>', lambda e, btn=btn: self._select_chip(btn))
@@ -155,12 +152,12 @@ class UsuariosUI:
         try:
             if getattr(self, 'selected_chip', None) is not None:
                 try:
-                    self.selected_chip.configure(border_color=self._primary_btn.get('border', self.colors.get('border')))
+                    ButtonFactory.apply_style(self.selected_chip, "chip_default")
                 except Exception:
                     pass
             self.selected_chip = btn
             try:
-                btn.configure(border_color=self._primary_btn.get('hover', self.colors.get('secondary')))
+                ButtonFactory.apply_style(btn, "chip_selected")
             except Exception:
                 pass
             # Also load the usuario data attached to the chip when selected

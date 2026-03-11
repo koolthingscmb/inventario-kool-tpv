@@ -1,6 +1,7 @@
 import logging
 import customtkinter as ctk
 from kool_tpv.utils.config_loader import load_colors, create_action_button
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.font_loader import get_font
 
 
@@ -145,15 +146,11 @@ class FidelizacionTiposUI:
                         current_row += 1
                         current_col = 0
 
-                    btn = ctk.CTkButton(
-                        self.chips_frame,
+                    btn = ButtonFactory.create_button(
+                        parent=self.chips_frame,
                         text=nombre,
-                        fg_color=self._primary_btn.get('bg', 'transparent'),
-                        text_color=self._primary_btn.get('text', self.colors.get('text', '#FFFFFF')),
-                        border_width=2,
-                        border_color=self._primary_btn.get('border', self.colors.get('border', self.colors.get('primary'))),
-                        height=28,
-                        font=get_font('label', module=self.module_name)
+                        command=None,
+                        style_key="chip_default"
                     )
                     btn.grid(row=current_row, column=current_col, columnspan=colspan, padx=5, pady=5, sticky='ew')
 
@@ -181,18 +178,14 @@ class FidelizacionTiposUI:
             # Deseleccionar anterior
             if self.selected_chip is not None:
                 try:
-                    self.selected_chip.configure(
-                       border_color=self._primary_btn.get('border', self.colors.get('border', self.colors.get('primary')))
-                    )
+                    ButtonFactory.apply_style(self.selected_chip, "chip_default")
                 except Exception:
                     pass
 
             # Seleccionar nuevo
             self.selected_chip = btn
             try:
-                btn.configure(
-                    border_color=self._primary_btn.get('hover', self.colors.get('secondary', self.colors.get('primary')))
-                )
+                ButtonFactory.apply_style(btn, "chip_selected")
             except Exception:
                 pass
 

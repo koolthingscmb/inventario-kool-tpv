@@ -55,7 +55,7 @@ class ResetUI:
 
         frame = ctk.CTkFrame(self.container, fg_color='transparent')
         frame.pack(fill='x', padx=20, pady=3)
-        btn = ButtonFactory.create_button(parent=frame, text='RESET TESORO (SELECTIVO)', command=self._reset_tesoro_selectivo, style_key='action_warning')
+        btn = ButtonFactory.create_button(parent=frame, text='RESET TESORO (SELECTIVO)', command=self._reset_tesoro_selectivo, style_key='action_warning_small')
         btn.pack(side='left', padx=(0, 15))
         ctk.CTkLabel(
             frame,
@@ -67,7 +67,7 @@ class ResetUI:
 
         frame = ctk.CTkFrame(self.container, fg_color='transparent')
         frame.pack(fill='x', padx=20, pady=3)
-        btn = ButtonFactory.create_button(parent=frame, text='RESET TESORO (TODOS)', command=self._reset_tesoro_todos, style_key='action_warning')
+        btn = ButtonFactory.create_button(parent=frame, text='RESET TESORO (TODOS)', command=self._reset_tesoro_todos, style_key='action_warning_small')
         btn.pack(side='left', padx=(0, 15))
         ctk.CTkLabel(
             frame,
@@ -92,7 +92,7 @@ class ResetUI:
 
         frame = ctk.CTkFrame(self.container, fg_color='transparent')
         frame.pack(fill='x', padx=20, pady=3)
-        btn = ButtonFactory.create_button(parent=frame, text='BORRAR PRODUCTOS', command=self._borrar_productos, style_key='action_warning')
+        btn = ButtonFactory.create_button(parent=frame, text='BORRAR PRODUCTOS', command=self._borrar_productos, style_key='action_warning_small')
         btn.pack(side='left', padx=(0, 15))
         ctk.CTkLabel(
             frame,
@@ -106,7 +106,7 @@ class ResetUI:
         self._add_title('TICKETS')
         frame = ctk.CTkFrame(self.container, fg_color='transparent')
         frame.pack(fill='x', padx=20, pady=3)
-        btn = ButtonFactory.create_button(parent=frame, text='BORRAR TODOS', command=self._borrar_tickets, style_key='action_danger')
+        btn = ButtonFactory.create_button(parent=frame, text='BORRAR TODOS', command=self._borrar_tickets, style_key='action_danger_small')
         btn.pack(side='left', padx=(0, 15))
         ctk.CTkLabel(
             frame,
@@ -120,7 +120,7 @@ class ResetUI:
         self._add_title('CIERRES')
         frame = ctk.CTkFrame(self.container, fg_color='transparent')
         frame.pack(fill='x', padx=20, pady=3)
-        btn = ButtonFactory.create_button(parent=frame, text='BORRAR TODOS', command=self._borrar_cierres, style_key='action_danger')
+        btn = ButtonFactory.create_button(parent=frame, text='BORRAR TODOS', command=self._borrar_cierres, style_key='action_danger_small')
         btn.pack(side='left', padx=(0, 15))
         ctk.CTkLabel(
             frame,
@@ -191,7 +191,7 @@ class ResetUI:
             text_color='#FFFFFF'
         ).pack(pady=15)
 
-        btn = ButtonFactory.create_button(parent=danger_frame, text='RESET COMPLETO DE BD', command=self._reset_completo, style_key='action_danger')
+        btn = ButtonFactory.create_button(parent=danger_frame, text='RESET COMPLETO DE BD', command=self._reset_completo, style_key='action_danger_small')
         btn.pack(pady=(0, 10), padx=20, fill='x')
 
         ctk.CTkLabel(
