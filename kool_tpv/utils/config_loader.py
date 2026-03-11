@@ -16,6 +16,9 @@ import customtkinter as ctk
 
 logger = logging.getLogger(__name__)
 
+# Delegate creation to ButtonFactory instead of old palette/layout system
+from kool_tpv.utils.factories.button_factory import ButtonFactory
+
 # Paths a archivos de configuración
 _CONFIG_DIR = Path(__file__).resolve().parents[1] / "config"
 _COLORS_CONFIG = _CONFIG_DIR / "colors_config.json"
@@ -77,94 +80,40 @@ def load_button_style(button_key: str) -> Dict[str, Any]:
 
 
 def create_action_button(parent, button_key: str, command, **overrides) -> ctk.CTkButton:
-    """Crear botón de acción usando estilos centralizados.
+    """Crear botón de acción delegando a `ButtonFactory` usando un `style_key` map.
 
-    Resolución de propiedades:
-    - Color: `colors_config.components.action_buttons[style]`
-    - Fuente: `font_config.components.action_button`
-    - Geometría: `layout_config.components.action_button`
-
-    `buttons_actions_config.json` aporta `text` y `style`.
+    - Mantiene la firma y compatibilidad con `button_key` existentes.
+    - Mapea `button_key` a `style_key` y delega la creación a la fábrica.
     """
     try:
-        btn_entry = load_button_style(button_key) or {}
-
-        # Base text and state
-        text = btn_entry.get('text', button_key.upper())
-        state = btn_entry.get('state', 'normal')
-
-        # Palette from colors config
-        colors_root = load_colors() or {}
-        components = colors_root.get('components', {}) if isinstance(colors_root, dict) else {}
-        action_palettes = components.get('action_buttons', {}) if isinstance(components, dict) else {}
-        style = btn_entry.get('style', 'primary')
-        palette = action_palettes.get(style, {}) if isinstance(action_palettes, dict) else {}
-
-        # Font from font_config
-        fonts = load_font_config() or {}
-        comp_fonts = fonts.get('components', {}) if isinstance(fonts, dict) else {}
-        action_font = comp_fonts.get('action_button', {}) if isinstance(comp_fonts, dict) else {}
-
-        # Layout geometry
-        layout = load_layout_config() or {}
-        comp_layout = layout.get('components', {}) if isinstance(layout, dict) else {}
-        action_layout = comp_layout.get('action_button', {}) if isinstance(comp_layout, dict) else {}
-
-        # Build CTk params with defaults and fallbacks
-        fg_color = palette.get('bg') or palette.get('fg') or '#CCCCCC'
-        hover_color = palette.get('hover') or '#DDDDDD'
-        text_color = palette.get('text') or '#000000'
-        border_color = palette.get('border') or '#000000'
-
-        width = action_layout.get('width', 140)
-        height = action_layout.get('height', 35)
-        corner_radius = action_layout.get('corner_radius', 6)
-        border_width = action_layout.get('border_width', 0)
-
-        # Font tuple
-        try:
-            family = action_font.get('family', 'Courier New')
-            size = int(action_font.get('size', 16))
-            weight = action_font.get('weight')
-            font_tuple = (family, size, weight) if weight else (family, size)
-        except Exception:
-            font_tuple = ('Courier New', 16)
-
-        # Build params and apply overrides
-        btn_params: Dict[str, Any] = {
-            'master': parent,
-            'text': text,
-            'fg_color': fg_color,
-            'hover_color': hover_color,
-            'text_color': text_color,
-            'border_color': border_color,
-            'border_width': border_width,
-            'corner_radius': corner_radius,
-            'width': width,
-            'height': height,
-            'font': font_tuple,
-            'command': command
+        mapping = {
+            'guardar': 'action_primary',
+            'nuevo_limpiar': 'action_secondary',
+            'cancelar': 'action_secondary',
+            'eliminar': 'action_danger',
+            'sincronizar': 'action_success',
+            'buscar_data': 'action_secondary',
+            'consultar_albaranes': 'action_secondary',
+            'mapeo_csv': 'action_warning',
+            'imprimir': 'action_secondary',
         }
 
-        # Allow overrides to replace any of these
-        if overrides:
-            btn_params.update(overrides)
+        style_key = mapping.get(button_key, 'action_primary')
+        text = (button_key or '').upper()
 
-        btn = ctk.CTkButton(**btn_params)
-
-        if state == 'disabled':
-            try:
-                btn.configure(state='disabled')
-            except Exception:
-                pass
-
-        logger.debug('Botón "%s" creado desde config (style=%s)', button_key, style)
-        return btn
+        # Delegate to ButtonFactory and pass-through any overrides
+        return ButtonFactory.create_button(
+            parent=parent,
+            text=text,
+            command=command,
+            style_key=style_key,
+            **overrides,
+        )
 
     except Exception:
-        logger.exception('Error creando botón "%s" desde config', button_key)
+        logger.exception('Error creando botón desde ButtonFactory para %s', button_key)
         try:
-            return ctk.CTkButton(parent, text=button_key.upper(), command=command)
+            return ctk.CTkButton(parent, text=(button_key or '').upper(), command=command)
         except Exception:
             raise
 
