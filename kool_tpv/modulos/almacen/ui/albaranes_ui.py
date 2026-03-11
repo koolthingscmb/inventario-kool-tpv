@@ -35,7 +35,7 @@ class AlbaranesUI:
             ('ENTRADA MANUAL', 'entrada_manual', self.show_entrada_manual),
             ('IMPORTAR ALBARÁN', 'importar_csv', self._placeholder),
             ('CONSULTAR', 'consultar_albaranes', self.show_consultar),
-            ('EXPORTAR', None, self._placeholder),
+            ('EXPORTAR', 'exportar', self._placeholder),
             ('SALIDA MANUAL', 'salida_manual', self.show_salida_manual),
             ('DEVOLUCIÓN', 'devoluciones', self.show_devolucion)
         ]

@@ -121,6 +121,8 @@ class App(ctk.CTk):
         self.main_frame = ctk.CTkFrame(self, fg_color=self.cget("fg_color"))
         self.main_frame.pack(side="right", fill="both", expand=True)
 
+        # (test button removed)
+
     def _create_navigation_menu(self):
         main_menu_items = self.buttons_cfg.get("main_menu", [])
         styles_map = self.layout_cfg.get("global", {}).get("main_menu_styles", {})

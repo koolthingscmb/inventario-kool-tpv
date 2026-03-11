@@ -279,7 +279,7 @@
     "bg_token": "orange_config",
     "text_token": "white_base",
     "border_token": null,
-    "hover_token": "orange_config",
+    "hover_token": "orange_hover",
     "height": 44,
     "min_width": 160,
     "corner_radius": 10,

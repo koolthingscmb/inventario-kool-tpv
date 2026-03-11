@@ -95,6 +95,7 @@ def create_action_button(parent, button_key: str, command, **overrides) -> ctk.C
             'buscar_data': 'action_secondary',
             'consultar_albaranes': 'action_secondary',
             'mapeo_csv': 'action_warning',
+            'exportar': 'action_warning',
             'imprimir': 'action_secondary',
         }
 
@@ -118,9 +119,4 @@ def create_action_button(parent, button_key: str, command, **overrides) -> ctk.C
             raise
 
 
-def _get_default_colors() -> Dict[str, str]:
-    return {'primary': '#00FF00', 'secondary': '#32CD32', 'accent': '#7FFF00', 'border': '#00FF00', 'text': '#00FF00'}
-
-
-def _get_default_button_style() -> Dict[str, Any]:
-    return {'text': 'BOTÓN', 'fg_color': '#CCCCCC', 'hover_color': '#DDDDDD', 'text_color': '#000000', 'border_color': '#000000', 'border_width': 2, 'corner_radius': 6, 'width': 140, 'height': 50, 'font': ['Courier New', 16, 'bold'], 'state': 'normal'}
+# Legacy default helpers removed: styling is centralized in config JSON and ButtonFactory.
