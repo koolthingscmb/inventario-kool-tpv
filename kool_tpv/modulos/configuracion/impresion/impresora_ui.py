@@ -11,6 +11,7 @@ from datetime import datetime
 
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL
 from kool_tpv.utils.config_loader import load_colors, create_action_button
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.font_loader import get_font
 
 
@@ -91,16 +92,11 @@ class ImpresoraUI:
 
         # Botón TEST inline (pequeño, estilo secondary)
         try:
-            btn_test_inline = ctk.CTkButton(
-                radio_frame,
+            btn_test_inline = ButtonFactory.create_button(
+                parent=radio_frame,
                 text='TEST',
-                width=80,
-                height=32,
-                fg_color=_secondary_btn.get('bg', '#F57C00'),
-                hover_color=_secondary_btn.get('hover', '#EB6A00'),
-                text_color=_secondary_btn.get('text', '#000000'),
-                font=("Courier New", 14, "bold"),
-                command=self._test_impresion
+                command=self._test_impresion,
+                style_key='mini_action'
             )
             btn_test_inline.pack(side='left', padx=(24, 0))
         except Exception:
@@ -125,16 +121,11 @@ class ImpresoraUI:
             self.switch_logo.grid(row=2, column=1, sticky='w', padx=6, pady=6)
 
             # Botón seleccionar logo
-            btn_seleccionar = ctk.CTkButton(
-                self.impresora_frame,
+            btn_seleccionar = ButtonFactory.create_button(
+                parent=self.impresora_frame,
                 text='SELECCIONAR LOGO',
                 command=self._seleccionar_logo,
-                fg_color=_secondary_btn.get('bg', '#F57C00'),
-                hover_color=_secondary_btn.get('hover', '#EB6A00'),
-                text_color=_secondary_btn.get('text', '#000000'),
-                font=("Courier New", 14, "bold"),
-                width=180,
-                height=36
+                style_key='mini_action'
             )
             btn_seleccionar.grid(row=2, column=2, columnspan=2, sticky='w', padx=6, pady=6)
 
