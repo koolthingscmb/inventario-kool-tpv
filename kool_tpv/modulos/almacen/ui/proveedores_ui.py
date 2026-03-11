@@ -9,6 +9,7 @@ from kool_tpv.base_datos.proveedor_service import ProveedorService
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.config_loader import create_action_button
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 
 
 class ProveedoresUI:
@@ -119,14 +120,11 @@ class ProveedoresUI:
         self.e_web = ctk.CTkEntry(self.grid_frame, placeholder_text='https://...', **entry_kw)
         self.e_web.grid(row=7, column=1, columnspan=6, sticky='ew', padx=6, pady=6)
 
-        self.btn_ir_web = ctk.CTkButton(
-            self.grid_frame,
+        self.btn_ir_web = ButtonFactory.create_button(
+            parent=self.grid_frame,
             text='IR',
-            width=60,
-            fg_color=self._secondary_btn.get('bg', '#2980b9'),
-            hover_color=self._secondary_btn.get('hover', '#2a7ab8'),
-            text_color=self._secondary_btn.get('text', self.colors.get('text', COLOR_MATRIX)),
-            command=self._abrir_web
+            command=self._abrir_web,
+            style_key="mini_action"
         )
         self.btn_ir_web.grid(row=7, column=7, sticky='ew', padx=6, pady=6)
 
@@ -224,14 +222,11 @@ class ProveedoresUI:
                 row = i // 6
                 col = i % 6
                 name = p.get('nombre') or ''
-                btn = ctk.CTkButton(
-                    self.chips_frame,
+                btn = ButtonFactory.create_button(
+                    parent=self.chips_frame,
                     text=name,
-                    fg_color=self._primary_btn.get('bg', 'transparent'),
-                    text_color=self._primary_btn.get('text', self.colors['text']),
-                    border_width=2,
-                    border_color=self._primary_btn.get('border', self.colors.get('border', self.colors['primary'])),
-                    height=28
+                    command=None,
+                    style_key="chip_default"
                 )
                 btn.grid(row=row, column=col, padx=5, pady=5, sticky='w')
                 btn.bind('<Button-1>', lambda e, btn=btn: self._select_chip(btn))
@@ -243,17 +238,13 @@ class ProveedoresUI:
     def _select_chip(self, btn):
         try:
             if self.selected_chip is not None:
-                try:
-                    self.selected_chip.configure(border_color=self._primary_btn.get('border', self.colors.get('border', self.colors['primary'])))
-                except Exception:
-                    pass
+                ButtonFactory.apply_style(self.selected_chip, "chip_default")
+
             self.selected_chip = btn
-            try:
-                    btn.configure(border_color=self._primary_btn.get('hover', self.colors.get('secondary', self.colors['primary'])))
-            except Exception:
-                pass
+            ButtonFactory.apply_style(btn, "chip_selected")
+
         except Exception:
-            pass
+            logging.exception("Error aplicando estilos de selección de chip")
 
     def _load_proveedor_into_form(self, prov: dict):
         try:
