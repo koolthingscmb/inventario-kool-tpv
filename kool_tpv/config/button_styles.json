@@ -338,4 +338,43 @@
     "border_width": 0,
     "font_size": 14
   }
+,
+  "chip_default": {
+    "type": "outline",
+    "bg_token": "black_base",
+    "text_token": "white_base",
+    "border_token": "gray_medium",
+    "hover_token": "gray_light",
+    "height": 28,
+    "min_width": 60,
+    "corner_radius": 14,
+    "border_width": 1,
+    "font_size": 13
+  },
+
+  "chip_selected": {
+    "type": "solid",
+    "bg_token": "gray_light",
+    "text_token": "black_base",
+    "border_token": null,
+    "hover_token": "white_base",
+    "height": 28,
+    "min_width": 60,
+    "corner_radius": 14,
+    "border_width": 0,
+    "font_size": 13
+  },
+
+  "chip_danger": {
+    "type": "solid",
+    "bg_token": "red_danger",
+    "text_token": "white_base",
+    "border_token": null,
+    "hover_token": "red_soft",
+    "height": 28,
+    "min_width": 60,
+    "corner_radius": 14,
+    "border_width": 0,
+    "font_size": 13
+  }
 }
