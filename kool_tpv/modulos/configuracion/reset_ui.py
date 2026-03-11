@@ -1,6 +1,7 @@
 import logging
 import customtkinter as ctk
 from kool_tpv.utils.config_loader import load_colors
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.modulos.configuracion.reset_service import ResetService
 from kool_tpv.utils.widgets.tag_selector import TagSelector
@@ -52,8 +53,29 @@ class ResetUI:
         self.tag_selector_clientes.set_search_function(self._search_clientes)
         self.tag_selector_clientes.pack(fill='x', padx=40, pady=(0, 10))
 
-        self._add_button('RESET TESORO (SELECTIVO)', 'Resetear puntos de clientes seleccionados arriba', self._reset_tesoro_selectivo, '#FFA726')
-        self._add_button('RESET TESORO (TODOS)', '⚠️ Resetear puntos de TODOS los clientes', self._reset_tesoro_todos, '#D32F2F')
+        frame = ctk.CTkFrame(self.container, fg_color='transparent')
+        frame.pack(fill='x', padx=20, pady=3)
+        btn = ButtonFactory.create_button(parent=frame, text='RESET TESORO (SELECTIVO)', command=self._reset_tesoro_selectivo, style_key='action_warning')
+        btn.pack(side='left', padx=(0, 15))
+        ctk.CTkLabel(
+            frame,
+            text='Resetear puntos de clientes seleccionados arriba',
+            font=get_font('label', module=self.module_name),
+            text_color=self.colors.get('text', '#999999'),
+            anchor='w'
+        ).pack(side='left', fill='x', expand=True)
+
+        frame = ctk.CTkFrame(self.container, fg_color='transparent')
+        frame.pack(fill='x', padx=20, pady=3)
+        btn = ButtonFactory.create_button(parent=frame, text='RESET TESORO (TODOS)', command=self._reset_tesoro_todos, style_key='action_warning')
+        btn.pack(side='left', padx=(0, 15))
+        ctk.CTkLabel(
+            frame,
+            text='⚠️ Resetear puntos de TODOS los clientes',
+            font=get_font('label', module=self.module_name),
+            text_color=self.colors.get('text', '#999999'),
+            anchor='w'
+        ).pack(side='left', fill='x', expand=True)
 
         # === PRODUCTOS ===
         self._add_title('PRODUCTOS')
@@ -68,22 +90,95 @@ class ResetUI:
         self.tag_selector_productos.set_search_function(self._search_productos)
         self.tag_selector_productos.pack(fill='x', padx=40, pady=(0, 10))
 
-        self._add_button('BORRAR PRODUCTOS', 'Eliminar productos seleccionados arriba', self._borrar_productos, '#FFA726')
+        frame = ctk.CTkFrame(self.container, fg_color='transparent')
+        frame.pack(fill='x', padx=20, pady=3)
+        btn = ButtonFactory.create_button(parent=frame, text='BORRAR PRODUCTOS', command=self._borrar_productos, style_key='action_warning')
+        btn.pack(side='left', padx=(0, 15))
+        ctk.CTkLabel(
+            frame,
+            text='Eliminar productos seleccionados arriba',
+            font=get_font('label', module=self.module_name),
+            text_color=self.colors.get('text', '#999999'),
+            anchor='w'
+        ).pack(side='left', fill='x', expand=True)
 
         # === TICKETS ===
         self._add_title('TICKETS')
-        self._add_button('BORRAR TODOS', '⚠️ Eliminar TODOS los tickets (y movimientos relacionados)', self._borrar_tickets, '#D32F2F')
+        frame = ctk.CTkFrame(self.container, fg_color='transparent')
+        frame.pack(fill='x', padx=20, pady=3)
+        btn = ButtonFactory.create_button(parent=frame, text='BORRAR TODOS', command=self._borrar_tickets, style_key='action_danger')
+        btn.pack(side='left', padx=(0, 15))
+        ctk.CTkLabel(
+            frame,
+            text='⚠️ Eliminar TODOS los tickets (y movimientos relacionados)',
+            font=get_font('label', module=self.module_name),
+            text_color=self.colors.get('text', '#999999'),
+            anchor='w'
+        ).pack(side='left', fill='x', expand=True)
 
         # === CIERRES ===
         self._add_title('CIERRES')
-        self._add_button('BORRAR TODOS', 'Eliminar todos los cierres de caja', self._borrar_cierres, '#FF5722')
+        frame = ctk.CTkFrame(self.container, fg_color='transparent')
+        frame.pack(fill='x', padx=20, pady=3)
+        btn = ButtonFactory.create_button(parent=frame, text='BORRAR TODOS', command=self._borrar_cierres, style_key='action_danger')
+        btn.pack(side='left', padx=(0, 15))
+        ctk.CTkLabel(
+            frame,
+            text='Eliminar todos los cierres de caja',
+            font=get_font('label', module=self.module_name),
+            text_color=self.colors.get('text', '#999999'),
+            anchor='w'
+        ).pack(side='left', fill='x', expand=True)
 
         # === CONTADORES ===
         self._add_title('CONTADORES FISCALES')
-        self._add_button('RESET TICKETS', 'Reiniciar contador a 0', self._reset_ticket_counter, '#FF9800')
-        self._add_button('RESET CIERRES', 'Reiniciar contador a 0', self._reset_cierre_counter, '#FF9800')
-        self._add_button('RESET ALBARANES', 'Reiniciar contador a 0', self._reset_albaran_counter, '#FF9800')
-        self._add_button('RESET FACTURAS', 'Reiniciar contador a 0', self._reset_factura_counter, '#FF9800')
+        frame = ctk.CTkFrame(self.container, fg_color='transparent')
+        frame.pack(fill='x', padx=20, pady=3)
+        btn = ButtonFactory.create_button(parent=frame, text='RESET TICKETS', command=self._reset_ticket_counter, style_key='action_primary')
+        btn.pack(side='left', padx=(0, 15))
+        ctk.CTkLabel(
+            frame,
+            text='Reiniciar contador a 0',
+            font=get_font('label', module=self.module_name),
+            text_color=self.colors.get('text', '#999999'),
+            anchor='w'
+        ).pack(side='left', fill='x', expand=True)
+
+        frame = ctk.CTkFrame(self.container, fg_color='transparent')
+        frame.pack(fill='x', padx=20, pady=3)
+        btn = ButtonFactory.create_button(parent=frame, text='RESET CIERRES', command=self._reset_cierre_counter, style_key='action_primary')
+        btn.pack(side='left', padx=(0, 15))
+        ctk.CTkLabel(
+            frame,
+            text='Reiniciar contador a 0',
+            font=get_font('label', module=self.module_name),
+            text_color=self.colors.get('text', '#999999'),
+            anchor='w'
+        ).pack(side='left', fill='x', expand=True)
+
+        frame = ctk.CTkFrame(self.container, fg_color='transparent')
+        frame.pack(fill='x', padx=20, pady=3)
+        btn = ButtonFactory.create_button(parent=frame, text='RESET ALBARANES', command=self._reset_albaran_counter, style_key='action_primary')
+        btn.pack(side='left', padx=(0, 15))
+        ctk.CTkLabel(
+            frame,
+            text='Reiniciar contador a 0',
+            font=get_font('label', module=self.module_name),
+            text_color=self.colors.get('text', '#999999'),
+            anchor='w'
+        ).pack(side='left', fill='x', expand=True)
+
+        frame = ctk.CTkFrame(self.container, fg_color='transparent')
+        frame.pack(fill='x', padx=20, pady=3)
+        btn = ButtonFactory.create_button(parent=frame, text='RESET FACTURAS', command=self._reset_factura_counter, style_key='action_primary')
+        btn.pack(side='left', padx=(0, 15))
+        ctk.CTkLabel(
+            frame,
+            text='Reiniciar contador a 0',
+            font=get_font('label', module=self.module_name),
+            text_color=self.colors.get('text', '#999999'),
+            anchor='w'
+        ).pack(side='left', fill='x', expand=True)
 
         # === RESET COMPLETO ===
         danger_frame = ctk.CTkFrame(self.container, fg_color='#B71C1C', corner_radius=8, border_width=4, border_color='#FFFFFF')
@@ -96,18 +191,8 @@ class ResetUI:
             text_color='#FFFFFF'
         ).pack(pady=15)
 
-        ctk.CTkButton(
-            danger_frame,
-            text='RESET COMPLETO DE BD',
-            command=self._reset_completo,
-            fg_color='#000000',
-            hover_color='#D32F2F',
-            text_color='#FF0000',
-            font=get_font('button', module=module_name),
-            height=50,
-            border_width=3,
-            border_color='#FF0000'
-        ).pack(pady=(0, 10), padx=20, fill='x')
+        btn = ButtonFactory.create_button(parent=danger_frame, text='RESET COMPLETO DE BD', command=self._reset_completo, style_key='action_danger')
+        btn.pack(pady=(0, 10), padx=20, fill='x')
 
         ctk.CTkLabel(
             danger_frame,
@@ -128,28 +213,7 @@ class ResetUI:
             anchor='w'
         ).pack(anchor='w', padx=20, pady=(20, 10))
 
-    def _add_button(self, text, description, command, color):
-        frame = ctk.CTkFrame(self.container, fg_color='transparent')
-        frame.pack(fill='x', padx=20, pady=3)
-
-        ctk.CTkButton(
-            frame,
-            text=text,
-            command=command,
-            fg_color=color,
-            text_color='#FFFFFF',
-            font=get_font('button', module=self.module_name),
-            height=35,
-            width=250
-        ).pack(side='left', padx=(0, 15))
-
-        ctk.CTkLabel(
-            frame,
-            text=description,
-            font=get_font('label', module=self.module_name),
-            text_color=self.colors.get('text', '#999999'),
-            anchor='w'
-        ).pack(side='left', fill='x', expand=True)
+    # _add_button removed: buttons are created via ButtonFactory to centralize styles
 
     def _search_clientes(self, query):
         if not self.db or not query or len(query) < 2:
