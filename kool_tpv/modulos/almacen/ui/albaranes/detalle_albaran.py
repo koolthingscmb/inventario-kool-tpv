@@ -155,12 +155,13 @@ class DetalleAlbaranUI:
             pass
 
         # Botón AÑADIR
-        _normal_fg = '#2ecc71'
-        _focus_fg = "#c6ef0e"
-        _hover_fg = "#e0fc0f"
-        self.btn_add = ctk.CTkButton(self.input_frame, text='AÑADIR', width=80, height=32,
-                         fg_color=_normal_fg, hover_color=_hover_fg, text_color='black',
-                         command=self._add_line)
+        from kool_tpv.utils.factories.button_factory import ButtonFactory
+        self.btn_add = ButtonFactory.create_button(
+            parent=self.input_frame,
+            text='AÑADIR',
+            command=self._add_line,
+            style_key="mini_action"
+        )
 
         try:
             self.btn_add.configure(takefocus=True)

@@ -15,6 +15,7 @@ from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.widgets.nav_list import NavList
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 
 
 class ConsultarAlbaranUI:
@@ -40,10 +41,7 @@ class ConsultarAlbaranUI:
             'border_color': self.colors.get('border', self.colors.get('primary')),
             'height': 32
         }
-        _buttons_cfg = self.colors.get('buttons', {})
-        _primary_btn = _buttons_cfg.get('primary', {})
-        _secondary_btn = _buttons_cfg.get('secondary', {})
-        _accent_btn = _buttons_cfg.get('accent', {})
+        # color palette from config removed: buttons now created via ButtonFactory styles
 
         # Fila de filtros
         filter_frame = ctk.CTkFrame(self.container, fg_color='transparent', height=50)
@@ -65,39 +63,27 @@ class ConsultarAlbaranUI:
         self.cb_proveedor.pack(side='left', padx=(0, 16))
 
         # Botones preset fecha
-        self.btn_hoy = ctk.CTkButton(
-            filter_frame,
+        self.btn_hoy = ButtonFactory.create_button(
+            parent=filter_frame,
             text='HOY',
-            width=70,
-            height=32,
-            fg_color=_primary_btn.get('bg', '#2ecc71'),
-            hover_color=_primary_btn.get('hover', '#27ae60'),
-            text_color=_primary_btn.get('text', self.colors.get('text', COLOR_MATRIX)),
-            command=self._preset_hoy
+            command=self._preset_hoy,
+            style_key="mini_success"
         )
         self.btn_hoy.pack(side='left', padx=4)
 
-        self.btn_7dias = ctk.CTkButton(
-            filter_frame,
+        self.btn_7dias = ButtonFactory.create_button(
+            parent=filter_frame,
             text='7 DÍAS',
-            width=70,
-            height=32,
-            fg_color=_secondary_btn.get('bg', '#3498db'),
-            hover_color=_secondary_btn.get('hover', '#2980b9'),
-            text_color=_secondary_btn.get('text', self.colors.get('text', COLOR_MATRIX)),
-            command=self._preset_7dias
+            command=self._preset_7dias,
+            style_key="mini_info"
         )
         self.btn_7dias.pack(side='left', padx=4)
 
-        self.btn_mes = ctk.CTkButton(
-            filter_frame,
+        self.btn_mes = ButtonFactory.create_button(
+            parent=filter_frame,
             text='MES',
-            width=70,
-            height=32,
-            fg_color=_accent_btn.get('bg', '#9b59b6'),
-            hover_color=_accent_btn.get('hover', '#8e44ad'),
-            text_color=_accent_btn.get('text', self.colors.get('text', COLOR_MATRIX)),
-            command=self._preset_mes
+            command=self._preset_mes,
+            style_key="mini_special"
         )
         self.btn_mes.pack(side='left', padx=4)
 
@@ -133,15 +119,11 @@ class ConsultarAlbaranUI:
         self.e_hasta.pack(side='left', padx=4)
 
         # Botón APLICAR
-        self.btn_aplicar = ctk.CTkButton(
-            filter_frame,
+        self.btn_aplicar = ButtonFactory.create_button(
+            parent=filter_frame,
             text='APLICAR',
-            width=100,
-            height=32,
-            fg_color=_accent_btn.get('bg', '#e67e22'),
-            hover_color=_accent_btn.get('hover', '#d35400'),
-            text_color=_accent_btn.get('text', self.colors.get('text', COLOR_MATRIX)),
-            command=self._aplicar_filtros
+            command=self._aplicar_filtros,
+            style_key="mini_warning"
         )
         self.btn_aplicar.pack(side='left', padx=(16, 0))
 
@@ -164,21 +146,12 @@ class ConsultarAlbaranUI:
             except Exception:
                 pass
 
-            # botones: permitir foco via Tab y mostrar efecto visual al recibir foco
+            # botones: permitir foco via Tab y Enter (sin override visual de foco)
             try:
-                # map buttons to palette hover colors
-                btn_hover_map = (
-                    (self.btn_hoy, _primary_btn.get('hover', '#27ae60')),
-                    (self.btn_7dias, _secondary_btn.get('hover', '#2980b9')),
-                    (self.btn_mes, _accent_btn.get('hover', '#8e44ad')),
-                    (self.btn_aplicar, _accent_btn.get('hover', '#d35400')),
-                )
-                for btn, hover in btn_hover_map:
+                for btn in (self.btn_hoy, self.btn_7dias, self.btn_mes, self.btn_aplicar):
                     try:
                         btn.bind('<Tab>', self._focus_next)
                         btn.bind('<Shift-Tab>', self._focus_prev)
-                        btn.bind('<FocusIn>', lambda e, b=btn, hc=hover: self._button_focus_in(b, hc))
-                        btn.bind('<FocusOut>', lambda e, b=btn: self._button_focus_out(b))
                         # Enter should trigger the button
                         btn.bind('<Return>', lambda e, b=btn: (b.invoke() if hasattr(b, 'invoke') else None) or 'break')
                     except Exception:
@@ -243,32 +216,7 @@ class ConsultarAlbaranUI:
             logging.exception('Error moviendo foco al widget anterior')
         return 'break'
 
-    def _button_focus_in(self, btn, hover_color=None):
-        try:
-            # store original color
-            if not hasattr(btn, '_orig_fg'):
-                try:
-                    btn._orig_fg = btn.cget('fg_color')
-                except Exception:
-                    btn._orig_fg = None
-            # apply hover color if provided
-            if hover_color:
-                try:
-                    btn.configure(fg_color=hover_color)
-                except Exception:
-                    pass
-        except Exception:
-            pass
-
-    def _button_focus_out(self, btn):
-        try:
-            if hasattr(btn, '_orig_fg') and btn._orig_fg is not None:
-                try:
-                    btn.configure(fg_color=btn._orig_fg)
-                except Exception:
-                    pass
-        except Exception:
-            pass
+    # _button_focus_in and _button_focus_out removed to avoid manual focus color overrides
 
     def _load_proveedores(self):
         """Cargar lista de proveedores en SearchableCombo."""

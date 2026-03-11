@@ -377,4 +377,69 @@
     "border_width": 0,
     "font_size": 13
   }
+,
+  "mini_action": {
+    "type": "solid",
+    "bg_token": "blue_action",
+    "text_token": "white_base",
+    "border_token": "blue_hover_strong",
+    "hover_token": "blue_hover_strong",
+    "height": 32,
+    "min_width": 60,
+    "corner_radius": 8,
+    "border_width": 2,
+    "font_size": 14
+  }
+,
+  "mini_success": {
+    "type": "solid",
+    "bg_token": "green_success",
+    "text_token": "white_base",
+    "border_token": "green_hover_strong",
+    "hover_token": "green_hover_strong",
+    "height": 32,
+    "min_width": 70,
+    "corner_radius": 8,
+    "border_width": 2,
+    "font_size": 14
+  },
+
+  "mini_info": {
+    "type": "solid",
+    "bg_token": "blue_action",
+    "text_token": "white_base",
+    "border_token": "blue_hover_strong",
+    "hover_token": "blue_hover_strong",
+    "height": 32,
+    "min_width": 70,
+    "corner_radius": 8,
+    "border_width": 2,
+    "font_size": 14
+  },
+
+  "mini_special": {
+    "type": "solid",
+    "bg_token": "purple_special",
+    "text_token": "white_base",
+    "border_token": "purple_hover_strong",
+    "hover_token": "purple_hover_strong",
+    "height": 32,
+    "min_width": 70,
+    "corner_radius": 8,
+    "border_width": 2,
+    "font_size": 14
+  },
+
+  "mini_warning": {
+    "type": "solid",
+    "bg_token": "orange_config",
+    "text_token": "white_base",
+    "border_token": "orange_hover",
+    "hover_token": "orange_hover",
+    "height": 32,
+    "min_width": 100,
+    "corner_radius": 8,
+    "border_width": 2,
+    "font_size": 14
+  }
 }

@@ -21,7 +21,10 @@
   "state": {
     "green_success": "#2ecc71",
     "blue_action": "#3498db",
-    "red_soft": "#e74c3c"
-    ,"orange_hover": "#e67e22"
+    "red_soft": "#e74c3c",
+    "orange_hover": "#e67e22",
+    "blue_hover_strong": "#1f5f8f",
+    "green_hover_strong": "#1e8449",
+    "purple_hover_strong": "#6c3483"
   }
 }

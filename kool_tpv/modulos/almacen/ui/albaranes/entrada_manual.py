@@ -4,6 +4,7 @@ import logging
 import tkinter as tk
 from datetime import date
 import customtkinter as ctk
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 
 from kool_tpv.base_datos.albaran_service import AlbaranService
 from kool_tpv.base_datos.proveedor_service import ProveedorService
@@ -58,14 +59,11 @@ class EntradaManualUI:
         self.e_num_albaran = ctk.CTkEntry(header_frame, width=100, **default_entry_kw)
         self.e_num_albaran.pack(side='left', padx=(0, 6))
 
-        btn_siguiente = ctk.CTkButton(
-            header_frame,
+        btn_siguiente = ButtonFactory.create_button(
+            parent=header_frame,
             text='SIGUIENTE',
-            width=100,
-            fg_color=_primary_btn.get('bg', self.colors.get('primary', '#3498db')),
-            hover_color=_primary_btn.get('hover', self.colors.get('secondary', '#2d86c9')),
-            text_color=_primary_btn.get('text', self.colors.get('text', COLOR_MATRIX)),
-            command=self._set_next_num
+            command=self._set_next_num,
+            style_key="mini_action"
         )
         btn_siguiente.pack(side='left', padx=(0, 20))
 
@@ -176,15 +174,11 @@ class EntradaManualUI:
         _normal_fg = _primary_btn.get('bg', self.colors.get('primary', '#2ecc71'))
         _focus_fg = _primary_btn.get('hover', self.colors.get('secondary', '#c6ef0e'))
         _hover_fg = _primary_btn.get('hover', self.colors.get('secondary', '#e0fc0f'))
-        self.btn_add = ctk.CTkButton(
-            self.input_frame,
+        self.btn_add = ButtonFactory.create_button(
+            parent=self.input_frame,
             text='AÑADIR',
-            width=80,
-            height=32,
-            fg_color=_normal_fg,
-            hover_color=_hover_fg,
-            text_color=_primary_btn.get('text', self.colors.get('text', COLOR_MATRIX)),
-            command=self._add_line
+            command=self._add_line,
+            style_key="mini_action"
         )
 
         # permitir que el botón reciba foco por Tab

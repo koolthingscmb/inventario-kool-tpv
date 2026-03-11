@@ -11,6 +11,7 @@ from kool_tpv.base_datos.categoria_service import CategoriaService
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.config_loader import create_action_button, load_colors
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 
 
 class CategoriasUI:
@@ -128,14 +129,11 @@ class CategoriasUI:
                 row = i // 6
                 col = i % 6
                 name = c.get('nombre') or ''
-                btn = ctk.CTkButton(
-                    self.chips_frame,
+                btn = ButtonFactory.create_button(
+                    parent=self.chips_frame,
                     text=name,
-                    fg_color=self._primary_btn.get('bg', 'transparent'),
-                    text_color=self._primary_btn.get('text', self.colors['text']),
-                    border_width=2,
-                    border_color=self._primary_btn.get('border', self.colors.get('border', self.colors['primary'])),
-                    height=28
+                    command=None,
+                    style_key="chip_default"
                 )
                 btn.grid(row=row, column=col, padx=5, pady=5, sticky='w')
                 btn.bind('<Button-1>', lambda e, btn=btn: self._select_chip(btn))
@@ -147,17 +145,13 @@ class CategoriasUI:
     def _select_chip(self, btn):
         try:
             if self.selected_chip is not None:
-                try:
-                    self.selected_chip.configure(border_color=self._primary_btn.get('border', self.colors.get('border', self.colors['primary'])))
-                except Exception:
-                    pass
+                ButtonFactory.apply_style(self.selected_chip, "chip_default")
+
             self.selected_chip = btn
-            try:
-                btn.configure(border_color=self._primary_btn.get('hover', self.colors.get('secondary', self.colors['primary'])))
-            except Exception:
-                pass
+            ButtonFactory.apply_style(btn, "chip_selected")
+
         except Exception:
-            pass
+            logging.exception("Error aplicando estilos de selección de chip")
 
     def _load_categoria_into_form(self, cat: dict):
         try:

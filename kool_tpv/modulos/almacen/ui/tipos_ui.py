@@ -11,6 +11,7 @@ from kool_tpv.base_datos.tipo_service import TipoService
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.config_loader import create_action_button
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 
 
 class TiposUI:
@@ -128,14 +129,11 @@ class TiposUI:
                 row = i // 6
                 col = i % 6
                 name = t.get('nombre') or ''
-                btn = ctk.CTkButton(
-                    self.chips_frame,
+                btn = ButtonFactory.create_button(
+                    parent=self.chips_frame,
                     text=name,
-                    fg_color=self._primary_btn.get('bg', 'transparent'),
-                    text_color=self._primary_btn.get('text', self.colors['text']),
-                    border_width=2,
-                    border_color=self._primary_btn.get('border', self.colors.get('border', self.colors['primary'])),
-                    height=28
+                    command=None,
+                    style_key="chip_default"
                 )
                 btn.grid(row=row, column=col, padx=5, pady=5, sticky='w')
                 # bind single and double click
@@ -148,19 +146,18 @@ class TiposUI:
 
     def _select_chip(self, btn):
         try:
-            # visual select: toggle border color brighter
+            # Si había chip seleccionado previamente, restaurar estilo default
             if self.selected_chip is not None:
-                try:
-                    self.selected_chip.configure(border_color=self._primary_btn.get('border', self.colors.get('border', self.colors['primary'])))
-                except Exception:
-                    pass
+                ButtonFactory.apply_style(self.selected_chip, "chip_default")
+
+            # Marcar nuevo seleccionado
             self.selected_chip = btn
-            try:
-                btn.configure(border_color=self._primary_btn.get('hover', self.colors.get('secondary', self.colors['primary'])))
-            except Exception:
-                pass
+
+            # Aplicar estilo seleccionado
+            ButtonFactory.apply_style(btn, "chip_selected")
+
         except Exception:
-            pass
+            logging.exception("Error aplicando estilos de selección de chip")
 
     def _load_tipo_into_form(self, tipo: dict):
         try:

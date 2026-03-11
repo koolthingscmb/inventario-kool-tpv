@@ -45,75 +45,11 @@ class ButtonFactory:
             "command": command,
         }
 
-        # Si se proporciona `style_key`, construir los parámetros desde
-        # `button_styles.json` y `design_tokens.json`, ignorando los
-        # parámetros manuales pasados (color, font, width, height, etc.).
+        # Si se proporciona style_key, obtener los parámetros resueltos
+        # desde la lógica común; en caso contrario mantener comportamiento legacy.
         if style_key is not None:
-            config_dir = Path(__file__).resolve().parents[2] / "config"
-            styles_path = config_dir / "button_styles.json"
-            tokens_path = config_dir / "design_tokens.json"
-
-            try:
-                with styles_path.open("r", encoding="utf-8") as f:
-                    button_styles = json.load(f)
-            except FileNotFoundError:
-                raise ValueError(f"No se encontró {styles_path}")
-            except json.JSONDecodeError as exc:
-                raise ValueError(f"Error decodificando {styles_path}: {exc}")
-
-            try:
-                with tokens_path.open("r", encoding="utf-8") as f:
-                    design_tokens = json.load(f)
-            except FileNotFoundError:
-                raise ValueError(f"No se encontró {tokens_path}")
-            except json.JSONDecodeError as exc:
-                raise ValueError(f"Error decodificando {tokens_path}: {exc}")
-
-            if style_key not in button_styles:
-                raise ValueError(f"style_key '{style_key}' no existe en {styles_path}")
-
-            style = button_styles[style_key]
-
-            # Esperamos que el estilo declare estos tokens
-            required_tokens = ["bg_token", "text_token", "border_token", "hover_token"]
-
-            def resolve_token(token_name: Optional[str]) -> Optional[str]:
-                if token_name is None:
-                    return None
-                for cat_val in design_tokens.values():
-                    if isinstance(cat_val, dict) and token_name in cat_val:
-                        return cat_val[token_name]
-                raise ValueError(f"Token '{token_name}' no encontrado en {tokens_path}")
-
-            for tk in required_tokens:
-                if tk not in style:
-                    raise ValueError(f"Estilo '{style_key}' falta la clave '{tk}' en {styles_path}")
-
-            bg_val = resolve_token(style.get("bg_token"))
-            text_val = resolve_token(style.get("text_token"))
-            border_val = resolve_token(style.get("border_token"))
-            hover_val = resolve_token(style.get("hover_token"))
-
-            if bg_val is not None:
-                params["fg_color"] = bg_val
-            if text_val is not None:
-                params["text_color"] = text_val
-            if hover_val is not None:
-                params["hover_color"] = hover_val
-            if border_val is not None:
-                params["border_color"] = border_val
-
-            if "border_width" in style and style.get("border_width") is not None:
-                params["border_width"] = style.get("border_width")
-            if "corner_radius" in style and style.get("corner_radius") is not None:
-                params["corner_radius"] = style.get("corner_radius")
-            if "width" in style and style.get("width") is not None:
-                params["width"] = style.get("width")
-            if "height" in style and style.get("height") is not None:
-                params["height"] = style.get("height")
-            if "font_size" in style and style.get("font_size") is not None:
-                params["font"] = ("Roboto-SemiBold", style.get("font_size"))
-
+            style_params = ButtonFactory._build_style_params(style_key)
+            params.update(style_params)
         else:
             # Comportamiento legacy: respetar parámetros manuales
             if color is not None:
@@ -141,3 +77,96 @@ class ButtonFactory:
         params.update(kwargs)
 
         return ctk.CTkButton(**params)
+
+    @staticmethod
+    def _build_style_params(style_key: str) -> dict:
+        """Resolver y devolver un diccionario de parámetros de estilo a partir de `style_key`.
+
+        Devuelve claves compatibles con `ctk.CTkButton.configure`, por ejemplo:
+        `fg_color`, `hover_color`, `text_color`, `border_color`, `border_width`,
+        `corner_radius`, `width`, `height`, `font`.
+        """
+        config_dir = Path(__file__).resolve().parents[2] / "config"
+        styles_path = config_dir / "button_styles.json"
+        tokens_path = config_dir / "design_tokens.json"
+
+        try:
+            with styles_path.open("r", encoding="utf-8") as f:
+                button_styles = json.load(f)
+        except FileNotFoundError:
+            raise ValueError(f"No se encontró {styles_path}")
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Error decodificando {styles_path}: {exc}")
+
+        try:
+            with tokens_path.open("r", encoding="utf-8") as f:
+                design_tokens = json.load(f)
+        except FileNotFoundError:
+            raise ValueError(f"No se encontró {tokens_path}")
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Error decodificando {tokens_path}: {exc}")
+
+        if style_key not in button_styles:
+            raise ValueError(f"style_key '{style_key}' no existe en {styles_path}")
+
+        style = button_styles[style_key]
+
+        # Esperamos que el estilo declare al menos los tokens habituales,
+        # pero no forzamos la presencia de todos (compatibilidad con estilos simples).
+        def resolve_token(token_name: Optional[str]) -> Optional[str]:
+            if token_name is None:
+                return None
+            for cat_val in design_tokens.values():
+                if isinstance(cat_val, dict) and token_name in cat_val:
+                    return cat_val[token_name]
+            raise ValueError(f"Token '{token_name}' no encontrado en {tokens_path}")
+
+        params: dict = {}
+
+        # Tokens de color (pueden faltar en estilos livianos)
+        bg_val = resolve_token(style.get("bg_token")) if style.get("bg_token") is not None else None
+        text_val = resolve_token(style.get("text_token")) if style.get("text_token") is not None else None
+        border_val = resolve_token(style.get("border_token")) if style.get("border_token") is not None else None
+        hover_val = resolve_token(style.get("hover_token")) if style.get("hover_token") is not None else None
+
+        if bg_val is not None:
+            params["fg_color"] = bg_val
+        if text_val is not None:
+            params["text_color"] = text_val
+        if hover_val is not None:
+            params["hover_color"] = hover_val
+        if border_val is not None:
+            params["border_color"] = border_val
+
+        if "border_width" in style and style.get("border_width") is not None:
+            params["border_width"] = style.get("border_width")
+        if "corner_radius" in style and style.get("corner_radius") is not None:
+            params["corner_radius"] = style.get("corner_radius")
+        if "width" in style and style.get("width") is not None:
+            params["width"] = style.get("width")
+        if "height" in style and style.get("height") is not None:
+            params["height"] = style.get("height")
+        if "font_size" in style and style.get("font_size") is not None:
+            params["font"] = ("Roboto-SemiBold", style.get("font_size"))
+
+        return params
+
+    @staticmethod
+    def apply_style(widget: ctk.CTkButton, style_key: str) -> None:
+        """Aplicar `style_key` a un botón existente (`widget`).
+
+        - Resuelve los parámetros de estilo exactamente como `create_button` lo haría.
+        - No modifica `text`, `master` ni `command`.
+        - Lanza `ValueError` si `style_key` no existe o hay problemas de resolución.
+        """
+        if widget is None:
+            raise ValueError("widget no puede ser None")
+
+        style_params = ButtonFactory._build_style_params(style_key)
+
+        # No incluir claves que no correspondan a configure()
+        # (_build_style_params sólo devuelve claves válidas para configure)
+        try:
+            widget.configure(**style_params)
+        except Exception as exc:
+            raise RuntimeError(f"No se pudo aplicar style_key '{style_key}' al widget: {exc}")
