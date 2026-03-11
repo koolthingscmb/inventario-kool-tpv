@@ -42,10 +42,7 @@ class AlbaranesUI:
 
         for texto, key, cmd in botones:
             if key:
-                try:
-                    btn = create_action_button(btn_frame, key, cmd)
-                except Exception:
-                    btn = ctk.CTkButton(btn_frame, text=texto, command=cmd)
+                btn = create_action_button(btn_frame, key, cmd)
             else:
                 btn = ctk.CTkButton(btn_frame, text=texto, fg_color='#e67e22', command=cmd)
             btn.pack(side='left', padx=6)

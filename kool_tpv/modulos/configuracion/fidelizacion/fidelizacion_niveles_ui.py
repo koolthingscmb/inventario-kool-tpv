@@ -118,33 +118,10 @@ class FidelizacionNivelesUI:
         btn_frame = ctk.CTkFrame(self.header_frame, fg_color='transparent')
         btn_frame.grid(row=3, column=0, columnspan=8, sticky='ew', pady=10)
 
-        try:
-            btn_guardar = create_action_button(btn_frame, 'guardar', self._on_guardar)
-            if btn_guardar is None:
-                raise Exception('create_action_button returned None')
-        except Exception:
-            btn_guardar = ctk.CTkButton(
-                btn_frame,
-                text='GUARDAR',
-                command=self._on_guardar,
-                fg_color=self.colors.get('primary', '#FF9800'),
-                font=get_font('button', module=module_name)
-            )
+        btn_guardar = create_action_button(btn_frame, 'guardar', self._on_guardar)
         btn_guardar.pack(side='left', padx=10)
 
-        try:
-            btn_nuevo = create_action_button(btn_frame, 'nuevo_nivel', self._on_nuevo_nivel)
-            if btn_nuevo is None:
-                raise Exception('create_action_button returned None')
-        except Exception:
-            btn_nuevo = ctk.CTkButton(
-                btn_frame,
-                text='NUEVO NIVEL',
-                command=self._on_nuevo_nivel,
-                fg_color=self.colors.get('secondary', '#FFB74D'),
-                text_color='#000000',
-                font=get_font('button', module=module_name)
-            )
+        btn_nuevo = create_action_button(btn_frame, 'nuevo_nivel', self._on_nuevo_nivel)
         btn_nuevo.pack(side='left', padx=10)
 
         # NavList para niveles
@@ -166,18 +143,7 @@ class FidelizacionNivelesUI:
         self.footer = ctk.CTkFrame(self.container, fg_color='transparent')
         self.footer.pack(side='bottom', fill='x', padx=12, pady=12)
 
-        try:
-            btn_eliminar = create_action_button(self.footer, 'eliminar', self._on_eliminar)
-            if btn_eliminar is None:
-                raise Exception('create_action_button returned None')
-        except Exception:
-            btn_eliminar = ctk.CTkButton(
-                self.footer,
-                text='ELIMINAR',
-                command=self._on_eliminar,
-                fg_color='#D32F2F',
-                font=get_font('button', module=module_name)
-            )
+        btn_eliminar = create_action_button(self.footer, 'eliminar', self._on_eliminar)
         btn_eliminar.pack(side='left', padx=8)
 
         # Cargar niveles

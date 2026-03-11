@@ -17,6 +17,7 @@ import tkinter.font as tkfont
 from datetime import datetime, timedelta
 
 from kool_tpv.modulos.clientes.cliente_service import ClienteService
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 
 
 class UIClientes:
@@ -163,8 +164,18 @@ class UIClientes:
             self.header_actions_frame.pack(side="left")
 
             # Action buttons placed immediately to the right of the search entry
-            self.aceptar_btn = ctk.CTkButton(self.header_actions_frame, text="Aceptar", fg_color=self.ACCEPT_BTN_COLOR, command=self._on_accept, width=140)
-            self.anadir_btn = ctk.CTkButton(self.header_actions_frame, text="Añadir", fg_color=self.ADD_BTN_COLOR, command=self._on_add, width=140)
+            self.aceptar_btn = ButtonFactory.create_button(
+                parent=self.header_actions_frame,
+                text="Aceptar",
+                command=self._on_accept,
+                style_key="module_clientes"
+            )
+            self.anadir_btn = ButtonFactory.create_button(
+                parent=self.header_actions_frame,
+                text="Añadir",
+                command=self._on_add,
+                style_key="module_clientes"
+            )
             self.aceptar_btn.pack(side="left", padx=5)
             self.anadir_btn.pack(side="left", padx=5)
 
@@ -188,8 +199,18 @@ class UIClientes:
             # footer frame (flexible container for pagination and other controls)
             self.footer_frame = ctk.CTkFrame(self.articles_container, height=self.pagination_height, fg_color="transparent")
             self.footer_frame.pack(side="bottom", fill="x", padx=12, pady=(6, 6))
-            self.prev_btn = ctk.CTkButton(self.footer_frame, text="Anterior", command=self.prev_page, width=100)
-            self.next_btn = ctk.CTkButton(self.footer_frame, text="Siguiente", command=self.next_page, width=100)
+            self.prev_btn = ButtonFactory.create_button(
+                parent=self.footer_frame,
+                text="Anterior",
+                command=self.prev_page,
+                style_key="module_clientes"
+            )
+            self.next_btn = ButtonFactory.create_button(
+                parent=self.footer_frame,
+                text="Siguiente",
+                command=self.next_page,
+                style_key="module_clientes"
+            )
             self.page_label = ctk.CTkLabel(self.footer_frame, text="", width=120)
             self.prev_btn.pack(side="left", padx=6, pady=6)
             self.page_label.pack(side="left", padx=6)
@@ -202,9 +223,24 @@ class UIClientes:
 
                 # Quick filter buttons: 7 / 30 / 90 days
                 try:
-                    self.quick_7_btn = ctk.CTkButton(self.date_filters_frame, text="7d", width=48, command=lambda: self._set_quick_date(7))
-                    self.quick_30_btn = ctk.CTkButton(self.date_filters_frame, text="30d", width=48, command=lambda: self._set_quick_date(30))
-                    self.quick_90_btn = ctk.CTkButton(self.date_filters_frame, text="90d", width=48, command=lambda: self._set_quick_date(90))
+                    self.quick_7_btn = ButtonFactory.create_button(
+                        parent=self.date_filters_frame,
+                        text="7d",
+                        command=lambda: self._set_quick_date(7),
+                        style_key="module_clientes"
+                    )
+                    self.quick_30_btn = ButtonFactory.create_button(
+                        parent=self.date_filters_frame,
+                        text="30d",
+                        command=lambda: self._set_quick_date(30),
+                        style_key="module_clientes"
+                    )
+                    self.quick_90_btn = ButtonFactory.create_button(
+                        parent=self.date_filters_frame,
+                        text="90d",
+                        command=lambda: self._set_quick_date(90),
+                        style_key="module_clientes"
+                    )
                     self.quick_7_btn.pack(side="left", padx=4)
                     self.quick_30_btn.pack(side="left", padx=4)
                     self.quick_90_btn.pack(side="left", padx=4)
@@ -229,7 +265,12 @@ class UIClientes:
                     except Exception:
                         pass
                 self.to_entry = ctk.CTkEntry(self.date_filters_frame, textvariable=self.to_var, width=110)
-                self.apply_date_btn = ctk.CTkButton(self.date_filters_frame, text="Aplicar", width=80, command=self._apply_date_filter)
+                self.apply_date_btn = ButtonFactory.create_button(
+                    parent=self.date_filters_frame,
+                    text="Aplicar",
+                    command=self._apply_date_filter,
+                    style_key="module_clientes"
+                )
 
                 self.from_entry.pack(side="left", padx=4)
                 self.to_entry.pack(side="left", padx=4)

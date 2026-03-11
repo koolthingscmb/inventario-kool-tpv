@@ -8,6 +8,7 @@ import customtkinter as ctk
 import logging
 
 from kool_tpv.utils.config_loader import load_colors, create_action_button
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.templates.base_module_view import BaseModuleView
 from kool_tpv.utils.utils import FONT_TERMINAL
 from kool_tpv.utils.font_loader import get_font
@@ -215,9 +216,12 @@ class InformesView(BaseModuleView):
             except Exception:
                 logging.exception('Error creando TagSelector en InformesView')
 
-            self.btn_generar = ctk.CTkButton(filters_frame, text='GENERAR', width=140, height=32,
-                                             fg_color=btn_bg, hover_color=btn_hover, text_color=btn_text,
-                                             command=self._on_generar_click, font=get_font('button', module='informes'))
+            self.btn_generar = ButtonFactory.create_button(
+                parent=filters_frame,
+                text='ACEPTAR',
+                command=self._on_generar_click,
+                style_key='action_confirm'
+            )
             self.btn_generar.pack(side='left', padx=(6, 0))
 
             try:

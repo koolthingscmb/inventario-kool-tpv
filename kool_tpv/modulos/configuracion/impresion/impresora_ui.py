@@ -194,19 +194,9 @@ class ImpresoraUI:
         self.btn_frame = ctk.CTkFrame(self.container, fg_color=self.colors.get('background', bg))
         self.btn_frame.pack(side='bottom', fill='x', padx=12, pady=12)
 
-        # Botón Guardar (usar create_action_button si existe)
-        try:
-            btn_save = create_action_button(self.btn_frame, 'guardar', self._on_save)
-        except Exception:
-            try:
-                btn_save = ctk.CTkButton(self.btn_frame, text='GUARDAR', command=self._on_save, fg_color=self.colors.get('secondary', '#F57C00'), font=get_font('button', module=module_name), height=40)
-            except Exception:
-                btn_save = ctk.CTkButton(self.btn_frame, text='GUARDAR', command=self._on_save)
-
-        try:
-            btn_save.pack(side='left', padx=8)
-        except Exception:
-            pass
+        # Botón Guardar (usar create_action_button)
+        btn_save = create_action_button(self.btn_frame, 'guardar', self._on_save)
+        btn_save.pack(side='left', padx=8)
 
         # (Test moved inline next to radios)
 

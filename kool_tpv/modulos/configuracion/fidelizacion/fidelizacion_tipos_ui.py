@@ -70,19 +70,7 @@ class FidelizacionTiposUI:
         self.entry_nuevo.pack(side='left', padx=(0, 20))
 
         # Botón guardar
-        try:
-            btn_guardar = create_action_button(self.header_frame, 'guardar', self._on_guardar)
-            if btn_guardar is None:
-                raise Exception('create_action_button returned None')
-        except Exception:
-            btn_guardar = ctk.CTkButton(
-                self.header_frame,
-                text='GUARDAR',
-                command=self._on_guardar,
-                fg_color=self.colors.get('primary', '#FF9800'),
-                font=get_font('button', module=module_name)
-            )
-
+        btn_guardar = create_action_button(self.header_frame, 'guardar', self._on_guardar)
         btn_guardar.pack(side='left', padx=10)
 
         # Chips frame (scrollable, grid 6 columnas)

@@ -147,62 +147,11 @@ class AlmacenView(BaseModuleView):
                                             logging.exception("Error al ejecutar acción %r:", getattr(func, '__name__', str(func)))
                                             raise
                                     return _wrapped
-                                # Apply visual styles from configs when available
-                                try:
-                                    fg = button_palette.get('bg') or module_colors.get('primary') or b.get('color')
-                                    hover = button_palette.get('hover') or module_colors.get('hover') or b.get('hover_color')
-                                    text_color = button_palette.get('text') or b.get('text_color') or '#FFFFFF'
-                                    border = button_palette.get('border') or b.get('border_color')
-                                    corner = sidebar_btn_layout.get('corner_radius', b.get('corner_radius'))
-                                    width = sidebar_btn_layout.get('width', b.get('width'))
-                                    height = sidebar_btn_layout.get('height', b.get('height'))
-                                    border_w = sidebar_btn_layout.get('border_width', b.get('border_width'))
-                                    # build font tuple from module or app
-                                    chosen_font_cfg = None
-                                    if isinstance(module_font_cfg, dict) and module_font_cfg.get('label'):
-                                        chosen_font_cfg = module_font_cfg.get('label')
-                                    elif isinstance(app_nav_font, dict) and app_nav_font.get('family'):
-                                        chosen_font_cfg = app_nav_font
-                                    font_tuple = None
-                                    try:
-                                        if chosen_font_cfg:
-                                            family = chosen_font_cfg.get('family') or chosen_font_cfg.get('font_family')
-                                            size = int(chosen_font_cfg.get('size') or chosen_font_cfg.get('font_size') or 24)
-                                            weight = chosen_font_cfg.get('weight')
-                                            font_tuple = (family, size, weight) if weight and weight != 'normal' else (family, size)
-                                    except Exception:
-                                        font_tuple = (None, 24)
-
-                                    try:
-                                        cfg = {}
-                                        if fg is not None:
-                                            cfg['fg_color'] = fg
-                                        if hover is not None:
-                                            cfg['hover_color'] = hover
-                                        if text_color is not None:
-                                            cfg['text_color'] = text_color
-                                        if border is not None:
-                                            cfg['border_color'] = border
-                                        if border_w is not None:
-                                            cfg['border_width'] = border_w
-                                        if corner is not None:
-                                            cfg['corner_radius'] = corner
-                                        if width is not None:
-                                            cfg['width'] = width
-                                        if height is not None:
-                                            cfg['height'] = height
-                                        if font_tuple is not None:
-                                            cfg['font'] = font_tuple
-                                        if cfg:
-                                            try:
-                                                child.configure(**cfg)
-                                            except Exception:
-                                                logging.exception('Error aplicando estilos al botón %r', lbl)
-                                    except Exception:
-                                        logging.exception('Error preparando cfg visual para botón %r', lbl)
-
-                                except Exception:
-                                    logging.exception('Error aplicando estilos desde config para %r', lbl)
+                                # Styling is delegated to ButtonFactory via style_key.
+                                # Previously the view attempted to construct a visual
+                                # `cfg` dict and call `child.configure(**cfg)`. That
+                                # logic has been removed so appearance is controlled
+                                # centrally by the factory/styles config.
 
                                 try:
                                     child.configure(command=_wrap(action_map[action]))
@@ -521,9 +470,8 @@ class AlmacenView(BaseModuleView):
             btn = ButtonFactory.create_button(
                 parent=nav_frame,
                 text=button_config.get('text', 'ALMACÉN'),
-                color=button_config.get('color', '#32CD32'),
-                hover_color=button_config.get('hover_color', '#00A4DF'),
                 command=self.open,
+                style_key='module_almacen',
                 width=button_config.get('width'),
                 height=button_config.get('height'),
                 corner_radius=button_config.get('corner_radius')

@@ -7,6 +7,7 @@ import logging
 import customtkinter as ctk
 
 from kool_tpv.utils.config_loader import load_colors, create_action_button
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.widgets.nav_list import NavList
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.font_loader import get_font
@@ -60,65 +61,36 @@ class ClientesTopsUI(ctk.CTkFrame):
                 self.filters_frame = ctk.CTkFrame(self.header_frame, fg_color='transparent')
                 self.filters_frame.pack(fill='x', padx=6, pady=(4, 6))
 
-                # Buttons style config from colors
-                _buttons_cfg = self.colors.get('buttons', {}) if isinstance(self.colors, dict) else {}
-                _primary_btn = _buttons_cfg.get('primary', {})
-                _secondary_btn = _buttons_cfg.get('secondary', {})
-                _accent_btn = _buttons_cfg.get('accent', {})
-
                 try:
-                    btn_general = ctk.CTkButton(
+                    btn_general = ButtonFactory.create_button(
                         self.filters_frame,
-                        text='GENERAL',
-                        width=100,
-                        height=32,
-                        fg_color=_primary_btn.get('bg', self.colors.get('primary', '#00A4DF')),
-                        hover_color=_primary_btn.get('hover', '#0091c2'),
-                        text_color=_primary_btn.get('text', self.colors.get('text', '#FFFFFF')),
+                        'GENERAL',
                         command=self._on_general,
-                        font=get_font('button', module=self.module_name)
+                        style_key='mini_outline_clientes'
                     )
                     btn_general.pack(side='left', padx=4)
 
-
-
-                    # Reemplazar un único botón TESORO por tres botones separados
-                    btn_tesoro_actual = ctk.CTkButton(
+                    btn_tesoro_actual = ButtonFactory.create_button(
                         self.filters_frame,
-                        text='TESORO ACTUAL',
-                        width=130,
-                        height=32,
-                        fg_color=_accent_btn.get('bg', self.colors.get('accent', '#9b59b6')),
-                        hover_color=_accent_btn.get('hover', '#8e44ad'),
-                        text_color=_accent_btn.get('text', self.colors.get('text', '#FFFFFF')),
+                        'TESORO ACTUAL',
                         command=self._on_tesoro_actual,
-                        font=get_font('button', module=self.module_name)
+                        style_key='mini_outline_clientes'
                     )
                     btn_tesoro_actual.pack(side='left', padx=4)
 
-                    btn_tesoro_gastado = ctk.CTkButton(
+                    btn_tesoro_gastado = ButtonFactory.create_button(
                         self.filters_frame,
-                        text='TESORO GASTADO',
-                        width=140,
-                        height=32,
-                        fg_color=_secondary_btn.get('bg', self.colors.get('secondary', '#555555')),
-                        hover_color=_secondary_btn.get('hover', '#444444'),
-                        text_color=_secondary_btn.get('text', self.colors.get('text', '#FFFFFF')),
+                        'TESORO GASTADO',
                         command=self._on_tesoro_gastado,
-                        font=get_font('button', module=self.module_name)
+                        style_key='mini_outline_clientes'
                     )
                     btn_tesoro_gastado.pack(side='left', padx=4)
 
-                    btn_tesoro_total = ctk.CTkButton(
+                    btn_tesoro_total = ButtonFactory.create_button(
                         self.filters_frame,
-                        text='TESORO TOTAL GANADO',
-                        width=180,
-                        height=32,
-                        fg_color=_accent_btn.get('bg', self.colors.get('accent', '#9b59b6')),
-                        hover_color=_accent_btn.get('hover', '#8e44ad'),
-                        text_color=_accent_btn.get('text', self.colors.get('text', '#FFFFFF')),
+                        'TESORO TOTAL GANADO',
                         command=self._on_tesoro_total,
-                        font=get_font('button', module='clientes')
+                        style_key='mini_outline_clientes'
                     )
                     btn_tesoro_total.pack(side='left', padx=4)
                 except Exception:

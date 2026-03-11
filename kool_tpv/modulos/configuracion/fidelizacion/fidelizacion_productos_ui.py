@@ -104,19 +104,7 @@ class FidelizacionProductosUI:
         self.entry_valor.pack(side='left', padx=(0, 20))
 
         # Botón confirmar
-        try:
-            btn_confirmar = create_action_button(controls_frame, 'guardar', self._on_confirmar)
-            if btn_confirmar is None:
-                raise Exception('create_action_button returned None')
-        except Exception:
-            btn_confirmar = ctk.CTkButton(
-                controls_frame,
-                text='CONFIRMAR',
-                command=self._on_confirmar,
-                fg_color=self.colors.get('primary', '#FF9800'),
-                font=get_font('button', module=module_name)
-            )
-
+        btn_confirmar = create_action_button(controls_frame, 'guardar', self._on_confirmar)
         btn_confirmar.pack(side='left', padx=10)
 
         # NavList para mostrar productos seleccionados

@@ -18,6 +18,8 @@ import customtkinter as ctk
 from kool_tpv.utils.templates.pagina_con_visor import PaginaConVisor
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.config_loader import create_action_button
+from kool_tpv.utils.factories.button_factory import ButtonFactory
+from kool_tpv.utils.widgets.date_picker_entry import DatePickerEntry
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.keyboard_manager import KeyboardManager
 from kool_tpv.utils.widgets.nav_list import NavList
@@ -126,17 +128,15 @@ class ClientesTicketsUI(PaginaConVisor):
         ).pack(side='left', padx=(0, 6))
 
         fecha_desde = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
-        self.entry_desde = ctk.CTkEntry(
+
+        self.date_desde = DatePickerEntry(
             fecha_frame,
+            module_name=self.module_name,
             width=140,
-            placeholder_text=fecha_desde,
-            fg_color=self.colors.get('background'),
-            text_color=self.colors.get('text'),
-            border_color=self.colors.get('primary'),
-            border_width=2
-        , font=get_font('entry', module=self.module_name))
-        self.entry_desde.insert(0, fecha_desde)
-        self.entry_desde.pack(side='left', padx=(0, 20))
+            allow_future=False
+        )
+        self.date_desde.set(fecha_desde)
+        self.date_desde.pack(side='left', padx=(0, 20))
 
         ctk.CTkLabel(
             fecha_frame,
@@ -146,28 +146,22 @@ class ClientesTicketsUI(PaginaConVisor):
         ).pack(side='left', padx=(0, 6))
 
         fecha_hasta = datetime.now().strftime('%Y-%m-%d')
-        self.entry_hasta = ctk.CTkEntry(
+
+        self.date_hasta = DatePickerEntry(
             fecha_frame,
+            module_name=self.module_name,
             width=140,
-            placeholder_text=fecha_hasta,
-            fg_color=self.colors.get('background'),
-            text_color=self.colors.get('text'),
-            border_color=self.colors.get('primary'),
-            border_width=2
-        , font=get_font('entry', module=self.module_name))
-        self.entry_hasta.insert(0, fecha_hasta)
-        self.entry_hasta.pack(side='left', padx=(0, 20))
+            allow_future=False
+        )
+        self.date_hasta.set(fecha_hasta)
+        self.date_hasta.pack(side='left', padx=(0, 20))
 
         # Botón FILTRAR
-        btn_filtrar = ctk.CTkButton(
-            fecha_frame,
+        btn_filtrar = ButtonFactory.create_button(
+            parent=fecha_frame,
             text='FILTRAR',
             command=self._aplicar_filtros,
-            width=120,
-            fg_color=self.colors.get('primary'),
-            hover_color=self.colors.get('secondary'),
-            text_color='#000000',
-            font=get_font('button', module=self.module_name)
+            style_key='action_confirm'
         )
         btn_filtrar.pack(side='left', padx=8)
 
@@ -543,8 +537,8 @@ class ClientesTicketsUI(PaginaConVisor):
     def _aplicar_filtros(self):
         """Aplicar filtros de fecha y producto."""
         try:
-            fecha_desde = (self.entry_desde.get() or '').strip()
-            fecha_hasta = (self.entry_hasta.get() or '').strip()
+            fecha_desde = (self.date_desde.get() or '').strip()
+            fecha_hasta = (self.date_hasta.get() or '').strip()
             producto_id = None
             try:
                 producto_id = self.combo_producto.get_id()

@@ -180,21 +180,9 @@ class ConfigGeneralUI:
         self.btn_frame = ctk.CTkFrame(self.container, fg_color=bg)
         self.btn_frame.pack(side='bottom', fill='x', padx=12, pady=12)
 
-        try:
-            from kool_tpv.utils.config_loader import create_action_button
-            btn_save = create_action_button(self.btn_frame, 'guardar', self._on_save)
-            if btn_save is None:
-                raise Exception('create_action_button returned None')
-        except Exception:
-            btn_save = ctk.CTkButton(self.btn_frame, text='GUARDAR', command=self._on_save, fg_color=self.colors.get('primary', '#FF9800'), font=get_font('button', module=module_name))
-
-        try:
-            btn_save.pack(side='left', padx=8)
-        except Exception:
-            try:
-                btn_save.grid(row=0, column=0)
-            except Exception:
-                pass
+        from kool_tpv.utils.config_loader import create_action_button
+        btn_save = create_action_button(self.btn_frame, 'guardar', self._on_save)
+        btn_save.pack(side='left', padx=8)
 
         # Load existing values
         try:

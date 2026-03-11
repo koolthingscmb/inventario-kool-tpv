@@ -442,4 +442,30 @@
     "border_width": 2,
     "font_size": 14
   }
+,
+  "mini_outline_clientes": {
+    "type": "outline",
+    "bg_token": "black_base",
+    "text_token": "yellow_sun",
+    "border_token": "yellow_sun",
+    "hover_token": "yellow_hover_strong",
+    "height": 32,
+    "min_width": 100,
+    "corner_radius": 8,
+    "border_width": 2,
+    "font_size": 14
+  }
+,
+  "action_confirm": {
+    "type": "solid",
+    "bg_token": "orange_config",
+    "text_token": "white_base",
+    "border_token": "orange_hover",
+    "hover_token": "orange_hover",
+    "height": 32,
+    "min_width": 80,
+    "corner_radius": 8,
+    "border_width": 2,
+    "font_size": 14
+  }
 }

@@ -11,6 +11,7 @@ import customtkinter as ctk
 
 from kool_tpv.utils.utils import SIDEBAR_WIDTH, COLOR_BG_TERMINAL, COLOR_BG_SIDEBAR, COLOR_MATRIX, FONT_TERMINAL
 from kool_tpv.utils.widgets.clickable_breadcrumb import ClickableBreadcrumb
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 
 
 class BaseModuleView:
@@ -149,7 +150,7 @@ class BaseModuleView:
             logging.exception('Error leyendo buttons_menu.json en BaseModuleView')
             buttons = []
 
-        # Create menu buttons
+        # Create menu buttons (use ButtonFactory + module style)
         for b in buttons:
             try:
                 lbl = b.get('label') or b.get('text') or 'BTN'
@@ -161,29 +162,17 @@ class BaseModuleView:
                 else:
                     cmd = (lambda name=action or lbl: logging.info(f'Menu action pendiente: {name}'))
                     logging.warning(f'Botón {lbl}: método {action} no encontrado, usando placeholder')
-                # Support BOTH styles: legacy (solid color) and new minimal (fg_color + border)
-                btn_kwargs = {
-                    'master': self._menu_frame,
-                    'text': lbl.upper(),
-                    'command': cmd,
-                    'font': ("Roboto-SemiBold", 24),
-                    'height': 56
-                }
-                # NEW minimal style with border
-                if 'fg_color' in b:
-                    btn_kwargs['fg_color'] = b.get('fg_color', '#000000')
-                    btn_kwargs['border_color'] = b.get('border_color', '#FFFFFF')
-                    btn_kwargs['border_width'] = b.get('border_width', 2)
-                    btn_kwargs['text_color'] = b.get('text_color', '#FFFFFF')
-                    btn_kwargs['hover_color'] = b.get('hover_color', b.get('border_color', '#FFFFFF'))
-                else:
-                    # LEGACY style: solid fill
-                    btn_kwargs['fg_color'] = b.get('color', '#CCCCCC')
-                    btn_kwargs['hover_color'] = b.get('hover_color', self.HOVER_COLOR)
-                    btn_kwargs['text_color'] = 'black'
-                    btn_kwargs['border_width'] = 0
 
-                btn = ctk.CTkButton(**btn_kwargs)
+                # Use module-specific style key (falls back to section name)
+                style_key = f"module_{(config_section or 'modulo')}"
+
+                btn = ButtonFactory.create_button(
+                    parent=self._menu_frame,
+                    text=lbl,
+                    command=cmd,
+                    style_key=style_key
+                )
+
                 btn.pack(pady=14, padx=20, fill='x')
             except Exception:
                 logging.exception('Error creando boton menu BaseModuleView')

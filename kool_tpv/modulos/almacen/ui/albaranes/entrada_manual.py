@@ -228,16 +228,7 @@ class EntradaManualUI:
 
         self.btn_add.place(x=sum(col_widths) + 12, y=4)
 
-        # Grid header (moved here so visual header appears above the lines area)
-        hdr_frame = ctk.CTkFrame(self.container, fg_color='transparent', height=32)
-        hdr_frame.pack(fill='x', padx=6, pady=(2, 0))
-        hdr_frame.pack_propagate(False)
-
-        for i, h in enumerate(headers):
-            lbl = ctk.CTkLabel(hdr_frame, text=h, text_color=self.colors['text'],
-                              fg_color=self.colors.get('bg_dark', '#1a1a1a'), anchor='w', font=('Courier New', 13, 'bold'),
-                              width=col_widths[i]-6, height=28, corner_radius=0)
-            lbl.place(x=sum(col_widths[:i]) + 6, y=2)
+        # Header labels removed — NavList will provide the visible header
 
         # Área de líneas -> NavList para soporte teclado y selección
         self.columns_lines = [

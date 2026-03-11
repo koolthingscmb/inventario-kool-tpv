@@ -1,7 +1,7 @@
 """UI de Consultar Albaranes - Filtros y listado scroll.
 
 Estructura similar a BusquedaUI adaptada para albaranes.
-Filtros: proveedor (SearchableCombo) + fechas (botones preset + entries manuales).
+Filtros: proveedor (SearchableCombo) + fechas (DatePickerEntry).
 """
 from typing import Optional
 import logging
@@ -14,6 +14,7 @@ from kool_tpv.base_datos.proveedor_service import ProveedorService
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
+from kool_tpv.utils.widgets.date_picker_entry import DatePickerEntry
 from kool_tpv.utils.widgets.nav_list import NavList
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 
@@ -43,116 +44,85 @@ class ConsultarAlbaranUI:
         }
         # color palette from config removed: buttons now created via ButtonFactory styles
 
-        # Fila de filtros
+        # Fila de filtros (dividida en dos filas: top + bottom)
         filter_frame = ctk.CTkFrame(self.container, fg_color='transparent', height=50)
         filter_frame.pack(fill='x', padx=12, pady=(12, 6))
         filter_frame.pack_propagate(False)
 
+        # Single row inside filter_frame
+        row = ctk.CTkFrame(filter_frame, fg_color='transparent')
+        row.pack(fill='x')
+
         # Filtro proveedor
         ctk.CTkLabel(
-            filter_frame,
+            row,
             text='Filtrar Albarán por Proveedor:',
             text_color=self.colors.get('text', COLOR_MATRIX),
             font=get_font('label', module=self.module_name)
         ).pack(side='left', padx=(0, 8))
 
         self.cb_proveedor = SearchableCombo(
-            filter_frame,
+            row,
             width=200
         )
         self.cb_proveedor.pack(side='left', padx=(0, 16))
 
-        # Botones preset fecha
-        self.btn_hoy = ButtonFactory.create_button(
-            parent=filter_frame,
-            text='HOY',
-            command=self._preset_hoy,
-            style_key="mini_success"
-        )
-        self.btn_hoy.pack(side='left', padx=4)
-
-        self.btn_7dias = ButtonFactory.create_button(
-            parent=filter_frame,
-            text='7 DÍAS',
-            command=self._preset_7dias,
-            style_key="mini_info"
-        )
-        self.btn_7dias.pack(side='left', padx=4)
-
-        self.btn_mes = ButtonFactory.create_button(
-            parent=filter_frame,
-            text='MES',
-            command=self._preset_mes,
-            style_key="mini_special"
-        )
-        self.btn_mes.pack(side='left', padx=4)
-
-        # Entries fecha manual
+        # Fecha Desde
         ctk.CTkLabel(
-            filter_frame,
+            row,
             text='Desde:',
             text_color=self.colors.get('text', COLOR_MATRIX),
             font=get_font('label', module=self.module_name)
-        ).pack(side='left', padx=(16, 4))
+        ).pack(side='left', padx=(8, 4))
 
-        self.e_desde = ctk.CTkEntry(
-            filter_frame,
-            placeholder_text='DD-MM-YYYY',
-            width=120,
-            **default_entry_kw
+        self.date_desde = DatePickerEntry(
+            row,
+            module_name=self.module_name,
+            width=140,
+            allow_future=False
         )
-        self.e_desde.pack(side='left', padx=4)
+        self.date_desde.pack(side='left', padx=4)
 
+        # Fecha Hasta
         ctk.CTkLabel(
-            filter_frame,
+            row,
             text='Hasta:',
             text_color=self.colors.get('text', COLOR_MATRIX),
             font=get_font('label', module=self.module_name)
         ).pack(side='left', padx=(8, 4))
 
-        self.e_hasta = ctk.CTkEntry(
-            filter_frame,
-            placeholder_text='DD-MM-YYYY',
-            width=120,
-            **default_entry_kw
+        self.date_hasta = DatePickerEntry(
+            row,
+            module_name=self.module_name,
+            width=140,
+            allow_future=False
         )
-        self.e_hasta.pack(side='left', padx=4)
+        self.date_hasta.pack(side='left', padx=4)
 
         # Botón APLICAR
         self.btn_aplicar = ButtonFactory.create_button(
-            parent=filter_frame,
+            parent=row,
             text='APLICAR',
             command=self._aplicar_filtros,
-            style_key="mini_warning"
+            style_key="action_confirm"
         )
         self.btn_aplicar.pack(side='left', padx=(16, 0))
 
         # Hacer que Tab/Shift-Tab recorran todos los elementos de la fila
         try:
-            # entradas y searchablecombo entry
+            # searchablecombo entry
             try:
                 self.cb_proveedor.entry.bind('<Tab>', self._focus_next)
                 self.cb_proveedor.entry.bind('<Shift-Tab>', self._focus_prev)
             except Exception:
                 pass
-            try:
-                self.e_desde.bind('<Tab>', self._focus_next)
-                self.e_desde.bind('<Shift-Tab>', self._focus_prev)
-            except Exception:
-                pass
-            try:
-                self.e_hasta.bind('<Tab>', self._focus_next)
-                self.e_hasta.bind('<Shift-Tab>', self._focus_prev)
-            except Exception:
-                pass
 
-            # botones: permitir foco via Tab y Enter (sin override visual de foco)
+            # botones: permitir foco via Tab y Enter (solo aplicar)
             try:
-                for btn in (self.btn_hoy, self.btn_7dias, self.btn_mes, self.btn_aplicar):
+                for btn in (self.btn_aplicar,):
                     try:
                         btn.bind('<Tab>', self._focus_next)
                         btn.bind('<Shift-Tab>', self._focus_prev)
-                        # Enter should trigger the button
                         btn.bind('<Return>', lambda e, b=btn: (b.invoke() if hasattr(b, 'invoke') else None) or 'break')
                     except Exception:
                         pass
@@ -180,7 +150,6 @@ class ConsultarAlbaranUI:
         self._load_proveedores()
 
         # Cargar inicial (todos)
-        self._preset_mes()  # Por defecto último mes
         self._aplicar_filtros()
 
     def get_widget(self):
@@ -234,31 +203,7 @@ class ConsultarAlbaranUI:
         except Exception:
             logging.exception('Error cargando proveedores')
 
-    def _preset_hoy(self):
-        """Rellenar entries con fecha de hoy."""
-        hoy = datetime.now().strftime('%d-%m-%Y')
-        self.e_desde.delete(0, 'end')
-        self.e_desde.insert(0, hoy)
-        self.e_hasta.delete(0, 'end')
-        self.e_hasta.insert(0, hoy)
-
-    def _preset_7dias(self):
-        """Rellenar entries con últimos 7 días."""
-        hoy = datetime.now()
-        hace_7 = hoy - timedelta(days=7)
-        self.e_desde.delete(0, 'end')
-        self.e_desde.insert(0, hace_7.strftime('%d-%m-%Y'))
-        self.e_hasta.delete(0, 'end')
-        self.e_hasta.insert(0, hoy.strftime('%d-%m-%Y'))
-
-    def _preset_mes(self):
-        """Rellenar entries con último mes (30 días)."""
-        hoy = datetime.now()
-        hace_30 = hoy - timedelta(days=30)
-        self.e_desde.delete(0, 'end')
-        self.e_desde.insert(0, hace_30.strftime('%d-%m-%Y'))
-        self.e_hasta.delete(0, 'end')
-        self.e_hasta.insert(0, hoy.strftime('%d-%m-%Y'))
+    # Preset date methods removed: use DatePickerEntry widgets instead
 
     def _aplicar_filtros(self):
         """Ejecutar filtro y refrescar lista."""
@@ -274,27 +219,20 @@ class ConsultarAlbaranUI:
             if proveedor_id == 0:  # "Todos"
                 proveedor_id = None
 
-            # Convertir fechas DD-MM-YYYY a YYYY-MM-DD
+            # Obtener fechas directamente desde DatePickerEntry (devuelve YYYY-MM-DD)
             fecha_desde = None
             fecha_hasta = None
+            try:
+                fecha_desde = (self.date_desde.get() or None)
+            except Exception:
+                fecha_desde = None
+                logging.warning('Error obteniendo fecha_desde desde DatePickerEntry')
 
             try:
-                desde_raw = (self.e_desde.get() or '').strip()
-                if desde_raw:
-                    partes = desde_raw.split('-')
-                    if len(partes) == 3:
-                        fecha_desde = f"{partes[2]}-{partes[1]}-{partes[0]}"  # YYYY-MM-DD
+                fecha_hasta = (self.date_hasta.get() or None)
             except Exception:
-                logging.warning('Error parseando fecha desde')
-
-            try:
-                hasta_raw = (self.e_hasta.get() or '').strip()
-                if hasta_raw:
-                    partes = hasta_raw.split('-')
-                    if len(partes) == 3:
-                        fecha_hasta = f"{partes[2]}-{partes[1]}-{partes[0]}"  # YYYY-MM-DD
-            except Exception:
-                logging.warning('Error parseando fecha hasta')
+                fecha_hasta = None
+                logging.warning('Error obteniendo fecha_hasta desde DatePickerEntry')
 
             # Llamar servicio
             albaranes = self.albaran_service.filtrar_albaranes(
@@ -322,61 +260,7 @@ class ConsultarAlbaranUI:
             self.nav_list.add_item(mapped)
         except Exception:
             logging.exception('Error añadiendo fila a NavList (append)')
-
-        row.bind('<Enter>', on_enter)
-        row.bind('<Leave>', on_leave)
-
-        # Double-click: abrir detalle
-        def on_double(e, alb_id=albaran.get('id')):
-            try:
-                if self.owner and hasattr(self.owner, 'show_detalle_albaran'):
-                    try:
-                        self.owner.show_detalle_albaran(alb_id)
-                    except Exception:
-                        logging.exception(f'Error ejecutando owner.show_detalle_albaran for ID={alb_id}')
-                else:
-                    logging.warning(f'Owner no disponible o sin método show_detalle_albaran')
-            except Exception:
-                logging.exception(f'Error abriendo detalle albarán ID={alb_id}')
-
-        row.bind('<Double-Button-1>', on_double)
-
-        # Columnas
-        col_widths = [50, 100, 200, 100, 100, 100, 100]
-        values = [
-            str(albaran.get('id', '')),
-            albaran.get('fecha', ''),
-            albaran.get('proveedor_nombre', ''),
-            str(albaran.get('cant_productos', 0)),
-            f"{albaran.get('total_neto', 0.0):.2f}€",
-            f"{albaran.get('total_iva', 0.0):.2f}€",
-            f"{albaran.get('total', 0.0):.2f}€"
-        ]
-
-        x = 6
-        for i, v in enumerate(values):
-            lbl = ctk.CTkLabel(
-                row,
-                text=v,
-                text_color=self.colors.get('text', COLOR_MATRIX),
-                fg_color='transparent',
-                anchor='w',
-                font=FONT_TERMINAL,
-                width=col_widths[i] - 8,
-                height=28
-            )
-            lbl.place(x=x, y=2)
-            lbl.bind('<Double-Button-1>', on_double)
-            lbl.bind('<Enter>', on_enter)
-            lbl.bind('<Leave>', on_leave)
-            x += col_widths[i]
-
-        # Separador inferior
-        try:
-            sep = ctk.CTkFrame(self.data_frame, fg_color='#2a2a2a', height=1)
-            sep.pack(fill='x')
-        except Exception:
-            pass
+        return
 
     def _map_albaran_to_row(self, albaran: dict) -> dict:
         try:

@@ -209,17 +209,7 @@ class DetalleAlbaranUI:
         except Exception:
             pass
 
-        # Grid header
-        hdr_frame = ctk.CTkFrame(self.container, fg_color='transparent', height=32)
-        hdr_frame.pack(fill='x', padx=6, pady=(2, 0))
-        hdr_frame.pack_propagate(False)
-
-        headers = ['EAN', 'NOMBRE', 'UDS', 'COSTE', 'DTO', 'IMPORTE']
-        for i, h in enumerate(headers):
-            lbl = ctk.CTkLabel(hdr_frame, text=h, text_color=self.colors['text'],
-                              fg_color='#1a1a1a', anchor='w', font=('Courier New', 13, 'bold'),
-                              width=col_widths[i]-6, height=28, corner_radius=0)
-            lbl.place(x=sum(col_widths[:i]) + 6, y=2)
+        # Manual header removed — NavList will provide the visible header
 
         # Área de líneas: usar NavList para soporte de teclado y selección
         self.columns_lines = [
@@ -258,18 +248,10 @@ class DetalleAlbaranUI:
         # Footer (solo GUARDAR + IMPRIMIR) desde config
         footer = ctk.CTkFrame(self.container, fg_color='transparent')
         footer.pack(side='bottom', fill='x', padx=6, pady=12)
-        try:
-            btn_guardar = create_action_button(footer, 'guardar', self._save_albaran)
-            btn_guardar.pack(side='left', padx=8)
-            btn_imprimir = create_action_button(footer, 'imprimir', self._print_albaran)
-            btn_imprimir.pack(side='left', padx=8)
-        except Exception:
-            # fallback a CTkButton si hay error creando desde config
-            try:
-                ctk.CTkButton(footer, text='GUARDAR', fg_color='#2ecc71', command=self._save_albaran).pack(side='left', padx=8)
-                ctk.CTkButton(footer, text='IMPRIMIR', fg_color='#3498db', command=self._print_albaran).pack(side='left', padx=8)
-            except Exception:
-                pass
+        btn_guardar = create_action_button(footer, 'guardar', self._save_albaran)
+        btn_guardar.pack(side='left', padx=8)
+        btn_imprimir = create_action_button(footer, 'imprimir', self._print_albaran)
+        btn_imprimir.pack(side='left', padx=8)
 
         # Estado
         self.lines = []
