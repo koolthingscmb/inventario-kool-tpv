@@ -30,34 +30,16 @@
       "anchor": "nw",
       "container_height": 600,
       "container_width": 220
-    }
-    ,
-    "main_menu_styles": {
-      "menu_tpv": { "width": 500, "height": 120, "corner_radius": 18 },
-      "menu_almacen": { "width": 220, "height": 56 },
-      "menu_clientes": { "width": 220, "height": 56 },
-      "menu_informes": { "width": 220, "height": 56 },
-      "menu_shopify": { "width": 220, "height": 56 },
-      "menu_config": { "width": 220, "height": 56 }
-    }
-    ,
-    "power": {
-      "margin": 12,
-      "extra_padding": 8,
-      "reserved_width": 230,
-      "reserved_height": 200,
-      "anchor": "top-left",
+    },
+    "power_layout": {
+      "corner": "top_left",
       "offset_x": 30,
-      "offset_y": 12
+      "offset_y": 12,
+      "size": 140,
+      "collision_margin": 16
     }
   },
   "components": {
-    "action_button": {
-      "width": 160,
-      "height": 35,
-      "corner_radius": 22,
-      "border_width": 2
-    },
     "dialog": {
       "default_width": 700,
       "default_height": 450,
@@ -188,45 +170,10 @@
         "grid_spacing": 12
       }
     },
-    "almacen": {
-      "sidebar_button": {
-        "width": 200,
-        "height": 56,
-        "corner_radius": 8,
-        "border_width": 4
-      }
-    },
-    "clientes": {
-      "sidebar_button": {
-        "width": 200,
-        "height": 56,
-        "corner_radius": 8,
-        "border_width": 5
-      }
-    },
-    "shopify": {
-      "sidebar_button": {
-        "width": 200,
-        "height": 56,
-        "corner_radius": 8,
-        "border_width": 4
-      }
-    },
-    "config": {
-      "sidebar_button": {
-        "width": 200,
-        "height": 56,
-        "corner_radius": 8,
-        "border_width": 4
-      }
-    },
-    "informes": {
-      "sidebar_button": {
-        "width": 200,
-        "height": 56,
-        "corner_radius": 8,
-        "border_width": 4
-      }
-    }
+    "almacen": {},
+    "clientes": {},
+    "shopify": {},
+    "config": {},
+    "informes": {}
   }
 }
