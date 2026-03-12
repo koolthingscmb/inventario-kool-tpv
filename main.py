@@ -128,26 +128,14 @@ class App(ctk.CTk):
         styles_map = self.layout_cfg.get("global", {}).get("main_menu_styles", {})
         colors_map = self.colors_cfg.get("main_menu", {})
 
-        # LEER FUENTES DEL CONFIG
-        fonts_menu_map = self.fonts_cfg.get("main_menu", {})
-
+        # LEER FUENTES DEL CONFIG (omitir tamaños desde font_config para que
+        # button_styles.json controle el tamaño de fuente)
         for item in main_menu_items:
             style_key = item.get("style_key")
             style_data = styles_map.get(style_key, {})
             color_data = colors_map.get(style_key, {})
-
-            # 1. LEER FUENTE ESPECÍFICA (NO INVENTADA)
-            font_data = fonts_menu_map.get(style_key, {})
-            if font_data:
-                # Si está en el config, se usa
-                font_tuple = (
-                    font_data.get("family", "Courier New"),
-                    int(font_data.get("size", 20)),
-                    font_data.get("weight", "bold")
-                )
-            else:
-                # Si NO está, fallback
-                font_tuple = ("Courier New", 20, "bold")
+            # Nota: el tamaño de fuente provendrá exclusivamente de
+            # `button_styles.json` a través de `style_key`.
 
             cmd_func = getattr(self, item.get("command", ""), None)
 
@@ -160,7 +148,7 @@ class App(ctk.CTk):
                 color=color_data.get("bg"),
                 hover_color=color_data.get("hover"),
                 text_color=color_data.get("text"),
-                font=font_tuple,  # APLICAR FUENTE
+                style_key=style_key,
                 corner_radius=style_data.get("corner_radius", 10),
                 border_color=color_data.get("border"),
                 border_width=2 if color_data.get("border") else 0
@@ -176,45 +164,85 @@ class App(ctk.CTk):
         style_key = power_cfg.get("style_key", "power_btn")
         colors = self.colors_cfg.get("global_buttons", {}).get(style_key, {})
 
-        # TAMAÑO: Lo lee de buttons_config.json
-        btn_width = power_cfg.get("width", 100)
-        btn_height = power_cfg.get("height", 100)
+        # TAMAÑO/POSICIÓN/ESTILO: Leer todo desde layout_config.json -> global -> power_layout
+        power_layout = self.layout_cfg.get("global", {}).get("power_layout", {})
+        # Preferir width/height definidos en layout; si no existen, fallback a buttons_cfg
+        btn_width = int(power_layout.get("width") or power_cfg.get("width") or 100)
+        btn_height = int(power_layout.get("height") or power_cfg.get("height") or 100)
 
-        # POSICIÓN: La lee de layout_config.json -> global -> power
-        power_layout = self.layout_cfg.get("global", {}).get("power", {})
-        pos_x = power_layout.get("offset_x", 12) 
-        pos_y = power_layout.get("offset_y", 12)
+        pos_x = int(power_layout.get("offset_x") or 0)
+        pos_y = int(power_layout.get("offset_y") or 0)
 
-        # Imagen
-        img_path = power_cfg.get("image")
-        ctk_image = None
-        if img_path:
-            try:
-                full_path = Path(__file__).resolve().parents[0] / "kool_tpv" / img_path
-                pil_img = Image.open(full_path)
-                img_size = (int(btn_width) - 20, int(btn_height) - 20)
-                ctk_image = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=img_size)
-            except Exception:
-                pass
+        # Cargar imágenes normal/hover (preferir carpeta kool_tpv-assets en la raíz)
+        self.power_img_normal = None
+        self.power_img_hover = None
+        try:
+            repo_root = Path(__file__).resolve().parents[0]
+            # Preferir carpeta kool_tpv-assets en la raíz del repo
+            normal_path = repo_root / "kool_tpv-assets" / "power.png"
+            hover_path = repo_root / "kool_tpv-assets" / "power_hover.png"
+            # Fallback a los assets dentro de kool_tpv
+            if not normal_path.exists():
+                normal_path = repo_root / "kool_tpv" / "assets" / "power.png"
+            if not hover_path.exists():
+                hover_path = repo_root / "kool_tpv" / "assets" / "power_hover.png"
 
-        # Frame Flotante
+            if normal_path.exists():
+                pil_img = Image.open(normal_path)
+                img_size = (int(btn_width), int(btn_height))
+                self.power_img_normal = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=img_size)
+
+            if hover_path.exists():
+                pil_img_h = Image.open(hover_path)
+                img_size_h = (int(btn_width), int(btn_height))
+                self.power_img_hover = ctk.CTkImage(light_image=pil_img_h, dark_image=pil_img_h, size=img_size_h)
+        except Exception:
+            # Si falla, dejar imágenes en None (se mostrará texto/blank)
+            self.power_img_normal = None
+            self.power_img_hover = None
+
+        # Frame Flotante (sin fondo)
         self.power_floating = ctk.CTkFrame(self, fg_color="transparent", width=btn_width, height=btn_height)
-
-        # AQUÍ APLICAMOS LA POSICIÓN DEL CONFIG
         self.power_floating.place(x=pos_x, y=pos_y)
+
+        # Resolver visual attrs desde layout (interpretar 'transparent' como "use sidebar background")
+        layout_colors = self.colors_cfg.get("global", {}).get("layout", {})
+        sidebar_bg = layout_colors.get("sidebar_background", self.cget("fg_color"))
+
+        raw_bg = power_layout.get("bg_color")
+        raw_hover = power_layout.get("hover_color")
+
+        bg = sidebar_bg if (raw_bg == "transparent" or raw_bg is None) else raw_bg
+        hover = sidebar_bg if (raw_hover == "transparent" or raw_hover is None) else raw_hover
 
         self.btn_power = ButtonFactory.create_button(
             parent=self.power_floating,
             text="",
-            command=self._dispatch_power,
+            command=self._on_power_click,
             width=btn_width,
             height=btn_height,
-            color=colors.get("bg", "red"),
-            hover_color=colors.get("hover", "darkred"),
-            image=ctk_image,
-            corner_radius=15
+            color=bg,
+            hover_color=hover,
+            border_width=power_layout.get("border_width"),
+            corner_radius=power_layout.get("corner_radius"),
+            image=self.power_img_normal,
         )
-        self.btn_power.pack()
+
+        # Hover: intercambiar imagenes (si han cargado)
+        try:
+            if self.power_img_hover is not None and self.power_img_normal is not None:
+                self.btn_power.bind("<Enter>", lambda e: self.btn_power.configure(image=self.power_img_hover))
+                self.btn_power.bind("<Leave>", lambda e: self.btn_power.configure(image=self.power_img_normal))
+        except Exception:
+            pass
+
+        # Posicionar el botón con place() usando valores del layout
+        try:
+            self.btn_power.place(x=pos_x, y=pos_y, width=btn_width, height=btn_height)
+        except Exception:
+            # Fallback si place falla, dejar pack como último recurso
+            self.btn_power.pack()
+
         self.power_floating.lift()
         self.power_floating_btn = self.btn_power
 
@@ -230,14 +258,32 @@ class App(ctk.CTk):
             return 
         self.close_app() 
 
+    def _on_power_click(self):
+        """Handler directo vinculado al botón Power (wrapper)."""
+        try:
+            return self._dispatch_power()
+        except Exception:
+            logging.exception('Error en _on_power_click')
+            return None
+
     # --- Navegación ---
     def load_tpv(self):
         self._clear_main()
         from kool_tpv.modulos.tpv.tpv_view_new import TpvView
-        # En TPV sí mostramos barra lateral (según tu diseño original)
-        self.nav_frame.pack(side="left", fill="y")
-        self.main_frame.pack(side="right", fill="both", expand=True)
 
+        # Entrar en TPV: ocultar únicamente los botones del menú principal
+        # (menu_container) para mantener la sidebar con el botón Power.
+        try:
+            # menu_container puede haber sido colocado con place()
+            # usar place_forget() para ocultarlo correctamente
+            self.menu_container.place_forget()
+        except Exception:
+            try:
+                self.menu_container.pack_forget()
+            except Exception:
+                pass
+
+        # Crear la vista TPV dentro de main_frame (no tocar nav_frame ni main_frame)
         self.tpv_view = TpvView(self.main_frame, db=self.db)
         self.tpv_view.pack(fill="both", expand=True)
         self.current_view = "tpv"
@@ -277,6 +323,28 @@ class App(ctk.CTk):
         if self.current_view == "tpv":
             self.current_view = None
             self._clear_main()
+            # Restaurar menu_container de forma simétrica según layout_config
+            try:
+                mm_layout = self.layout_cfg.get("global", {}).get("main_menu_layout", {})
+                placement = mm_layout.get("placement", "pack")
+                if placement == "place":
+                    offset_x = mm_layout.get("offset_x", 0)
+                    offset_y = mm_layout.get("offset_y", 100)
+                    relwidth = mm_layout.get("relwidth", 1.0)
+                    try:
+                        self.menu_container.place(x=offset_x, y=offset_y, relwidth=relwidth)
+                    except Exception:
+                        pass
+                else:
+                    side = mm_layout.get("side", "top")
+                    fill = mm_layout.get("fill", "both")
+                    pady = mm_layout.get("pady", 20)
+                    try:
+                        self.menu_container.pack(side=side, fill=fill, expand=True, pady=pady)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
             if not self.nav_frame.winfo_ismapped():
                 self.nav_frame.pack(side="left", fill="y")
             return

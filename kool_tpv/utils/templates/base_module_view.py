@@ -12,6 +12,7 @@ import customtkinter as ctk
 from kool_tpv.utils.utils import SIDEBAR_WIDTH, COLOR_BG_TERMINAL, COLOR_BG_SIDEBAR, COLOR_MATRIX, FONT_TERMINAL
 from kool_tpv.utils.widgets.clickable_breadcrumb import ClickableBreadcrumb
 from kool_tpv.utils.factories.button_factory import ButtonFactory
+from kool_tpv.utils.config_loader import load_layout_config
 
 
 class BaseModuleView:
@@ -133,7 +134,17 @@ class BaseModuleView:
 
         # Container for menu buttons
         self._menu_frame = ctk.CTkFrame(self.sidebar, fg_color='transparent')
-        self._menu_frame.pack(side='top', fill='y', expand=False)
+        try:
+            layout = load_layout_config() or {}
+            sidebar_layout = layout.get('modules', {}).get('sidebar', {})
+            top_offset = int(sidebar_layout.get('top_offset', 0) or 0)
+            self._menu_frame.pack(side='top', fill='y', expand=False, pady=(top_offset, 0))
+        except Exception:
+            # Fallback to original packing if config fails
+            try:
+                self._menu_frame.pack(side='top', fill='y', expand=False)
+            except Exception:
+                pass
 
         # Load buttons from config file `buttons_menu.json` using provided section
         try:

@@ -27,6 +27,7 @@ from kool_tpv.utils.utils import (
 
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.config_loader import create_action_button
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.font_loader import get_font
 
 
@@ -182,9 +183,22 @@ class CrearProductoUI:
         btn_hover = btn_cfg.get('hover', btn_bg)
         btn_text = btn_cfg.get('text', self.colors.get('text'))
         try:
-            ctk.CTkButton(self.shopify_frame, text='IR', width=60, fg_color=btn_bg, hover_color=btn_hover, text_color=btn_text, command=self._open_shop_link).grid(row=1, column=7, sticky='ew', padx=6, pady=6)
+            ButtonFactory.create_button(
+                parent=self.shopify_frame,
+                text='IR',
+                command=self._open_shop_link,
+                style_key="mini_action"
+            ).grid(row=1, column=7, sticky='ew', padx=6, pady=6)
         except Exception:
-            ctk.CTkButton(self.shopify_frame, text='IR', width=60, fg_color=btn_bg, command=self._open_shop_link).grid(row=1, column=7, sticky='ew', padx=6, pady=6)
+            try:
+                ButtonFactory.create_button(
+                    parent=self.shopify_frame,
+                    text='IR',
+                    command=self._open_shop_link,
+                    style_key="mini_action"
+                ).grid(row=1, column=7, sticky='ew', padx=6, pady=6)
+            except Exception:
+                pass
 
         # Fila 3: TAXONOMY (static vinculado, 4 col) | TIPO_SHOP (label+entry, 4 col)
         ctk.CTkLabel(self.shopify_frame, text='TAXONOMY:', text_color=self.colors['text'], font=lbl_font).grid(row=2, column=0, sticky='w', padx=6, pady=6)

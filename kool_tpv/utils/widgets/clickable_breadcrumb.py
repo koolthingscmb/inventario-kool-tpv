@@ -22,14 +22,32 @@ class ClickableBreadcrumb(ctk.CTkFrame):
         ])
     """
 
-    def __init__(self, parent, module_name=None, **kwargs):
+    def __init__(
+        self,
+        parent,
+        module_name=None,
+        left_padding: int = 0,
+        custom_font=None,
+        font=None,
+        text_color: str | None = None,
+        hover_color: str | None = None,
+        bg_hover: str | None = None,
+        bg_color: str | None = None,
+        **kwargs,
+    ):
         """Constructor.
 
         Args:
             parent: widget padre.
             module_name: nombre del módulo para cargar paleta (ej: 'clientes').
+            left_padding: espacio en píxeles reservado a la izquierda.
+            custom_font: fuente a usar (si se pasa, prevalece sobre get_font()).
+            text_color/hover_color/bg_hover/bg_color: valores visuales opcionales.
         """
-        super().__init__(parent, fg_color=COLOR_BG_TERMINAL, **kwargs)
+        # No pasar parámetros visuales no soportados a CTkFrame; consumirlos aquí.
+        fg = bg_color or COLOR_BG_TERMINAL
+        super().__init__(parent, fg_color=fg, **kwargs)
+
         self.parts = []
         # Cargar paleta de colores (fallback a COLOR_MATRIX si no existe)
         try:
@@ -38,7 +56,15 @@ class ClickableBreadcrumb(ctk.CTkFrame):
         except Exception:
             logging.exception('Error cargando paleta de colores para ClickableBreadcrumb')
             self.colors = {}
-        self.text_color = self.colors.get('text', COLOR_MATRIX)
+
+        # Priorizar valores explícitos pasados como argumentos
+        # Aceptamos tanto `custom_font` como `font` por compatibilidad con llamadas existentes
+        self.custom_font = custom_font or font
+        self.text_color = text_color or self.colors.get('text', COLOR_MATRIX)
+        self.hover_color = hover_color or '#333333'
+        self.bg_hover = bg_hover or 'transparent'
+        # Espacio reservado a la izquierda (p. ej. para botón Power)
+        self.left_padding = int(left_padding or 0)
 
     def update_parts(self, parts: list):
         """Actualizar breadcrumb con nuevas partes.
@@ -62,7 +88,7 @@ class ClickableBreadcrumb(ctk.CTkFrame):
                         self,
                         text='/',
                         text_color=self.text_color,
-                        font=get_font('breadcrumb', module=self.module_name)
+                        font=(self.custom_font if self.custom_font else get_font('breadcrumb', module=self.module_name))
                     )
                     sep.pack(side='left', padx=4)
 
@@ -75,9 +101,13 @@ class ClickableBreadcrumb(ctk.CTkFrame):
                         self,
                         text=text,
                         text_color=self.text_color,
-                        font=get_font('breadcrumb', module=self.module_name)
+                        font=(self.custom_font if self.custom_font else get_font('breadcrumb', module=self.module_name))
                     )
-                    label.pack(side='left', padx=2)
+                    # Aplicar padding izquierdo sólo al primer elemento
+                    if i == 0 and self.left_padding:
+                        label.pack(side='left', padx=(self.left_padding, 2))
+                    else:
+                        label.pack(side='left', padx=2)
                 else:
                     # Botón clickeable
                     btn = ctk.CTkButton(
@@ -97,7 +127,7 @@ class ClickableBreadcrumb(ctk.CTkFrame):
                     # Subrayado en hover
                     def _on_enter(e, button=btn):
                         try:
-                            f = get_font('breadcrumb', module=self.module_name)
+                            f = self.custom_font if self.custom_font else get_font('breadcrumb', module=self.module_name)
                             try:
                                 button.configure(font=(f[0], f[1], f[2], 'underline'))
                             except Exception:
@@ -107,14 +137,18 @@ class ClickableBreadcrumb(ctk.CTkFrame):
 
                     def _on_leave(e, button=btn):
                         try:
-                            button.configure(font=get_font('breadcrumb', module=self.module_name))
+                            button.configure(font=(self.custom_font if self.custom_font else get_font('breadcrumb', module=self.module_name)))
                         except Exception:
                             pass
 
                     btn.bind('<Enter>', _on_enter)
                     btn.bind('<Leave>', _on_leave)
 
-                    btn.pack(side='left', padx=2)
+                    # Aplicar padding izquierdo sólo al primer elemento
+                    if i == 0 and self.left_padding:
+                        btn.pack(side='left', padx=(self.left_padding, 2))
+                    else:
+                        btn.pack(side='left', padx=2)
 
         except Exception:
             logging.exception('Error actualizando ClickableBreadcrumb')

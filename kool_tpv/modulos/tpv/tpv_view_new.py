@@ -12,6 +12,9 @@ from kool_tpv.modulos.tpv.actions.buscar_articulo import BuscarArticuloPanel
 BASE_DIR = Path(__file__).resolve().parents[2] 
 CONFIG_DIR = BASE_DIR / "config"
 
+# Central ButtonFactory
+from kool_tpv.utils.factories.button_factory import ButtonFactory
+
 def load_config(filename: str) -> dict:
     try:
         with open(CONFIG_DIR / filename, "r", encoding="utf-8") as f:
@@ -36,14 +39,7 @@ class ClickableBreadcrumb(ctk.CTkFrame):
                 btn = ctk.CTkButton(self, text=text, text_color=self.text_color, fg_color='transparent', hover_color='#333333', font=self.custom_font, command=callback, width=len(text) * 12, height=28, corner_radius=4, cursor='hand2')
                 btn.pack(side='left', padx=2)
 
-class ButtonFactory:
-    @staticmethod
-    def create_button(parent, text, command=None, font=None, color=None, text_color=None, hover_color=None, width=None, height=None, corner_radius=12, **kwargs):
-        params = dict(master=parent, text=(text or "").upper(), command=command, fg_color=color, hover_color=hover_color, text_color=text_color, font=font, corner_radius=corner_radius)
-        if width: params["width"] = width
-        if height: params["height"] = height
-        params.update(kwargs)
-        return ctk.CTkButton(**params)
+# use central ButtonFactory (imported above)
 
 class TpvView(ctk.CTkFrame):
     def __init__(self, parent, db=None):
@@ -58,8 +54,6 @@ class TpvView(ctk.CTkFrame):
 
         # Configs
         self.layout_cfg = load_config("layout_config.json")
-        self.buttons_cfg = load_config("buttons_config.json")
-        self.colors_cfg = load_config("colors_config.json")
         self.font_cfg = load_config("font_config.json")
 
         # PANEL DERECHO (TICKET)
@@ -119,28 +113,27 @@ class TpvView(ctk.CTkFrame):
         for i in range(cols): self.grid_frame.grid_columnconfigure(i, weight=1)
         for i in range(rows): self.grid_frame.grid_rowconfigure(i, weight=1)
 
-        buttons = self.buttons_cfg.get("buttons", [])
-        colors_map = self.colors_cfg.get("tpv", {}).get("grid_buttons", {})
-        f_data = self.font_cfg.get("modules", {}).get("tpv", {}).get("grid_button", {})
-        font_grid = (f_data.get("family", "Arial"), f_data.get("size", 20), f_data.get("weight", "bold"))
+        # Read buttons from layout_config.json -> modules.tpv.center.grid.buttons
+        buttons = self.layout_cfg.get("modules", {}).get("tpv", {}).get("center", {}).get("grid", {}).get("buttons", [])
 
         for index, btn_data in enumerate(buttons):
-            grid_info = btn_data.get("grid", {})
-            row = grid_info.get("row", index // cols)
-            col = grid_info.get("col", index % cols)
-            key = btn_data.get("color_key")
-            style = colors_map.get(key, {"bg": "#555", "hover": "#666", "text": "white"})
+            row = btn_data.get("row")
+            col = btn_data.get("col")
+            columnspan = btn_data.get("colspan", 1)
+            rowspan = btn_data.get("rowspan", 1)
 
-            cmd = self.panel_buscar.show if key == "buscar_articulo" else None
+            # preserve command mapping for buscar_articulo
+            cmd_name = btn_data.get("command")
+            cmd = self.panel_buscar.show if cmd_name == "buscar_articulo" else None
 
             btn = ButtonFactory.create_button(
-                parent=self.grid_frame, text=btn_data.get("label", "???"),
+                parent=self.grid_frame,
+                text=btn_data.get("label", "???"),
                 command=cmd,
-                color=style.get("bg"), hover_color=style.get("hover"), text_color=style.get("text"),
-                font=font_grid, corner_radius=18,
-                border_color=style.get("border"), border_width=style.get("border_width", 0)
+                style_key=btn_data.get("style_key")
             )
-            btn.grid(row=row, column=col, columnspan=grid_info.get("colspan", 1), rowspan=grid_info.get("rowspan", 1), padx=10, pady=10, sticky="nsew")
+
+            btn.grid(row=row, column=col, columnspan=columnspan, rowspan=rowspan, padx=10, pady=10, sticky="nsew")
             # Guardar referencia para mapper (lista de widgets, como espera el mapper)
             self.grid_buttons.append(btn)
 

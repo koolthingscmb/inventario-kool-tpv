@@ -33,10 +33,15 @@
     },
     "power_layout": {
       "corner": "top_left",
-      "offset_x": 30,
+      "offset_x": 40,
       "offset_y": 12,
-      "size": 140,
-      "collision_margin": 16
+      "width": 140,
+      "height": 140,
+      "corner_radius": 0,
+      "border_width": 0,
+      "bg_color": "transparent",
+      "hover_color": "transparent",
+      "collision_margin": 5
     }
   },
   "components": {
@@ -61,7 +66,8 @@
   },
   "modules": {
     "sidebar": {
-      "width": 220
+      "width": 220,
+      "top_offset": 30
     },
     "tpv": {
       "sidebar_width": 220,
@@ -72,7 +78,23 @@
           "rows": 4,
           "spacing": 12,
           "min_button_size": 120,
-          "max_button_size": 400
+          "max_button_size": 400,
+          "buttons": [
+            {"label": "BUSCAR ARTÍCULO", "command": "buscar_articulo", "row": 0, "col": 0, "colspan": 2, "style_key": "menu_almacen"},
+            {"label": "CASH", "command": "Pagar en Efectivo", "row": 0, "col": 2, "colspan": 2, "style_key": "menu_almacen"},
+            {"label": "STOCK", "command": "stock", "row": 1, "col": 0, "style_key": "menu_almacen"},
+            {"label": "MULTI $", "command": "Multicobro", "row": 1, "col": 1, "style_key": "menu_almacen"},
+            {"label": "WEB", "command": "Pagar en Web", "row": 1, "col": 2, "style_key": "menu_almacen"},
+            {"label": "TARJETA", "command": "Pagar con Tarjeta", "row": 1, "col": 3, "style_key": "menu_almacen"},
+            {"label": "DESCUENTO", "command": "Hacer dto directo o %", "row": 2, "col": 0, "style_key": "rosa_descuentos"},
+            {"label": "DEVOLUCIÓN", "command": "Realizar Devolución", "row": 2, "col": 1, "style_key": "rosa_descuentos"},
+            {"label": "CLIENTE", "command": "Asignar Cliente", "row": 2, "col": 2, "style_key": "menu_clientes"},
+            {"label": "CAJERO", "command": "Asignar Cajero", "row": 2, "col": 3, "style_key": "menu_clientes"},
+            {"label": "CONFIG", "command": "pagar", "row": 3, "col": 0, "style_key": "menu_config"},
+            {"label": "PRINT ON", "command": "toggle_print", "row": 3, "col": 1, "style_key": "blanco"},
+            {"label": "CIERRE", "command": "Cierres de caja", "row": 3, "col": 2, "style_key": "rojo_tickets"},
+            {"label": "TICKETS", "command": "Abrir Tickets", "row": 3, "col": 3, "style_key": "rojo_tickets"}
+          ]
         }
       },
       "ticket_carrito": {
@@ -161,9 +183,9 @@
         }
       },
       "buscar_overlay": {
-        "top_buttons_height": 130,
-        "main_button_width": 250,
-        "main_button_height": 100,
+        "top_buttons_height": 150,
+        "main_button_width": 320,
+        "main_button_height": 130,
         "category_button_min_width": 120,
         "category_button_height": 48,
         "article_button_height": 56,

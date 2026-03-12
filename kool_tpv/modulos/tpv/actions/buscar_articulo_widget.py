@@ -7,6 +7,8 @@ import logging
 from kool_tpv.base_datos.categoria_service import CategoriaService
 from kool_tpv.base_datos.tipo_service import TipoService
 from kool_tpv.base_datos.producto_service import ProductoService
+from kool_tpv.utils.factories.button_factory import ButtonFactory
+from kool_tpv.utils.widgets.clickable_breadcrumb import ClickableBreadcrumb
 
 logger = logging.getLogger(__name__)
 
@@ -23,38 +25,6 @@ def load_config(filename: str) -> dict:
     except Exception:
         pass
     return {}
-
-# --- BREADCRUMB ---
-class ClickableBreadcrumb(ctk.CTkFrame):
-    def __init__(self, parent, font=None, text_color="white", hover_color="white", bg_hover="transparent", bg_color="transparent", **kwargs):
-        super().__init__(parent, fg_color=bg_color, **kwargs)
-        self.custom_font = font
-        self.text_color = text_color
-        self.hover_color = hover_color
-        self.bg_hover = bg_hover
-
-    def update_parts(self, parts: list):
-        for widget in self.winfo_children():
-            widget.destroy()
-
-        for i, (text, callback) in enumerate(parts):
-            if i > 0:
-                ctk.CTkLabel(self, text='/', text_color=self.text_color, font=self.custom_font).pack(side='left', padx=4)
-
-            if callback is None:
-                ctk.CTkLabel(self, text=text, text_color=self.text_color, font=self.custom_font).pack(side='left', padx=2)
-            else:
-                btn = ctk.CTkButton(
-                    self, text=text, 
-                    text_color=self.text_color, 
-                    fg_color='transparent',
-                    font=self.custom_font, 
-                    command=callback,
-                    width=len(text) * 12, height=28, corner_radius=4, cursor='hand2'
-                )
-                btn.bind("<Enter>", lambda e, b=btn: b.configure(text_color=self.hover_color, fg_color=self.bg_hover))
-                btn.bind("<Leave>", lambda e, b=btn: b.configure(text_color=self.text_color, fg_color='transparent'))
-                btn.pack(side='left', padx=2)
 
 # --- WIDGET PRINCIPAL ---
 class BuscarArticuloWidget(ctk.CTkFrame):
@@ -115,6 +85,10 @@ class BuscarArticuloWidget(ctk.CTkFrame):
             app = None
 
         spacer = None
+        # Calcular ancho requerido para reservar espacio del botón Power desde layout_config
+        power_cfg = self.layout_cfg.get('global', {}).get('power_layout', {})
+        spacer_w = power_cfg.get('width', 140) + power_cfg.get('collision_margin', 18)
+
         try:
             if app is not None and hasattr(app, 'reserve_power_space'):
                 try:
@@ -125,13 +99,13 @@ class BuscarArticuloWidget(ctk.CTkFrame):
             spacer = None
 
         if spacer is None:
-            spacer = ctk.CTkFrame(header_frame, width=12, height=12, fg_color="transparent")
+            spacer = ctk.CTkFrame(header_frame, width=spacer_w, height=12, fg_color="transparent")
 
         spacer.pack(side='left')
 
         # Content container holds breadcrumb (top row) and top buttons (below)
         content_container = ctk.CTkFrame(header_frame, fg_color="transparent")
-        content_container.pack(side='left', fill='both', expand=True)
+        content_container.pack(side='right', fill='both', expand=True)
 
         self.breadcrumb = ClickableBreadcrumb(
             content_container,
@@ -139,7 +113,8 @@ class BuscarArticuloWidget(ctk.CTkFrame):
             text_color=bread_cfg.get("text", "white"),
             hover_color=bread_cfg.get("text_hover", "green"),
             bg_hover=bread_cfg.get("bg_hover", "#333"),
-            height=40
+            height=40,
+            left_padding=spacer_w
         )
         self.breadcrumb.pack(fill='x', pady=(0, 5))
 
@@ -149,32 +124,36 @@ class BuscarArticuloWidget(ctk.CTkFrame):
         top_frame.pack(fill='x')
         top_frame.pack_propagate(False)
 
+        # Frame dedicado para los botones, centrado usando grid en top_frame
+        top_frame.grid_columnconfigure(0, weight=1)
+        top_frame.grid_columnconfigure(1, weight=0)
+        top_frame.grid_columnconfigure(2, weight=1)
+
+        button_frame = ctk.CTkFrame(top_frame, fg_color="transparent")
+        button_frame.grid(row=0, column=1)
+        self._button_frame = button_frame
+
         btn_w = self.overlay_layout.get("main_button_width", 250)
         btn_h = self.overlay_layout.get("main_button_height", 100)
         main_font = self._get_font("main_buttons")
-        main_colors = self.overlay_colors.get("main_buttons", {})
-
-        self.btn_cat_mode = ctk.CTkButton(
-            top_frame, text="CATEGORÍAS",
-            fg_color=main_colors.get("bg", "#000"),
-            hover_color=main_colors.get("hover", "#333"),
-            text_color=main_colors.get("text", "#FFF"),
-            font=main_font, width=btn_w, height=btn_h,
-            border_color=main_colors.get("border", "#0F0"),
-            border_width=main_colors.get("border_width", 2),
-            command=lambda: self.cambiar_modo('categorias')
+        # Create top buttons using central ButtonFactory
+        self.btn_cat_mode = ButtonFactory.create_button(
+            parent=button_frame,
+            text="CATEGORÍAS",
+            command=lambda: self.cambiar_modo('categorias'),
+            style_key="Busqueda_principal",
+            width=btn_w,
+            height=btn_h
         )
         self.btn_cat_mode.pack(side="left", padx=6)
 
-        self.btn_tipo_mode = ctk.CTkButton(
-            top_frame, text="TIPOS",
-            fg_color=main_colors.get("bg", "#000"),
-            hover_color=main_colors.get("hover", "#333"),
-            text_color=main_colors.get("text", "#FFF"),
-            font=main_font, width=btn_w, height=btn_h,
-            border_color=main_colors.get("border", "#0F0"),
-            border_width=main_colors.get("border_width", 2),
-            command=lambda: self.cambiar_modo('tipos')
+        self.btn_tipo_mode = ButtonFactory.create_button(
+            parent=button_frame,
+            text="TIPOS",
+            command=lambda: self.cambiar_modo('tipos'),
+            style_key="Busqueda_principal",
+            width=btn_w,
+            height=btn_h
         )
         self.btn_tipo_mode.pack(side="left", padx=6)
 
@@ -211,20 +190,11 @@ class BuscarArticuloWidget(ctk.CTkFrame):
         self.modo_actual = nuevo_modo
         self.seleccion_actual = None
 
-        colors = self.overlay_colors.get("main_buttons", {})
-        active_bg = colors.get("bg_active", "#00FF9D")
-        normal_bg = colors.get("bg", "#000")
-        active_txt = colors.get("text_active", "#000")
-        normal_txt = colors.get("text", "#00FF9D")
-
+        # Determine items and title based on mode; visual state is handled by styles
         if nuevo_modo == 'categorias':
-            self.btn_cat_mode.configure(fg_color=active_bg, text_color=active_txt)
-            self.btn_tipo_mode.configure(fg_color=normal_bg, text_color=normal_txt)
             items = self.categoria_service.get_categorias_con_productos()
             titulo = "CATEGORÍAS"
         else:
-            self.btn_cat_mode.configure(fg_color=normal_bg, text_color=normal_txt)
-            self.btn_tipo_mode.configure(fg_color=active_bg, text_color=active_txt)
             items = self.tipo_service.get_tipos_con_productos()
             titulo = "TIPOS"
 
@@ -239,24 +209,20 @@ class BuscarArticuloWidget(ctk.CTkFrame):
         btn_height = self.overlay_layout.get("category_button_height", 48)
         spacing = self.overlay_layout.get("grid_spacing", 10)
         font = self._get_font("category_buttons")
-        colors = self.overlay_colors.get("category_buttons", {})
 
         columnas = self._calcular_columnas(self.cat_scroll, min_width, spacing)
 
         row, col = 0, 0
         for item in items:
             is_selected = (item == self.seleccion_actual)
-            bg = colors.get("bg_selected", "#00FF9D") if is_selected else colors.get("bg", "#222")
-            fg = colors.get("text_selected", "#000") if is_selected else colors.get("text", "#FFF")
+            style = "Busqueda_categoria"
 
-            btn = ctk.CTkButton(
-                self.cat_scroll, text=item,
-                fg_color=bg, hover_color=colors.get("hover", "#333"),
-                text_color=fg,
-                height=btn_height, font=font,
-                border_color=colors.get("border", "#fff"),
-                border_width=colors.get("border_width", 0),
-                command=lambda x=item: self.seleccionar_categoria(x)
+            btn = ButtonFactory.create_button(
+                parent=self.cat_scroll,
+                text=item,
+                command=lambda x=item: self.seleccionar_categoria(x),
+                style_key=style,
+                height=btn_height
             )
             btn.grid(row=row, column=col, padx=spacing, pady=spacing, sticky="ew")
             col += 1
@@ -304,21 +270,17 @@ class BuscarArticuloWidget(ctk.CTkFrame):
         row, col = 0, 0
         for prod in productos:
             nombre = prod.get('nombre', '???')
-            hover_bg = colors.get("hover", "#00FF9D")
-            hover_text = colors.get("text_hover", "#000")
 
-            btn = ctk.CTkButton(
-                self.prod_scroll, text=nombre,
-                fg_color=colors.get("bg", "#333"),
-                text_color=colors.get("text", "white"),
-                height=btn_height, font=font,
-                border_color=colors.get("border", "#fff"),
-                border_width=colors.get("border_width", 0),
-                command=lambda p=prod: self._add_item_to_carrito(p)
+            # Choose product style depending on current search mode
+            style = "Busqueda_categoria_prod" if self.modo_actual == 'categorias' else "Busqueda_tipo_prod"
+
+            btn = ButtonFactory.create_button(
+                parent=self.prod_scroll,
+                text=nombre,
+                command=lambda p=prod: self._add_item_to_carrito(p),
+                style_key=style,
+                height=btn_height
             )
-            btn.configure(hover_color=hover_bg)
-            btn.bind("<Enter>", lambda e, b=btn: b.configure(text_color=hover_text))
-            btn.bind("<Leave>", lambda e, b=btn, tc=colors.get("text", "white"): b.configure(text_color=tc))
 
             btn.grid(row=row, column=col, padx=spacing, pady=spacing, sticky="ew")
 
