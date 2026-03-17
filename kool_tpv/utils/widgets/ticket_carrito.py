@@ -16,6 +16,7 @@ from kool_tpv.utils.widgets.carrito_nav_list import CarritoNavList
 from kool_tpv.utils.widgets.payment_controllers.payment_controller_simple import PaymentControllerSimple
 from kool_tpv.utils.widgets.payment_controllers.payment_controller_efectivo import PaymentControllerEfectivo
 from kool_tpv.utils.widgets.payment_controllers.payment_controller_multi import PaymentControllerMulti
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 
 def load_config(config_name: str) -> dict:
     """Cargar archivo de configuración."""
@@ -92,11 +93,14 @@ class TicketCarrito(ctk.CTkFrame):
             cliente_height = cliente_cfg.get("label_height", 24)
             cliente_spacing = cliente_cfg.get("spacing_top", 4) + cliente_cfg.get("spacing_bottom", 6)
 
+            # Ahora hay DOS líneas de cliente
+            cliente_total_height = (cliente_height * 2) + cliente_spacing
+
             # Calcular total
             total_height = (
                 pad_top +
                 info_spacing + info_height +
-                cliente_spacing + cliente_height +
+                cliente_total_height +
                 pad_bottom
             )
 
@@ -197,36 +201,120 @@ class TicketCarrito(ctk.CTkFrame):
         label_height = cliente_cfg.get("label_height", 24)
         pad_h = header_layout.get("padding_horizontal", 12)
 
+        # Cargar iconos desde assets (si están disponibles)
+        from PIL import Image
+        base_assets = Path(__file__).resolve().parents[2] / "assets"
+
+        try:
+            user_img = Image.open(base_assets / "user_icon.png").resize((20, 20), Image.LANCZOS)
+            self._user_icon = ctk.CTkImage(user_img, size=(20, 20))
+        except Exception:
+            self._user_icon = None
+
+        try:
+            tesoro_img = Image.open(base_assets / "tesoro_icon.png").resize((20, 20), Image.LANCZOS)
+            self._tesoro_icon = ctk.CTkImage(tesoro_img, size=(20, 20))
+        except Exception:
+            self._tesoro_icon = None
+
+        try:
+            varita_img = Image.open(base_assets / "varita_icon.png").resize((20, 20), Image.LANCZOS)
+            self._varita_icon = ctk.CTkImage(varita_img, size=(20, 20))
+        except Exception:
+            self._varita_icon = None
+
         self.cliente_container = ctk.CTkFrame(self.header_frame, fg_color="transparent")
         self.cliente_container.pack(
             fill="x",
             pady=(spacing_top, spacing_bottom)
         )
 
-        # Línea 1: Nombre + Nivel
+        # Crear dos líneas separadas dentro del cliente_container
+        self.linea1 = ctk.CTkFrame(self.cliente_container, fg_color="transparent")
+        self.linea1.pack(fill="x", pady=(0, 4))
+
+        self.linea2 = ctk.CTkFrame(self.cliente_container, fg_color="transparent")
+        self.linea2.pack(fill="x")
+
+        # Línea 1: Nombre (izquierda) y Nivel (derecha)
+        if self._user_icon:
+            self.user_icon_label = ctk.CTkLabel(
+                self.linea1,
+                image=self._user_icon,
+                text=""
+            )
+            self.user_icon_label.pack(side="left", padx=(pad_h, 6))
+            self.user_icon_label.configure(cursor="hand2")
+            self.user_icon_label.bind("<Button-1>", self._on_remove_cliente)
+
         self.cliente_nombre_label = ctk.CTkLabel(
-            self.cliente_container,
+            self.linea1,
             text="SELECCIONAR CLIENTE...",
             font=cliente_font,
             text_color=text_color,
             anchor="w",
             height=label_height
         )
-        self.cliente_nombre_label.pack(side="left", padx=(pad_h, 0))
+        self.cliente_nombre_label.pack(side="left", padx=(pad_h if not getattr(self, '_user_icon', None) else 0, 0))
 
-        # Línea 2: Tesoro + Varita (placeholder por ahora)
-        tesoro_container = ctk.CTkFrame(self.cliente_container, fg_color="transparent")
-        tesoro_container.pack(side="right", padx=(0, pad_h))
-
-        self.tesoro_label = ctk.CTkLabel(
-            tesoro_container,
-            text="0 pts",
+        self.cliente_nivel_label = ctk.CTkLabel(
+            self.linea1,
+            text="",
             font=cliente_font,
-            text_color=self.ticket_colors.get("header", {}).get("text_tesoro", "#FFD700")
-            ,
+            text_color=text_color,
+            anchor="e",
             height=label_height
         )
-        self.tesoro_label.pack(side="right")
+        self.cliente_nivel_label.pack(side="right", padx=(0, pad_h))
+
+        # Línea 2: Tesoro (izquierda) + Varita (derecha)
+        # Línea 2 contenedor izquierdo
+        self.linea2_left = ctk.CTkFrame(self.linea2, fg_color="transparent")
+        self.linea2_left.pack(side="left", padx=(pad_h, 0))
+
+        # Línea 2 contenedor derecho
+        self.linea2_right = ctk.CTkFrame(self.linea2, fg_color="transparent")
+        self.linea2_right.pack(side="right", padx=(0, pad_h))
+
+        # Icono tesoro (usar imagen si está disponible, sino fallback emoji)
+        if self._tesoro_icon:
+            self.tesoro_icon_label = ctk.CTkLabel(
+                self.linea2_left,
+                image=self._tesoro_icon,
+                text=""
+            )
+            self.tesoro_icon_label.pack(side="left")
+        else:
+            self.tesoro_icon_label = ctk.CTkLabel(
+                self.linea2_left,
+                text="💰",
+                font=cliente_font
+            )
+            self.tesoro_icon_label.pack(side="left")
+
+        # Tesoro label a la izquierda
+        self.tesoro_label = ctk.CTkLabel(
+            self.linea2_left,
+            text="0 pts",
+            font=cliente_font,
+            text_color=self.ticket_colors.get("header", {}).get("text_tesoro", "#FFD700"),
+            height=label_height
+        )
+        self.tesoro_label.pack(side="left", padx=(6, 0))
+
+        # Botón varita (placeholder) usando ButtonFactory
+        try:
+            self.varita_button = ButtonFactory.create_button(
+                parent=self.linea2_right,
+                image=self._varita_icon,
+                text="",
+                style_key="mini_outline_clientes",
+                command=None
+            )
+            self.varita_button.pack()
+        except Exception:
+            # No bloquear si ButtonFactory no funciona
+            pass
 
     def _create_body(self):
         """Crear zona del cuerpo con CarritoNavList."""
@@ -519,16 +607,40 @@ class TicketCarrito(ctk.CTkFrame):
         """Actualizar información del cliente."""
         try:
             if cliente_data:
-                nombre = cliente_data.get("nombre", "---")
-                self.cliente_nombre_label.configure(text=nombre)
+                    nombre = cliente_data.get("nombre", "---")
+                    nivel = cliente_data.get("nivel_level")
+                    nivel_nombre = cliente_data.get("nivel_nombre")
+                    grafismo = cliente_data.get("nivel_grafismo", "")
 
-                tesoro = cliente_data.get("tesoro_total", 0)
-                self.tesoro_label.configure(text=f"{tesoro} pts")
+                    self.cliente_nombre_label.configure(text=nombre)
+
+                    if nivel and nivel_nombre:
+                        nivel_texto = f"Lv {nivel} - {nivel_nombre} {grafismo}"
+                    else:
+                        nivel_texto = ""
+
+                    # Actualizar label de nivel separado
+                    try:
+                        self.cliente_nivel_label.configure(text=nivel_texto)
+                    except Exception:
+                        # En caso de que el label no exista aún, ignorar
+                        pass
+
+                    tesoro = cliente_data.get("tesoro_total", 0)
+                    self.tesoro_label.configure(text=f"{tesoro} pts")
             else:
                 self.cliente_nombre_label.configure(text="SELECCIONAR CLIENTE...")
                 self.tesoro_label.configure(text="0 pts")
         except Exception:
             logger.exception("Error actualizando cliente")
+
+    def _on_remove_cliente(self, event=None):
+        try:
+            if self.carrito_service:
+                self.carrito_service.set_cliente(None)
+            self.update_cliente(None)
+        except Exception:
+            logger.exception("Error quitando cliente del carrito")
 
     def update_totales(self, subtotal: float, total: float, desglose_iva: list = None):
         """Actualizar totales del footer con desglose de IVA.
