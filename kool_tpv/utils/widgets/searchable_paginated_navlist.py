@@ -64,7 +64,25 @@ class SearchablePaginatedNavList(ctk.CTkFrame):
         self.nav_list.pack(fill="both", expand=True, padx=6, pady=(0, 6))
 
         # Canvas reference used for scroll detection (evaluated in periodic check)
-        self._canvas = None
+        # Initialize to the NavList internal canvas if available, otherwise
+        # use a safe dummy object with a winfo_exists method to avoid
+        # AttributeError during early CustomTkinter drawing.
+        try:
+            potential = getattr(self.nav_list, '_parent_canvas', None) or getattr(self.nav_list, '_canvas', None)
+            if potential is not None:
+                self._canvas = potential
+            else:
+                class _DummyCanvas:
+                    def winfo_exists(self):
+                        return False
+
+                self._canvas = _DummyCanvas()
+        except Exception:
+            class _DummyCanvas:
+                def winfo_exists(self):
+                    return False
+
+            self._canvas = _DummyCanvas()
 
         # Start periodic check for scroll-bottom
         try:
