@@ -1,6 +1,6 @@
 from customtkinter import CTkFrame, CTkLabel
 from kool_tpv.modulos.clientes.cliente_service import ClienteService
-from kool_tpv.utils.widgets.searchable_paginated_navlist import SearchablePaginatedNavList
+from kool_tpv.utils.widgets.nav_list import NavList
 
 
 class ClienteSubView(CTkFrame):
@@ -15,10 +15,14 @@ class ClienteSubView(CTkFrame):
         # Header (arriba)
         self.header_frame = CTkFrame(self)
         self.header_frame.pack(side="top", fill="x", padx=20, pady=10)
-
+        
         # Placeholder para botón editar
         self.btn_editar = CTkLabel(self.header_frame, text="EDITAR (placeholder)")
         self.btn_editar.pack(side="right", padx=10)
+
+        # Área de lista (contenido principal)
+        self.list_frame = CTkFrame(self)
+        self.list_frame.pack(side="top", fill="both", expand=True, padx=20, pady=10)
 
         # Servicio de clientes
         try:
@@ -49,24 +53,22 @@ class ClienteSubView(CTkFrame):
             ("tesoro_total", 120),
         ]
 
-        # Crear SearchablePaginatedNavList reutilizable
-        try:
-            self.search_list = SearchablePaginatedNavList(
-                parent=self,
-                columns=columns,
-                search_function=self._buscar_clientes,
-                map_function=self._map_cliente,
-                module_name="clientes",
-                page_limit=50,
-                on_double_click=self._on_cliente_double_click,
-                keyboard_manager=self.keyboard_manager,
-            )
-            self.search_list.pack(fill="both", expand=True, padx=20, pady=10)
-        except Exception:
-            # Fallback: mostrar un placeholder si falla
-            placeholder_label = CTkLabel(self, text="LISTA CLIENTES (placeholder)", font=("Arial", 18))
-            placeholder_label.pack(pady=20)
+        from kool_tpv.utils.widgets.searchable_paginated_navlist import SearchablePaginatedNavList
 
+        self.search_list = SearchablePaginatedNavList(
+            parent=self.list_frame,
+            columns=columns,
+            search_function=self._buscar_clientes,
+            map_function=self._map_cliente,
+            module_name="clientes",
+            page_limit=50,
+            on_double_click=self._on_cliente_double_click,
+            keyboard_manager=self.keyboard_manager
+        )
+
+        self.search_list.pack(fill="both", expand=True)
+
+                        
     def _on_cliente_double_click(self, data):
         try:
             if data:
@@ -104,3 +106,5 @@ class ClienteSubView(CTkFrame):
             }
         except Exception:
             return {}
+
+    

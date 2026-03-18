@@ -72,6 +72,12 @@ class SearchablePaginatedNavList(ctk.CTkFrame):
         except Exception:
             pass
 
+        # Carga inicial automática
+        try:
+            self._on_search()
+        except Exception:
+            pass
+
     def _on_search(self):
         try:
             texto = (self._search_var.get() or '').strip()
