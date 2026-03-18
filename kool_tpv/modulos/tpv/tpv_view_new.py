@@ -70,7 +70,19 @@ class TpvView(ctk.CTkFrame):
         try:
             from kool_tpv.utils.widgets.ticket_carrito import TicketCarrito
             # Pasamos el servicio al ticket
-            self.ticket_widget = TicketCarrito(self.right_container, carrito_service=self.carrito_service)
+            # Resolve keyboard manager from top-level (App) if available
+            try:
+                root = self.winfo_toplevel()
+                km = getattr(root, 'keyboard_manager', None) or getattr(root, 'keyboard_mgr', None)
+            except Exception:
+                km = None
+
+            self.ticket_widget = TicketCarrito(
+                self.right_container,
+                carrito_service=self.carrito_service,
+                db=self.db,
+                keyboard_manager=km
+            )
             self.ticket_widget.pack(fill="both", expand=True)
 
             # Alias para compatibilidad con TpvController

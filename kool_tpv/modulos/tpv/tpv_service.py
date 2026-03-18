@@ -174,8 +174,15 @@ class TpvService:
                 logger.warning('ImpresoraService no disponible, skip impresión')
                 return
 
-            # Generar texto desde BD y simular impresión
-            texto = self.impresora_service.generar_ticket_desde_id(ticket_id)
+            # Leer el texto final del ticket ya persistido y enviarlo a la impresora
+            texto = None
+            try:
+                if self.db and getattr(self.db, 'fetch_one', None):
+                    row = self.db.fetch_one('SELECT ticket_text FROM tickets WHERE id = ?', (ticket_id,))
+                    if row:
+                        texto = row[0]
+            except Exception:
+                logger.exception('Error leyendo ticket_text desde BD')
 
             if texto:
                 # Log simulación
@@ -185,7 +192,7 @@ class TpvService:
                 logger.info("\n%s", texto)
                 logger.info("=" * 50)
             else:
-                logger.warning(f'No se pudo generar texto para ticket_id={ticket_id}')
+                logger.warning(f'No hay ticket_text almacenado para ticket_id={ticket_id}; impresión omitida')
 
         except Exception:
             logger.exception('Error en _print_ticket')

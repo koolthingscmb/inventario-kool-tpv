@@ -167,6 +167,28 @@ class CarritoNavList(NavList):
             current_index = self.selected_index
             data, _ = self.rows_data[current_index]
 
+            # Si la fila es visual y define un on_remove, ejecutarlo y no tocar el modelo
+            try:
+                if data.get('visual'):
+                    callback = data.get('on_remove')
+                    try:
+                        if callable(callback):
+                            callback()
+                    except Exception:
+                        logger.exception('Error ejecutando callback on_remove de fila visual')
+                    # Re-seleccionar la misma (o primera) fila después de la actualización
+                    try:
+                        self.after_idle(lambda: self._select_row(current_index))
+                    except Exception:
+                        pass
+                    try:
+                        self.focus_set()
+                    except Exception:
+                        pass
+                    return "break"
+            except Exception:
+                logger.exception('Error comprobando fila visual en _on_delete_key')
+
             if self.on_item_change_callback:
                 try:
                     self.on_item_change_callback(data, "remove")

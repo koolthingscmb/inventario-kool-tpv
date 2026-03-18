@@ -43,15 +43,8 @@ class SearchablePaginatedNavList(ctk.CTkFrame):
         self.loading = False
         self.termino = ""
 
-        # Search entry
+        # Search state (StringVar kept as attribute; Entry creation moved to parent views)
         self._search_var = tk.StringVar()
-        self.search_entry = ctk.CTkEntry(
-            self,
-            textvariable=self._search_var,
-            placeholder_text="Buscar...",
-        )
-        self.search_entry.pack(fill="x", padx=6, pady=(6, 4))
-        self.search_entry.bind('<KeyRelease>', lambda e: self._on_search())
 
         # NavList
         self.nav_list = NavList(
@@ -170,3 +163,10 @@ class SearchablePaginatedNavList(ctk.CTkFrame):
                 self.after(200, self._periodic_check)
             except Exception:
                 pass
+
+    def set_search_text(self, texto):
+        try:
+            self._search_var.set(texto)
+            self._on_search()
+        except Exception:
+            pass

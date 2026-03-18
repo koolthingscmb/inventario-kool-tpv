@@ -1,12 +1,6 @@
-"""kool_tpv.modulos.tpv.tpv_view
+"""kool_tpv.modulos.tpv.tpv_view (ARCHIVADO)
 
-Vista del módulo TPV heredando de PaginaVisorCarrito.
-
-Características:
-- Hereda estructura grid izq + TicketCarrito derecha
-- Override _build_header() → search button
-- Override _build_grid() → grid 4×3 botones responsivos
-- Conecta carrito_service, acciones, payment controllers vía controller
+Contenido de la versión antigua del TPV. Archivo archivado automáticamente.
 """
 
 from __future__ import annotations
@@ -523,6 +517,30 @@ class TpvView(PaginaVisorCarrito):
                 self._resize_bound = False
         except Exception:
             logger.exception("Error desbind resize TPV")
+
+    def clear_grid(self):
+        """Eliminar todos los widgets del grid y resetear referencias."""
+        try:
+            if getattr(self, 'grid_frame', None) is not None:
+                for widget in list(self.grid_frame.winfo_children()):
+                    try:
+                        widget.destroy()
+                    except Exception:
+                        try:
+                            widget.grid_forget()
+                        except Exception:
+                            pass
+
+            # Reset referencias a botones
+            try:
+                self.grid_buttons = []
+            except Exception:
+                pass
+        except Exception:
+            try:
+                logger.exception('Error en clear_grid')
+            except Exception:
+                pass
 
 
 __all__ = ["TpvView", "ButtonFactory"]

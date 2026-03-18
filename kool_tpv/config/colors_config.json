@@ -460,6 +460,10 @@
       "line_tesoro": {
         "bg": "#1a2a1a",
         "text": "#FFD700"
+      },
+      "line_tesoro_visual": {
+        "bg": "#1a2a1a",
+        "text": "#FFD700"
       }
     },
     "buscar_overlay": {

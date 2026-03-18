@@ -38,6 +38,7 @@ class TicketCarrito(ctk.CTkFrame):
         parent, 
         carrito_service=None,
         keyboard_manager=None,
+        db=None,
         **kwargs
     ):
         # Cargar configs
@@ -62,6 +63,7 @@ class TicketCarrito(ctk.CTkFrame):
         # Guardar referencias externas
         self.carrito_service = carrito_service
         self.keyboard_manager = keyboard_manager
+        self.db = db
         # Payment controller activo
         self.active_payment_controller = None
         self.active_payment_type = None
@@ -309,7 +311,7 @@ class TicketCarrito(ctk.CTkFrame):
                 image=self._varita_icon,
                 text="",
                 style_key="mini_outline_clientes",
-                command=None
+                command=self._on_varita_click
             )
             self.varita_button.pack()
         except Exception:
@@ -642,6 +644,41 @@ class TicketCarrito(ctk.CTkFrame):
         except Exception:
             logger.exception("Error quitando cliente del carrito")
 
+    def _on_varita_click(self):
+        try:
+            from kool_tpv.modulos.tpv.actions.canjear_tesoro import CanjearTesoroAction
+            from kool_tpv.modulos.clientes.fidelizacion_service import FidelizacionService
+
+            fidelizacion_service = FidelizacionService(self.db)
+
+            action = CanjearTesoroAction(
+                view=self,
+                carrito_service=self.carrito_service,
+                fidelizacion_service=fidelizacion_service
+            )
+
+            action.ejecutar()
+
+        except Exception:
+            import logging
+            logging.exception("Error ejecutando CanjearTesoroAction")
+
+    def _remove_tesoro_visual(self):
+        """Eliminar visualmente el canje: limpiar puntos y refrescar UI."""
+        try:
+            from decimal import Decimal
+            if self.carrito_service:
+                try:
+                    self.carrito_service.set_puntos_canjeados(Decimal('0.00'))
+                except Exception:
+                    self.carrito_service.set_puntos_canjeados(0)
+            try:
+                self.update_carrito()
+            except Exception:
+                pass
+        except Exception:
+            logger.exception("Error en _remove_tesoro_visual")
+
     def update_totales(self, subtotal: float, total: float, desglose_iva: list = None):
         """Actualizar totales del footer con desglose de IVA.
 
@@ -734,6 +771,16 @@ class TicketCarrito(ctk.CTkFrame):
         except Exception:
             logger.exception("Error en _on_item_change")
 
+    def update_display(self):
+        """
+        Método de compatibilidad con implementación antigua.
+        Delegado al nuevo método update_carrito().
+        """
+        try:
+            self.update_carrito()
+        except Exception:
+            logger.exception("Error delegando update_display a update_carrito")
+
     def update_carrito(self):
         """Actualizar display del carrito manteniendo scroll."""
         try:
@@ -762,6 +809,32 @@ class TicketCarrito(ctk.CTkFrame):
                     item['total'] = item.get('total_linea', 0.0) # Asegurar que el item tenga el campo 'total' para mostrar en la lista
                     self.carrito_nav_list.add_item(item)
 
+                print("DEBUG update_carrito llamado")
+                try:
+                    print("DEBUG puntos_canjeados:", self.carrito_service.get_puntos_canjeados())
+                    print("DEBUG update_carrito instance:", id(self.carrito_service))
+                    puntos = self.carrito_service.get_puntos_canjeados()
+                    # Añadir fila visual de canje SOLO si no hay una línea 'tesoro' real
+                    try:
+                        has_tesoro = any(str(it.get('line_tipo', '')).lower() == 'tesoro' for it in items)
+                    except Exception:
+                        has_tesoro = False
+                    from decimal import Decimal
+                    if not has_tesoro and puntos and Decimal(str(puntos)) > Decimal('0'):
+                        self.carrito_nav_list.add_item({
+                            "id": "__tesoro_visual__",
+                            "nombre": ">> TESORO CANJEADO <<",
+                            "cantidad": "",
+                            "pvp": "",
+                            "total": -float(puntos),
+                            "line_tipo": "tesoro_visual",
+                            "visual": True,
+                            "on_remove": self._remove_tesoro_visual
+                        })
+                except Exception:
+                    import logging
+                    logging.exception("Error añadiendo línea visual de canje")
+
                 # Restaurar scroll (volver a donde estaba)
                 try:
                     self.carrito_nav_list._parent_canvas.yview_moveto(scroll_pos)
@@ -784,6 +857,33 @@ class TicketCarrito(ctk.CTkFrame):
                         self.active_payment_controller.set_total(total)
                     except Exception:
                         logger.exception("Error actualizando total en payment controller")
+
+            # --- Restaurar selección y teclado ---
+            try:
+                if hasattr(self, "carrito_nav_list") and self.carrito_nav_list.rows_data:
+                    # Seleccionar primera fila
+                    try:
+                        self.carrito_nav_list._select_row(0)
+                    except Exception:
+                        pass
+
+                    # Dar foco visual
+                    try:
+                        self.carrito_nav_list.focus_set()
+                    except Exception:
+                        pass
+
+                    # Registrar como lista activa en KeyboardManager
+                    try:
+                        if getattr(self.carrito_nav_list, "keyboard_manager", None):
+                            self.carrito_nav_list.keyboard_manager.set_active_list(
+                                self.carrito_nav_list
+                            )
+                    except Exception:
+                        pass
+            except Exception:
+                import logging
+                logging.exception("Error restaurando foco y navegación del carrito")
 
             # Forzar pintado inmediato para evitar negro
             self.update_idletasks()

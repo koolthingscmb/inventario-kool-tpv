@@ -17,12 +17,25 @@ class ClienteSubView(CTkFrame):
         self.header_frame.pack(side="top", fill="x", padx=20, pady=10)
         
         from kool_tpv.utils.factories.button_factory import ButtonFactory
-
         self.btn_editar = ButtonFactory.create_button(
             parent=self.header_frame,
             text="EDITAR",
             style_key="mini_outline_clientes",
             command=self._on_editar_cliente
+        )
+
+        from customtkinter import CTkEntry
+
+        self.search_entry = CTkEntry(
+            self.header_frame,
+            placeholder_text="Buscar cliente...",
+            width=300,
+        )
+        self.search_entry.pack(side="left", padx=10)
+
+        self.search_entry.bind(
+            "<KeyRelease>",
+            lambda e: self.search_list.set_search_text(self.search_entry.get())
         )
 
         self.btn_editar.pack(side="right", padx=10)

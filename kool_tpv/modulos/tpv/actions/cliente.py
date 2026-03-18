@@ -9,7 +9,7 @@ from typing import Any, Optional, Dict
 import logging
 
 from kool_tpv.base_datos.db_wrapper import Database
-from kool_tpv.modulos.clientes.ui_clientes import UIClientes
+from kool_tpv.modulos.tpv.subviews.cliente_subview import ClienteSubView
 
 
 class ClienteAction:
@@ -25,22 +25,26 @@ class ClienteAction:
         self.view = view
         self.db = db
         self.carrito_service = carrito_service
-        self._panel: Optional[UIClientes] = None
+        # No crear ni usar UIClientes aquí; ClienteSubView se mostrará cuando se ejecute
+        self._panel = None
 
     def ejecutar(self) -> None:
         """Mostrar el overlay de clientes. Reutiliza la instancia si ya existe."""
         try:
-            if self._panel is None:
-                self._panel = UIClientes(self.view, self.db, on_cliente_selected=self._on_cliente_selected)
-            else:
-                # Asegurar callback actualizado
-                self._panel.on_cliente_selected = self._on_cliente_selected
-
-            # Mostrar el panel (UIClientes.show maneja posicionamiento)
             try:
-                self._panel.show()
+                subview = ClienteSubView(
+                    parent=self.view.center_area,
+                    db=self.db,
+                    carrito_service=self.carrito_service,
+                    view=self.view
+                )
+                # Mostrar sub-vista usando el stack del view
+                try:
+                    self.view.push_subview(subview, "CLIENTE")
+                except Exception:
+                    logging.exception("ClienteAction: fallo mostrando ClienteSubView")
             except Exception:
-                logging.exception("ClienteAction: fallo mostrando panel de clientes")
+                logging.exception("ClienteAction: error creando ClienteSubView")
         except Exception:
             logging.exception("ClienteAction: error al ejecutar acción")
 

@@ -187,123 +187,10 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
         except Exception:
             pass
 
-        # Prepare ticket_text snapshot to save exact printed representation
+        # Prepare ticket_text snapshot placeholder: we will generate and store
+        # the final ticket text AFTER the DB commit so the generator reads the
+        # fully updated client and config from the database.
         ticket_text_snapshot = None
-        try:
-            if VentaTicketGenerator is not None:
-                try:
-                    # Load minimal ticket config (fallbacks)
-                    cfg = {
-                        'nombre_negocio': 'KOOL DREAMS',
-                        'direccion': 'C/ Ejemplo 123, Ciudad',
-                        'nif': 'NIF: 00000000A',
-                        'pie_texto': 'Gracias por su compra'
-                    }
-                    if db is not None:
-                        try:
-                            row = db.fetch_one("SELECT valor FROM configuracion WHERE clave = ?", ('ticket_nombre_negocio',))
-                            if row and row[0]:
-                                cfg['nombre_negocio'] = row[0]
-                        except Exception:
-                            pass
-                        try:
-                            row = db.fetch_one("SELECT valor FROM configuracion WHERE clave = ?", ('ticket_direccion',))
-                            if row and row[0]:
-                                cfg['direccion'] = row[0]
-                        except Exception:
-                            pass
-                        try:
-                            row = db.fetch_one("SELECT valor FROM configuracion WHERE clave = ?", ('ticket_nif',))
-                            if row and row[0]:
-                                cfg['nif'] = row[0]
-                        except Exception:
-                            pass
-                        try:
-                            row = db.fetch_one("SELECT valor FROM configuracion WHERE clave = ?", ('ticket_pie_texto',))
-                            if row and row[0]:
-                                cfg['pie_texto'] = row[0]
-                        except Exception:
-                            pass
-
-                    # Build ticket_data using available resumen and context
-                    fecha = created_at.split(' ')[0] if created_at else ''
-                    hora = created_at.split(' ')[1] if created_at and ' ' in created_at else ''
-                    ticket_data_for_text = {
-                        'num_ticket': num_ticket,
-                        'fecha': fecha,
-                        'hora': hora,
-                        'cajero': cajero,
-                        'subtotal': resumen.get('subtotal') if isinstance(resumen, dict) else 0,
-                        'iva_desglose': resumen.get('iva_desglose') if isinstance(resumen, dict) else {},
-                        'total': float(total),
-                        'forma_pago': forma_pago,
-                        'entregado': float(pagado) if pagado is not None else float(total),
-                        'cambio': float(cambio) if cambio is not None else 0.0,
-                        'importe_efectivo': float(importe_efectivo_val),
-                        'importe_tarjeta': float(importe_tarjeta_val),
-                        'descuento_euros': str(descuento_euros) if descuento_euros is not None else '0',
-                        'descuento_tipo': descuento_tipo,
-                        'descuento_valor': descuento_valor,
-                        'tesoro_data': {
-                            'gastado': float(puntos_gastados),
-                            'ganado': float(puntos_otorgar - puntos_restar),
-                            # Will be filled with real values below based on DB
-                            'acumulado': 0.0,
-                            'total': 0.0,
-                        }
-                    }
-
-                    # Minimal cliente_for_print and compute current/post-operation tesoro
-                    cliente_for_print = None
-                    current_tesoro = Decimal('0')
-                    tesoro_historico = Decimal('0')
-                    if cliente_id:
-                        try:
-                            crow = db.fetch_one('SELECT id, nombre, tesoro_total, tesoro_historico, id_nivel FROM clientes WHERE id = ?', (cliente_id,))
-                            if crow:
-                                cliente_for_print = {'id': crow[0], 'nombre': crow[1]}
-                                try:
-                                    current_tesoro = Decimal(str(crow[2] or 0))
-                                except Exception:
-                                    current_tesoro = Decimal('0')
-                                try:
-                                    tesoro_historico = Decimal(str(crow[3] or 0))
-                                except Exception:
-                                    tesoro_historico = Decimal('0')
-                                try:
-                                    if len(crow) > 4 and crow[4] is not None:
-                                        cliente_for_print['level_num'] = crow[4]
-                                except Exception:
-                                    pass
-                        except Exception:
-                            cliente_for_print = None
-
-                    # compute post-operation total: current + otorgar - (restar + gastados)
-                    try:
-                        total_after = (current_tesoro + puntos_otorgar - (puntos_restar + puntos_gastados)).quantize(Decimal('0.01'))
-                    except Exception:
-                        try:
-                            total_after = Decimal(str(current_tesoro + puntos_otorgar - (puntos_restar + puntos_gastados)))
-                        except Exception:
-                            total_after = Decimal('0')
-
-                    # inject real accumulated and total values into the ticket snapshot data
-                    try:
-                        ticket_data_for_text['tesoro_data']['acumulado'] = float(tesoro_historico)
-                        ticket_data_for_text['tesoro_data']['total'] = float(total_after)
-                    except Exception:
-                        pass
-
-                    vg = VentaTicketGenerator()
-                    # carrito_items is already in expected shape for generator
-                    try:
-                        ticket_text_snapshot = vg.generate(cfg, ticket_data_for_text, carrito_items, cliente_for_print)
-                    except Exception:
-                        ticket_text_snapshot = None
-                except Exception:
-                    ticket_text_snapshot = None
-        except Exception:
-            ticket_text_snapshot = None
 
         insert_ticket_q = (
             "INSERT INTO tickets (created_at, cajero, cliente, cliente_id, num_ticket, subtotal, forma_pago, total, pagado, cambio, importe_efectivo, importe_tarjeta, descuento_euros, descuento_tipo, descuento_valor, tesoro_ganado, tesoro_gastado, ticket_text) "
@@ -588,6 +475,33 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
 
         conn.commit()
         logging.info(f'Ticket guardado id={ticket_id} num_ticket={num_ticket}')
+
+        # After commit, regenerate the final ticket text using the full
+        # configuration loaded from DB and the updated cliente values, then
+        # persist it back to tickets.ticket_text so printing reads the same
+        # text that was saved.
+        try:
+            from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
+
+            try:
+                imp = ImpresoraService(db=db, imprimir_en_consola=False, modo_impresion='texto')
+                final_text = imp.generar_ticket_desde_id(ticket_id)
+            except Exception:
+                final_text = None
+
+            if final_text:
+                try:
+                    cur.execute('UPDATE tickets SET ticket_text = ? WHERE id = ?', (final_text, ticket_id))
+                    # Verificación temporal: leer y loggear si el snapshot fue guardado
+                    cur.execute("SELECT ticket_text FROM tickets WHERE id = ?", (ticket_id,))
+                    row = cur.fetchone()
+                    logging.info("VERIFICACIÓN SNAPSHOT GUARDADO: %s", bool(row and row[0]))
+                    conn.commit()
+                except Exception:
+                    logging.exception('Error guardando ticket_text final en tickets')
+        except Exception:
+            logging.exception('Error generando ticket_text final post-commit')
+
         return ticket_id, num_ticket
     except Exception:
         conn.rollback()

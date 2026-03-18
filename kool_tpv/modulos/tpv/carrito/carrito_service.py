@@ -204,7 +204,18 @@ class CarritoService:
             total += total_linea * sign
 
         puntos = self.get_puntos_canjeados()
-        total_after = total - puntos
+        # Si ya existe una línea de tipo 'tesoro' en los items,
+        # el descuento ya está representado en las líneas (total_linea negativo),
+        # por lo que NO debemos restar `puntos` de nuevo.
+        try:
+            has_tesoro = any(str(it.get('line_tipo', '')).lower() == 'tesoro' for it in self._items)
+        except Exception:
+            has_tesoro = False
+
+        if has_tesoro:
+            total_after = total
+        else:
+            total_after = total - puntos
         if total_after < Decimal('0.00'):
             total_after = Decimal('0.00')
         return total_after
