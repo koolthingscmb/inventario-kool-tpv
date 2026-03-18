@@ -16,8 +16,15 @@ class ClienteSubView(CTkFrame):
         self.header_frame = CTkFrame(self)
         self.header_frame.pack(side="top", fill="x", padx=20, pady=10)
         
-        # Placeholder para botón editar
-        self.btn_editar = CTkLabel(self.header_frame, text="EDITAR (placeholder)")
+        from kool_tpv.utils.factories.button_factory import ButtonFactory
+
+        self.btn_editar = ButtonFactory.create_button(
+            parent=self.header_frame,
+            text="EDITAR",
+            style_key="mini_outline_clientes",
+            command=self._on_editar_cliente
+        )
+
         self.btn_editar.pack(side="right", padx=10)
 
         # Área de lista (contenido principal)
@@ -86,6 +93,33 @@ class ClienteSubView(CTkFrame):
         except Exception:
             import logging
             logging.exception("Error asignando cliente al carrito")
+
+    def _on_editar_cliente(self):
+        try:
+            if not hasattr(self.search_list, "nav_list"):
+                return
+
+            selected = self.search_list.nav_list.get_selected_data()
+            if not selected:
+                return
+
+            cliente_id = selected.get("id")
+            if not cliente_id:
+                return
+
+            from kool_tpv.modulos.clientes.crear_cliente_ui import CrearClienteUI
+
+            editar_ui = CrearClienteUI(
+                parent=self.view.center_area,
+                db=self.db,
+                cliente_id=cliente_id
+            )
+
+            self.view.push_subview(editar_ui, "EDITAR")
+
+        except Exception:
+            import logging
+            logging.exception("Error abriendo edición cliente")
 
     def _buscar_clientes(self, texto):
         try:
