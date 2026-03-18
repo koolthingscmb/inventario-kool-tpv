@@ -51,6 +51,14 @@ class ClienteSubView(CTkFrame):
         self.keyboard_manager = root.keyboard_manager
         print("KeyboardManager en TPV:", self.keyboard_manager)
 
+        # Registrar handler de Power para esta sub-vista
+        try:
+            root = self.winfo_toplevel()
+            if hasattr(root, "register_power_handler"):
+                root.register_power_handler(self._handle_power, owner=self)
+        except Exception:
+            pass
+
         # Columnas para la NavList
         columns = [
             ("id", 60),
@@ -96,9 +104,6 @@ class ClienteSubView(CTkFrame):
 
     def _on_editar_cliente(self):
         try:
-            if not hasattr(self.search_list, "nav_list"):
-                return
-
             selected = self.search_list.nav_list.get_selected_data()
             if not selected:
                 return
@@ -112,10 +117,14 @@ class ClienteSubView(CTkFrame):
             editar_ui = CrearClienteUI(
                 parent=self.view.center_area,
                 db=self.db,
-                cliente_id=cliente_id
+                cliente_id=cliente_id,
+                module_name="clientes"
             )
 
-            self.view.push_subview(editar_ui, "EDITAR")
+            # IMPORTANTE: usar get_widget()
+            widget = editar_ui.get_widget()
+
+            self.view.push_subview(widget, "EDITAR")
 
         except Exception:
             import logging
@@ -140,5 +149,23 @@ class ClienteSubView(CTkFrame):
             }
         except Exception:
             return {}
+
+    def _handle_power(self):
+        try:
+            if self.view and hasattr(self.view, "pop_subview"):
+                self.view.pop_subview()
+                return True
+        except Exception:
+            pass
+        return False
+
+    def destroy(self):
+        try:
+            root = self.winfo_toplevel()
+            if hasattr(root, "unregister_power_handler"):
+                root.unregister_power_handler(owner=self)
+        except Exception:
+            pass
+        super().destroy()
 
     

@@ -1,3 +1,9 @@
+"""
+ARCHIVO ACTIVO DEL TPV.
+Cualquier desarrollo debe realizarse aquí.
+tpv_view_old.py está archivado en /archive.
+"""
+
 import customtkinter as ctk
 import json
 from pathlib import Path
@@ -88,6 +94,8 @@ class TpvView(ctk.CTkFrame):
 
         # Lista para referencias a botones del grid (requerido por button_action_mapper)
         self.grid_buttons = []
+        # Stack para sub-vistas dinámicas (push/pop views)
+        self._subview_stack = []
 
         # PANEL DE BÚSQUEDA (Con los datos pasados explícitamente)
         self.panel_buscar = BuscarArticuloPanel(
@@ -104,6 +112,14 @@ class TpvView(ctk.CTkFrame):
         except Exception:
             # No queremos que la vista deje de inicializarse si el controlador falla
             self.controller = None
+
+        # Registrar handler de power del TPV (prioriza pop de subviews)
+        try:
+            root = self.winfo_toplevel()
+            if hasattr(root, "register_power_handler"):
+                root.register_power_handler(self._handle_power, owner=self)
+        except Exception:
+            pass
 
         # Crear controlador (gestiona payment controllers, acciones y rebind)
 
@@ -125,7 +141,6 @@ class TpvView(ctk.CTkFrame):
             # preserve command mapping for buscar_articulo
             cmd_name = btn_data.get("command")
             cmd = self.panel_buscar.show if cmd_name == "buscar_articulo" else None
-
             btn = ButtonFactory.create_button(
                 parent=self.grid_frame,
                 text=btn_data.get("label", "???"),
@@ -137,5 +152,191 @@ class TpvView(ctk.CTkFrame):
             # Guardar referencia para mapper (lista de widgets, como espera el mapper)
             self.grid_buttons.append(btn)
 
+    
+
     def teardown(self):
         pass
+
+    def clear_grid(self):
+        """Eliminar todos los widgets del grid y resetear referencias."""
+        try:
+            if hasattr(self, 'grid_frame') and self.grid_frame is not None:
+                for widget in list(self.grid_frame.winfo_children()):
+                    try:
+                        widget.destroy()
+                    except Exception:
+                        try:
+                            widget.grid_forget()
+                        except Exception:
+                            pass
+
+            # Reset referencias a botones
+            try:
+                self.grid_buttons = []
+            except Exception:
+                pass
+        except Exception:
+            # No queremos que limpiar el grid lance excepciones
+            try:
+                import logging
+                logging.exception('Error en clear_grid')
+            except Exception:
+                pass
+
+    def push_subview(self, view_instance, title: str):
+        """Mostrar una sub-vista encima del grid (guardando en stack)."""
+        try:
+            # Ocultar vista actual si existe
+            if self._subview_stack:
+                current_view = self._subview_stack[-1]["view"]
+                try:
+                    current_view.pack_forget()
+                except Exception:
+                    pass
+            else:
+                # Si estamos en el grid base, ocultar el frame del grid completamente
+                try:
+                    self.grid_frame.pack_forget()
+                except Exception:
+                    pass
+
+            # Mostrar nueva vista
+            try:
+                view_instance.pack(fill="both", expand=True)
+            except Exception:
+                pass
+
+            self._subview_stack.append({"view": view_instance, "title": title})
+            try:
+                self._update_breadcrumb()
+            except Exception:
+                pass
+        except Exception:
+            try:
+                import logging
+                logging.exception('Error en push_subview')
+            except Exception:
+                pass
+
+    def pop_subview(self):
+        """Cerrar la sub-vista actual y mostrar la anterior (o el grid base)."""
+        try:
+            if not self._subview_stack:
+                return
+
+            # Destruir vista actual
+            current = self._subview_stack.pop()
+            try:
+                current["view"].destroy()
+            except Exception:
+                try:
+                    current["view"].pack_forget()
+                except Exception:
+                    pass
+
+            # Mostrar anterior
+            if self._subview_stack:
+                previous = self._subview_stack[-1]["view"]
+                try:
+                    previous.pack(fill="both", expand=True)
+                except Exception:
+                    pass
+            else:
+                # Volver al grid base: volver a mostrar el frame del grid y reconstruir botones
+                try:
+                    self.grid_frame.pack(side="top", fill="both", expand=True, padx=20, pady=20)
+                    self.clear_grid()
+                    self._build_grid_buttons()
+                    if hasattr(self, "controller") and self.controller:
+                        self.controller.rebind_buttons()
+                except Exception:
+                    pass
+
+            try:
+                self._update_breadcrumb()
+            except Exception:
+                pass
+        except Exception:
+            try:
+                import logging
+                logging.exception('Error en pop_subview')
+            except Exception:
+                pass
+
+    def _update_breadcrumb(self):
+        """Actualizar breadcrumb reflejando stack de sub-vistas."""
+        try:
+            parts = [("TPV", None)]
+            for item in self._subview_stack:
+                try:
+                    parts.append((item.get("title", ""), None))
+                except Exception:
+                    parts.append(("?", None))
+
+            try:
+                self.breadcrumb.update_parts(parts)
+            except Exception:
+                pass
+        except Exception:
+            try:
+                import logging
+                logging.exception('Error en _update_breadcrumb')
+            except Exception:
+                pass
+
+    def _on_power(self):
+        """Handler de power específico para TPV.
+
+        Prioriza cerrar sub-vistas apiladas (`_subview_stack`) llamando a
+        `pop_subview()` si existe alguna. Si no hay sub-vistas, intenta
+        limpiar `center_area` como comportamiento de fallback.
+        """
+        try:
+            # Si hay sub-vistas en el stack, cerramos la última y retornamos
+            if hasattr(self, '_subview_stack') and self._subview_stack:
+                try:
+                    self.pop_subview()
+                except Exception:
+                    pass
+                return True
+
+            # Fallback: si el área central tiene widgets, los removemos
+            if hasattr(self, 'center_area') and self.center_area.winfo_children():
+                try:
+                    for w in list(self.center_area.winfo_children()):
+                        try:
+                            w.destroy()
+                        except Exception:
+                            try:
+                                w.pack_forget()
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
+
+                try:
+                    # Actualizar breadcrumb si procede
+                    if hasattr(self, '_update_breadcrumb'):
+                        self._update_breadcrumb()
+                except Exception:
+                    pass
+
+                return True
+
+            return False
+        except Exception:
+            try:
+                import logging
+                logging.exception('Error en _on_power (TPV)')
+            except Exception:
+                pass
+            return False
+
+    def _handle_power(self):
+        if hasattr(self, "_subview_stack") and self._subview_stack:
+            try:
+                self.pop_subview()
+            except Exception:
+                pass
+            return True
+        return False
