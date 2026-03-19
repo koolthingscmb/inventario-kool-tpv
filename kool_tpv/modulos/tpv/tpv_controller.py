@@ -135,7 +135,8 @@ class TpvController:
         try:
             from kool_tpv.modulos.tpv.subviews.stock_subview import StockSubView
 
-            class _StockSubviewWrapper:
+            # Adapter object exposing show() so existing button mapper (_show_ui) works.
+            class _StockAdapter:
                 def __init__(self, parent, db, carrito_service, view):
                     self.parent = parent
                     self.db = db
@@ -143,32 +144,22 @@ class TpvController:
                     self.view = view
 
                 def show(self):
-                    subview = StockSubView(
-                        parent=self.parent,
-                        db=self.db,
-                        carrito_service=self.carrito_service,
-                        view=self.view
-                    )
-                    # Push using view API
                     try:
+                        subview = StockSubView(
+                            parent=self.parent,
+                            db=self.db,
+                            carrito_service=self.carrito_service,
+                            view=self.view
+                        )
+                        # push_subview is the navigation pattern used elsewhere
                         self.view.push_subview(subview, "STOCK")
                     except Exception:
-                        try:
-                            # fallback if view not set exactly
-                            self.view.master.push_subview(subview, "STOCK")
-                        except Exception:
-                            pass
+                        logger.exception('Error mostrando StockSubView via adapter')
 
-            # Exponer wrapper con método show() para compatibilidad con button_action_mapper
-            self._stock_ui = _StockSubviewWrapper(
-                parent=self.view.center_area,
-                db=self.db,
-                carrito_service=carrito_service,
-                view=self.view
-            )
-            logger.debug('StockSubView wrapper creado')
+            self._stock_ui = _StockAdapter(self.view.center_area, self.db, carrito_service, self.view)
+            logger.debug('StockSubView adapter creado')
         except Exception:
-            logger.exception('Error creando StockSubView')
+            logger.exception('Error creando StockSubView adapter')
             self._stock_ui = None
 
         # CierreUI
