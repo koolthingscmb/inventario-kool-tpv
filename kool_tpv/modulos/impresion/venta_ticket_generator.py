@@ -230,37 +230,47 @@ class VentaTicketGenerator(BaseTicketGenerator):
             if current:
                 name_lines.append(current)
 
-            # If name fits in a single line together with right_block, render on one line
-            single_line_space = self.WIDTH - len(prefix) - len(right_block) - 1
-            if single_line_space >= len(nome := (' '.join(words))):
-                # Single-line: prefix + name + padding + right_block
-                left_text = prefix + (nome)
-                pad = self.WIDTH - len(left_text) - len(right_block)
-                if pad < 1:
-                    pad = 1
-                line = left_text + (' ' * pad) + right_block
-                lines.append(line[: self.WIDTH])
-            else:
-                # Multi-line: first line with prefix + first name line
-                if name_lines:
-                    first = name_lines[0]
-                else:
-                    first = ''
-                lines.append((prefix + first)[: self.WIDTH])
+            # Render name lines first, then a final line that contains ONLY the prices
+            nome = ' '.join(words)
+            indent = ' ' * len(prefix)
 
-                # middle continuation lines (if any), indented to align with name start
-                indent = ' ' * len(prefix)
-                for mid in name_lines[1:-1]:
-                    lines.append((indent + mid)[: self.WIDTH])
-
-                # last line: indent + last name fragment + padding + right_block
-                last_name = name_lines[-1] if name_lines else ''
-                left_last = indent + last_name
-                pad_last = self.WIDTH - len(left_last) - len(right_block)
+            # If name fits on a single line width (prefix + name <= available width),
+            # print the name on one line and prices on a separate line.
+            if len(prefix) + len(nome) <= self.WIDTH:
+                lines.append((prefix + nome)[: self.WIDTH])
+                pad_last = self.WIDTH - len(indent) - len(right_block)
                 if pad_last < 1:
                     pad_last = 1
-                last_line = left_last + (' ' * pad_last) + right_block
+                last_line = indent + (' ' * pad_last) + right_block
                 lines.append(last_line[: self.WIDTH])
+            else:
+                # Multi-line name: distribute words into name_lines (already computed)
+                if name_lines:
+                    # First line with prefix
+                    lines.append((prefix + name_lines[0])[: self.WIDTH])
+
+                    # Middle lines (if any)
+                    for mid in name_lines[1:-1]:
+                        lines.append((indent + mid)[: self.WIDTH])
+
+                    # Penultimate line: last fragment of name (if there are multiple fragments)
+                    if len(name_lines) > 1:
+                        lines.append((indent + name_lines[-1])[: self.WIDTH])
+
+                    # Final prices line (only prices, aligned right)
+                    pad_last = self.WIDTH - len(indent) - len(right_block)
+                    if pad_last < 1:
+                        pad_last = 1
+                    last_line = indent + (' ' * pad_last) + right_block
+                    lines.append(last_line[: self.WIDTH])
+                else:
+                    # Fallback: show prefix then prices
+                    lines.append((prefix)[: self.WIDTH])
+                    pad_last = self.WIDTH - len(indent) - len(right_block)
+                    if pad_last < 1:
+                        pad_last = 1
+                    last_line = indent + (' ' * pad_last) + right_block
+                    lines.append(last_line[: self.WIDTH])
 
         # Línea de descuento (si existe) - debe mostrarse antes del canje
         try:
@@ -290,8 +300,8 @@ class VentaTicketGenerator(BaseTicketGenerator):
         try:
             if Decimal(str(tesoro_gastado)) > 0:
                 val_s = f"-{self._format_currency(tesoro_gastado)}"
-                # Alineamos '>> CANJE PUNTOS' a la izquierda y el valor a la derecha
-                line = ">> CANJE PUNTOS".ljust(self.WIDTH - len(val_s)) + val_s
+                # Alineamos '>> TESORO CANJEADO <<' a la izquierda y el valor a la derecha
+                line = ">> TESORO CANJEADO <<".ljust(self.WIDTH - len(val_s)) + val_s
                 lines.append(line)
         except Exception:
             pass

@@ -26,6 +26,7 @@ class SearchablePaginatedNavList(ctk.CTkFrame):
         page_limit: int = 50,
         on_double_click: Optional[Callable[[dict], None]] = None,
         keyboard_manager=None,
+        layout_config: Optional[dict] = None,
         **kwargs,
     ):
         super().__init__(parent, **kwargs)
@@ -54,6 +55,15 @@ class SearchablePaginatedNavList(ctk.CTkFrame):
             module_name=self.module_name or '',
             keyboard_manager=self.keyboard_manager,
         )
+
+        # Apply optional layout_config (e.g., wraplength) to the internal NavList
+        try:
+            if layout_config and isinstance(layout_config, dict):
+                wrap = layout_config.get('wraplength')
+                if wrap is not None:
+                    self.nav_list.wraplength = wrap
+        except Exception:
+            pass
         self.nav_list.pack(fill="both", expand=True, padx=6, pady=(0, 6))
 
         # Canvas reference used for scroll detection (evaluated in periodic check)

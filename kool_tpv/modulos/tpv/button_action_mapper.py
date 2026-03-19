@@ -18,7 +18,7 @@ BUTTON_ACTIONS: Dict[str, Callable[[Any], None]] = {
     'CAJERO': lambda view: _execute_action(view, '_cajero_action', 'ejecutar'),
     'COBRAR': lambda view: _activate_payment(view, 'efectivo'),
     'CASH': lambda view: _activate_payment(view, 'efectivo'),
-    'STOCK': lambda view: _show_ui(view, '_stock_ui'),
+    'STOCK': lambda view: _show_stock(view),
     'CIERRE': lambda view: _show_ui(view, '_cierre_ui'),
     'CIERRES': lambda view: _show_ui(view, '_cierre_ui'),
     'TICKETS': lambda view: _open_tickets_guarded(view),
@@ -196,6 +196,48 @@ def _toggle_print(view):
         logger.warning('toggle_print no disponible en view ni en su contenedor')
     except Exception:
         logger.exception('Error invocando toggle_print')
+
+
+def _show_stock(view):
+    """Mostrar StockSubView: recrear si la instancia previa fue destruida."""
+    try:
+        stock_ui = getattr(view, '_stock_ui', None)
+
+        exists = False
+        try:
+            if stock_ui and getattr(stock_ui, 'winfo_exists', None):
+                exists = bool(stock_ui.winfo_exists())
+        except Exception:
+            exists = False
+
+        if not stock_ui or not exists:
+            try:
+                from kool_tpv.modulos.tpv.subviews.stock_subview import StockSubView
+                carrito_service = getattr(view, 'carrito_service', None)
+                db = getattr(view, 'db', None)
+                parent = getattr(view, 'center_area', view)
+
+                stock_ui = StockSubView(parent=parent, db=db, carrito_service=carrito_service, view=view)
+
+                try:
+                    view._stock_ui = stock_ui
+                    if getattr(view, 'controller', None):
+                        try:
+                            view.controller._stock_ui = stock_ui
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+            except Exception:
+                logger.exception('Error creando StockSubView dinámicamente')
+                return
+
+        try:
+            view.push_subview(stock_ui, "STOCK")
+        except Exception:
+            logger.exception('Error mostrando StockSubView')
+    except Exception:
+        logger.exception('Error en _show_stock')
 
 
 def _attempt_devolucion(view):

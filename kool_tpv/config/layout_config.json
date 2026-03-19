@@ -58,7 +58,8 @@
     },
     "nav_list": {
       "row_height": 35,
-      "header_height": 40
+      "header_height": 40,
+      "wraplength": 180
     },
     "print_on_button": {
       "height": 28

@@ -74,6 +74,7 @@ class ProductoService:
                 p.stock_actual,
                 c.nombre AS categoria_nombre,
                 t.nombre AS tipo_nombre,
+                COALESCE((SELECT SUM(tl.cantidad) FROM ticket_lines tl WHERE tl.sku = p.sku), 0) AS ventas,
                 COALESCE(pr.pvp, 0.0) AS pvp,
                 COALESCE(p.tipo_iva, 21) AS tipo_iva
             FROM productos p
@@ -95,8 +96,9 @@ class ProductoService:
                     'stock_actual': r[2] or 0,
                     'categoria': r[3] or 'Sin categoría',
                     'tipo': r[4] or 'Sin tipo',
-                    'pvp': str(r[5]) if r[5] is not None else '0.00',
-                    'tipo_iva': int(r[6] or 21)
+                    'ventas': int(r[5] or 0),
+                    'pvp': str(r[6]) if r[6] is not None else '0.00',
+                    'tipo_iva': int(r[7] or 21)
                 })
 
             return productos

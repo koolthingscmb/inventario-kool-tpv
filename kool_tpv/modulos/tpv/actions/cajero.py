@@ -9,7 +9,7 @@ from typing import Dict, List, Optional
 from kool_tpv.utils.custom_dialog import show_warning, show_password_dialog
 from kool_tpv.utils.auth_service import AuthService
 from kool_tpv.base_datos.db_wrapper import Database
-from kool_tpv.modulos.tpv.ui.cajero_ui import UICajero
+from kool_tpv.modulos.tpv.subviews.cajero_subview import CajeroSubView
 
 
 class CajeroAction:
@@ -29,17 +29,15 @@ class CajeroAction:
             self.auth_service = None
 
     def ejecutar(self) -> None:
-        """Mostrar UI de selección de cajero."""
-        try:
-            # Crear y mostrar overlay
-            overlay = UICajero(
-                self.view,
-                self.db,
-                on_selection_callback=self._on_cajero_selected
-            )
-            overlay.show()
-        except Exception:
-            logging.exception('Error ejecutando CajeroAction')
+        from kool_tpv.modulos.tpv.subviews.cajero_subview import CajeroSubView
+
+        subview = CajeroSubView(
+            parent=self.view.center_area,
+            db=self.db,
+            carrito_service=self.view.carrito_service,
+            view=self.view
+        )
+        self.view.push_subview(subview, "CAJERO")
 
     def obtener_cajeros(self) -> List[Dict]:
         """Obtener lista de cajeros desde tabla usuarios.
@@ -127,22 +125,36 @@ class CajeroAction:
         try:
             nombre = cajero_data.get("nombre", "")
 
-            # Guardar en TpvView
-            if self.view is not None:
-                setattr(self.view, "cajero_nombre", nombre)
-                setattr(self.view, "cajero_id", cajero_data.get("id"))
-                setattr(self.view, "cajero_rol", cajero_data.get("rol"))
+            # Guardar cajero activamente SOLO en el CarritoService
+            try:
+                carrito_service = getattr(self.view, 'carrito_service', None)
+                if carrito_service and getattr(carrito_service, 'set_cajero', None):
+                    carrito_service.set_cajero({
+                        'nombre': nombre,
+                        'id': cajero_data.get('id'),
+                        'rol': cajero_data.get('rol')
+                    })
+            except Exception:
+                logging.exception('Error guardando cajero en CarritoService')
 
-            # Forzar actualización del visor inmediatamente
+            # Actualizar visualmente el widget de ticket si existe
+            try:
+                if self.view is not None and getattr(self.view, 'ticket_widget', None):
+                    try:
+                        self.view.ticket_widget.update_cajero(nombre)
+                    except Exception:
+                        logging.exception('Error llamando ticket_widget.update_cajero')
+            except Exception:
+                logging.exception('Error actualizando widget de ticket tras autenticación')
+
+            # Forzar actualización del visor inmediatamente (mantener compatibilidad con vistas que implementen _update_clock)
             try:
                 if hasattr(self.view, '_update_clock') and callable(self.view._update_clock):
                     self.view._update_clock()
             except Exception:
                 logging.exception('Error actualizando visor tras autenticación')
 
-            logging.info(
-                f"Cajero autenticado: {nombre} (ID: {cajero_data.get('id')}, Rol: {cajero_data.get('rol')})"
-            )
+            logging.info(f"Cajero autenticado: {nombre} (ID: {cajero_data.get('id')}, Rol: {cajero_data.get('rol')})")
 
         except Exception:
             logging.exception("Error actualizando sesión de cajero")

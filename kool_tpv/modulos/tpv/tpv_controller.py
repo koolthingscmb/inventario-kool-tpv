@@ -135,31 +135,15 @@ class TpvController:
         try:
             from kool_tpv.modulos.tpv.subviews.stock_subview import StockSubView
 
-            # Adapter object exposing show() so existing button mapper (_show_ui) works.
-            class _StockAdapter:
-                def __init__(self, parent, db, carrito_service, view):
-                    self.parent = parent
-                    self.db = db
-                    self.carrito_service = carrito_service
-                    self.view = view
-
-                def show(self):
-                    try:
-                        subview = StockSubView(
-                            parent=self.parent,
-                            db=self.db,
-                            carrito_service=self.carrito_service,
-                            view=self.view
-                        )
-                        # push_subview is the navigation pattern used elsewhere
-                        self.view.push_subview(subview, "STOCK")
-                    except Exception:
-                        logger.exception('Error mostrando StockSubView via adapter')
-
-            self._stock_ui = _StockAdapter(self.view.center_area, self.db, carrito_service, self.view)
-            logger.debug('StockSubView adapter creado')
+            self._stock_ui = StockSubView(
+                parent=self.view.center_area,
+                db=self.db,
+                carrito_service=carrito_service,
+                view=self.view
+            )
+            logger.debug('StockSubView creado')
         except Exception:
-            logger.exception('Error creando StockSubView adapter')
+            logger.exception('Error creando StockSubView')
             self._stock_ui = None
 
         # CierreUI

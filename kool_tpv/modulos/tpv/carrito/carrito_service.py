@@ -16,7 +16,8 @@ class CarritoService:
 
     def __init__(self):
         self._items: List[Dict] = []
-        self._cajero_nombre: str = ""
+        # _cajero will store a dict {'nombre': str, 'id': int, 'rol': str} or None
+        self._cajero = None
         # cliente actual asociado al carrito (puede contener id, nombre, etc.)
         self._cliente: Optional[Dict] = None
         self._forma_pago: str = ""
@@ -344,10 +345,21 @@ class CarritoService:
             return False
 
     def set_cajero(self, nombre_cajero: str) -> None:
-        self._cajero_nombre = nombre_cajero
+        try:
+            # Allow passing either a dict {'nombre', 'id', 'rol'} or a name string
+            if isinstance(nombre_cajero, dict):
+                self._cajero = nombre_cajero.copy()
+            else:
+                # legacy: only name provided
+                self._cajero = {'nombre': nombre_cajero, 'id': None, 'rol': None}
+        except Exception:
+            self._cajero = {'nombre': nombre_cajero, 'id': None, 'rol': None}
 
-    def get_cajero(self) -> str:
-        return self._cajero_nombre
+    def get_cajero(self):
+        try:
+            return None if not self._cajero else self._cajero.copy()
+        except Exception:
+            return None
 
     def set_cliente(self, cliente_data: Dict) -> None:
         """Asignar cliente al carrito. `cliente_data` puede contener al menos `id` y `nombre`."""
