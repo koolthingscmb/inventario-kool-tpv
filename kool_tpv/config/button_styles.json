@@ -391,6 +391,30 @@
     "font_size": 13
   }
 ,
+  "cajero_chip": {
+    "type": "outline",
+    "bg_token": "black_base",
+    "text_token": "orange_config",
+    "border_token": "orange_config",
+    "hover_token": "orange_config",
+    "height": 200,
+    "corner_radius": 24,
+    "border_width": 4,
+    "font_size": 52
+  },
+
+  "cajero_chip_selected": {
+    "type": "solid",
+    "bg_token": "black_base",
+    "text_token": "orange_config",
+    "border_token": "orange_config",
+    "hover_token": "orange_config",
+    "height": 200,
+    "corner_radius": 24,
+    "border_width": 0,
+    "font_size": 52
+  }
+,
   "mini_action": {
     "type": "solid",
     "bg_token": "blue_action",
