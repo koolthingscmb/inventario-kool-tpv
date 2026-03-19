@@ -131,21 +131,44 @@ class TpvController:
             logger.exception('Error creando DevolucionAction')
             self._devolucion_action = None
 
-        # StockUI
+        # StockSubView (replace StockUI with subview push)
         try:
-            from kool_tpv.modulos.tpv.actions.Stock.stock_ui import StockUI
+            from kool_tpv.modulos.tpv.subviews.stock_subview import StockSubView
 
-            def _on_producto_stock_selected(producto):
-                if carrito_service and producto:
-                    carrito_service.add_item(producto)
-                    ticket_carrito = getattr(self.view, 'ticket_carrito', None)
-                    if ticket_carrito:
-                        ticket_carrito.update_carrito()
+            class _StockSubviewWrapper:
+                def __init__(self, parent, db, carrito_service, view):
+                    self.parent = parent
+                    self.db = db
+                    self.carrito_service = carrito_service
+                    self.view = view
 
-            self._stock_ui = StockUI(self.view, self.db, on_selection_callback=_on_producto_stock_selected)
-            logger.debug('StockUI creado')
+                def show(self):
+                    subview = StockSubView(
+                        parent=self.parent,
+                        db=self.db,
+                        carrito_service=self.carrito_service,
+                        view=self.view
+                    )
+                    # Push using view API
+                    try:
+                        self.view.push_subview(subview, "STOCK")
+                    except Exception:
+                        try:
+                            # fallback if view not set exactly
+                            self.view.master.push_subview(subview, "STOCK")
+                        except Exception:
+                            pass
+
+            # Exponer wrapper con método show() para compatibilidad con button_action_mapper
+            self._stock_ui = _StockSubviewWrapper(
+                parent=self.view.center_area,
+                db=self.db,
+                carrito_service=carrito_service,
+                view=self.view
+            )
+            logger.debug('StockSubView wrapper creado')
         except Exception:
-            logger.exception('Error creando StockUI')
+            logger.exception('Error creando StockSubView')
             self._stock_ui = None
 
         # CierreUI
@@ -251,7 +274,8 @@ class TpvController:
                 'carrito_items': carrito_service.get_items(),
                 'resumen': carrito_service.get_resumen_financiero(),
                 'efectivo': efectivo,
-                'cajero': getattr(self.view, 'cajero_nombre', None),
+                # cajero will be obtained from CarritoService (must be present)
+                'cajero': None,
                 'cliente': carrito_service.get_cliente(),
                 'forma_pago': forma_pago,
                 'importe_efectivo': importe_efectivo or 0.0,
@@ -259,6 +283,27 @@ class TpvController:
                 'descuento_data': carrito_service.get_descuento(),
                 'carrito_service': carrito_service
             }
+
+            # Verificar que exista un cajero activo en el CarritoService
+            cajero_obj = None
+            try:
+                cajero_obj = carrito_service.get_cajero() if carrito_service else None
+            except Exception:
+                cajero_obj = None
+
+            if not cajero_obj:
+                show_error(
+                    self.view.container,
+                    'Sin cajero',
+                    'Debe autenticar un cajero antes de finalizar la venta.'
+                )
+                return
+
+            # Usar nombre del cajero para el ticket (save_ticket espera un nombre)
+            try:
+                ticket_data['cajero'] = cajero_obj.get('nombre') if isinstance(cajero_obj, dict) else str(cajero_obj)
+            except Exception:
+                ticket_data['cajero'] = None
 
             # Delegar a TpvService
             logger.info(f'Finalizando venta forma_pago={forma_pago}')
