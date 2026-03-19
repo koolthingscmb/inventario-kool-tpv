@@ -63,7 +63,15 @@ class CrearProductoUI:
 
         # Fila 1: ID (2 col block) | NOMBRE (6 col block)
         ctk.CTkLabel(self.general_frame, text="ID:", text_color=self.colors['text'], font=lbl_font).grid(row=0, column=0, sticky='w', padx=6, pady=6)
-        self.e_id = ctk.CTkEntry(self.general_frame, placeholder_text="ID (auto)", state='disabled', fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors.get('light', '#666666'), border_color=self.colors.get('border', self.colors.get('primary', COLOR_MATRIX)))
+        # Use a StringVar so we can react when ID is set/changed and refresh 'Tesoro'
+        try:
+            self.e_id_var = tk.StringVar(value='')
+        except Exception:
+            self.e_id_var = None
+        if self.e_id_var is not None:
+            self.e_id = ctk.CTkEntry(self.general_frame, textvariable=self.e_id_var, placeholder_text="ID (auto)", state='disabled', fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors.get('light', '#666666'), border_color=self.colors.get('border', self.colors.get('primary', COLOR_MATRIX)))
+        else:
+            self.e_id = ctk.CTkEntry(self.general_frame, placeholder_text="ID (auto)", state='disabled', fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors.get('light', '#666666'), border_color=self.colors.get('border', self.colors.get('primary', COLOR_MATRIX)))
         self.e_id.grid(row=0, column=1, columnspan=1, sticky='ew', padx=6, pady=6)
 
         ctk.CTkLabel(self.general_frame, text="NOMBRE:", text_color=self.colors['text'], font=lbl_font).grid(row=0, column=2, sticky='w', padx=6, pady=6)
@@ -139,16 +147,61 @@ class CrearProductoUI:
                 self.e_ventas = tk.Entry(self.general_frame)
         self.e_ventas.grid(row=6, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
 
-        ctk.CTkLabel(self.general_frame, text="ACTIVO:", text_color=self.colors['text'], font=lbl_font).grid(row=6, column=4, sticky='w', padx=6, pady=6)
         # Use a BooleanVar to track activo state
         self.chk_activo_var = tk.BooleanVar(value=True)
-        self.chk_activo = ctk.CTkCheckBox(self.general_frame, text='Producto activo', variable=self.chk_activo_var, fg_color=self.colors['secondary'], text_color=self.colors['secondary'])
-        # Marcado por defecto
+        # Place a small container in the same grid cell to hold the 'Activo' label and the checkbox
         try:
-            self.chk_activo_var.set(True)
+            self._activo_frame = ctk.CTkFrame(self.general_frame, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
+            self._activo_frame.grid(row=6, column=5, columnspan=2, sticky='w', padx=6, pady=6)
+            try:
+                ctk.CTkLabel(self._activo_frame, text='Activo', text_color=self.colors['text'], font=lbl_font).pack(side='left')
+            except Exception:
+                try:
+                    tk.Label(self._activo_frame, text='Activo').pack(side='left')
+                except Exception:
+                    pass
+            # Checkbox keeps its descriptive label
+            try:
+                self.chk_activo = ctk.CTkCheckBox(self._activo_frame, text='Producto activo', variable=self.chk_activo_var, fg_color=self.colors['secondary'], text_color=self.colors['secondary'])
+                self.chk_activo.pack(side='left', padx=(6, 0))
+            except Exception:
+                try:
+                    self.chk_activo = tk.Checkbutton(self._activo_frame, text='Producto activo', variable=self.chk_activo_var)
+                    self.chk_activo.pack(side='left', padx=(6, 0))
+                except Exception:
+                    pass
         except Exception:
-            pass
-        self.chk_activo.grid(row=6, column=5, columnspan=3, sticky='w', padx=6, pady=6)
+            # Fallback: place checkbox in grid and a separate label if frame creation fails
+            try:
+                ctk.CTkLabel(self.general_frame, text='Activo', text_color=self.colors['text'], font=lbl_font).grid(row=6, column=5, sticky='w', padx=6, pady=6)
+            except Exception:
+                try:
+                    tk.Label(self.general_frame, text='Activo').grid(row=6, column=5, sticky='w', padx=6, pady=6)
+                except Exception:
+                    pass
+            try:
+                self.chk_activo = ctk.CTkCheckBox(self.general_frame, text='Producto activo', variable=self.chk_activo_var, fg_color=self.colors['secondary'], text_color=self.colors['secondary'])
+                self.chk_activo.grid(row=6, column=6, columnspan=1, sticky='w', padx=6, pady=6)
+            except Exception:
+                try:
+                    self.chk_activo = tk.Checkbutton(self.general_frame, text='Producto activo', variable=self.chk_activo_var)
+                    self.chk_activo.grid(row=6, column=6, columnspan=1, sticky='w', padx=6, pady=6)
+                except Exception:
+                    pass
+
+        # Read-only 'Tesoro' label to the right
+        try:
+            self.lbl_tesoro_var = tk.StringVar(value='Tesoro: -')
+        except Exception:
+            self.lbl_tesoro_var = None
+        try:
+            if self.lbl_tesoro_var is not None:
+                self.lbl_tesoro = ctk.CTkLabel(self.general_frame, textvariable=self.lbl_tesoro_var, text_color=self.colors['text'], font=lbl_font)
+            else:
+                self.lbl_tesoro = ctk.CTkLabel(self.general_frame, text='Tesoro: -', text_color=self.colors['text'], font=lbl_font)
+        except Exception:
+            self.lbl_tesoro = tk.Label(self.general_frame, text='Tesoro: -')
+        self.lbl_tesoro.grid(row=6, column=7, sticky='w', padx=6, pady=6)
 
         # Fila 8: CÓDIGOS_DE_BARRAS (CSV separado por comas)
         ctk.CTkLabel(self.general_frame, text="CÓDIGOS_DE_BARRAS (CSV separado por comas):", text_color=self.colors['text'], font=lbl_font).grid(row=7, column=0, sticky='w', padx=6, pady=6, columnspan=8)
@@ -366,6 +419,25 @@ class CrearProductoUI:
                 logging.exception('Error cargando IVA options')
         except Exception:
             logging.exception('Error en _load_db_options')
+        # Refresh Tesoro display after loading options (will use global if no id set)
+        try:
+            # If we have an ID var, trace it to auto-refresh and call once now
+            if getattr(self, 'e_id_var', None) is not None:
+                try:
+                    # ensure trace only added once
+                    try:
+                        self.e_id_var.trace_vdelete('w', self._e_id_trace)
+                    except Exception:
+                        pass
+                    self._e_id_trace = self.e_id_var.trace_add('write', lambda *a: self._refresh_tesoro())
+                except Exception:
+                    pass
+            try:
+                self._refresh_tesoro()
+            except Exception:
+                pass
+        except Exception:
+            pass
 
     def _update_taxonomy_from_category(self):
         try:
@@ -668,6 +740,23 @@ class CrearProductoUI:
                 logging.exception('Error gestionando codigos de barras')
 
             conn.commit()
+            # refresh tesoro based on saved product id (prod_id may be new or existing)
+            try:
+                try:
+                    # set id var so refresh shows correct value
+                    if getattr(self, 'e_id_var', None) is not None:
+                        try:
+                            self.e_id_var.set(str(prod_id))
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+                try:
+                    self._refresh_tesoro()
+                except Exception:
+                    pass
+            except Exception:
+                pass
             try:
                 from kool_tpv.utils.custom_dialog import show_success
                 show_success(self.container, 'Guardado', 'Producto guardado correctamente')
@@ -757,6 +846,75 @@ class CrearProductoUI:
         except Exception:
             logging.exception('Error moviendo foco a Guardar')
         return 'break'
+
+    def _refresh_tesoro(self, *args):
+        try:
+            # Determine product id from entry var if present
+            pid = None
+            try:
+                if getattr(self, 'e_id_var', None) is not None:
+                    idtxt = (self.e_id_var.get() or '').strip()
+                    try:
+                        logging.info("TESORO DEBUG - e_id_var = %s", self.e_id_var.get())
+                    except Exception:
+                        logging.info("TESORO DEBUG - e_id_var = <error getting var>")
+                    if idtxt:
+                        try:
+                            pid = int(idtxt)
+                        except Exception:
+                            pid = None
+                    try:
+                        logging.info("TESORO DEBUG - pid = %s", pid)
+                    except Exception:
+                        logging.info("TESORO DEBUG - pid = <error computing pid>")
+            except Exception:
+                pid = None
+
+            # Default display
+            display = 'Tesoro: -'
+
+            if pid and getattr(self, 'db', None):
+                try:
+                    from kool_tpv.modulos.clientes.fidelizacion_service import FidelizacionService
+                    fs = FidelizacionService(self.db)
+                    cfg = fs.obtener_fidelizacion_producto(pid)
+                    if cfg:
+                        tipo = cfg.get('tipo', 'porcentaje')
+                        valor = cfg.get('valor')
+                        if tipo == 'fijo':
+                            display = f"Tesoro: {valor} €"
+                        else:
+                            display = f"Tesoro: {valor}%"
+                except Exception:
+                    try:
+                        from kool_tpv.base_datos.configuracion_service import ConfiguracionService
+                        cs = ConfiguracionService(self.db)
+                        gp = cs.get_fide_porcentaje_global()
+                        display = f"Tesoro: {gp}%"
+                    except Exception:
+                        display = 'Tesoro: -'
+            else:
+                # No id -> show global
+                try:
+                    from kool_tpv.base_datos.configuracion_service import ConfiguracionService
+                    cs = ConfiguracionService(self.db)
+                    gp = cs.get_fide_porcentaje_global()
+                    display = f"Tesoro: {gp}%"
+                except Exception:
+                    display = 'Tesoro: -'
+
+            try:
+                if getattr(self, 'lbl_tesoro_var', None) is not None:
+                    self.lbl_tesoro_var.set(display)
+                elif getattr(self, 'lbl_tesoro', None) is not None:
+                    try:
+                        self.lbl_tesoro.configure(text=display)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+        except Exception:
+            logging.exception('Error refrescando tesoro')
 
     def _on_sync(self):
         try:

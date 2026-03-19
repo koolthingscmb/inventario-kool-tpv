@@ -92,18 +92,7 @@ class VentaTicketGenerator(BaseTicketGenerator):
             logging.info(f"DEBUG GEN: header_key={header_key}, header_val={header_val}, bool={bool(header_val)}")
         except Exception:
             pass
-        if header_val:
-            try:
-                logging.info("DEBUG GEN: Usando _render_template")
-            except Exception:
-                pass
-            lines.extend(self._render_template(header_val, context))
-        else:
-            try:
-                logging.info("DEBUG GEN: Usando _format_header (FALLBACK)")
-            except Exception:
-                pass
-            lines.extend(self._format_header(config))
+
         if header_val:
             lines.extend(self._render_template(header_val, context))
         else:
@@ -116,14 +105,37 @@ class VentaTicketGenerator(BaseTicketGenerator):
             lines.append('FACTURA SIMPLIFICADA'.center(self.WIDTH))
         lines.append(self.DIVIDER)
 
-        info_line = f"{fecha} {hora} - {cajero} - Ticket: {num}"
-        if len(info_line) > self.WIDTH:
-            info_line = info_line[: self.WIDTH]
-        lines.append(info_line)
+        # Formato solicitado: dos líneas con alineación mixta
+        # Línea 1: {fecha} {hora} (izq) ... "CAJERO:" (der)
+        # Línea 2: "TICKET {num_ticket}" (izq) ... {nombre_cajero} (der)
+        fecha_hora = f"{fecha} {hora}".strip()
+        nombre_cajero = '' if ticket_data.get('cajero') is None else str(ticket_data.get('cajero'))
+        num_ticket = '' if ticket_data.get('num_ticket') is None else str(ticket_data.get('num_ticket'))
+
+        # Eliminar apariciones literales no deseadas
+        fecha_hora = fecha_hora.replace('- None -', '').strip()
+        nombre_cajero = nombre_cajero.replace('- None -', '').strip()
+        num_ticket = num_ticket.replace('- None -', '').strip()
+
+        right1 = 'CAJERO:'
+        left1 = fecha_hora
+        space1 = self.WIDTH - len(left1) - len(right1)
+        if space1 < 1:
+            space1 = 1
+        line1 = (left1 + (' ' * space1) + right1)[: self.WIDTH]
+
+        left2 = f"TICKET {num_ticket}".strip()
+        right2 = nombre_cajero
+        space2 = self.WIDTH - len(left2) - len(right2)
+        if space2 < 1:
+            space2 = 1
+        line2 = (left2 + (' ' * space2) + right2)[: self.WIDTH]
+
+        lines.append(line1)
+        lines.append(line2)
         lines.append(self.DIVIDER)
 
-        # Cuerpo
-        lines.append("Cant | Articulo               | PVP | Total")
+        # Cuerpo (cabecera de columnas eliminada intencionadamente)
 
         # Función para formatear cada linea de ítem respetando WIDTH
         for it in items or []:
@@ -171,23 +183,84 @@ class VentaTicketGenerator(BaseTicketGenerator):
             if line_is_devol:
                 pvp_display = f"-{pvp_s}"
                 total_display = f"-{total_s}"
-                left_part = f"-{cant_int}x {nombre_item}"
+                prefix = f"-{cant_int}x "
             else:
                 pvp_display = pvp_s
                 total_display = total_s
-                left_part = f"{cant_int}x {nombre_item}"
+                prefix = f"{cant_int}x "
 
-            right_part = f"{pvp_display} {total_display}"
+            # Bracketed unit price for final line
+            pvp_bracket = f"[{pvp_display}]"
 
-            # compute available space for left_part
-            space_for_left = self.WIDTH - len(right_part) - 1
-            if space_for_left < 0:
-                space_for_left = 0
-            if len(left_part) > space_for_left:
-                left_part = left_part[:space_for_left]
+            # Build right-side block (bracketed unit price + space + total)
+            right_block = f"{pvp_bracket} {total_display}".strip()
 
-            line = left_part.ljust(space_for_left) + ' ' + right_part
-            lines.append(line)
+            # Word-wrap product name without cutting words.
+            # Available width for name on wrapped lines (excluding prefix on first line):
+            name_width = self.WIDTH - len(prefix)
+            if name_width < 10:
+                name_width = max(10, self.WIDTH - len(prefix))
+
+            words = []
+            try:
+                # split preserving existing whitespace semantics
+                words = [w for w in str(nombre_item).split() if w is not None]
+            except Exception:
+                words = [str(nombre_item or '')]
+
+            # Greedy fill lines for the name (each line max length = name_width)
+            name_lines = []
+            current = ''
+            for w in words:
+                if not current:
+                    candidate = w
+                else:
+                    candidate = current + ' ' + w
+                if len(candidate) <= name_width:
+                    current = candidate
+                else:
+                    # flush current (may be empty if single word longer than width)
+                    if current:
+                        name_lines.append(current)
+                        current = w
+                    else:
+                        # single long word: place it on its own line (do not cut)
+                        name_lines.append(w)
+                        current = ''
+            if current:
+                name_lines.append(current)
+
+            # If name fits in a single line together with right_block, render on one line
+            single_line_space = self.WIDTH - len(prefix) - len(right_block) - 1
+            if single_line_space >= len(nome := (' '.join(words))):
+                # Single-line: prefix + name + padding + right_block
+                left_text = prefix + (nome)
+                pad = self.WIDTH - len(left_text) - len(right_block)
+                if pad < 1:
+                    pad = 1
+                line = left_text + (' ' * pad) + right_block
+                lines.append(line[: self.WIDTH])
+            else:
+                # Multi-line: first line with prefix + first name line
+                if name_lines:
+                    first = name_lines[0]
+                else:
+                    first = ''
+                lines.append((prefix + first)[: self.WIDTH])
+
+                # middle continuation lines (if any), indented to align with name start
+                indent = ' ' * len(prefix)
+                for mid in name_lines[1:-1]:
+                    lines.append((indent + mid)[: self.WIDTH])
+
+                # last line: indent + last name fragment + padding + right_block
+                last_name = name_lines[-1] if name_lines else ''
+                left_last = indent + last_name
+                pad_last = self.WIDTH - len(left_last) - len(right_block)
+                if pad_last < 1:
+                    pad_last = 1
+                last_line = left_last + (' ' * pad_last) + right_block
+                lines.append(last_line[: self.WIDTH])
 
         # Línea de descuento (si existe) - debe mostrarse antes del canje
         try:
@@ -246,11 +319,7 @@ class VentaTicketGenerator(BaseTicketGenerator):
         lines.append(self._format_line_lr("TOTAL:", self._format_currency(total)))
         lines.append(self.DOUBLE_DIVIDER)
 
-        # Tabla pago: 4 columnas ajustadas para WIDTH=42
-        col1_w, col2_w, col3_w, col4_w = 9, 10, 10, 10
-        header = f"{'Pago':<{col1_w}}|{'Total':<{col2_w}}|{'Entr.':<{col3_w}}|{'Dev.':<{col4_w}}"
-        lines.append(header[: self.WIDTH])
-
+        # Formato simplificado de pago (reemplaza la tabla antigua)
         forma = (ticket_data.get('forma_pago') or '').strip()
         entr = ticket_data.get('entregado', 0)
         dev = ticket_data.get('cambio', 0)
@@ -260,32 +329,33 @@ class VentaTicketGenerator(BaseTicketGenerator):
         def fmt(v):
             return self._format_currency(v)
 
-        # Para presentaciones de devolución ajustamos columnas Entr./Dev. (solo presentación)
-        if forma.lower() == 'mixto':
-            if is_devolucion:
-                # Efectivo: mostrar total negativo en Total y en Dev., Entr. = 0
-                l1 = f"{'Efectivo':<{col1_w}}|{fmt(importe_efectivo):>{col2_w}}|{fmt(0):>{col3_w}}|{fmt(importe_efectivo):>{col4_w}}"
-                lines.append(l1[: self.WIDTH])
-                # Tarjeta: idem
-                l2 = f"{'Tarjeta':<{col1_w}}|{fmt(importe_tarjeta):>{col2_w}}|{fmt(0):>{col3_w}}|{fmt(importe_tarjeta):>{col4_w}}"
-                lines.append(l2[: self.WIDTH])
-            else:
-                # Linea Efectivo
-                l1 = f"{'Efectivo':<{col1_w}}|{fmt(importe_efectivo):>{col2_w}}|{fmt(importe_efectivo):>{col3_w}}|{fmt(0):>{col4_w}}"
-                lines.append(l1[: self.WIDTH])
-                # Linea Tarjeta
-                l2 = f"{'Tarjeta':<{col1_w}}|{fmt(importe_tarjeta):>{col2_w}}|{fmt(importe_tarjeta):>{col3_w}}|{fmt(0):>{col4_w}}"
-                lines.append(l2[: self.WIDTH])
+        # 1) Siempre mostrar tipo de pago
+        tipo_line = f"Tipo de pago: {forma}"
+        lines.append(tipo_line[: self.WIDTH])
+
+        f_low = forma.lower()
+        # 2) Si es tarjeta o web: no mostrar más
+        if f_low in ('tarjeta', 'web'):
+            pass
+        # 3) Si es efectivo: mostrar Entregado / Cambio alineado
+        elif f_low in ('efectivo', 'cash'):
+            left = f"Entregado: {fmt(entr)}"
+            right = f"Cambio: {fmt(dev)}"
+            space = self.WIDTH - len(left) - len(right)
+            if space < 1:
+                space = 1
+            lines.append((left + (' ' * space) + right)[: self.WIDTH])
+        # 4) Si es mixto/multi: mostrar desglose efectivo / tarjeta
+        elif f_low in ('mixto', 'multi'):
+            left = f"Cash: {fmt(importe_efectivo)}"
+            right = f"Tarjeta: {fmt(importe_tarjeta)}"
+            space = self.WIDTH - len(left) - len(right)
+            if space < 1:
+                space = 1
+            lines.append((left + (' ' * space) + right)[: self.WIDTH])
         else:
-            # Single payment row
-            if is_devolucion:
-                display_entr = 0
-                display_dev = total
-            else:
-                display_entr = entr
-                display_dev = dev
-            row = f"{forma[:col1_w]:<{col1_w}}|{fmt(total):>{col2_w}}|{fmt(display_entr):>{col3_w}}|{fmt(display_dev):>{col4_w}}"
-            lines.append(row[: self.WIDTH])
+            # Otros: no añadir líneas adicionales
+            pass
 
         # Fidelización
         if cliente_data:

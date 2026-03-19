@@ -100,6 +100,15 @@ class CargarProductoUI:
             # Simple mappings
             try:
                 _set_entry(getattr(ui_instance, 'e_id', None), data.get('id'))
+                # Ensure bound StringVar for ID (if present) is updated so traces fire
+                try:
+                    if getattr(ui_instance, 'e_id_var', None) is not None and data.get('id') is not None:
+                        try:
+                            ui_instance.e_id_var.set(str(data.get('id')))
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
             except Exception:
                 pass
 
