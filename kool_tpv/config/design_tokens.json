@@ -1,0 +1,38 @@
+{
+  "base": {
+    "black_base": "#000000",
+    "black_soft": "#1a1a1a",
+    "dark_panel": "#222831",
+    "dark_sidebar": "#393E46"
+    
+  },
+  "neutral": {
+    "white_base": "#FFFFFF",
+    "gray_light": "#CCCCCC",
+    "gray_medium": "#666666"
+  },
+  "identity": {
+    "green_matrix": "#00FF00",
+    "yellow_sun": "#FFD700",
+    "blue_matrix": "#00A4DF",
+    "orange_config": "#FF9800",
+    "red_danger": "#FF0000",
+    "purple_special": "#9b59b6"
+  },
+  "tpv_search_product": {
+    "green_matrix_2": "#A6F76D",
+    "green_matrix_3": "#A9F731",
+    "green_matrix_4": "#BAD602",
+    "green_matrix_5": "#A9D13B"
+  },
+  "state": {
+    "green_success": "#2ecc71",
+    "blue_action": "#3498db",
+    "red_soft": "#e74c3c",
+    "orange_hover": "#e67e22",
+    "blue_hover_strong": "#1f5f8f",
+    "green_hover_strong": "#1e8449",
+    "purple_hover_strong": "#6c3483"
+    ,"yellow_hover_strong": "#b7950b"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "guardar": {"text": "GUARDAR", "style": "primary"},
+  "mostrar": {"text": "MOSTRAR", "style": "secondary"},
+  "sincronizar": {"text": "SINCRONIZAR", "style": "warning"},
+  "buscar_data": {"text": "BUSCAR DATA", "style": "warning"},
+  "cancelar": {"text": "CANCELAR", "style": "danger"},
+  "nuevo_limpiar": {"text": "NUEVO / LIMPIAR", "style": "secondary"},
+  "eliminar": {"text": "ELIMINAR", "style": "danger"},
+  "actualizar": {"text": "ACTUALIZAR", "style": "primary"},
+  "consultar_albaranes": {"text": "CONSULTAR ALBARANES", "style": "info"},
+  "mapeo_csv": {"text": "MAPEO CSV", "style": "special"},
+  "sumar_puntos": {"text": "SUMAR PUNTOS", "style": "warning", "state": "disabled"},
+  "tickets": {"text": "TICKETS", "style": "info"},
+  "comunicacion": {"text": "COMUNICACIÓN", "style": "special"},
+  "entrada_manual": {"text": "ENTRADA MANUAL", "style": "primary"},
+  "salida_manual": {"text": "SALIDA MANUAL", "style": "warning"},
+  "devoluciones": {"text": "DEVOLUCIONES", "style": "warning"},
+  "importar_csv": {"text": "IMPORTAR CSV", "style": "info"},
+  "imprimir": {"text": "IMPRIMIR", "style": "secondary"},
+  "exportar": {"text": "EXPORTAR", "style": "info"},
+  "nuevo_nivel": {"text": "NUEVO NIVEL", "style": "warning"}
+}

@@ -1,0 +1,236 @@
+clientes — Resumen
+
+- `busqueda_clientes_ui.py`:
+  Interfaz de búsqueda/selección de clientes; utilizada por TPV y otros módulos.
+
+- `clientes_tickets.py`:
+  Vista `ClientesTicketsUI` (leída completamente): lista temporal/filtrada de tickets
+  del cliente a la izquierda y visor a la derecha; filtros por fecha y producto;
+  soporta impresión/exportación (placeholders), navegación por teclado y selección.
+
+- `cliente_service.py` / `clientes_db.py`:
+  Lógica de negocio y DAO para clientes: CRUD, búsquedas y utilidades para datos de cliente.
+
+- `clientes_comunicacion.py`:
+  Vistas/handlers para comunicación con clientes (notificaciones, exportación).
+
+- Notas:
+  - `ClientesTicketsUI` reutiliza `NavList` y `PaginaConVisor`.
+  - Revisar dependencias con `configuracion_service` si se requiere formato de tickets.
+Resumen exhaustivo: módulo `kool_tpv/modulos/clientes`
+
+Este documento ofrece un resumen archivo por archivo del módulo `clientes`.
+
+1) `kool_tpv/modulos/clientes/__init__.py`
+- Propósito: paquete `clientes` (marcador). No contiene lógica activa.
+
+2) `kool_tpv/modulos/clientes/busqueda_clientes_ui.py`
+- Propósito: UI de búsqueda y listado paginado de clientes.
+- API/Componentes:
+  - `BusquedaClientesUI(parent, db, owner, module_name='clientes', keyboard_manager=None)` → componente con `get_widget()`.
+  - Internamente usa `ClienteService` para obtener clientes paginados, y `NavList` para renderizar filas.
+- Comportamiento clave:
+  - Entrada de búsqueda en tiempo real con debounce (KeyRelease → `_on_search`).
+  - Paginación infinita (_load_next_page) con `page_limit` y `offset`.
+  - Filtros simples: estado de tesoro (activo/inactivo).
+  - `_buscar_clientes_paginados` construye la consulta SQL con LIKE y JOIN a `niveles_fidelidad` para obtener etiqueta de nivel.
+  - Selección simple: single-click almacena `selected_cliente_id`, doble-click llama a `owner.show_editar_cliente`.
+- Notas de implementación:
+  - Robustez: uso de `try/except` amplio y fallback cuando `NavList` no está disponible.
+  - Devuelve valores numéricos convertidos (float/int) para el UI.
+- Recomendaciones: añadir tests de paginado y verificar comportamiento con `NavList`/fallback.
+
+3) `kool_tpv/modulos/clientes/cliente_service.py`
+- Propósito: capa de negocio para clientes; adapta `ClientesDB` y añade transformaciones ligeras.
+- API principal:
+  - `buscar_clientes(termino)` → lista simplificada (delegado a `ClientesDB.get_clientes`).
+  - `formatear_nivel(id_nivel)` → etiqueta legible consultando `niveles_fidelidad`.
+  - `get_cliente(cliente_id)` → dict completo del cliente (JOIN a `niveles_fidelidad`) con campos normalizados y conversiones numéricas.
+  - `save_cliente(...)` / `update_cliente(...)` → inserta/actualiza cliente usando `db.execute_query`.
+- Detalles:
+  - Usa `Database` wrapper para consultas (espera `row_factory` con nombres en `get_cliente`).
+  - Maneja valores faltantes con fallback y logs.
+- Recomendaciones: pruebas para `get_cliente` con niveles ausentes y validaciones de formato.
+
+4) `kool_tpv/modulos/clientes/clientes_comunicacion.py`
+- Propósito: vista placeholder para la funcionalidad de comunicación (mail/SMS/segmentación).
+- API:
+  - `ClientesComunicacionView(parent, db, owner, module_name='clientes', keyboard_manager=None)` con `get_widget()`.
+- Detalles:
+  - Implementación mínima: carga paleta de colores y muestra un label central.
+  - Diseñada para integrarse vía `set_central_content` desde `ClientesView`.
+- Recomendación: extender con envío masivo y selección de segmentos, respetando throttling y logs.
+
+5) `kool_tpv/modulos/clientes/clientes_db.py`
+- Propósito: DAO `ClientesDB` para acceso directo a la tabla `clientes`.
+- API:
+  - `get_clientes(filtro='')` → devuelve lista de dicts con claves `id`, `nombre`, `telefono`, `tesoro_total`, `id_nivel`, `fecha_alta`.
+- Detalles:
+  - Query SQL con LIKE en `nombre`, `dni`, `telefono` y orden por `COALESCE(tesoro_total,0) DESC`.
+  - Defensive coding: ignora filas mal formadas si el esquema cambia.
+- Recomendación: considerar retornar `sqlite3.Row` mapeado por nombres y/o reutilizar un util de mapeo fila→dict.
+
+6) `kool_tpv/modulos/clientes/clientes_tickets.py`
+- Propósito: UI para visualizar tickets de un cliente (visor + grid).
+- API/Componentes:
+  - `ClientesTicketsUI(parent, db, cliente_id, cliente_nombre='', keyboard_manager=None)` que hereda de `PaginaConVisor`.
+- Comportamiento clave:
+  - Construye header con filtros de fecha y buscador de productos; grid con `NavList` y visor derecho con `ticket_text`.
+  - `_cargar_tickets()` lee tickets agrupando `ticket_lines` para contar productos y cargar `ticket_text`.
+  - `_aplicar_filtros()` permite filtrar por rango de fechas y producto (ID o nombre parcial).
+  - Renderizado: usa `NavList` si disponible; fallback a filas manuales.
+  - Acciones: imprimir/exportar (placeholders), doble-click abre ficha cliente si disponible en ancestros.
+- Detalles de implementación:
+  - Interacción directa con `db.connection` (cursor + fetchall) para rendimiento en consultas complejas.
+  - Uso de `keyboard_manager` compartido si se pasa desde la App.
+  - Maneja selección y resaltado visual de filas.
+- Recomendaciones: pruebas para consultas y para la integración con el visor (ticket_text). Extraer la consulta SQL a un helper para test.
+
+7) `kool_tpv/modulos/clientes/clientes_tops_ui.py`
+- Propósito: UI para mostrar rankings/top de clientes (Top general y filtrado por producto/categoría/tipo/tesoro).
+- API/Componentes:
+  - `ClientesTopsUI(parent, db, owner=None, keyboard_manager=None)` con `get_widget()`.
+  - Usa `ClientesTopsService` para obtener datos backend.
+- Comportamiento clave:
+  - Header con filtros (categoría, tipo, producto) y modos de visualización por tesoro.
+  - `NavList` para mostrar resultados y footer con acciones (imprimir/exportar placeholders).
+  - Formatea campos numéricos y tesoro a 2 decimales para visualización.
+- Recomendaciones:
+  - Añadir controles para paginado si la consulta devuelve muchas filas.
+  - Validar performance de las consultas del servicio en bases de datos grandes.
+
+8) `kool_tpv/modulos/clientes/clientes_view.py`
+- Propósito: Orquestador del módulo `clientes` (similar a `AlmacenView`).
+- API/Comportamiento:
+  - Hereda `BaseModuleView`, expone `show_busqueda`, `show_tickets`, `show_tops`, `show_comunicacion`, `show_crear_cliente`, `show_editar_cliente`.
+  - Cada `show_*` importa perezosamente la UI correspondiente y usa `set_central_content`.
+  - Mantiene `breadcrumb_callbacks` para navegación clickeable.
+- Notas:
+  - Patrón coherente con otros módulos: importaciones lazy, try/except alrededor de instanciado.
+
+9) `kool_tpv/modulos/clientes/crear_cliente_ui.py`
+- Propósito: Ficha completa para crear/editar clientes con sección de `tesoro` (puntos) y botones de acción.
+- API/Comportamiento:
+  - `CrearClienteUI(parent, db=None, cliente_id=None, module_name='clientes')` → `get_widget()`.
+  - Formulario extenso con campos: nombre, dni, teléfono, email, dirección, ciudad, cp, país, fecha_nacimiento, tags, checkbox `tesoro`.
+  - Sección visual grande para `TESORO` con campos `tesoro_total`, `tesoro_ganado`, `tesoro_gastado`, `fecha_vencimiento` y nivel gráfico.
+  - Footer con botones generados desde `buttons_actions_config.json`: `guardar`, `sumar_puntos`, `tickets`, `comunicacion`.
+  - `_cargar_cliente()` rellena todo el formulario usando `ClienteService.get_cliente` y convierte/normaliza campos.
+  - `_on_guardar()` valida y llama a `ClienteService.save_cliente` o `update_cliente`; muestra diálogos de éxito/error.
+  - Funciones auxiliares: `_on_sumar_puntos` (placeholder), `_on_tickets` (abre `ClientesTicketsUI`), `_on_comunicacion` (placeholder), `_limpiar_formulario`.
+- Detalles:
+  - Carga imágenes y assets de forma robusta (busca carpeta `kool_tpv/assets/...`).
+  - Amplio manejo defensivo de excepciones y fallbacks para recursos que pueden faltar.
+  - Está diseñado tanto para creación como edición según `cliente_id`.
+- Recomendaciones:
+  - Extraer validaciones de formulario a util separado; agregar pruebas UI/headless para flujo guardar/editar.
+
+10) `kool_tpv/modulos/clientes/fidelizacion_service.py`
+- Propósito: lógica de cálculo de puntos (tesoro) y resolución de porcentajes/fidelización.
+- API:
+  - `obtener_porcentaje_producto(producto_id)` → Decimal (wrapper a `obtener_fidelizacion_producto`).
+  - `obtener_fidelizacion_producto(producto_id)` → dict {'tipo','valor'} con jerarquía producto → tipo → categoría → global.
+  - `calcular_puntos_ganados(items, puntos_canjeados=Decimal('0'))` → Decimal total, redondeado a 2 decimales.
+- Detalles:
+  - Usa `ConfiguracionService` para fallback global.
+  - Caching local por producto dentro de `calcular_puntos_ganados` para reducir queries.
+  - Soporta tipos `fijo` (puntos por unidad) y `porcentaje` (porcentaje del PVP).
+- Recomendaciones:
+  - Tests unitarios para las reglas de jerarquía y para escenarios con canje de puntos.
+
+11) `kool_tpv/modulos/clientes/services/clientes_tops_service.py`
+- Propósito: backend de consultas para rankings (tops) de clientes.
+- API estática: `get_top_clientes_general`, `get_top_por_producto`, `get_top_por_categoria`, `get_top_por_tipo`, `get_top_por_tesoro`, `get_top_ordenado_por_tesoro`, `get_top_filtrado`.
+- Detalles:
+  - Cada método ejecuta consultas SQL directas sobre `tickets`, `ticket_lines`, `clientes`, `productos` y devuelve listas normalizadas.
+  - `_rows_to_result` normaliza filas y añade campos de `tesoro` cuando están disponibles.
+- Recomendación: validar índices SQL necesarios para mantener rendimiento en consultas agregadas.
+
+12) `kool_tpv/modulos/clientes/ui_clientes.py`
+- Propósito: overlay reutilizable para selección/búsqueda de clientes (p. ej. desde TPV para asociar un cliente a la venta).
+- API/Comportamiento:
+  - `UIClientes(view_or_action_panel, db, on_cliente_selected=None, ui_config=None)`.
+  - Overlay con Treeview, búsqueda con debounce, paginado local y filtros por fecha.
+  - Callbacks: `_on_accept` y `on_cliente_selected_internal` devuelven un dict mínimo del cliente (`id`, `nombre`, `telefono`, `id_nivel`, `tesoro_total`).
+- Detalles:
+  - Construye su UI con `ttk.Treeview` y soporta doble-click/Enter para seleccionar.
+  - Gestiona posicionamiento del overlay respecto a `right_container` y coloca un botón de cierre global.
+  - Maneja parsing flexible de fechas y filtros por rango.
+- Recomendaciones: exponer método de test que devuelva la lista de items cargados para permitir pruebas headless.
+
+Observaciones transversales y recomendaciones generales del módulo `clientes`:
+- Patrón consistente: orquestadores (`*View`) que importan UIs en tiempo de ejecución, servicios ligeros que delegan a DAOs o al wrapper DB.
+- Transaccionalidad: la mayoría de operaciones de lectura usan `db.fetch_all/fetch_one` o `db.connection.cursor()`; las escrituras se hacen vía `db.execute_query` (autocommit). Para operaciones multi-step / críticas, preferir `Database.transaction()`.
+- Manejo de precisión: las UIs convierten a `float` para mostrar; la lógica de fidelización usa `Decimal` correctamente.
+- Robustez vs visibilidad: el código es defensivo con muchos `try/except`, lo que mantiene la UI estable pero puede enmascarar errores. Recomiendo aumentar cobertura de tests e introducir métricas/logs en entornos de staging.
+
+Siguientes pasos sugeridos:
+- ¿Quieres que escriba tests unitarios/integración para `ClienteService` y `FidelizacionService` usando `:memory:` y `db_init.initialize_database(':memory:')`?
+- Puedo desglosar aún más el `CrearClienteUI` o `ClientesTicketsUI` si quieres documentación por función/método.
+
+Fin del resumen del módulo `clientes`.
+Resumen del módulo: kool_tpv/modulos/clientes
+
+- File: kool_tpv/modulos/clientes/clientes_view.py
+  - `ClientesView`: Orquestador del módulo clientes (extiende `BaseModuleView`).
+    Define handlers para mostrar vistas: búsqueda de clientes, tickets por cliente,
+    tops y comunicación; actualiza breadcrumb y pasa `db` y `keyboard_manager`.
+
+- File: kool_tpv/modulos/clientes/cliente_service.py
+  - `ClienteService`: Capa de negocio que usa `ClientesDB` (DAO). Expones:
+    `buscar_clientes`, `get_cliente`, `save_cliente`, `update_cliente` y utilidades
+    como `formatear_nivel`. Realiza queries y mapea filas a diccionarios.
+
+- File: kool_tpv/modulos/clientes/clientes_tops_ui.py
+  - `ClientesTopsUI`: UI para mostrar rankings (TOPS) de clientes. Usa
+    `ClientesTopsService` para obtener datos y expone filtros (categoría, tipo,
+    producto, modos por "tesoro"). Presenta resultados en `NavList`.
+
+- File: kool_tpv/modulos/clientes/clientes_db.py
+  - `ClientesDB`: DAO con métodos como `get_clientes` (búsqueda LIKE
+    paginada/ordenada por `tesoro_total`). Abstrae consultas SQL hacia `clientes`.
+
+- File: kool_tpv/modulos/clientes/clientes_tickets.py
+  - `ClientesTicketsUI`: Vista de tickets de un cliente (pagina con visor). Implementa
+    filtros por fecha/producto, carga de tickets desde la BD, render en `NavList`
+    y visor de texto del ticket; incluye imprimir/exportar placeholders.
+
+- File: kool_tpv/modulos/clientes/clientes_comunicacion.py
+  - `ClientesComunicacionView`: Componente placeholder para funcionalidades de
+    comunicación (mensajería/newsletters). Expone `get_widget()` para montarse.
+
+- File: kool_tpv/modulos/clientes/__init__.py
+  - Inicializador de paquete (docstring breve). Marca el paquete `clientes`.
+
+- File: kool_tpv/modulos/clientes/ui_clientes.py
+  - `UIClientes`: Overlay de selección/búsqueda de clientes (Treeview + búsqueda,
+    paginación, selección y botones "Aceptar/Añadir"). Reusa `ClienteService`.
+
+- File: kool_tpv/modulos/clientes/fidelizacion_service.py
+  - `FidelizacionService`: Lógica de cálculo de puntos (Decimal), busca porcentaje
+    aplicable por jerarquía (tipo→categoría→config global) y calcula puntos ganados
+    por items del carrito teniendo en cuenta canjes.
+
+- File: kool_tpv/modulos/clientes/crear_cliente_ui.py
+  - `CrearClienteUI`: Formulario completo para crear/editar cliente (datos de
+    contacto, tesoro, nivel, iconos y visualización de métricas). Interactúa con
+    `ClienteService` y muestra campos avanzados (tesoro, nivel gráfico).
+
+- File: kool_tpv/modulos/clientes/busqueda_clientes_ui.py
+  - `BusquedaClientesUI`: Interfaz de búsqueda/paginación (clon adaptado de
+    `busqueda_ui.py`). Usa `ClienteService` para búsquedas paginadas y muestra
+    resultados en `NavList`, con filtrado por estado de fidelidad.
+
+- File: kool_tpv/modulos/clientes/services/clientes_tops_service.py
+  - `ClientesTopsService`: Backend con consultas para generar rankings (top
+    general, por producto/categoría/tipo o por tesoro). Expone `_rows_to_result`
+    para normalizar filas SQL a diccionarios usados por la UI.
+
+Notas:
+- Las UIs reutilizan loaders de configuración (colores, botones, fonts) y widgets
+  comunes como `NavList` y `SearchableCombo`.
+- La lógica de negocio (búsquedas, cálculos de fidelización, tops) está
+  separada en servicios/DAOs (`ClienteService`, `ClientesDB`, `FidelizacionService`,
+  `ClientesTopsService`).
+- Operaciones críticas de lectura en estas piezas usan `Database`/`db.connection`
+  directamente; los cambios persistentes pasan por servicios que usan `Database`.

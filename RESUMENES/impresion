@@ -1,0 +1,102 @@
+impresion — Resumen
+
+- Propósito: Módulo responsable de imprimir tickets, facturas o documentos.
+
+- Archivos clave:
+  - Vistas/handlers que preparan `ticket_text` y llaman a librerías de impresión
+    (escpos/debug_escpos wrappers presentes en workspace).
+  - Plantillas de impresión y adaptadores para impresoras térmicas.
+
+- Notas:
+  - Actualmente hay módulos `debug_escpos` y `debug_escpos_test` para pruebas.
+  - Validar drivers y conexiones USB/serial en la máquina objetivo.
+**Resumen del paquete**: `kool_tpv/modulos/tpv`
+
+Visión general
+- Contiene la interfaz principal del TPV, la lógica del carrito, controladores
+  para finalizar ventas y devoluciones, overlays/acciones de UI y las
+  integraciones necesarias con la capa de base de datos e impresión.
+
+Estructura y archivo por archivo (resumen breve)
+- `tpv_view.py` — Vista principal del Punto de Venta. Muestra la botonera
+  configurable, panel del carrito y visor de tickets; maneja bindings y
+  delega la lógica de negocio a `tpv_controller`.
+- `tpv_controller.py` — Orquestador entre UI y servicios: valida carrito,
+  calcula pagos, llama a `CarritoService` / `TicketService` / `ImpresoraService`
+  para persistir e imprimir, y maneja flujos de error/rollback.
+- `tpv_db.py` — Adaptaciones DB locales y helpers (placeholders en algunas
+  implementaciones). Provee funciones utilitarias para consultas específicas
+  del TPV cuando `TicketService` no es suficiente.
+- `tpv_service.py` — Servicio de alto nivel (algunas funciones son placeholders)
+  destinado a encapsular operaciones transaccionales del módulo TPV.
+
+Directorios clave
+- `carrito/`
+  - `carrito_service.py` — Lógica completa del carrito: añadir/quitar artículos,
+    calcular subtotal/IVA/total, aplicar descuentos y canje de puntos. Usa
+    `Decimal` para cálculos monetarios, maneja validaciones (cantidad, stock)
+    y produce estructura lista para persistencia.
+  - `carrito_ui.py` — Treeview + panel de totales, actualiza vista en respuesta
+    a eventos del `CarritoService`, integra botones de pago y de edición de líneas.
+
+- `actions/` — Acciones invocables desde la botonera (buscar producto, abrir
+  cajón, mostrar cliente, aplicar descuento, pago rápido). Cada acción
+  encapsula UI mínima y llama al controlador para efectos.
+
+- `ui/` (overlays) — Módulos de UI reutilizables: `UICajero`, `UIDescuento`,
+  `StockUI`, `VisorNegro` (visor de texto para tickets/informes), y overlays
+  de confirmación. Están diseñados para colocarse encima del carrito y usar
+  el mismo contenedor para evitar problemas de layout.
+
+- `devoluciones_service.py` — Lógica específica para procesar devoluciones:
+  validaciones, búsqueda de tickets originales, ajuste de stock y registro de
+  devoluciones con referencias a tickets originales.
+
+Flujos críticos
+- Finalizar venta (`on_finalize` / `tpv_controller.finalize`):
+  - Validaciones: integridad del carrito, pagos cubriendo total, bloqueos por
+    devoluciones parciales/errores.
+  - Dentro de una transacción (DB): persistir ticket (cabecera + líneas + pagos),
+    actualizar stock, prorratear descuentos y canjes, y crear registros de
+    fidelización/puntos.
+  - Post-persistencia: generar texto de ticket (`VentaTicketGenerator`) y llamar
+    a `ImpresoraService.imprimir(...)` según configuración (modo `texto` o `escpos`).
+
+- Impresión:
+  - Integración con `ImpresoraService` (desde `kool_tpv/modulos/impresion`).
+  - Soporta modo `texto` (simulación/log) y `escpos` (render bytes + adapter).
+  - Se respeta la configuración `printer_name`, `logo`, `qr_enabled` y ancho
+    de papel; la configuración se recarga desde la BD antes de imprimir.
+
+Calidad de código y prácticas observadas
+- Uso consistente de `Decimal` para evitar errores de punto flotante en dinero.
+- Logging razonable en puntos críticos (generación, impresión, persistencia).
+- UI y lógica están razonablemente separadas: controllers y servicios
+  encapsulan la lógica y la vista delega.
+- Hay placeholders: `tpv_service.py` y `tpv_db.py` contienen funciones
+  incompletas o marcadores; sería recomendable finalizar estos para centralizar
+  la lógica transaccional.
+
+Riesgos y puntos a mejorar
+- Transacciones: asegurarse de que persistencia de ticket + ajuste de stock
+  se ejecute en una única transacción atómica para evitar inconsistencias.
+- Impresión: mockear `win32print`/adapter en tests y añadir tests que verifiquen
+  secuencias ESC/POS generadas (incluir `debug_dump` en `EscPosRenderer`).
+- Resets/destructivos (si existen UI de reset): agregar confirmaciones fuertes
+  y logging/auditoría; idealmente que requieran un usuario con permisos.
+
+Recomendaciones de pruebas
+- Tests unitarios para `CarritoService`: añadir item, aplicar descuento,
+  prorrateo de impuestos, canje de puntos y cálculos de totales.
+- Tests de integración (DB en memoria) para `tpv_controller.finalize`: verificar
+  persistencia de ticket, ajuste de stock y registros de pagos en una transacción.
+- Tests de impresión: generar texto de ticket y comprobar que `EscPosRenderer`
+  produce encabezado `ESC @` y cambio de codepage (`ESC t 2`) y comando de corte.
+
+Notas finales
+- El módulo TPV está bien organizado para funcionalidades comunes del POS.
+- Para robustecer: completar los placeholders en `tpv_service`/`tpv_db`, agregar
+  tests de integración y estandarizar la gestión transaccional al nivel del
+  servicio para reducir la superficie de errores durante cobros e impresiones.
+
+Archivo generado automáticamente: resumen del paquete `kool_tpv/modulos/tpv`.

@@ -1,0 +1,572 @@
+"""BaseModuleView: plantilla base clonada de la barra lateral de `main.py`.
+
+Provee una estructura homogénea para los módulos (sidebar + zona central)
+para que los módulos como `almacen` reutilicen la misma estética.
+"""
+from pathlib import Path
+import json
+import logging
+import re
+import customtkinter as ctk
+
+from kool_tpv.utils.utils import SIDEBAR_WIDTH, COLOR_BG_TERMINAL, COLOR_BG_SIDEBAR, COLOR_MATRIX, FONT_TERMINAL
+from kool_tpv.utils.widgets.clickable_breadcrumb import ClickableBreadcrumb
+from kool_tpv.utils.factories.button_factory import ButtonFactory
+from kool_tpv.utils.config_loader import load_layout_config
+
+
+class BaseModuleView:
+    """Plantilla base con sidebar y zona central.
+
+    Uso mínimo:
+        view = BaseModuleView(root)
+        view.pack()  # si necesario
+"""
+
+    HOVER_COLOR = "#00A4DF"
+
+    def __init__(self, parent, config_section: str = None):
+        self.parent = parent
+        # Sidebar (izquierda)
+        self.sidebar = ctk.CTkFrame(parent, width=SIDEBAR_WIDTH, corner_radius=0, fg_color=COLOR_BG_SIDEBAR)
+        self.sidebar.pack(side="left", fill="y")
+        try:
+            self.sidebar.pack_propagate(False)
+        except Exception:
+            pass
+
+        # Top area for power button and optional header
+        try:
+            # Prefer reusing the application's floating power button if available
+            app_root = getattr(self, 'parent', None)
+            reused = False
+            try:
+                if app_root is not None and hasattr(app_root, 'power_floating_btn') and getattr(app_root, 'power_floating_btn') is not None:
+                    # Do not reparent the global button; keep a spacer in the sidebar
+                    self.power_button = app_root.power_floating_btn
+                    # Try to reserve the same visual space in the sidebar so layout remains consistent
+                    try:
+                        if hasattr(app_root, 'reserve_power_space'):
+                            spacer = app_root.reserve_power_space(self.sidebar)
+                            if spacer is not None:
+                                try:
+                                    children = list(self.sidebar.winfo_children())
+                                    if children:
+                                        spacer.pack(side='top', before=children[0])
+                                    else:
+                                        spacer.pack(side='top')
+                                except Exception:
+                                    try:
+                                        spacer.pack(side='top')
+                                    except Exception:
+                                        pass
+                    except Exception:
+                        pass
+                    # Ensure the floating container and button are on top and
+                    # visible when a module is opened.
+                    try:
+                        if hasattr(app_root, 'power_floating') and getattr(app_root, 'power_floating') is not None:
+                            try:
+                                app_root.power_floating.lift()
+                            except Exception:
+                                pass
+                        try:
+                            app_root.power_floating_btn.lift()
+                        except Exception:
+                            pass
+                        # Ensure the floating button delegates to central dispatcher
+                        try:
+                            if hasattr(app_root, '_dispatch_power'):
+                                app_root.power_floating_btn.configure(command=app_root._dispatch_power)
+                        except Exception:
+                            pass
+                    except Exception:
+                        pass
+
+                    reused = True
+            except Exception:
+                reused = False
+
+            # If we couldn't reuse the application's global power button,
+            # the application is expected to expose one. No local fallback
+            # is created here to avoid duplicated/global button instances.
+        except Exception:
+            logging.exception('Error creando botón power en BaseModuleView')
+
+        # Registrar handler de power en el root (si existe la API)
+        try:
+            app_root = getattr(self, 'parent', None)
+            if app_root is not None and hasattr(app_root, 'register_power_handler'):
+                try:
+                    app_root.register_power_handler(self._on_power, owner=self)
+                    logging.info('BaseModuleView: power handler registrado en root')
+                    # Re-configurar el botón local para delegar al dispatcher central
+                    try:
+                        if hasattr(app_root, '_dispatch_power') and self.power_button is not None:
+                            self.power_button.configure(command=app_root._dispatch_power)
+                    except Exception:
+                        pass
+                except Exception:
+                    logging.exception('BaseModuleView: error registrando power handler en root')
+        except Exception:
+            logging.exception('BaseModuleView: error comprobando registro power handler')
+
+        # Desregistrar handler automáticamente al destruir el sidebar
+        try:
+            def _on_destroy(event=None):
+                try:
+                    app = getattr(self, 'parent', None)
+                    if app is not None and hasattr(app, 'unregister_power_handler'):
+                        try:
+                            app.unregister_power_handler(owner=self)
+                            logging.info('BaseModuleView: power handler desregistrado en destroy')
+                        except Exception:
+                            logging.exception('BaseModuleView: error desregistrando power handler')
+                except Exception:
+                    pass
+
+            try:
+                self.sidebar.bind('<Destroy>', _on_destroy)
+            except Exception:
+                pass
+        except Exception:
+            logging.exception('BaseModuleView: error vinculando Destroy para desregistro')
+
+        # Container for menu buttons
+        self._menu_frame = ctk.CTkFrame(self.sidebar, fg_color='transparent')
+        try:
+            layout = load_layout_config() or {}
+            sidebar_layout = layout.get('modules', {}).get('sidebar', {})
+            top_offset = int(sidebar_layout.get('top_offset', 0) or 0)
+            self._menu_frame.pack(side='top', fill='y', expand=False, pady=(top_offset, 0))
+        except Exception:
+            # Fallback to original packing if config fails
+            try:
+                self._menu_frame.pack(side='top', fill='y', expand=False)
+            except Exception:
+                pass
+
+        # Load buttons from config file `buttons_menu.json` using provided section
+        try:
+            base = Path(__file__).resolve().parents[2]
+            cfg_file = base / 'config' / 'buttons_menu.json'
+            cfg = {}
+            if cfg_file.exists():
+                with cfg_file.open('r', encoding='utf-8') as fh:
+                    cfg = json.load(fh)
+            section = (config_section or 'almacen')
+            menu = cfg.get(section, {})
+            buttons = menu.get('buttons', []) if isinstance(menu, dict) else []
+        except Exception:
+            logging.exception('Error leyendo buttons_menu.json en BaseModuleView')
+            buttons = []
+
+        # Create menu buttons (use ButtonFactory + module style)
+        for b in buttons:
+            try:
+                lbl = b.get('label') or b.get('text') or 'BTN'
+                action = b.get('action')
+                # Conectar a método real si existe, sino placeholder
+                if action and hasattr(self, action):
+                    cmd = getattr(self, action)
+                    logging.info(f'Botón {lbl} conectado a método {action}')
+                else:
+                    cmd = (lambda name=action or lbl: logging.info(f'Menu action pendiente: {name}'))
+                    logging.warning(f'Botón {lbl}: método {action} no encontrado, usando placeholder')
+
+                # Use module-specific style key (falls back to section name)
+                style_key = f"module_{(config_section or 'modulo')}"
+
+                btn = ButtonFactory.create_button(
+                    parent=self._menu_frame,
+                    text=lbl,
+                    command=cmd,
+                    style_key=style_key
+                )
+
+                btn.pack(pady=14, padx=20, fill='x')
+            except Exception:
+                logging.exception('Error creando boton menu BaseModuleView')
+
+        # No 'VOLVER' button: the global power button will act as back inside modules.
+
+        # Footer
+        try:
+            footer = ctk.CTkLabel(self.sidebar, text="KOOL TPV V1.0", text_color="white", font=("Roboto-Regular", 18))
+            footer.pack(side='bottom', pady=10)
+        except Exception:
+            logging.exception('Error creando footer BaseModuleView')
+
+        # Zona central (derecha)
+        try:
+            # main container uses terminal background to ensure flicker-free dark UI
+            self.main_frame = ctk.CTkFrame(parent, fg_color=COLOR_BG_TERMINAL)
+            self.main_frame.pack(side='right', fill='both', expand=True)
+            # Add breadcrumb / ruta label at the top of central area (fixed)
+            try:
+                # Breadcrumb clickeable
+                # Preserve original config_section (lowercase key) for color lookup
+                self._module_key = (config_section or 'modulo')
+                self.module_name = (self._module_key or 'MODULO').upper()
+                self.breadcrumb = ClickableBreadcrumb(self.main_frame, module_name=self._module_key)
+                self.breadcrumb.pack(anchor='nw', fill='x', padx=12, pady=(8, 6))
+
+                # Inicializar con módulo base
+                self.breadcrumb.update_parts([
+                    ('SISTEMA_KOOL:', None),
+                    (self.module_name, None)
+                ])
+                # Callbacks por defecto para el breadcrumb (se pueden mezclar luego)
+                try:
+                    self.breadcrumb_callbacks = {}
+                except Exception:
+                    self.breadcrumb_callbacks = {}
+
+            except Exception:
+                logging.exception('Error creando breadcrumb en BaseModuleView')
+            # Alias usado por módulos: central_area (below the ruta label)
+            self.central_area = ctk.CTkFrame(self.main_frame, fg_color=COLOR_BG_TERMINAL)
+            self.central_area.pack(fill='both', expand=True)
+        except Exception:
+            logging.exception('Error creando main_frame BaseModuleView')
+
+        # Interceptar cierre de ventana desde X del sistema operativo
+        try:
+            top = parent.winfo_toplevel()
+            if top:
+                try:
+                    # Vincular WM_DELETE_WINDOW a _on_power (verifica cambios)
+                    top.protocol("WM_DELETE_WINDOW", self._on_power)
+                    logging.info('Protocolo WM_DELETE_WINDOW vinculado a _on_power')
+                except Exception:
+                    logging.exception('Error vinculando WM_DELETE_WINDOW')
+        except Exception:
+            logging.exception('Error configurando protocolo cierre ventana')
+
+    def set_central_content(self, content):
+        """Replace the central area content with `content`.
+
+        `content` can be:
+          - an object with a `pack(**kwargs)` method (e.g., CrearProductoUI instance),
+          - or an object exposing `get_widget()` that returns a widget/frame.
+
+        The method clears previous children in `central_area` before packing the new content.
+        """
+        try:
+            # Verificar cambios sin guardar ANTES de destruir UI actual
+            if not self._check_unsaved_changes():
+                return False
+            # If content corresponds to an existing child, avoid destroying it
+            candidate_widget = None
+            try:
+                if hasattr(content, 'get_widget') and callable(getattr(content, 'get_widget')):
+                    candidate_widget = content.get_widget()
+                elif hasattr(content, 'frame'):
+                    candidate_widget = getattr(content, 'frame')
+                elif hasattr(content, 'container'):
+                    candidate_widget = getattr(content, 'container')
+                else:
+                    candidate_widget = content
+            except Exception:
+                candidate_widget = content
+
+            # Clear existing children, but skip the candidate widget if it's already a child
+            for child in list(self.central_area.winfo_children()):
+                try:
+                    if candidate_widget is not None and child is candidate_widget:
+                        # skip destroying the widget we're about to insert
+                        continue
+                    child.destroy()
+                except Exception:
+                    try:
+                        if candidate_widget is not None and child is candidate_widget:
+                            continue
+                        child.pack_forget()
+                    except Exception:
+                        pass
+
+            # If content has get_widget(), use it
+            widget = None
+            if hasattr(content, 'get_widget') and callable(getattr(content, 'get_widget')):
+                widget = content.get_widget()
+            elif hasattr(content, 'frame'):
+                widget = getattr(content, 'frame')
+            elif hasattr(content, 'container'):
+                widget = getattr(content, 'container')
+
+            if widget is not None:
+                try:
+                    # Ensure widget exists before packing (it might have been destroyed)
+                    exists = True
+                    try:
+                        if hasattr(widget, 'winfo_exists'):
+                            exists = widget.winfo_exists()
+                    except Exception:
+                        exists = True
+                    if not exists:
+                        logging.warning('set_central_content: widget no existe, omitiendo pack')
+                        return
+                    widget.pack(fill='both', expand=True)
+
+                    # Attach reference to the original UI instance if different
+                    try:
+                        if widget is not content:
+                            try:
+                                setattr(widget, '_ui_owner', content)
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+
+                    # AUTO-ACTUALIZAR BREADCRUMB para widgets empaquetados
+                    try:
+                        breadcrumb_name = self._extract_breadcrumb_name(content)
+                        if breadcrumb_name:
+                            self.actualizar_ruta(breadcrumb_name, callbacks=getattr(self, 'breadcrumb_callbacks', None))
+                    except Exception:
+                        logging.exception('Error auto-actualizando breadcrumb')
+
+                    return True
+                except Exception:
+                    pass
+
+            # Otherwise, if content has pack, assume it will pack itself into the parent
+            if hasattr(content, 'pack') and callable(getattr(content, 'pack')):
+                try:
+                    # Ensure the content was created with central_area as parent; call pack to show
+                    content.pack(fill='both', expand=True)
+
+                    # If we packed an instance (not a raw widget), attach owner ref
+                    try:
+                        setattr(content, '_ui_owner', content)
+                    except Exception:
+                        pass
+
+                    # AUTO-ACTUALIZAR BREADCRUMB
+                    try:
+                        breadcrumb_name = self._extract_breadcrumb_name(content)
+                        if breadcrumb_name:
+                            self.actualizar_ruta(breadcrumb_name, callbacks=getattr(self, 'breadcrumb_callbacks', None))
+                    except Exception:
+                        logging.exception('Error auto-actualizando breadcrumb')
+
+                    return True
+                except Exception:
+                    logging.exception('Error al packear content en set_central_content')
+
+            # AUTO-ACTUALIZAR BREADCRUMB incluso si pack falla
+            try:
+                breadcrumb_name = self._extract_breadcrumb_name(content)
+                if breadcrumb_name:
+                    self.actualizar_ruta(breadcrumb_name, callbacks=getattr(self, 'breadcrumb_callbacks', None))
+            except Exception:
+                logging.exception('Error auto-actualizando breadcrumb')
+
+            # Guardar referencia a UI actual
+            try:
+                self._current_ui = content
+            except Exception:
+                pass
+
+            logging.info('set_central_content: content tipo no reconocido, intentando insert directo')
+        except Exception:
+            logging.exception('Error en set_central_content BaseModuleView')
+
+        # Retornar True si llegamos aquí (navegación completada)
+        return True
+
+    # Placeholder handlers que las subclases pueden sobrescribir
+    def _on_power(self):
+        """Gestionar botón Power: cerrar sub-vista o indicar al padre que cierre el módulo.
+
+        Returns:
+            bool: True si cerró sub-vista (no cerrar módulo), False si módulo debe cerrarse
+        """
+        try:
+            # 1. ¿Hay sub-vista abierta en central_area?
+            if self.central_area.winfo_children():
+                # Verificar cambios sin guardar
+                if not self._check_unsaved_changes():
+                    return True  # Usuario canceló, NO cerrar nada
+
+                # Destruir sub-vista
+                for widget in self.central_area.winfo_children():
+                    widget.destroy()
+
+                # Actualizar breadcrumb al nivel del módulo
+                try:
+                    base_module = (getattr(self, 'module_name', 'MODULO') or '').upper()
+                    self.actualizar_ruta(base_module)
+                except Exception:
+                    pass
+
+                return True  # Gestioné el Power (cerré sub-vista), NO cerrar módulo
+
+            # 2. Central_area vacío → Permitir que main.py cierre el módulo
+            return False  # No gestioné, puedes cerrarme
+
+        except Exception:
+            logging.exception('Error en _on_power')
+            return False
+
+    def actualizar_ruta(self, sub_seccion: str = None, callbacks: dict = None):
+        """Actualiza el texto de la ruta/breadcrumb mostrado arriba del área central.
+
+        Formato: SISTEMA_KOOL_TPV: / <MODULO> [ / <SUB_SECCION>]
+        """
+        try:
+            base_module = (getattr(self, 'module_name', 'MODULO') or '').upper()
+
+            # Mezclar callbacks nuevos con los existentes del objeto
+            try:
+                existing = getattr(self, 'breadcrumb_callbacks', {}) or {}
+            except Exception:
+                existing = {}
+            if callbacks:
+                try:
+                    # Merge: callbacks override existing keys
+                    merged = dict(existing)
+                    merged.update(callbacks)
+                    self.breadcrumb_callbacks = merged
+                except Exception:
+                    self.breadcrumb_callbacks = existing
+            else:
+                merged = existing
+
+            # Construir lista de partes. Hacer clicable el módulo base si se proporciona callback.
+            base_module_callback = None
+            try:
+                if merged and base_module in merged:
+                    base_module_callback = merged[base_module]
+            except Exception:
+                base_module_callback = None
+
+            parts_data = [('SISTEMA_KOOL:', None), (base_module, base_module_callback)]
+
+            if sub_seccion:
+                # Normalizar: eliminar módulo si está duplicado
+                s = sub_seccion.upper()
+                if s.startswith(base_module):
+                    s = s[len(base_module):].lstrip(' /')
+
+                # Separar por " / " y añadir cada parte
+                if s:
+                    subsecciones = [p.strip() for p in s.split('/') if p.strip()]
+                    for subsec in subsecciones:
+                        # Buscar callback si existe
+                        callback = None
+                        if merged and subsec in merged:
+                            callback = merged[subsec]
+                        parts_data.append((subsec, callback))
+
+            # Actualizar widget breadcrumb
+            if hasattr(self, 'breadcrumb') and self.breadcrumb is not None:
+                try:
+                    self.breadcrumb.update_parts(parts_data)
+                except Exception:
+                    logging.exception('Error actualizando breadcrumb widget')
+
+        except Exception:
+            logging.exception('Error actualizando ruta en BaseModuleView')
+
+    def _extract_breadcrumb_name(self, content) -> str:
+        """Extraer nombre legible de la UI para breadcrumb.
+
+        Prioridad:
+        1. Si content tiene atributo breadcrumb_name, usar ese
+        2. Extraer de nombre de clase (ej: EntradaManualUI → ENTRADA MANUAL)
+        3. Fallback: None (no actualizar breadcrumb)
+
+        Args:
+            content: Objeto UI (EntradaManualUI, CrearProductoUI, etc.)
+
+        Returns:
+            str: Nombre legible en mayúsculas o None
+        """
+        try:
+            # Prioridad 1: atributo manual breadcrumb_name
+            if hasattr(content, 'breadcrumb_name'):
+                name = getattr(content, 'breadcrumb_name', '').strip()
+                if name:
+                    return name.upper()
+
+            # Prioridad 2: extraer de nombre de clase
+            class_name = content.__class__.__name__
+
+            # Remover sufijos comunes
+            for suffix in ['UI', 'View', 'Window', 'Frame']:
+                if class_name.endswith(suffix):
+                    class_name = class_name[:-len(suffix)]
+                    break
+
+            # Convertir CamelCase a palabras separadas
+            # Insertar espacio antes de mayúsculas
+            spaced = re.sub(r'([a-z])([A-Z])', r'\1 \2', class_name)
+            # Insertar espacio antes de número
+            spaced = re.sub(r'([a-zA-Z])(\d)', r'\1 \2', spaced)
+
+            # Limpiar y convertir a mayúsculas
+            result = spaced.strip().upper()
+
+            # Si el resultado es muy corto o vacío, retornar None
+            if len(result) < 3:
+                return None
+
+            return result
+
+        except Exception:
+            logging.exception('Error extrayendo breadcrumb_name')
+            return None
+
+    def _check_unsaved_changes(self):
+        """Verificar si la UI actual tiene cambios sin guardar.
+
+        Busca en central_area una UI con método has_unsaved_changes().
+        Si tiene cambios, muestra warning de confirmación.
+
+        Returns:
+            bool: True si puede continuar, False si usuario canceló
+        """
+        try:
+            # Buscar UI actual en central_area
+            for child in list(self.central_area.winfo_children()):
+                # First check if the child has an attached UI owner
+                owners = []
+                try:
+                    if hasattr(child, '_ui_owner'):
+                        owners.append(getattr(child, '_ui_owner'))
+                except Exception:
+                    pass
+
+                # Always include the widget itself as a fallback
+                owners.append(child)
+
+                for owner in owners:
+                    try:
+                        if hasattr(owner, 'has_unsaved_changes') and callable(owner.has_unsaved_changes):
+                            try:
+                                if owner.has_unsaved_changes():
+                                    # Hay cambios sin guardar → mostrar warning
+                                    from kool_tpv.utils.custom_dialog import show_warning
+                                    result = show_warning(
+                                        self.parent,
+                                        "Cambios sin guardar",
+                                        "Está procesando un albarán. Si sale perderá los cambios. ¿Continuar?",
+                                        confirm=True
+                                    )
+                                    return result
+                            except Exception:
+                                logging.exception('Error comprobando has_unsaved_changes en owner')
+                    except Exception:
+                        logging.exception('Error verificando owner en _check_unsaved_changes')
+
+            # No hay UI con cambios o no tiene el método
+            return True
+
+        except Exception:
+            logging.exception('Error en _check_unsaved_changes')
+            return True  # En caso de error, permitir continuar
+
+    def _on_volver(self):
+        # Subclasses should override this to implement back-navigation
+        logging.info('VOLVER pressed (no action asignada)')

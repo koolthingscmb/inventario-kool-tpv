@@ -1,0 +1,80 @@
+Processing order (parents first): ['proveedores', 'configuracion', 'niveles_fidelidad', 'usuarios', 'audit_logs', 'cierres_caja', 'categorias', 'tipos', 'clientes', 'tickets', 'albaranes', 'productos', 'ticket_lines', 'points_movements', 'payments', 'codigos_barras', 'precios', 'albaran_lines', 'stock_movements', 'facturas', 'facturas_lines']
+Backup created: kool_tpv/base_datos/kool_bd.db.bak.20260501_115523
+Skipping proveedores, no REAL columns detected.
+Skipping configuracion, no REAL columns detected.
+Migrating table niveles_fidelidad, monetary columns: ['gasto_minimo']
+Migration failed: table niveles_fidelidad already exists
+Database restored to original state (transaction rolled back).
+Processing order (parents first): ['proveedores', 'configuracion', 'niveles_fidelidad', 'usuarios', 'audit_logs', 'cierres_caja', 'categorias', 'tipos', 'clientes', 'tickets', 'albaranes', 'productos', 'ticket_lines', 'payments', 'points_movements', 'stock_movements', 'codigos_barras', 'albaran_lines', 'precios', 'facturas', 'facturas_lines']
+Backup created: kool_tpv/base_datos/kool_bd.db.bak.20260501_115541
+Skipping proveedores, no REAL columns detected.
+Skipping configuracion, no REAL columns detected.
+Migrating table niveles_fidelidad, monetary columns: ['gasto_minimo']
+Table niveles_fidelidad migrated successfully.
+Skipping usuarios, no REAL columns detected.
+Skipping audit_logs, no REAL columns detected.
+Migrating table cierres_caja, monetary columns: ['total_ingresos', 'total_efectivo', 'total_tarjeta', 'total_web', 'total_devoluciones', 'total_descuentos', 'tesoro_ganado', 'tesoro_gastado', 'tesoro_total_ganado', 'tesoro_total_gastado', 'total_base_imponible', 'total_iva', 'base_21', 'iva_21', 'base_4', 'iva_4']
+Table cierres_caja migrated successfully.
+Migrating table categorias, monetary columns: ['fide_porcentaje']
+Migration failed: FOREIGN KEY constraint failed
+Database restored to original state (transaction rolled back).
+Processing order (parents first): ['proveedores', 'configuracion', 'niveles_fidelidad', 'usuarios', 'audit_logs', 'cierres_caja', 'categorias', 'tipos', 'clientes', 'tickets', 'niveles_fidelidad__migrtmp', 'albaranes', 'productos', 'points_movements', 'ticket_lines', 'payments', 'stock_movements', 'albaran_lines', 'codigos_barras', 'precios', 'facturas', 'facturas_lines']
+Backup created: kool_tpv/base_datos/kool_bd.db.bak.20260501_115603
+Skipping proveedores, no REAL columns detected.
+Skipping configuracion, no REAL columns detected.
+Migrating table niveles_fidelidad, monetary columns: ['gasto_minimo']
+Table niveles_fidelidad migrated successfully.
+Skipping usuarios, no REAL columns detected.
+Skipping audit_logs, no REAL columns detected.
+Migrating table cierres_caja, monetary columns: ['total_ingresos', 'total_efectivo', 'total_tarjeta', 'total_web', 'total_devoluciones', 'total_descuentos', 'tesoro_ganado', 'tesoro_gastado', 'tesoro_total_ganado', 'tesoro_total_gastado', 'total_base_imponible', 'total_iva', 'base_21', 'iva_21', 'base_4', 'iva_4']
+Table cierres_caja migrated successfully.
+Migrating table categorias, monetary columns: ['fide_porcentaje']
+Table categorias migrated successfully.
+Migrating table tipos, monetary columns: ['fide_porcentaje']
+Table tipos migrated successfully.
+Migrating table clientes, monetary columns: ['tesoro_total', 'tesoro_gastado_total', 'tesoro_historico', 'total_compras_euros']
+Table clientes migrated successfully.
+Skipping tickets, no REAL columns detected.
+Skipping niveles_fidelidad__migrtmp, no REAL columns detected.
+Migrating table albaranes, monetary columns: ['total_neto', 'total_iva_4', 'total_iva_10', 'total_iva_21', 'total']
+Migration failed: near "ON": syntax error
+Database restored to original state (transaction rolled back).
+Processing order (parents first): ['proveedores', 'configuracion', 'niveles_fidelidad', 'usuarios', 'audit_logs', 'cierres_caja', 'categorias', 'tipos', 'clientes', 'tickets', 'niveles_fidelidad__migrtmp', 'albaranes', 'productos', 'payments', 'ticket_lines', 'points_movements', 'albaran_lines', 'codigos_barras', 'precios', 'stock_movements', 'facturas', 'facturas_lines']
+Backup created: kool_tpv/base_datos/kool_bd.db.bak.20260501_115625
+Skipping proveedores, no REAL columns detected.
+Skipping configuracion, no REAL columns detected.
+Migrating table niveles_fidelidad, monetary columns: ['gasto_minimo']
+Table niveles_fidelidad migrated successfully.
+Skipping usuarios, no REAL columns detected.
+Skipping audit_logs, no REAL columns detected.
+Migrating table cierres_caja, monetary columns: ['total_ingresos', 'total_efectivo', 'total_tarjeta', 'total_web', 'total_devoluciones', 'total_descuentos', 'tesoro_ganado', 'tesoro_gastado', 'tesoro_total_ganado', 'tesoro_total_gastado', 'total_base_imponible', 'total_iva', 'base_21', 'iva_21', 'base_4', 'iva_4']
+Table cierres_caja migrated successfully.
+Migrating table categorias, monetary columns: ['fide_porcentaje']
+Table categorias migrated successfully.
+Migrating table tipos, monetary columns: ['fide_porcentaje']
+Table tipos migrated successfully.
+Migrating table clientes, monetary columns: ['tesoro_total', 'tesoro_gastado_total', 'tesoro_historico', 'total_compras_euros']
+Table clientes migrated successfully.
+Skipping tickets, no REAL columns detected.
+Skipping niveles_fidelidad__migrtmp, no REAL columns detected.
+Migrating table albaranes, monetary columns: ['total_neto', 'total_iva_4', 'total_iva_10', 'total_iva_21', 'total']
+Table albaranes migrated successfully.
+Migrating table productos, monetary columns: ['fidelizacion_valor']
+Table productos migrated successfully.
+Migrating table payments, monetary columns: ['importe']
+Table payments migrated successfully.
+Migrating table ticket_lines, monetary columns: ['cantidad', 'iva']
+Table ticket_lines migrated successfully.
+Migrating table points_movements, monetary columns: ['puntos']
+Table points_movements migrated successfully.
+Migrating table albaran_lines, monetary columns: ['coste', 'descuento', 'importe']
+Table albaran_lines migrated successfully.
+Skipping codigos_barras, no REAL columns detected.
+Migrating table precios, monetary columns: ['pvp', 'coste']
+Table precios migrated successfully.
+Skipping stock_movements, no REAL columns detected.
+Migrating table facturas, monetary columns: ['base_imponible', 'total_iva', 'total_recargo', 'total']
+Table facturas migrated successfully.
+Migrating table facturas_lines, monetary columns: ['cantidad', 'precio_unitario', 'descuento', 'base_imponible', 'tipo_iva', 'iva', 'tipo_recargo', 'recargo', 'total_linea']
+Table facturas_lines migrated successfully.
+Migration completed successfully for all tables.

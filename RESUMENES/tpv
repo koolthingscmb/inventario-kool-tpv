@@ -1,0 +1,88 @@
+tpv — Resumen
+
+- `tpv_view.py`:
+  Vista principal del TPV. Integra la plantilla `PaginaConVisorTickets` y monta
+  `TicketCarrito` en la zona derecha; el grid izquierdo contiene la rejilla 3x4
+  dentro de `grid_scroll`.
+
+- `PaginaConVisorTickets` (plantilla en `kool_tpv/utils/templates`):
+  - Exposición de `header`, `grid_scroll` y `ticket_carrito` para que TPV
+    inyecte `search_button` y contenido.
+  - Breadcrumb moved into header to avoid reserving extra grid row (fix hueco).
+
+- Config y comportamiento:
+  - `ticket_carrito` width se lee desde `layout_config.json` (modules.tpv.ticket_carrito.width).
+  - Se eliminaron dobles `pack()` para evitar TclError; ahora cada widget lo empaqueta su owner.
+
+- Notas:
+  - Revisar runtime si el usuario revirtió cambios; plantilla y vista deben estar sincronizadas.
+Resumen del módulo: kool_tpv/modulos/tpv
+
+- File: kool_tpv/modulos/tpv/__init__.py
+  - Inicializador del paquete `tpv`. Marca el módulo como responsable
+    de las operaciones de punto de venta (TPV), carrito y acciones relacionadas.
+
+- File: kool_tpv/modulos/tpv/tpv_view.py
+  - `TpvView`: vista responsiva del TPV (grid de botones grandes, botón de
+    búsqueda, columna derecha fija para carrito/visor). Contiene helpers de
+    UI (ButtonFactory, responsive resize, reloj) y dispatchers que llaman
+    a overlays/acciones. No contiene lógica de persistencia.
+
+- File: kool_tpv/modulos/tpv/tpv_controller.py
+  - `TpvController`: controlador ligero que conecta la vista con panels
+    (por ejemplo `BuscarArticuloPanel`). Reconfigura comandos de botones
+    para abrir overlays y enlaza selección de artículos al `CarritoService`.
+
+- File: kool_tpv/modulos/tpv/tpv_service.py
+  - `TpvService`: placeholder de servicio TPV (esqueleto). En el futuro
+    contendrá `save_ticket`, `add_ticket_line`, `calculate_totals`.
+
+- File: kool_tpv/modulos/tpv/tpv_db.py
+  - Módulo de acceso a BD específico del TPV (actualmente vacío/placeholder)
+    destinado a contener consultas SQLite relacionadas con ventas/tickets.
+
+- File: kool_tpv/modulos/tpv/devoluciones_service.py
+  - `DevolucionesService`: gestiona el modo devolución (start/end) y la
+    creación de líneas de devolución para el carrito. No actualiza stock
+    directamente (se delega a la persistencia final al guardar ticket).
+
+- Directory: kool_tpv/modulos/tpv/carrito/
+  - `carrito_service.py`: `CarritoService` — gestión completa del carrito:
+    add/remove/update/clear, cálculo de subtotal/IVA/total, aplicación de
+    descuentos y canje de puntos, normalización con `Decimal`.
+  - `carrito_ui.py`: `CarritoUI` — Treeview interactivo que muestra líneas,
+    totales, controles de pago y botones de canje, actualización visual y
+    binding con `CarritoService`.
+
+- Directory: kool_tpv/modulos/tpv/actions/
+  - `buscar_articulo.py`: `BuscarArticuloPanel` — overlay para buscar
+    artículos por categoría/tipo, paginación y selección; integra
+    `ProductoService`/`CategoriaService`/`TipoService` para cargar datos.
+  - `cajero.py`: acción para autenticación/selección de cajero (overlay).
+  - `cierre.py`: acciones relacionadas con cierre de caja (invoca cierres
+    y listado de tickets); incluye subdirectorio `cierres/` con handlers.
+  - `tickets/`: UI y handlers para ver/imprimir/reimprimir tickets y
+    navegar historiales (`TicketsUI`, `TicketsHandler`).
+  - `descuento.py`, `tarjeta.py`, `cash.py`, `canjear_tesoro.py`,
+    `devolucion.py`, `cliente.py`, `config.py`, `multi_s.py`, `evolucion.py`:
+    acciones concretas usadas por botones TPV (aplicar descuento, pago con
+    tarjeta/efectivo, canjear puntos, gestionar devoluciones, buscar cliente,
+    configuraciones rápidas, etc.).
+  - `Stock/stock.py`: utilidades de selección/consulta de stock para añadir
+    productos al carrito (doble-clic o aceptar).
+
+- File: kool_tpv/modulos/tpv/ui_tpv.py
+  - Contenedor para vistas UI relacionadas con TPV (placeholder).
+
+Notas generales:
+- El módulo `tpv` centraliza la UX del punto de venta: vistas, overlays,
+  controlador y servicios ligeros. La lógica de negocio persistente (guardar
+  tickets, gestión de stock, puntos, cierres) se apoya en servicios de
+  `kool_tpv.base_datos` y en `ImpresoraService` / `ExportService` para
+  impresión/exportación.
+- `CarritoService` implementa cálculos financieros completos (subtotal sin
+  IVA, desgloses por tipo de IVA, aplicación prorrateada de descuentos y
+  canjes). `DevolucionesService` y las acciones en `actions/` coordinan la
+  construcción de líneas y la interacción UI — la persistencia final se
+  realiza al `save_ticket` (normalmente en `ticket_service` del paquete
+  `base_datos`).

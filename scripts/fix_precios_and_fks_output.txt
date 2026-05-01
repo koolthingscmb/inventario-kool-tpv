@@ -1,0 +1,346 @@
+Backup DB: kool_tpv/base_datos/kool_bd.db
+Backup created: kool_tpv/base_datos/kool_bd.db.bak.20260501_161742
+Original precios DDL:
+CREATE TABLE "precios" (
+	"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+	"producto_id" INTEGER,
+	"pvp" REAL DEFAULT 0.0,
+	"coste" REAL DEFAULT 0.0,
+	"fecha_registro" DATETIME DEFAULT CURRENT_TIMESTAMP,
+	"activo" INTEGER DEFAULT 1,
+	FOREIGN KEY("producto_id") REFERENCES "productos"("id") ON DELETE CASCADE
+)
+Modified precios DDL:
+CREATE TABLE "precios" (
+	"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+	"producto_id" INTEGER,
+	"pvp" INTEGER DEFAULT 0.0,
+	"coste" INTEGER DEFAULT 0.0,
+	"fecha_registro" DATETIME DEFAULT CURRENT_TIMESTAMP,
+	"activo" INTEGER DEFAULT 1,
+	FOREIGN KEY("producto_id") REFERENCES "productos"("id") ON DELETE CASCADE
+)
+precios rows old=23 new=23
+precios converted successfully
+Will rebuild stock_movements to add ON DELETE CASCADE for parents intersecting ['productos']
+Rebuilding table stock_movements as stock_movements__migrtmp with cascade_parents=['productos', 'proveedores', 'clientes']
+New CREATE statement:
+CREATE TABLE "stock_movements" (
+  "id" INTEGER PRIMARY KEY,
+  "producto_id" INTEGER NOT NULL,
+  "cantidad" INTEGER NOT NULL,
+  "motivo" TEXT,
+  "ticket_line_id" INTEGER,
+  "created_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY("ticket_line_id") REFERENCES ticket_lines_old("id") ON DELETE NO ACTION,
+  FOREIGN KEY("producto_id") REFERENCES productos("id") ON DELETE CASCADE
+)
+Will rebuild albaranes to add ON DELETE CASCADE for parents intersecting ['proveedores']
+Rebuilding table albaranes as albaranes__migrtmp with cascade_parents=['productos', 'proveedores', 'clientes']
+New CREATE statement:
+CREATE TABLE "albaranes" (
+  "id" INTEGER PRIMARY KEY,
+  "num_albaran" INTEGER,
+  "proveedor_id" INTEGER,
+  "fecha" DATE,
+  "total_neto" INTEGER DEFAULT 0.0,
+  "total_iva_4" INTEGER DEFAULT 0.0,
+  "total_iva_10" INTEGER DEFAULT 0.0,
+  "total_iva_21" INTEGER DEFAULT 0.0,
+  "total" INTEGER DEFAULT 0.0,
+  "created_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+  "tipo" TEXT NOT NULL DEFAULT 'ENTRADA',
+  FOREIGN KEY("proveedor_id") REFERENCES proveedores("id") ON DELETE CASCADE
+)
+Will rebuild productos to add ON DELETE CASCADE for parents intersecting ['productos', 'proveedores']
+Rebuilding table productos as productos__migrtmp with cascade_parents=['productos', 'proveedores', 'clientes']
+New CREATE statement:
+CREATE TABLE "productos" (
+  "id" INTEGER PRIMARY KEY,
+  "nombre" TEXT NOT NULL,
+  "nombre_boton" TEXT,
+  "sku" TEXT NOT NULL,
+  "categoria" INTEGER NOT NULL,
+  "tipo" INTEGER NOT NULL,
+  "proveedor_id" INTEGER,
+  "tipo_iva" INTEGER DEFAULT 0,
+  "stock_actual" INTEGER NOT NULL DEFAULT 0,
+  "stock_minimo" INTEGER DEFAULT 0,
+  "ventas_totales" INTEGER DEFAULT 0,
+  "pvp_variable" INTEGER DEFAULT 0,
+  "descripcion_shopify" TEXT,
+  "notas_internas" TEXT,
+  "titulo" TEXT,
+  "activo" INTEGER DEFAULT 1,
+  "created_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+  "pending_sync" INTEGER DEFAULT 0,
+  "seo_title" TEXT,
+  "seo_description" TEXT,
+  "tipo_shop" TEXT,
+  "etiquetas" TEXT,
+  "shop_link" TEXT,
+  "shopify_taxonomy" TEXT,
+  "fidelizacion_tipo" TEXT DEFAULT 'porcentaje',
+  "fidelizacion_valor" INTEGER DEFAULT 0.0,
+  FOREIGN KEY("proveedor_id") REFERENCES proveedores("id") ON DELETE CASCADE,
+  FOREIGN KEY("tipo") REFERENCES tipos("id") ON DELETE RESTRICT,
+  FOREIGN KEY("categoria") REFERENCES categorias("id") ON DELETE RESTRICT
+)
+Will rebuild albaran_lines to add ON DELETE CASCADE for parents intersecting ['productos']
+Rebuilding table albaran_lines as albaran_lines__migrtmp with cascade_parents=['productos', 'proveedores', 'clientes']
+New CREATE statement:
+CREATE TABLE "albaran_lines" (
+  "id" INTEGER PRIMARY KEY,
+  "albaran_id" INTEGER,
+  "producto_id" INTEGER,
+  "ean" TEXT,
+  "nombre" TEXT,
+  "cantidad" INTEGER,
+  "coste" INTEGER,
+  "descuento" INTEGER DEFAULT 0.0,
+  "importe" INTEGER,
+  "tipo_iva" INTEGER DEFAULT 21,
+  FOREIGN KEY("producto_id") REFERENCES productos("id") ON DELETE CASCADE,
+  FOREIGN KEY("albaran_id") REFERENCES albaranes("id") ON DELETE CASCADE
+)
+Will rebuild facturas to add ON DELETE CASCADE for parents intersecting ['clientes']
+Rebuilding table facturas as facturas__migrtmp with cascade_parents=['productos', 'proveedores', 'clientes']
+New CREATE statement:
+CREATE TABLE "facturas" (
+  "id" INTEGER PRIMARY KEY,
+  "num_factura" TEXT NOT NULL,
+  "serie" TEXT DEFAULT 'A',
+  "fecha_emision" DATE NOT NULL,
+  "fecha_operacion" DATE,
+  "tipo_factura" TEXT DEFAULT 'completa',
+  "cliente_id" INTEGER,
+  "cliente_nif" TEXT,
+  "cliente_nombre_fiscal" TEXT,
+  "cliente_direccion_fiscal" TEXT,
+  "cliente_cp" TEXT,
+  "cliente_ciudad" TEXT,
+  "cliente_pais" TEXT,
+  "base_imponible" INTEGER NOT NULL DEFAULT 0.0,
+  "total_iva" INTEGER NOT NULL DEFAULT 0.0,
+  "total_recargo" INTEGER DEFAULT 0.0,
+  "total" INTEGER NOT NULL DEFAULT 0.0,
+  "iva_desglose" TEXT DEFAULT '{}',
+  "ticket_id" INTEGER,
+  "factura_rectificada_id" INTEGER,
+  "notas" TEXT,
+  "created_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY("factura_rectificada_id") REFERENCES facturas("id") ON DELETE SET NULL,
+  FOREIGN KEY("ticket_id") REFERENCES tickets("id") ON DELETE SET NULL,
+  FOREIGN KEY("cliente_id") REFERENCES clientes("id") ON DELETE CASCADE
+)
+Will rebuild facturas_lines to add ON DELETE CASCADE for parents intersecting ['productos']
+Rebuilding table facturas_lines as facturas_lines__migrtmp with cascade_parents=['productos', 'proveedores', 'clientes']
+New CREATE statement:
+CREATE TABLE "facturas_lines" (
+  "id" INTEGER PRIMARY KEY,
+  "factura_id" INTEGER NOT NULL,
+  "producto_id" INTEGER,
+  "sku" TEXT,
+  "descripcion" TEXT NOT NULL,
+  "cantidad" INTEGER NOT NULL DEFAULT 1.0,
+  "precio_unitario" INTEGER NOT NULL DEFAULT 0.0,
+  "descuento" INTEGER DEFAULT 0.0,
+  "base_imponible" INTEGER NOT NULL DEFAULT 0.0,
+  "tipo_iva" INTEGER NOT NULL DEFAULT 21.0,
+  "iva" INTEGER NOT NULL DEFAULT 0.0,
+  "tipo_recargo" INTEGER DEFAULT 0.0,
+  "recargo" INTEGER DEFAULT 0.0,
+  "total_linea" INTEGER NOT NULL DEFAULT 0.0,
+  FOREIGN KEY("producto_id") REFERENCES productos("id") ON DELETE CASCADE,
+  FOREIGN KEY("factura_id") REFERENCES facturas("id") ON DELETE CASCADE
+)
+Will rebuild points_movements to add ON DELETE CASCADE for parents intersecting ['clientes']
+Rebuilding table points_movements as points_movements__migrtmp with cascade_parents=['productos', 'proveedores', 'clientes']
+New CREATE statement:
+CREATE TABLE "points_movements" (
+  "id" INTEGER PRIMARY KEY,
+  "cliente_id" INTEGER NOT NULL,
+  "puntos" INTEGER NOT NULL DEFAULT 0,
+  "motivo" TEXT,
+  "ticket_id" INTEGER,
+  "usuario_id" INTEGER,
+  "created_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY("cliente_id") REFERENCES clientes("id") ON DELETE CASCADE,
+  FOREIGN KEY("ticket_id") REFERENCES tickets("id") ON DELETE CASCADE
+)
+Done
+Backup DB: kool_tpv/base_datos/kool_bd.db
+Backup created: kool_tpv/base_datos/kool_bd.db.bak.20260501_161742
+Original precios DDL:
+CREATE TABLE "precios" (
+	"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+	"producto_id" INTEGER,
+	"pvp" REAL DEFAULT 0.0,
+	"coste" REAL DEFAULT 0.0,
+	"fecha_registro" DATETIME DEFAULT CURRENT_TIMESTAMP,
+	"activo" INTEGER DEFAULT 1,
+	FOREIGN KEY("producto_id") REFERENCES "productos"("id") ON DELETE CASCADE
+)
+Modified precios DDL:
+CREATE TABLE "precios" (
+	"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+	"producto_id" INTEGER,
+	"pvp" INTEGER DEFAULT 0.0,
+	"coste" INTEGER DEFAULT 0.0,
+	"fecha_registro" DATETIME DEFAULT CURRENT_TIMESTAMP,
+	"activo" INTEGER DEFAULT 1,
+	FOREIGN KEY("producto_id") REFERENCES "productos"("id") ON DELETE CASCADE
+)
+precios rows old=23 new=23
+precios converted successfully
+Will rebuild stock_movements to add ON DELETE CASCADE for parents intersecting ['productos']
+Rebuilding table stock_movements as stock_movements__migrtmp with cascade_parents=['productos', 'proveedores', 'clientes']
+New CREATE statement:
+CREATE TABLE "stock_movements" (
+  "id" INTEGER PRIMARY KEY,
+  "producto_id" INTEGER NOT NULL,
+  "cantidad" INTEGER NOT NULL,
+  "motivo" TEXT,
+  "ticket_line_id" INTEGER,
+  "created_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY("ticket_line_id") REFERENCES ticket_lines_old("id") ON DELETE NO ACTION,
+  FOREIGN KEY("producto_id") REFERENCES productos("id") ON DELETE CASCADE
+)
+Will rebuild albaranes to add ON DELETE CASCADE for parents intersecting ['proveedores']
+Rebuilding table albaranes as albaranes__migrtmp with cascade_parents=['productos', 'proveedores', 'clientes']
+New CREATE statement:
+CREATE TABLE "albaranes" (
+  "id" INTEGER PRIMARY KEY,
+  "num_albaran" INTEGER,
+  "proveedor_id" INTEGER,
+  "fecha" DATE,
+  "total_neto" INTEGER DEFAULT 0.0,
+  "total_iva_4" INTEGER DEFAULT 0.0,
+  "total_iva_10" INTEGER DEFAULT 0.0,
+  "total_iva_21" INTEGER DEFAULT 0.0,
+  "total" INTEGER DEFAULT 0.0,
+  "created_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+  "tipo" TEXT NOT NULL DEFAULT 'ENTRADA',
+  FOREIGN KEY("proveedor_id") REFERENCES proveedores("id") ON DELETE CASCADE
+)
+Will rebuild productos to add ON DELETE CASCADE for parents intersecting ['productos', 'proveedores']
+Rebuilding table productos as productos__migrtmp with cascade_parents=['productos', 'proveedores', 'clientes']
+New CREATE statement:
+CREATE TABLE "productos" (
+  "id" INTEGER PRIMARY KEY,
+  "nombre" TEXT NOT NULL,
+  "nombre_boton" TEXT,
+  "sku" TEXT NOT NULL,
+  "categoria" INTEGER NOT NULL,
+  "tipo" INTEGER NOT NULL,
+  "proveedor_id" INTEGER,
+  "tipo_iva" INTEGER DEFAULT 0,
+  "stock_actual" INTEGER NOT NULL DEFAULT 0,
+  "stock_minimo" INTEGER DEFAULT 0,
+  "ventas_totales" INTEGER DEFAULT 0,
+  "pvp_variable" INTEGER DEFAULT 0,
+  "descripcion_shopify" TEXT,
+  "notas_internas" TEXT,
+  "titulo" TEXT,
+  "activo" INTEGER DEFAULT 1,
+  "created_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+  "pending_sync" INTEGER DEFAULT 0,
+  "seo_title" TEXT,
+  "seo_description" TEXT,
+  "tipo_shop" TEXT,
+  "etiquetas" TEXT,
+  "shop_link" TEXT,
+  "shopify_taxonomy" TEXT,
+  "fidelizacion_tipo" TEXT DEFAULT 'porcentaje',
+  "fidelizacion_valor" INTEGER DEFAULT 0.0,
+  FOREIGN KEY("proveedor_id") REFERENCES proveedores("id") ON DELETE CASCADE,
+  FOREIGN KEY("tipo") REFERENCES tipos("id") ON DELETE RESTRICT,
+  FOREIGN KEY("categoria") REFERENCES categorias("id") ON DELETE RESTRICT
+)
+Will rebuild albaran_lines to add ON DELETE CASCADE for parents intersecting ['productos']
+Rebuilding table albaran_lines as albaran_lines__migrtmp with cascade_parents=['productos', 'proveedores', 'clientes']
+New CREATE statement:
+CREATE TABLE "albaran_lines" (
+  "id" INTEGER PRIMARY KEY,
+  "albaran_id" INTEGER,
+  "producto_id" INTEGER,
+  "ean" TEXT,
+  "nombre" TEXT,
+  "cantidad" INTEGER,
+  "coste" INTEGER,
+  "descuento" INTEGER DEFAULT 0.0,
+  "importe" INTEGER,
+  "tipo_iva" INTEGER DEFAULT 21,
+  FOREIGN KEY("producto_id") REFERENCES productos("id") ON DELETE CASCADE,
+  FOREIGN KEY("albaran_id") REFERENCES albaranes("id") ON DELETE CASCADE
+)
+Will rebuild facturas to add ON DELETE CASCADE for parents intersecting ['clientes']
+Rebuilding table facturas as facturas__migrtmp with cascade_parents=['productos', 'proveedores', 'clientes']
+New CREATE statement:
+CREATE TABLE "facturas" (
+  "id" INTEGER PRIMARY KEY,
+  "num_factura" TEXT NOT NULL,
+  "serie" TEXT DEFAULT 'A',
+  "fecha_emision" DATE NOT NULL,
+  "fecha_operacion" DATE,
+  "tipo_factura" TEXT DEFAULT 'completa',
+  "cliente_id" INTEGER,
+  "cliente_nif" TEXT,
+  "cliente_nombre_fiscal" TEXT,
+  "cliente_direccion_fiscal" TEXT,
+  "cliente_cp" TEXT,
+  "cliente_ciudad" TEXT,
+  "cliente_pais" TEXT,
+  "base_imponible" INTEGER NOT NULL DEFAULT 0.0,
+  "total_iva" INTEGER NOT NULL DEFAULT 0.0,
+  "total_recargo" INTEGER DEFAULT 0.0,
+  "total" INTEGER NOT NULL DEFAULT 0.0,
+  "iva_desglose" TEXT DEFAULT '{}',
+  "ticket_id" INTEGER,
+  "factura_rectificada_id" INTEGER,
+  "notas" TEXT,
+  "created_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY("factura_rectificada_id") REFERENCES facturas("id") ON DELETE SET NULL,
+  FOREIGN KEY("ticket_id") REFERENCES tickets("id") ON DELETE SET NULL,
+  FOREIGN KEY("cliente_id") REFERENCES clientes("id") ON DELETE CASCADE
+)
+Will rebuild facturas_lines to add ON DELETE CASCADE for parents intersecting ['productos']
+Rebuilding table facturas_lines as facturas_lines__migrtmp with cascade_parents=['productos', 'proveedores', 'clientes']
+New CREATE statement:
+CREATE TABLE "facturas_lines" (
+  "id" INTEGER PRIMARY KEY,
+  "factura_id" INTEGER NOT NULL,
+  "producto_id" INTEGER,
+  "sku" TEXT,
+  "descripcion" TEXT NOT NULL,
+  "cantidad" INTEGER NOT NULL DEFAULT 1.0,
+  "precio_unitario" INTEGER NOT NULL DEFAULT 0.0,
+  "descuento" INTEGER DEFAULT 0.0,
+  "base_imponible" INTEGER NOT NULL DEFAULT 0.0,
+  "tipo_iva" INTEGER NOT NULL DEFAULT 21.0,
+  "iva" INTEGER NOT NULL DEFAULT 0.0,
+  "tipo_recargo" INTEGER DEFAULT 0.0,
+  "recargo" INTEGER DEFAULT 0.0,
+  "total_linea" INTEGER NOT NULL DEFAULT 0.0,
+  FOREIGN KEY("producto_id") REFERENCES productos("id") ON DELETE CASCADE,
+  FOREIGN KEY("factura_id") REFERENCES facturas("id") ON DELETE CASCADE
+)
+Will rebuild points_movements to add ON DELETE CASCADE for parents intersecting ['clientes']
+Rebuilding table points_movements as points_movements__migrtmp with cascade_parents=['productos', 'proveedores', 'clientes']
+New CREATE statement:
+CREATE TABLE "points_movements" (
+  "id" INTEGER PRIMARY KEY,
+  "cliente_id" INTEGER NOT NULL,
+  "puntos" INTEGER NOT NULL DEFAULT 0,
+  "motivo" TEXT,
+  "ticket_id" INTEGER,
+  "usuario_id" INTEGER,
+  "created_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY("cliente_id") REFERENCES clientes("id") ON DELETE CASCADE,
+  FOREIGN KEY("ticket_id") REFERENCES tickets("id") ON DELETE CASCADE
+)
+Done

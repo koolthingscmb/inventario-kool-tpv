@@ -1,0 +1,451 @@
+DB PATH: kool_tpv/base_datos/kool_bd.db
+Found 21 tables
+
+--- TABLE: albaran_lines ---
+  - id : INTEGER  NOTNULL=0  PK=1  DEFAULT=None
+  - albaran_id : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - producto_id : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - ean : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - nombre : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - cantidad : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - coste : REAL  NOTNULL=0  PK=0  DEFAULT=None
+  - descuento : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - importe : REAL  NOTNULL=0  PK=0  DEFAULT=None
+  - tipo_iva : INTEGER  NOTNULL=0  PK=0  DEFAULT=21
+  Foreign Keys:
+    - child_col=producto_id -> parent=productos.id (on_update=NO ACTION, on_delete=NO ACTION)
+    - child_col=albaran_id -> parent=albaranes.id (on_update=NO ACTION, on_delete=CASCADE)
+  Rows: 20
+
+--- TABLE: albaranes ---
+  - id : INTEGER  NOTNULL=0  PK=1  DEFAULT=None
+  - num_albaran : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - proveedor_id : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - fecha : DATE  NOTNULL=0  PK=0  DEFAULT=None
+  - total_neto : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - total_iva_4 : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - total_iva_10 : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - total_iva_21 : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - total : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - created_at : DATETIME  NOTNULL=0  PK=0  DEFAULT=CURRENT_TIMESTAMP
+  - tipo : TEXT  NOTNULL=1  PK=0  DEFAULT='ENTRADA'
+  Foreign Keys:
+    - child_col=proveedor_id -> parent=proveedores.id (on_update=NO ACTION, on_delete=NO ACTION)
+  Rows: 13
+
+--- TABLE: audit_logs ---
+  - id : INTEGER  NOTNULL=0  PK=1  DEFAULT=None
+  - entidad : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - entidad_id : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - accion : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - usuario_id : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - datos_previos : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - datos_nuevos : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - created_at : DATETIME  NOTNULL=0  PK=0  DEFAULT=CURRENT_TIMESTAMP
+  Rows: 207
+
+--- TABLE: categorias ---
+  - id : INTEGER  NOTNULL=0  PK=1  DEFAULT=None
+  - nombre : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - descripcion : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - created_at : DATETIME  NOTNULL=0  PK=0  DEFAULT=CURRENT_TIMESTAMP
+  - updated_at : DATETIME  NOTNULL=0  PK=0  DEFAULT=CURRENT_TIMESTAMP
+  - shopify_taxonomy : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - fide_porcentaje : REAL  NOTNULL=0  PK=0  DEFAULT=None
+  Rows: 24
+
+--- TABLE: cierres_caja ---
+  - id : INTEGER  NOTNULL=0  PK=1  DEFAULT=None
+  - cierre_num : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - fecha_hora : TIMESTAMP  NOTNULL=0  PK=0  DEFAULT=None
+  - cajero : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - total_ingresos : REAL  NOTNULL=0  PK=0  DEFAULT=None
+  - num_ventas : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - rango_inicio_ticket : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - rango_fin_ticket : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - total_efectivo : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - total_tarjeta : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - total_web : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - total_devoluciones : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - total_descuentos : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - tesoro_ganado : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - tesoro_gastado : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - tesoro_total_ganado : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - tesoro_total_gastado : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - cierre_text : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - usuario_id : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - total_base_imponible : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - total_iva : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - base_21 : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - iva_21 : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - base_4 : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - iva_4 : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - iva_desglose : TEXT  NOTNULL=0  PK=0  DEFAULT='{}'
+  Rows: 0
+
+--- TABLE: clientes ---
+  - id : INTEGER  NOTNULL=0  PK=1  DEFAULT=None
+  - nombre : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - telefono : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - email : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - dni : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - direccion : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - ciudad : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - cp : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - pais : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - fecha_nacimiento : DATE  NOTNULL=0  PK=0  DEFAULT=None
+  - tags : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - notes_internas : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - tesoro_total : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - tesoro_gastado_total : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - tesoro_historico : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - id_nivel : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - fidelidad_activa : INTEGER  NOTNULL=0  PK=0  DEFAULT=1
+  - fecha_alta : DATETIME  NOTNULL=0  PK=0  DEFAULT=CURRENT_TIMESTAMP
+  - fecha_vencimiento_tesoro : DATE  NOTNULL=0  PK=0  DEFAULT=None
+  - fecha_ultima_compra : DATETIME  NOTNULL=0  PK=0  DEFAULT=None
+  - total_compras : INTEGER  NOTNULL=0  PK=0  DEFAULT=0
+  - total_compras_euros : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - total_unidades : INTEGER  NOTNULL=0  PK=0  DEFAULT=0
+  - fecha_ultima_comunicacion : DATETIME  NOTNULL=0  PK=0  DEFAULT=None
+  Rows: 4
+
+--- TABLE: codigos_barras ---
+  - id : INTEGER  NOTNULL=0  PK=1  DEFAULT=None
+  - producto_id : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - ean : TEXT  NOTNULL=1  PK=0  DEFAULT=None
+  Foreign Keys:
+    - child_col=producto_id -> parent=productos.id (on_update=NO ACTION, on_delete=CASCADE)
+  Rows: 5
+
+--- TABLE: configuracion ---
+  - clave : TEXT  NOTNULL=0  PK=1  DEFAULT=None
+  - valor : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  Rows: 41
+
+--- TABLE: facturas ---
+  - id : INTEGER  NOTNULL=0  PK=1  DEFAULT=None
+  - num_factura : TEXT  NOTNULL=1  PK=0  DEFAULT=None
+  - serie : TEXT  NOTNULL=0  PK=0  DEFAULT='A'
+  - fecha_emision : DATE  NOTNULL=1  PK=0  DEFAULT=None
+  - fecha_operacion : DATE  NOTNULL=0  PK=0  DEFAULT=None
+  - tipo_factura : TEXT  NOTNULL=0  PK=0  DEFAULT='completa'
+  - cliente_id : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - cliente_nif : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - cliente_nombre_fiscal : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - cliente_direccion_fiscal : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - cliente_cp : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - cliente_ciudad : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - cliente_pais : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - base_imponible : REAL  NOTNULL=1  PK=0  DEFAULT=0.0
+  - total_iva : REAL  NOTNULL=1  PK=0  DEFAULT=0.0
+  - total_recargo : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - total : REAL  NOTNULL=1  PK=0  DEFAULT=0.0
+  - iva_desglose : TEXT  NOTNULL=0  PK=0  DEFAULT='{}'
+  - ticket_id : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - factura_rectificada_id : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - notas : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - created_at : DATETIME  NOTNULL=0  PK=0  DEFAULT=CURRENT_TIMESTAMP
+  - updated_at : DATETIME  NOTNULL=0  PK=0  DEFAULT=CURRENT_TIMESTAMP
+  Foreign Keys:
+    - child_col=factura_rectificada_id -> parent=facturas.id (on_update=NO ACTION, on_delete=SET NULL)
+    - child_col=ticket_id -> parent=tickets.id (on_update=NO ACTION, on_delete=SET NULL)
+    - child_col=cliente_id -> parent=clientes.id (on_update=NO ACTION, on_delete=SET NULL)
+  Rows: 0
+
+--- TABLE: facturas_lines ---
+  - id : INTEGER  NOTNULL=0  PK=1  DEFAULT=None
+  - factura_id : INTEGER  NOTNULL=1  PK=0  DEFAULT=None
+  - producto_id : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - sku : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - descripcion : TEXT  NOTNULL=1  PK=0  DEFAULT=None
+  - cantidad : REAL  NOTNULL=1  PK=0  DEFAULT=1.0
+  - precio_unitario : REAL  NOTNULL=1  PK=0  DEFAULT=0.0
+  - descuento : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - base_imponible : REAL  NOTNULL=1  PK=0  DEFAULT=0.0
+  - tipo_iva : REAL  NOTNULL=1  PK=0  DEFAULT=21.0
+  - iva : REAL  NOTNULL=1  PK=0  DEFAULT=0.0
+  - tipo_recargo : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - recargo : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - total_linea : REAL  NOTNULL=1  PK=0  DEFAULT=0.0
+  Foreign Keys:
+    - child_col=producto_id -> parent=productos.id (on_update=NO ACTION, on_delete=SET NULL)
+    - child_col=factura_id -> parent=facturas.id (on_update=NO ACTION, on_delete=CASCADE)
+  Rows: 0
+
+--- TABLE: niveles_fidelidad ---
+  - id : INTEGER  NOTNULL=0  PK=1  DEFAULT=None
+  - level : INTEGER  NOTNULL=1  PK=0  DEFAULT=None
+  - nombre_nivel : TEXT  NOTNULL=1  PK=0  DEFAULT=None
+  - grafismo_nivel : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - gasto_minimo : REAL  NOTNULL=1  PK=0  DEFAULT=0.0
+  - tipo_recompensa : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - detalle_recompensa : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - producto_sku : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  Rows: 10
+
+--- TABLE: payments ---
+  - id : INTEGER  NOTNULL=0  PK=1  DEFAULT=None
+  - ticket_id : INTEGER  NOTNULL=1  PK=0  DEFAULT=None
+  - metodo : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - importe : REAL  NOTNULL=1  PK=0  DEFAULT=None
+  - referencia : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - created_at : DATETIME  NOTNULL=0  PK=0  DEFAULT=CURRENT_TIMESTAMP
+  Foreign Keys:
+    - child_col=ticket_id -> parent=tickets.id (on_update=NO ACTION, on_delete=CASCADE)
+  Rows: 77
+
+--- TABLE: points_movements ---
+  - id : INTEGER  NOTNULL=0  PK=1  DEFAULT=None
+  - cliente_id : INTEGER  NOTNULL=1  PK=0  DEFAULT=None
+  - puntos : REAL  NOTNULL=1  PK=0  DEFAULT=None
+  - motivo : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - ticket_id : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - usuario_id : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - created_at : DATETIME  NOTNULL=0  PK=0  DEFAULT=CURRENT_TIMESTAMP
+  Foreign Keys:
+    - child_col=ticket_id -> parent=tickets.id (on_update=NO ACTION, on_delete=NO ACTION)
+    - child_col=cliente_id -> parent=clientes.id (on_update=NO ACTION, on_delete=NO ACTION)
+  Rows: 41
+
+--- TABLE: precios ---
+  - id : INTEGER  NOTNULL=0  PK=1  DEFAULT=None
+  - producto_id : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - pvp : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - coste : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  - fecha_registro : DATETIME  NOTNULL=0  PK=0  DEFAULT=CURRENT_TIMESTAMP
+  - activo : INTEGER  NOTNULL=0  PK=0  DEFAULT=1
+  Foreign Keys:
+    - child_col=producto_id -> parent=productos.id (on_update=NO ACTION, on_delete=CASCADE)
+  Rows: 23
+
+--- TABLE: productos ---
+  - id : INTEGER  NOTNULL=0  PK=1  DEFAULT=None
+  - nombre : TEXT  NOTNULL=1  PK=0  DEFAULT=None
+  - nombre_boton : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - sku : TEXT  NOTNULL=1  PK=0  DEFAULT=None
+  - categoria : INTEGER  NOTNULL=1  PK=0  DEFAULT=None
+  - tipo : INTEGER  NOTNULL=1  PK=0  DEFAULT=None
+  - proveedor_id : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - tipo_iva : INTEGER  NOTNULL=0  PK=0  DEFAULT=0
+  - stock_actual : INTEGER  NOTNULL=1  PK=0  DEFAULT=0
+  - stock_minimo : INTEGER  NOTNULL=0  PK=0  DEFAULT=0
+  - ventas_totales : INTEGER  NOTNULL=0  PK=0  DEFAULT=0
+  - pvp_variable : INTEGER  NOTNULL=0  PK=0  DEFAULT=0
+  - descripcion_shopify : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - notas_internas : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - titulo : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - activo : INTEGER  NOTNULL=0  PK=0  DEFAULT=1
+  - created_at : DATETIME  NOTNULL=0  PK=0  DEFAULT=CURRENT_TIMESTAMP
+  - updated_at : DATETIME  NOTNULL=0  PK=0  DEFAULT=CURRENT_TIMESTAMP
+  - pending_sync : INTEGER  NOTNULL=0  PK=0  DEFAULT=0
+  - seo_title : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - seo_description : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - tipo_shop : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - etiquetas : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - shop_link : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - shopify_taxonomy : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - fidelizacion_tipo : TEXT  NOTNULL=0  PK=0  DEFAULT='porcentaje'
+  - fidelizacion_valor : REAL  NOTNULL=0  PK=0  DEFAULT=0.0
+  Foreign Keys:
+    - child_col=proveedor_id -> parent=proveedores.id (on_update=NO ACTION, on_delete=SET NULL)
+    - child_col=tipo -> parent=tipos.id (on_update=NO ACTION, on_delete=RESTRICT)
+    - child_col=categoria -> parent=categorias.id (on_update=NO ACTION, on_delete=RESTRICT)
+  Rows: 2
+
+--- TABLE: proveedores ---
+  - id : INTEGER  NOTNULL=0  PK=1  DEFAULT=None
+  - nombre : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - que_vende : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - nif_cif : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - iva_intracom : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - dir_fiscal : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - dir_envio : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - email : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - telefono : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - forma_pago : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - persona_comercial : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - telefono_comercial : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - email_comercial : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - web : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - notas : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - mapeo_csv : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  Rows: 2
+
+--- TABLE: stock_movements ---
+  - id : INTEGER  NOTNULL=0  PK=1  DEFAULT=None
+  - producto_id : INTEGER  NOTNULL=1  PK=0  DEFAULT=None
+  - cantidad : INTEGER  NOTNULL=1  PK=0  DEFAULT=None
+  - motivo : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - ticket_line_id : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - created_at : DATETIME  NOTNULL=0  PK=0  DEFAULT=CURRENT_TIMESTAMP
+  Foreign Keys:
+    - child_col=ticket_line_id -> parent=ticket_lines_old.id (on_update=NO ACTION, on_delete=NO ACTION)
+    - child_col=producto_id -> parent=productos.id (on_update=NO ACTION, on_delete=NO ACTION)
+  Rows: 82
+
+--- TABLE: ticket_lines ---
+  - id : INTEGER  NOTNULL=0  PK=1  DEFAULT=None
+  - ticket_id : INTEGER  NOTNULL=1  PK=0  DEFAULT=None
+  - sku : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - nombre : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - cantidad : REAL  NOTNULL=0  PK=0  DEFAULT=None
+  - precio : INTEGER  NOTNULL=1  PK=0  DEFAULT=0
+  - iva : REAL  NOTNULL=0  PK=0  DEFAULT=None
+  - line_tipo : TEXT  NOTNULL=0  PK=0  DEFAULT='venta'
+  - producto_id : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  Foreign Keys:
+    - child_col=ticket_id -> parent=tickets.id (on_update=NO ACTION, on_delete=NO ACTION)
+  Rows: 35
+
+--- TABLE: tickets ---
+  - id : INTEGER  NOTNULL=0  PK=1  DEFAULT=None
+  - created_at : DATETIME  NOTNULL=1  PK=0  DEFAULT=CURRENT_TIMESTAMP
+  - cajero : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - cliente : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - cliente_id : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - num_ticket : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - forma_pago : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - total : INTEGER  NOTNULL=1  PK=0  DEFAULT=0
+  - pagado : INTEGER  NOTNULL=0  PK=0  DEFAULT=0
+  - cambio : INTEGER  NOTNULL=0  PK=0  DEFAULT=0
+  - importe_efectivo : INTEGER  NOTNULL=0  PK=0  DEFAULT=0
+  - importe_tarjeta : INTEGER  NOTNULL=0  PK=0  DEFAULT=0
+  - descuento_euros : INTEGER  NOTNULL=0  PK=0  DEFAULT=0
+  - descuento_tipo : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - descuento_valor : INTEGER  NOTNULL=0  PK=0  DEFAULT=0
+  - cierre_id : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - tesoro_ganado : INTEGER  NOTNULL=0  PK=0  DEFAULT=0
+  - tesoro_gastado : INTEGER  NOTNULL=0  PK=0  DEFAULT=0
+  - tesoro_total_ticket : INTEGER  NOTNULL=0  PK=0  DEFAULT=0
+  - ticket_text : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - usuario_id : INTEGER  NOTNULL=0  PK=0  DEFAULT=None
+  - num_ventas : INTEGER  NOTNULL=0  PK=0  DEFAULT=0
+  - subtotal : INTEGER  NOTNULL=0  PK=0  DEFAULT=0
+  - iva_desglose : TEXT  NOTNULL=0  PK=0  DEFAULT='{}'
+  Rows: 30
+
+--- TABLE: tipos ---
+  - id : INTEGER  NOTNULL=0  PK=1  DEFAULT=None
+  - nombre : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - descripcion : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - created_at : DATETIME  NOTNULL=0  PK=0  DEFAULT=CURRENT_TIMESTAMP
+  - updated_at : DATETIME  NOTNULL=0  PK=0  DEFAULT=CURRENT_TIMESTAMP
+  - shopify_taxonomy : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - fide_porcentaje : REAL  NOTNULL=0  PK=0  DEFAULT=None
+  Rows: 35
+
+--- TABLE: usuarios ---
+  - id : INTEGER  NOTNULL=0  PK=1  DEFAULT=None
+  - nombre : TEXT  NOTNULL=1  PK=0  DEFAULT=None
+  - password : TEXT  NOTNULL=1  PK=0  DEFAULT=None
+  - rol : TEXT  NOTNULL=1  PK=0  DEFAULT=None
+  - permiso_cierre : INTEGER  NOTNULL=0  PK=0  DEFAULT=0
+  - permiso_descuento : INTEGER  NOTNULL=0  PK=0  DEFAULT=0
+  - permiso_devolucion : INTEGER  NOTNULL=0  PK=0  DEFAULT=0
+  - permiso_tickets : INTEGER  NOTNULL=0  PK=0  DEFAULT=0
+  - created_at : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - telefono : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  - email : TEXT  NOTNULL=0  PK=0  DEFAULT=None
+  Rows: 3
+
+
+=== MONETARY-LIKE COLUMNS (by declared TYPE or name heuristic) ===
+- albaran_lines.coste  declared_type=REAL
+- albaran_lines.descuento  declared_type=REAL
+- albaran_lines.importe  declared_type=REAL
+- albaranes.total_neto  declared_type=REAL
+- albaranes.total_iva_4  declared_type=REAL
+- albaranes.total_iva_10  declared_type=REAL
+- albaranes.total_iva_21  declared_type=REAL
+- albaranes.total  declared_type=REAL
+- categorias.fide_porcentaje  declared_type=REAL
+- cierres_caja.total_ingresos  declared_type=REAL
+- cierres_caja.total_efectivo  declared_type=REAL
+- cierres_caja.total_tarjeta  declared_type=REAL
+- cierres_caja.total_web  declared_type=REAL
+- cierres_caja.total_devoluciones  declared_type=REAL
+- cierres_caja.total_descuentos  declared_type=REAL
+- cierres_caja.tesoro_ganado  declared_type=REAL
+- cierres_caja.tesoro_gastado  declared_type=REAL
+- cierres_caja.tesoro_total_ganado  declared_type=REAL
+- cierres_caja.tesoro_total_gastado  declared_type=REAL
+- cierres_caja.total_base_imponible  declared_type=REAL
+- cierres_caja.total_iva  declared_type=REAL
+- cierres_caja.base_21  declared_type=REAL
+- cierres_caja.iva_21  declared_type=REAL
+- cierres_caja.base_4  declared_type=REAL
+- cierres_caja.iva_4  declared_type=REAL
+- clientes.tesoro_total  declared_type=REAL
+- clientes.tesoro_gastado_total  declared_type=REAL
+- clientes.tesoro_historico  declared_type=REAL
+- clientes.total_compras_euros  declared_type=REAL
+- facturas.base_imponible  declared_type=REAL
+- facturas.total_iva  declared_type=REAL
+- facturas.total_recargo  declared_type=REAL
+- facturas.total  declared_type=REAL
+- facturas_lines.cantidad  declared_type=REAL
+- facturas_lines.precio_unitario  declared_type=REAL
+- facturas_lines.descuento  declared_type=REAL
+- facturas_lines.base_imponible  declared_type=REAL
+- facturas_lines.tipo_iva  declared_type=REAL
+- facturas_lines.iva  declared_type=REAL
+- facturas_lines.tipo_recargo  declared_type=REAL
+- facturas_lines.recargo  declared_type=REAL
+- facturas_lines.total_linea  declared_type=REAL
+- niveles_fidelidad.gasto_minimo  declared_type=REAL
+- payments.importe  declared_type=REAL
+- points_movements.puntos  declared_type=REAL
+- precios.pvp  declared_type=REAL
+- precios.coste  declared_type=REAL
+- productos.fidelizacion_valor  declared_type=REAL
+- ticket_lines.cantidad  declared_type=REAL
+- ticket_lines.precio  declared_type=INTEGER
+- ticket_lines.iva  declared_type=REAL
+- tickets.total  declared_type=INTEGER
+- tickets.pagado  declared_type=INTEGER
+- tickets.cambio  declared_type=INTEGER
+- tickets.importe_efectivo  declared_type=INTEGER
+- tickets.importe_tarjeta  declared_type=INTEGER
+- tickets.descuento_euros  declared_type=INTEGER
+- tickets.tesoro_ganado  declared_type=INTEGER
+- tickets.tesoro_gastado  declared_type=INTEGER
+- tickets.subtotal  declared_type=INTEGER
+- tipos.fide_porcentaje  declared_type=REAL
+
+=== ORPHAN CHECKS (per FK) ===
+- albaran_lines.producto_id -> productos.id : orphan_count = 20
+- albaran_lines.albaran_id -> albaranes.id : orphan_count = 0
+- albaranes.proveedor_id -> proveedores.id : orphan_count = 0
+- codigos_barras.producto_id -> productos.id : orphan_count = 5
+- facturas.factura_rectificada_id -> facturas.id : orphan_count = 0
+- facturas.ticket_id -> tickets.id : orphan_count = 0
+- facturas.cliente_id -> clientes.id : orphan_count = 0
+- facturas_lines.producto_id -> productos.id : orphan_count = 0
+- facturas_lines.factura_id -> facturas.id : orphan_count = 0
+- payments.ticket_id -> tickets.id : orphan_count = 43
+- points_movements.ticket_id -> tickets.id : orphan_count = 21
+- points_movements.cliente_id -> clientes.id : orphan_count = 0
+- precios.producto_id -> productos.id : orphan_count = 18
+- productos.proveedor_id -> proveedores.id : orphan_count = 0
+- productos.tipo -> tipos.id : orphan_count = 0
+- productos.categoria -> categorias.id : orphan_count = 0
+- stock_movements.ticket_line_id -> ticket_lines_old.id : orphan_count = None
+- stock_movements.producto_id -> productos.id : orphan_count = 47
+- ticket_lines.ticket_id -> tickets.id : orphan_count = 0
+
+=== TABLES DECLARING REAL (monetary risk) ===
+- albaran_lines
+- albaranes
+- categorias
+- cierres_caja
+- clientes
+- facturas
+- facturas_lines
+- niveles_fidelidad
+- payments
+- points_movements
+- precios
+- productos
+- ticket_lines
+- tipos

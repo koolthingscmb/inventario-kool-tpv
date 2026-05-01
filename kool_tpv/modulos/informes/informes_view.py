@@ -1,0 +1,657 @@
+"""Informes module main view.
+
+Minimal scaffold for the Informes module. Shows a centered placeholder
+label in the central area provided by BaseModuleView.
+"""
+from typing import Optional
+import customtkinter as ctk
+import logging
+
+from kool_tpv.utils.config_loader import load_colors, create_action_button
+from kool_tpv.utils.factories.button_factory import ButtonFactory
+from kool_tpv.utils.templates.base_module_view import BaseModuleView
+from kool_tpv.utils.utils import FONT_TERMINAL
+from kool_tpv.utils.font_loader import get_font
+from kool_tpv.utils.widgets.date_picker_entry import DatePickerEntry
+from kool_tpv.modulos.informes.informes_service import InformesService
+from kool_tpv.utils.formatter_service import FormatterService
+from kool_tpv.utils.widgets.tag_selector import TagSelector
+
+
+class InformesView(BaseModuleView):
+    """Main view for the Informes module (placeholder).
+
+    This class is intentionally minimal: it provides the UI shell and a
+    centered message indicating the module is under construction. No
+    business logic or database queries are performed here.
+    """
+
+    def __init__(self, parent, db, keyboard_manager: Optional[object] = None):
+        # Initialize BaseModuleView using module key 'informes' so the
+        # sidebar palette and menu are loaded according to config.
+        super().__init__(parent, config_section='informes')
+
+        # Store commonly used references
+        try:
+            self.db = db
+            self.keyboard_manager = keyboard_manager
+        except Exception:
+            self.db = db
+            self.keyboard_manager = None
+
+        # Desactivar captura global de teclado en este módulo
+        if self.keyboard_manager:
+            try:
+                self.keyboard_manager.pause()
+            except AttributeError:
+                try:
+                    self.keyboard_manager.disable()
+                except Exception:
+                    pass
+            except Exception:
+                pass
+
+        # Load colors for the module (used by future UIs)
+        try:
+            self.colors = load_colors('informes') or {}
+        except Exception:
+            logging.exception('Error loading colors for informes')
+            self.colors = {}
+
+        # Estado del informe actual generado
+        self.current_report_data = None
+
+        # Update breadcrumb to module root (display only)
+        try:
+            self.actualizar_ruta('INFORMES')
+        except Exception:
+            logging.exception('Error updating breadcrumb in InformesView')
+
+        # Show generator immediately when entering the module
+        try:
+            self.show_generar()
+        except Exception:
+            logging.exception('Error auto-opening generador en InformesView')
+
+        # Forzar foco absoluto al módulo poco después de inicializar
+        try:
+            self.after(100, lambda: self._force_initial_focus())
+        except Exception:
+            pass
+
+    def destroy(self):
+        # Reactivar KeyboardManager antes de destruir
+        if hasattr(self, 'keyboard_manager') and self.keyboard_manager:
+            try:
+                self.keyboard_manager.resume()
+            except AttributeError:
+                try:
+                    self.keyboard_manager.enable()
+                except Exception:
+                    pass
+            except Exception:
+                pass
+
+        try:
+            # Destruir Toplevels pendientes del calendario
+            if hasattr(self, 'entry_fecha_inicio'):
+                try:
+                    self.entry_fecha_inicio.destroy()
+                except Exception:
+                    pass
+
+            if hasattr(self, 'entry_fecha_fin'):
+                try:
+                    self.entry_fecha_fin.destroy()
+                except Exception:
+                    pass
+
+            # Limpiar estado
+            try:
+                self.current_report_data = None
+            except Exception:
+                pass
+        except Exception:
+            import logging
+            logging.exception('Error en cleanup de InformesView')
+
+        super().destroy()
+
+    def get_widget(self):
+        return self
+
+    def _force_initial_focus(self):
+        try:
+            self.focus_set()
+            if hasattr(self, 'cb_tipo_informe'):
+                try:
+                    self.cb_tipo_informe.focus_set()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    def show_generar(self):
+        """Mostrar el generador de informes (placeholder).
+
+        Crea un frame simple con un label centrado y actualiza la ruta.
+        """
+        try:
+            colors = self.colors or {}
+            primary_btn = (colors.get('buttons') or {}).get('primary', {})
+            btn_bg = primary_btn.get('bg', colors.get('primary', '#00A4DF'))
+            btn_hover = primary_btn.get('hover', primary_btn.get('bg', '#6FCFF5'))
+            btn_text = primary_btn.get('text', colors.get('text', '#FFFFFF'))
+
+            # Main content frame
+            content_frame = ctk.CTkFrame(self.central_area, fg_color=colors.get('background', 'transparent'))
+
+            # HEADER
+            header_frame = ctk.CTkFrame(content_frame, fg_color='transparent')
+            header_frame.pack(fill='x', padx=12, pady=(12, 8))
+
+            title_lbl = ctk.CTkLabel(header_frame, text='GENERADOR DE INFORMES', font=get_font('title', module='informes'), text_color=colors.get('text'))
+            title_lbl.pack(anchor='w', padx=6, pady=(0, 6))
+
+            # Filters row
+            filters_frame = ctk.CTkFrame(header_frame, fg_color='transparent')
+            filters_frame.pack(fill='x', padx=6, pady=(4, 6))
+
+            lbl_tipo = ctk.CTkLabel(filters_frame, text='Tipo:', font=get_font('label', module='informes'), text_color=colors.get('text'))
+            lbl_tipo.pack(side='left', padx=(0, 6))
+            self.cb_tipo_informe = ctk.CTkComboBox(
+                filters_frame,
+                values=[
+                    "Ventas por rango de fechas",
+                    "Ventas por cajero",
+                    "Ventas por categoría",
+                    "Ventas por tipo",
+                    "Stock por categoría",
+                    "Stock por tipo"
+                ],
+                state='readonly',
+                width=220,
+                font=get_font('entry', module='informes')
+            )
+            self.cb_tipo_informe.pack(side='left', padx=(0, 12))
+
+            # Invalidar informe si cambian los filtros
+            try:
+                # DatePickerEntry expone el widget interno `entry`
+                self.entry_fecha_inicio.entry.bind('<KeyRelease>', self._on_filter_change)
+            except Exception:
+                pass
+
+            lbl_desde = ctk.CTkLabel(filters_frame, text='Desde:', font=get_font('label', module='informes'), text_color=colors.get('text'))
+            lbl_desde.pack(side='left', padx=(0, 6))
+            # Guardar referencia para mostrar/ocultar dinámicamente
+            self.lbl_desde = lbl_desde
+            self.entry_fecha_inicio = DatePickerEntry(filters_frame, module_name='informes', width=140, allow_future=False)
+            self.entry_fecha_inicio.pack(side='left', padx=(0, 12))
+
+            lbl_hasta = ctk.CTkLabel(filters_frame, text='Hasta:', font=get_font('label', module='informes'), text_color=colors.get('text'))
+            lbl_hasta.pack(side='left', padx=(0, 6))
+            # Guardar referencia para mostrar/ocultar dinámicamente
+            self.lbl_hasta = lbl_hasta
+            self.entry_fecha_fin = DatePickerEntry(filters_frame, module_name='informes', width=140, allow_future=False)
+            self.entry_fecha_fin.pack(side='left', padx=(0, 12))
+
+            # Extra filters: tag selector (starts disabled)
+            try:
+                extra_filters_frame = ctk.CTkFrame(header_frame, fg_color='transparent')
+                extra_filters_frame.pack(fill='x', padx=6, pady=(0, 8))
+
+                self.tag_selector = TagSelector(extra_filters_frame, module_name='informes', placeholder="Busca categoría, tipo o producto...")
+                self.tag_selector.pack(fill='x', padx=12, pady=(0, 8))
+                try:
+                    # Altura fija para la zona de tags
+                    self.tag_selector.configure(height=80)
+                except Exception:
+                    pass
+                try:
+                    # Desactivar inicialmente la caja de búsqueda interna
+                    self.tag_selector.search_combo.configure(state='disabled')
+                except Exception:
+                    pass
+            except Exception:
+                logging.exception('Error creando TagSelector en InformesView')
+
+            self.btn_generar = ButtonFactory.create_button(
+                parent=filters_frame,
+                text='ACEPTAR',
+                command=self._on_generar_click,
+                style_key='action_confirm'
+            )
+            self.btn_generar.pack(side='left', padx=(6, 0))
+
+            try:
+                # Ensure ComboBox notifies when selection changes
+                self.cb_tipo_informe.configure(command=self._on_tipo_informe_changed)
+            except Exception:
+                pass
+
+            # BODY
+            result_frame = ctk.CTkFrame(content_frame, fg_color='transparent')
+            result_frame.pack(fill='both', expand=True, padx=12, pady=(6, 12))
+
+            self.result_textbox = ctk.CTkTextbox(result_frame)
+            self.result_textbox.pack(fill='both', expand=True)
+            # Configurar como solo lectura pero copiable
+            try:
+                # Permitir selección y copia, bloquear edición
+                def block_edit(event):
+                    # Permitir Ctrl+C y Ctrl+A
+                    if event.state & 0x4:  # Ctrl presionado
+                        if event.keysym in ('c', 'a', 'C', 'A'):
+                            return
+                    # Bloquear solo teclas que modifican contenido
+                    if event.keysym in ('BackSpace', 'Delete'):
+                        return "break"
+                    # Permitir navegación (flechas, home, end, etc)
+                    if len(event.keysym) > 1:
+                        return
+                    # Bloquear inserción de caracteres
+                    return "break"
+
+                self.result_textbox.bind("<Key>", block_edit)
+            except Exception:
+                pass
+
+            # FOOTER (placeholder)
+            footer_frame = ctk.CTkFrame(content_frame, fg_color='transparent')
+            footer_frame.pack(fill='x', padx=12, pady=(0, 12))
+
+            # Export button (use central create_action_button for consistent styling)
+            try:
+                btn_export = create_action_button(
+                    footer_frame,
+                    'exportar',
+                    self._on_exportar_click
+                )
+                btn_export.pack(side='left', padx=8)
+                # Exponer el botón para control de estado y actualizar su estado inicial
+                self.btn_export = btn_export
+                try:
+                    self._update_export_button_state()
+                except Exception:
+                    pass
+            except Exception:
+                logging.exception('Error creando botón Exportar en InformesView')
+
+            navigated = False
+            try:
+                navigated = self.set_central_content(content_frame)
+            except Exception:
+                logging.exception('Error pasando content_frame a set_central_content en show_generar')
+
+            if navigated:
+                try:
+                    self.actualizar_ruta('INFORMES / GENERAR')
+                except Exception:
+                    pass
+
+        except Exception:
+            logging.exception('Error en show_generar de InformesView')
+
+    def _on_generar_click(self):
+        try:
+            fecha_inicio = self.entry_fecha_inicio.get()
+            fecha_fin = self.entry_fecha_fin.get()
+
+            # Detectar tipo pronto para condicionar validaciones
+            try:
+                tipo_informe = self.cb_tipo_informe.get()
+            except Exception:
+                tipo_informe = ''
+
+            # Validaciones: solo para informes que NO son de Stock
+            try:
+                if 'stock' not in (tipo_informe or '').lower():
+                    if not fecha_inicio or not fecha_fin:
+                        from kool_tpv.utils.custom_dialog import show_warning
+                        show_warning(self.central_area, 'Fechas requeridas',
+                                     'Debes seleccionar ambas fechas')
+                        return
+
+                    if fecha_inicio > fecha_fin:
+                        from kool_tpv.utils.custom_dialog import show_warning
+                        show_warning(self.central_area, 'Rango inválido',
+                                     'La fecha inicio no puede ser mayor que la fecha fin')
+                        return
+            except Exception:
+                pass
+
+            service = InformesService(self.db)
+
+            # Generar informe según tipo
+            if tipo_informe == "Ventas por rango de fechas":
+                report_data = service.get_informe_ventas_por_rango(fecha_inicio, fecha_fin)
+            elif tipo_informe == "Ventas por cajero":
+                report_data = service.get_informe_ventas_por_cajero(fecha_inicio, fecha_fin)
+            elif tipo_informe == "Ventas por categoría":
+                categorias = None
+                try:
+                    categorias = self.tag_selector.get_selected_ids()
+                except Exception:
+                    categorias = None
+                report_data = service.get_informe_ventas_por_categoria(fecha_inicio, fecha_fin, categorias=categorias)
+            elif tipo_informe == "Ventas por tipo":
+                tipos = None
+                try:
+                    tipos = self.tag_selector.get_selected_ids()
+                except Exception:
+                    tipos = None
+                report_data = service.get_informe_ventas_por_tipo(fecha_inicio, fecha_fin, tipos=tipos)
+            elif tipo_informe == "Stock por categoría":
+                try:
+                    categoria_ids = self.tag_selector.get_selected_ids()
+                except Exception:
+                    categoria_ids = None
+                report_data = service.get_informe_stock_por_categoria(categoria_ids if categoria_ids else None)
+            elif tipo_informe == "Stock por tipo":
+                try:
+                    tipo_ids = self.tag_selector.get_selected_ids()
+                except Exception:
+                    tipo_ids = None
+                report_data = service.get_informe_stock_por_tipo(tipo_ids if tipo_ids else None)
+            else:
+                from kool_tpv.utils.custom_dialog import show_warning
+                show_warning(self.central_area, 'Tipo no soportado',
+                             f'El tipo de informe "{tipo_informe}" no está implementado.')
+                return
+
+            # GUARDAR ESTADO
+            self.current_report_data = report_data
+
+            try:
+                self._update_export_button_state()
+            except Exception:
+                pass
+
+            # Renderizar
+            self._render_report(report_data)
+
+            # Restaurar foco al área de informes
+            try:
+                self.cb_tipo_informe.focus_set()
+            except Exception:
+                try:
+                    self.focus_set()
+                except Exception:
+                    pass
+
+        except Exception:
+            import logging
+            logging.exception('Error generando informe')
+
+    def _render_report(self, report_data: dict):
+        try:
+            formatter = FormatterService()
+
+            try:
+                self.result_textbox.delete('1.0', 'end')
+            except Exception:
+                pass
+
+            # Title
+            self.result_textbox.insert('end', f"{report_data.get('title', '')}\n")
+
+            # Metadata: generated_at and range
+            generated_at = report_data.get('generated_at')
+            if generated_at:
+                try:
+                    self.result_textbox.insert('end', f"Generado: {formatter.format_fecha(generated_at)}\n")
+                except Exception:
+                    try:
+                        self.result_textbox.insert('end', f"Generado: {generated_at}\n")
+                    except Exception:
+                        pass
+
+            rng = report_data.get('range', {})
+            if rng:
+                start = rng.get('start', '')
+                end = rng.get('end', '')
+                self.result_textbox.insert('end', f"Rango: {start} → {end}\n\n")
+
+            # Iterate sections
+            for section in report_data.get('sections', []) or []:
+                sec_type = section.get('type')
+
+                # Summary section
+                if sec_type == 'summary':
+                    headers = section.get('headers', [])
+                    rows = section.get('rows', [])
+                    money_columns = section.get('money_columns', []) or []
+
+                    self.result_textbox.insert('end', '-' * 40 + "\n")
+                    if headers and rows:
+                        vals = rows[0]
+                        for col_index, header in enumerate(headers):
+                            try:
+                                value = vals[col_index]
+                                if col_index in money_columns and isinstance(value, (int, float)):
+                                    value_fmt = formatter.format_precio(value)
+                                else:
+                                    value_fmt = str(value)
+                            except Exception:
+                                value_fmt = ''
+                            self.result_textbox.insert('end', f"{header:<20} : {value_fmt}\n")
+                    self.result_textbox.insert('end', "\n")
+
+                # Table section
+                elif sec_type == 'table':
+                    headers = section.get('headers', [])
+                    rows = section.get('rows', [])
+                    money_columns = section.get('money_columns', []) or []
+
+                    self.result_textbox.insert('end', '-' * 40 + "\n")
+                    if section.get('title'):
+                        self.result_textbox.insert('end', f"{section.get('title')}\n")
+                    if headers:
+                        self.result_textbox.insert('end', " | ".join(headers) + "\n")
+                    for row in rows:
+                        formatted_row = []
+                        for col_index, value in enumerate(row):
+                            try:
+                                if col_index in money_columns and isinstance(value, (int, float)):
+                                    formatted_row.append(formatter.format_precio(value))
+                                else:
+                                    formatted_row.append(str(value))
+                            except Exception:
+                                formatted_row.append(str(value))
+                        self.result_textbox.insert('end', " | ".join(formatted_row) + "\n")
+                    self.result_textbox.insert('end', "\n")
+
+                # Blocks section (vertical)
+                elif sec_type == 'blocks':
+                    self.result_textbox.insert('end', '-' * 40 + "\n")
+                    if section.get('title'):
+                        self.result_textbox.insert('end', f"{section.get('title')}\n")
+
+                    blocks = section.get('blocks', [])
+                    for block in blocks:
+                        block_title = block.get('title', '')
+                        self.result_textbox.insert('end', f"\n{block_title}\n")
+                        self.result_textbox.insert('end', '-' * 40 + "\n")
+
+                        fields = block.get('fields', [])
+                        for field in fields:
+                            label = field.get('label', '')
+                            value = field.get('value')
+                            is_money = field.get('is_money', False)
+
+                            if is_money and isinstance(value, (int, float)):
+                                try:
+                                    value_fmt = formatter.format_precio(value)
+                                except Exception:
+                                    value_fmt = str(value)
+                            else:
+                                value_fmt = str(value)
+
+                            self.result_textbox.insert('end', f"{label:<25} : {value_fmt:>15}\n")
+
+                        self.result_textbox.insert('end', "\n")
+
+            # leave textbox interactive (key-filtered) so selection/copying works
+
+        except Exception:
+            logging.exception('Error renderizando informe')
+
+    def _on_filter_change(self, event=None):
+        try:
+            self.current_report_data = None
+            self._update_export_button_state()
+        except Exception:
+            pass
+
+    def _on_tipo_informe_changed(self, value=None):
+        try:
+            tipo = value if value is not None else None
+            try:
+                if not tipo:
+                    tipo = self.cb_tipo_informe.get()
+            except Exception:
+                tipo = tipo
+
+            tipo_lower = tipo.lower() if tipo else ""
+            service = InformesService(self.db)
+
+            # Limpiar selecciones previas
+            try:
+                self.tag_selector.clear()
+            except Exception:
+                pass
+
+            # Si es informe de Stock: ocultar DatePickers
+            try:
+                if 'stock' in tipo_lower:
+                    try:
+                        self.lbl_desde.pack_forget()
+                        self.entry_fecha_inicio.pack_forget()
+                        self.lbl_hasta.pack_forget()
+                        self.entry_fecha_fin.pack_forget()
+                    except Exception:
+                        pass
+                else:
+                    # Mostrar DatePickers en orden si no están visibles
+                    try:
+                        self.lbl_desde.pack(side='left', padx=(0, 6), after=self.cb_tipo_informe)
+                        self.entry_fecha_inicio.pack(side='left', padx=(0, 12), after=self.lbl_desde)
+                        self.lbl_hasta.pack(side='left', padx=(0, 6), after=self.entry_fecha_inicio)
+                        self.entry_fecha_fin.pack(side='left', padx=(0, 12), after=self.lbl_hasta)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+            # Configurar TagSelector según tipo
+            try:
+                if 'categoría' in tipo_lower or 'categoria' in tipo_lower:
+                    self.tag_selector.set_search_function(lambda txt: service.buscar_categorias_dinamico(txt))
+                    try:
+                        self.tag_selector.search_combo.entry.configure(state='normal')
+                    except Exception:
+                        pass
+                elif 'tipo' in tipo_lower:
+                    self.tag_selector.set_search_function(lambda txt: service.buscar_tipos_dinamico(txt))
+                    try:
+                        self.tag_selector.search_combo.entry.configure(state='normal')
+                    except Exception:
+                        pass
+                else:
+                    self.tag_selector.set_search_function(None)
+                    try:
+                        self.tag_selector.search_combo.entry.configure(state='disabled')
+                    except Exception:
+                        pass
+            except Exception:
+                logging.exception('Error configurando TagSelector según tipo seleccionado')
+
+            # Invalidar informe
+            try:
+                self.current_report_data = None
+                self._update_export_button_state()
+            except Exception:
+                pass
+
+        except Exception:
+            import logging
+            logging.exception('Error en _on_tipo_informe_changed')
+
+    def _update_export_button_state(self):
+        try:
+            if hasattr(self, 'btn_export'):
+                if self.current_report_data is None:
+                    try:
+                        self.btn_export.configure(state='disabled')
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        self.btn_export.configure(state='normal')
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    def _on_exportar_click(self):
+        try:
+            # Verificar que hay informe generado
+            if not self.current_report_data:
+                from kool_tpv.utils.custom_dialog import show_warning
+                show_warning(self.central_area, 'No hay informe',
+                             'Genera un informe antes de exportar.')
+                return
+
+            # Diálogo guardar
+            try:
+                from tkinter import filedialog
+                path = filedialog.asksaveasfilename(
+                    defaultextension=".csv",
+                    filetypes=[
+                        ("CSV files", "*.csv"),
+                        ("PDF files", "*.pdf")
+                    ],
+                    title="Guardar informe"
+                )
+            except Exception:
+                path = None
+
+            if not path:
+                return
+
+            # Exportar usando el informe ya generado
+            from kool_tpv.modulos.impresion.export_service import ExportService
+            export_service = ExportService(self.db)
+
+            if path.lower().endswith(".csv"):
+                export_service.export_report_csv(self.current_report_data, path)
+            elif path.lower().endswith(".pdf"):
+                export_service.export_report_pdf(self.current_report_data, path)
+
+            # Restaurar foco después de filedialog
+            try:
+                self.cb_tipo_informe.focus_set()
+            except Exception:
+                try:
+                    self.focus_set()
+                except Exception:
+                    pass
+
+        except PermissionError:
+            from kool_tpv.utils.custom_dialog import show_error
+            show_error(
+                self.central_area,
+                "No se pudo guardar el archivo",
+                "El archivo está abierto o no tienes permisos.\n"
+                "Ciérralo e inténtalo de nuevo."
+            )
+        except Exception:
+            import logging
+            logging.exception('Error durante exportación del informe')
+            from kool_tpv.utils.custom_dialog import show_error
+            show_error(
+                self.central_area,
+                "Error al exportar",
+                "Ocurrió un error inesperado al generar el archivo."
+            )

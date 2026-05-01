@@ -1,0 +1,216 @@
+db-schema — Análisis resumido del esquema de la base de datos
+
+- Fuentes consultadas:
+  - `kool_tpv/base_datos/migraciones/base.sql` (DDL base)
+  - `kool_tpv/base_datos/migraciones/002_num_ticket_text.sql` (migra num_ticket a TEXT)
+  - Servicios en `kool_tpv/base_datos/*` (ej. `ticket_service.py`) que usan tablas.
+
+- Tablas principales observadas y columnas relevantes (resumen):
+  - `tickets`:
+    - `id` (PK), `created_at` (timestamp), `total` (REAL/NUMERIC), `ticket_text` (TEXT),
+      `cliente_id` (FK opcional), `num_ticket` (TEXT tras migración), otros campos de pago.
+
+  - `ticket_lines`:
+    - `id` (PK), `ticket_id` (FK -> tickets.id), `producto_id`, `nombre`, `cantidad`,
+      `precio`, `descuento`, campos para impuestos y costeo.
+
+  - `productos`:
+    - `id`, `nombre`, `precio`, `stock`, `categoria_id`, `proveedor_id`, `tipo_id`, etc.
+
+  - `clientes`, `usuarios`, `proveedores`, `categorias`, `tipos`:
+    - Tablas maestras para entidades; CRUD y campos de contacto/metadatos.
+
+  - `configuracion`:
+    - Claves/valores para parámetros globales, incluye contador/semilla de tickets.
+
+  - `cierres`, `albaranes`, `niveles`:
+    - Entidades para cierres diarios, documentos de albarán y niveles/umbrales de stock.
+
+- Índices/constraints:
+  - Se observan claves primarias y varias consultas que dependen de `ticket_id` y
+    `created_at` para ordenación; recomendar indices en `tickets(created_at)` y
+    `ticket_lines(ticket_id)` si no existen.
+
+- Migraciones importantes:
+  - `002_num_ticket_text.sql` cambia el tipo de `num_ticket` a TEXT (para permitir
+    formatos alfanuméricos y ceros a la izquierda).
+
+- Recomendaciones para auditoría completa:
+  - Ejecutar `PRAGMA table_info(<table>)` y `PRAGMA index_list(<table>)` contra
+    `kool_tpv/base_datos/kool_bd.db` para obtener esquema exacto y listas de índices.
+  - Revisar `migraciones/base.sql` para DDL exacto (FK, ON DELETE behavior, tipos).
+Resumen exhaustivo del esquema de la base de datos
+Origen: kool_tpv/base_datos/kool_bd.db
+Generado automáticamente: 2026-02-28
+
+Resumen ejecutivo
+- Tablas encontradas: 20 principales (consultar secciones abajo).
+- Índices declarados: varios (ver lista en sección "Índices").
+- Notas críticas:
+  - Hay referencias (FK) a tablas "legacy" que no están presentes en la base de datos actual (por ejemplo `tickets_backup`, `clientes_old`). Esto sugiere migraciones parciales o diseño híbrido que debe revisarse.
+  - Muchas columnas monetarias usan tipo REAL: riesgo de imprecisión por punto flotante. Se recomienda estandarizar el manejo de dinero (enteros en céntimos o almacenar texto con Decimal en código y persistir como TEXT si se desea exactitud).
+  - Campos JSON/serializados: varias tablas usan campos `*_desglose` con texto JSON (ej. `iva_desglose`), lo cual es válido pero conviene documentar su estructura y validar contenido al leer/escribir.
+
+Detalle por tabla
+
+1) Tabla: `albaran_lines` (rows: 20)
+- CREATE SQL:
+  CREATE TABLE albaran_lines (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    albaran_id INTEGER,
+    producto_id INTEGER,
+    ean TEXT,
+    nombre TEXT,
+    cantidad INTEGER,
+    coste REAL,
+    descuento REAL DEFAULT 0.0,
+    importe REAL,
+    tipo_iva INTEGER DEFAULT 21,
+    FOREIGN KEY(albaran_id) REFERENCES albaranes(id) ON DELETE CASCADE,
+    FOREIGN KEY(producto_id) REFERENCES productos(id)
+  )
+- Columnas (nombre : tipo, notnull, default, pk):
+  - id: INTEGER, pk
+  - albaran_id: INTEGER
+  - producto_id: INTEGER
+  - ean: TEXT
+  - nombre: TEXT
+  - cantidad: INTEGER
+  - coste: REAL
+  - descuento: REAL, default 0.0
+  - importe: REAL
+  - tipo_iva: INTEGER, default 21
+- FKs:
+  - producto_id -> `productos(id)` (NO ACTION)
+  - albaran_id -> `albaranes(id)` (ON DELETE CASCADE)
+- Índices: ninguno declarado aparte del PK.
+- Observaciones: almacena costes e importes en REAL; prorrateos/ajustes deben usar Decimal en el código.
+
+2) Tabla: `albaranes` (rows: 13)
+- Campos clave: `num_albaran` (INTEGER UNIQUE), `proveedor_id`, `fecha`, totales por tramos de IVA (`total_iva_4/10/21`) y `total_neto` / `total`.
+- FK: `proveedor_id` -> `proveedores(id)`.
+- Índices: unique index automatico sobre `num_albaran`.
+- Observaciones: `tipo` por defecto 'ENTRADA' (importante para lógica de stock), eliminar/editar albaranes no revierte stock automáticamente (comportamiento por diseño observado en servicios).
+
+3) Tabla: `audit_logs` (rows: 6)
+- Propósito: auditoría genérica (entidad, entidad_id, acción, usuario, datos previos/nuevos, created_at).
+- Índices: `idx_audit_fecha(created_at)`, `idx_audit_entidad(entidad, entidad_id)`.
+- Observaciones: útil para trazabilidad; revisar retención de datos si hay requisitos legales.
+
+4) Tabla: `categorias` (rows: 24)
+- `nombre` es UNIQUE (autoindex).
+- Campos metadata: timestamps `created_at`, `updated_at`, `shopify_taxonomy`, `fide_porcentaje`.
+
+5) Tabla: `cierres_caja` (rows: 6)
+- Estructura: resumen de cierre con muchos agregados: totales por forma de pago, devoluciones, descuentos, tesoro (puntos) y campos breakdown (`base_21`, `iva_21`, `iva_desglose` TEXT).
+- Índices: `idx_cierres_fecha_hora(fecha_hora)`, `idx_cierres_cierre_num(cierre_num)`.
+- Observaciones: contiene `iva_desglose` como JSON en texto; la función `compute_totals_for_ticket_ids` produce esta estructura.
+
+6) Tabla: `clientes` (rows: 4)
+- Campos importantes: datos de contacto, campos de fidelización (`tesoro_total`, `tesoro_gastado_total`, `tesoro_historico`, `id_nivel`), métricas (`total_compras`, `total_compras_euros`, `total_unidades`), fechas (alta, última compra, vencimiento tesoro).
+- Observaciones: pocos registros en esta instancia; mantener integridad con `points_movements`/`niveles_fidelidad`.
+
+7) Tabla: `codigos_barras` (rows: 5)
+- FK: `producto_id` -> `productos(id)` ON DELETE CASCADE.
+- `ean` NOT NULL.
+
+8) Tabla: `configuracion` (rows: 41)
+- Key/value store: `clave` TEXT PRIMARY KEY, `valor` TEXT.
+- Uso observado: parámetros globales (printer_name, ticket headers/footers, qr_enabled, ticket counter, app_mode, etc.).
+
+9) Tabla: `facturas` (rows: 0)
+- Facturas con FK opcionales a `clientes(id)` (ON DELETE SET NULL), `tickets(id)` y autorreferencia `factura_rectificada_id`.
+- Índices: por fecha, cliente y num_factura (unique enforced on num_factura).
+- Observaciones: campo `iva_desglose` TEXT por JSON; no hay filas en la muestra.
+
+10) Tabla: `facturas_lines` (rows: 0)
+- Líneas de factura con FK a `facturas(id)` (ON DELETE CASCADE) y `productos(id)` (ON DELETE SET NULL).
+- Índice: `idx_facturas_lines_factura(factura_id)`.
+
+11) Tabla: `niveles_fidelidad` (rows: 10)
+- Define niveles de fidelización: `level` UNIQUE y `gasto_minimo`, `tipo_recompensa`, etc.
+
+12) Tabla: `payments` (rows: 30)
+- Estructura: `ticket_id`, `metodo`, `importe`, `referencia`, `created_at`.
+- FK declarado: `ticket_id` -> `tickets_backup(id)` ON DELETE CASCADE
+  - Atención: `tickets_backup` NO aparece en las tablas extraídas => FK a tabla inexistente (posible vestigio de migración). Ver sección "Inconsistencias".
+- Índice: `idx_payments_ticket(ticket_id)`.
+
+13) Tabla: `points_movements` (rows: 15)
+- Movimientos de puntos (cliente_id, puntos, motivo, ticket_id, usuario_id).
+- FKs: referencia a `tickets_backup(id)` y `clientes_old(id)` — ambas tablas NO presentes en el esquema actual.
+- Índice: `idx_points_mov_cliente(cliente_id)`.
+- Observación: la dependencia a tablas antiguas sugiere migraciones incompletas; revisar y consolidar esquema.
+
+14) Tabla: `precios` (rows: 17)
+- Historial de precios (`pvp`, `coste`, `fecha_registro`, `activo`), FK a `productos(id)` ON DELETE CASCADE.
+- Índice: `idx_precios_activo(producto_id, activo)` para consultas del precio activo por producto.
+
+15) Tabla: `productos` (rows: 9)
+- Campos clave: `sku` UNIQUE, `nombre` NOT NULL, `categoria` (FK), `tipo` (FK), `proveedor_id` (FK), `stock_actual` (NOT NULL default 0), `ventas_totales`, `fidelizacion_tipo`/`fidelizacion_valor`.
+- FKs:
+  - `proveedor_id` -> `proveedores(id)` ON DELETE SET NULL
+  - `tipo` -> `tipos(id)` ON DELETE RESTRICT
+  - `categoria` -> `categorias(id)` ON DELETE RESTRICT
+- Índices: `idx_productos_tipo`, `idx_productos_categoria`, `idx_productos_proveedor`, plus unique on `sku`.
+
+16) Tabla: `proveedores` (rows: 2)
+- Datos de proveedor, incluido `mapeo_csv` (TEXT JSON) para importaciones.
+
+17) Tabla: `stock_movements` (rows: 32)
+- Registro histórico de cambios de stock: `producto_id`, `cantidad`, `motivo`, `ticket_line_id`.
+- FKs: `ticket_line_id` -> `ticket_lines(id)`, `producto_id` -> `productos(id)`.
+- Índice: `idx_stock_mov_producto(producto_id)`.
+
+18) Tabla: `ticket_lines` (rows: 38)
+- Estructura: `ticket_id` (FK a `tickets_backup(id)`), `sku`, `nombre`, `cantidad`, `precio`, `iva`, `line_tipo`, `producto_id`.
+- FKs: `producto_id` -> `productos(id)`, `ticket_id` -> `tickets_backup(id)` (nuevamente referencia a tabla `tickets_backup` que no existe en el dump).
+- Índices: `idx_ticket_lines_producto(producto_id)`, `idx_ticket_lines_ticket(ticket_id)`.
+
+19) Tabla: `tickets` (rows: 30)
+- Tabla principal de tickets (ventas). Campos: `created_at`, `cajero`, `cliente`, `cliente_id`, `num_ticket`, `forma_pago`, `total`, `pagado`, `cambio`, `importe_efectivo`, `importe_tarjeta`, `descuento_euros`, `descuento_tipo`, `descuento_valor`, `cierre_id`, `tesoro_ganado`, `tesoro_gastado`, `ticket_text`, `usuario_id`, `num_ventas`, `subtotal`, `iva_desglose` TEXT.
+- Índice: `idx_tickets_cliente(cliente_id)`.
+- Observaciones: `iva_desglose` JSON-text; `ticket_text` puede almacenar snapshot textual (usado para impresión/reconstrucción).
+
+20) Tabla: `tipos` (rows: 35)
+- Similar a `categorias`, con `nombre` UNIQUE y metadatos.
+
+21) Tabla: `usuarios` (rows: 3)
+- Usuarios con `nombre`, `password` (almacenado como hash), `rol`, permisos booleanos como INTEGER y datos de contacto.
+- Observación: `password` campo presente; revisa políticas de hash (actualmente SHA-256 según `auth_service`) y rotación/upgrade si se requiere.
+
+Índices (resumen)
+- Índices principales existentes (no exhaustivo en esta lista, ver SQL en DB si requiere):
+  - `idx_audit_entidad`, `idx_audit_fecha`
+  - `idx_cierres_fecha_hora`, `idx_cierres_cierre_num`
+  - `idx_facturas_fecha`, `idx_facturas_cliente`, `idx_facturas_num`
+  - `idx_facturas_lines_factura`
+  - `idx_payments_ticket`
+  - `idx_points_mov_cliente`
+  - `idx_precios_activo`
+  - `idx_productos_categoria`, `idx_productos_proveedor`, `idx_productos_tipo`
+  - `idx_stock_mov_producto`
+  - `idx_ticket_lines_producto`, `idx_ticket_lines_ticket`
+  - `idx_tickets_cliente`
+
+Inconsistencias y riesgos detectados
+- FKs a tablas inexistentes: `tickets_backup` y `clientes_old` aparecen en varias FKs (`payments.ticket_id`, `points_movements.ticket_id`, `points_movements.cliente_id`, `ticket_lines.ticket_id`, `payments` FK). Esto puede producir errores de integridad si las tablas faltantes son necesarias o si las FKs están activas. Revisar si estas tablas fueron renombradas durante migración y actualizar FKs o restaurar tablas de compatibilidad.
+- Uso de REAL para dinero: riesgo de rounding y errores en cálculos fiscales. Recomendación: persistir cantidades monetarias como enteros (céntimos) o como texto con formato decimal y usar `decimal.Decimal` en la lógica de aplicación.
+- Campos JSON en TEXT: `iva_desglose`, `iva_desglose` en tickets, `iva_desglose` en cierres, `iva_desglose` en facturas, `mapeo_csv` en proveedores. Es importante validar contenido y documentar el schema JSON para evitar errores de parseo.
+- Nullabilidad/constraints: muchas columnas monetarias/relacionales no están marcadas NOT NULL (por ejemplo `ticket_lines.precio`, `ticket_lines.cantidad` permitiendo NULL). Considerar añadir NOT NULL y defaults donde la lógica lo requiera para prevenir filas corruptas.
+- Índices: índices existentes cubren muchas consultas típicas, pero revisar si consultas frecuentes por `num_ticket`/`num_albaran`/`num_factura` están optimizadas (se observan índices únicos o no únicos sobre esos campos en varias tablas).
+
+Recomendaciones de acciones concretas
+1. Revisar y corregir referencias a `tickets_backup` y `clientes_old` — o restaurar tablas de compatibilidad si la aplicación aún requiere el diseño antiguo.
+2. Standardizar almacenamiento monetario: elegir entre "enteros en céntimos" o "TEXT con Decimal" y migrar; actualizar servicios (`ticket_service`, `cierre_service`, `albaran_service`) para usar la convención.
+3. Añadir constraints NOT NULL y defaults razonables en columnas críticas (cantidad, precio, total) y crear migraciones que limpien datos inválidos antes de aplicar cambios.
+4. Documentar el formato JSON esperado en campos `*_desglose` y `mapeo_csv` y añadir validaciones en lectura/escritura.
+5. Añadir tests de integración con DB en memoria (`:memory:`) que ejecuten flujos críticos: `save_ticket`, `create_cierre_atomic`, `save_albaran` para detectar regresiones transaccionales.
+6. Revisar la política de almacenamiento de contraseñas si se necesita migrar a un esquema con sal + PBKDF2/argon2 en vez de SHA-256 simple.
+
+Anexos (pistas rápidas para desarrolladores)
+- Para ver el SQL exacto de una tabla: `SELECT sql FROM sqlite_master WHERE type='table' AND name='nombre_tabla'`.
+- Para comprobar tablas referenciadas que faltan: buscar en sqlite_master las ocurrencias de `tickets_backup` / `clientes_old`.
+- Para activar comprobación FK en SQLite (runtime): `PRAGMA foreign_keys = ON;` (asegúrese que la aplicación habilite esto si depende de FKs).
+
+Fin del análisis.

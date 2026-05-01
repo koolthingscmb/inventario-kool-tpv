@@ -1,0 +1,61 @@
+{
+  "almacen": {
+    "title": "ALMACÉN",
+    "buttons": [
+      {"id": "crear", "text": "+", "action": "show_crear"},
+      {"id": "busqueda", "text": "BÚSQUEDA", "action": "show_busqueda"},
+      {"id": "albaran", "text": "ALBARAN", "action": "show_albaranes"},
+      {"id": "tipos", "text": "TIPOS", "action": "show_tipos"},
+      {"id": "categorias", "text": "CATEGORÍAS", "action": "show_categorias"},
+      {"id": "proveedores", "text": "PROVEEDORES", "action": "show_proveedores"}
+    ]
+  },
+  "clientes": {
+    "title": "CLIENTES",
+    "buttons": [
+      {"id": "crear", "text": "+", "action": "show_crear_cliente"},
+      {"id": "busqueda", "text": "BÚSQUEDA", "action": "show_busqueda"},
+      {"id": "tops", "text": "TOPS", "action": "show_tops"},
+      {"id": "comunicacion", "text": "COMUNICACIÓN", "action": "show_comunicacion"},
+      {"id": "config", "text": "CONFIG", "action": "show_config"}
+    ]
+  },
+  "informes": {
+    "title": "INFORMES",
+    "buttons": []
+  },
+  "shopify": {
+    "title": "SHOPIFY",
+    "buttons": [
+      {"id": "sincro", "text": "SINCRO", "action": "shopify_sincro"}
+    ]
+  },
+  "config": {
+    "title": "CONFIG",
+    "buttons": [
+      {"id": "general", "text": "GENERAL", "action": "open_config_general"},
+      {"id": "impresion", "text": "IMPRESIÓN", "action": "open_config_impresion"},
+      {"id": "usuario", "text": "USUARIO", "action": "open_config_usuario"},
+      {"id": "fidelizacion", "text": "FIDELIZACIÓN", "action": "open_config_fidelizacion"},
+      {"id": "reset", "text": "RESET", "action": "open_config_reset"}
+    ],
+    "impresion_submenu": {
+      "title": "IMPRESIÓN",
+      "buttons": [
+        {"id": "impresora", "text": "IMPRESORA", "action": "show_impresora_config"},
+        {"id": "textos", "text": "TEXTOS", "action": "show_textos_tickets"},
+        {"id": "plantillas", "text": "PLANTILLAS", "action": "show_plantillas"}
+      ]
+    },
+    "fidelizacion_submenu": {
+      "title": "FIDELIZACIÓN",
+      "buttons": [
+        {"id": "general", "text": "GENERAL", "action": "show_fidelizacion_general"},
+        {"id": "categorias", "text": "CATEGORÍAS", "action": "show_fidelizacion_categorias"},
+        {"id": "tipos", "text": "TIPOS", "action": "show_fidelizacion_tipos"},
+        {"id": "productos", "text": "PRODUCTOS", "action": "show_fidelizacion_productos"},
+        {"id": "niveles", "text": "NIVELES", "action": "show_fidelizacion_niveles"}
+      ]
+    }
+  }
+}

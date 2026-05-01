@@ -1,0 +1,147 @@
+Resumen de características principales — KOOL TPV
+
+Objetivo general:
+- Aplicación de punto de venta escrita en Python orientada a escritorio
+  (Windows y macOS) con alto enfoque en robustez, precisión financiera
+  y acabado profesional.
+
+Tecnologías y stack:
+- Lenguaje: Python 3.x.
+- UI: `tkinter` con `customtkinter` para controles modernos y temas.
+- Persistencia: SQLite (archivo DB local). Capa de acceso mediante
+  `kool_tpv.base_datos.db_wrapper.Database` con manejo de transacciones.
+- Formato y precisión numérica: uso sistemático de `Decimal` para dinero
+  y ROUND_HALF_UP para evitar errores de redondeo.
+- Imagenes/fuentes: carpeta `kool_tpv/assets` con recursos (PIL usado si
+  está disponible, con fallbacks a `tk.PhotoImage`).
+
+Estado actual de la base de datos (hallazgos):
+- Archivo principal de BD: `kool_tpv/base_datos/kool_bd.db` (hay archivos
+  WAL/SHM activos y múltiples backups en
+  `kool_tpv/base_datos/archivo/` como `kool_bd_backup_*.db`).
+- Migraciones: existe `migraciones/base.sql` que crea el esquema base y
+  scripts auxiliares como `002_num_ticket_text.sql` y migraciones
+  por script Python (`2026_02_23_clientes_fecha_migration.py`). La
+  inicialización de la BD aplica estas migraciones automáticamente desde
+  `db_init.py` cuando faltan tablas críticas.
+- Tablas clave presentes y notas rápidas:
+  - `tickets`: contiene ahora `num_ticket` como TEXT (migración `002`),
+    y almacena `ticket_text` (snapshot textual del ticket) para reimpresiones.
+  - `ticket_lines`, `payments`, `stock_movements`: estructura estándar
+    para líneas, pagos y movimientos de stock con triggers para mantener
+    `num_ventas` en `tickets`.
+  - `productos`: esquema rico (sku único, stock_actual, precios en tabla
+    `precios`, campos SEO/Shopify, flags de sync y timestamps `created_at`/`updated_at`).
+  - `clientes`: incluye datos de contacto, campos de fidelidad (`tesoro_*`),
+    y se aplican migraciones para normalizar fechas (`fecha_ultima_compra`).
+  - `usuarios`: tabla con `nombre`, `password` (hash), `rol` y permisos
+    booleanos (`permiso_cierre`, `permiso_descuento`, `permiso_devolucion`, `permiso_tickets`).
+  - `configuracion`: clave/valor sencilla. En `base.sql` se insertan
+    valores semilla como `ticket_nombre_negocio`, `ticket_pie_texto` y
+    `fide_porcentaje_general`.
+- Observaciones operativas:
+  - La aplicación tiene scripts y servicios que gestionan migraciones y
+    backups (ver `kool_tpv/base_datos/db_init.py` y carpeta `archivo`).
+  - Las plantillas y textos de ticket se almacenan en `configuracion` bajo
+    claves tipo `ticket_header_*` / `ticket_footer_*`; revise su sintaxis
+    (la lógica de render espera plantillas con `{{nombre}}` para
+    sustitución segura).
+  - Hay utilidades en `base_datos/migraciones/` para cambios seguros de
+    esquema en SQLite (ej. reemplazo de tablas para modificar tipos).
+
+Arquitectura y patrones:
+- Separación clara entre UI y lógica de negocio: módulos `modulos/*`
+  contienen vistas y acciones, `kool_tpv/base_datos/*` contiene servicios
+  y persistencia (ProductoService, TicketService, CierreService, etc.).
+- Servicios/DAO: cada entidad importante tiene su servicio que implementa
+  operaciones CRUD y consultas complejas.
+- Controladores ligeros (`tpv_controller`, handlers) para enlazar vista
+  y servicios sin mezclar responsabilidades.
+- Plantillas y widgets reutilizables en `kool_tpv/utils` (diálogos, loaders
+  de config, `FormatterService`, `KeyboardManager`).
+
+Requisitos funcionales clave (lo que debe saber un programador experto):
+- Tickets y persistencia atómica: `save_ticket` en `ticket_service` realiza
+  inserciones de ticket, líneas, pagos, movimientos de stock y puntos
+  dentro de transacciones; cualquier cambio aquí debe preservarse y
+  probarse con DB en modo transaccional.
+- Cálculo y desglose IVA: el carrito calcula subtotal/IVA por tipo y aplica
+  descuentos/prorrateos manteniendo consistencia entre subtotal, IVA y total.
+- Devoluciones y modos mixtos: `DevolucionesService` y banderas en
+  `CarritoService` impiden ventas contradictorias; cambios deben respetar
+  invariantes antes y después de `save_ticket`.
+- Fidelización (puntos/tesoro): hay lógica para canje y contabilización
+  que afecta el cálculo del total — revisar `fidelizacion_service` y
+  `CarritoService.aplicar_canje_puntos`.
+- Impresión y exportación: `modulos/impresion` genera tickets formateados
+  (ancho fijo, text-based), `ImpresoraService` y `ExportService` soportan
+  impresión local y export CSV/PDF; en Windows puede existir fallback a
+  win32/APIs nativas — revisar dependencias opcionales.
+
+Calidad, robustez y prácticas recomendadas (acciones inmediatas):
+- Tests: aprovechar los tests existentes en `tests/` y `scripts/test_*`;
+  añadir pruebas unitarias para:
+  - `ticket_service.save_ticket` (escenarios normales, devoluciones, errores)
+  - Cálculos financieros en `CarritoService` (subtotales, IVA, descuentos)
+  - Integración UI → servicio (mock DB) para flujos críticos.
+- Tipado y linters: introducir `mypy` y `pyright` configurados, y formatters
+  `black` + `isort` + `pre-commit` para consistencia del código.
+- Manejo de errores y logging: centralizar niveles de logging, añadir
+  mensajes estructurados para operaciones críticas (guardados, cierres,
+  reimpresiones). Evitar silencios en excepciones que oculten fallos.
+- Migraciones de BD: mantener scripts de migración en `base_datos/migraciones`
+  y proveer herramienta/release process para aplicar migraciones en la DB
+  de producción; versionar esquema y documentar cambios.
+- Backups y recuperación: procesos automáticos y pruebas de restauración
+  (ya existen backups en `base_datos/archivo`). Automatizar rotación y
+  verificación de integridad.
+
+Consideraciones cross-platform (Windows/macOS):
+- Fuentes: incluir fuentes en `assets/FONTS` y cargarlas desde la app para
+  consistencia visual; evitar dependencias de fuentes del sistema.
+- Impresión: abstraer capa de impresión para soportar:
+  - Windows: win32/Spooler (si disponible)
+  - macOS/Linux: `lp`/CUPS o generación de PDF y envío al diálogo nativo.
+  Probar impresiones en ambas plataformas y documentar dependencias.
+- Rutas y permisos: usar `pathlib.Path` y evitar rutas absolutas; validar
+  permisos de escritura para logs, backups y DB.
+
+Seguridad y datos sensibles:
+- No almacenar contraseñas en texto claro: `AuthService` verifica hashes
+  SHA-256; preferir `bcrypt`/`scrypt` para nuevos desarrollos.
+- Proteger backups y accesos a la DB (permisos de archivos).
+
+Operaciones y flujo de desarrollo (para integrarse como dev experto):
+- Entorno local: usar `venv`/virtualenv, instalar desde `requirements.txt`.
+- Ejecutar la app desde IDE con `kool_tpv/main.py` (launcher). Para pruebas
+  unitarias usar `pytest` configurado en CI.
+- CI/CD: añadir pipelines que ejecuten linters, tests, build para Windows y
+  macOS (o build multiplataforma con `pyinstaller`/`briefcase`/`py2app`).
+
+Mejoras técnicas recomendadas (priorizadas):
+1. Añadir tipado gradual (`mypy`) y aumentar cobertura de tests en servicios
+   críticos (`ticket_service`, `producto_service`).
+2. Introducir validaciones y contratos (pydantic dataclasses o similar)
+   para simplificar sanidad de datos entre UI y servicios.
+3. Automatizar migraciones y backups (scripts CLI, tests de migración).
+4. Revisar y endurecer uso de `Decimal` y normalización de entrada/salida
+   (evitar conversiones implícitas a float).
+5. Añadir procedimientos de QA para impresión en dispositivos reales y
+   tests E2E en entornos Windows/macOS.
+
+Documentación mínima necesaria para un nuevo desarrollador experto:
+- README con cómo: crear entorno, ejecutar app, ejecutar tests y generar
+  backups/restaurar DB.
+- Diagrama breve de arquitectura (UI ↔ servicios ↔ DB ↔ impresión).
+- Contractos de DB: tablas críticas (`tickets`, `ticket_lines`, `cierres`,
+  `productos`, `clientes`) y scripts de migración.
+- Lista de dependencias opcionales (PIL, win32print, reportlab, wkhtmltopdf).
+
+Conclusión:
+- El proyecto ya sigue buenas prácticas (separación de capas, manejo de
+  transacciones, uso de Decimal). Para alcanzar el objetivo de máxima
+  robustez y acabado profesional en Windows y macOS, conviene invertir en
+  cobertura de tests, migraciones reproducibles, tipado estático, CI y
+  procesos de QA para impresión y performance.
+
+*** Fin del resumen ***
