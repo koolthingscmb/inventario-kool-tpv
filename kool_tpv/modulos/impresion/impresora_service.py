@@ -192,6 +192,37 @@ class ImpresoraService:
         try:
             from decimal import Decimal
 
+            # Helper: interpretar valores monetarios que provengan de la BD.
+            # Si la BD devuelve un entero (céntimos) o una cadena solo dígitos,
+            # convertir a Decimal euros usando from_cents. Si viene como string
+            # con punto decimal o Decimal, parsear directamente a Decimal.
+            from kool_tpv.utils.money import from_cents
+
+            def _parse_money_db(v):
+                try:
+                    # ints -> céntimos
+                    if isinstance(v, int):
+                        return from_cents(v)
+                    # sqlite puede devolver floats, strings o decimals
+                    if isinstance(v, str):
+                        # si es solo dígitos, interpretarlo como céntimos
+                        if v.isdigit():
+                            return from_cents(int(v))
+                        # si contiene punto/coma, parsear como euros
+                        try:
+                            return Decimal(v)
+                        except Exception:
+                            return Decimal(str(v))
+                    if isinstance(v, float):
+                        return Decimal(str(v))
+                    # Decimal or other numeric-like
+                    return Decimal(v)
+                except Exception:
+                    try:
+                        return Decimal(str(v))
+                    except Exception:
+                        return Decimal('0')
+
             # Obtener ticket
             ticket_row = self.db.fetch_one(
                 """SELECT id, num_ticket, created_at, cajero, cliente, cliente_id,
@@ -231,7 +262,7 @@ class ImpresoraService:
             gross_by_type = {}
             for line in lines:
                 cantidad = int(float(line[2])) if line[2] else 0
-                precio = Decimal(str(line[3])) if line[3] else Decimal('0')
+                precio = _parse_money_db(line[3]) if line[3] is not None else Decimal('0')
                 tipo_iva = int(float(line[4])) if line[4] else 21
                 line_tipo = str(line[5]) if len(line) > 5 and line[5] is not None else 'venta'
 
@@ -277,15 +308,15 @@ class ImpresoraService:
 
             # Si hay tesoro gastado, prorratearlo entre tipos de IVA y ajustar bases/IVA
             try:
-                tesoro_gastado = Decimal(str(ticket_row[11])) if ticket_row[11] is not None else Decimal('0')
+                tesoro_gastado = _parse_money_db(ticket_row[11]) if ticket_row[11] is not None else Decimal('0')
             except Exception:
                 tesoro_gastado = Decimal('0')
 
             # Calcular entregado y cambio
-            total = Decimal(str(ticket_row[6]))
+            total = _parse_money_db(ticket_row[6])
             forma_pago = ticket_row[7]
-            importe_efectivo = Decimal(str(ticket_row[8])) if ticket_row[8] else Decimal('0')
-            importe_tarjeta = Decimal(str(ticket_row[9])) if ticket_row[9] else Decimal('0')
+            importe_efectivo = _parse_money_db(ticket_row[8]) if ticket_row[8] is not None else Decimal('0')
+            importe_tarjeta = _parse_money_db(ticket_row[9]) if ticket_row[9] is not None else Decimal('0')
             if tesoro_gastado and tesoro_gastado != 0 and sum(gross_by_type.values()) != 0:
                 total_gross = sum(gross_by_type.values())
                 try:

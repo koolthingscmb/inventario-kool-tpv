@@ -40,6 +40,16 @@ class FormatterService:
             return f"{d_round:.2f}"
         except (InvalidOperation, ValueError, TypeError):
             return "0.00"
+
+    def format_precio_cents(self, cents: int) -> str:
+        """Recibe céntimos, convierte a euros y formatea."""
+        from kool_tpv.utils.money import from_cents
+        return self.format_precio(from_cents(cents))
+
+    def format_tesoro_cents(self, cents: int) -> str:
+        """Recibe céntimos, convierte a euros y formatea sin símbolo (€)."""
+        from kool_tpv.utils.money import from_cents
+        return self.format_tesoro(from_cents(cents))
     
     def format_cantidad(self, cantidad: Union[int, float, str]) -> str:
         """
