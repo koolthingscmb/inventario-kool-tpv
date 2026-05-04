@@ -62,6 +62,14 @@ class TicketCarrito(ctk.CTkFrame):
 
         # Guardar referencias externas
         self.carrito_service = carrito_service
+        # Exponer formatter local para uso en vistas (usa el del carrito_service si existe)
+        try:
+            self.formatter = getattr(self.carrito_service, 'formatter', None) if self.carrito_service is not None else None
+            if self.formatter is None:
+                from kool_tpv.utils.formatter_service import FormatterService
+                self.formatter = FormatterService()
+        except Exception:
+            self.formatter = None
         self.keyboard_manager = keyboard_manager
         self.db = db
         # Payment controller activo
@@ -689,10 +697,16 @@ class TicketCarrito(ctk.CTkFrame):
         """
         try:
             # Actualizar subtotal
-            self.subtotal_label.configure(text=f"{subtotal:.2f}€")
+            try:
+                self.subtotal_label.configure(text=self.formatter.format_precio_cents(subtotal))
+            except Exception:
+                self.subtotal_label.configure(text=f"{subtotal:.2f}€")
 
             # Actualizar total
-            self.total_label.configure(text=f"{total:.2f}€")
+            try:
+                self.total_label.configure(text=self.formatter.format_precio_cents(total))
+            except Exception:
+                self.total_label.configure(text=f"{total:.2f}€")
 
             # Limpiar desglose IVA anterior
             for widget in getattr(self, 'iva_container', []).winfo_children() if hasattr(self, 'iva_container') else []:
@@ -728,9 +742,13 @@ class TicketCarrito(ctk.CTkFrame):
                         continue
 
                     if iva_amount > 0:
+                        try:
+                            iva_text = self.formatter.format_precio_cents(iva_amount) if getattr(self, 'formatter', None) is not None else f"{iva_amount:.2f}€"
+                        except Exception:
+                            iva_text = f"{iva_amount:.2f}€"
                         label = ctk.CTkLabel(
                             self.iva_container,
-                            text=f"IVA {tipo}%: {iva_amount:.2f}€",
+                            text=f"IVA {tipo}%: {iva_text}",
                             font=iva_font,
                             text_color=footer_cfg.get("text", "#FFFFFF"),
                             anchor="center"

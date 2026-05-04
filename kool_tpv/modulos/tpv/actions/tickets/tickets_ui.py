@@ -36,6 +36,13 @@ class TicketsUI(TicketsBaseUI):
 		self.db = db
 		self.modo = 'tickets'  # 'tickets' o 'historico'
 
+		# Formatter para formateo monetario
+		try:
+			from kool_tpv.utils.formatter_service import FormatterService
+			self.formatter = FormatterService()
+		except Exception:
+			self.formatter = None
+
 		# Handler para modo histórico
 		try:
 			self._handler = TicketsHandler(self)
@@ -257,7 +264,7 @@ class TicketsUI(TicketsBaseUI):
 							items.append({
 								'id': r[0],
 								'created_at': created_str,
-								'total': f"{(float(r[2] or 0.0)):.2f}",
+								'total': self.formatter.format_precio_cents(r[2]) if getattr(self, 'formatter', None) is not None else f"{(float(r[2] or 0.0)):.2f}",
 								'cajero': r[3] or '',
 								'cliente': r[4] or '',
 							})
@@ -348,7 +355,7 @@ class TicketsUI(TicketsBaseUI):
 							item = {
 								'id': r[0],
 								'created_at': created_str,
-								'total': f"{(float(r[2] or 0.0)):.2f}",
+								'total': self.formatter.format_precio_cents(r[2]) if getattr(self, 'formatter', None) is not None else f"{(float(r[2] or 0.0)):.2f}",
 								'cajero': r[3] or '',
 								'cliente': r[4] or '',
 							}
@@ -571,7 +578,7 @@ class TicketsUI(TicketsBaseUI):
 					items.append({
 						'id': r[0],
 						'created_at': created_str,
-						'total': f"{(float(r[2] or 0.0)):.2f}",
+						'total': self.formatter.format_precio_cents(r[2]) if getattr(self, 'formatter', None) is not None else f"{(float(r[2] or 0.0)):.2f}",
 						'cajero': r[3] or '',
 						'cliente': r[4] or '',
 					})
