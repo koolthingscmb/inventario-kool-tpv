@@ -712,7 +712,15 @@ class CrearProductoUI:
                 cur.execute('UPDATE precios SET activo = 0 WHERE producto_id = ?', (prod_id,))
             except Exception:
                 pass
-            cur.execute('INSERT INTO precios (producto_id, pvp, coste, activo) VALUES (?, ?, ?, 1)', (prod_id, float(pvp), float(coste)))
+            try:
+                from kool_tpv.base_datos.money_adapter import prepare_for_db
+                pvp_db = prepare_for_db(pvp)
+                coste_db = prepare_for_db(coste)
+            except Exception:
+                pvp_db = int(float(pvp) * 100)
+                coste_db = int(float(coste) * 100)
+
+            cur.execute('INSERT INTO precios (producto_id, pvp, coste, activo) VALUES (?, ?, ?, 1)', (prod_id, pvp_db, coste_db))
 
             # Códigos de barras: limpiar y reinsertar por producto dentro de la misma transacción
             try:

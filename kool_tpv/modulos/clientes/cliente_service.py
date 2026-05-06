@@ -8,6 +8,7 @@ import logging
 
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.clientes.clientes_db import ClientesDB
+from kool_tpv.base_datos.money_adapter import read_from_db
 
 
 class ClienteService:
@@ -125,9 +126,9 @@ class ClienteService:
 				'fecha_nacimiento': row['fecha_nacimiento'] or None,
 				'tags': row['tags'] or '',
 				'notes_internas': row['notes_internas'] or '',
-				'tesoro_total': float(row['tesoro_total'] or 0.0),
-				'tesoro_gastado_total': float(row['tesoro_gastado_total'] or 0.0),
-				'tesoro_historico': float(row['tesoro_historico'] or 0.0),
+				'tesoro_total': read_from_db(int(row['tesoro_total'] or 0)),
+				'tesoro_gastado_total': read_from_db(int(row['tesoro_gastado_total'] or 0)),
+				'tesoro_historico': read_from_db(int(row['tesoro_historico'] or 0)),
 				'id_nivel': row['id_nivel'],
 				'fidelidad_activa': int(row['fidelidad_activa'] or 1),
 				'fecha_alta': row['fecha_alta'],

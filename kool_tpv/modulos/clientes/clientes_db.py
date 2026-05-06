@@ -7,6 +7,7 @@ información de clientes desde la base de datos usando el wrapper
 from typing import List, Dict, Any
 
 from kool_tpv.base_datos.db_wrapper import Database
+from kool_tpv.base_datos.money_adapter import read_from_db
 
 
 class ClientesDB:
@@ -56,7 +57,7 @@ class ClientesDB:
 				"id": id_,
 				"nombre": nombre,
 				"telefono": telefono,
-				"tesoro_total": tesoro_total,
+				"tesoro_total": read_from_db(int(tesoro_total or 0)),
 				"id_nivel": id_nivel,
 				"fecha_alta": fecha_alta,
 			})

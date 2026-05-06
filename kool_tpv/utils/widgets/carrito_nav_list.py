@@ -218,8 +218,46 @@ class CarritoNavList(NavList):
             # Determinar tipo de línea
             line_tipo = data.get("line_tipo", "normal")
 
-            # Añadir item usando método padre
-            super().add_item(data)
+            # Preparar copia para display: formatear `pvp` y `total` convirtiendo
+            # valores en céntimos a euros cuando proceda. Mantener `data`
+            # original inalterado para la lógica de negocio si es necesario.
+            display = dict(data or {})
+            try:
+                from decimal import Decimal
+                from kool_tpv.base_datos.money_adapter import read_from_db
+                from kool_tpv.utils.formatter_service import FormatterService
+                fmt = FormatterService()
+
+                for key in ("pvp", "total"):
+                    if key in display:
+                        v = display.get(key)
+                        # int -> cents
+                        if isinstance(v, int):
+                            euros = read_from_db(v)
+                        # digit-only string -> cents
+                        elif isinstance(v, str) and v.isdigit():
+                            euros = read_from_db(int(v))
+                        # float integral -> cents
+                        elif isinstance(v, float) and float(v).is_integer():
+                            euros = read_from_db(int(v))
+                        else:
+                            try:
+                                euros = Decimal(str(v))
+                            except Exception:
+                                euros = Decimal('0')
+
+                        # Format for display
+                        display[key] = fmt.format_precio(euros)
+            except Exception:
+                # If formatting helpers are unavailable, fall back to simple string
+                try:
+                    if 'pvp' in display:
+                        display['pvp'] = f"{float(display.get('pvp',0)):.2f} €"
+                except Exception:
+                    pass
+
+            # Añadir item usando método padre con la copia formateada para visual
+            super().add_item(display)
 
             # IMPORTANTE: Guardar line_tipo en el frame para referencias futuras
             index = len(self.rows_data) - 1

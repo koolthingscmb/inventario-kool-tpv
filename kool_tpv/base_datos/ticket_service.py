@@ -16,6 +16,7 @@ try:
 except Exception:
     VentaTicketGenerator = None
 from kool_tpv.base_datos.configuracion_service import ConfiguracionService
+from kool_tpv.base_datos.money_adapter import prepare_for_db
 
 
 def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None, cliente_id=None, forma_pago='Efectivo', importe_efectivo=0.0, importe_tarjeta=0.0, descuento_data=None, carrito_service=None, fidelizacion_service=None):
@@ -118,6 +119,7 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
             num_ticket = int(last) + 1
 
         created_at = datetime.now().isoformat(sep=' ', timespec='seconds')
+        subtotal = Decimal(str(resumen.get('subtotal', '0')))
         # Use Decimal for monetary values to keep precision and avoid float rounding
         total = Decimal(str(resumen.get('total', '0')))
 
@@ -205,14 +207,14 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
                 cliente if cliente else None,
                 cliente_id if cliente_id else None,
                 num_ticket,
-                str(resumen.get('subtotal', 0)),
+                prepare_for_db(subtotal),
                 forma_pago,
-                str(total),
-                str(pagado),
-                str(cambio),
-                str(importe_efectivo_val),
-                str(importe_tarjeta_val),
-                str(descuento_euros),
+                prepare_for_db(total),
+                prepare_for_db(pagado),
+                prepare_for_db(cambio),
+                prepare_for_db(importe_efectivo_val),
+                prepare_for_db(importe_tarjeta_val),
+                prepare_for_db(descuento_euros),
                 descuento_tipo,
                 descuento_valor,
                 str(puntos_otorgar),
@@ -258,7 +260,7 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
             insert_line_q = (
                 "INSERT INTO ticket_lines (ticket_id, sku, nombre, cantidad, precio, iva, line_tipo, producto_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
             )
-            cur.execute(insert_line_q, (ticket_id, sku, nombre, cantidad, str(precio), tipo_iva, line_tipo, prod_id))
+            cur.execute(insert_line_q, (ticket_id, sku, nombre, cantidad, prepare_for_db(precio), tipo_iva, line_tipo, prod_id))
             line_id = cur.lastrowid
 
             # update producto stock and ventas if prod_id provided
@@ -318,7 +320,8 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
                     decimals = Decimal('0.01')
                     remaining = Decimal(str(descuento_euros))
                     if total_gross == 0:
-                        cur.execute(insert_line_q, (ticket_id, None, 'Descuento', 1, str(-abs(remaining)), 0, 'descuento', None))
+                        # If no gross, insert single discount line with IVA 0
+                        cur.execute(insert_line_q, (ticket_id, None, 'Descuento', 1, prepare_for_db(-abs(remaining)), 0, 'descuento', None))
                     else:
                         # allocate per IVA group
                         iva_items = list(gross_by_iva.items())
@@ -333,7 +336,7 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
                                     alloc = Decimal(str(descuento_euros)) - allocated_sum
                                 allocated_sum += alloc
                                 # insert negative gross as price, with corresponding iva
-                                cur.execute(insert_line_q, (ticket_id, None, 'Descuento', 1, str(-abs(alloc)), iva, 'descuento', None))
+                                cur.execute(insert_line_q, (ticket_id, None, 'Descuento', 1, prepare_for_db(-abs(alloc)), iva, 'descuento', None))
                             except Exception:
                                 logging.exception('Error insertando línea de descuento por IVA')
                 except Exception:
@@ -348,12 +351,12 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
             if importe_efectivo_val and importe_efectivo_val != 0:
                 cur.execute(
                     "INSERT INTO payments (ticket_id, metodo, importe, created_at) VALUES (?, ?, ?, ?)",
-                    (ticket_id, 'efectivo', str(importe_efectivo_val), created_at),
+                    (ticket_id, 'efectivo', prepare_for_db(importe_efectivo_val), created_at),
                 )
             if importe_tarjeta_val and importe_tarjeta_val != 0:
                 cur.execute(
                     "INSERT INTO payments (ticket_id, metodo, importe, created_at) VALUES (?, ?, ?, ?)",
-                    (ticket_id, 'tarjeta', str(importe_tarjeta_val), created_at),
+                    (ticket_id, 'tarjeta', prepare_for_db(importe_tarjeta_val), created_at),
                 )
         except Exception:
             logging.debug('payments table not present or insert failed')
@@ -437,8 +440,8 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
                             str(puntos_restar),
                             # tesoro_gastado_total: +puntos_gastados
                             str(puntos_gastados),
-                            # total_compras_euros: sumar el total del ticket
-                            str(total),
+                            # total_compras_euros: sumar el total del ticket (guardado en céntimos)
+                            prepare_for_db(total),
                             # total_unidades: suma de cantidades (sin devoluciones)
                             total_unidades_vendidas,
                             # fecha_ultima_compra: guardar solo la fecha (YYYY-MM-DD)
@@ -476,31 +479,12 @@ def save_ticket(db, carrito_items, resumen, efectivo, cajero=None, cliente=None,
         conn.commit()
         logging.info(f'Ticket guardado id={ticket_id} num_ticket={num_ticket}')
 
-        # After commit, regenerate the final ticket text using the full
-        # configuration loaded from DB and the updated cliente values, then
-        # persist it back to tickets.ticket_text so printing reads the same
-        # text that was saved.
-        try:
-            from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
-
-            try:
-                imp = ImpresoraService(db=db, imprimir_en_consola=False, modo_impresion='texto')
-                final_text = imp.generar_ticket_desde_id(ticket_id)
-            except Exception:
-                final_text = None
-
-            if final_text:
-                try:
-                    cur.execute('UPDATE tickets SET ticket_text = ? WHERE id = ?', (final_text, ticket_id))
-                    # Verificación temporal: leer y loggear si el snapshot fue guardado
-                    cur.execute("SELECT ticket_text FROM tickets WHERE id = ?", (ticket_id,))
-                    row = cur.fetchone()
-                    logging.info("VERIFICACIÓN SNAPSHOT GUARDADO: %s", bool(row and row[0]))
-                    conn.commit()
-                except Exception:
-                    logging.exception('Error guardando ticket_text final en tickets')
-        except Exception:
-            logging.exception('Error generando ticket_text final post-commit')
+        # NOTE: Persistence of textual ticket snapshots caused stale/corrupted
+        # values to be stored (céntimos treated as euros). To avoid further
+        # corruption we skip generating and saving `ticket_text` here. The
+        # UI should call `ImpresoraService.generar_ticket_desde_id()` on-demand
+        # when a printable representation is required.
+        logging.info('Skipping persistence of ticket_text snapshot (disabled)')
 
         return ticket_id, num_ticket
     except Exception:

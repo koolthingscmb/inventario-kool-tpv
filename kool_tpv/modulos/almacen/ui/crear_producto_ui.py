@@ -698,12 +698,20 @@ class CrearProductoUI:
             else:
                 cur.execute('''UPDATE productos SET nombre=?, nombre_boton=?, categoria=?, tipo=?, proveedor_id=?, tipo_iva=?, stock_actual=?, stock_minimo=?, activo=? WHERE id=?''', (nombre, nombre_boton, categoria_id, tipo_id, proveedor_id, iva, stock_actual, stock_min, activo, prod_id))
 
-            # Upsert precio: deactivate previous active precios for this product and insert new active
+                # Upsert precio: deactivate previous active precios for this product and insert new active
             try:
                 cur.execute('UPDATE precios SET activo = 0 WHERE producto_id = ?', (prod_id,))
             except Exception:
                 pass
-            cur.execute('INSERT INTO precios (producto_id, pvp, coste, activo) VALUES (?, ?, ?, 1)', (prod_id, float(pvp), float(coste)))
+                try:
+                    from kool_tpv.base_datos.money_adapter import prepare_for_db
+                    pvp_db = prepare_for_db(pvp)
+                    coste_db = prepare_for_db(coste)
+                except Exception:
+                    pvp_db = int(float(pvp) * 100)
+                    coste_db = int(float(coste) * 100)
+
+                cur.execute('INSERT INTO precios (producto_id, pvp, coste, activo) VALUES (?, ?, ?, 1)', (prod_id, pvp_db, coste_db))
 
             conn.commit()
             try:

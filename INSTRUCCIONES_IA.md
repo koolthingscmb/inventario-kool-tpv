@@ -58,6 +58,11 @@ Estas reglas se añaden tras analizar la base de código actual y están destina
 - Migraciones y esquema:
   - Gestionar cambios en esquema con migraciones versionadas (script `migraciones/`); proporcionar funciones de rollback o backups automáticos antes de migrar.
 
+- Convención de representación monetaria:
+  - La base de datos almacena importes monetarios en céntimos como `INTEGER` (p. ej. 5000 = 50,00€).
+  - Al escribir en la BD, convertir euros a céntimos usando el helper `to_cents()`; al leer, convertir de céntimos a euros con `from_cents()` y usar `decimal.Decimal` para los cálculos.
+  - Evitar almacenar floats en columnas monetarias; los servicios deben documentar si reciben/retornan euros (`Decimal`) o céntimos (`int`).
+
 - Internacionalización y formatos:
   - Separar cadenas visibles al usuario en archivos de recursos o favorecer plantillas; usar formato UTC en timestamps en BD y presentar en zona local en la UI si es necesario.
 

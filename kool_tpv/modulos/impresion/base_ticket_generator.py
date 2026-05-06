@@ -22,18 +22,15 @@ class BaseTicketGenerator(ABC):
 
     def _format_currency(self, val):
         """Formatear valor monetario a string con 2 decimales."""
+        # Asumir que `val` ya está en euros como Decimal/numérico.
+        fmt = FormatterService()
         try:
-            # Usar FormatterService para asegurar política de truncado/formateo
-            fmt = FormatterService()
             return fmt.format_precio(val)
         except Exception:
             try:
-                dec = Decimal(val)
-            except (InvalidOperation, TypeError, ValueError):
-                try:
-                    dec = Decimal(str(val))
-                except Exception:
-                    dec = Decimal('0')
+                dec = Decimal(str(val))
+            except Exception:
+                dec = Decimal('0')
             dec = dec.quantize(Decimal('0.01'))
             return f"{dec:.2f}"
 

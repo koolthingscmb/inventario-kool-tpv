@@ -192,7 +192,22 @@ class TpvService:
                 logger.info("\n%s", texto)
                 logger.info("=" * 50)
             else:
-                logger.warning(f'No hay ticket_text almacenado para ticket_id={ticket_id}; impresión omitida')
+                # Generar ticket directamente desde BD (sin snapshot guardado)
+                try:
+                    from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
+                    imp = ImpresoraService(db=self.db, imprimir_en_consola=True)
+                    texto = imp.generar_ticket_desde_id(ticket_id)
+
+                    if texto:
+                        logger.info("=" * 50)
+                        logger.info(" IMPRIMIENDO TICKET (simulado) ")
+                        logger.info("=" * 50)
+                        logger.info("\n%s", texto)
+                        logger.info("=" * 50)
+                    else:
+                        logger.warning(f'No se pudo generar ticket para ticket_id={ticket_id}')
+                except Exception:
+                    logger.exception(f'Error generando ticket para ticket_id={ticket_id}')
 
         except Exception:
             logger.exception('Error en _print_ticket')

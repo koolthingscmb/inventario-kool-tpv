@@ -698,15 +698,21 @@ class TicketCarrito(ctk.CTkFrame):
         try:
             # Actualizar subtotal
             try:
-                self.subtotal_label.configure(text=self.formatter.format_precio_cents(subtotal))
+                self.subtotal_label.configure(text=self.formatter.format_precio(subtotal))
             except Exception:
-                self.subtotal_label.configure(text=f"{subtotal:.2f}€")
+                try:
+                    self.subtotal_label.configure(text=f"{float(subtotal):.2f} €")
+                except Exception:
+                    self.subtotal_label.configure(text="0.00 €")
 
             # Actualizar total
             try:
-                self.total_label.configure(text=self.formatter.format_precio_cents(total))
+                self.total_label.configure(text=self.formatter.format_precio(total))
             except Exception:
-                self.total_label.configure(text=f"{total:.2f}€")
+                try:
+                    self.total_label.configure(text=f"{float(total):.2f} €")
+                except Exception:
+                    self.total_label.configure(text="0.00 €")
 
             # Limpiar desglose IVA anterior
             for widget in getattr(self, 'iva_container', []).winfo_children() if hasattr(self, 'iva_container') else []:
@@ -743,9 +749,12 @@ class TicketCarrito(ctk.CTkFrame):
 
                     if iva_amount > 0:
                         try:
-                            iva_text = self.formatter.format_precio_cents(iva_amount) if getattr(self, 'formatter', None) is not None else f"{iva_amount:.2f}€"
+                            iva_text = self.formatter.format_precio(iva_amount) if getattr(self, 'formatter', None) is not None else f"{iva_amount:.2f} €"
                         except Exception:
-                            iva_text = f"{iva_amount:.2f}€"
+                            try:
+                                iva_text = f"{float(iva_amount):.2f} €"
+                            except Exception:
+                                iva_text = "0.00 €"
                         label = ctk.CTkLabel(
                             self.iva_container,
                             text=f"IVA {tipo}%: {iva_text}",

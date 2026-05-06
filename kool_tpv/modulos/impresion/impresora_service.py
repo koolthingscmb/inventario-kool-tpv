@@ -192,30 +192,44 @@ class ImpresoraService:
         try:
             from decimal import Decimal
 
-            # Helper: interpretar valores monetarios que provengan de la BD.
-            # Si la BD devuelve un entero (céntimos) o una cadena solo dígitos,
-            # convertir a Decimal euros usando from_cents. Si viene como string
-            # con punto decimal o Decimal, parsear directamente a Decimal.
-            from kool_tpv.utils.money import from_cents
+            # Prefer the DB adapter for interpreting DB values. Treat
+            # integral numerics (int, float.is_integer(), Decimal integral,
+            # or digit-only strings) as céntimos and convert them to euros
+            # using `read_from_db`. For non-integral values parse as euros.
+            from kool_tpv.base_datos.money_adapter import read_from_db
 
             def _parse_money_db(v):
                 try:
+                    # None -> zero
+                    if v is None:
+                        return Decimal('0')
+
                     # ints -> céntimos
                     if isinstance(v, int):
-                        return from_cents(v)
-                    # sqlite puede devolver floats, strings o decimals
+                        return read_from_db(v)
+
+                    # strings: digit-only -> céntimos, else parse as Decimal euros
                     if isinstance(v, str):
-                        # si es solo dígitos, interpretarlo como céntimos
                         if v.isdigit():
-                            return from_cents(int(v))
-                        # si contiene punto/coma, parsear como euros
+                            return read_from_db(int(v))
                         try:
                             return Decimal(v)
                         except Exception:
                             return Decimal(str(v))
+
+                    # floats: if integral treat as céntimos, else parse as euros
                     if isinstance(v, float):
+                        if float(v).is_integer():
+                            return read_from_db(int(v))
                         return Decimal(str(v))
-                    # Decimal or other numeric-like
+
+                    # Decimal: if it has no fractional part, treat as céntimos
+                    if isinstance(v, Decimal):
+                        if v == v.to_integral_value():
+                            return read_from_db(int(v))
+                        return v
+
+                    # Fallback: attempt Decimal conversion
                     return Decimal(v)
                 except Exception:
                     try:
@@ -235,16 +249,8 @@ class ImpresoraService:
             if not ticket_row:
                 return None
 
-            # Si ya existe un snapshot de ticket en la BD, devolverlo para evitar recálculos
-            try:
-                row_text = self.db.fetch_one(
-                    "SELECT ticket_text FROM tickets WHERE id = ?",
-                    (ticket_id,)
-                )
-                if row_text and row_text[0]:
-                    return row_text[0]
-            except Exception:
-                pass
+            # if row_text and row_text[0]:
+            #     return row_text[0]
 
             # Obtener líneas (incluimos line_tipo para detectar devoluciones)
             lines = self.db.fetch_all(
@@ -262,7 +268,25 @@ class ImpresoraService:
             gross_by_type = {}
             for line in lines:
                 cantidad = int(float(line[2])) if line[2] else 0
-                precio = _parse_money_db(line[3]) if line[3] is not None else Decimal('0')
+                # Forzar conversión determinista: tratar el valor en BD siempre
+                # como céntimos y convertir a euros aquí. Esto evita ambigüedad
+                # y asegura la ruta de impresión muestra euros.
+                try:
+                    from kool_tpv.base_datos.money_adapter import read_from_db
+                    if line[3] is None:
+                        precio = Decimal('0')
+                    else:
+                        # Asegurar int (si viene como str/numeric), usar int()
+                        precio_cents = int(line[3])
+                        precio = read_from_db(precio_cents)
+                except Exception:
+                    # Fallback robusto: intentar parsear y convertir
+                    try:
+                        precio_cents = int(line[3])
+                        from kool_tpv.base_datos.money_adapter import read_from_db as _r
+                        precio = _r(precio_cents)
+                    except Exception:
+                        precio = _parse_money_db(line[3]) if line[3] is not None else Decimal('0')
                 tipo_iva = int(float(line[4])) if line[4] else 21
                 line_tipo = str(line[5]) if len(line) > 5 and line[5] is not None else 'venta'
 
@@ -288,14 +312,22 @@ class ImpresoraService:
                     iva_desglose[tipo_iva] = Decimal('0')
                 iva_desglose[tipo_iva] += cuota_iva
 
+                try:
+                    logging.info("TRACE_DB_LINE sku=%s raw_precio=%r parsed_precio=%r total_linea=%r cantidad=%s", line[0], line[3], precio, total_linea, cantidad)
+                except Exception:
+                    logging.info("TRACE_DB_LINE could not log line details")
+
+
                 items.append({
                     'sku': line[0],
                     'nombre': line[1],
                     'cantidad': cantidad,
-                    'pvp': float(precio),
+                    # Keep Decimal values to preserve precision and avoid
+                    # accidental interpretation as euros when floats are used.
+                    'pvp': precio,
                     'tipo_iva': tipo_iva,
                     'line_tipo': line_tipo,
-                    'total': float(total_linea),
+                    'total': total_linea,
                 })
 
             # Separar fecha y hora
@@ -361,20 +393,20 @@ class ImpresoraService:
                 entregado = importe_efectivo if importe_efectivo > 0 else total
                 cambio = entregado - total if entregado > total else Decimal('0')
 
-            # Construir ticket_data
+            # Construir ticket_data (usar Decimal para todos los importes)
             ticket_data = {
                 'num_ticket': ticket_row[1],
                 'fecha': fecha,
                 'hora': hora,
                 'cajero': ticket_row[3],
-                'subtotal': float(subtotal_calc),
-                'iva_desglose': {k: float(v) for k, v in iva_desglose.items()},
-                'total': float(total),
+                'subtotal': subtotal_calc,
+                'iva_desglose': iva_desglose,
+                'total': total,
                 'forma_pago': forma_pago,
-                'entregado': float(entregado),
-                'cambio': float(cambio),
-                'importe_efectivo': float(importe_efectivo),
-                'importe_tarjeta': float(importe_tarjeta),
+                'entregado': entregado,
+                'cambio': cambio,
+                'importe_efectivo': importe_efectivo,
+                'importe_tarjeta': importe_tarjeta,
             }
 
             # Cliente si existe
@@ -390,10 +422,10 @@ class ImpresoraService:
                 )
 
                 if cliente_row:
-                    # Reconstruir tesoro_data
-                    tesoro_gastado = float(ticket_row[11]) if ticket_row[11] else 0.0
-                    tesoro_ganado = float(ticket_row[10]) if ticket_row[10] else 0.0
-                    tesoro_total_actual = float(cliente_row[2]) if cliente_row[2] else 0.0
+                    # Reconstruir tesoro_data (usar los parseos ya definidos)
+                    tesoro_gastado = _parse_money_db(ticket_row[11]) if ticket_row[11] is not None else Decimal('0')
+                    tesoro_ganado = _parse_money_db(ticket_row[10]) if ticket_row[10] is not None else Decimal('0')
+                    tesoro_total_actual = _parse_money_db(cliente_row[2]) if cliente_row[2] is not None else Decimal('0')
                     tesoro_antes = tesoro_total_actual - tesoro_ganado + tesoro_gastado
                     tesoro_acumulado = tesoro_antes - tesoro_gastado
 
@@ -427,8 +459,18 @@ class ImpresoraService:
                         'motivo': motivo_val,
                     }
 
+            # No prints here: generador recibe `items` con `Decimal` en pvp/total
+
             # Generar ticket
-            return self.ticket_generator.generate(self.config, ticket_data, items, cliente_data)
+            ticket_text = self.ticket_generator.generate(self.config, ticket_data, items, cliente_data)
+
+            # IMPRIME EN CONSOLA si está configurado
+            if self.imprimir_en_consola and ticket_text:
+                print("\n" + "="*50)
+                print(ticket_text)
+                print("="*50 + "\n")
+
+            return ticket_text
 
         except Exception:
             logging.exception(f'Error generando ticket desde ID {ticket_id}')

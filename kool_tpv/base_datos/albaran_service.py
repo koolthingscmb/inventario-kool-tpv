@@ -2,6 +2,7 @@
 import logging
 from decimal import Decimal
 from datetime import datetime
+from kool_tpv.base_datos.money_adapter import read_from_db, prepare_for_db
 
 
 class AlbaranService:
@@ -39,7 +40,7 @@ class AlbaranService:
                 return {
                     'id': row[0],
                     'nombre': row[1] or '',
-                    'coste': float(row[2] or 0.0),
+                    'coste': read_from_db(int(row[2] or 0)),
                     'tipo_iva': int(row[3] or 21)
                 }
             return None
@@ -109,8 +110,8 @@ class AlbaranService:
                                       total_iva_4, total_iva_10, total_iva_21, total, tipo)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (num_albaran, proveedor_id, fecha, 
-                  float(total_neto), float(total_iva_4), float(total_iva_10), 
-                  float(total_iva_21), float(total), tipo))
+                  prepare_for_db(total_neto), prepare_for_db(total_iva_4), prepare_for_db(total_iva_10), 
+                  prepare_for_db(total_iva_21), prepare_for_db(total), tipo))
 
             albaran_id = cur.lastrowid
 
@@ -120,20 +121,22 @@ class AlbaranService:
                 ean = line.get('ean', '')
                 nombre = line.get('nombre', '')
                 cantidad = int(line.get('cantidad', 0))
-                coste = float(line.get('coste', 0))
-                descuento = float(line.get('descuento', 0))
+                coste_dec = Decimal(str(line.get('coste', 0)))
+                descuento_dec = Decimal(str(line.get('descuento', 0)))
                 tipo_iva = int(line.get('tipo_iva', 21))
 
-                # Calcular importe de la línea
-                importe_bruto = coste * cantidad
-                importe = importe_bruto - descuento
+                # Calcular importe de la línea usando Decimals
+                importe_bruto_dec = coste_dec * Decimal(cantidad)
+                importe_dec = importe_bruto_dec - descuento_dec
 
-                # Insertar línea
+                # Insertar línea (almacenamos en céntimos usando prepare_for_db)
                 cur.execute("""
                     INSERT INTO albaran_lines 
                     (albaran_id, producto_id, ean, nombre, cantidad, coste, descuento, importe, tipo_iva)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (albaran_id, producto_id, ean, nombre, cantidad, coste, descuento, importe, tipo_iva))
+                """, (albaran_id, producto_id, ean, nombre, cantidad, 
+                      prepare_for_db(coste_dec), prepare_for_db(descuento_dec), 
+                      prepare_for_db(importe_dec), tipo_iva))
 
                 # Actualizar stock según tipo (ENTRADA suma, SALIDA/DEVOLUCION resta)
                 if producto_id:
@@ -189,7 +192,7 @@ class AlbaranService:
                     'num_albaran': r[1],
                     'fecha': r[2],
                     'proveedor_nombre': r[3],
-                    'total': float(r[4] or 0.0)
+                    'total': read_from_db(int(r[4] or 0))
                 })
             return albaranes
         except Exception:
@@ -290,9 +293,9 @@ class AlbaranService:
                     'fecha': r[2],
                     'proveedor_nombre': r[3],
                     'cant_productos': int(r[4] or 0),
-                    'total_neto': float(r[5] or 0.0),
-                    'total_iva': float(r[6] or 0.0),
-                    'total': float(r[7] or 0.0)
+                    'total_neto': read_from_db(int(r[5] or 0)),
+                    'total_iva': read_from_db(int(r[6] or 0)),
+                    'total': read_from_db(int(r[7] or 0))
                 })
             return albaranes
         except Exception:
@@ -325,11 +328,11 @@ class AlbaranService:
                 'fecha': row[2],
                 'proveedor_id': row[3],
                 'proveedor_nombre': row[4],
-                'total_neto': float(row[5] or 0.0),
-                'total_iva_4': float(row[6] or 0.0),
-                'total_iva_10': float(row[7] or 0.0),
-                'total_iva_21': float(row[8] or 0.0),
-                'total': float(row[9] or 0.0)
+                'total_neto': read_from_db(int(row[5] or 0)),
+                'total_iva_4': read_from_db(int(row[6] or 0)),
+                'total_iva_10': read_from_db(int(row[7] or 0)),
+                'total_iva_21': read_from_db(int(row[8] or 0)),
+                'total': read_from_db(int(row[9] or 0))
             }
 
             # Líneas
@@ -348,9 +351,9 @@ class AlbaranService:
                     'ean': rl[2] or '',
                     'nombre': rl[3] or '',
                     'cantidad': int(rl[4] or 0),
-                    'coste': float(rl[5] or 0.0),
-                    'descuento': float(rl[6] or 0.0),
-                    'importe': float(rl[7] or 0.0),
+                    'coste': read_from_db(int(rl[5] or 0)),
+                    'descuento': read_from_db(int(rl[6] or 0)),
+                    'importe': read_from_db(int(rl[7] or 0)),
                     'tipo_iva': int(rl[8] or 21)
                 })
 
@@ -427,8 +430,8 @@ class AlbaranService:
                     total_iva_21 = ?, 
                     total = ?
                 WHERE id = ?
-            """, (float(total_neto), float(total_iva_4), float(total_iva_10), 
-                  float(total_iva_21), float(total), albaran_id))
+            """, (prepare_for_db(total_neto), prepare_for_db(total_iva_4), prepare_for_db(total_iva_10), 
+                  prepare_for_db(total_iva_21), prepare_for_db(total), albaran_id))
 
             # 3. Filtrar SOLO líneas nuevas (sin 'id')
             new_lines = [l for l in all_lines if 'id' not in l or l.get('id') is None]
@@ -441,20 +444,22 @@ class AlbaranService:
                 ean = line.get('ean', '')
                 nombre = line.get('nombre', '')
                 cantidad = int(line.get('cantidad', 0))
-                coste = float(line.get('coste', 0))
-                descuento = float(line.get('descuento', 0))
+                coste_dec = Decimal(str(line.get('coste', 0)))
+                descuento_dec = Decimal(str(line.get('descuento', 0)))
                 tipo_iva = int(line.get('tipo_iva', 21))
 
-                # Calcular importe de la línea
-                importe_bruto = coste * cantidad
-                importe = importe_bruto - descuento
+                # Calcular importe de la línea usando Decimals
+                importe_bruto_dec = coste_dec * Decimal(cantidad)
+                importe_dec = importe_bruto_dec - descuento_dec
 
-                # INSERT nueva línea
+                # INSERT nueva línea (almacenamos en céntimos)
                 cur.execute("""
                     INSERT INTO albaran_lines 
                     (albaran_id, producto_id, ean, nombre, cantidad, coste, descuento, importe, tipo_iva)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (albaran_id, producto_id, ean, nombre, cantidad, coste, descuento, importe, tipo_iva))
+                """, (albaran_id, producto_id, ean, nombre, cantidad, 
+                      prepare_for_db(coste_dec), prepare_for_db(descuento_dec), 
+                      prepare_for_db(importe_dec), tipo_iva))
 
                 # UPDATE stock (SUMA cantidad)
                 if producto_id:
@@ -516,14 +521,14 @@ class AlbaranService:
             resultados = []
             for r in rows or []:
                 nombre_display = f"{r[1]} ({r[2]})" if r[2] else r[1]
-                coste_val = float(r[3] or 0.0)
+                coste_val = read_from_db(int(r[3] or 0))
                 # Si no hay coste activo, intentar fallback a cualquier precio histórico
                 if coste_val == 0.0:
                     try:
                         q2 = "SELECT coste FROM precios WHERE producto_id = ? ORDER BY id DESC LIMIT 1"
                         row2 = self.db.fetch_one(q2, (r[0],))
                         if row2 and row2[0] is not None:
-                            coste_val = float(row2[0])
+                            coste_val = read_from_db(int(row2[0] or 0))
                     except Exception:
                         pass
 

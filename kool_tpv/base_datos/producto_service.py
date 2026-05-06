@@ -1,5 +1,6 @@
 from .db_wrapper import Database
 import logging
+from kool_tpv.base_datos.money_adapter import read_from_db
 
 
 class ProductoService:
@@ -23,9 +24,9 @@ class ProductoService:
                 # r: (id, nombre, nombre_boton, pvp, tipo_iva)
                 pid = r[0]
                 nombre = r[1] or r[2] or ''
-                # Return pvp as string to preserve exact DB value for Decimal parsing
+                # Convert pvp from DB (céntimos) to euros using money_adapter
                 pvp_raw = r[3]
-                pvp = str(pvp_raw) if pvp_raw is not None else '0.00'
+                pvp = read_from_db(int(pvp_raw)) if pvp_raw is not None else read_from_db(0)
                 tipo_iva = int(r[4] or 21)
                 items.append({'id': pid, 'nombre': nombre, 'pvp': pvp, 'tipo_iva': tipo_iva})
             return items
@@ -49,7 +50,7 @@ class ProductoService:
                 pid = r[0]
                 nombre = r[1] or r[2] or ''
                 pvp_raw = r[3]
-                pvp = str(pvp_raw) if pvp_raw is not None else '0.00'
+                pvp = read_from_db(int(pvp_raw)) if pvp_raw is not None else read_from_db(0)
                 tipo_iva = int(r[4] or 21)
                 items.append({'id': pid, 'nombre': nombre, 'pvp': pvp, 'tipo_iva': tipo_iva})
             return items
@@ -97,7 +98,7 @@ class ProductoService:
                     'categoria': r[3] or 'Sin categoría',
                     'tipo': r[4] or 'Sin tipo',
                     'ventas': int(r[5] or 0),
-                    'pvp': str(r[6]) if r[6] is not None else '0.00',
+                    'pvp': read_from_db(int(r[6])) if r[6] is not None else read_from_db(0),
                     'tipo_iva': int(r[7] or 21)
                 })
 
@@ -191,7 +192,7 @@ WHERE 1=1
                     'categoria': r[3] or 'Sin categoría',
                     'tipo': r[4] or 'Sin tipo',
                     'ean': r[5] or '',
-                    'pvp': str(r[6]) if r[6] is not None else '0.00',
+                    'pvp': read_from_db(int(r[6])) if r[6] is not None else read_from_db(0),
                     'stock_actual': int(r[7] or 0),
                     'ventas': int(r[8] or 0),
                     'estado': r[10] or 'Activo'
@@ -359,8 +360,8 @@ WHERE 1=1
                 'categoria_nombre': row[25],
                 'tipo_nombre': row[26],
                 'proveedor_nombre': row[27],
-                'pvp': float(row[28] or 0.0),
-                'coste': float(row[29] or 0.0),
+                'pvp': (lambda v: __import__('kool_tpv.base_datos.money_adapter', fromlist=['read_from_db']).read_from_db(v) if v is not None else __import__('decimal').Decimal('0'))(row[28]),
+                'coste': (lambda v: __import__('kool_tpv.base_datos.money_adapter', fromlist=['read_from_db']).read_from_db(v) if v is not None else __import__('decimal').Decimal('0'))(row[29]),
                 'ventas_tickets': int(row[30] or 0),
                 'ean': row[31] or ''
             }

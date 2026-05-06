@@ -158,6 +158,12 @@ class VentaTicketGenerator(BaseTicketGenerator):
             # precios
             pvp_val = it.get('precio') if 'precio' in it else it.get('pvp', 0)
             total_val = it.get('total') if 'total' in it else None
+
+            # Se asume que `items` ya contienen valores monetarios en euros
+            # (tipo `Decimal` o numérico con parte fraccional). Delegar
+            # normalización/convertir céntimos->euros a la capa de acceso a
+            # datos. Aquí sólo formateamos y calculamos totales usando Decimal.
+            from decimal import Decimal as _D
             try:
                 pvp_s = self._format_currency(pvp_val)
             except Exception:
@@ -165,12 +171,18 @@ class VentaTicketGenerator(BaseTicketGenerator):
 
             if total_val is None:
                 try:
-                    total_calc = Decimal(pvp_val) * Decimal(cant_int)
+                    total_calc = _D(str(pvp_val)) * _D(cant_int)
                 except Exception:
-                    total_calc = Decimal('0')
+                    try:
+                        total_calc = _D(pvp_val) * _D(cant_int)
+                    except Exception:
+                        total_calc = _D('0')
                 total_s = self._format_currency(total_calc)
             else:
-                total_s = self._format_currency(total_val)
+                try:
+                    total_s = self._format_currency(total_val)
+                except Exception:
+                    total_s = self._format_currency(0)
 
             # detectar si la línea es de devolución
             line_is_devol = False

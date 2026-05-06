@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Tuple
 
 import customtkinter as ctk
+from kool_tpv.base_datos.money_adapter import read_from_db
 
 from kool_tpv.utils.templates.pagina_con_visor import PaginaConVisor
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
@@ -38,6 +39,7 @@ class ClientesTicketsUI(PaginaConVisor):
             self.keyboard_mgr = keyboard_manager
         except Exception:
             self.keyboard_mgr = None
+
         self.tickets_data: List[Tuple[int, str, float, str, int]] = []
         self.fila_seleccionada = None
         self.indice_seleccionado = -1
@@ -522,8 +524,17 @@ class ClientesTicketsUI(PaginaConVisor):
             except Exception:
                 pass
 
-            # Mostrar en visor usando la plantilla
-            self.update_visor(ticket_text or 'Ticket sin contenido')
+            # Mostrar en visor usando la plantilla. Si no hay snapshot, generar on-demand.
+            display_text = ticket_text
+            if not display_text:
+                try:
+                    from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
+                    imp = ImpresoraService(db=self.db)
+                    display_text = imp.generar_ticket_desde_id(ticket_id) or 'No se pudo generar ticket'
+                except Exception:
+                    display_text = 'No se pudo generar ticket'
+
+            self.update_visor(display_text or 'Ticket sin contenido')
             logger.debug(f'Ticket {ticket_id} mostrado en visor')
 
             # Devolver foco a container para capturar flechas

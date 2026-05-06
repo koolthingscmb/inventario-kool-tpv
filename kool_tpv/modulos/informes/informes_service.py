@@ -26,6 +26,14 @@ class InformesService:
         except Exception:
             return 0.0
 
+    def _money_from_db(self, value):
+        """Convierte valor de BD (céntimos) a euros formateados."""
+        try:
+            d = Decimal(str(value)) / Decimal('100')
+            return float(d.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+        except Exception:
+            return 0.0
+
     def get_resumen_ventas_por_rango(self, fecha_inicio: str, fecha_fin: str) -> dict:
         """
         Devuelve resumen agregado de ventas entre fechas (incluidas).
@@ -76,18 +84,18 @@ class InformesService:
                     total_tickets = 0
 
             try:
-                total_ventas = float(row["total_ventas"] if "total_ventas" in row.keys() else row[1])
+                total_ventas = self._money_from_db(row["total_ventas"] if "total_ventas" in row.keys() else row[1])
             except Exception:
                 try:
-                    total_ventas = float(row[1] or 0.0)
+                    total_ventas = self._money_from_db(row[1] or 0)
                 except Exception:
                     total_ventas = 0.0
 
             try:
-                total_base = float(row["total_base"] if "total_base" in row.keys() else row[2])
+                total_base = self._money_from_db(row["total_base"] if "total_base" in row.keys() else row[2])
             except Exception:
                 try:
-                    total_base = float(row[2] or 0.0)
+                    total_base = self._money_from_db(row[2] or 0)
                 except Exception:
                     total_base = 0.0
 
@@ -152,7 +160,7 @@ class InformesService:
                 # Normalizar tipos
                 fecha_str = fecha if fecha is not None else ''
                 try:
-                    total_f = float(total) if total is not None else 0.0
+                    total_f = self._money_from_db(total or 0)
                 except Exception:
                     total_f = 0.0
 
@@ -290,19 +298,19 @@ class InformesService:
                 if hasattr(r, 'keys') and 'cajero' in r.keys():
                     cajero = r['cajero']
                     num_tickets = int(r['num_tickets'] or 0)
-                    total_ventas = float(r['total_ventas'] or 0.0)
-                    total_base = float(r['total_base'] or 0.0)
-                    total_efectivo = float(r['total_efectivo'] or 0.0)
-                    total_tarjeta = float(r['total_tarjeta'] or 0.0)
-                    total_descuentos = float(r['total_descuentos'] or 0.0)
+                    total_ventas = self._money_from_db(r['total_ventas'] or 0)
+                    total_base = self._money_from_db(r['total_base'] or 0)
+                    total_efectivo = self._money_from_db(r['total_efectivo'] or 0)
+                    total_tarjeta = self._money_from_db(r['total_tarjeta'] or 0)
+                    total_descuentos = self._money_from_db(r['total_descuentos'] or 0)
                 else:
                     cajero = r[0]
                     num_tickets = int(r[1] or 0)
-                    total_ventas = float(r[2] or 0.0)
-                    total_base = float(r[3] or 0.0)
-                    total_efectivo = float(r[4] or 0.0)
-                    total_tarjeta = float(r[5] or 0.0)
-                    total_descuentos = float(r[6] or 0.0)
+                    total_ventas = self._money_from_db(r[2] or 0)
+                    total_base = self._money_from_db(r[3] or 0)
+                    total_efectivo = self._money_from_db(r[4] or 0)
+                    total_tarjeta = self._money_from_db(r[5] or 0)
+                    total_descuentos = self._money_from_db(r[6] or 0)
 
                 total_iva = self._money(total_ventas - total_base)
                 if num_tickets > 0:
@@ -496,12 +504,12 @@ class InformesService:
                     tipo = r['tipo']
                     num_tickets = int(r['num_tickets'] or 0)
                     total_unidades = int(r['total_unidades'] or 0)
-                    total_ventas = float(r['total_ventas'] or 0.0)
+                    total_ventas = self._money_from_db(r['total_ventas'] or 0)
                 else:
                     tipo = r[0]
                     num_tickets = int(r[1] or 0)
                     total_unidades = int(r[2] or 0)
-                    total_ventas = float(r[3] or 0.0)
+                    total_ventas = self._money_from_db(r[3] or 0)
 
                 rows.append([
                     tipo,
@@ -667,9 +675,9 @@ class InformesService:
             fields = []
             for p in productos:
                 try:
-                    coste_fmt = self._money(p.get('precio_coste'))
+                    coste_fmt = self._money_from_db(p.get('precio_coste') or 0)
                 except Exception:
-                    coste_fmt = self._money(0)
+                    coste_fmt = self._money_from_db(0)
 
                 label = f"{p.get('sku')} - {p.get('nombre')}"
                 value = f"Stock: {p.get('stock_actual')} - Mínimo: {p.get('stock_minimo')} - Coste: {coste_fmt}"
@@ -731,13 +739,14 @@ class InformesService:
 
     def get_informe_stock_por_tipo(self, tipo_ids: List[int] = None) -> dict:
         """Informe de stock filtrable por tipos.
-
         Args:
-            tipo_ids: lista de ids de tipo a filtrar (None o lista vacía = todas)
+            tipo_ids: lista de ids de tipo a filtrar (None o lista vacía = todos)
 
         Returns:
             report_data dict con una sección tipo `table`.
         """
+        fecha_inicio_sql = None  # no aplica, mantenemos la firma coherente con otros informes
+
         query = [
             "SELECT",
             "    p.sku,",
@@ -809,9 +818,9 @@ class InformesService:
             fields = []
             for p in productos:
                 try:
-                    coste_fmt = self._money(p.get('precio_coste'))
+                    coste_fmt = self._money_from_db(p.get('precio_coste') or 0)
                 except Exception:
-                    coste_fmt = self._money(0)
+                    coste_fmt = self._money_from_db(0)
 
                 label = f"{p.get('sku')} - {p.get('nombre')}"
                 value = f"Stock: {p.get('stock_actual')} - Mínimo: {p.get('stock_minimo')} - Coste: {coste_fmt}"
