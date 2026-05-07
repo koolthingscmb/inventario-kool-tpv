@@ -14,6 +14,7 @@ from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.config_loader import load_colors
 from kool_tpv.utils.keyboard_manager import KeyboardManager
 from kool_tpv.utils.widgets.nav_list import NavList
+from kool_tpv.base_datos.money_adapter import read_from_db
 
 
 class BusquedaClientesUI:
@@ -275,13 +276,21 @@ class BusquedaClientesUI:
 
             clientes = []
             for r in rows or []:
+                try:
+                    tesoro_euros = read_from_db(int(r[5] or 0))
+                except Exception:
+                    try:
+                        tesoro_euros = float(r[5] or 0.0)
+                    except Exception:
+                        tesoro_euros = 0.0
+
                 clientes.append({
                     'id': r[0],
                     'nombre': r[1] or '',
                     'telefono': r[2] or '',
                     'email': r[3] or '',
                     'ciudad': r[4] or '',
-                    'tesoro_total': float(r[5] or 0.0),
+                    'tesoro_total': tesoro_euros,
                     'total_compras': int(r[6] or 0),
                     'fecha_ultima_compra': r[7] or 'Nunca',
                     'fidelidad_activa': int(r[8] or 1),
