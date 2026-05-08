@@ -8,6 +8,9 @@ from __future__ import annotations
 import logging
 from typing import Optional, Any
 from decimal import Decimal
+from datetime import datetime
+
+from kool_tpv.base_datos.money_adapter import prepare_for_db
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +65,7 @@ class TpvController:
         """Instanciar servicios de negocio."""
         # FidelizacionService
         try:
-            from kool_tpv.modulos.clientes.fidelizacion_service import FidelizacionService
+            from kool_tpv.modulos.fidelizacion.fidelizacion_service import FidelizacionService
             self.fidelizacion_service = FidelizacionService(self.db)
             logger.debug('FidelizacionService creado')
         except Exception:
@@ -212,6 +215,61 @@ class TpvController:
         except Exception:
             logger.exception('Error rebinding botones')
 
+    def _build_ticket_payload(self, db, carrito_items, resumen, efectivo, **kwargs):
+        """Construir payload listo para los TicketProcessors.
+
+        Convierte importes a céntimos y prepara la estructura esperada.
+        """
+        created_at = datetime.now().isoformat(sep=' ', timespec='seconds')
+        num_ticket = kwargs.get('num_ticket')
+        # safe Decimal extraction
+        def _dec(v, default='0'):
+            try:
+                return Decimal(str(v))
+            except Exception:
+                return Decimal(default)
+
+        payload = {
+            'created_at': created_at,
+            'num_ticket': num_ticket,
+            'cajero': kwargs.get('cajero'),
+            'cliente': kwargs.get('cliente'),
+            'cliente_id': kwargs.get('cliente_id'),
+            'subtotal_cents': prepare_for_db(_dec(resumen.get('subtotal', '0'))),
+            'total_cents': prepare_for_db(_dec(resumen.get('total', '0'))),
+            'pagado_cents': prepare_for_db(_dec(efectivo if efectivo is not None else 0)),
+            'cambio_cents': prepare_for_db(_dec((efectivo if efectivo is not None else 0)) - _dec(resumen.get('total', '0'))),
+            'importe_efectivo_cents': prepare_for_db(_dec(kwargs.get('importe_efectivo', 0))),
+            'importe_tarjeta_cents': prepare_for_db(_dec(kwargs.get('importe_tarjeta', 0))),
+            'descuento_euros_cents': prepare_for_db(_dec(kwargs.get('descuento_data', {}).get('euros', 0))),
+            'descuento_tipo': kwargs.get('descuento_data', {}).get('tipo'),
+            'descuento_valor': kwargs.get('descuento_data', {}).get('valor'),
+            'forma_pago': kwargs.get('forma_pago', 'Efectivo'),
+            'tesoro_ganado_str': str(kwargs.get('puntos_otorgar', Decimal('0'))),
+            'tesoro_gastado_str': str(kwargs.get('puntos_gastados', Decimal('0'))),
+            'ticket_text_snapshot': None,
+            'carrito_items': carrito_items,
+            'pagos': [],
+        }
+
+        # pagos desglosados
+        pagos = []
+        if kwargs.get('importe_efectivo'):
+            pagos.append(('efectivo', prepare_for_db(_dec(kwargs.get('importe_efectivo')))))
+        if kwargs.get('importe_tarjeta'):
+            pagos.append(('tarjeta', prepare_for_db(_dec(kwargs.get('importe_tarjeta')))))
+        payload['pagos'] = pagos
+
+        # puntos en céntimos cuando se proporcionen
+        if 'puntos_otorgar' in kwargs:
+            payload['puntos_otorgar_cents'] = prepare_for_db(_dec(kwargs.get('puntos_otorgar', 0)))
+        if 'puntos_restar' in kwargs:
+            payload['puntos_restar_cents'] = prepare_for_db(_dec(kwargs.get('puntos_restar', 0)))
+        if 'puntos_gastados' in kwargs:
+            payload['puntos_gastados_cents'] = prepare_for_db(_dec(kwargs.get('puntos_gastados', 0)))
+
+        return payload
+
     def finalize_sale(
         self,
         efectivo=None,
@@ -280,10 +338,81 @@ class TpvController:
             except Exception:
                 ticket_data['cajero'] = None
 
-            # Delegar a TpvService
+            # Delegar a TicketProcessors (reemplaza el antiguo save_ticket/tpv_service)
             logger.info(f'Finalizando venta forma_pago={forma_pago}')
 
-            result = self.tpv_service.finalize_sale_ticket(ticket_data)
+            carrito_items = ticket_data.get('carrito_items')
+            resumen = ticket_data.get('resumen')
+
+            # Determinar tipo de operación
+            tipo_ticket = 'venta'
+            try:
+                if getattr(carrito_service, '_devolucion_active', False):
+                    tipo_ticket = 'devolucion'
+                else:
+                    pts = Decimal('0')
+                    try:
+                        pts = Decimal(str(resumen.get('puntos_canjeados', 0)))
+                    except Exception:
+                        pts = Decimal('0')
+                    if pts > Decimal('0'):
+                        tipo_ticket = 'venta_fidelizacion'
+            except Exception:
+                logger.exception('Error determinando tipo_ticket')
+
+            # Calcular puntos si procede
+            puntos_otorgar = Decimal('0')
+            puntos_restar = Decimal('0')
+            puntos_gastados = Decimal('0')
+            try:
+                if tipo_ticket == 'venta_fidelizacion' and self.fidelizacion_service:
+                    puntos_gastados = Decimal(str(resumen.get('puntos_canjeados', 0)))
+                    puntos_otorgar = self.fidelizacion_service.calcular_puntos_ganados(carrito_items, puntos_gastados)
+            except Exception:
+                logger.exception('Error calculando puntos de fidelización')
+
+            # Construir payload en céntimos
+            payload = self._build_ticket_payload(
+                self.db,
+                carrito_items,
+                resumen,
+                efectivo,
+                cajero=ticket_data.get('cajero'),
+                cliente=ticket_data.get('cliente'),
+                cliente_id=(ticket_data.get('carrito_service').get_cliente_id() if ticket_data.get('carrito_service') else None),
+                forma_pago=forma_pago,
+                importe_efectivo=importe_efectivo,
+                importe_tarjeta=importe_tarjeta,
+                descuento_data=ticket_data.get('descuento_data'),
+                puntos_otorgar=puntos_otorgar,
+                puntos_gastados=puntos_gastados,
+                num_ticket=None,
+            )
+
+            # Seleccionar processor
+            try:
+                # import from package exports
+                from kool_tpv.modulos.ticket import VentaProcessor, VentaFidelizacionProcessor, DevolucionProcessor
+
+                if tipo_ticket == 'venta':
+                    processor = VentaProcessor(self.db)
+                elif tipo_ticket == 'venta_fidelizacion':
+                    processor = VentaFidelizacionProcessor(self.db)
+                elif tipo_ticket == 'devolucion':
+                    processor = DevolucionProcessor(self.db)
+                else:
+                    processor = VentaProcessor(self.db)
+            except Exception:
+                logger.exception('Error creando processor para tipo %s', tipo_ticket)
+                raise
+
+            # Ejecutar el proceso
+            try:
+                ticket_id = processor.process(**payload)
+                result = {'success': True, 'ticket_id': ticket_id, 'num_ticket': payload.get('num_ticket')}
+            except Exception as e:
+                logger.exception('Error procesando ticket con processor')
+                result = {'success': False, 'error': str(e)}
 
             # Procesar resultado
             if result['success']:

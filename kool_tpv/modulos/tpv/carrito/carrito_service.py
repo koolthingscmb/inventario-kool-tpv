@@ -461,6 +461,28 @@ class CarritoService:
             logging.exception('Error obteniendo puntos canjeados')
             puntos = Decimal('0.00')
 
+        # Fast path: si solo hay canje (sin descuento), restar los puntos directamente
+        try:
+            if not self._descuento and puntos > Decimal('0.00'):
+                total = (subtotal + total_iva) - puntos
+                if total < Decimal('0.00'):
+                    total = Decimal('0.00')
+                total_bruto_original = subtotal + total_iva
+                descuento_aplicado = (total_bruto_original - total)
+                return {
+                    'subtotal': subtotal,
+                    'iva_desglose': iva_desglose,
+                    'total_iva': total_iva,
+                    'total': total,
+                    'puntos_canjeados': puntos,
+                    'descuento_euros': descuento_aplicado,
+                    'descuento_tipo': None,
+                    'descuento_valor': None,
+                    'total_bruto_original': total_bruto_original,
+                }
+        except Exception:
+            logging.exception('Error applying fast-path canje')
+
         # Calcular total base (subtotal + IVA) y luego aplicar descuentos/canje COMO IMPORTE BRUTO
         try:
             total = subtotal + total_iva
@@ -521,41 +543,56 @@ class CarritoService:
                 # Preparar estructuras y normalizar iva_desglose
                 iva_desglose_nuevo = {}
                 total_iva_nuevo = Decimal('0.00')
+
+                # Normalize iva items
                 iva_items = {}
-                total_iva_dec = Decimal('0.00')
                 for k, v in (iva_desglose or {}).items():
                     try:
                         iva_items[int(k)] = Decimal(str(v))
-                        total_iva_dec += Decimal(str(v))
                     except Exception:
                         iva_items[int(k)] = Decimal('0.00')
 
-                    # Total bruto original
-                    total_bruto_original = subtotal + total_iva_dec
+                total_iva_dec = sum(iva_items.values(), Decimal('0.00'))
+                total_bruto_original = subtotal + total_iva_dec
 
-                    # Build gross_by_type and base_orig_by_type from iva_items
-                    gross_by_type = {}
-                    base_orig_by_type = {}
-                    for tipo, cuota in iva_items.items():
+                # Build gross_by_type and base_orig_by_type from iva_items
+                gross_by_type = {}
+                base_orig_by_type = {}
+                for tipo, cuota in iva_items.items():
+                    tipo_pct = Decimal(tipo)
+                    try:
+                        base_orig = cuota / (tipo_pct / Decimal('100')) if tipo_pct != 0 else Decimal('0.00')
+                    except Exception:
+                        base_orig = Decimal('0.00')
+                    gross_orig = base_orig + cuota
+                    gross_by_type[tipo] = gross_orig
+                    base_orig_by_type[tipo] = base_orig
+
+                # Distribute the gross discount proportionally using absolute magnitudes
+                total_gross_abs = sum((abs(v) for v in gross_by_type.values()), Decimal('0.00'))
+                if total_gross_abs == Decimal('0.00'):
+                    # Fallback: if no gross magnitude, keep zeros
+                    for tipo in gross_by_type.keys():
+                        iva_desglose_nuevo[tipo] = Decimal('0.00')
+                    total_iva_nuevo = Decimal('0.00')
+                    subtotal_con_descuento = Decimal('0.00')
+                else:
+                    # Single IVA type: apply discount directly
+                    if len(gross_by_type) == 1:
+                        tipo, gross_orig = next(iter(gross_by_type.items()))
                         tipo_pct = Decimal(tipo)
+                        sign = Decimal('1') if gross_orig >= Decimal('0') else Decimal('-1')
+                        nueva_gross = gross_orig - (sign * total_descuento_bruto)
                         try:
-                            # cuota currently is IVA amount for that tipo
-                            base_orig = cuota / (tipo_pct / Decimal('100')) if tipo_pct != 0 else Decimal('0.00')
+                            nueva_base = nueva_gross / (Decimal('1') + (tipo_pct / Decimal('100')))
+                            nueva_cuota = nueva_gross - nueva_base
                         except Exception:
-                            base_orig = Decimal('0.00')
-                        gross_orig = base_orig + cuota
-                        gross_by_type[tipo] = gross_orig
-                        base_orig_by_type[tipo] = base_orig
-
-                    # Distribute the gross discount proportionally using absolute magnitudes
-                    # This preserves sign for devoluciones (gross_orig may be negative)
-                    total_gross_abs = sum((abs(v) for v in gross_by_type.values()), Decimal('0.00'))
-                    if total_gross_abs == Decimal('0.00'):
-                        # Fallback: if no gross magnitude, keep zeros
-                        for tipo in gross_by_type.keys():
-                            iva_desglose_nuevo[tipo] = Decimal('0.00')
-                        total_iva_nuevo = Decimal('0.00')
-                        subtotal_con_descuento = Decimal('0.00')
+                            logging.exception('Error recalculando nueva_base para unico tipo IVA')
+                            nueva_base = Decimal('0.00')
+                            nueva_cuota = Decimal('0.00')
+                        iva_desglose_nuevo[tipo] = nueva_cuota
+                        total_iva_nuevo = nueva_cuota
+                        subtotal_con_descuento = nueva_base
                     else:
                         new_base_by_type = {}
                         for tipo, gross_orig in gross_by_type.items():

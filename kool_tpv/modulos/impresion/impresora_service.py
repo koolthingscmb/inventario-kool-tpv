@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from kool_tpv.modulos.impresion.venta_ticket_generator import VentaTicketGenerator
+from kool_tpv.modulos.impresion.devolucion_ticket_generator import DevolucionTicketGenerator
+from kool_tpv.modulos.impresion.venta_fidelizacion_ticket_generator import VentaFidelizacionTicketGenerator
+from kool_tpv.modulos.impresion.descuento_ticket_generator import DescuentoTicketGenerator
 from kool_tpv.modulos.impresion.nivel_ticket_generator import NivelTicketGenerator
 from kool_tpv.modulos.impresion.cierre_ticket_generator import CierreTicketGenerator
 from kool_tpv.modulos.impresion.ticket_type import TicketType
@@ -23,6 +26,9 @@ class ImpresoraService:
         self.imprimir_en_consola = imprimir_en_consola
         self.verbose = verbose
         self.ticket_generator = VentaTicketGenerator()
+        self.devolucion_ticket_generator = DevolucionTicketGenerator()
+        self.venta_fidelizacion_ticket_generator = VentaFidelizacionTicketGenerator()
+        self.descuento_ticket_generator = DescuentoTicketGenerator()
         self.nivel_ticket_generator = NivelTicketGenerator()
         self.cierre_ticket_generator = CierreTicketGenerator()
         self.logger = logging.getLogger(__name__)
@@ -612,12 +618,12 @@ class ImpresoraService:
         if ticket_type == TicketType.VENTA:
             texto = self.ticket_generator.generate(self.config, data, items or [], cliente_data)
             meta = {'num_ticket': data.get('num_ticket', '')}
+        elif ticket_type == TicketType.VENTA_FIDELIZACION:
+            texto = self.venta_fidelizacion_ticket_generator.generate(self.config, data or {}, items or [], cliente_data)
+            meta = {'num_ticket': (data or {}).get('num_ticket', '')}
         elif ticket_type == TicketType.DEVOLUCION:
-            # marcar tipo devolucion y reutilizar generador de venta
-            data_copy = dict(data or {})
-            data_copy['tipo'] = 'devolucion'
-            texto = self.ticket_generator.generate(self.config, data_copy, items or [], cliente_data)
-            meta = {'num_ticket': data_copy.get('num_ticket', '')}
+            texto = self.devolucion_ticket_generator.generate(self.config, data or {}, items or [], cliente_data)
+            meta = {'num_ticket': (data or {}).get('num_ticket', '')}
         elif ticket_type == TicketType.CIERRE:
             cierre_data = data or {}
             tickets = items or []
@@ -627,6 +633,9 @@ class ImpresoraService:
         elif ticket_type == TicketType.NIVEL:
             texto = self.nivel_ticket_generator.generate(self.config, data or {})
             meta = {'num_ticket': data.get('cliente', '')}
+        elif ticket_type == TicketType.DESCUENTO:
+            texto = self.descuento_ticket_generator.generate(self.config, data or {})
+            meta = {'num_ticket': (data or {}).get('num_ticket', '')}
         else:
             raise ValueError(f"Unsupported ticket_type: {ticket_type}")
 

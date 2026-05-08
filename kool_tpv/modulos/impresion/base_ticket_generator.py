@@ -22,9 +22,23 @@ class BaseTicketGenerator(ABC):
 
     def _format_currency(self, val):
         """Formatear valor monetario a string con 2 decimales."""
-        # Asumir que `val` ya está en euros como Decimal/numérico.
+        # Puede recibirse como:
+        # - céntimos enteros (int / float integral / Decimal entero)
+        # - euros (Decimal con decimales)
+        # Normalizar: si parece un valor entero grande (>=100) lo tratamos como céntimos.
         fmt = FormatterService()
         try:
+            # Detectar casos enteros que representan céntimos
+            if isinstance(val, int):
+                from kool_tpv.utils.money import from_cents
+                return fmt.format_precio(from_cents(val))
+            if isinstance(val, float) and val.is_integer() and abs(val) >= 100:
+                from kool_tpv.utils.money import from_cents
+                return fmt.format_precio(from_cents(int(val)))
+            if isinstance(val, Decimal) and val == val.to_integral() and abs(val) >= 100:
+                from kool_tpv.utils.money import from_cents
+                return fmt.format_precio(from_cents(int(val)))
+
             return fmt.format_precio(val)
         except Exception:
             try:

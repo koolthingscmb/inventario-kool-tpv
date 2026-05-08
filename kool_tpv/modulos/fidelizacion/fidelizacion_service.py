@@ -1,7 +1,3 @@
-"""Compat shim: reexport `FidelizacionService` from new location.`"""
-from kool_tpv.modulos.fidelizacion.fidelizacion_service import FidelizacionService
-
-__all__ = ["FidelizacionService"]
 # -*- coding: utf-8 -*-
 """
 fidelizacion_service.py

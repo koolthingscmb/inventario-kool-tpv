@@ -1,149 +1,118 @@
 # kool_tpv
 
-Estructura inicial del proyecto `kool_tpv`.
+Aplicación de Punto de Venta (TPV) desarrollada en Python para entornos de escritorio.
 
-Nota: Todos los archivos creados contienen solo placeholders y comentarios
-que indican su propósito. No se ha añadido lógica o implementación.
+Resumen
 
-Estructura creada:
+- Propósito: gestionar ventas, devoluciones, clientes, fidelización, pagos e impresión de tickets.
+- Lenguaje y dependencias: Python 3.x, CustomTkinter, Pillow; ver `requirements.txt`.
 
-- `main.py` - Punto de entrada de la aplicación (placeholder).
-- `modulos/` - Módulos funcionales (`tpv`, `clientes`, `impresion`, `configuracion`).
-- `base_datos/` - Scripts y utilidades para la base de datos.
-- `assets/`, `logs/`, `tests/`, `scripts/` - Carpetas auxiliares con `__init__.py`.
+Quickstart
 
-## TUTORIAL: cómo modificar tamaños y estilo de las zonas y botones
+1. Crear y activar entorno virtual:
 
-Esta sección explica de forma directa y práctica dónde tocar para cambiar
-las dimensiones y el estilo de la interfaz del `BuscarArticuloPanel` (zona
-superior, zona central y botones). Haz una copia de seguridad antes de
-editar y reinicia la aplicación para ver los cambios.
-
-- Archivo a editar: `kool_tpv/modulos/tpv/actions/buscar_articulo.py`
-
-- ZONA SUPERIOR (barra con los botones `CATEGORÍAS` y `TIPOS`):
-    - Valor por defecto: dentro del dict `cfg` en `__init__`.
-        - `top_height`: altura en píxeles de la zona superior. Ejemplo: `72`.
-        - `top_left`: padding/offset izquierdo en píxeles (donde empieza la zona).
-    - Línea donde se crea el frame superior (usa `self.top_height`):
-        - `self.top_buttons = ctk.CTkFrame(self.overlay, fg_color="transparent", height=self.top_height)`
-        - `self.top_buttons.pack(side="top", fill="x", pady=(8, 0), padx=(self.top_left, 12))`
-
-- BOTONES (zona superior): cambiar tamaño, fuente y colores
-    - Dentro de la misma sección busca la creación de `self.cat_btn` y
-        `self.tipos_btn` y modifica estos parámetros:
-        - `width`: ancho en píxeles.
-        - `height`: alto en píxeles.
-        - `fg_color`: color de fondo normal (hex).
-        - `hover_color`: color al pasar el cursor (hex).
-        - `font`: tuple con la fuente, p. ej. `("Arial", 16, "bold")`.
-
-- ZONA CENTRAL (categorías / tipos): fuente, tamaño y colores de botones
-    - Valores por defecto editables en `cfg`:
-        - `btn_font`: fuente por defecto de los botones (tuple).
-        - `btn_width`: ancho objetivo usado para calcular columnas en el grid.
-        - `category_btn_height`: altura (px) de los botones de categorías/tipos.
-    - Para cambiar color/ancho de cada botón modifica `_render_categories()`:
-        - `fg_color`: color normal.
-        - `hover_color`: color hover.
-        - `text_color`: color del texto.
-        - `width` y `height` en la llamada a `ctk.CTkButton(...)`.
-
-- ZONA INFERIOR (artículos): similar a la central
-    - `article_btn_height` controla la altura por defecto de los botones
-        de artículos.
-    - Cambia `btn_font`, `btn_width` y `article_btn_height` en `cfg`.
-
-- Cambios en tiempo real (sin editar el archivo):
-    - Crea el panel en tu REPL o en código y usa `set_ui_config`:
-
-```python
-panel.set_ui_config(btn_font=("Verdana",16,"bold"), category_btn_height=60)
-panel.cat_btn.configure(width=150, height=50, fg_color="#2E8B57", hover_color="#00A4DF")
-for b in panel.categories_grid.winfo_children():
-        b.configure(fg_color="#2E8B57", hover_color="#00A4DF", text_color="#000000", width=180, height=60)
+```bash
+python -m venv .venv
+source .venv/bin/activate
 ```
 
-- Notas y recomendaciones:
-    - Guarda siempre antes de reiniciar la aplicación.
-    - Si no ves cambios, asegúrate de que el overlay no esté cacheado y
-        que llamas a `panel.show()` después de cambiar configuraciones.
-    - Usa `app.update_idletasks()` para forzar recálculo de geometría en pruebas.
+2. Instalar dependencias:
 
-Si quieres, puedo aplicar un ejemplo concreto (valores) y hacer el commit.
-
-## Plantilla: Instrucciones exactas para colocar el botón `power/close`
-
-Usar esta plantilla cada vez que se implemente una nueva pantalla u overlay.
-
-1) Crear el botón con la utilidad (NO colocar dentro de la utilidad):
-
-```python
-from kool_tpv.utils.global_buttons import create_global_close_button
-
-# crear el botón (no hacer place/pack dentro de la función)
-close_btn = create_global_close_button(parent_overlay, command=on_close)
+```bash
+pip install -r requirements.txt
 ```
 
-2) En el método `show()` del overlay, colocar el botón usando las coordenadas
-absolutas del `power_button` para conseguir coincidencia pixel-perfect:
+3. Inicializar la base de datos (si procede):
 
-```python
-# colocar el overlay primero
-self.overlay.place(x=0, y=0, relwidth=1, relheight=1)
-
-# forzar cálculo de geometría
-self.update_idletasks()
-self.overlay.update_idletasks()
-
-# obtener referencia a la app (root) y al power_button
-app_root = self.root  # o la referencia a la instancia App
-pb = getattr(app_root, 'power_button', None)
-
-if pb is not None:
-    rel_x = pb.winfo_rootx() - self.overlay.winfo_rootx()
-    rel_y = pb.winfo_rooty() - self.overlay.winfo_rooty()
-else:
-    # fallback razonable: 12px offset desde nav_frame
-    nav = getattr(app_root, 'nav_frame', None)
-    if nav is not None:
-        rel_x = 12 + (nav.winfo_rootx() - self.overlay.winfo_rootx())
-        rel_y = 12 + (nav.winfo_rooty() - self.overlay.winfo_rooty())
-    else:
-        rel_x, rel_y = 12, 12
-
-self.close_btn.place(x=rel_x, y=rel_y)
-self.close_btn.lift()
+```bash
+python -m kool_tpv.base_datos.db_init
 ```
 
-3) Verificación automática (comprobar después de implementar):
+4. Ejecutar la aplicación (desarrollo):
 
-```python
-print('power_button root coords:', power_button.winfo_rootx(), power_button.winfo_rooty(), power_button.winfo_width(), power_button.winfo_height())
-print('close_btn root coords:', close_btn.winfo_rootx(), close_btn.winfo_rooty(), close_btn.winfo_width(), close_btn.winfo_height())
-# ambos deben coincidir exactamente
+```bash
+python main.py
 ```
 
-4) Reglas a seguir:
-- `create_global_close_button` SOLO crea y devuelve el widget; NO hace `place()` ni `pack()`.
-- La colocación se hace siempre después de `overlay.place(...)` y `update_idletasks()`.
-- Si la `nav_frame` o `power_button` pueden moverse mientras el overlay esté abierto,
-  recalcula la posición cada vez que muestres el overlay o escucha eventos de `<Configure>`.
+Estructura del proyecto
 
-5) Limpieza final:
-- Elimina logs diagnósticos temporales y banderas de depuración antes de hacer commit.
+- `main.py` — lanzador principal (raíz del repo).
+- `kool_tpv/` — paquete principal con submódulos:
+  - `config/` — archivos de configuración (JSON): layouts, colores, fuentes.
+  - `assets/` — imágenes y recursos para la UI y tickets.
+  - `base_datos/` — wrapper de SQLite, scripts de inicialización y servicios de persistencia.
+  - `modulos/` — dominios funcionales: `tpv`, `clientes`, `impresion`, `configuracion`.
+  - `utils/` — widgets y utilidades comunes (`TicketCarrito`, `KeyboardManager`, formateadores).
+- `scripts/` — herramientas de mantenimiento y migración.
+- `tests/` y `test_*.py` — pruebas unitarias/parciales (usar `pytest`).
 
-Sigue esta plantilla exactamente para evitar discrepancias de posición.
-# kool_tpv
+Flujo de venta (breve)
 
-Estructura inicial del proyecto `kool_tpv`.
+1. Añadir artículo → `CarritoService`.
+2. UI muestra `TicketCarrito` con líneas y totales.
+3. Seleccionar forma de pago → `PaymentController*`.
+4. Confirmar venta → `TpvController` → `TpvService.save_ticket()` (transacción que persiste ticket, líneas, pagos y actualiza stock).
+5. Generar snapshot de `ticket_text` y opción de impresión (texto/ESC-POS).
 
-Nota: Todos los archivos creados contienen solo placeholders y comentarios
-que indican su propósito. No se ha añadido lógica o implementación.
+Notas importantes
 
-Estructura creada:
+- ESC/POS: la integración depende de adaptadores y del entorno; testear en el hardware objetivo.
+- Precision monetaria: se utiliza `decimal.Decimal` para cálculos monetarios en código.
+- Copias de seguridad: mantener backups regulares de `kool_bd.db` antes de migraciones.
 
-- `main.py` - Punto de entrada de la aplicación (placeholder).
-- `modulos/` - Módulos funcionales (`tpv`, `clientes`, `impresion`, `configuracion`).
-- `base_datos/` - Scripts y utilidades para la base de datos.
-- `assets/`, `logs/`, `tests/`, `scripts/` - Carpetas auxiliares con `__init__.py`.
+Desarrollo y pruebas
+
+- Ejecutar pruebas unitarias:
+
+```bash
+pytest -q
+```
+
+- Ejecutar solo los tests de fidelización:
+
+```bash
+pytest tests/test_fidelizacion_service.py -q
+```
+
+- Para desarrollo de UI: ejecuta `python main.py` y utiliza logging en `logs/` para depuración.
+
+Contribuciones
+
+1. Crea una branch a partir de `main`.
+2. Añade tests para cambios funcionales.
+3. Envía PR con descripción y tests passing.
+
+Contacto y ayuda
+
+Para preguntas o soporte, abre un issue en el repositorio o contacta al maintainer del proyecto.
+
+FidelizacionRepository
+
+Este módulo centraliza la persistencia relacionada con la fidelización (tesoro) de clientes.
+
+- `actualizar_cliente_loyalty(...)` → actualiza los totales del cliente (tesoro_total, tesoro_historico, tesoro_gastado_total, total_compras, total_compras_euros, total_unidades, fecha_ultima_compra).
+- `insertar_movimiento_puntos(...)` → inserta un registro en `points_movements`.
+ - `insertar_movimiento_puntos(...)` → inserta un registro en `points_movements` (almacena `puntos` en céntimos).
+- `recalcular_nivel_cliente(...)` → actualiza `clientes.id_nivel` según `niveles_fidelidad`.
+- `obtener_tesoro_cliente(...)` → devuelve los valores de tesoro convertidos a euros usando `read_from_db`.
+
+Ejemplo de uso:
+
+```python
+from kool_tpv.modulos.fidelizacion.fidelizacion_repository import FidelizacionRepository
+from kool_tpv.base_datos.db_wrapper import Database
+from decimal import Decimal
+
+db = Database(...)
+repo = FidelizacionRepository(db)
+repo.actualizar_cliente_loyalty(
+  cliente_id=1,
+  puntos_otorgar=Decimal('1.50'),
+  puntos_restar=Decimal('0.00'),
+  puntos_gastados=Decimal('0.00'),
+  total_ticket=Decimal('15.00'),
+  unidades_vendidas=2,
+  fecha='2026-05-08'
+)
+```
+
