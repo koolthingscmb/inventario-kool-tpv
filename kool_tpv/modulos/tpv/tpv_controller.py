@@ -230,6 +230,7 @@ class TpvController:
                 return Decimal(default)
 
         payload = {
+            'resumen': resumen,
             'created_at': created_at,
             'num_ticket': num_ticket,
             'cajero': kwargs.get('cajero'),
@@ -313,7 +314,7 @@ class TpvController:
                 'forma_pago': forma_pago,
                 'importe_efectivo': importe_efectivo or 0.0,
                 'importe_tarjeta': importe_tarjeta or 0.0,
-                'descuento_data': carrito_service.get_descuento(),
+                'descuento_data': carrito_service.get_descuento() or {},
                 'carrito_service': carrito_service
             }
 
@@ -344,21 +345,12 @@ class TpvController:
             carrito_items = ticket_data.get('carrito_items')
             resumen = ticket_data.get('resumen')
 
-            # Determinar tipo de operación
-            tipo_ticket = 'venta'
+            # Determinar tipo de operación usando CarritoService (Strategy)
             try:
-                if getattr(carrito_service, '_devolucion_active', False):
-                    tipo_ticket = 'devolucion'
-                else:
-                    pts = Decimal('0')
-                    try:
-                        pts = Decimal(str(resumen.get('puntos_canjeados', 0)))
-                    except Exception:
-                        pts = Decimal('0')
-                    if pts > Decimal('0'):
-                        tipo_ticket = 'venta_fidelizacion'
+                tipo_ticket = carrito_service.get_ticket_type()
             except Exception:
-                logger.exception('Error determinando tipo_ticket')
+                logger.exception('Error determinando tipo_ticket desde CarritoService, fallback a venta')
+                tipo_ticket = 'venta'
 
             # Calcular puntos si procede
             puntos_otorgar = Decimal('0')
@@ -372,6 +364,22 @@ class TpvController:
                 logger.exception('Error calculando puntos de fidelización')
 
             # Construir payload en céntimos
+            # Obtener cliente_id de forma segura (CarritoService.get_cliente() devuelve dict)
+            _cs = ticket_data.get('carrito_service')
+            try:
+                _cliente = _cs.get_cliente() if _cs else None
+            except Exception:
+                _cliente = None
+            cliente_id = _cliente.get('id') if isinstance(_cliente, dict) and _cliente else None
+
+            # Obtener num_ticket antes de llamar al processor
+            num_ticket_val = None
+            try:
+                num_ticket_val = carrito_service.get_num_ticket()
+            except Exception:
+                num_ticket_val = None
+            logger.info(f"num_ticket={num_ticket_val}")
+
             payload = self._build_ticket_payload(
                 self.db,
                 carrito_items,
@@ -379,14 +387,14 @@ class TpvController:
                 efectivo,
                 cajero=ticket_data.get('cajero'),
                 cliente=ticket_data.get('cliente'),
-                cliente_id=(ticket_data.get('carrito_service').get_cliente_id() if ticket_data.get('carrito_service') else None),
+                cliente_id=cliente_id,
                 forma_pago=forma_pago,
                 importe_efectivo=importe_efectivo,
                 importe_tarjeta=importe_tarjeta,
                 descuento_data=ticket_data.get('descuento_data'),
                 puntos_otorgar=puntos_otorgar,
                 puntos_gastados=puntos_gastados,
-                num_ticket=None,
+                num_ticket=num_ticket_val,
             )
 
             # Seleccionar processor

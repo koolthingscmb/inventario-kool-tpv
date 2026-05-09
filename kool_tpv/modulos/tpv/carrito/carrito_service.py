@@ -83,6 +83,7 @@ class CarritoService:
 
         nuevo = {
             'id': producto_id,
+            'sku': producto_data.get('sku', ''),
             'nombre': producto_data.get('nombre', 'Producto'),
             'pvp': pvp_dec,
             'cantidad': cantidad_in,
@@ -674,3 +675,35 @@ class CarritoService:
         except Exception:
             logging.exception('Error obteniendo total del carrito')
             return Decimal('0.00')
+
+    def get_ticket_type(self) -> str:
+        """Determina el tipo de ticket según el estado del carrito.
+
+        Reglas:
+        - Si hay items con `line_tipo == 'devolucion'` -> 'devolucion'
+        - Si hay cliente asignado -> 'venta_fidelizacion'
+        - Default -> 'venta'
+
+        Returns:
+            str: tipo de ticket ('venta', 'venta_fidelizacion', 'devolucion', ...)
+        """
+        items = self.get_items() or []
+        cliente = self.get_cliente()
+
+        # Detectar devolución (pura o mixta)
+        try:
+            tiene_devolucion = any(str(item.get('line_tipo', '')).lower() == 'devolucion' for item in items)
+        except Exception:
+            tiene_devolucion = False
+        if tiene_devolucion:
+            return 'devolucion'
+
+        # Detectar venta con fidelización (si hay cliente)
+        try:
+            if cliente:
+                return 'venta_fidelizacion'
+        except Exception:
+            pass
+
+        # Default: venta normal
+        return 'venta'

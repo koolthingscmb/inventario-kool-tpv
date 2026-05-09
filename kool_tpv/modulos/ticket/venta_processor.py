@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Any, Dict, List
 from decimal import Decimal
 import logging
+from kool_tpv.base_datos.money_adapter import prepare_for_db
 
 from kool_tpv.modulos.ticket.base_processor import TicketProcessor
 
@@ -12,6 +13,13 @@ class VentaProcessor(TicketProcessor):
     def process(self, *, carrito_items: List[Dict], resumen: Dict, **kwargs):
         created_at = kwargs.get('created_at')
         num_ticket = kwargs.get('num_ticket')
+        # Generate ticket number here to make processor responsible
+        try:
+            from kool_tpv.base_datos.configuracion_service import ConfiguracionService
+            config_service = ConfiguracionService(self.db)
+            num_ticket = config_service.get_next_ticket_number()
+        except Exception:
+            logger.exception('Error generando num_ticket en VentaProcessor')
         cajero = kwargs.get('cajero')
         cliente = kwargs.get('cliente')
         cliente_id = kwargs.get('cliente_id')
@@ -38,16 +46,22 @@ class VentaProcessor(TicketProcessor):
         )
 
         for it in carrito_items or []:
+            pvp_euros = Decimal(str(it.get('pvp', 0)))
+            precio_cents = prepare_for_db(pvp_euros)
+
+            logger.info(f"DEBUG SKU: it.get('sku')={it.get('sku')}, it keys={list(it.keys())}")
+
             line_id = self.repo.insert_ticket_line(
                 ticket_id,
-                it.get('sku'),
+                it.get('id'),                       # SKU := product id
                 it.get('nombre'),
                 int(it.get('cantidad', 0)),
-                int(it.get('precio_cents', 0)),
-                int(it.get('iva', 0)),
+                precio_cents,                       # en céntimos (int)
+                int(it.get('tipo_iva', 0)),         # tipo_iva
                 it.get('line_tipo', 'venta'),
-                it.get('id'),
+                it.get('id'),                       # producto_id
             )
+
             prod_id = it.get('id')
             if prod_id is not None:
                 if it.get('line_tipo') == 'devolucion':

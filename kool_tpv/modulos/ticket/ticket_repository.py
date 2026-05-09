@@ -50,6 +50,7 @@ class TicketRepository:
                 ticket_text_snapshot,
             ),
         )
+        self.db.connection.commit()
         return cur.lastrowid
 
     def insert_ticket_line(self, ticket_id: int, sku: Optional[str], nombre: str,
@@ -59,11 +60,13 @@ class TicketRepository:
             "INSERT INTO ticket_lines (ticket_id, sku, nombre, cantidad, precio, iva, line_tipo, producto_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
         )
         cur.execute(insert_line_q, (ticket_id, sku, nombre, cantidad, int(precio_cents), iva, line_tipo, producto_id))
+        self.db.connection.commit()
         return cur.lastrowid
 
     def update_producto_stock_y_ventas(self, producto_id: int, stock_change: int, ventas_change: int):
         cur = self.db.connection.cursor()
         cur.execute('UPDATE productos SET stock_actual = COALESCE(stock_actual,0) + ?, ventas_totales = COALESCE(ventas_totales,0) + ? WHERE id = ?', (stock_change, ventas_change, producto_id))
+        self.db.connection.commit()
 
     def insert_stock_movement(self, producto_id: int, cantidad: int, motivo: str, ticket_line_id: Optional[int]):
         try:
@@ -72,6 +75,7 @@ class TicketRepository:
                 return
             cur = self.db.connection.cursor()
             cur.execute('INSERT INTO stock_movements (producto_id, cantidad, motivo, ticket_line_id) VALUES (?, ?, ?, ?)', (producto_id, cantidad, motivo, ticket_line_id))
+            self.db.connection.commit()
         except Exception:
             logger.debug('stock_movements table not present or insert failed')
 
@@ -79,6 +83,7 @@ class TicketRepository:
         try:
             cur = self.db.connection.cursor()
             cur.execute('INSERT INTO payments (ticket_id, metodo, importe, created_at) VALUES (?, ?, ?, ?)', (ticket_id, metodo, int(importe_cents), created_at))
+            self.db.connection.commit()
         except Exception:
             logger.debug('payments table not present or insert failed')
 
@@ -86,6 +91,7 @@ class TicketRepository:
         try:
             cur = self.db.connection.cursor()
             cur.execute('INSERT INTO audit_logs (created_at, ticket_id, usuario, accion, detalles) VALUES (?, ?, ?, ?, ?)', (created_at, ticket_id, usuario, accion, detalles))
+            self.db.connection.commit()
         except Exception:
             logger.debug('audit_logs table not present or insert failed')
 
@@ -93,5 +99,6 @@ class TicketRepository:
         try:
             cur = self.db.connection.cursor()
             cur.execute('INSERT INTO points_movements (cliente_id, puntos, motivo, ticket_id, usuario_id, created_at) VALUES (?, ?, ?, ?, ?, ?)', (cliente_id, int(puntos_cents), motivo, ticket_id, usuario_id, None))
+            self.db.connection.commit()
         except Exception:
             logger.debug('points_movements table not present or insert failed')

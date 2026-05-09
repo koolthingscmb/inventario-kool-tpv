@@ -13,7 +13,7 @@ from tkinter import ttk
 import customtkinter as ctk
 from typing import Optional
 from kool_tpv.modulos.tpv.actions.canjear_tesoro import CanjearTesoroAction
-from kool_tpv.modulos.clientes.fidelizacion_service import FidelizacionService
+from kool_tpv.modulos.fidelizacion.fidelizacion_service import FidelizacionService
 
 
 class CarritoUI:
@@ -783,16 +783,34 @@ class CarritoUI:
                         except Exception:
                             pass
 
-                        # build payload for add_item
-                        payload = {
-                            'id': item.get('id'),
-                            'nombre': item.get('nombre'),
-                            'pvp': str(item.get('pvp')),
-                            'tipo_iva': item.get('tipo_iva', 21),
-                        }
-                        if is_devol:
-                            payload['line_tipo'] = 'devolucion'
-                            payload['cantidad'] = 1
+                        # build normalized producto for cart using ProductoService when DB available
+                        try:
+                            top = self.parent.winfo_toplevel()
+                            db_handle = getattr(top, 'db', None)
+                            if db_handle:
+                                from kool_tpv.base_datos.producto_service import ProductoService
+                                ps = ProductoService(db_handle)
+                                payload = ps.get_producto_para_carrito(item.get('id'), cantidad=1, line_tipo='devolucion' if is_devol else 'venta')
+                            else:
+                                payload = {
+                                    'id': item.get('id'),
+                                    'nombre': item.get('nombre'),
+                                    'pvp': str(item.get('pvp')),
+                                    'tipo_iva': item.get('tipo_iva', 21),
+                                    'cantidad': 1,
+                                    'line_tipo': 'devolucion' if is_devol else 'venta'
+                                }
+
+                        except Exception:
+                            logging.exception('Error creando payload con ProductoService, fallback a minimal')
+                            payload = {
+                                'id': item.get('id'),
+                                'nombre': item.get('nombre'),
+                                'pvp': str(item.get('pvp')),
+                                'tipo_iva': item.get('tipo_iva', 21),
+                                'cantidad': 1,
+                                'line_tipo': 'devolucion' if is_devol else 'venta'
+                            }
 
                         try:
                             self.carrito_service.add_item(payload)

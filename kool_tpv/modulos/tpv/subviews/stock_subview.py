@@ -175,14 +175,17 @@ class StockSubView(CTkFrame):
             except Exception:
                 producto = data
 
-            # Preparar datos para añadir al carrito
-            producto_data = {
-                'id': producto.get('id'),
-                'nombre': producto.get('nombre'),
-                'pvp': producto.get('pvp'),
-                'tipo_iva': producto.get('tipo_iva', producto.get('tipo_iva', 21)),
-                'cantidad': 1,
-            }
+            # Preparar datos completos para añadir al carrito usando ProductoService
+            try:
+                producto_data = self.producto_service.get_producto_para_carrito(producto)
+            except Exception:
+                producto_data = {
+                    'id': producto.get('id'),
+                    'nombre': producto.get('nombre'),
+                    'pvp': producto.get('pvp'),
+                    'tipo_iva': producto.get('tipo_iva', producto.get('tipo_iva', 21)),
+                    'cantidad': 1,
+                }
 
             parent_win = None
             try:

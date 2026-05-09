@@ -655,7 +655,7 @@ class TicketCarrito(ctk.CTkFrame):
     def _on_varita_click(self):
         try:
             from kool_tpv.modulos.tpv.actions.canjear_tesoro import CanjearTesoroAction
-            from kool_tpv.modulos.clientes.fidelizacion_service import FidelizacionService
+            from kool_tpv.modulos.fidelizacion.fidelizacion_service import FidelizacionService
 
             fidelizacion_service = FidelizacionService(self.db)
 
@@ -775,9 +775,24 @@ class TicketCarrito(ctk.CTkFrame):
 
             if action == "add":
                 # CORRECCIÓN: Forzar cantidad 1 para sumar una unidad, no doblar
-                item_delta = item_data.copy()
-                item_delta['cantidad'] = 1
-                self.carrito_service.add_item(item_delta)
+                # Preferir obtener producto normalizado desde ProductoService si disponemos de DB
+                try:
+                    if getattr(self, 'db', None) is not None:
+                        from kool_tpv.base_datos.producto_service import ProductoService
+                        ps = ProductoService(self.db)
+                        producto_para_carrito = ps.get_producto_para_carrito(item_data.get('id'), cantidad=1)
+                        self.carrito_service.add_item(producto_para_carrito)
+                    else:
+                        item_delta = item_data.copy()
+                        item_delta['cantidad'] = 1
+                        self.carrito_service.add_item(item_delta)
+                except Exception:
+                    try:
+                        item_delta = item_data.copy()
+                        item_delta['cantidad'] = 1
+                        self.carrito_service.add_item(item_delta)
+                    except Exception:
+                        logging.exception('Error añadiendo item via fallback')
 
             elif action == "remove":
                 item_id = item_data.get("id")

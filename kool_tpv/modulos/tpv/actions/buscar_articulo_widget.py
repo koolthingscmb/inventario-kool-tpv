@@ -294,6 +294,11 @@ class BuscarArticuloWidget(ctk.CTkFrame):
 
     def _add_item_to_carrito(self, producto_data):
         if self.carrito_service:
-            if self.carrito_service.add_item(producto_data):
+            try:
+                producto_para_carrito = self.producto_service.get_producto_para_carrito(producto_data)
+            except Exception:
+                producto_para_carrito = producto_data
+
+            if self.carrito_service.add_item(producto_para_carrito):
                 if callable(self.on_add_callback):
                     self.on_add_callback()

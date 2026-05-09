@@ -206,10 +206,9 @@ class DevolucionSubView(CTkFrame):
                 else:
                     # fallback: use carrito_service but mark as devolucion
                     prod = producto.copy()
-                    prod['cantidad'] = 1
-                    prod['line_tipo'] = 'devolucion'
                     try:
-                        added = self.carrito_service.add_item(prod)
+                        producto_para_carrito = self.producto_service.get_producto_para_carrito(prod, cantidad=1, line_tipo='devolucion')
+                        added = self.carrito_service.add_item(producto_para_carrito)
                     except Exception:
                         logging.exception('DevolucionSubView: error añadiendo via carrito fallback')
             except Exception:

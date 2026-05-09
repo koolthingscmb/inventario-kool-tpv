@@ -1,6 +1,7 @@
 from .db_wrapper import Database
 import logging
 from kool_tpv.base_datos.money_adapter import read_from_db
+from decimal import Decimal
 
 
 class ProductoService:
@@ -369,3 +370,83 @@ WHERE 1=1
         except Exception:
             logging.exception('Error obteniendo producto completo')
             return None
+
+    def get_producto_para_carrito(self, producto_input, cantidad: int = 1, line_tipo: str = 'venta'):
+        """Normalizar y devolver un dict completo listo para `CarritoService.add_item`.
+
+        `producto_input` puede ser un `id` o un dict parcial/complete.
+        Garantiza las claves: id, sku, nombre, pvp (Decimal), tipo_iva (int), cantidad (int), line_tipo, total_linea (Decimal).
+        """
+        try:
+            # Resolver producto base
+            prod = None
+            if isinstance(producto_input, dict):
+                if producto_input.get('id') is not None:
+                    # prefer complete info from DB when possible
+                    prod = producto_input
+                    # if minimal, try to enrich
+                    if not prod.get('pvp') or not prod.get('sku'):
+                        completo = self.get_producto_completo(prod.get('id'))
+                        if completo:
+                            # merge completo into prod without losing provided overrides
+                            merged = {**completo, **prod}
+                            prod = merged
+                else:
+                    # dict without id, return normalized minimal
+                    prod = producto_input
+            else:
+                # treat as id
+                prod = self.get_producto_completo(producto_input)
+
+            if not prod:
+                # fallback to minimal structure
+                prod = {}
+
+            # Normalizaciones
+            pid = prod.get('id')
+            sku = prod.get('sku') or ''
+            nombre = prod.get('nombre') or prod.get('nombre_boton') or ''
+            # pvp may already be Decimal or a money_adapter value
+            pvp_raw = prod.get('pvp', 0)
+            try:
+                pvp = Decimal(str(pvp_raw))
+            except Exception:
+                try:
+                    pvp = read_from_db(int(pvp_raw)) if pvp_raw is not None else Decimal('0.00')
+                except Exception:
+                    pvp = Decimal('0.00')
+
+            try:
+                tipo_iva = int(prod.get('tipo_iva', 21))
+            except Exception:
+                tipo_iva = 21
+
+            try:
+                cantidad_i = int(cantidad or 1)
+            except Exception:
+                cantidad_i = 1
+
+            total_linea = (pvp * Decimal(cantidad_i))
+
+            return {
+                'id': pid,
+                'sku': sku,
+                'nombre': nombre,
+                'pvp': pvp,
+                'tipo_iva': tipo_iva,
+                'cantidad': cantidad_i,
+                'total_linea': total_linea,
+                'line_tipo': line_tipo,
+            }
+        except Exception:
+            logging.exception('Error construyendo producto_para_carrito')
+            return {
+                'id': producto_input if not isinstance(producto_input, dict) else producto_input.get('id'),
+                'sku': '',
+                'nombre': '' if isinstance(producto_input, dict) else str(producto_input),
+                'pvp': Decimal('0.00'),
+                'tipo_iva': 21,
+                'cantidad': int(cantidad or 1),
+                'total_linea': Decimal('0.00'),
+                'line_tipo': line_tipo,
+            }
