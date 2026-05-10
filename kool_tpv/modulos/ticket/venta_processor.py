@@ -53,7 +53,7 @@ class VentaProcessor(TicketProcessor):
 
             line_id = self.repo.insert_ticket_line(
                 ticket_id,
-                it.get('id'),                       # SKU := product id
+                it.get('sku'),                      # SKU
                 it.get('nombre'),
                 int(it.get('cantidad', 0)),
                 precio_cents,                       # en céntimos (int)

@@ -1,13 +1,48 @@
 from .db_wrapper import Database
 import logging
+import sqlite3
 from kool_tpv.base_datos.money_adapter import read_from_db
 from decimal import Decimal
+
+
+    
+def _safe_decimal_from_db(v):
+    try:
+        if v is None:
+            return Decimal('0.00')
+        return read_from_db(int(v))
+    except Exception:
+        try:
+            return Decimal(str(v))
+        except Exception:
+            return Decimal('0.00')
+
+from kool_tpv.modulos.almacen.producto_repository import ProductoRepository
 
 
 class ProductoService:
     def __init__(self, db):
         self.db = db
-    
+        # Repository de solo lectura para productos (sin normalización)
+        try:
+            self.repo = ProductoRepository(db)
+        except Exception:
+            # Dejar repo como None si no se pudo instanciar (mantener compatibilidad)
+            self.repo = None
+    def _get_productos_by_query(self, query: str, params: tuple, row_mapper):
+        """Helper privado: ejecutar query y mapear filas con `row_mapper`.
+
+        Lanza excepciones hacia el caller si hay errores de DB.
+        """
+        try:
+            rows = self.db.fetch_all(query, params)
+            items = []
+            for r in rows or []:
+                items.append(row_mapper(r))
+            return items
+        except Exception:
+            logging.exception('Error en _get_productos_by_query')
+            raise
     def get_productos_by_categoria(self, categoria_nombre):
         """Obtener productos por nombre de categoría"""
         try:
@@ -19,18 +54,12 @@ class ProductoService:
             INNER JOIN categorias c ON c.id = p.categoria
             WHERE c.nombre = ?
             """
-            rows = self.db.fetch_all(query, (categoria_nombre,))
-            items = []
-            for r in rows or []:
-                # r: (id, nombre, nombre_boton, pvp, tipo_iva)
-                pid = r[0]
-                nombre = r[1] or r[2] or ''
-                # Convert pvp from DB (céntimos) to euros using money_adapter
-                pvp_raw = r[3]
-                pvp = read_from_db(int(pvp_raw)) if pvp_raw is not None else read_from_db(0)
-                tipo_iva = int(r[4] or 21)
-                items.append({'id': pid, 'nombre': nombre, 'pvp': pvp, 'tipo_iva': tipo_iva})
-            return items
+            return self._get_productos_by_query(query, (categoria_nombre,), lambda r: {
+                'id': r[0],
+                'nombre': r[1] or r[2] or '',
+                'pvp': _safe_decimal_from_db(r[3]),
+                'tipo_iva': int(r[4] or 21)
+            })
         except Exception as e:
             logging.error(f"Error obteniendo productos por categoría: {e}")
             return []
@@ -45,16 +74,12 @@ class ProductoService:
             INNER JOIN tipos t ON t.id = p.tipo
             WHERE t.nombre = ?
             """
-            rows = self.db.fetch_all(query, (tipo_nombre,))
-            items = []
-            for r in rows or []:
-                pid = r[0]
-                nombre = r[1] or r[2] or ''
-                pvp_raw = r[3]
-                pvp = read_from_db(int(pvp_raw)) if pvp_raw is not None else read_from_db(0)
-                tipo_iva = int(r[4] or 21)
-                items.append({'id': pid, 'nombre': nombre, 'pvp': pvp, 'tipo_iva': tipo_iva})
-            return items
+            return self._get_productos_by_query(query, (tipo_nombre,), lambda r: {
+                'id': r[0],
+                'nombre': r[1] or r[2] or '',
+                'pvp': _safe_decimal_from_db(r[3]),
+                'tipo_iva': int(r[4] or 21)
+            })
         except Exception as e:
             logging.error(f"Error obteniendo productos por tipo: {e}")
             return []
@@ -105,9 +130,12 @@ class ProductoService:
 
             return productos
 
-        except Exception:
-            logging.exception('Error listando productos con JOIN')
+        except sqlite3.DatabaseError as e:
+            logging.exception('DB error listando productos con JOIN: %s', e)
             return []
+        except Exception:
+            logging.exception('Error inesperado listando productos con JOIN')
+            raise
 
     def buscar_productos_paginados(self, termino_busqueda: str = '', categoria_id=None, tipo_id=None, estados=None, limit: int = 50, offset: int = 0):
         """Busca productos con paginación, filtros y JOINs.
@@ -199,9 +227,12 @@ WHERE 1=1
                     'estado': r[10] or 'Activo'
                 })
             return results
-        except Exception:
-            logging.exception('Error en buscar_productos_paginados')
+        except sqlite3.DatabaseError as e:
+            logging.exception('DB error en buscar_productos_paginados: %s', e)
             return []
+        except Exception:
+            logging.exception('Error inesperado en buscar_productos_paginados')
+            raise
 
     def listar_categorias(self):
         """Obtener lista de todas las categorías.
@@ -213,9 +244,12 @@ WHERE 1=1
             query = "SELECT id, nombre FROM categorias ORDER BY nombre ASC"
             rows = self.db.fetch_all(query)
             return [{'id': r[0], 'nombre': r[1]} for r in (rows or [])]
-        except Exception:
-            logging.exception('Error listando categorías')
+        except sqlite3.DatabaseError as e:
+            logging.exception('DB error listando categorías: %s', e)
             return []
+        except Exception:
+            logging.exception('Error inesperado listando categorías')
+            raise
 
     def listar_tipos(self):
         """Obtener lista de todos los tipos.
@@ -227,9 +261,12 @@ WHERE 1=1
             query = "SELECT id, nombre FROM tipos ORDER BY nombre ASC"
             rows = self.db.fetch_all(query)
             return [{'id': r[0], 'nombre': r[1]} for r in (rows or [])]
-        except Exception:
-            logging.exception('Error listando tipos')
+        except sqlite3.DatabaseError as e:
+            logging.exception('DB error listando tipos: %s', e)
             return []
+        except Exception:
+            logging.exception('Error inesperado listando tipos')
+            raise
 
     def obtener_ventas_producto(self, producto_id, limite=20):
         """Obtener historial de ventas de un producto (últimos clientes).
@@ -270,9 +307,12 @@ WHERE 1=1
 
             return ventas
 
-        except Exception:
-            logging.exception(f'Error obteniendo ventas de producto {producto_id}')
+        except sqlite3.DatabaseError as e:
+            logging.exception('DB error obteniendo ventas de producto %s: %s', producto_id, e)
             return []
+        except Exception:
+            logging.exception('Error inesperado obteniendo ventas de producto %s', producto_id)
+            raise
 
     def get_producto_completo(self, producto_id):
         """Obtener producto completo con todos sus datos para edición.
@@ -327,49 +367,58 @@ WHERE 1=1
             WHERE p.id = ?
             """
 
-            row = self.db.fetch_one(query, (producto_id,))
+            # Preferir obtener el registro RAW a través del repository
+            if getattr(self, 'repo', None) is not None:
+                raw = self.repo.get_completo(producto_id)
+            else:
+                raw_row = self.db.fetch_one(query, (producto_id,))
+                raw = dict(raw_row) if raw_row is not None else None
 
-            if not row:
+            if not raw:
                 return None
 
+            # Construir la misma estructura de salida basada en claves del dict RAW
             return {
-                'id': row[0],
-                'nombre': row[1],
-                'nombre_boton': row[2],
-                'sku': row[3],
-                'categoria_id': row[4],
-                'tipo_id': row[5],
-                'proveedor_id': row[6],
-                'tipo_iva': int(row[7] or 21),
-                'stock_actual': int(row[8] or 0),
-                'stock_minimo': int(row[9] or 0),
-                'ventas_totales': int(row[10] or 0),
-                'pvp_variable': int(row[11] or 0),
-                'descripcion_shopify': row[12],
-                'notas_internas': row[13],
-                'titulo': row[14],
-                'activo': int(row[15] or 1),
-                'created_at': row[16],
-                'updated_at': row[17],
-                'pending_sync': int(row[18] or 0),
-                'seo_title': row[19],
-                'seo_description': row[20],
-                'tipo_shop': row[21],
-                'etiquetas': row[22],
-                'shop_link': row[23],
-                'shopify_taxonomy': row[24],
-                'categoria_nombre': row[25],
-                'tipo_nombre': row[26],
-                'proveedor_nombre': row[27],
-                'pvp': (lambda v: __import__('kool_tpv.base_datos.money_adapter', fromlist=['read_from_db']).read_from_db(v) if v is not None else __import__('decimal').Decimal('0'))(row[28]),
-                'coste': (lambda v: __import__('kool_tpv.base_datos.money_adapter', fromlist=['read_from_db']).read_from_db(v) if v is not None else __import__('decimal').Decimal('0'))(row[29]),
-                'ventas_tickets': int(row[30] or 0),
-                'ean': row[31] or ''
+                'id': raw.get('id'),
+                'nombre': raw.get('nombre'),
+                'nombre_boton': raw.get('nombre_boton'),
+                'sku': raw.get('sku'),
+                'categoria_id': raw.get('categoria'),
+                'tipo_id': raw.get('tipo'),
+                'proveedor_id': raw.get('proveedor_id'),
+                'tipo_iva': int(raw.get('tipo_iva') or 21),
+                'stock_actual': int(raw.get('stock_actual') or 0),
+                'stock_minimo': int(raw.get('stock_minimo') or 0),
+                'ventas_totales': int(raw.get('ventas_totales') or 0),
+                'pvp_variable': int(raw.get('pvp_variable') or 0),
+                'descripcion_shopify': raw.get('descripcion_shopify'),
+                'notas_internas': raw.get('notas_internas'),
+                'titulo': raw.get('titulo'),
+                'activo': int(raw.get('activo') or 1),
+                'created_at': raw.get('created_at'),
+                'updated_at': raw.get('updated_at'),
+                'pending_sync': int(raw.get('pending_sync') or 0),
+                'seo_title': raw.get('seo_title'),
+                'seo_description': raw.get('seo_description'),
+                'tipo_shop': raw.get('tipo_shop'),
+                'etiquetas': raw.get('etiquetas'),
+                'shop_link': raw.get('shop_link'),
+                'shopify_taxonomy': raw.get('shopify_taxonomy'),
+                'categoria_nombre': raw.get('categoria_nombre'),
+                'tipo_nombre': raw.get('tipo_nombre'),
+                'proveedor_nombre': raw.get('proveedor_nombre'),
+                'pvp': _safe_decimal_from_db(raw.get('pvp')),
+                'coste': _safe_decimal_from_db(raw.get('coste')),
+                'ventas_tickets': int(raw.get('ventas_tickets') or 0),
+                'ean': raw.get('ean') or ''
             }
 
-        except Exception:
-            logging.exception('Error obteniendo producto completo')
+        except sqlite3.DatabaseError as e:
+            logging.exception('DB error obteniendo producto completo %s: %s', producto_id, e)
             return None
+        except Exception:
+            logging.exception('Error inesperado en get_producto_completo %s', producto_id)
+            raise
 
     def get_producto_para_carrito(self, producto_input, cantidad: int = 1, line_tipo: str = 'venta'):
         """Normalizar y devolver un dict completo listo para `CarritoService.add_item`.
@@ -406,15 +455,12 @@ WHERE 1=1
             pid = prod.get('id')
             sku = prod.get('sku') or ''
             nombre = prod.get('nombre') or prod.get('nombre_boton') or ''
-            # pvp may already be Decimal or a money_adapter value
+            # pvp may already be Decimal or a money_adapter value; normalize using helper
             pvp_raw = prod.get('pvp', 0)
-            try:
-                pvp = Decimal(str(pvp_raw))
-            except Exception:
-                try:
-                    pvp = read_from_db(int(pvp_raw)) if pvp_raw is not None else Decimal('0.00')
-                except Exception:
-                    pvp = Decimal('0.00')
+            if isinstance(pvp_raw, Decimal):
+                pvp = pvp_raw
+            else:
+                pvp = _safe_decimal_from_db(pvp_raw)
 
             try:
                 tipo_iva = int(prod.get('tipo_iva', 21))
@@ -426,7 +472,7 @@ WHERE 1=1
             except Exception:
                 cantidad_i = 1
 
-            total_linea = (pvp * Decimal(cantidad_i))
+            total_linea = (pvp * Decimal(cantidad_i)).quantize(Decimal('0.01'))
 
             return {
                 'id': pid,
