@@ -85,57 +85,15 @@ class ProductoService:
             return []
 
     def listar_productos(self, termino=''):
-        """Listar productos con JOIN a categorías y tipos.
-
-        Args:
-            termino: Filtro por nombre (búsqueda parcial)
-
-        Returns:
-            Lista de dicts con {id, nombre, stock_actual, categoria_nombre, tipo_nombre, pvp, tipo_iva}
-        """
+        """Listar productos con resumen financiero."""
         try:
-            query = """
-            SELECT 
-                p.id,
-                p.nombre,
-                p.stock_actual,
-                c.nombre AS categoria_nombre,
-                t.nombre AS tipo_nombre,
-                COALESCE((SELECT SUM(tl.cantidad) FROM ticket_lines tl WHERE tl.sku = p.sku), 0) AS ventas,
-                COALESCE(pr.pvp, 0.0) AS pvp,
-                COALESCE(p.tipo_iva, 21) AS tipo_iva
-            FROM productos p
-            LEFT JOIN categorias c ON p.categoria = c.id
-            LEFT JOIN tipos t ON p.tipo = t.id
-            LEFT JOIN precios pr ON pr.producto_id = p.id AND pr.activo = 1
-            WHERE p.nombre LIKE ?
-            ORDER BY p.id
-            """
-
-            termino_like = f'%{termino}%'
-            rows = self.db.fetch_all(query, (termino_like,))
-
-            productos = []
-            for r in rows or []:
-                productos.append({
-                    'id': r[0],
-                    'nombre': r[1] or '',
-                    'stock_actual': r[2] or 0,
-                    'categoria': r[3] or 'Sin categoría',
-                    'tipo': r[4] or 'Sin tipo',
-                    'ventas': int(r[5] or 0),
-                    'pvp': read_from_db(int(r[6])) if r[6] is not None else read_from_db(0),
-                    'tipo_iva': int(r[7] or 21)
-                })
-
-            return productos
-
-        except sqlite3.DatabaseError as e:
-            logging.exception('DB error listando productos con JOIN: %s', e)
-            return []
+            raw_list = self.repo.listar_con_resumen(termino or '')
+            for item in raw_list:
+                item['pvp'] = _safe_decimal_from_db(item.get('pvp', 0))
+            return raw_list
         except Exception:
-            logging.exception('Error inesperado listando productos con JOIN')
-            raise
+            logging.exception('Error listando productos')
+            return []
 
     def buscar_productos_paginados(self, termino_busqueda: str = '', categoria_id=None, tipo_id=None, estados=None, limit: int = 50, offset: int = 0):
         """Busca productos con paginación, filtros y JOINs.
@@ -154,7 +112,7 @@ class ProductoService:
         try:
             # Base query (include computed estado)
             query = """
-SELECT DISTINCT p.id,
+SELECT p.id,
        p.sku,
        p.nombre,
        COALESCE(c.nombre, 'Sin categoría') AS categoria_nombre,
@@ -173,7 +131,6 @@ FROM productos p
 LEFT JOIN categorias c ON p.categoria = c.id
 LEFT JOIN tipos t ON p.tipo = t.id
 LEFT JOIN precios pr ON pr.producto_id = p.id AND pr.activo = 1
-LEFT JOIN codigos_barras cb ON cb.producto_id = p.id
 WHERE 1=1
             """
 
@@ -182,7 +139,11 @@ WHERE 1=1
             # Filtro búsqueda
             if termino_busqueda:
                 termino_like = f'%{termino_busqueda}%'
-                query += " AND (p.nombre LIKE ? OR p.sku LIKE ? OR cb.ean LIKE ?)"
+                query += (
+                    " AND (p.nombre LIKE ? OR p.sku LIKE ? OR EXISTS ("
+                    "SELECT 1 FROM codigos_barras cb "
+                    "WHERE cb.producto_id = p.id AND cb.ean LIKE ?))"
+                )
                 params.extend([termino_like, termino_like, termino_like])
 
             # Filtro categoría
@@ -234,85 +195,13 @@ WHERE 1=1
             logging.exception('Error inesperado en buscar_productos_paginados')
             raise
 
-    def listar_categorias(self):
-        """Obtener lista de todas las categorías.
-
-        Returns:
-            Lista de dicts con {id, nombre}
-        """
-        try:
-            query = "SELECT id, nombre FROM categorias ORDER BY nombre ASC"
-            rows = self.db.fetch_all(query)
-            return [{'id': r[0], 'nombre': r[1]} for r in (rows or [])]
-        except sqlite3.DatabaseError as e:
-            logging.exception('DB error listando categorías: %s', e)
-            return []
-        except Exception:
-            logging.exception('Error inesperado listando categorías')
-            raise
-
-    def listar_tipos(self):
-        """Obtener lista de todos los tipos.
-
-        Returns:
-            Lista de dicts con {id, nombre}
-        """
-        try:
-            query = "SELECT id, nombre FROM tipos ORDER BY nombre ASC"
-            rows = self.db.fetch_all(query)
-            return [{'id': r[0], 'nombre': r[1]} for r in (rows or [])]
-        except sqlite3.DatabaseError as e:
-            logging.exception('DB error listando tipos: %s', e)
-            return []
-        except Exception:
-            logging.exception('Error inesperado listando tipos')
-            raise
-
     def obtener_ventas_producto(self, producto_id, limite=20):
-        """Obtener historial de ventas de un producto (últimos clientes).
-
-        Args:
-            producto_id: ID del producto
-            limite: Número máximo de registros (default 20)
-
-        Returns:
-            Lista de dicts con {ticket_id, fecha, cantidad, cliente_nombre}
-        """
+        """Obtener historial de ventas de un producto."""
         try:
-            query = """
-            SELECT
-                t.id AS ticket_id,
-                t.created_at AS fecha,
-                tl.cantidad,
-                COALESCE(c.nombre, 'Sin cliente') AS cliente_nombre
-            FROM ticket_lines tl
-            JOIN tickets t ON tl.ticket_id = t.id
-            JOIN productos p ON tl.sku = p.sku
-            LEFT JOIN clientes c ON t.cliente_id = c.id
-            WHERE p.id = ?
-            ORDER BY t.created_at DESC
-            LIMIT ?
-            """
-
-            rows = self.db.fetch_all(query, (producto_id, limite))
-
-            ventas = []
-            for r in rows or []:
-                ventas.append({
-                    'ticket_id': r[0],
-                    'fecha': r[1],
-                    'cantidad': r[2] or 0,
-                    'cliente_nombre': r[3]
-                })
-
-            return ventas
-
-        except sqlite3.DatabaseError as e:
-            logging.exception('DB error obteniendo ventas de producto %s: %s', producto_id, e)
-            return []
+            return self.repo.get_ventas_por_producto_id(producto_id, limite)
         except Exception:
-            logging.exception('Error inesperado obteniendo ventas de producto %s', producto_id)
-            raise
+            logging.exception('Error obteniendo ventas de producto %s', producto_id)
+            return []
 
     def get_producto_completo(self, producto_id):
         """Obtener producto completo con todos sus datos para edición.

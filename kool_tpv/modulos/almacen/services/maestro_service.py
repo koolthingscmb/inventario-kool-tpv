@@ -45,48 +45,6 @@ class MaestroService:
             logging.exception('Error en obtener_producto_por_id MaestroService')
             return None
 
-    # Categorías / Tipos / Precios — helpers genéricos que usan SQL directo si no
-    # existen servicios específicos. Asumen que las columnas de fecha usan DATETIME
-    def listar_categorias(self) -> List[Dict[str, Any]]:
-        try:
-            sql = "SELECT id, nombre, created_at, updated_at FROM categorias ORDER BY nombre"
-            rows = self.producto_svc.db.fetch_all(sql, ()) if getattr(self, 'producto_svc', None) is not None else []
-            items = []
-            for r in rows or []:
-                try:
-                    items.append({
-                        'id': r[0],
-                        'nombre': r[1],
-                        'created_at': r[2],
-                        'updated_at': r[3],
-                    })
-                except Exception:
-                    logging.exception('Error normalizando fila categoria')
-            return items
-        except Exception:
-            logging.exception('Error listando categorias')
-            return []
-
-    def listar_tipos(self) -> List[Dict[str, Any]]:
-        try:
-            sql = "SELECT id, nombre, created_at, updated_at FROM tipos ORDER BY nombre"
-            rows = self.producto_svc.db.fetch_all(sql, ()) if getattr(self, 'producto_svc', None) is not None else []
-            items = []
-            for r in rows or []:
-                try:
-                    items.append({
-                        'id': r[0],
-                        'nombre': r[1],
-                        'created_at': r[2],
-                        'updated_at': r[3],
-                    })
-                except Exception:
-                    logging.exception('Error normalizando fila tipo')
-            return items
-        except Exception:
-            logging.exception('Error listando tipos')
-            return []
-
     def listar_precios(self) -> List[Dict[str, Any]]:
         try:
             sql = "SELECT id, producto_id, pvp, activo, created_at FROM precios ORDER BY created_at DESC"

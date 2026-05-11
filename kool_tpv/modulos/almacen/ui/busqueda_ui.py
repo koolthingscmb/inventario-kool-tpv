@@ -8,6 +8,8 @@ import customtkinter as ctk
 import tkinter as tk
 
 from kool_tpv.base_datos.producto_service import ProductoService
+from kool_tpv.base_datos.categoria_service import CategoriaService
+from kool_tpv.base_datos.tipo_service import TipoService
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.widgets.nav_list import NavList
@@ -19,6 +21,8 @@ class BusquedaUI:
         self.owner = owner  # AlmacenView instance to call show_crear
         self.db = db
         self.service = ProductoService(db)
+        self.categoria_service = CategoriaService(db)
+        self.tipo_service = TipoService(db)
         from kool_tpv.utils.config_loader import load_colors
         try:
             self.colors = load_colors(module_name)
@@ -55,8 +59,8 @@ class BusquedaUI:
         ctk.CTkLabel(filter_frame, text='Filtrar por:', text_color=self.colors.get('text', '#00FF00'), font=get_font('label', module=self.module_name)).pack(side='left', padx=(0, 12))
 
         # Cargar opciones
-        categorias = [{'id': None, 'nombre': 'Todas'}] + (self.service.listar_categorias() or [])
-        tipos = [{'id': None, 'nombre': 'Todos'}] + (self.service.listar_tipos() or [])
+        categorias = [{'id': None, 'nombre': 'Todas'}] + (self.categoria_service.get_all() or [])
+        tipos = [{'id': None, 'nombre': 'Todos'}] + (self.tipo_service.get_all_tipos() or [])
 
         # Label Categorías
         ctk.CTkLabel(filter_frame, text='Categorías:', text_color=self.colors.get('text', '#00FF00'), font=get_font('label', module=self.module_name)).pack(side='left', padx=(0, 4))
