@@ -6,6 +6,7 @@ Las entradas deben ser ya preparadas (p.ej. cantidades en céntimos).
 """
 import logging
 from typing import Optional
+from datetime import datetime
 
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.base_datos.money_adapter import prepare_for_db
@@ -22,6 +23,18 @@ class TicketRepository:
                       importe_efectivo_cents, importe_tarjeta_cents,
                       descuento_euros_cents, descuento_tipo, descuento_valor,
                       tesoro_ganado_str, tesoro_gastado_str, ticket_text_snapshot=None):
+        # Ensure `cliente` is a string or None before binding to SQLite
+        try:
+            if cliente is None:
+                cliente_val = None
+            elif isinstance(cliente, str):
+                cliente_val = cliente
+            else:
+                # coerce other types (including dict) to a readable string
+                cliente_val = str(cliente)
+        except Exception:
+            cliente_val = None
+
         cur = self.db.connection.cursor()
         insert_ticket_q = (
             "INSERT INTO tickets (created_at, cajero, cliente, cliente_id, num_ticket, subtotal, forma_pago, total, pagado, cambio, importe_efectivo, importe_tarjeta, descuento_euros, descuento_tipo, descuento_valor, tesoro_ganado, tesoro_gastado, ticket_text) "
@@ -32,7 +45,7 @@ class TicketRepository:
             (
                 created_at,
                 cajero,
-                cliente,
+                cliente_val,
                 cliente_id,
                 num_ticket,
                 int(subtotal_cents),
@@ -45,8 +58,8 @@ class TicketRepository:
                 int(descuento_euros_cents),
                 descuento_tipo,
                 descuento_valor,
-                tesoro_ganado_str,
-                tesoro_gastado_str,
+                int(tesoro_ganado_str or 0),
+                int(tesoro_gastado_str or 0),
                 ticket_text_snapshot,
             ),
         )
@@ -77,7 +90,7 @@ class TicketRepository:
             cur.execute('INSERT INTO stock_movements (producto_id, cantidad, motivo, ticket_line_id) VALUES (?, ?, ?, ?)', (producto_id, cantidad, motivo, ticket_line_id))
             self.db.connection.commit()
         except Exception:
-            logger.debug('stock_movements table not present or insert failed')
+            logger.warning('stock_movements table not present or insert failed')
 
     def insert_payment(self, ticket_id: int, metodo: str, importe_cents: int, created_at: str):
         try:
@@ -85,7 +98,7 @@ class TicketRepository:
             cur.execute('INSERT INTO payments (ticket_id, metodo, importe, created_at) VALUES (?, ?, ?, ?)', (ticket_id, metodo, int(importe_cents), created_at))
             self.db.connection.commit()
         except Exception:
-            logger.debug('payments table not present or insert failed')
+            logger.warning('payments table not present or insert failed')
 
     def insert_audit_log(self, created_at: str, ticket_id: int, usuario: Optional[str], accion: str, detalles: str):
         try:
@@ -93,12 +106,23 @@ class TicketRepository:
             cur.execute('INSERT INTO audit_logs (created_at, ticket_id, usuario, accion, detalles) VALUES (?, ?, ?, ?, ?)', (created_at, ticket_id, usuario, accion, detalles))
             self.db.connection.commit()
         except Exception:
-            logger.debug('audit_logs table not present or insert failed')
+            logger.warning('audit_logs table not present or insert failed')
 
-    def insert_points_movement_raw(self, cliente_id: int, puntos_cents: int, motivo: str, ticket_id: int, usuario_id: Optional[int] = None):
+    def insert_points_movement_raw(self, cliente_id: int, puntos, motivo: str, ticket_id: int, usuario_id: Optional[int] = None, created_at: Optional[str] = None):
+        """Insertar movimiento de puntos en `points_movements`.
+
+        Mejor logging y `created_at` por defecto; los errores se registran como WARNING
+        pero no se elevan para no bloquear la venta en esquemas antiguos.
+        """
         try:
+            if created_at is None:
+                created_at = datetime.now().isoformat()
+
             cur = self.db.connection.cursor()
-            cur.execute('INSERT INTO points_movements (cliente_id, puntos, motivo, ticket_id, usuario_id, created_at) VALUES (?, ?, ?, ?, ?, ?)', (cliente_id, int(puntos_cents), motivo, ticket_id, usuario_id, None))
+            cur.execute(
+                'INSERT INTO points_movements (cliente_id, puntos, motivo, ticket_id, usuario_id, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+                (cliente_id, int(puntos), motivo, ticket_id, usuario_id, created_at),
+            )
             self.db.connection.commit()
-        except Exception:
-            logger.debug('points_movements table not present or insert failed')
+        except Exception as e:
+            logger.warning('Error insertando points_movement: %s', e)

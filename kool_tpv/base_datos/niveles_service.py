@@ -1,6 +1,7 @@
 import logging
 from typing import List, Optional, Dict, Any
 from decimal import Decimal
+from kool_tpv.modulos.fidelizacion.niveles_repository import NivelesRepository
 
 
 class NivelesService:
@@ -8,6 +9,7 @@ class NivelesService:
 
     def __init__(self, db):
         self.db = db
+        self.repo = NivelesRepository(db)
 
     def get_all_niveles(self) -> List[Dict[str, Any]]:
         """Obtener todos los niveles ordenados por level.
@@ -90,32 +92,10 @@ class NivelesService:
                 logging.warning('Ya existe un nivel con level %s', data['level'])
                 return False
 
-            conn = self.db.connection
-            cur = conn.cursor()
-            cur.execute('BEGIN')
-
-            cur.execute("""
-                INSERT INTO niveles_fidelidad
-                (level, nombre_nivel, grafismo_nivel, gasto_minimo, tipo_recompensa, detalle_recompensa)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                data['level'],
-                data['nombre_nivel'],
-                data['grafismo_nivel'],
-                data['gasto_minimo'],
-                data.get('tipo_recompensa'),
-                data.get('detalle_recompensa')
-            ))
-
-            conn.commit()
-            logging.info('Nivel %s creado correctamente', data['level'])
+            self.repo.insertar_nivel(data)
             return True
 
         except Exception:
-            try:
-                self.db.connection.rollback()
-            except Exception:
-                pass
             logging.exception('Error guardando nivel')
             return False
 
@@ -130,34 +110,9 @@ class NivelesService:
             True si se actualizó correctamente, False en caso de error
         """
         try:
-            conn = self.db.connection
-            cur = conn.cursor()
-            cur.execute('BEGIN')
-
-            cur.execute("""
-                UPDATE niveles_fidelidad
-                SET level = ?, nombre_nivel = ?, grafismo_nivel = ?,
-                    gasto_minimo = ?, tipo_recompensa = ?, detalle_recompensa = ?
-                WHERE id = ?
-            """, (
-                data['level'],
-                data['nombre_nivel'],
-                data['grafismo_nivel'],
-                data['gasto_minimo'],
-                data.get('tipo_recompensa'),
-                data.get('detalle_recompensa'),
-                nivel_id
-            ))
-
-            conn.commit()
-            logging.info('Nivel %s actualizado correctamente', nivel_id)
+            self.repo.actualizar_nivel(nivel_id, data)
             return True
-
         except Exception:
-            try:
-                self.db.connection.rollback()
-            except Exception:
-                pass
             logging.exception('Error actualizando nivel %s', nivel_id)
             return False
 
@@ -171,21 +126,9 @@ class NivelesService:
             True si se eliminó correctamente, False en caso de error
         """
         try:
-            conn = self.db.connection
-            cur = conn.cursor()
-            cur.execute('BEGIN')
-
-            cur.execute("DELETE FROM niveles_fidelidad WHERE id = ?", (nivel_id,))
-
-            conn.commit()
-            logging.info('Nivel %s eliminado correctamente', nivel_id)
+            self.repo.eliminar_nivel(nivel_id)
             return True
-
         except Exception:
-            try:
-                self.db.connection.rollback()
-            except Exception:
-                pass
             logging.exception('Error eliminando nivel %s', nivel_id)
             return False
 

@@ -40,8 +40,8 @@ class VentaProcessor(TicketProcessor):
             descuento_euros_cents=kwargs.get('descuento_euros_cents', 0),
             descuento_tipo=kwargs.get('descuento_tipo'),
             descuento_valor=kwargs.get('descuento_valor'),
-            tesoro_ganado_str=kwargs.get('tesoro_ganado_str', '0'),
-            tesoro_gastado_str=kwargs.get('tesoro_gastado_str', '0'),
+            tesoro_ganado_str=kwargs.get('puntos_otorgar_cents', 0),
+            tesoro_gastado_str=kwargs.get('puntos_gastados_cents', 0),
             ticket_text_snapshot=kwargs.get('ticket_text_snapshot'),
         )
 

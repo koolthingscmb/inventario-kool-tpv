@@ -229,13 +229,30 @@ class TpvController:
             except Exception:
                 return Decimal(default)
 
+        # Normalize cliente: accept dict from CarritoService but store only a string name
+        _orig_cliente = kwargs.get('cliente')
+        _cliente_id = kwargs.get('cliente_id')
+        _cliente_name = None
+        try:
+            if isinstance(_orig_cliente, dict):
+                _cliente_name = _orig_cliente.get('nombre') or None
+                # populate cliente_id from cliente dict if missing
+                if _cliente_id is None:
+                    _cliente_id = _orig_cliente.get('id')
+            else:
+                # if a plain string was passed, use it as name
+                if _orig_cliente is not None:
+                    _cliente_name = str(_orig_cliente)
+        except Exception:
+            _cliente_name = None
+
         payload = {
             'resumen': resumen,
             'created_at': created_at,
             'num_ticket': num_ticket,
             'cajero': kwargs.get('cajero'),
-            'cliente': kwargs.get('cliente'),
-            'cliente_id': kwargs.get('cliente_id'),
+            'cliente': _cliente_name,
+            'cliente_id': _cliente_id,
             'subtotal_cents': prepare_for_db(_dec(resumen.get('subtotal', '0'))),
             'total_cents': prepare_for_db(_dec(resumen.get('total', '0'))),
             'pagado_cents': prepare_for_db(_dec(efectivo if efectivo is not None else 0)),
@@ -246,8 +263,6 @@ class TpvController:
             'descuento_tipo': kwargs.get('descuento_data', {}).get('tipo'),
             'descuento_valor': kwargs.get('descuento_data', {}).get('valor'),
             'forma_pago': kwargs.get('forma_pago', 'Efectivo'),
-            'tesoro_ganado_str': str(kwargs.get('puntos_otorgar', Decimal('0'))),
-            'tesoro_gastado_str': str(kwargs.get('puntos_gastados', Decimal('0'))),
             'ticket_text_snapshot': None,
             'carrito_items': carrito_items,
             'pagos': [],
@@ -261,13 +276,13 @@ class TpvController:
             pagos.append(('tarjeta', prepare_for_db(_dec(kwargs.get('importe_tarjeta')))))
         payload['pagos'] = pagos
 
-        # puntos en céntimos cuando se proporcionen
-        if 'puntos_otorgar' in kwargs:
-            payload['puntos_otorgar_cents'] = prepare_for_db(_dec(kwargs.get('puntos_otorgar', 0)))
-        if 'puntos_restar' in kwargs:
-            payload['puntos_restar_cents'] = prepare_for_db(_dec(kwargs.get('puntos_restar', 0)))
-        if 'puntos_gastados' in kwargs:
-            payload['puntos_gastados_cents'] = prepare_for_db(_dec(kwargs.get('puntos_gastados', 0)))
+        # puntos ya en céntimos (int) — sin conversión adicional
+        if 'puntos_otorgar_cents' in kwargs:
+            payload['puntos_otorgar_cents'] = int(kwargs.get('puntos_otorgar_cents', 0))
+        if 'puntos_restar_cents' in kwargs:
+            payload['puntos_restar_cents'] = int(kwargs.get('puntos_restar_cents', 0))
+        if 'puntos_gastados_cents' in kwargs:
+            payload['puntos_gastados_cents'] = int(kwargs.get('puntos_gastados_cents', 0))
 
         return payload
 
@@ -352,14 +367,14 @@ class TpvController:
                 logger.exception('Error determinando tipo_ticket desde CarritoService, fallback a venta')
                 tipo_ticket = 'venta'
 
-            # Calcular puntos si procede
-            puntos_otorgar = Decimal('0')
-            puntos_restar = Decimal('0')
-            puntos_gastados = Decimal('0')
+            # Calcular puntos si procede (resultado ya en céntimos int)
+            puntos_otorgar_cents = 0
+            puntos_gastados_cents = 0
             try:
                 if tipo_ticket == 'venta_fidelizacion' and self.fidelizacion_service:
-                    puntos_gastados = Decimal(str(resumen.get('puntos_canjeados', 0)))
-                    puntos_otorgar = self.fidelizacion_service.calcular_puntos_ganados(carrito_items, puntos_gastados)
+                    _puntos_gastados_euros = Decimal(str(resumen.get('puntos_canjeados', 0)))
+                    puntos_otorgar_cents = self.fidelizacion_service.calcular_puntos_ganados(carrito_items, _puntos_gastados_euros)
+                    puntos_gastados_cents = int(prepare_for_db(_puntos_gastados_euros))
             except Exception:
                 logger.exception('Error calculando puntos de fidelización')
 
@@ -392,8 +407,8 @@ class TpvController:
                 importe_efectivo=importe_efectivo,
                 importe_tarjeta=importe_tarjeta,
                 descuento_data=ticket_data.get('descuento_data'),
-                puntos_otorgar=puntos_otorgar,
-                puntos_gastados=puntos_gastados,
+                puntos_otorgar_cents=puntos_otorgar_cents,
+                puntos_gastados_cents=puntos_gastados_cents,
                 num_ticket=num_ticket_val,
             )
 
@@ -416,6 +431,13 @@ class TpvController:
 
             # Ejecutar el proceso
             try:
+                # Temporal debug: registrar cliente_id/cliente y puntos antes de procesar
+                try:
+                    logger.info("DEBUG payload before processor.process: cliente_id=%r cliente=%r puntos_otorgar_cents=%r puntos_gastados_cents=%r puntos_restar_cents=%r",
+                                payload.get('cliente_id'), payload.get('cliente'), payload.get('puntos_otorgar_cents'), payload.get('puntos_gastados_cents'), payload.get('puntos_restar_cents'))
+                except Exception:
+                    logger.debug('DEBUG payload logging failed')
+
                 ticket_id = processor.process(**payload)
                 result = {'success': True, 'ticket_id': ticket_id, 'num_ticket': payload.get('num_ticket')}
             except Exception as e:
@@ -443,6 +465,13 @@ class TpvController:
                             devol_service.end_devolucion()
                         except Exception:
                             pass
+
+                # Imprimir ticket en terminal/impresora (no bloquea si falla)
+                if self.tpv_service:
+                    try:
+                        self.tpv_service._print_ticket(ticket_id)
+                    except Exception:
+                        logger.exception('Error imprimiendo ticket (no crítico)')
 
                 # Mostrar éxito
                 show_success(

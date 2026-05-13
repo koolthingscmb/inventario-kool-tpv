@@ -38,6 +38,8 @@ class Database:
                     self.connection.row_factory = sqlite3.Row
                 except Exception:
                     pass
+                # SQLite deshabilita FK por defecto — activar para que ON DELETE CASCADE funcione
+                self.connection.execute('PRAGMA foreign_keys = ON')
                 logging.info(f"Conectado a la base de datos: {self.db_path}")
             except sqlite3.Error as e:
                 logging.error(f"Error al conectar con la base de datos: {e}")

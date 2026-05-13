@@ -16,24 +16,18 @@ class FidelizacionRepository:
     def actualizar_cliente_loyalty(
         self,
         cliente_id: int,
-        puntos_otorgar: Decimal,
-        puntos_restar: Decimal,
-        puntos_gastados: Decimal,
-        total_ticket: Decimal,
+        puntos_otorgar_cents: int,
+        puntos_restar_cents: int,
+        puntos_gastados_cents: int,
+        total_ticket_cents: int,
         unidades_vendidas: int,
         fecha: str,
     ) -> None:
         """
-        Actualiza los campos de fidelización del cliente dentro de la transacción
-        externa que ya está abierta (no hace commit/rollback aquí).
+        Actualiza los campos de fidelización del cliente.
+        Todos los valores de puntos y totales se reciben en céntimos (int).
         """
         try:
-            # Convertir a céntimos los valores monetarios
-            delta_tesoro = prepare_for_db(puntos_otorgar - (puntos_restar + puntos_gastados))
-            delta_historico = prepare_for_db(puntos_otorgar - puntos_restar)
-            delta_gastado = prepare_for_db(puntos_gastados)
-            total_ticket_cents = prepare_for_db(total_ticket)
-
             cur = self.db.connection.cursor()
             cur.execute(
                 """
@@ -49,18 +43,24 @@ class FidelizacionRepository:
                 WHERE id = ?
                 """,
                 (
-                    int(delta_tesoro),
-                    int(delta_historico),
-                    int(delta_gastado),
+                    int(puntos_otorgar_cents - puntos_restar_cents - puntos_gastados_cents),
+                    int(puntos_otorgar_cents),
+                    int(puntos_gastados_cents),
                     int(total_ticket_cents),
                     int(unidades_vendidas),
                     fecha,
                     cliente_id,
                 ),
             )
+            # Persistir cambios: el repo debe encargarse del commit
+            self.db.connection.commit()
 
         except Exception:
             logger.exception('Error actualizando loyalty para cliente %s', cliente_id)
+            try:
+                self.db.connection.rollback()
+            except Exception:
+                logger.exception('Rollback fallido para cliente %s', cliente_id)
             raise
 
     def insertar_movimiento_puntos(
@@ -94,7 +94,9 @@ class FidelizacionRepository:
                     datetime.now(),
                 ),
             )
+            self.db.connection.commit()
         except Exception:
+            self.db.connection.rollback()
             logger.exception('Error insertando movimiento de puntos para cliente %s', cliente_id)
             raise
 
@@ -118,7 +120,9 @@ class FidelizacionRepository:
                 """,
                 (cliente_id, cliente_id),
             )
+            self.db.connection.commit()
         except Exception:
+            self.db.connection.rollback()
             logger.exception('Error recalculando nivel para cliente %s', cliente_id)
             raise
 
@@ -152,4 +156,76 @@ class FidelizacionRepository:
             }
         except Exception:
             logger.exception('Error leyendo tesoro del cliente %s', cliente_id)
+            raise
+
+    def actualizar_fidelizacion_categoria(self, categoria_id: int, fide_porcentaje: float) -> None:
+        """Actualiza el porcentaje de fidelización de una categoría."""
+        try:
+            cur = self.db.connection.cursor()
+            cur.execute('BEGIN')
+            cur.execute(
+                "UPDATE categorias SET fide_porcentaje = ? WHERE id = ?",
+                (fide_porcentaje, categoria_id)
+            )
+            self.db.connection.commit()
+        except Exception:
+            self.db.connection.rollback()
+            logger.exception('Error actualizando fidelización categoría %s', categoria_id)
+            raise
+
+    def actualizar_fidelizacion_tipo(self, tipo_id: int, fide_porcentaje: float) -> None:
+        """Actualiza el porcentaje de fidelización de un tipo."""
+        try:
+            cur = self.db.connection.cursor()
+            cur.execute('BEGIN')
+            cur.execute(
+                "UPDATE tipos SET fide_porcentaje = ? WHERE id = ?",
+                (fide_porcentaje, tipo_id)
+            )
+            self.db.connection.commit()
+        except Exception:
+            self.db.connection.rollback()
+            logger.exception('Error actualizando fidelización tipo %s', tipo_id)
+            raise
+
+    def actualizar_fidelizacion_producto(self, producto_id: int, fide_tipo: str, fide_valor: float) -> None:
+        """Actualiza el tipo y valor de fidelización de un producto."""
+        try:
+            cur = self.db.connection.cursor()
+            cur.execute('BEGIN')
+            cur.execute(
+                "UPDATE productos SET fidelizacion_tipo = ?, fidelizacion_valor = ? WHERE id = ?",
+                (fide_tipo, fide_valor, producto_id)
+            )
+            self.db.connection.commit()
+        except Exception:
+            self.db.connection.rollback()
+            logger.exception('Error actualizando fidelización producto %s', producto_id)
+            raise
+
+    def actualizar_fidelizacion_productos_bulk(self, productos_updates: list) -> None:
+        """
+        Actualiza múltiples productos en UNA sola transacción atómica.
+
+        Args:
+            productos_updates: Lista de tuplas (producto_id, fide_tipo, fide_valor)
+                               Ejemplo: [(1, 'porcentaje', 10), (2, 'fijo', 0.5), ...]
+
+        Si falla CUALQUIERA -> NADA se guarda (rollback automático).
+        Si todos OK -> TODOS se guardan (commit único).
+        """
+        try:
+            cur = self.db.connection.cursor()
+            cur.execute('BEGIN')
+
+            for prod_id, fide_tipo, fide_valor in productos_updates:
+                cur.execute(
+                    "UPDATE productos SET fidelizacion_tipo = ?, fidelizacion_valor = ? WHERE id = ?",
+                    (fide_tipo, fide_valor, prod_id)
+                )
+
+            self.db.connection.commit()
+        except Exception:
+            self.db.connection.rollback()
+            logger.exception('Error en actualización masiva de fidelización productos')
             raise

@@ -9,6 +9,21 @@ import logging
 import datetime
 from typing import List, Optional
 
+# SQL compartido para resetear TODOS los campos estadísticos de un cliente.
+# Usado en reset_estadisticas_clientes y reset_completo.
+_CLIENTES_RESET_SET = """
+    SET tesoro_total = 0,
+        tesoro_gastado_total = 0,
+        tesoro_historico = 0,
+        id_nivel = (SELECT id FROM niveles_fidelidad ORDER BY gasto_minimo ASC LIMIT 1),
+        total_compras = 0,
+        total_compras_euros = 0,
+        total_unidades = 0,
+        fecha_ultima_compra = NULL,
+        fecha_vencimiento_tesoro = NULL,
+        fecha_ultima_comunicacion = NULL
+"""
+
 
 class ResetService:
     """Servicio para operaciones de reset y limpieza de BD (desarrollo)."""
@@ -16,35 +31,26 @@ class ResetService:
     def __init__(self, db):
         self.db = db
 
-    def reset_tesoro_clientes(self, cliente_ids: Optional[List[int]] = None) -> bool:
-        """Resetear puntos tesoro de clientes.
+    def reset_estadisticas_clientes(self, cliente_ids: Optional[List[int]] = None) -> bool:
+        """Resetear todos los campos estadísticos de clientes.
 
-        If `cliente_ids` is None resets all clients.
+        Incluye tesoro, nivel, compras, unidades y fechas.
+        If `cliente_ids` is None resetea todos los clientes.
         """
         try:
             conn = self.db.connection
             cur = conn.cursor()
-            cur.execute('BEGIN')
 
             if cliente_ids:
                 placeholders = ','.join('?' * len(cliente_ids))
                 cur.execute(
-                    f"""
-                    UPDATE clientes
-                    SET tesoro_total = 0, tesoro_gastado_total = 0, tesoro_historico = 0
-                    WHERE id IN ({placeholders})
-                    """,
+                    f"UPDATE clientes {_CLIENTES_RESET_SET} WHERE id IN ({placeholders})",
                     cliente_ids,
                 )
-                logging.info('Tesoro reseteado para %s clientes', len(cliente_ids))
+                logging.info('Estadísticas reseteadas para %s clientes', len(cliente_ids))
             else:
-                cur.execute(
-                    """
-                    UPDATE clientes
-                    SET tesoro_total = 0, tesoro_gastado_total = 0, tesoro_historico = 0
-                    """
-                )
-                logging.warning('Tesoro reseteado para TODOS los clientes')
+                cur.execute(f"UPDATE clientes {_CLIENTES_RESET_SET}")
+                logging.warning('Estadísticas reseteadas para TODOS los clientes')
 
             conn.commit()
             return True
@@ -54,15 +60,46 @@ class ResetService:
                 self.db.connection.rollback()
             except Exception:
                 pass
-            logging.exception('Error reseteando tesoro de clientes')
+            logging.exception('Error reseteando estadísticas de clientes')
             return False
 
-    def borrar_tickets(self, ticket_nums: Optional[List[int]] = None) -> bool:
-        """Borrar tickets por num_ticket (CASCADE limpia movimientos)."""
+    # Alias para compatibilidad con llamadas existentes en UI
+    def reset_tesoro_clientes(self, cliente_ids: Optional[List[int]] = None) -> bool:
+        return self.reset_estadisticas_clientes(cliente_ids)
+
+    def borrar_ticket_lines(self, ticket_ids: Optional[List[int]] = None) -> bool:
+        """Borrar líneas de tickets. Si ticket_ids es None borra TODAS las líneas."""
         try:
             conn = self.db.connection
             cur = conn.cursor()
-            cur.execute('BEGIN')
+
+            if ticket_ids:
+                placeholders = ','.join('?' * len(ticket_ids))
+                cur.execute(
+                    f"DELETE FROM ticket_lines WHERE ticket_id IN ({placeholders})",
+                    ticket_ids,
+                )
+                logging.info('ticket_lines borradas para tickets: %s', ticket_ids)
+            else:
+                cur.execute("DELETE FROM ticket_lines")
+                logging.warning('TODAS las ticket_lines borradas')
+
+            conn.commit()
+            return True
+
+        except Exception:
+            try:
+                self.db.connection.rollback()
+            except Exception:
+                pass
+            logging.exception('Error borrando ticket_lines')
+            return False
+
+    def borrar_tickets(self, ticket_nums: Optional[List[int]] = None) -> bool:
+        """Borrar tickets por num_ticket (CASCADE limpia movimientos y ticket_lines)."""
+        try:
+            conn = self.db.connection
+            cur = conn.cursor()
 
             if ticket_nums:
                 placeholders = ','.join('?' * len(ticket_nums))
@@ -70,7 +107,7 @@ class ResetService:
                 logging.info('Tickets borrados: %s', ticket_nums)
             else:
                 cur.execute("DELETE FROM tickets")
-                logging.warning('TODOS los tickets borrados (CASCADE limpia movimientos)')
+                logging.warning('TODOS los tickets borrados (CASCADE limpia ticket_lines y movimientos)')
 
             conn.commit()
             return True
@@ -88,7 +125,6 @@ class ResetService:
         try:
             conn = self.db.connection
             cur = conn.cursor()
-            cur.execute('BEGIN')
 
             cur.execute("DELETE FROM cierres_caja")
             logging.warning('TODOS los cierres borrados')
@@ -109,7 +145,6 @@ class ResetService:
         try:
             conn = self.db.connection
             cur = conn.cursor()
-            cur.execute('BEGIN')
 
             if albaran_ids:
                 placeholders = ','.join('?' * len(albaran_ids))
@@ -139,7 +174,6 @@ class ResetService:
         try:
             conn = self.db.connection
             cur = conn.cursor()
-            cur.execute('BEGIN')
 
             placeholders = ','.join('?' * len(producto_ids))
             cur.execute(f"DELETE FROM productos WHERE id IN ({placeholders})", producto_ids)
@@ -161,27 +195,18 @@ class ResetService:
         try:
             conn = self.db.connection
             cur = conn.cursor()
-            cur.execute('BEGIN')
 
             year_actual = datetime.datetime.now().year
 
             cur.execute(
-                """
-                INSERT OR REPLACE INTO configuracion (clave, valor)
-                VALUES ('ticket_counter_value', '0')
-                """
+                "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('ticket_counter_value', '0')"
             )
-
             cur.execute(
-                """
-                INSERT OR REPLACE INTO configuracion (clave, valor)
-                VALUES ('ticket_counter_year', ?)
-                """,
+                "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('ticket_counter_year', ?)",
                 (str(year_actual),),
             )
 
             logging.warning('Contador de tickets reseteado a 0, año: %s', year_actual)
-
             conn.commit()
             return True
 
@@ -198,27 +223,18 @@ class ResetService:
         try:
             conn = self.db.connection
             cur = conn.cursor()
-            cur.execute('BEGIN')
 
             year_actual = datetime.datetime.now().year
 
             cur.execute(
-                """
-                INSERT OR REPLACE INTO configuracion (clave, valor)
-                VALUES ('cierre_counter_value', '0')
-                """
+                "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('cierre_counter_value', '0')"
             )
-
             cur.execute(
-                """
-                INSERT OR REPLACE INTO configuracion (clave, valor)
-                VALUES ('cierre_counter_year', ?)
-                """,
+                "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('cierre_counter_year', ?)",
                 (str(year_actual),),
             )
 
             logging.warning('Contador de cierres reseteado a 0, año: %s', year_actual)
-
             conn.commit()
             return True
 
@@ -235,27 +251,18 @@ class ResetService:
         try:
             conn = self.db.connection
             cur = conn.cursor()
-            cur.execute('BEGIN')
 
             year_actual = datetime.datetime.now().year
 
             cur.execute(
-                """
-                INSERT OR REPLACE INTO configuracion (clave, valor)
-                VALUES ('albaran_counter_value', '0')
-                """
+                "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('albaran_counter_value', '0')"
             )
-
             cur.execute(
-                """
-                INSERT OR REPLACE INTO configuracion (clave, valor)
-                VALUES ('albaran_counter_year', ?)
-                """,
+                "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('albaran_counter_year', ?)",
                 (str(year_actual),),
             )
 
             logging.warning('Contador de albaranes reseteado a 0, año: %s', year_actual)
-
             conn.commit()
             return True
 
@@ -272,27 +279,18 @@ class ResetService:
         try:
             conn = self.db.connection
             cur = conn.cursor()
-            cur.execute('BEGIN')
 
             year_actual = datetime.datetime.now().year
 
             cur.execute(
-                """
-                INSERT OR REPLACE INTO configuracion (clave, valor)
-                VALUES ('factura_counter_value', '0')
-                """
+                "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('factura_counter_value', '0')"
             )
-
             cur.execute(
-                """
-                INSERT OR REPLACE INTO configuracion (clave, valor)
-                VALUES ('factura_counter_year', ?)
-                """,
+                "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('factura_counter_year', ?)",
                 (str(year_actual),),
             )
 
             logging.warning('Contador de facturas reseteado a 0, año: %s', year_actual)
-
             conn.commit()
             return True
 
@@ -309,7 +307,6 @@ class ResetService:
         try:
             conn = self.db.connection
             cur = conn.cursor()
-            cur.execute('BEGIN')
 
             if factura_ids:
                 placeholders = ','.join('?' * len(factura_ids))
@@ -331,14 +328,13 @@ class ResetService:
             return False
 
     def reset_completo(self) -> bool:
-        """Reset TOTAL: borra tickets, cierres, albaranes, facturas, resetea contadores."""
+        """Reset TOTAL: borra tickets, cierres, albaranes, facturas, resetea contadores y estadísticas clientes."""
         try:
             conn = self.db.connection
             cur = conn.cursor()
-            cur.execute('BEGIN')
 
             cur.execute("DELETE FROM tickets")
-            logging.warning('RESET COMPLETO: tickets borrados')
+            logging.warning('RESET COMPLETO: tickets borrados (CASCADE ticket_lines/movimientos)')
 
             cur.execute("DELETE FROM cierres_caja")
             logging.warning('RESET COMPLETO: cierres borrados')
@@ -353,25 +349,16 @@ class ResetService:
 
             cur.execute("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('ticket_counter_value', '0')")
             cur.execute("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('ticket_counter_year', ?)", (str(year_actual),))
-
             cur.execute("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('cierre_counter_value', '0')")
             cur.execute("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('cierre_counter_year', ?)", (str(year_actual),))
-
             cur.execute("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('albaran_counter_value', '0')")
             cur.execute("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('albaran_counter_year', ?)", (str(year_actual),))
-
             cur.execute("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('factura_counter_value', '0')")
             cur.execute("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('factura_counter_year', ?)", (str(year_actual),))
-
             logging.warning('RESET COMPLETO: contadores reseteados')
 
-            cur.execute(
-                """
-                UPDATE clientes
-                SET tesoro_total = 0, tesoro_gastado_total = 0, tesoro_historico = 0
-                """
-            )
-            logging.warning('RESET COMPLETO: tesoro clientes reseteado')
+            cur.execute(f"UPDATE clientes {_CLIENTES_RESET_SET}")
+            logging.warning('RESET COMPLETO: estadísticas clientes reseteadas')
 
             conn.commit()
             logging.warning('⚠️⚠️⚠️ RESET COMPLETO EJECUTADO ⚠️⚠️⚠️')

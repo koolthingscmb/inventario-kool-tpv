@@ -55,11 +55,11 @@ class ResetUI:
 
         frame = ctk.CTkFrame(self.container, fg_color='transparent')
         frame.pack(fill='x', padx=20, pady=3)
-        btn = ButtonFactory.create_button(parent=frame, text='RESET TESORO (SELECTIVO)', command=self._reset_tesoro_selectivo, style_key='action_warning_small')
+        btn = ButtonFactory.create_button(parent=frame, text='RESET CLIENTE (SELECTIVO)', command=self._reset_tesoro_selectivo, style_key='action_warning_small')
         btn.pack(side='left', padx=(0, 15))
         ctk.CTkLabel(
             frame,
-            text='Resetear puntos de clientes seleccionados arriba',
+            text='Resetear tesoro, nivel, compras y fechas de clientes seleccionados',
             font=get_font('label', module=self.module_name),
             text_color=self.colors.get('text', '#999999'),
             anchor='w'
@@ -67,11 +67,11 @@ class ResetUI:
 
         frame = ctk.CTkFrame(self.container, fg_color='transparent')
         frame.pack(fill='x', padx=20, pady=3)
-        btn = ButtonFactory.create_button(parent=frame, text='RESET TESORO (TODOS)', command=self._reset_tesoro_todos, style_key='action_warning_small')
+        btn = ButtonFactory.create_button(parent=frame, text='RESET CLIENTES (TODOS)', command=self._reset_tesoro_todos, style_key='action_warning_small')
         btn.pack(side='left', padx=(0, 15))
         ctk.CTkLabel(
             frame,
-            text='⚠️ Resetear puntos de TODOS los clientes',
+            text='⚠️ Resetear estadísticas de TODOS los clientes',
             font=get_font('label', module=self.module_name),
             text_color=self.colors.get('text', '#999999'),
             anchor='w'
@@ -110,7 +110,19 @@ class ResetUI:
         btn.pack(side='left', padx=(0, 15))
         ctk.CTkLabel(
             frame,
-            text='⚠️ Eliminar TODOS los tickets (y movimientos relacionados)',
+            text='⚠️ Eliminar TODOS los tickets (CASCADE: ticket_lines, payments, points_movements)',
+            font=get_font('label', module=self.module_name),
+            text_color=self.colors.get('text', '#999999'),
+            anchor='w'
+        ).pack(side='left', fill='x', expand=True)
+
+        frame = ctk.CTkFrame(self.container, fg_color='transparent')
+        frame.pack(fill='x', padx=20, pady=3)
+        btn = ButtonFactory.create_button(parent=frame, text='BORRAR TICKET_LINES', command=self._borrar_ticket_lines, style_key='action_warning_small')
+        btn.pack(side='left', padx=(0, 15))
+        ctk.CTkLabel(
+            frame,
+            text='Borrar TODAS las líneas de tickets (deja los tickets vacíos)',
             font=get_font('label', module=self.module_name),
             text_color=self.colors.get('text', '#999999'),
             anchor='w'
@@ -303,11 +315,23 @@ class ResetUI:
             ok = self.service.borrar_tickets(None)
             if ok:
                 from kool_tpv.utils.custom_dialog import show_success
-                show_success(self.container, 'OK', 'Tickets borrados')
+                show_success(self.container, 'OK', 'Tickets borrados (CASCADE aplicado)')
             else:
                 from kool_tpv.utils.custom_dialog import show_error
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, '⚠️ PELIGRO', 'Borrar TODOS los tickets?', callback=_confirmar)
+
+    def _borrar_ticket_lines(self):
+        from kool_tpv.utils.custom_dialog import show_warning
+        def _confirmar():
+            ok = self.service.borrar_ticket_lines(None)
+            if ok:
+                from kool_tpv.utils.custom_dialog import show_success
+                show_success(self.container, 'OK', 'Ticket_lines borradas')
+            else:
+                from kool_tpv.utils.custom_dialog import show_error
+                show_error(self.container, 'Error', 'Fallo')
+        show_warning(self.container, 'Confirmar', 'Borrar TODAS las líneas de tickets?', callback=_confirmar)
 
     def _borrar_cierres(self):
         from kool_tpv.utils.custom_dialog import show_warning

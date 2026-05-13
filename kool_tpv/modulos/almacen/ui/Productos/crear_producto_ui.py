@@ -29,6 +29,7 @@ from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.config_loader import create_action_button
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.font_loader import get_font
+from kool_tpv.modulos.almacen.producto_repository import ProductoRepository
 
 
 
@@ -38,6 +39,7 @@ class CrearProductoUI:
         self.parent = parent
         self.db = db
         self.module_name = module_name
+        self.repo = ProductoRepository(db) if db is not None else None
         from kool_tpv.utils.config_loader import load_colors
         try:
             self.colors = load_colors(module_name)
@@ -683,86 +685,53 @@ class CrearProductoUI:
         except Exception:
             shop_link = ''
 
-        # Transaction: insert/update productos and precios
+        # Guardar producto via Repository (transacción atómica)
         try:
-            db = self.db
-            if db is None or getattr(db, 'connection', None) is None:
-                # try to use sqlite3 directly on default path
+            if self.repo is None:
                 raise RuntimeError('Database no disponible')
-            conn = db.connection
-            cur = conn.cursor()
-            cur.execute('BEGIN')
-            # check if product exists by sku
-            prod_id = None
-            if sku:
-                cur.execute('SELECT id FROM productos WHERE sku = ?', (sku,))
-                r = cur.fetchone()
-                if r and r[0]:
-                    prod_id = int(r[0])
 
-            if prod_id is None:
-                # insert (include all editable fields as requested) - notas_internas removed
-                cur.execute('''INSERT INTO productos (nombre, nombre_boton, sku, categoria, tipo, proveedor_id, shopify_taxonomy, tipo_iva, stock_actual, stock_minimo, activo, pvp_variable, descripcion_shopify, titulo, seo_title, seo_description, tipo_shop, etiquetas, shop_link, pending_sync) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', (nombre, nombre_boton, sku, categoria_id, tipo_id, proveedor_id, shopify_taxonomy, iva, stock_actual, stock_min, activo, 0, descripcion_full, titulo, seo_title, seo_desc, tipo_shop, etiquetas, shop_link, 0))
-                prod_id = cur.lastrowid
-            else:
-                cur.execute('''UPDATE productos SET nombre=?, nombre_boton=?, categoria=?, tipo=?, proveedor_id=?, shopify_taxonomy=?, tipo_iva=?, stock_actual=?, stock_minimo=?, activo=?, descripcion_shopify=?, titulo=?, seo_title=?, seo_description=?, tipo_shop=?, etiquetas=?, shop_link=? WHERE id=?''', (nombre, nombre_boton, categoria_id, tipo_id, proveedor_id, shopify_taxonomy, iva, stock_actual, stock_min, activo, descripcion_full, titulo, seo_title, seo_desc, tipo_shop, etiquetas, shop_link, prod_id))
-
-            # Upsert precio: deactivate previous active precios for this product and insert new active
+            # Obtener códigos de barras desde entry CSV
+            codes_text = ''
             try:
-                cur.execute('UPDATE precios SET activo = 0 WHERE producto_id = ?', (prod_id,))
+                if getattr(self, 'e_codigos', None):
+                    codes_text = self.e_codigos.get().strip()
+            except Exception:
+                pass
+            codes = [c.strip() for c in (codes_text or '').split(',') if c.strip()]
+
+            prod_id = self.repo.guardar_producto_completo(
+                nombre=nombre,
+                nombre_boton=nombre_boton,
+                sku=sku,
+                categoria_id=categoria_id,
+                tipo_id=tipo_id,
+                proveedor_id=proveedor_id,
+                iva=iva,
+                stock_actual=stock_actual,
+                stock_min=stock_min,
+                activo=activo,
+                pvp=pvp,
+                coste=coste,
+                codigos_barras=codes,
+                producto_id=None,
+                shopify_taxonomy=shopify_taxonomy,
+                descripcion_shopify=descripcion_full,
+                titulo=titulo,
+                seo_title=seo_title,
+                seo_description=seo_desc,
+                tipo_shop=tipo_shop,
+                etiquetas=etiquetas,
+                shop_link=shop_link,
+            )
+
+            # Actualizar campo ID en UI
+            try:
+                if getattr(self, 'e_id_var', None) is not None:
+                    self.e_id_var.set(str(prod_id))
             except Exception:
                 pass
             try:
-                from kool_tpv.base_datos.money_adapter import prepare_for_db
-                pvp_db = prepare_for_db(pvp)
-                coste_db = prepare_for_db(coste)
-            except Exception:
-                pvp_db = int(float(pvp) * 100)
-                coste_db = int(float(coste) * 100)
-
-            cur.execute('INSERT INTO precios (producto_id, pvp, coste, activo) VALUES (?, ?, ?, 1)', (prod_id, pvp_db, coste_db))
-
-            # Códigos de barras: limpiar y reinsertar por producto dentro de la misma transacción
-            try:
-                # obtener códigos desde Entry CSV (ean1,ean2,...)
-                codes_text = ''
-                try:
-                    if getattr(self, 'e_codigos', None):
-                        try:
-                            codes_text = self.e_codigos.get().strip()
-                        except Exception:
-                            codes_text = ''
-                except Exception:
-                    codes_text = ''
-                codes = [c.strip() for c in (codes_text or '').split(',') if c.strip()]
-                try:
-                    cur.execute('DELETE FROM codigos_barras WHERE producto_id = ?', (prod_id,))
-                except Exception:
-                    pass
-                if codes:
-                    try:
-                        cur.executemany('INSERT INTO codigos_barras (producto_id, ean) VALUES (?, ?)', [(prod_id, c) for c in codes])
-                    except Exception:
-                        logging.exception('Error insertando codigos de barras')
-            except Exception:
-                logging.exception('Error gestionando codigos de barras')
-
-            conn.commit()
-            # refresh tesoro based on saved product id (prod_id may be new or existing)
-            try:
-                try:
-                    # set id var so refresh shows correct value
-                    if getattr(self, 'e_id_var', None) is not None:
-                        try:
-                            self.e_id_var.set(str(prod_id))
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
-                try:
-                    self._refresh_tesoro()
-                except Exception:
-                    pass
+                self._refresh_tesoro()
             except Exception:
                 pass
             try:
@@ -770,16 +739,12 @@ class CrearProductoUI:
                 show_success(self.container, 'Guardado', 'Producto guardado correctamente')
             except Exception:
                 logging.info('Producto guardado id=%s', prod_id)
-            # clear all fields to allow entering another product
             try:
                 self._on_cancel()
             except Exception:
                 pass
+
         except Exception:
-            try:
-                conn.rollback()
-            except Exception:
-                pass
             logging.exception('Error guardando producto, transacción revertida')
             try:
                 from kool_tpv.utils.custom_dialog import show_error
@@ -883,7 +848,7 @@ class CrearProductoUI:
 
             if pid and getattr(self, 'db', None):
                 try:
-                    from kool_tpv.modulos.clientes.fidelizacion_service import FidelizacionService
+                    from kool_tpv.modulos.fidelizacion.fidelizacion_service import FidelizacionService
                     fs = FidelizacionService(self.db)
                     cfg = fs.obtener_fidelizacion_producto(pid)
                     if cfg:

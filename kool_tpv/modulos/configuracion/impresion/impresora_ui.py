@@ -13,12 +13,14 @@ from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL
 from kool_tpv.utils.config_loader import load_colors, create_action_button
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.font_loader import get_font
+from kool_tpv.base_datos.configuracion_repository import ConfiguracionRepository
 
 
 class ImpresoraUI:
     def __init__(self, parent, db, module_name='config'):
         self.parent = parent
         self.db = db
+        self.config_repo = ConfiguracionRepository(db)
         try:
             self.colors = load_colors(module_name)
         except Exception:
@@ -338,75 +340,47 @@ class ImpresoraUI:
             return
 
         try:
-            conn = self.db.connection
-            cur = conn.cursor()
-            cur.execute('BEGIN')
+            cambios = {}
 
-            # Guardar printer_name
-            printer_name = self.cb_impresora.get()
-            cur.execute(
-                "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES (?, ?)",
-                ('printer_name', printer_name)
-            )
+            # printer_name
+            cambios['printer_name'] = self.cb_impresora.get()
 
-            # Guardar printer_width
-            width = self.paper_width_var.get()
-            cur.execute(
-                "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES (?, ?)",
-                ('printer_width', width)
-            )
+            # printer_width
+            cambios['printer_width'] = self.paper_width_var.get()
 
-            # Guardar logo_enabled
+            # logo_enabled
             try:
-                logo_enabled = '1' if self.switch_logo.get() else '0'
+                cambios['logo_enabled'] = '1' if self.switch_logo.get() else '0'
             except Exception:
-                logo_enabled = '0'
-            cur.execute(
-                "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES (?, ?)",
-                ('logo_enabled', logo_enabled)
-            )
+                cambios['logo_enabled'] = '0'
 
-            # Guardar logo_filename
+            # logo_filename (solo si tiene valor)
             try:
                 if self.logo_filename:
-                    cur.execute(
-                        "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES (?, ?)",
-                        ('logo_filename', self.logo_filename)
-                    )
+                    cambios['logo_filename'] = self.logo_filename
             except Exception:
                 pass
 
-            # Guardar qr_enabled
+            # qr_enabled
             try:
-                qr_enabled = '1' if self.switch_qr.get() else '0'
+                cambios['qr_enabled'] = '1' if self.switch_qr.get() else '0'
             except Exception:
-                qr_enabled = '0'
-            cur.execute(
-                "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES (?, ?)",
-                ('qr_enabled', qr_enabled)
-            )
+                cambios['qr_enabled'] = '0'
 
-            # Guardar qr_url
+            # qr_url (solo si tiene valor)
             try:
                 qr_url = self.entry_qr_url.get().strip()
                 if qr_url:
-                    cur.execute(
-                        "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES (?, ?)",
-                        ('qr_url', qr_url)
-                    )
+                    cambios['qr_url'] = qr_url
             except Exception:
                 pass
 
-            conn.commit()
+            self.config_repo.guardar_multiples(cambios)
 
             from kool_tpv.utils.custom_dialog import show_success
             show_success(self.container, 'Guardado', 'Configuración de impresora guardada')
 
         except Exception:
-            try:
-                conn.rollback()
-            except Exception:
-                pass
             logging.exception('Error guardando configuración impresora')
             from kool_tpv.utils.custom_dialog import show_error
             show_error(self.container, 'Error', 'No se pudo guardar')

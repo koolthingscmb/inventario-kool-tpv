@@ -6,6 +6,7 @@ from pathlib import Path
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL
 from kool_tpv.utils.config_loader import load_colors
 from kool_tpv.utils.font_loader import get_font
+from kool_tpv.base_datos.configuracion_repository import ConfiguracionRepository
 
 
 class ConfigGeneralUI:
@@ -13,6 +14,7 @@ class ConfigGeneralUI:
         self.parent = parent
         self.db = db
         self.module_name = module_name
+        self.config_repo = ConfiguracionRepository(db)
 
         # Colors for this module
         try:
@@ -198,57 +200,47 @@ class ConfigGeneralUI:
         if not self.db:
             return
 
-        claves = ['shop_name', 'shop_web', 'shop_phone', 'shop_email',
-              'fiscal_name', 'fiscal_nif', 'fiscal_address',
-              'iva_general', 'iva_reducido', 'iva_superreducido',
-              're_activo', 're_general', 're_reducido', 're_superreducido']
+        widget_map = {
+            'shop_name': 'e_name',
+            'shop_web': 'e_web',
+            'shop_phone': 'e_phone',
+            'shop_email': 'e_email',
+            'fiscal_name': 'e_fiscal_name',
+            'fiscal_nif': 'e_nif',
+            'fiscal_address': 'e_address',
+            'iva_general': 'e_iva_general',
+            'iva_reducido': 'e_iva_reducido',
+            'iva_superreducido': 'e_iva_superreducido',
+            're_activo': None,
+            're_general': 'e_re_general',
+            're_reducido': 'e_re_reducido',
+            're_superreducido': 'e_re_superreducido',
+        }
 
         try:
-            for clave in claves:
-                query = "SELECT valor FROM configuracion WHERE clave = ?"
-                row = self.db.fetch_one(query, (clave,))
-                valor = row[0] if row else ''
+            datos = self.config_repo.obtener_multiples(list(widget_map.keys()))
 
-                # Mapear clave a widget Entry correspondiente
-                widget_map = {
-                    'shop_name': 'e_name',
-                    'shop_web': 'e_web',
-                    'shop_phone': 'e_phone',
-                    'shop_email': 'e_email',
-                    'fiscal_name': 'e_fiscal_name',
-                    'fiscal_nif': 'e_nif',
-                    'fiscal_address': 'e_address',
-                    'iva_general': 'e_iva_general',
-                    'iva_reducido': 'e_iva_reducido',
-                    'iva_superreducido': 'e_iva_superreducido',
-                    're_general': 'e_re_general',
-                    're_reducido': 'e_re_reducido',
-                    're_superreducido': 'e_re_superreducido',
-                }
+            for clave, widget_attr in widget_map.items():
+                valor = datos.get(clave, '')
+                if widget_attr:
+                    widget = getattr(self, widget_attr, None)
+                    if widget and hasattr(widget, 'delete') and hasattr(widget, 'insert'):
+                        widget.delete(0, 'end')
+                        widget.insert(0, valor or '')
 
-                widget_name = widget_map.get(clave)
-                widget = getattr(self, widget_name, None)
-                if widget and hasattr(widget, 'delete') and hasattr(widget, 'insert'):
-                    widget.delete(0, 'end')
-                    widget.insert(0, valor or '')
-        except Exception:
-            logging.exception('Error cargando datos de configuracion')
-
-        # Checkbox RE activo (manejo especial)
-        try:
-            query_re = "SELECT valor FROM configuracion WHERE clave = 're_activo'"
-            row_re = self.db.fetch_one(query_re)
-            re_val = row_re[0] if row_re else '0'
-            if hasattr(self, 'chk_re_activo'):
-                try:
+            # Checkbox RE activo (manejo especial)
+            try:
+                re_val = datos.get('re_activo', '0')
+                if hasattr(self, 'chk_re_activo'):
                     if re_val == '1':
                         self.chk_re_activo.select()
                     else:
                         self.chk_re_activo.deselect()
-                except Exception:
-                    pass
+            except Exception:
+                logging.warning('Error cargando checkbox RE')
+
         except Exception:
-            logging.exception('Error cargando checkbox RE')
+            logging.exception('Error cargando datos de configuracion')
 
     def _on_save(self):
         """Guardar todos los campos en tabla configuracion."""
@@ -272,9 +264,7 @@ class ConfigGeneralUI:
         }
 
         try:
-            conn = self.db.connection
-            cur = conn.cursor()
-            cur.execute('BEGIN')
+            cambios = {}
 
             for entry_attr, clave_bd in campos.items():
                 widget = getattr(self, entry_attr, None)
@@ -287,31 +277,21 @@ class ConfigGeneralUI:
                             valor = str(widget.get())
                         except Exception:
                             valor = ''
-                    cur.execute(
-                        "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES (?, ?)",
-                        (clave_bd, valor)
-                    )
+                    cambios[clave_bd] = valor
 
             # Guardar checkbox RE activo
             try:
                 re_activo = '1' if getattr(self, 'chk_re_activo', None) and self.chk_re_activo.get() else '0'
-                cur.execute(
-                    "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES (?, ?)",
-                    ('re_activo', re_activo)
-                )
+                cambios['re_activo'] = re_activo
             except Exception:
-                logging.exception('Error guardando re_activo')
+                logging.warning('Error leyendo re_activo')
 
-            conn.commit()
+            self.config_repo.guardar_multiples(cambios)
 
             from kool_tpv.utils.custom_dialog import show_success
             show_success(self.container, 'Guardado', 'Configuración guardada correctamente')
 
         except Exception:
-            try:
-                conn.rollback()
-            except Exception:
-                pass
             logging.exception('Error guardando configuracion')
             from kool_tpv.utils.custom_dialog import show_error
             show_error(self.container, 'Error', 'No se pudo guardar')

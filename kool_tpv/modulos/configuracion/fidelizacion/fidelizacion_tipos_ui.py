@@ -3,6 +3,7 @@ import customtkinter as ctk
 from kool_tpv.utils.config_loader import load_colors, create_action_button
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.font_loader import get_font
+from kool_tpv.modulos.fidelizacion.fidelizacion_repository import FidelizacionRepository
 
 
 class FidelizacionTiposUI:
@@ -10,6 +11,7 @@ class FidelizacionTiposUI:
         self.parent = parent
         self.db = db
         self.module_name = module_name
+        self.fidel_repo = FidelizacionRepository(db)
 
         try:
             self.colors = load_colors(module_name)
@@ -222,16 +224,10 @@ class FidelizacionTiposUI:
             return
 
         try:
-            conn = self.db.connection
-            cur = conn.cursor()
-            cur.execute('BEGIN')
-
-            cur.execute(
-                "UPDATE tipos SET fide_porcentaje = ? WHERE id = ?",
-                (nuevo_valor, self.selected_tipo['id'])
+            self.fidel_repo.actualizar_fidelizacion_tipo(
+                self.selected_tipo['id'],
+                float(nuevo_valor)
             )
-
-            conn.commit()
 
             # Actualizar label actual
             self.lbl_valor_actual.configure(text=nuevo_valor)
@@ -248,10 +244,6 @@ class FidelizacionTiposUI:
             )
 
         except Exception:
-            try:
-                conn.rollback()
-            except Exception:
-                pass
             logging.exception('Error guardando fide_porcentaje en tipo')
             from kool_tpv.utils.custom_dialog import show_error
             show_error(self.container, 'Error', 'No se pudo guardar')

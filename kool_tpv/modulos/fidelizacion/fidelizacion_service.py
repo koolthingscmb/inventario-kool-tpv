@@ -20,6 +20,7 @@ from typing import List, Dict, Optional
 
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.base_datos.configuracion_service import ConfiguracionService
+from kool_tpv.base_datos.money_adapter import prepare_for_db
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +128,7 @@ class FidelizacionService:
         self,
         items: List[Dict],
         puntos_canjeados: Decimal = Decimal('0')
-    ) -> Decimal:
+    ) -> int:
         """
         Calcula los puntos totales obtenidos por una lista de ítems.
 
@@ -214,4 +215,4 @@ class FidelizacionService:
                 logger.exception('Error calculando puntos para ítem: %s', it)
                 continue
 
-        return total
+        return int(prepare_for_db(total))

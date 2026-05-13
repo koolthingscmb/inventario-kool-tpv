@@ -4,6 +4,7 @@ from kool_tpv.utils.config_loader import load_colors, create_action_button
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.widgets.tag_selector import TagSelector
 from kool_tpv.utils.widgets.nav_list import NavList
+from kool_tpv.modulos.fidelizacion.fidelizacion_repository import FidelizacionRepository
 
 
 class FidelizacionProductosUI:
@@ -11,6 +12,7 @@ class FidelizacionProductosUI:
         self.parent = parent
         self.db = db
         self.module_name = module_name
+        self.fidel_repo = FidelizacionRepository(db)
 
         try:
             self.colors = load_colors(module_name)
@@ -229,18 +231,11 @@ class FidelizacionProductosUI:
             return
 
         try:
-            conn = self.db.connection
-            cur = conn.cursor()
-            cur.execute('BEGIN')
-
-            # Actualizar todos los productos seleccionados
-            for prod_id in selected_ids:
-                cur.execute(
-                    "UPDATE productos SET fidelizacion_tipo = ?, fidelizacion_valor = ? WHERE id = ?",
-                    (tipo, valor, prod_id)
-                )
-
-            conn.commit()
+            productos_updates = [
+                (prod_id, tipo, float(valor))
+                for prod_id in selected_ids
+            ]
+            self.fidel_repo.actualizar_fidelizacion_productos_bulk(productos_updates)
 
             # Limpiar y actualizar
             self.tag_selector.clear()
@@ -256,10 +251,6 @@ class FidelizacionProductosUI:
             )
 
         except Exception:
-            try:
-                conn.rollback()
-            except Exception:
-                pass
             logging.exception('Error guardando fidelización en productos')
             from kool_tpv.utils.custom_dialog import show_error
             show_error(self.container, 'Error', 'No se pudo guardar')

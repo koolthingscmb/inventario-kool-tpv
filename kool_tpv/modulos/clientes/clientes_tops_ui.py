@@ -32,6 +32,7 @@ class ClientesTopsUI(ctk.CTkFrame):
         self.owner = owner
         self.keyboard_manager = keyboard_manager
         self.module_name = 'clientes'
+        self.service = ClientesTopsService(db)
 
         # Colores por módulo
         try:
@@ -180,7 +181,7 @@ class ClientesTopsUI(ctk.CTkFrame):
 
             # Cargar datos
             try:
-                items = ClientesTopsService.get_top_clientes_general(self.db)
+                items = self.service.get_top_clientes_general()
                 # Asegurar formato de total_euros (mostrar 2 decimales)
                 for it in items:
                     try:
@@ -228,16 +229,15 @@ class ClientesTopsUI(ctk.CTkFrame):
     def _refrescar_top(self):
         try:
             if self.modo_tesoro:
-                items = ClientesTopsService.get_top_por_tesoro(self.db)
+                items = self.service.get_top_por_tesoro()
             elif any((self.filtro_categoria_id is not None, self.filtro_tipo_id is not None, self.filtro_producto_id is not None)):
-                items = ClientesTopsService.get_top_filtrado(
-                    self.db,
+                items = self.service.get_top_filtrado(
                     categoria_id=self.filtro_categoria_id,
                     tipo_id=self.filtro_tipo_id,
                     producto_id=self.filtro_producto_id,
                 )
             else:
-                items = ClientesTopsService.get_top_clientes_general(self.db)
+                items = self.service.get_top_clientes_general()
 
             # Formatear total_euros
             for it in items:
@@ -355,7 +355,7 @@ class ClientesTopsUI(ctk.CTkFrame):
     # --- Tesoro ordering helpers ---
     def _refresh_ordered_by_tesoro(self, field: str):
         try:
-            items = ClientesTopsService.get_top_ordenado_por_tesoro(self.db, field)
+            items = self.service.get_top_ordenado_por_tesoro(field)
 
             # Formatear valores numéricos
             for it in items:

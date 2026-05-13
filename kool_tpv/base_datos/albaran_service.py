@@ -3,11 +3,13 @@ import logging
 from decimal import Decimal
 from datetime import datetime
 from kool_tpv.base_datos.money_adapter import read_from_db, prepare_for_db
+from kool_tpv.modulos.almacen.albaran_repository import AlbaranRepository
 
 
 class AlbaranService:
     def __init__(self, db):
         self.db = db
+        self.repo = AlbaranRepository(db)
 
     def get_next_num_albaran(self):
         """Obtener el siguiente número de albarán disponible."""
@@ -60,62 +62,16 @@ class AlbaranService:
         Returns:
             albaran_id si OK, None si error
         """
-        conn = None
         try:
-            conn = self.db.connection
-            if not conn:
-                raise RuntimeError('No hay conexión a DB')
+            tipo = tipo or 'ENTRADA'
 
-            cur = conn.cursor()
-            cur.execute('BEGIN')
-
-            # Calcular totales
+            # Calcular totales y preparar líneas procesadas
             total_neto = Decimal('0.0')
             total_iva_4 = Decimal('0.0')
             total_iva_10 = Decimal('0.0')
             total_iva_21 = Decimal('0.0')
+            lineas_procesadas = []
 
-            for line in lines:
-                cantidad = Decimal(str(line.get('cantidad', 0)))
-                coste = Decimal(str(line.get('coste', 0)))
-                dto = Decimal(str(line.get('descuento', 0)))
-                tipo_iva = int(line.get('tipo_iva', 21))
-
-                # Importe = (coste * cantidad) - descuento
-                importe_bruto = coste * cantidad
-                importe_neto = importe_bruto - dto
-                total_neto += importe_neto
-
-                # Calcular IVA
-                iva_aplicable = Decimal(str(tipo_iva)) / Decimal('100')
-                importe_iva = importe_neto * iva_aplicable
-
-                if tipo_iva == 4:
-                    total_iva_4 += importe_iva
-                elif tipo_iva == 10:
-                    total_iva_10 += importe_iva
-                elif tipo_iva == 21:
-                    total_iva_21 += importe_iva
-
-            total = total_neto + total_iva_4 + total_iva_10 + total_iva_21
-
-            # Normalizar tipo y INSERT albarán (añadimos columna tipo)
-            try:
-                tipo = (tipo or 'ENTRADA')
-            except Exception:
-                tipo = 'ENTRADA'
-
-            cur.execute("""
-                INSERT INTO albaranes (num_albaran, proveedor_id, fecha, total_neto, 
-                                      total_iva_4, total_iva_10, total_iva_21, total, tipo)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (num_albaran, proveedor_id, fecha, 
-                  prepare_for_db(total_neto), prepare_for_db(total_iva_4), prepare_for_db(total_iva_10), 
-                  prepare_for_db(total_iva_21), prepare_for_db(total), tipo))
-
-            albaran_id = cur.lastrowid
-
-            # INSERT líneas y actualizar stock
             for line in lines:
                 producto_id = line.get('producto_id')
                 ean = line.get('ean', '')
@@ -125,47 +81,46 @@ class AlbaranService:
                 descuento_dec = Decimal(str(line.get('descuento', 0)))
                 tipo_iva = int(line.get('tipo_iva', 21))
 
-                # Calcular importe de la línea usando Decimals
-                importe_bruto_dec = coste_dec * Decimal(cantidad)
-                importe_dec = importe_bruto_dec - descuento_dec
+                importe_dec = coste_dec * Decimal(cantidad) - descuento_dec
+                total_neto += importe_dec
 
-                # Insertar línea (almacenamos en céntimos usando prepare_for_db)
-                cur.execute("""
-                    INSERT INTO albaran_lines 
-                    (albaran_id, producto_id, ean, nombre, cantidad, coste, descuento, importe, tipo_iva)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (albaran_id, producto_id, ean, nombre, cantidad, 
-                      prepare_for_db(coste_dec), prepare_for_db(descuento_dec), 
-                      prepare_for_db(importe_dec), tipo_iva))
+                iva_aplicable = Decimal(str(tipo_iva)) / Decimal('100')
+                importe_iva = importe_dec * iva_aplicable
+                if tipo_iva == 4:
+                    total_iva_4 += importe_iva
+                elif tipo_iva == 10:
+                    total_iva_10 += importe_iva
+                elif tipo_iva == 21:
+                    total_iva_21 += importe_iva
 
-                # Actualizar stock según tipo (ENTRADA suma, SALIDA/DEVOLUCION resta)
-                if producto_id:
-                    try:
-                        try:
-                            adj_tipo = (tipo or 'ENTRADA')
-                        except Exception:
-                            adj_tipo = 'ENTRADA'
-                        cantidad_ajuste = cantidad if adj_tipo == 'ENTRADA' else -cantidad
+                lineas_procesadas.append({
+                    'producto_id': producto_id,
+                    'ean': ean,
+                    'nombre': nombre,
+                    'cantidad': cantidad,
+                    'coste': coste_dec,
+                    'descuento': descuento_dec,
+                    'importe': importe_dec,
+                    'tipo_iva': tipo_iva,
+                })
 
-                        cur.execute("""
-                            UPDATE productos 
-                            SET stock_actual = stock_actual + ? 
-                            WHERE id = ?
-                        """, (cantidad_ajuste, producto_id))
-                    except Exception as e:
-                        logging.warning(f'Error actualizando stock producto {producto_id}: {e}')
+            total = total_neto + total_iva_4 + total_iva_10 + total_iva_21
+            totales = {
+                'total_neto': total_neto,
+                'total_iva_4': total_iva_4,
+                'total_iva_10': total_iva_10,
+                'total_iva_21': total_iva_21,
+                'total': total,
+            }
 
-            conn.commit()
+            albaran_id = self.repo.guardar_albaran_completo(
+                num_albaran, proveedor_id, fecha, tipo, lineas_procesadas, totales
+            )
             logging.info(f'Albarán {num_albaran} guardado correctamente con ID {albaran_id}')
             return albaran_id
 
         except Exception:
-            try:
-                if conn:
-                    conn.rollback()
-            except Exception:
-                pass
-            logging.exception('Error guardando albarán, transacción revertida')
+            logging.exception('Error guardando albarán')
             return None
 
     def get_all_albaranes(self, limit=100):
@@ -382,15 +337,7 @@ class AlbaranService:
             4. INSERT líneas nuevas en albaran_lines
             5. UPDATE stock de productos nuevos
         """
-        conn = None
         try:
-            conn = self.db.connection
-            if not conn:
-                raise RuntimeError('No hay conexión a DB')
-
-            cur = conn.cursor()
-            cur.execute('BEGIN')
-
             # 1. RECALCULAR TOTALES con TODAS las líneas (viejas + nuevas)
             total_neto = Decimal('0.0')
             total_iva_4 = Decimal('0.0')
@@ -403,15 +350,12 @@ class AlbaranService:
                 dto = Decimal(str(line.get('descuento', 0)))
                 tipo_iva = int(line.get('tipo_iva', 21))
 
-                # Importe = (coste * cantidad) - descuento
                 importe_bruto = coste * cantidad
                 importe_neto = importe_bruto - dto
                 total_neto += importe_neto
 
-                # Calcular IVA
                 iva_aplicable = Decimal(str(tipo_iva)) / Decimal('100')
                 importe_iva = importe_neto * iva_aplicable
-
                 if tipo_iva == 4:
                     total_iva_4 += importe_iva
                 elif tipo_iva == 10:
@@ -420,70 +364,42 @@ class AlbaranService:
                     total_iva_21 += importe_iva
 
             total = total_neto + total_iva_4 + total_iva_10 + total_iva_21
+            totales = {
+                'total_neto': total_neto,
+                'total_iva_4': total_iva_4,
+                'total_iva_10': total_iva_10,
+                'total_iva_21': total_iva_21,
+                'total': total,
+            }
 
-            # 2. UPDATE cabecera albarán
-            cur.execute("""
-                UPDATE albaranes 
-                SET total_neto = ?, 
-                    total_iva_4 = ?, 
-                    total_iva_10 = ?, 
-                    total_iva_21 = ?, 
-                    total = ?
-                WHERE id = ?
-            """, (prepare_for_db(total_neto), prepare_for_db(total_iva_4), prepare_for_db(total_iva_10), 
-                  prepare_for_db(total_iva_21), prepare_for_db(total), albaran_id))
-
-            # 3. Filtrar SOLO líneas nuevas (sin 'id')
+            # 2. Filtrar y preparar SOLO líneas nuevas (sin 'id')
             new_lines = [l for l in all_lines if 'id' not in l or l.get('id') is None]
-
             logging.info(f'Actualizando albarán {albaran_id}: {len(new_lines)} líneas nuevas de {len(all_lines)} totales')
 
-            # 4 y 5. INSERT líneas nuevas + UPDATE stock
+            nuevas_lineas_procesadas = []
             for line in new_lines:
-                producto_id = line.get('producto_id')
-                ean = line.get('ean', '')
-                nombre = line.get('nombre', '')
                 cantidad = int(line.get('cantidad', 0))
                 coste_dec = Decimal(str(line.get('coste', 0)))
                 descuento_dec = Decimal(str(line.get('descuento', 0)))
-                tipo_iva = int(line.get('tipo_iva', 21))
+                importe_dec = coste_dec * Decimal(cantidad) - descuento_dec
+                nuevas_lineas_procesadas.append({
+                    'producto_id': line.get('producto_id'),
+                    'ean': line.get('ean', ''),
+                    'nombre': line.get('nombre', ''),
+                    'cantidad': cantidad,
+                    'coste': coste_dec,
+                    'descuento': descuento_dec,
+                    'importe': importe_dec,
+                    'tipo_iva': int(line.get('tipo_iva', 21)),
+                })
 
-                # Calcular importe de la línea usando Decimals
-                importe_bruto_dec = coste_dec * Decimal(cantidad)
-                importe_dec = importe_bruto_dec - descuento_dec
-
-                # INSERT nueva línea (almacenamos en céntimos)
-                cur.execute("""
-                    INSERT INTO albaran_lines 
-                    (albaran_id, producto_id, ean, nombre, cantidad, coste, descuento, importe, tipo_iva)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (albaran_id, producto_id, ean, nombre, cantidad, 
-                      prepare_for_db(coste_dec), prepare_for_db(descuento_dec), 
-                      prepare_for_db(importe_dec), tipo_iva))
-
-                # UPDATE stock (SUMA cantidad)
-                if producto_id:
-                    try:
-                        cur.execute("""
-                            UPDATE productos 
-                            SET stock_actual = stock_actual + ? 
-                            WHERE id = ?
-                        """, (cantidad, producto_id))
-                        logging.debug(f'Stock actualizado: producto {producto_id} +{cantidad}')
-                    except Exception as e:
-                        logging.warning(f'Error actualizando stock producto {producto_id}: {e}')
-
-            conn.commit()
+            # 3. Delegar escritura al repo
+            self.repo.actualizar_albaran_con_lineas(albaran_id, nuevas_lineas_procesadas, totales)
             logging.info(f'Albarán {albaran_id} actualizado: {len(new_lines)} líneas añadidas, totales recalculados')
             return True
 
         except Exception:
-            try:
-                if conn:
-                    conn.rollback()
-            except Exception:
-                pass
-            logging.exception(f'Error actualizando albarán {albaran_id}, transacción revertida')
+            logging.exception(f'Error actualizando albarán {albaran_id}')
             return False
 
     def delete_albaran(self, albaran_id):
