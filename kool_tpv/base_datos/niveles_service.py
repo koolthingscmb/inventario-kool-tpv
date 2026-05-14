@@ -19,7 +19,7 @@ class NivelesService:
         """
         try:
             query = """
-                SELECT id, level, nombre_nivel, grafismo_nivel, gasto_minimo,
+                SELECT id, level, nombre_nivel, grafismo_nivel, tesoro_minimo,
                        tipo_recompensa, detalle_recompensa
                 FROM niveles_fidelidad
                 ORDER BY level
@@ -54,7 +54,7 @@ class NivelesService:
         """
         try:
             query = """
-                SELECT id, level, nombre_nivel, grafismo_nivel, gasto_minimo,
+                SELECT id, level, nombre_nivel, grafismo_nivel, tesoro_minimo,
                        tipo_recompensa, detalle_recompensa
                 FROM niveles_fidelidad
                 WHERE id = ?
@@ -82,7 +82,7 @@ class NivelesService:
         """
         try:
             # Validar campos obligatorios
-            if not all(k in data for k in ['level', 'nombre_nivel', 'grafismo_nivel', 'gasto_minimo']):
+            if not all(k in data for k in ['level', 'nombre_nivel', 'grafismo_nivel', 'tesoro_minimo']):
                 logging.error('Faltan campos obligatorios en save_nivel')
                 return False
 
@@ -162,7 +162,7 @@ class NivelesService:
                 'level': row[1],
                 'nombre_nivel': row[2] or '',
                 'grafismo_nivel': row[3] or '',
-                'gasto_minimo': row[4] or 0,
+                'tesoro_minimo': row[4] or 0,
                 'tipo_recompensa': row[5] or '',
                 'detalle_recompensa': row[6] or ''
             }
@@ -173,7 +173,7 @@ class NivelesService:
                 'level': row['level'],
                 'nombre_nivel': row['nombre_nivel'] or '',
                 'grafismo_nivel': row['grafismo_nivel'] or '',
-                'gasto_minimo': row['gasto_minimo'] or 0,
+                'tesoro_minimo': row['tesoro_minimo'] or 0,
                 'tipo_recompensa': row['tipo_recompensa'] or '',
                 'detalle_recompensa': row['detalle_recompensa'] or ''
             }

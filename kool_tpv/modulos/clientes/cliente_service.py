@@ -9,6 +9,7 @@ import logging
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.clientes.clientes_db import ClientesDB
 from kool_tpv.base_datos.money_adapter import read_from_db
+from kool_tpv.modulos.fidelizacion.niveles_repository import NivelesRepository
 
 
 class ClienteService:
@@ -21,6 +22,7 @@ class ClienteService:
 	def __init__(self, db: Database):
 		self.db = db
 		self._clientes_db = ClientesDB(db)
+		self._niveles_repo = NivelesRepository(db)
 
 	def buscar_clientes(self, termino: str) -> List[Dict[str, Any]]:
 		"""Buscar clientes por término en nombre, dni o teléfono.
@@ -101,7 +103,7 @@ class ClienteService:
 			    n.level AS nivel_level,
 			    n.nombre_nivel AS nivel_nombre,
 			    n.grafismo_nivel AS nivel_grafismo,
-			    n.gasto_minimo AS nivel_gasto_minimo
+			    n.tesoro_minimo AS nivel_tesoro_minimo
 			FROM clientes c
 			LEFT JOIN niveles_fidelidad n ON c.id_nivel = n.id
 			WHERE c.id = ?
@@ -140,7 +142,7 @@ class ClienteService:
 				'nivel_level': row['nivel_level'] if 'nivel_level' in row.keys() else None,
 				'nivel_nombre': row['nivel_nombre'] if 'nivel_nombre' in row.keys() and row['nivel_nombre'] else 'Forastero',
 				'nivel_grafismo': row['nivel_grafismo'] if 'nivel_grafismo' in row.keys() and row['nivel_grafismo'] else '~',
-				'nivel_gasto_minimo': float(row['nivel_gasto_minimo']) if 'nivel_gasto_minimo' in row.keys() and row['nivel_gasto_minimo'] else 0.0
+				'nivel_tesoro_minimo': float(row['nivel_tesoro_minimo']) if 'nivel_tesoro_minimo' in row.keys() and row['nivel_tesoro_minimo'] else 0.0
 			}
 		except Exception:
 			logging.exception(f'Error obteniendo cliente {cliente_id}')
@@ -163,16 +165,16 @@ class ClienteService:
 			bool: True si OK, False si error
 		"""
 		try:
+			nivel_base_id = self._niveles_repo.obtener_nivel_base()
 			query = """
 				INSERT INTO clientes 
 				(nombre, telefono, email, dni, direccion, ciudad, cp, pais, 
 				 fecha_nacimiento, tags, fidelidad_activa, id_nivel)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			"""
-			# Nivel 1 por defecto (Forastero)
 			self.db.execute_query(query, (
 				nombre, telefono, email, dni, direccion, ciudad, cp, pais,
-				fecha_nacimiento, tags, fidelidad_activa
+				fecha_nacimiento, tags, fidelidad_activa, nivel_base_id
 			))
 			logging.info(f'Cliente {nombre} creado correctamente')
 			return True

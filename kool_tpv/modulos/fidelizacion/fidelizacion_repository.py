@@ -100,9 +100,76 @@ class FidelizacionRepository:
             logger.exception('Error insertando movimiento de puntos para cliente %s', cliente_id)
             raise
 
+    def actualizar_loyalty_y_recalcular_nivel(
+        self,
+        cliente_id: int,
+        puntos_otorgar_cents: int,
+        puntos_restar_cents: int,
+        puntos_gastados_cents: int,
+        total_ticket_cents: int,
+        unidades_vendidas: int,
+        fecha: str,
+    ) -> None:
+        """
+        Actualiza los campos de loyalty del cliente y recalcula su nivel
+        dentro de una única transacción atómica.
+        """
+        try:
+            cur = self.db.connection.cursor()
+            cur.execute('BEGIN')
+
+            cur.execute(
+                """
+                UPDATE clientes
+                SET
+                    tesoro_total = COALESCE(tesoro_total, 0) + ?,
+                    tesoro_historico = COALESCE(tesoro_historico, 0) + ?,
+                    tesoro_gastado_total = COALESCE(tesoro_gastado_total, 0) + ?,
+                    total_compras = COALESCE(total_compras, 0) + 1,
+                    total_compras_euros = COALESCE(total_compras_euros, 0) + ?,
+                    total_unidades = COALESCE(total_unidades, 0) + ?,
+                    fecha_ultima_compra = ?
+                WHERE id = ?
+                """,
+                (
+                    int(puntos_otorgar_cents - puntos_restar_cents - puntos_gastados_cents),
+                    int(puntos_otorgar_cents),
+                    int(puntos_gastados_cents),
+                    int(total_ticket_cents),
+                    int(unidades_vendidas),
+                    fecha,
+                    cliente_id,
+                ),
+            )
+
+            # Recalcular nivel según tesoro_historico actualizado
+            cur.execute(
+                """
+                UPDATE clientes SET id_nivel = (
+                    SELECT id FROM niveles_fidelidad
+                    WHERE tesoro_minimo <= (
+                        SELECT tesoro_historico FROM clientes WHERE id = ?
+                    )
+                    ORDER BY tesoro_minimo DESC LIMIT 1
+                )
+                WHERE id = ?
+                """,
+                (cliente_id, cliente_id),
+            )
+
+            self.db.connection.commit()
+
+        except Exception:
+            try:
+                self.db.connection.rollback()
+            except Exception:
+                logger.exception('Rollback fallido en actualizar_loyalty_y_recalcular_nivel para cliente %s', cliente_id)
+            logger.exception('Error en actualizar_loyalty_y_recalcular_nivel para cliente %s', cliente_id)
+            raise
+
     def recalcular_nivel_cliente(self, cliente_id: int) -> None:
         """
-        Actualiza `clientes.id_nivel` al nivel más alto cuyo `gasto_minimo`
+        Actualiza `clientes.id_nivel` al nivel más alto cuyo `tesoro_minimo`
         sea <= `tesoro_historico` del cliente.
         """
         try:
@@ -111,10 +178,10 @@ class FidelizacionRepository:
                 """
                 UPDATE clientes SET id_nivel = (
                     SELECT id FROM niveles_fidelidad
-                    WHERE gasto_minimo <= (
+                    WHERE tesoro_minimo <= (
                         SELECT tesoro_historico FROM clientes WHERE id = ?
                     )
-                    ORDER BY gasto_minimo DESC LIMIT 1
+                    ORDER BY tesoro_minimo DESC LIMIT 1
                 )
                 WHERE id = ?
                 """,

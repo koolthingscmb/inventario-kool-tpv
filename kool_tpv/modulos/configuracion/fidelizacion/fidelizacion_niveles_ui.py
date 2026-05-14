@@ -4,6 +4,7 @@ from kool_tpv.utils.config_loader import load_colors, create_action_button
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.widgets.nav_list import NavList
 from kool_tpv.base_datos.niveles_service import NivelesService
+from kool_tpv.base_datos.money_adapter import prepare_for_db, read_from_db
 
 
 class FidelizacionNivelesUI:
@@ -131,7 +132,7 @@ class FidelizacionNivelesUI:
                 ('level', 80, 'Level'),
                 ('nombre_nivel', 200, 'Nombre'),
                 ('grafismo_nivel', 150, 'Grafismo'),
-                ('gasto_minimo', 150, 'Puntos Mín.')
+                ('tesoro_minimo', 150, 'Puntos Mín.')
             ],
             on_select=self._on_nivel_select,
             module_name=module_name,
@@ -165,7 +166,7 @@ class FidelizacionNivelesUI:
                     'level': str(nivel['level']),
                     'nombre_nivel': nivel['nombre_nivel'],
                     'grafismo_nivel': nivel['grafismo_nivel'],
-                    'gasto_minimo': str(nivel['gasto_minimo']),
+                    'tesoro_minimo': str(read_from_db(nivel['tesoro_minimo'])),
                     'tipo_recompensa': nivel['tipo_recompensa'],
                     'detalle_recompensa': nivel['detalle_recompensa']
                 })
@@ -189,7 +190,7 @@ class FidelizacionNivelesUI:
             self.entry_grafismo.insert(0, data.get('grafismo_nivel', ''))
 
             self.entry_puntos.delete(0, 'end')
-            self.entry_puntos.insert(0, data.get('gasto_minimo', ''))
+            self.entry_puntos.insert(0, data.get('tesoro_minimo', ''))  # ya viene en euros desde _load_niveles
 
             tipo_rec = data.get('tipo_recompensa', '')
             self.combo_tipo_recompensa.set(tipo_rec if tipo_rec else '')
@@ -257,7 +258,7 @@ class FidelizacionNivelesUI:
             'level': level_num,
             'nombre_nivel': nombre,
             'grafismo_nivel': grafismo,
-            'gasto_minimo': puntos_num,
+            'tesoro_minimo': prepare_for_db(puntos_num),  # euros → céntimos enteros
             'tipo_recompensa': tipo_rec if tipo_rec else None,
             'detalle_recompensa': detalle_rec if detalle_rec else None
         }

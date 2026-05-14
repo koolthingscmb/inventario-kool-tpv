@@ -5,7 +5,7 @@ import logging
 
 from kool_tpv.modulos.ticket.ticket_repository import TicketRepository
 from kool_tpv.modulos.fidelizacion.fidelizacion_repository import FidelizacionRepository
-from kool_tpv.modulos.clientes.fidelizacion_service import FidelizacionService
+from kool_tpv.modulos.fidelizacion.fidelizacion_service import FidelizacionService
 
 logger = logging.getLogger(__name__)
 

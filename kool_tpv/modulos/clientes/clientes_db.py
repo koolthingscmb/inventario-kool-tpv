@@ -35,10 +35,12 @@ class ClientesDB:
 		"""
 		term = f"%{filtro}%"
 		query = (
-			"SELECT id, nombre, telefono, tesoro_total, id_nivel, fecha_alta "
-			"FROM clientes "
-			"WHERE nombre LIKE ? OR dni LIKE ? OR telefono LIKE ? "
-			"ORDER BY COALESCE(tesoro_total, 0) DESC"
+			"SELECT c.id, c.nombre, c.telefono, c.tesoro_total, c.id_nivel, c.fecha_alta, "
+			"n.level AS nivel_level, n.nombre_nivel AS nivel_nombre, n.grafismo_nivel AS nivel_grafismo "
+			"FROM clientes c "
+			"LEFT JOIN niveles_fidelidad n ON c.id_nivel = n.id "
+			"WHERE c.nombre LIKE ? OR c.dni LIKE ? OR c.telefono LIKE ? "
+			"ORDER BY COALESCE(c.tesoro_total, 0) DESC"
 		)
 		rows = self.db.fetch_all(query, (term, term, term))
 
@@ -46,9 +48,9 @@ class ClientesDB:
 
 		clientes: List[Dict[str, Any]] = []
 		for row in rows:
-			# row expected: (id, nombre, telefono, tesoro_total, id_nivel)
+			# row expected: (id, nombre, telefono, tesoro_total, id_nivel, fecha_alta, nivel_level, nivel_nombre, nivel_grafismo)
 			try:
-				id_, nombre, telefono, tesoro_total, id_nivel, fecha_alta = row
+				id_, nombre, telefono, tesoro_total, id_nivel, fecha_alta, nivel_level, nivel_nombre, nivel_grafismo = row
 			except Exception:
 				# defensivo: si el esquema cambia, ignorar fila mal formada
 				continue
@@ -60,6 +62,9 @@ class ClientesDB:
 				"tesoro_total": read_from_db(int(tesoro_total or 0)),
 				"id_nivel": id_nivel,
 				"fecha_alta": fecha_alta,
+				"nivel_level": nivel_level,
+				"nivel_nombre": nivel_nombre or 'Forastero',
+				"nivel_grafismo": nivel_grafismo or '~',
 			})
 
 		return clientes

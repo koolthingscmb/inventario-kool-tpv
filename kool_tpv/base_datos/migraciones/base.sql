@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS niveles_fidelidad (
 	level INTEGER NOT NULL UNIQUE,
 	nombre_nivel TEXT NOT NULL,
 	grafismo_nivel TEXT,
-	gasto_minimo REAL NOT NULL DEFAULT 0.0,
+	tesoro_minimo REAL NOT NULL DEFAULT 0.0,
 	tipo_recompensa TEXT,
 	detalle_recompensa TEXT,
 	producto_sku TEXT

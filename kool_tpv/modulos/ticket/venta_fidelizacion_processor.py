@@ -22,7 +22,7 @@ class VentaFidelizacionProcessor(VentaProcessor):
                     self.repo.insert_points_movement_raw(cliente_id, -puntos_gastados_cents, 'gasto', ticket_id, None)
                 if puntos_restar_cents > 0:
                     self.repo.insert_points_movement_raw(cliente_id, -puntos_restar_cents, 'ajuste', ticket_id, None)
-                self.fidel_repo.actualizar_cliente_loyalty(
+                self.fidel_repo.actualizar_loyalty_y_recalcular_nivel(
                     cliente_id=cliente_id,
                     puntos_otorgar_cents=puntos_otorgar_cents or 0,
                     puntos_restar_cents=puntos_restar_cents or 0,

@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from kool_tpv.base_datos.db_wrapper import Database
 
 logger = logging.getLogger(__name__)
@@ -23,14 +23,14 @@ class NivelesRepository:
             cur.execute(
                 """
                 INSERT INTO niveles_fidelidad
-                (level, nombre_nivel, grafismo_nivel, gasto_minimo, tipo_recompensa, detalle_recompensa)
+                (level, nombre_nivel, grafismo_nivel, tesoro_minimo, tipo_recompensa, detalle_recompensa)
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (
                     data['level'],
                     data['nombre_nivel'],
                     data['grafismo_nivel'],
-                    data['gasto_minimo'],
+                    data['tesoro_minimo'],
                     data.get('tipo_recompensa'),
                     data.get('detalle_recompensa'),
                 )
@@ -57,14 +57,14 @@ class NivelesRepository:
                 """
                 UPDATE niveles_fidelidad
                 SET level = ?, nombre_nivel = ?, grafismo_nivel = ?,
-                    gasto_minimo = ?, tipo_recompensa = ?, detalle_recompensa = ?
+                    tesoro_minimo = ?, tipo_recompensa = ?, detalle_recompensa = ?
                 WHERE id = ?
                 """,
                 (
                     data['level'],
                     data['nombre_nivel'],
                     data['grafismo_nivel'],
-                    data['gasto_minimo'],
+                    data['tesoro_minimo'],
                     data.get('tipo_recompensa'),
                     data.get('detalle_recompensa'),
                     nivel_id,
@@ -93,3 +93,14 @@ class NivelesRepository:
             self.db.connection.rollback()
             logger.exception('Error eliminando nivel id=%s', nivel_id)
             raise
+
+    def obtener_nivel_base(self) -> Optional[int]:
+        """Devuelve el ID del nivel con tesoro_minimo más bajo (nivel base).
+
+        Returns:
+            ID del nivel base, o None si la tabla está vacía.
+        """
+        row = self.db.fetch_one(
+            "SELECT id FROM niveles_fidelidad ORDER BY tesoro_minimo ASC LIMIT 1"
+        )
+        return row[0] if row else None
