@@ -5,6 +5,7 @@ Delega lógica de negocio a TpvService y mantiene la vista limpia.
 """
 
 from __future__ import annotations
+import json
 import logging
 from typing import Optional, Any
 from decimal import Decimal
@@ -255,8 +256,15 @@ class TpvController:
             'cliente_id': _cliente_id,
             'subtotal_cents': prepare_for_db(_dec(resumen.get('subtotal', '0'))),
             'total_cents': prepare_for_db(_dec(resumen.get('total', '0'))),
+            'iva_desglose_json': json.dumps({
+                str(k): prepare_for_db(_dec(str(v)))
+                for k, v in resumen.get('iva_desglose', {}).items()
+            }),
             'pagado_cents': prepare_for_db(_dec(efectivo if efectivo is not None else 0)),
-            'cambio_cents': prepare_for_db(_dec((efectivo if efectivo is not None else 0)) - _dec(resumen.get('total', '0'))),
+            'cambio_cents': prepare_for_db(max(
+                _dec(0),
+                _dec(kwargs.get('importe_efectivo', 0)) + _dec(kwargs.get('importe_tarjeta', 0)) - _dec(resumen.get('total', '0'))
+            )),
             'importe_efectivo_cents': prepare_for_db(_dec(kwargs.get('importe_efectivo', 0))),
             'importe_tarjeta_cents': prepare_for_db(_dec(kwargs.get('importe_tarjeta', 0))),
             'descuento_euros_cents': prepare_for_db(_dec(kwargs.get('descuento_data', {}).get('euros', 0))),
@@ -317,6 +325,23 @@ class TpvController:
                     'No se puede realizar una venta sin artículos.'
                 )
                 return
+
+            # Guardia última línea: para pagos en efectivo, verificar importe suficiente
+            if forma_pago == 'Efectivo' and efectivo is not None:
+                try:
+                    from decimal import Decimal as _Dec
+                    resumen_check = carrito_service.get_resumen_financiero()
+                    total_check = _Dec(str(resumen_check.get('total', '0')))
+                    efectivo_check = _Dec(str(efectivo))
+                    if efectivo_check < total_check:
+                        show_error(
+                            self.view.container,
+                            'Importe insuficiente',
+                            f'Entregado: {efectivo_check:.2f} € — Total: {total_check:.2f} €'
+                        )
+                        return
+                except Exception:
+                    logger.exception('Error en guardia de importe efectivo')
 
             # Preparar ticket_data
             ticket_data = {

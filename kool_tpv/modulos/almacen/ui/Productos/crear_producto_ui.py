@@ -405,17 +405,11 @@ class CrearProductoUI:
                 logging.exception('Error cargando proveedores')
             # IVA candidates: distinct from productos
             try:
+                VALID_IVA_RATES = {0, 4, 10, 21}
                 cur.execute('SELECT DISTINCT tipo_iva FROM productos')
                 ivs = cur.fetchall()
-                iva_opts = []
-                for r in ivs:
-                    try:
-                        if r[0] is not None:
-                            iva_opts.append((int(r[0]), str(int(r[0]))))
-                    except Exception:
-                        continue
-                if not iva_opts:
-                    iva_opts = [(21, '21'), (4, '4')]
+                iva_set = {int(r[0]) for r in ivs if r[0] is not None} | VALID_IVA_RATES
+                iva_opts = sorted([(v, str(v)) for v in iva_set])
                 self.cb_iva.set_options(iva_opts)
             except Exception:
                 logging.exception('Error cargando IVA options')

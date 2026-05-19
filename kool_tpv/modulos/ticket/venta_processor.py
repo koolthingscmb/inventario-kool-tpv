@@ -43,6 +43,7 @@ class VentaProcessor(TicketProcessor):
             tesoro_ganado_str=kwargs.get('puntos_otorgar_cents', 0),
             tesoro_gastado_str=kwargs.get('puntos_gastados_cents', 0),
             ticket_text_snapshot=kwargs.get('ticket_text_snapshot'),
+            iva_desglose_json=kwargs.get('iva_desglose_json', '{}'),
         )
 
         for it in carrito_items or []:

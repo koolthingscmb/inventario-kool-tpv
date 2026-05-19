@@ -12,6 +12,7 @@ def calculate_resumen(items: List[Dict], puntos_canjeados: Decimal = Decimal('0.
     items: lista de dict con keys `pvp` (Decimal/number), `cantidad` (int), `tipo_iva` (int), `line_tipo` ('venta'|'devolucion'|'tesoro')
     Devuelve dict con las mismas claves que `CarritoService.get_resumen_financiero()` esperaba.
     """
+    total_bruto_pvp = Decimal('0.00')
     subtotal = Decimal('0.00')
     iva_desglose: Dict[int, Decimal] = {}
 
@@ -32,6 +33,7 @@ def calculate_resumen(items: List[Dict], puntos_canjeados: Decimal = Decimal('0.
 
         iva_rate = Decimal(tipo) / Decimal('100') if tipo != 0 else Decimal('0')
         sign = Decimal('-1') if str(item.get('line_tipo', 'venta')) == 'devolucion' else Decimal('1')
+        total_bruto_pvp += _quantize(pvp_dec * Decimal(cantidad) * sign)
 
         # Base unitaria sin IVA, cuantizar por unidad
         try:
@@ -53,7 +55,8 @@ def calculate_resumen(items: List[Dict], puntos_canjeados: Decimal = Decimal('0.
     iva_desglose.setdefault(21, Decimal('0.00'))
 
     total_iva = sum(iva_desglose.values(), Decimal('0.00'))
-    total = subtotal + total_iva
+    total = _quantize(total_bruto_pvp)
+    subtotal = _quantize(total - total_iva)
 
     puntos = Decimal('0.00')
     try:

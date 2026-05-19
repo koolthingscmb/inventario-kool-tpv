@@ -26,7 +26,8 @@ def setup_in_memory_db():
         importe_tarjeta NUMERIC,
         tesoro_ganado NUMERIC,
         tesoro_gastado NUMERIC,
-        ticket_text TEXT
+        ticket_text TEXT,
+        iva_desglose TEXT DEFAULT '{}'
     )
     ''')
     cur.execute('''

@@ -134,8 +134,13 @@ class CashController:
             total = Decimal(str(self.carrito_service.get_total()))
             cambio = efectivo - total
             try:
-                # Update label but do not change state; keep prompt when calculated
-                if self.state == 'calculated':
+                if cambio < 0:
+                    self._lbl_change.config(text=f'Importe insuficiente — faltan {(-cambio):.2f} €')
+                    if self.state == 'calculated':
+                        self.state = 'waiting'  # retrocede: no se puede confirmar con importe bajo
+                    # NO actualizar self.efectivo cuando el importe es insuficiente
+                    return
+                elif self.state == 'calculated':
                     self._lbl_change.config(text=f'Cambio: {cambio:.2f} € — Confirmar venta en efectivo? (Enter/COBRAR)')
                 else:
                     self._lbl_change.config(text=f'Cambio: {cambio:.2f} €')
@@ -256,6 +261,13 @@ class CashController:
 
                 total = Decimal(str(self.carrito_service.get_total()))
                 cambio = efectivo - total
+                if cambio < 0:
+                    # importe insuficiente: mostrar error y NO avanzar de estado
+                    try:
+                        self._lbl_change.config(text=f'Importe insuficiente — faltan {(-cambio):.2f} €')
+                    except Exception:
+                        pass
+                    return
                 # show change and textual confirmation prompt
                 try:
                     self._lbl_change.config(text=f'Cambio: {cambio:.2f} € — Confirmar venta en efectivo? (Enter/COBRAR)')
@@ -269,10 +281,15 @@ class CashController:
             if self.state == 'calculated':
                 try:
                     # validate sufficient amount before finalizing
-                    try:
-                        total = Decimal(str(self.carrito_service.get_total()))
-                    except Exception:
-                        total = Decimal('0')
+                    # Fail closed: if we cannot read the total, block the sale
+                    total = Decimal(str(self.carrito_service.get_total()))
+                    if total <= Decimal('0'):
+                        # Carrito vacío o total indeterminado: no finalizar
+                        try:
+                            self._lbl_change.config(text='Error al leer el total del carrito')
+                        except Exception:
+                            pass
+                        return
                     try:
                         efectivo_val = Decimal(str(self.efectivo))
                     except Exception:

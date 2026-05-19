@@ -6,11 +6,16 @@ para todos los tipos de tickets.
 """
 from abc import ABC, abstractmethod
 from decimal import Decimal, InvalidOperation
+import os
 import re
 import logging
 from typing import List
 
 from kool_tpv.utils.formatter_service import FormatterService
+
+# Cuando STRICT_MONEY_CONTRACT=1, _format_currency rechaza floats con TypeError.
+# En modo normal solo emite un WARNING (no interrumpe el flujo).
+_STRICT = os.environ.get('STRICT_MONEY_CONTRACT', '0') == '1'
 
 
 class BaseTicketGenerator(ABC):
@@ -21,24 +26,34 @@ class BaseTicketGenerator(ABC):
     DOUBLE_DIVIDER = "=" * WIDTH
 
     def _format_currency(self, val):
-        """Formatear valor monetario a string con 2 decimales."""
-        # Puede recibirse como:
-        # - céntimos enteros (int / float integral / Decimal entero)
-        # - euros (Decimal con decimales)
-        # Normalizar: si parece un valor entero grande (>=100) lo tratamos como céntimos.
+        """Formatear valor monetario a string con 2 decimales.
+
+        Contrato de entrada (sin heurísticas):
+        - int  → céntimos; se convierte a euros con from_cents().
+        - Decimal / str → se interpreta directamente como euros.
+        - float → se interpreta como euros. En modo STRICT_MONEY_CONTRACT=1
+                  se rechaza con TypeError (floats son imprecisos para dinero).
+        """
+        from kool_tpv.utils.money import from_cents
         fmt = FormatterService()
         try:
-            # Detectar casos enteros que representan céntimos
+            if isinstance(val, bool):
+                raise TypeError(f"_format_currency: bool no es un valor monetario ({val!r})")
             if isinstance(val, int):
-                from kool_tpv.utils.money import from_cents
                 return fmt.format_precio(from_cents(val))
-            if isinstance(val, float) and val.is_integer() and abs(val) >= 100:
-                from kool_tpv.utils.money import from_cents
-                return fmt.format_precio(from_cents(int(val)))
-            if isinstance(val, Decimal) and val == val.to_integral() and abs(val) >= 100:
-                from kool_tpv.utils.money import from_cents
-                return fmt.format_precio(from_cents(int(val)))
-
+            if isinstance(val, float):
+                if _STRICT:
+                    raise TypeError(
+                        f"_format_currency: float no permitido en modo STRICT_MONEY_CONTRACT "
+                        f"(usa Decimal para euros o int para céntimos). Valor: {val!r}"
+                    )
+                logging.warning(
+                    f"_format_currency recibió float {val!r}; se interpreta como euros. "
+                    "Usa Decimal para mayor precisión."
+                )
+                val = Decimal(str(val))
+            if isinstance(val, str):
+                val = Decimal(val.strip().replace(',', '.'))
             return fmt.format_precio(val)
         except Exception:
             try:

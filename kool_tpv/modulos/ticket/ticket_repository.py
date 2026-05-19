@@ -22,7 +22,8 @@ class TicketRepository:
                       subtotal_cents, forma_pago, total_cents, pagado_cents, cambio_cents,
                       importe_efectivo_cents, importe_tarjeta_cents,
                       descuento_euros_cents, descuento_tipo, descuento_valor,
-                      tesoro_ganado_str, tesoro_gastado_str, ticket_text_snapshot=None):
+                      tesoro_ganado_str, tesoro_gastado_str, ticket_text_snapshot=None,
+                      iva_desglose_json='{}'):
         # Ensure `cliente` is a string or None before binding to SQLite
         try:
             if cliente is None:
@@ -37,8 +38,8 @@ class TicketRepository:
 
         cur = self.db.connection.cursor()
         insert_ticket_q = (
-            "INSERT INTO tickets (created_at, cajero, cliente, cliente_id, num_ticket, subtotal, forma_pago, total, pagado, cambio, importe_efectivo, importe_tarjeta, descuento_euros, descuento_tipo, descuento_valor, tesoro_ganado, tesoro_gastado, ticket_text) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO tickets (created_at, cajero, cliente, cliente_id, num_ticket, subtotal, forma_pago, total, pagado, cambio, importe_efectivo, importe_tarjeta, descuento_euros, descuento_tipo, descuento_valor, tesoro_ganado, tesoro_gastado, ticket_text, iva_desglose) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )
         cur.execute(
             insert_ticket_q,
@@ -61,6 +62,7 @@ class TicketRepository:
                 int(tesoro_ganado_str or 0),
                 int(tesoro_gastado_str or 0),
                 ticket_text_snapshot,
+                iva_desglose_json,
             ),
         )
         self.db.connection.commit()
