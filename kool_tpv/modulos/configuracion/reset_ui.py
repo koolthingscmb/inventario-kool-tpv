@@ -21,13 +21,12 @@ class ResetUI:
             self.colors = {}
 
         bg = self.colors.get('background', '#000000')
-        self.container = ctk.CTkScrollableFrame(parent, fg_color=bg)
-        # CTkScrollableFrame necesita update_idletasks para que winfo_exists() devuelva 1
-        # antes del primer ciclo del event loop (requerido por set_central_content)
-        try:
-            self.container.update_idletasks()
-        except Exception:
-            pass
+        # CTkScrollableFrame.winfo_exists() devuelve 0 antes del primer ciclo del event loop.
+        # Solución: CTkFrame externo como contenedor (winfo_exists siempre 1),
+        # CTkScrollableFrame dentro para el scroll.
+        self._outer = ctk.CTkFrame(parent, fg_color=bg)
+        self.container = ctk.CTkScrollableFrame(self._outer, fg_color=bg)
+        self.container.pack(fill='both', expand=True)
 
         # ADVERTENCIA HEADER
         warning_frame = ctk.CTkFrame(self.container, fg_color='#D32F2F', corner_radius=8)
@@ -249,7 +248,7 @@ class ResetUI:
         ).pack(pady=(0, 15))
 
     def get_widget(self):
-        return self.container
+        return self._outer
 
     def _add_title(self, text):
         ctk.CTkLabel(
