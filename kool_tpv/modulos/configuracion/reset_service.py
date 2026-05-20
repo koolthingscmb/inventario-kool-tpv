@@ -334,6 +334,46 @@ class ResetService:
             logging.exception('Error borrando facturas')
             return False
 
+    def borrar_points_movements(self) -> bool:
+        """Borrar todos los movimientos de puntos de fidelización."""
+        try:
+            conn = self.db.connection
+            cur = conn.cursor()
+
+            cur.execute("DELETE FROM points_movements")
+            logging.warning('TODOS los points_movements borrados')
+
+            conn.commit()
+            return True
+
+        except Exception:
+            try:
+                self.db.connection.rollback()
+            except Exception:
+                pass
+            logging.exception('Error borrando points_movements')
+            return False
+
+    def reset_stock_productos(self) -> bool:
+        """Poner stock_actual y ventas_totales a 0 en todos los productos."""
+        try:
+            conn = self.db.connection
+            cur = conn.cursor()
+
+            cur.execute("UPDATE productos SET stock_actual = 0, ventas_totales = 0")
+            logging.warning('stock_actual y ventas_totales reseteados a 0 en TODOS los productos')
+
+            conn.commit()
+            return True
+
+        except Exception:
+            try:
+                self.db.connection.rollback()
+            except Exception:
+                pass
+            logging.exception('Error reseteando stock/ventas productos')
+            return False
+
     def reset_completo(self) -> bool:
         """Reset TOTAL: borra tickets, cierres, albaranes, facturas, resetea contadores y estadísticas clientes."""
         try:

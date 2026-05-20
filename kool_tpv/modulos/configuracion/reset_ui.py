@@ -83,6 +83,20 @@ class ResetUI:
             anchor='w'
         ).pack(side='left', fill='x', expand=True)
 
+        # === FIDELIZACIÓN ===
+        self._add_title('FIDELIZACIÓN')
+        frame = ctk.CTkFrame(self.container, fg_color='transparent')
+        frame.pack(fill='x', padx=20, pady=3)
+        btn = ButtonFactory.create_button(parent=frame, text='BORRAR POINTS_MOVEMENTS', command=self._borrar_points_movements, style_key='action_warning_small')
+        btn.pack(side='left', padx=(0, 15))
+        ctk.CTkLabel(
+            frame,
+            text='⚠️ Borrar TODOS los movimientos de puntos de fidelización',
+            font=get_font('label', module=self.module_name),
+            text_color=self.colors.get('text', '#999999'),
+            anchor='w'
+        ).pack(side='left', fill='x', expand=True)
+
         # === PRODUCTOS ===
         self._add_title('PRODUCTOS')
 
@@ -103,6 +117,18 @@ class ResetUI:
         ctk.CTkLabel(
             frame,
             text='Eliminar productos seleccionados arriba',
+            font=get_font('label', module=self.module_name),
+            text_color=self.colors.get('text', '#999999'),
+            anchor='w'
+        ).pack(side='left', fill='x', expand=True)
+
+        frame = ctk.CTkFrame(self.container, fg_color='transparent')
+        frame.pack(fill='x', padx=20, pady=3)
+        btn = ButtonFactory.create_button(parent=frame, text='RESET STOCK / VENTAS', command=self._reset_stock_productos, style_key='action_warning_small')
+        btn.pack(side='left', padx=(0, 15))
+        ctk.CTkLabel(
+            frame,
+            text='⚠️ Poner stock_actual y ventas_totales a 0 en TODOS los productos',
             font=get_font('label', module=self.module_name),
             text_color=self.colors.get('text', '#999999'),
             anchor='w'
@@ -412,6 +438,24 @@ class ResetUI:
             else:
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, 'Confirmar', 'Reset contador facturas?', callback=_confirmar)
+
+    def _borrar_points_movements(self):
+        def _confirmar():
+            ok = self.service.borrar_points_movements()
+            if ok:
+                show_success(self.container, 'OK', 'Points_movements borrados')
+            else:
+                show_error(self.container, 'Error', 'Fallo')
+        show_warning(self.container, '⚠️ PELIGRO', 'Borrar TODOS los movimientos de puntos?', callback=_confirmar)
+
+    def _reset_stock_productos(self):
+        def _confirmar():
+            ok = self.service.reset_stock_productos()
+            if ok:
+                show_success(self.container, 'OK', 'Stock y ventas reseteados a 0')
+            else:
+                show_error(self.container, 'Error', 'Fallo')
+        show_warning(self.container, 'Confirmar', '¿Poner stock_actual y ventas_totales a 0 en TODOS los productos?', callback=_confirmar)
 
     def _reset_completo(self):
         def _segunda():
