@@ -5,6 +5,7 @@ from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.modulos.configuracion.reset_service import ResetService
 from kool_tpv.utils.widgets.tag_selector import TagSelector
+from kool_tpv.utils.custom_dialog import show_warning, show_success, show_error
 
 
 class ResetUI:
@@ -20,7 +21,7 @@ class ResetUI:
             self.colors = {}
 
         bg = self.colors.get('background', '#000000')
-        self.container = ctk.CTkFrame(parent, fg_color=bg)
+        self.container = ctk.CTkScrollableFrame(parent, fg_color=bg)
 
         # ADVERTENCIA HEADER
         warning_frame = ctk.CTkFrame(self.container, fg_color='#D32F2F', corner_radius=8)
@@ -137,6 +138,34 @@ class ResetUI:
         ctk.CTkLabel(
             frame,
             text='Eliminar todos los cierres de caja',
+            font=get_font('label', module=self.module_name),
+            text_color=self.colors.get('text', '#999999'),
+            anchor='w'
+        ).pack(side='left', fill='x', expand=True)
+
+        # === ALBARANES ===
+        self._add_title('ALBARANES')
+        frame = ctk.CTkFrame(self.container, fg_color='transparent')
+        frame.pack(fill='x', padx=20, pady=3)
+        btn = ButtonFactory.create_button(parent=frame, text='BORRAR TODOS', command=self._borrar_albaranes, style_key='action_danger_small')
+        btn.pack(side='left', padx=(0, 15))
+        ctk.CTkLabel(
+            frame,
+            text='⚠️ Eliminar TODOS los albaranes (CASCADE: albaran_lines)',
+            font=get_font('label', module=self.module_name),
+            text_color=self.colors.get('text', '#999999'),
+            anchor='w'
+        ).pack(side='left', fill='x', expand=True)
+
+        # === FACTURAS ===
+        self._add_title('FACTURAS')
+        frame = ctk.CTkFrame(self.container, fg_color='transparent')
+        frame.pack(fill='x', padx=20, pady=3)
+        btn = ButtonFactory.create_button(parent=frame, text='BORRAR TODAS', command=self._borrar_facturas, style_key='action_danger_small')
+        btn.pack(side='left', padx=(0, 15))
+        ctk.CTkLabel(
+            frame,
+            text='⚠️ Eliminar TODAS las facturas (CASCADE: facturas_lines)',
             font=get_font('label', module=self.module_name),
             text_color=self.colors.get('text', '#999999'),
             anchor='w'
@@ -262,147 +291,130 @@ class ResetUI:
     def _reset_tesoro_selectivo(self):
         cliente_ids = self.tag_selector_clientes.get_selected_ids()
         if not cliente_ids:
-            from kool_tpv.utils.custom_dialog import show_warning
             show_warning(self.container, 'Atención', 'Selecciona clientes primero')
             return
 
-        from kool_tpv.utils.custom_dialog import show_warning
         def _confirmar():
             ok = self.service.reset_tesoro_clientes(cliente_ids)
             self.tag_selector_clientes.clear()
             if ok:
-                from kool_tpv.utils.custom_dialog import show_success
                 show_success(self.container, 'OK', f'{len(cliente_ids)} cliente(s) reseteado(s)')
             else:
-                from kool_tpv.utils.custom_dialog import show_error
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, 'Confirmar', f'¿Resetear {len(cliente_ids)} cliente(s)?', callback=_confirmar)
 
     def _reset_tesoro_todos(self):
-        from kool_tpv.utils.custom_dialog import show_warning
         def _confirmar():
             ok = self.service.reset_tesoro_clientes(None)
             if ok:
-                from kool_tpv.utils.custom_dialog import show_success
                 show_success(self.container, 'OK', 'Tesoro TODOS reseteado')
             else:
-                from kool_tpv.utils.custom_dialog import show_error
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, '⚠️ PELIGRO', '¿Resetear tesoro TODOS?', callback=_confirmar)
 
     def _borrar_productos(self):
         producto_ids = self.tag_selector_productos.get_selected_ids()
         if not producto_ids:
-            from kool_tpv.utils.custom_dialog import show_warning
             show_warning(self.container, 'Atención', 'Selecciona productos primero')
             return
 
-        from kool_tpv.utils.custom_dialog import show_warning
         def _confirmar():
             ok = self.service.borrar_productos(producto_ids)
             self.tag_selector_productos.clear()
             if ok:
-                from kool_tpv.utils.custom_dialog import show_success
                 show_success(self.container, 'OK', f'{len(producto_ids)} producto(s) borrado(s)')
             else:
-                from kool_tpv.utils.custom_dialog import show_error
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, 'Confirmar', f'¿Borrar {len(producto_ids)} producto(s)?', callback=_confirmar)
 
     def _borrar_tickets(self):
-        from kool_tpv.utils.custom_dialog import show_warning
         def _confirmar():
             ok = self.service.borrar_tickets(None)
             if ok:
-                from kool_tpv.utils.custom_dialog import show_success
-                show_success(self.container, 'OK', 'Tickets borrados (CASCADE aplicado)')
+                show_success(self.container, 'OK', 'Tickets borrados')
             else:
-                from kool_tpv.utils.custom_dialog import show_error
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, '⚠️ PELIGRO', 'Borrar TODOS los tickets?', callback=_confirmar)
 
     def _borrar_ticket_lines(self):
-        from kool_tpv.utils.custom_dialog import show_warning
         def _confirmar():
             ok = self.service.borrar_ticket_lines(None)
             if ok:
-                from kool_tpv.utils.custom_dialog import show_success
                 show_success(self.container, 'OK', 'Ticket_lines borradas')
             else:
-                from kool_tpv.utils.custom_dialog import show_error
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, 'Confirmar', 'Borrar TODAS las líneas de tickets?', callback=_confirmar)
 
     def _borrar_cierres(self):
-        from kool_tpv.utils.custom_dialog import show_warning
         def _confirmar():
             ok = self.service.borrar_cierres()
             if ok:
-                from kool_tpv.utils.custom_dialog import show_success
                 show_success(self.container, 'OK', 'Cierres borrados')
             else:
-                from kool_tpv.utils.custom_dialog import show_error
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, 'Confirmar', 'Borrar TODOS los cierres?', callback=_confirmar)
 
+    def _borrar_albaranes(self):
+        def _confirmar():
+            ok = self.service.borrar_albaranes(None)
+            if ok:
+                show_success(self.container, 'OK', 'Albaranes borrados')
+            else:
+                show_error(self.container, 'Error', 'Fallo')
+        show_warning(self.container, '⚠️ PELIGRO', 'Borrar TODOS los albaranes?', callback=_confirmar)
+
+    def _borrar_facturas(self):
+        def _confirmar():
+            ok = self.service.borrar_facturas(None)
+            if ok:
+                show_success(self.container, 'OK', 'Facturas borradas')
+            else:
+                show_error(self.container, 'Error', 'Fallo')
+        show_warning(self.container, '⚠️ PELIGRO', 'Borrar TODAS las facturas?', callback=_confirmar)
+
     def _reset_ticket_counter(self):
-        from kool_tpv.utils.custom_dialog import show_warning
         def _confirmar():
             ok = self.service.reset_ticket_counter()
             if ok:
-                from kool_tpv.utils.custom_dialog import show_success
                 show_success(self.container, 'OK', 'Contador reseteado')
             else:
-                from kool_tpv.utils.custom_dialog import show_error
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, 'Confirmar', 'Reset contador tickets?', callback=_confirmar)
 
     def _reset_cierre_counter(self):
-        from kool_tpv.utils.custom_dialog import show_warning
         def _confirmar():
             ok = self.service.reset_cierre_counter()
             if ok:
-                from kool_tpv.utils.custom_dialog import show_success
                 show_success(self.container, 'OK', 'Contador reseteado')
             else:
-                from kool_tpv.utils.custom_dialog import show_error
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, 'Confirmar', 'Reset contador cierres?', callback=_confirmar)
 
     def _reset_albaran_counter(self):
-        from kool_tpv.utils.custom_dialog import show_warning
         def _confirmar():
             ok = self.service.reset_albaran_counter()
             if ok:
-                from kool_tpv.utils.custom_dialog import show_success
                 show_success(self.container, 'OK', 'Contador reseteado')
             else:
-                from kool_tpv.utils.custom_dialog import show_error
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, 'Confirmar', 'Reset contador albaranes?', callback=_confirmar)
 
     def _reset_factura_counter(self):
-        from kool_tpv.utils.custom_dialog import show_warning
         def _confirmar():
             ok = self.service.reset_factura_counter()
             if ok:
-                from kool_tpv.utils.custom_dialog import show_success
                 show_success(self.container, 'OK', 'Contador reseteado')
             else:
-                from kool_tpv.utils.custom_dialog import show_error
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, 'Confirmar', 'Reset contador facturas?', callback=_confirmar)
 
     def _reset_completo(self):
-        from kool_tpv.utils.custom_dialog import show_warning
         def _segunda():
             def _ejecutar():
                 ok = self.service.reset_completo()
                 if ok:
-                    from kool_tpv.utils.custom_dialog import show_success
                     show_success(self.container, '⚠️ HECHO', 'BD limpiada')
                 else:
-                    from kool_tpv.utils.custom_dialog import show_error
                     show_error(self.container, 'Error', 'Fallo')
             show_warning(self.container, '⚠️⚠️ ÚLTIMA CONFIRMACIÓN', 'NO se puede deshacer. ¿CONTINUAR?', callback=_ejecutar)
         show_warning(self.container, '⚠️ RESET COMPLETO', 'Borrará TODO.\n¿Continuar?', callback=_segunda)

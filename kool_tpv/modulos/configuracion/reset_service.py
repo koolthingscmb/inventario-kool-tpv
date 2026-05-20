@@ -103,9 +103,16 @@ class ResetService:
 
             if ticket_nums:
                 placeholders = ','.join('?' * len(ticket_nums))
+                # devoluciones no tiene ON DELETE CASCADE, borrar manualmente
+                cur.execute(
+                    f"DELETE FROM devoluciones WHERE ticket_id IN "
+                    f"(SELECT id FROM tickets WHERE num_ticket IN ({placeholders}))",
+                    ticket_nums,
+                )
                 cur.execute(f"DELETE FROM tickets WHERE num_ticket IN ({placeholders})", ticket_nums)
                 logging.info('Tickets borrados: %s', ticket_nums)
             else:
+                cur.execute("DELETE FROM devoluciones")
                 cur.execute("DELETE FROM tickets")
                 logging.warning('TODOS los tickets borrados (CASCADE limpia ticket_lines y movimientos)')
 
@@ -332,6 +339,9 @@ class ResetService:
         try:
             conn = self.db.connection
             cur = conn.cursor()
+
+            cur.execute("DELETE FROM devoluciones")
+            logging.warning('RESET COMPLETO: devoluciones borradas')
 
             cur.execute("DELETE FROM tickets")
             logging.warning('RESET COMPLETO: tickets borrados (CASCADE ticket_lines/movimientos)')
