@@ -201,6 +201,7 @@ class TpvController:
             self.view._multi_controller = self.payment_controllers.get('multi')
             self.view._tarjeta_controller = self.payment_controllers.get('tarjeta')
             self.view._web_controller = self.payment_controllers.get('web')
+            self.view._devolucion_controller = self.payment_controllers.get('devolucion')
 
             logger.info(f'Payment controllers creados: {list(self.payment_controllers.keys())}')
 
@@ -261,10 +262,13 @@ class TpvController:
                 for k, v in resumen.get('iva_desglose', {}).items()
             }),
             'pagado_cents': prepare_for_db(_dec(efectivo)) if efectivo is not None else prepare_for_db(_dec(resumen.get('total', '0'))),
-            'cambio_cents': prepare_for_db(max(
-                _dec(0),
-                _dec(kwargs.get('importe_efectivo', 0)) + _dec(kwargs.get('importe_tarjeta', 0)) - _dec(resumen.get('total', '0'))
-            )),
+            'cambio_cents': (
+                0 if kwargs.get('tipo_ticket') == 'devolucion'
+                else prepare_for_db(max(
+                    _dec(0),
+                    _dec(kwargs.get('importe_efectivo', 0)) + _dec(kwargs.get('importe_tarjeta', 0)) - _dec(resumen.get('total', '0'))
+                ))
+            ),
             'importe_efectivo_cents': prepare_for_db(_dec(kwargs.get('importe_efectivo', 0))),
             'importe_tarjeta_cents': prepare_for_db(_dec(kwargs.get('importe_tarjeta', 0))),
             'descuento_euros_cents': prepare_for_db(_dec(kwargs.get('descuento_data', {}).get('euros', 0))),
@@ -328,7 +332,13 @@ class TpvController:
                 return
 
             # Guardia última línea: para pagos en efectivo, verificar importe suficiente
-            if forma_pago == 'Efectivo' and efectivo is not None:
+            # (se omite en devoluciones: la tienda devuelve dinero al cliente, no cobra)
+            _es_devolucion_guard = False
+            try:
+                _es_devolucion_guard = carrito_service.get_ticket_type() == 'devolucion'
+            except Exception:
+                pass
+            if forma_pago == 'Efectivo' and efectivo is not None and not _es_devolucion_guard:
                 try:
                     from decimal import Decimal as _Dec
                     resumen_check = carrito_service.get_resumen_financiero()
@@ -393,25 +403,32 @@ class TpvController:
                 logger.exception('Error determinando tipo_ticket desde CarritoService, fallback a venta')
                 tipo_ticket = 'venta'
 
-            # Calcular puntos si procede (resultado ya en céntimos int)
-            puntos_otorgar_cents = 0
-            puntos_gastados_cents = 0
-            try:
-                if tipo_ticket == 'venta_fidelizacion' and self.fidelizacion_service:
-                    _puntos_gastados_euros = Decimal(str(resumen.get('puntos_canjeados', 0)))
-                    puntos_otorgar_cents = self.fidelizacion_service.calcular_puntos_ganados(carrito_items, _puntos_gastados_euros)
-                    puntos_gastados_cents = int(prepare_for_db(_puntos_gastados_euros))
-            except Exception:
-                logger.exception('Error calculando puntos de fidelización')
-
-            # Construir payload en céntimos
-            # Obtener cliente_id de forma segura (CarritoService.get_cliente() devuelve dict)
+            # Obtener cliente_id antes de calcular puntos (ambos bloques lo necesitan)
             _cs = ticket_data.get('carrito_service')
             try:
                 _cliente = _cs.get_cliente() if _cs else None
             except Exception:
                 _cliente = None
             cliente_id = _cliente.get('id') if isinstance(_cliente, dict) and _cliente else None
+
+            # Calcular puntos si procede (resultado ya en céntimos int)
+            puntos_otorgar_cents = 0
+            puntos_gastados_cents = 0
+            puntos_revertir_cents = 0
+            try:
+                if tipo_ticket == 'venta_fidelizacion' and self.fidelizacion_service:
+                    _puntos_gastados_euros = Decimal(str(resumen.get('puntos_canjeados', 0)))
+                    puntos_otorgar_cents = self.fidelizacion_service.calcular_puntos_ganados(carrito_items, _puntos_gastados_euros)
+                    puntos_gastados_cents = int(prepare_for_db(_puntos_gastados_euros))
+                elif tipo_ticket == 'devolucion' and self.fidelizacion_service and cliente_id:
+                    # Calcular cuántos puntos generarían estos artículos en una venta normal
+                    # para revertir exactamente esa cantidad del saldo del cliente
+                    _items_abs = [{**it, 'cantidad': abs(int(it.get('cantidad', 0)))} for it in (carrito_items or [])]
+                    puntos_revertir_cents = self.fidelizacion_service.calcular_puntos_ganados(_items_abs, Decimal('0'))
+                    # tesoro_ganado en el ticket se guarda en negativo (auditoría coherente)
+                    puntos_otorgar_cents = -puntos_revertir_cents
+            except Exception:
+                logger.exception('Error calculando puntos de fidelización')
 
             # Obtener num_ticket antes de llamar al processor
             num_ticket_val = None
@@ -435,7 +452,9 @@ class TpvController:
                 descuento_data=ticket_data.get('descuento_data'),
                 puntos_otorgar_cents=puntos_otorgar_cents,
                 puntos_gastados_cents=puntos_gastados_cents,
+                puntos_restar_cents=puntos_revertir_cents,
                 num_ticket=num_ticket_val,
+                tipo_ticket=tipo_ticket,
             )
 
             # Seleccionar processor

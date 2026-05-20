@@ -69,6 +69,30 @@ def create_controllers(
                         importe_efectivo=0.0,
                         importe_tarjeta=data.get('total', 0.0)
                     )
+                elif tipo_pago == 'Devolucion':
+                    forma   = data.get('forma_pago', 'Efectivo')
+                    total_v = data.get('total', 0.0)
+                    if forma == 'Efectivo':
+                        on_finalize(
+                            efectivo=total_v,
+                            forma_pago='Efectivo',
+                            importe_efectivo=total_v,
+                            importe_tarjeta=0.0
+                        )
+                    elif forma == 'Tarjeta':
+                        on_finalize(
+                            efectivo=None,
+                            forma_pago='Tarjeta',
+                            importe_efectivo=0.0,
+                            importe_tarjeta=total_v
+                        )
+                    else:  # cambio
+                        on_finalize(
+                            efectivo=None,
+                            forma_pago='cambio',
+                            importe_efectivo=0.0,
+                            importe_tarjeta=0.0
+                        )
                 else:
                     # Genérico
                     on_finalize(
@@ -140,7 +164,21 @@ def create_controllers(
         logger.exception('Error creando PaymentControllerSimple (Web)')
         controllers['web'] = None
 
-    logger.info(f'Factory creó {sum(1 for c in controllers.values() if c is not None)}/4 controllers')
+    # Controller devolución
+    try:
+        from kool_tpv.utils.widgets.payment_controllers.payment_controller_devolucion import PaymentControllerDevolucion
+
+        controllers['devolucion'] = PaymentControllerDevolucion(
+            parent=parent,
+            total=total,
+            on_finalizar=_make_finalize_wrapper('Devolucion')
+        )
+        logger.debug('PaymentControllerDevolucion creado')
+    except Exception:
+        logger.exception('Error creando PaymentControllerDevolucion')
+        controllers['devolucion'] = None
+
+    logger.info(f'Factory creó {sum(1 for c in controllers.values() if c is not None)}/5 controllers')
 
     return controllers
 

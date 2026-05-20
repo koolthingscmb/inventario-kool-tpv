@@ -774,32 +774,40 @@ class TicketCarrito(ctk.CTkFrame):
                 return
 
             if action == "add":
-                # CORRECCIÓN: Forzar cantidad 1 para sumar una unidad, no doblar
-                # Preferir obtener producto normalizado desde ProductoService si disponemos de DB
-                try:
-                    if getattr(self, 'db', None) is not None:
-                        from kool_tpv.base_datos.producto_service import ProductoService
-                        ps = ProductoService(self.db)
-                        producto_para_carrito = ps.get_producto_para_carrito(item_data.get('id'), cantidad=1)
-                        self.carrito_service.add_item(producto_para_carrito)
-                    else:
-                        item_delta = item_data.copy()
-                        item_delta['cantidad'] = 1
-                        self.carrito_service.add_item(item_delta)
-                except Exception:
+                _line_tipo = str(item_data.get('line_tipo', 'venta')).lower()
+                if _line_tipo == 'devolucion':
+                    # Modo devolucion: item_data ya tiene line_tipo='devolucion',
+                    # add_item encuentra el item existente (mismo id + line_tipo) y suma +1
+                    item_delta = item_data.copy()
+                    item_delta['cantidad'] = 1
+                    self.carrito_service.add_item(item_delta)
+                else:
+                    # Modo venta normal: añadir +1 unidad
                     try:
-                        item_delta = item_data.copy()
-                        item_delta['cantidad'] = 1
-                        self.carrito_service.add_item(item_delta)
+                        if getattr(self, 'db', None) is not None:
+                            from kool_tpv.base_datos.producto_service import ProductoService
+                            ps = ProductoService(self.db)
+                            producto_para_carrito = ps.get_producto_para_carrito(item_data.get('id'), cantidad=1)
+                            self.carrito_service.add_item(producto_para_carrito)
+                        else:
+                            item_delta = item_data.copy()
+                            item_delta['cantidad'] = 1
+                            self.carrito_service.add_item(item_delta)
                     except Exception:
-                        logging.exception('Error añadiendo item via fallback')
+                        try:
+                            item_delta = item_data.copy()
+                            item_delta['cantidad'] = 1
+                            self.carrito_service.add_item(item_delta)
+                        except Exception:
+                            logging.exception('Error añadiendo item via fallback')
 
             elif action == "remove":
                 item_id = item_data.get("id")
+                item_line_tipo = str(item_data.get('line_tipo', 'venta')).lower()
                 items = self.carrito_service.get_items() or []
 
                 for idx, item in enumerate(items):
-                    if item.get("id") == item_id:
+                    if item.get("id") == item_id and str(item.get('line_tipo', 'venta')).lower() == item_line_tipo:
                         current_qty = int(item.get("cantidad", 0))
                         if current_qty > 1:
                             self.carrito_service.update_cantidad(idx, current_qty - 1)
@@ -850,9 +858,21 @@ class TicketCarrito(ctk.CTkFrame):
                 # Obtener items del servicio
                 items = self.carrito_service.get_items() or []
 
+                # Si el carrito queda vacío, ocultar el payment controller activo
+                if not items:
+                    try:
+                        for widget in self.payment_area.winfo_children():
+                            widget.pack_forget()
+                    except Exception:
+                        pass
+
                 # Añadir items al nav_list
                 for item in items:
-                    item['total'] = item.get('total_linea', 0.0) # Asegurar que el item tenga el campo 'total' para mostrar en la lista
+                    total_linea = item.get('total_linea', 0.0)
+                    if str(item.get('line_tipo', 'venta')).lower() == 'devolucion':
+                        item['total'] = -total_linea  # negat el Decimal (no convertir a float: activaría rama cents→euros)
+                    else:
+                        item['total'] = total_linea
                     self.carrito_nav_list.add_item(item)
 
                 try:

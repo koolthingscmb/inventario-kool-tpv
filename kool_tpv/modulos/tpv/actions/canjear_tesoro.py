@@ -7,7 +7,6 @@ indicar cuánto canjear.
 from decimal import Decimal, InvalidOperation
 import logging
 
-import customtkinter as ctk
 from kool_tpv.utils.custom_dialog import show_success, show_warning, show_error, show_info, show_input_dialog
 from kool_tpv.utils.formatter_service import FormatterService
 
@@ -48,32 +47,33 @@ class CanjearTesoroAction:
             except Exception:
                 parent_window = self.view
 
+        # No permitir canjear si hay items de devolución en el carrito
+        try:
+            _cart_items = self.carrito_service.get_items() or []
+            _has_devol = any(str(it.get('line_tipo', 'venta')).lower() == 'devolucion' for it in _cart_items)
+        except Exception:
+            _has_devol = False
+        if _has_devol:
+            show_warning(parent_window, 'Modo devolución', 'No se puede canjear Tesoro durante una devolución.')
+            return
+
         # Validar que haya productos en el carrito
         try:
             if self.carrito_service.is_empty():
-                try:
-                    show_warning(parent_window, 'Carrito vacío', 'NO HAY PRODUCTOS EN EL CARRITO. NO SE PUEDE CANJEAR TESORO.')
-                except Exception:
-                    logging.exception('Error mostrando warning carrito vacío desde canjear_tesoro')
+                show_warning(parent_window, 'Carrito vacío', 'NO HAY PRODUCTOS EN EL CARRITO. NO SE PUEDE CANJEAR TESORO.')
                 return
         except Exception:
             logging.exception('Error validando carrito vacío')
 
         cliente = self.carrito_service.get_cliente()
         if not cliente:
-            try:
-                show_warning(parent_window, 'Sin cliente', 'Selecciona un cliente primero para canjear tesoro.')
-            except Exception:
-                logging.exception('Error mostrando warning sin cliente')
+            show_warning(parent_window, 'Sin cliente', 'Selecciona un cliente primero para canjear tesoro.')
             return
 
         # No permitir canjear si hay un descuento activo
         try:
             if hasattr(self.carrito_service, 'has_descuento') and self.carrito_service.has_descuento():
-                try:
-                    show_error(parent_window, 'Descuento activo', 'No se puede canjear tesoro mientras hay un descuento aplicado. Elimina el descuento primero.')
-                except Exception:
-                    logging.exception('Error mostrando warning descuento activo')
+                show_error(parent_window, 'Descuento activo', 'No se puede canjear tesoro mientras hay un descuento aplicado. Elimina el descuento primero.')
                 return
         except Exception:
             logging.exception('Error verificando descuento activo antes de canjear tesoro')
@@ -119,49 +119,32 @@ class CanjearTesoroAction:
         try:
             valor_decimal = Decimal(valor_normalizado)
         except (InvalidOperation, ValueError):
-            try:
-                show_error(parent_window, "Valor inválido", "Introduzca un número válido para canjear.")
-            except Exception:
-                logging.exception('Error mostrando diálogo de valor inválido')
+            show_error(parent_window, "Valor inválido", "Introduzca un número válido para canjear.")
             return
 
         # No permitir negativos
         if valor_decimal <= Decimal('0'):
-            try:
-                show_error(parent_window, "Valor inválido", "La cantidad a canjear debe ser mayor que 0.")
-            except Exception:
-                logging.exception('Error mostrando diálogo de valor inválido negativo')
+            show_error(parent_window, "Valor inválido", "La cantidad a canjear debe ser mayor que 0.")
             return
 
         # Validaciones: no puede superar saldo ni el total del ticket
         if valor_decimal > saldo:
-            try:
-                show_error(parent_window, "Saldo insuficiente", "La cantidad indicada supera el saldo del cliente.")
-            except Exception:
-                logging.exception('Error mostrando diálogo saldo insuficiente')
+            show_error(parent_window, "Saldo insuficiente", "La cantidad indicada supera el saldo del cliente.")
             return
 
         # Comparar contra el total bruto del ticket
         try:
             if valor_decimal > total_actual:
-                try:
-                    show_error(parent_window, "Cantidad superior al total", "La cantidad indicada no puede ser superior al subtotal más IVA del ticket.")
-                except Exception:
-                    logging.exception('Error mostrando diálogo cantidad superior al total')
+                show_error(parent_window, "Cantidad superior al total", "La cantidad indicada no puede ser superior al subtotal más IVA del ticket.")
                 return
         except Exception:
             logging.exception('Error comparando valor a canjear con total_actual')
-            try:
-                show_error(parent_window, "Error", "No se pudo validar la cantidad a canjear. Intente de nuevo.")
-            except Exception:
-                logging.exception('Error mostrando diálogo genérico de validación')
+            show_error(parent_window, "Error", "No se pudo validar la cantidad a canjear. Intente de nuevo.")
             return
 
         # Aplicar canje
         try:
             self.carrito_service.aplicar_canje_puntos(valor_decimal)
-
-            # Refrescar UI
             try:
                 if hasattr(self.view, 'update_display') and callable(getattr(self.view, 'update_display')):
                     self.view.update_display()
@@ -169,11 +152,7 @@ class CanjearTesoroAction:
                     self.view.carrito_ui.update_display()
             except Exception:
                 logging.exception('Error actualizando UI tras canje')
-
             logging.info(f"Canje de {valor_decimal} puntos aplicado")
         except Exception:
             logging.exception('Error aplicando canje de tesoro')
-            try:
-                show_error(parent_window, "Error", "No se pudo aplicar el canje de tesoro. Consulte los logs.")
-            except Exception:
-                logging.exception('Error mostrando diálogo de error tras fallo en canje')
+            show_error(parent_window, "Error", "No se pudo aplicar el canje de tesoro. Consulte los logs.")

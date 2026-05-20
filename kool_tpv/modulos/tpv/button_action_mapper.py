@@ -78,15 +78,26 @@ def _activate_payment(view, tipo: str):
 
     Args:
         view: TpvView instance
-        tipo: 'efectivo'|'multi'|'tarjeta'|'web'
+        tipo: 'efectivo'|'multi'|'tarjeta'|'web'|'devolucion'
     """
     try:
+        # Guardia: en modo devolución no se puede cambiar a otro controller de pago
+        if tipo != 'devolucion':
+            try:
+                carrito = getattr(view, 'carrito_service', None)
+                if carrito and carrito.get_ticket_type() == 'devolucion':
+                    logger.debug('_activate_payment ignorado: modo devolución activo')
+                    return
+            except Exception:
+                pass
+
         # Mapeo tipo → controller attribute
         mapping = {
             'efectivo': '_cash_controller',
             'multi': '_multi_controller',
             'tarjeta': '_tarjeta_controller',
-            'web': '_web_controller'
+            'web': '_web_controller',
+            'devolucion': '_devolucion_controller',
         }
 
         attr_name = mapping.get(tipo)

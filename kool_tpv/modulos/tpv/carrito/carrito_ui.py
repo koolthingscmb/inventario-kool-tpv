@@ -554,6 +554,9 @@ class CarritoUI:
                             enabled = (float(cliente.get('tesoro_total', 0)) > 0)
                         except Exception:
                             enabled = bool(cliente.get('tesoro_total'))
+                        # En modo devolución no se puede canjear tesoro
+                        if getattr(self.carrito_service, '_devolucion_active', False):
+                            enabled = False
                         try:
                             if enabled:
                                 self._canjear_btn.config(state='normal')

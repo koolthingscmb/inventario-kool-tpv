@@ -431,6 +431,8 @@ class VentaTicketGenerator(BaseTicketGenerator):
 
             # En devoluciones puras no mostrar detalle, sólo mostrar Tesoro Total
             if motivo_tesoro == 'devolucion':
+                if ganado and ganado != 0:
+                    lines.append(self._format_line_lr("Tesoro perdido:", self._format_currency(ganado)))
                 lines.append(self._format_line_lr("Tesoro Total:", self._format_currency(total_tesoro)))
             else:
                 lines.append(self._format_line_lr("Tesoro gastado hoy:", '-' + self._format_currency(gasto_hoy)))

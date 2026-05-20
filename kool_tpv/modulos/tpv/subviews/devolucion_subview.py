@@ -232,6 +232,13 @@ class DevolucionSubView(CTkFrame):
                 except Exception:
                     pass
 
+                # Mostrar indicador MODO DEVOLUCIÓN en payment_area
+                try:
+                    from kool_tpv.modulos.tpv.button_action_mapper import _activate_payment
+                    _activate_payment(self.view, 'devolucion')
+                except Exception:
+                    pass
+
         except Exception:
             logging.exception('Error añadiendo producto al carrito desde DevolucionSubView')
 
