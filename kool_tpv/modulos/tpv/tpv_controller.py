@@ -260,7 +260,7 @@ class TpvController:
                 str(k): prepare_for_db(_dec(str(v)))
                 for k, v in resumen.get('iva_desglose', {}).items()
             }),
-            'pagado_cents': prepare_for_db(_dec(efectivo if efectivo is not None else 0)),
+            'pagado_cents': prepare_for_db(_dec(efectivo)) if efectivo is not None else prepare_for_db(_dec(resumen.get('total', '0'))),
             'cambio_cents': prepare_for_db(max(
                 _dec(0),
                 _dec(kwargs.get('importe_efectivo', 0)) + _dec(kwargs.get('importe_tarjeta', 0)) - _dec(resumen.get('total', '0'))
@@ -273,6 +273,7 @@ class TpvController:
             'forma_pago': kwargs.get('forma_pago', 'Efectivo'),
             'ticket_text_snapshot': None,
             'carrito_items': carrito_items,
+            'total_unidades': sum(int(item.get('cantidad', 0)) for item in (carrito_items or [])),
             'pagos': [],
         }
 

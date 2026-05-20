@@ -86,6 +86,29 @@ def initialize_database(db_path: str) -> None:
 		except Exception:
 			logging.exception('Error checking/updating tickets.num_ticket type')
 
+		# Migration 003: tabla devoluciones + columna total_devoluciones en clientes
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('clientes')") or [])]
+			if 'total_devoluciones' not in cols:
+				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '003_devoluciones.sql'
+				if mig_path.exists():
+					logging.info('Aplicando migración 003: devoluciones')
+					db.connection.execute('ALTER TABLE clientes ADD COLUMN total_devoluciones INTEGER DEFAULT 0')
+					db.connection.execute('''CREATE TABLE IF NOT EXISTS devoluciones (
+						id          INTEGER PRIMARY KEY AUTOINCREMENT,
+						ticket_id   INTEGER NOT NULL,
+						cliente_id  INTEGER,
+						cajero      TEXT,
+						total_cents INTEGER NOT NULL DEFAULT 0,
+						created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+						FOREIGN KEY(ticket_id)  REFERENCES tickets(id),
+						FOREIGN KEY(cliente_id) REFERENCES clientes(id)
+					)''')
+					db.connection.commit()
+					logging.info('Migración 003 aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 003')
+
 		# Validate again
 		try:
 			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table'")

@@ -176,7 +176,8 @@ CREATE TABLE IF NOT EXISTS clientes (
 	tesoro_historico REAL DEFAULT 0.0,
 	id_nivel INTEGER,
 	fidelidad_activa INTEGER DEFAULT 1,
-	fecha_alta DATETIME DEFAULT CURRENT_TIMESTAMP
+	fecha_alta DATETIME DEFAULT CURRENT_TIMESTAMP,
+	total_devoluciones INTEGER DEFAULT 0
 );
 
 -- stock_movements
@@ -255,6 +256,18 @@ CREATE TABLE IF NOT EXISTS points_movements (
 	created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 	FOREIGN KEY(cliente_id) REFERENCES clientes(id),
 	FOREIGN KEY(ticket_id) REFERENCES tickets(id)
+);
+
+-- devoluciones
+CREATE TABLE IF NOT EXISTS devoluciones (
+	id          INTEGER PRIMARY KEY AUTOINCREMENT,
+	ticket_id   INTEGER NOT NULL,
+	cliente_id  INTEGER,
+	cajero      TEXT,
+	total_cents INTEGER NOT NULL DEFAULT 0,
+	created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	FOREIGN KEY(ticket_id)  REFERENCES tickets(id),
+	FOREIGN KEY(cliente_id) REFERENCES clientes(id)
 );
 
 -- usuarios

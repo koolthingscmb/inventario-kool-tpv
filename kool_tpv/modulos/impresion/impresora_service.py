@@ -489,8 +489,10 @@ class ImpresoraService:
 
             # No prints here: generador recibe `items` con `Decimal` en pvp/total
 
-            # Generar ticket
-            ticket_text = self.ticket_generator.generate(self.config, ticket_data, items, cliente_data)
+            # Generar ticket: usar generador específico según tipo
+            is_devolucion = any(str(it.get('line_tipo', '')).lower() == 'devolucion' for it in items)
+            generator = self.devolucion_ticket_generator if is_devolucion else self.ticket_generator
+            ticket_text = generator.generate(self.config, ticket_data, items, cliente_data)
 
             # IMPRIME EN CONSOLA si está configurado
             if self.imprimir_en_consola and ticket_text:

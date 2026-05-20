@@ -56,6 +56,7 @@ class DevolucionesService:
             # Build product data for carrito: ensure pvp and tipo_iva exist
             prod_for_cart = {
                 'id': producto.get('id'),
+                'sku': producto.get('sku', ''),
                 'nombre': producto.get('nombre', ''),
                 'pvp': producto.get('pvp', producto.get('precio') or 0),
                 'tipo_iva': producto.get('tipo_iva', producto.get('iva', 21)),

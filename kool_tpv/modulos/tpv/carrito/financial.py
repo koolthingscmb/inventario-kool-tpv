@@ -15,6 +15,7 @@ def calculate_resumen(items: List[Dict], puntos_canjeados: Decimal = Decimal('0.
     total_bruto_pvp = Decimal('0.00')
     subtotal = Decimal('0.00')
     iva_desglose: Dict[int, Decimal] = {}
+    gross_pvp_by_type: Dict[int, Decimal] = {}
 
     # Calcular base e IVA por línea con quantize por unidad
     for item in (items or []):
@@ -33,7 +34,9 @@ def calculate_resumen(items: List[Dict], puntos_canjeados: Decimal = Decimal('0.
 
         iva_rate = Decimal(tipo) / Decimal('100') if tipo != 0 else Decimal('0')
         sign = Decimal('-1') if str(item.get('line_tipo', 'venta')) == 'devolucion' else Decimal('1')
-        total_bruto_pvp += _quantize(pvp_dec * Decimal(cantidad) * sign)
+        line_bruto = _quantize(pvp_dec * Decimal(cantidad) * sign)
+        total_bruto_pvp += line_bruto
+        gross_pvp_by_type[tipo] = gross_pvp_by_type.get(tipo, Decimal('0.00')) + line_bruto
 
         # Base unitaria sin IVA, cuantizar por unidad
         try:
@@ -64,26 +67,7 @@ def calculate_resumen(items: List[Dict], puntos_canjeados: Decimal = Decimal('0.
     except Exception:
         puntos = Decimal('0.00')
 
-    # Aplicar canje/desc: si solo puntos y no descuento, restar directamente
-    if not descuento and puntos > Decimal('0.00'):
-        total_bruto_original = subtotal + total_iva
-        total_after = total_bruto_original - puntos
-        if total_after < Decimal('0.00'):
-            total_after = Decimal('0.00')
-        descuento_aplicado = total_bruto_original - total_after
-        return {
-            'subtotal': subtotal,
-            'iva_desglose': iva_desglose,
-            'total_iva': total_iva,
-            'total': total_after,
-            'puntos_canjeados': puntos,
-            'descuento_euros': descuento_aplicado,
-            'descuento_tipo': None,
-            'descuento_valor': None,
-            'total_bruto_original': total_bruto_original,
-        }
-
-    # Si hay descuento (o combinación), calcular descuento bruto y repartir proporcionalmente
+    # Si hay descuento y/o puntos canjeados, calcular descuento bruto y repartir proporcionalmente
     descuento_euros = Decimal('0.00')
     descuento_tipo = None
     descuento_valor = None
@@ -105,15 +89,7 @@ def calculate_resumen(items: List[Dict], puntos_canjeados: Decimal = Decimal('0.
     total_descuento_bruto = descuento_euros + puntos
 
     if total_descuento_bruto > Decimal('0.00'):
-        gross_by_type = {}
-        for tipo, cuota in iva_desglose.items():
-            tipo_pct = Decimal(tipo)
-            try:
-                base_orig = cuota / (tipo_pct / Decimal('100')) if tipo_pct != 0 else Decimal('0.00')
-            except Exception:
-                base_orig = Decimal('0.00')
-            gross_orig = base_orig + cuota
-            gross_by_type[tipo] = gross_orig
+        gross_by_type = {tipo: gross_pvp_by_type.get(tipo, Decimal('0.00')) for tipo in iva_desglose}
 
         total_gross_abs = sum((abs(v) for v in gross_by_type.values()), Decimal('0.00'))
         if total_gross_abs == Decimal('0.00'):
