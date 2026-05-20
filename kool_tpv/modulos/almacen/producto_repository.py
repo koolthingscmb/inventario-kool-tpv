@@ -153,7 +153,7 @@ class ProductoRepository:
             p.stock_actual,
             COALESCE(c.nombre, 'Sin categoría') AS categoria,
             COALESCE(t.nombre, 'Sin tipo') AS tipo,
-            COALESCE((SELECT SUM(tl.cantidad) FROM ticket_lines tl WHERE tl.sku = p.sku), 0) AS ventas,
+            COALESCE(p.ventas_totales, 0) AS ventas,
             COALESCE(pr.pvp, 0) AS pvp,
             COALESCE(p.tipo_iva, 21) AS tipo_iva
         FROM productos p
