@@ -263,3 +263,56 @@ Objetivo: verificar que cada tipo de venta genera un ticket correcto y actualiza
 Para cada tipo se comprueba:
 - El ticket impreso / generado es correcto (totales, IVA, forma de pago, cliente)
 - La BD refleja el cambio: `tickets`, `ticket_lines`, `payments`, `clientes` (si aplica), `productos` (stock, ventas)
+
+---
+
+# Sesión de trabajo — 20 de mayo de 2026
+
+## Qué se ha hecho
+
+### 1. Fix: módulo Reset de Configuración — CTkScrollableFrame `winfo_exists()` = 0 ✅
+- `reset_ui.py`: `CTkScrollableFrame` envuelto en un `CTkFrame` externo; `get_widget()` devuelve el frame externo.
+- Solución: el `CTkScrollableFrame` necesita estar dentro del event loop de Tk antes de que `winfo_exists()` devuelva 1. El frame exterior lo garantiza.
+- Commit: `bd21eb1`
+
+### 2. Nuevas secciones en Reset de Configuración ✅
+- **FIDELIZACIÓN**: botón `Borrar points_movements` → `reset_service.borrar_points_movements()` (`DELETE FROM points_movements`).
+- **PRODUCTOS**: botón `Reset stock y ventas` → `reset_service.reset_stock_productos()` (`UPDATE productos SET stock_actual = 0, ventas_totales = 0`).
+- Archivos: `reset_ui.py` y `reset_service.py`.
+- Commit: `3a2170e`
+
+### 3. Fix: `tesoro_historico` no se decrementaba en devoluciones ✅
+- **Problema**: en `DevolucionProcessor.process()`, al revertir tesoro tras una devolución, solo se restaba de `tesoro_total`. El campo `tesoro_historico` (acumulado histórico para calcular nivel de fidelización) nunca bajaba.
+- **Fix**: el `UPDATE` ahora decrementa ambos campos simultáneamente:
+  ```sql
+  SET tesoro_total    = MAX(0, COALESCE(tesoro_total, 0) - ?),
+      tesoro_historico = MAX(0, COALESCE(tesoro_historico, 0) - ?)
+  ```
+- Archivo: `kool_tpv/modulos/ticket/devolucion_processor.py`
+- Commit: `2712b57`
+- **Nota de diseño**: si `tesoro_historico` baja, el nivel del cliente también puede bajar (usa `tesoro_historico` como base). Si en el futuro se desea que el nivel nunca baje, separar el cálculo de nivel del valor de `tesoro_historico`.
+
+### 4. Fix: columna "Ventas" en subvista Stock mostraba valor incorrecto tras devolución ✅
+- **Problema**: `ProductoRepository.listar_con_resumen()` calculaba `ventas` con una subquery:
+  ```sql
+  COALESCE((SELECT SUM(tl.cantidad) FROM ticket_lines tl WHERE tl.sku = p.sku), 0) AS ventas
+  ```
+  Esta subquery suma **todas** las líneas de ticket (ventas + devoluciones), ya que ambas se guardan con cantidad positiva en `ticket_lines`. Resultado: tras 1 venta + 1 devolución, la subquery mostraba 2 en lugar de 0.
+- **Fix**: sustituida la subquery por `COALESCE(p.ventas_totales, 0) AS ventas`. El campo `productos.ventas_totales` se actualiza correctamente en cada venta (±1) y devolución.
+- Archivo: `kool_tpv/modulos/almacen/producto_repository.py`
+- Commit: `3a549e0`
+
+### 5. Análisis completo de la vista Tickets (sin cambios — diferido) ⏳
+- La vista actual (`TicketsUI`) usa el patrón overlay (`.show()/.hide()`), NO el patrón subvista (`push_subview`).
+- Accede a la BD con **SQL raw directamente en la clase UI** — sin service ni repository para lectura.
+- `TicketRepository` existe pero solo tiene métodos de **escritura** (INSERT). No hay método de listado.
+- **Plan acordado para la sesión siguiente**:
+  1. Añadir `listar_tickets(termino)` a `TicketRepository`
+  2. Crear `kool_tpv/modulos/tpv/subviews/tickets_subview.py`
+  3. Actualizar `button_action_mapper.py`: cambiar `_show_ui(view, '_tickets_ui')` por `push_subview`
+  4. Limpiar `tpv_controller.py`: eliminar instanciación de `TicketsUI` al inicio
+  5. Eliminar archivos viejos: `actions/tickets/tickets_ui.py`, `tickets_base_ui.py`, `tickets_handler.py`, `__init__.py`
+
+## Bugs conocidos pendientes (sin tocar)
+1. **Revisión sistemática de tipos de venta** (19/05): tabla de progreso no completada; pendiente verificar venta con tarjeta, mixta, descuento, canje tesoro.
+2. **Ticket carrito visor**: no muestra bien el desglose. Aplazado por el usuario, baja prioridad.
