@@ -22,6 +22,12 @@ class ResetUI:
 
         bg = self.colors.get('background', '#000000')
         self.container = ctk.CTkScrollableFrame(parent, fg_color=bg)
+        # CTkScrollableFrame necesita update_idletasks para que winfo_exists() devuelva 1
+        # antes del primer ciclo del event loop (requerido por set_central_content)
+        try:
+            self.container.update_idletasks()
+        except Exception:
+            pass
 
         # ADVERTENCIA HEADER
         warning_frame = ctk.CTkFrame(self.container, fg_color='#D32F2F', corner_radius=8)
