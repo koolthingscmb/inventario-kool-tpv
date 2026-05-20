@@ -55,11 +55,14 @@ class DevolucionProcessor(VentaProcessor):
                     cliente_id, -puntos_revertir, 'devolucion', ticket_id, None
                 )
                 self.db.execute_query(
-                    "UPDATE clientes SET tesoro_total = MAX(0, COALESCE(tesoro_total, 0) - ?) WHERE id = ?",
-                    (puntos_revertir, cliente_id),
+                    """UPDATE clientes
+                       SET tesoro_total    = MAX(0, COALESCE(tesoro_total, 0) - ?),
+                           tesoro_historico = MAX(0, COALESCE(tesoro_historico, 0) - ?)
+                       WHERE id = ?""",
+                    (puntos_revertir, puntos_revertir, cliente_id),
                 )
                 logger.info(
-                    'DevolucionProcessor: revertidos %d céntimos-punto para cliente_id=%s (ticket_id=%s)',
+                    'DevolucionProcessor: revertidos %d céntimos-punto (tesoro_total + tesoro_historico) para cliente_id=%s (ticket_id=%s)',
                     puntos_revertir, cliente_id, ticket_id
                 )
             except Exception:
