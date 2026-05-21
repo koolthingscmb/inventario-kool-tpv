@@ -1,7 +1,17 @@
-# PROYECTO GLOBAL — Estado y notas (14–21 Mayo 2026)
+- # PROYECTO GLOBAL — Estado y notas (14–21 Mayo 2026)
 
 Fecha: 2026-05-14 → 2026-05-21
 Autor: Informe técnico/registro de sesiones
+
+## Introducción al proyecto
+
+Esta documentación ofrece un resumen técnico del proyecto `KOOL_TPV_V2` pensado para nuevos colaboradores.
+
+- **Objetivo del proyecto:** TPV (terminal punto de venta) para gestión de ventas, clientes, fidelización, impresión de tickets y gestión de inventario.
+- **Stack tecnológico:** Python 3.x, CustomTkinter para UI, SQLite para persistencia, Decimal para manejo de dinero, pytest para tests.
+- **Entradas principales:** `main.py` arranca la aplicación; la vista principal está en `kool_tpv/modulos/tpv/tpv_view_new.py` y la orquestación en `kool_tpv/modulos/tpv/tpv_controller.py`.
+- **Cómo ejecutar localmente:** activar el virtualenv y ejecutar `python main.py` desde la raíz del repo. Tests: `PYTHONPATH=. .venv/bin/python -m pytest -q`.
+- **Dónde leer primero:** `RESUMENES/PROYECTOGLOBAL.md` (este archivo), luego `kool_tpv/modulos/tpv/tpv_view_new.py`, `kool_tpv/modulos/tpv/tpv_controller.py`, `kool_tpv/modulos/tpv/tpv_service.py` y `kool_tpv/base_datos/money_adapter.py`.
 
 Resumen ejecutivo
 ------------------
