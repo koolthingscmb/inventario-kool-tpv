@@ -159,14 +159,8 @@ class TpvController:
             logger.exception('Error creando CierreUI')
             self._cierre_ui = None
 
-        # TicketsUI
-        try:
-            from kool_tpv.modulos.tpv.actions.tickets.tickets_ui import TicketsUI
-            self._tickets_ui = TicketsUI(self.view, self.db)
-            logger.debug('TicketsUI creado')
-        except Exception:
-            logger.exception('Error creando TicketsUI')
-            self._tickets_ui = None
+        # Tickets handled via SubView on demand (TicketsSubView)
+        self._tickets_ui = None
 
         # Exponer acciones en view para compatibilidad
         self.view._cliente_action = self._cliente_action
@@ -175,7 +169,6 @@ class TpvController:
         self.view._devolucion_action = self._devolucion_action
         self.view._stock_ui = self._stock_ui
         self.view._cierre_ui = self._cierre_ui
-        self.view._tickets_ui = self._tickets_ui
 
     def setup_payment_controllers(self):
         """Instanciar payment controllers usando factory."""
@@ -216,6 +209,112 @@ class TpvController:
             logger.info('Botones rebound con mapper')
         except Exception:
             logger.exception('Error rebinding botones')
+
+        # Setup global TicketDisplay (overlay) and cache
+        try:
+            self.setup_ticket_display()
+        except Exception:
+            logger.exception('Error setting up global TicketDisplay')
+
+    def setup_ticket_display(self):
+        """Crear una instancia única de TicketDisplay colocada sobre el `ticket_carrito`.
+
+        Esta instancia actúa como visor global reutilizable por subviews.
+        """
+        try:
+            # cache para tickets generados en memoria
+            self._ticket_display_cache = {}
+
+            # crear widget pero no empaquetarlo; lo mostraremos con `place` cuando haga falta
+            try:
+                from kool_tpv.utils.widgets.ticket_display import TicketDisplay
+                parent = getattr(self.view, 'right_container', None) or getattr(self.view, 'ticket_carrito', None)
+                # ensure parent is a container
+                if parent is None:
+                    parent = self.view
+                self._ticket_display = TicketDisplay(parent, module_name='tickets')
+            except Exception:
+                self._ticket_display = None
+        except Exception:
+            self._ticket_display = None
+            self._ticket_display_cache = {}
+
+    def show_ticket(self, ticket_id: int):
+        """Mostrar el ticket en el visor global. Usa caché y genera via ImpresoraService si hace falta."""
+        try:
+            if ticket_id is None:
+                return
+
+            # buscar en caché
+            content = None
+            try:
+                content = self._ticket_display_cache.get(ticket_id)
+            except Exception:
+                content = None
+
+            if not content:
+                try:
+                    if self.impresora_service:
+                        content = self.impresora_service.generar_ticket_desde_id(ticket_id)
+                    else:
+                        # fallback: instanciar localmente
+                        from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
+                        imp = ImpresoraService(db=self.db)
+                        content = imp.generar_ticket_desde_id(ticket_id)
+                except Exception:
+                    logger.exception('Error generando ticket para visor global')
+                    content = 'No se pudo generar el ticket.'
+
+                try:
+                    self._ticket_display_cache[ticket_id] = content
+                except Exception:
+                    pass
+
+            # mostrar en el visor
+            if getattr(self, '_ticket_display', None):
+                try:
+                    # place over parent to behave as overlay
+                    parent = self._ticket_display.master
+                    try:
+                        self._ticket_display.place(relx=0, rely=0, relwidth=1, relheight=1)
+                    except Exception:
+                        # fallback to pack if place fails
+                        self._ticket_display.pack(fill='both', expand=True)
+
+                    try:
+                        self._ticket_display.lift()
+                    except Exception:
+                        pass
+
+                    try:
+                        self._ticket_display.set_content(content)
+                    except Exception:
+                        logger.exception('Error seteando contenido en visor global')
+                except Exception:
+                    logger.exception('Error mostrando visor global')
+
+        except Exception:
+            logger.exception('Error en show_ticket')
+
+    def hide_ticket(self):
+        """Ocultar y limpiar el visor global."""
+        try:
+            disp = getattr(self, '_ticket_display', None)
+            if not disp:
+                return
+            try:
+                disp.place_forget()
+            except Exception:
+                try:
+                    disp.pack_forget()
+                except Exception:
+                    pass
+            try:
+                disp.clear()
+            except Exception:
+                pass
+        except Exception:
+            logger.exception('Error ocultando visor global')
 
     def _build_ticket_payload(self, db, carrito_items, resumen, efectivo, **kwargs):
         """Construir payload listo para los TicketProcessors.

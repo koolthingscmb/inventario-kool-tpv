@@ -166,7 +166,41 @@ def _open_tickets_guarded(view):
                 logger.exception('Error mostrando diálogo acceso denegado')
             return
 
-        _show_ui(view, '_tickets_ui')
+        # Crear o reutilizar la subview de tickets de forma dinámica
+        tickets_ui = getattr(view, '_tickets_subview', None)
+
+        exists = False
+        try:
+            if tickets_ui and getattr(tickets_ui, 'winfo_exists', None):
+                exists = bool(tickets_ui.winfo_exists())
+        except Exception:
+            exists = False
+
+        if not tickets_ui or not exists:
+            try:
+                from kool_tpv.modulos.tpv.subviews.tickets_subview import TicketsSubView
+                db = getattr(view, 'db', None)
+                parent = getattr(view, 'center_area', view)
+
+                tickets_ui = TicketsSubView(parent=parent, db=db, view=view)
+
+                try:
+                    view._tickets_subview = tickets_ui
+                    if getattr(view, 'controller', None):
+                        try:
+                            view.controller._tickets_subview = tickets_ui
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+            except Exception:
+                logger.exception('Error creando TicketsSubView dinámicamente')
+                return
+
+        try:
+            view.push_subview(tickets_ui, "TICKETS")
+        except Exception:
+            logger.exception('Error mostrando TicketsSubView')
     except Exception:
         logger.exception('Error abriendo TicketsUI')
 

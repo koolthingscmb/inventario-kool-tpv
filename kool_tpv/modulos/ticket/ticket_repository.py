@@ -10,6 +10,7 @@ from datetime import datetime
 
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.base_datos.money_adapter import prepare_for_db
+from kool_tpv.base_datos.money_adapter import read_from_db
 
 logger = logging.getLogger(__name__)
 
@@ -128,3 +129,59 @@ class TicketRepository:
             self.db.connection.commit()
         except Exception as e:
             logger.warning('Error insertando points_movement: %s', e)
+
+    def listar_tickets(self, termino: str = ''):
+        """Listar tickets para vistas / búsquedas.
+
+        Devuelve una lista de dicts con claves:
+        `id`, `num_ticket`, `created_at`, `total`, `cajero`, `cliente`, `forma_pago`, `ticket_text`.
+
+        `total` ya viene convertido a `Decimal` usando `read_from_db`.
+        """
+        try:
+            if termino:
+                like = f"%{termino}%"
+                query = (
+                    "SELECT id, num_ticket, created_at, total, cajero, cliente, forma_pago, ticket_text "
+                    "FROM tickets "
+                    "WHERE cliente LIKE ? OR cajero LIKE ? OR CAST(num_ticket AS TEXT) LIKE ? "
+                    "ORDER BY created_at DESC"
+                )
+                rows = self.db.fetch_all(query, (like, like, like))
+            else:
+                query = (
+                    "SELECT id, num_ticket, created_at, total, cajero, cliente, forma_pago, ticket_text "
+                    "FROM tickets "
+                    "ORDER BY created_at DESC"
+                )
+                rows = self.db.fetch_all(query, None)
+
+            results = []
+            for r in rows or []:
+                try:
+                    row = dict(r)
+                except Exception:
+                    # fallback for non-row types
+                    row = {
+                        'id': r[0],
+                        'num_ticket': r[1],
+                        'created_at': r[2],
+                        'total': r[3],
+                        'cajero': r[4],
+                        'cliente': r[5],
+                        'forma_pago': r[6],
+                        'ticket_text': r[7] if len(r) > 7 else None,
+                    }
+
+                # Convertir total (céntimos) a Decimal euros
+                try:
+                    row['total'] = read_from_db(row.get('total'))
+                except Exception:
+                    row['total'] = read_from_db(0)
+
+                results.append(row)
+
+            return results
+        except Exception:
+            logger.exception('Error listando tickets')
+            return []
