@@ -185,3 +185,57 @@ class TicketRepository:
         except Exception:
             logger.exception('Error listando tickets')
             return []
+
+    def listar_tickets_pendientes(self, termino: str = ''):
+        """Listar tickets pendientes de cierre (where cierre_id IS NULL).
+
+        Mantiene la misma firma y formato de retorno que `listar_tickets`.
+        """
+        try:
+            params = None
+            if termino:
+                like = f"%{termino}%"
+                query = (
+                    "SELECT id, num_ticket, created_at, total, cajero, cliente, forma_pago, ticket_text "
+                    "FROM tickets "
+                    "WHERE (cliente LIKE ? OR cajero LIKE ? OR CAST(num_ticket AS TEXT) LIKE ?) AND (cierre_id IS NULL) "
+                    "ORDER BY created_at DESC"
+                )
+                params = (like, like, like)
+            else:
+                query = (
+                    "SELECT id, num_ticket, created_at, total, cajero, cliente, forma_pago, ticket_text "
+                    "FROM tickets "
+                    "WHERE cierre_id IS NULL "
+                    "ORDER BY created_at DESC"
+                )
+
+            rows = self.db.fetch_all(query, params)
+
+            results = []
+            for r in rows or []:
+                try:
+                    row = dict(r)
+                except Exception:
+                    row = {
+                        'id': r[0],
+                        'num_ticket': r[1],
+                        'created_at': r[2],
+                        'total': r[3],
+                        'cajero': r[4],
+                        'cliente': r[5],
+                        'forma_pago': r[6],
+                        'ticket_text': r[7] if len(r) > 7 else None,
+                    }
+
+                try:
+                    row['total'] = read_from_db(row.get('total'))
+                except Exception:
+                    row['total'] = read_from_db(0)
+
+                results.append(row)
+
+            return results
+        except Exception:
+            logger.exception('Error listando tickets pendientes')
+            return []

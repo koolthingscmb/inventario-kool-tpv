@@ -1,4 +1,4 @@
-"""Servicio de acceso a datos para la tabla `cierres_caja`.
+"""Servicio de acceso a datos para la tabla `cierres`.
 
 Provee métodos básicos para insertar, listar y obtener cierres.
 """
@@ -18,33 +18,17 @@ class CierreService:
         self.db = db
 
     def ensure_table(self):
-        sql = '''CREATE TABLE IF NOT EXISTS "cierres_caja" (
-    "id"    INTEGER,
-    "cierre_num"    INTEGER,
-    "fecha_hora"    TIMESTAMP,
-    "cajero"    TEXT,
-    "total_ingresos"    REAL,
-    "num_ventas"    INTEGER,
-    "rango_inicio_ticket"    INTEGER,
-    "rango_fin_ticket"    INTEGER,
-    "total_efectivo"    REAL DEFAULT 0.0,
-    "total_tarjeta"    REAL DEFAULT 0.0,
-    "total_web"    REAL DEFAULT 0.0,
-    "total_devoluciones"    REAL DEFAULT 0.0,
-    "total_descuentos"    REAL DEFAULT 0.0,
-    "tesoro_ganado"    REAL DEFAULT 0.0,
-    "tesoro_gastado"    REAL DEFAULT 0.0,
-    "tesoro_total_ganado"    REAL DEFAULT 0.0,
-    "tesoro_total_gastado"    REAL DEFAULT 0.0,
-    "cierre_text"    TEXT,
-    "usuario_id"    INTEGER,
-    PRIMARY KEY("id" AUTOINCREMENT)
-)'''
         try:
+            # Sólo comprobar existencia; las migraciones deben crear el esquema.
             self.db.connect()
-            self.db.execute_query(sql)
+            row = self.db.fetch_one("SELECT name FROM sqlite_master WHERE type='table' AND name='cierres'")
+            if not row:
+                logging.error("Tabla 'cierres' no encontrada. Ejecuta las migraciones (scripts/migrate_cierres.sql)")
+                return False
+            return True
         except Exception:
-            logging.exception('Error al asegurar tabla cierres_caja')
+            logging.exception('Error comprobando existencia de la tabla cierres')
+            return False
 
     def insert_cierre(self, cierre: Dict[str, Any]) -> Optional[int]:
         """Insertar un cierre y devolver el id insertado.
@@ -59,7 +43,7 @@ class CierreService:
         ]
         values = [cierre.get(c) for c in cols]
         placeholders = ','.join(['?'] * len(cols))
-        sql = f'INSERT INTO cierres_caja ({",".join(cols)}) VALUES ({placeholders})'
+        sql = f'INSERT INTO cierres ({",".join(cols)}) VALUES ({placeholders})'
         try:
             self.db.connect()
             cur = self.db.execute_query(sql, tuple(values))
@@ -72,7 +56,7 @@ class CierreService:
             return None
 
     def obtener_cierre_por_id(self, cierre_id: int) -> Optional[Dict[str, Any]]:
-        sql = 'SELECT * FROM cierres_caja WHERE id = ?'
+        sql = 'SELECT * FROM cierres WHERE id = ?'
         try:
             self.db.connect()
             row = self.db.fetch_one(sql, (cierre_id,))
@@ -298,7 +282,7 @@ class CierreService:
                 totals = self.compute_totals_for_ticket_ids(ticket_ids)
 
                 # Obtener siguiente cierre_num
-                cur.execute('SELECT MAX(cierre_num) FROM cierres_caja')
+                cur.execute('SELECT MAX(cierre_num) FROM cierres')
                 row = cur.fetchone()
                 last = int(row[0]) if row and row[0] is not None else 0
                 cierre_num = last + 1
@@ -347,7 +331,7 @@ class CierreService:
 
                 # Build insert SQL mapping None fecha_hora to CURRENT_TIMESTAMP via explicit expression
                 insert_sql = (
-                    'INSERT INTO cierres_caja (' + ','.join(insert_cols) + ') VALUES (' + ','.join(['?'] * len(insert_cols)) + ')'
+                    'INSERT INTO cierres (' + ','.join(insert_cols) + ') VALUES (' + ','.join(['?'] * len(insert_cols)) + ')'
                 )
 
                 # If fecha_hora is None, use parameter as CURRENT_TIMESTAMP via SQL function - workaround: insert NULL then update
@@ -383,7 +367,7 @@ class CierreService:
                                     cierre_text,
                                     usuario_id,
                             )
-                            fallback_sql = 'INSERT INTO cierres_caja (' + ','.join(fallback_cols) + ') VALUES (' + ','.join(['?'] * len(fallback_cols)) + ')'
+                            fallback_sql = 'INSERT INTO cierres (' + ','.join(fallback_cols) + ') VALUES (' + ','.join(['?'] * len(fallback_cols)) + ')'
                             cur.execute(fallback_sql, fallback_values)
                             cierre_id = cur.lastrowid
                         else:
@@ -393,7 +377,7 @@ class CierreService:
 
                 # If fecha_hora should be set to current timestamp, update it
                 try:
-                    cur.execute('UPDATE cierres_caja SET fecha_hora = CURRENT_TIMESTAMP WHERE id = ?', (cierre_id,))
+                    cur.execute('UPDATE cierres SET fecha_hora = CURRENT_TIMESTAMP WHERE id = ?', (cierre_id,))
                 except Exception:
                     pass
 
@@ -430,7 +414,7 @@ class CierreService:
             where = 'WHERE fecha_hora <= ?'
             params.append(fecha_to)
 
-        sql = f'SELECT * FROM cierres_caja {where} ORDER BY fecha_hora DESC LIMIT ? OFFSET ?'
+        sql = f'SELECT * FROM cierres {where} ORDER BY fecha_hora DESC LIMIT ? OFFSET ?'
         params.extend([limit, offset])
         try:
             self.db.connect()
@@ -441,7 +425,7 @@ class CierreService:
             return []
 
     def ultimo_num_cierre(self) -> Optional[int]:
-        sql = 'SELECT MAX(cierre_num) FROM cierres_caja'
+        sql = 'SELECT MAX(cierre_num) FROM cierres'
         try:
             self.db.connect()
             row = self.db.fetch_one(sql)
@@ -455,7 +439,7 @@ class CierreService:
     def borrar_cierre(self, cierre_id: int) -> bool:
         try:
             self.db.connect()
-            self.db.execute_query('DELETE FROM cierres_caja WHERE id = ?', (cierre_id,))
+            self.db.execute_query('DELETE FROM cierres WHERE id = ?', (cierre_id,))
             return True
         except Exception:
             logging.exception('Error borrando cierre')
@@ -467,7 +451,8 @@ class CierreService:
             'id', 'cierre_num', 'fecha_hora', 'cajero', 'total_ingresos', 'num_ventas',
             'rango_inicio_ticket', 'rango_fin_ticket', 'total_efectivo', 'total_tarjeta',
             'total_web', 'total_devoluciones', 'total_descuentos', 'tesoro_ganado',
-            'tesoro_gastado', 'tesoro_total_ganado', 'tesoro_total_gastado', 'cierre_text', 'usuario_id'
+            'tesoro_gastado', 'tesoro_total_ganado', 'tesoro_total_gastado', 'cierre_text', 'usuario_id',
+            'total_base_imponible', 'total_iva', 'base_21', 'iva_21', 'base_4', 'iva_4', 'iva_desglose', 'created_at', 'printed', 'printed_at', 'printer_name'
         ]
         data = {}
         for i, col in enumerate(cols):

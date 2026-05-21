@@ -74,33 +74,33 @@ CREATE TABLE IF NOT EXISTS niveles_fidelidad (
 	producto_sku TEXT
 );
 
--- cierres_caja
-CREATE TABLE IF NOT EXISTS cierres_caja (
+-- cierres
+CREATE TABLE IF NOT EXISTS cierres (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	cierre_num INTEGER,
 	fecha_hora DATETIME,
 	cajero TEXT,
-	total_ingresos REAL,
+	total_ingresos INTEGER DEFAULT 0,
 	num_ventas INTEGER,
 	rango_inicio_ticket INTEGER,
 	rango_fin_ticket INTEGER,
-	total_efectivo REAL DEFAULT 0.0,
-	total_tarjeta REAL DEFAULT 0.0,
-	total_web REAL DEFAULT 0.0,
-	total_devoluciones REAL DEFAULT 0.0,
-	total_descuentos REAL DEFAULT 0.0,
-	tesoro_ganado REAL DEFAULT 0.0,
-	tesoro_gastado REAL DEFAULT 0.0,
-	tesoro_total_ganado REAL DEFAULT 0.0,
-	tesoro_total_gastado REAL DEFAULT 0.0,
+	total_efectivo INTEGER DEFAULT 0,
+	total_tarjeta INTEGER DEFAULT 0,
+	total_web INTEGER DEFAULT 0,
+	total_devoluciones INTEGER DEFAULT 0,
+	total_descuentos INTEGER DEFAULT 0,
+	tesoro_ganado INTEGER DEFAULT 0,
+	tesoro_gastado INTEGER DEFAULT 0,
+	tesoro_total_ganado INTEGER DEFAULT 0,
+	tesoro_total_gastado INTEGER DEFAULT 0,
 	cierre_text TEXT,
 	usuario_id INTEGER,
-	total_base_imponible REAL DEFAULT 0.0,
-	total_iva REAL DEFAULT 0.0,
-	base_21 REAL DEFAULT 0.0,
-	iva_21 REAL DEFAULT 0.0,
-	base_4 REAL DEFAULT 0.0,
-	iva_4 REAL DEFAULT 0.0,
+	total_base_imponible INTEGER DEFAULT 0,
+	total_iva INTEGER DEFAULT 0,
+	base_21 INTEGER DEFAULT 0,
+	iva_21 INTEGER DEFAULT 0,
+	base_4 INTEGER DEFAULT 0,
+	iva_4 INTEGER DEFAULT 0,
 	iva_desglose TEXT DEFAULT '{}'
 );
 

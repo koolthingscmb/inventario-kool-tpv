@@ -133,7 +133,7 @@ class ResetService:
             conn = self.db.connection
             cur = conn.cursor()
 
-            cur.execute("DELETE FROM cierres_caja")
+            cur.execute("DELETE FROM cierres")
             logging.warning('TODOS los cierres borrados')
 
             conn.commit()
@@ -386,7 +386,7 @@ class ResetService:
             cur.execute("DELETE FROM tickets")
             logging.warning('RESET COMPLETO: tickets borrados (CASCADE ticket_lines/movimientos)')
 
-            cur.execute("DELETE FROM cierres_caja")
+            cur.execute("DELETE FROM cierres")
             logging.warning('RESET COMPLETO: cierres borrados')
 
             cur.execute("DELETE FROM albaranes")

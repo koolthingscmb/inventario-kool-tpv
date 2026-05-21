@@ -5,9 +5,9 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 
-class TicketsSubView(CTkFrame):
+class CierresSubView(CTkFrame):
 
-    def __init__(self, parent, db, view=None, pending_only: bool = False):
+    def __init__(self, parent, db, view=None):
         super().__init__(parent)
 
         self.db = db
@@ -22,22 +22,15 @@ class TicketsSubView(CTkFrame):
 
         from kool_tpv.utils.factories.button_factory import ButtonFactory
 
+        # Button to trigger cierre workflow (label per spec)
         self.btn_imprimir = ButtonFactory.create_button(
             parent=self.header_frame,
-            text="IMPRIMIR",
+            text="Cierre (X)",
             style_key="mini_outline_clientes",
-            command=self._on_imprimir
+            command=self._show_pending_tickets
         )
 
-        from customtkinter import CTkEntry
-
-        self.search_entry = CTkEntry(
-            self.header_frame,
-            placeholder_text="Buscar ticket...",
-            width=300,
-        )
-        self.search_entry.pack(side="left", padx=10)
-
+        # No search entry for cierres (historical list)
         self.btn_imprimir.pack(side="right", padx=10)
 
         # Content area: left = list, right = ticket display
@@ -52,15 +45,12 @@ class TicketsSubView(CTkFrame):
         except Exception:
             pass
 
-        # Repo
+        # Service for cierres
         try:
-            from kool_tpv.modulos.ticket.ticket_repository import TicketRepository
-            self.repo = TicketRepository(self.db)
+            from kool_tpv.base_datos.cierre_service import CierreService
+            self.service = CierreService(self.db)
         except Exception:
-            self.repo = None
-
-        # Mode: if pending_only, list only tickets with cierre_id IS NULL
-        self.pending_only = bool(pending_only)
+            self.service = None
 
         # Keyboard manager
         root = self.winfo_toplevel()
@@ -80,12 +70,12 @@ class TicketsSubView(CTkFrame):
             pass
 
         columns = [
-            ("num_ticket", 80, "Nº"),
-            ("created_at", 180, "Día / Hora"),
-            ("total", 120, "Total"),
+            ("cierre_num", 80, "Nº"),
+            ("created_at", 180, "Fecha / Hora"),
+            ("total_ingresos", 120, "Total"),
+            ("num_ventas", 80, "Ventas"),
             ("cajero", 140, "Cajero"),
-            ("cliente", 180, "Cliente"),
-            ("forma_pago", 120, "Forma Pago"),
+            ("printed", 80, "Impreso"),
         ]
 
         from kool_tpv.utils.widgets.searchable_paginated_navlist import SearchablePaginatedNavList
@@ -100,9 +90,9 @@ class TicketsSubView(CTkFrame):
         self.search_list = SearchablePaginatedNavList(
             parent=self.list_frame,
             columns=columns,
-            search_function=self._buscar_tickets,
-            map_function=self._map_ticket,
-            module_name="tickets",
+            search_function=self._buscar_cierres,
+            map_function=self._map_cierre,
+            module_name="cierres",
             page_limit=50,
             on_double_click=None,
             keyboard_manager=self.keyboard_manager,
@@ -125,26 +115,28 @@ class TicketsSubView(CTkFrame):
         except Exception:
             logger.exception('Error conectando on_select del nav_list')
 
-        # Bind search entry to widget
-        self.search_entry.bind(
-            "<KeyRelease>",
-            lambda e: self.search_list.set_search_text(self.search_entry.get())
-        )
+        # No search entry to bind for cierres
 
-    def _buscar_tickets(self, texto):
+    def _buscar_cierres(self, texto):
         try:
-            if not self.repo:
+            if not self.service:
                 return []
-            if self.pending_only:
-                return self.repo.listar_tickets_pendientes(texto or '')
-            return self.repo.listar_tickets(texto or '')
+            rows = self.service.listar_cierres(limit=1000, offset=0)
+            if texto:
+                txt = texto.lower()
+                def match(r):
+                    try:
+                        return txt in str(r.get('cierre_num', '')).lower() or txt in str(r.get('cajero', '')).lower() or txt in str(r.get('cierre_text', '')).lower()
+                    except Exception:
+                        return False
+                return [r for r in rows if match(r)]
+            return rows
         except Exception:
-            logger.exception('Error buscando tickets')
+            logger.exception('Error buscando cierres')
             return []
 
-    def _map_ticket(self, detalle):
+    def _map_cierre(self, detalle):
         try:
-            # Formatear fecha
             created = detalle.get('created_at')
             created_str = created
             try:
@@ -158,46 +150,49 @@ class TicketsSubView(CTkFrame):
                 except Exception:
                     created_str = str(created)
 
-            total = detalle.get('total')
+            total = detalle.get('total_ingresos')
             try:
-                # total is a Decimal (read_from_db). Format to 2 decimals
-                total_str = f"{total:.2f}"
+                total_str = f"{float(total):.2f}"
             except Exception:
                 total_str = str(total)
 
+            printed = detalle.get('printed')
+            printed_str = 'Sí' if printed else 'No'
+
             return {
-                'ticket_id': detalle.get('id'),
-                'num_ticket': detalle.get('num_ticket'),
+                'id': detalle.get('id'),
+                'cierre_id': detalle.get('id'),
+                'cierre_num': detalle.get('cierre_num'),
                 'created_at': created_str,
-                'total': total_str,
+                'total_ingresos': total_str,
+                'num_ventas': detalle.get('num_ventas') or 0,
                 'cajero': detalle.get('cajero') or '',
-                'cliente': detalle.get('cliente') or '',
-                'forma_pago': detalle.get('forma_pago') or '',
+                'printed': printed_str,
             }
         except Exception:
-            logger.exception('Error mapeando ticket')
+            logger.exception('Error mapeando cierre')
             return {}
 
     def _on_nav_select(self, data):
         try:
-            ticket_id = None
+            cierre_id = None
             if isinstance(data, dict):
-                ticket_id = data.get('ticket_id') or data.get('id')
-            if not ticket_id:
+                cierre_id = data.get('cierre_id') or data.get('id')
+            if not cierre_id:
                 return
-            # Delegate to central controller's ticket display (uses cache there)
             try:
                 if getattr(self, 'view', None) and getattr(self.view, 'controller', None):
                     try:
-                        self.view.controller.show_ticket(ticket_id)
+                        if hasattr(self.view.controller, 'show_cierre'):
+                            self.view.controller.show_cierre(cierre_id)
+                            return
                     except Exception:
-                        logger.exception('Error pidiendo visor global al controller')
-                    return
+                        logger.exception('Error pidiendo visor de cierre al controller')
             except Exception:
-                logger.exception('Error delegando show_ticket al controller')
+                logger.exception('Error delegando show_cierre al controller')
 
         except Exception:
-            logger.exception('Error en _on_nav_select')
+            logger.exception('Error en _on_nav_select (cierres)')
 
     def _handle_power(self):
         try:
@@ -212,6 +207,106 @@ class TicketsSubView(CTkFrame):
         except Exception:
             pass
         return False
+
+    def _on_cerrar(self):
+        try:
+            # Confirmación
+            try:
+                from kool_tpv.utils.custom_dialog import show_info
+                root = self.winfo_toplevel()
+                confirmed = bool(show_info(root, 'Cerrar caja', 'Se generará un cierre con los tickets pendientes. Continuar?', confirm=True))
+            except Exception:
+                confirmed = True
+
+            if not confirmed:
+                return
+
+            # Ejecutar processor
+            try:
+                from kool_tpv.modulos.ticket.cierre_caja_processor import CierreCajaProcessor
+                proc = CierreCajaProcessor(db=self.db)
+                res = proc.process()
+            except Exception:
+                logger.exception('Error ejecutando CierreCajaProcessor')
+                res = {'success': False}
+
+            if not res or not res.get('success'):
+                try:
+                    from kool_tpv.utils.custom_dialog import show_warning
+                    root = self.winfo_toplevel()
+                    show_warning(root, 'Error', 'No se pudo crear el cierre')
+                except Exception:
+                    logger.info('No se pudo crear el cierre')
+                return
+
+            # Imprimir cierre desde UI
+            try:
+                from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
+                from kool_tpv.modulos.impresion.ticket_type import TicketType
+                imp = ImpresoraService(db=self.db, imprimir_en_consola=True)
+                cierre_data = res.get('cierre') or {}
+                cierre_data['totals'] = res.get('totals')
+                tickets = res.get('tickets') or []
+                imp.imprimir(TicketType.CIERRE, cierre_data, items=tickets)
+
+                # Marcar cierre como impreso
+                cierre_id = res.get('cierre_id')
+                try:
+                    self.db.connect()
+                    self.db.execute_query('UPDATE cierres SET printed = 1, printed_at = CURRENT_TIMESTAMP WHERE id = ?', (cierre_id,))
+                except Exception:
+                    logger.exception('Error marcando cierre impreso')
+            except Exception:
+                logger.exception('Error imprimiendo cierre desde UI')
+
+            # Refrescar lista
+            try:
+                # SearchablePaginatedNavList has no explicit refresh method; re-trigger search
+                try:
+                    self.search_list._on_search()
+                except Exception:
+                    pass
+            except Exception:
+                pass
+
+        except Exception:
+            logger.exception('Error en _on_cerrar')
+
+    def _show_pending_tickets(self):
+        try:
+            # Create or reuse a TicketsSubView configured to show pending tickets
+            try:
+                exists = False
+                pending_ui = getattr(self.view, '_pending_tickets_subview', None)
+                if pending_ui and getattr(pending_ui, 'winfo_exists', None):
+                    exists = bool(pending_ui.winfo_exists())
+            except Exception:
+                exists = False
+
+            if not pending_ui or not exists:
+                try:
+                    from kool_tpv.modulos.tpv.subviews.tickets_subview import TicketsSubView
+                    parent = getattr(self.view, 'center_area', self.view)
+                    pending_ui = TicketsSubView(parent=parent, db=self.db, view=self.view, pending_only=True)
+                    try:
+                        self.view._pending_tickets_subview = pending_ui
+                        if getattr(self.view, 'controller', None):
+                            try:
+                                self.view.controller._pending_tickets_subview = pending_ui
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+                except Exception:
+                    logger.exception('Error creando TicketsSubView(pending_only=True)')
+                    return
+
+            try:
+                self.view.push_subview(pending_ui, "TICKETS PENDIENTES")
+            except Exception:
+                logger.exception('Error mostrando TicketsSubView(pending)')
+        except Exception:
+            logger.exception('Error en _show_pending_tickets')
 
     def _on_imprimir(self):
         """Handler del botón IMPRIMIR en la subvista Tickets.
@@ -282,7 +377,7 @@ class TicketsSubView(CTkFrame):
                         # Fallback: imprimir en consola
                         try:
                             print('\n' + '='*50)
-                            print(' SIMULACIÓN IMPRESIÓN TICKET ') 
+                            print(' SIMULACIÓN IMPRESIÓN TICKET ')
                             print('='*50 + '\n')
                             print(texto)
                             print('\n' + '='*50 + '\n')

@@ -36,7 +36,7 @@ class TicketsHandler:
 		try:
 			sql = (
 				"SELECT id, fecha_hora, num_ventas, total_ingresos, rango_inicio_ticket, rango_fin_ticket "
-				"FROM cierres_caja ORDER BY fecha_hora DESC"
+				"FROM cierres ORDER BY fecha_hora DESC"
 			)
 			rows = self.db.fetch_all(sql) if self.db is not None else []
 			items: List[Dict[str, Any]] = []

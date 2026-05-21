@@ -27,7 +27,7 @@ def initialize_database(db_path: str) -> None:
 
 	try:
 		# Run migrations script if critical tables missing
-		required_tables = ["productos", "tickets", "cierres_caja"]
+		required_tables = ["productos", "tickets", "cierres"]
 
 		# Check existence
 		existing = []

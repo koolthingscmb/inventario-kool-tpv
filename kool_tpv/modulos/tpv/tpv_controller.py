@@ -150,13 +150,55 @@ class TpvController:
             logger.exception('Error creando StockSubView')
             self._stock_ui = None
 
-        # CierreUI
+        # CierreUI: provide a small adapter with `.show()` so button mapper can
+        # call `view._cierre_ui.show()`. The adapter creates the subview
+        # dynamically (same behaviour as TicketsSubView handling).
         try:
-            from kool_tpv.modulos.tpv.actions.cierres.cierre_ui import CierreUI
-            self._cierre_ui = CierreUI(self.view, self.db)
-            logger.debug('CierreUI creado')
+            class _CierresUIProxy:
+                def __init__(self, view, db):
+                    self.view = view
+                    self.db = db
+
+                def show(self):
+                    try:
+                        sub = getattr(self.view, '_cierres_subview', None)
+                        exists = False
+                        try:
+                            if sub and getattr(sub, 'winfo_exists', None):
+                                exists = bool(sub.winfo_exists())
+                        except Exception:
+                            exists = False
+
+                        if not sub or not exists:
+                            try:
+                                from kool_tpv.modulos.tpv.subviews.cierres_subview import CierresSubView
+                                parent = getattr(self.view, 'center_area', self.view)
+                                sub = CierresSubView(parent=parent, db=self.db, view=self.view)
+                            except Exception:
+                                logger.exception('Error creando CierresSubView dinámicamente')
+                                return
+
+                            try:
+                                self.view._cierres_subview = sub
+                                if getattr(self.view, 'controller', None):
+                                    try:
+                                        self.view.controller._cierres_subview = sub
+                                    except Exception:
+                                        pass
+                            except Exception:
+                                pass
+
+                        try:
+                            self.view.push_subview(sub, "CIERRES")
+                        except Exception:
+                            logger.exception('Error mostrando CierresSubView')
+                    except Exception:
+                        logger.exception('Error en CierresUIProxy.show')
+
+            self._cierre_ui = _CierresUIProxy(self.view, self.db)
+            logger.debug('Cierre UI proxy creado')
         except Exception:
-            logger.exception('Error creando CierreUI')
+            logger.exception('Error creando CierreUI proxy')
             self._cierre_ui = None
 
         # Tickets handled via SubView on demand (TicketsSubView)
