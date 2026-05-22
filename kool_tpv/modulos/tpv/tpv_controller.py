@@ -448,6 +448,9 @@ class TpvController:
                     except Exception:
                         pass
 
+            except Exception:
+                logger.exception('Error mostrando cierre en visor global')
+
         except Exception:
             logger.exception(f'Error en show_cierre({cierre_id})')
 
