@@ -152,7 +152,9 @@ class CierresSubView(CTkFrame):
 
             total = detalle.get('total_ingresos')
             try:
-                total_str = f"{float(total):.2f}"
+                from kool_tpv.base_datos.money_adapter import read_from_db
+                total_decimal = read_from_db(int(total))
+                total_str = f"{total_decimal:.2f}"
             except Exception:
                 total_str = str(total)
 
