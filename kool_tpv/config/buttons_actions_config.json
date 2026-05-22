@@ -19,4 +19,5 @@
   "imprimir": {"text": "IMPRIMIR", "style": "secondary"},
   "exportar": {"text": "EXPORTAR", "style": "info"},
   "nuevo_nivel": {"text": "NUEVO NIVEL", "style": "warning"}
+  ,"x": {"text": "X", "style": "header_neutral_small", "min_width": 40}
 }

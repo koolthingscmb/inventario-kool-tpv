@@ -332,8 +332,8 @@
     "text_token": "gray_medium",
     "border_token": "gray_medium",
     "hover_token": "gray_light",
-    "height": 32,
-    "min_width": 90,
+    "height": 22,
+    "min_width": 40,
     "corner_radius": 8,
     "border_width": 1,
     "font_size": 14

@@ -142,10 +142,25 @@ class ButtonFactory:
             params["border_width"] = style.get("border_width")
         if "corner_radius" in style and style.get("corner_radius") is not None:
             params["corner_radius"] = style.get("corner_radius")
+
+        # Respect both explicit "width" and legacy "min_width" from JSON styles.
+        # Prefer explicit "width" when present; fall back to "min_width".
+        width_val = None
         if "width" in style and style.get("width") is not None:
-            params["width"] = style.get("width")
+            width_val = style.get("width")
+        elif "min_width" in style and style.get("min_width") is not None:
+            width_val = style.get("min_width")
+        if width_val is not None:
+            params["width"] = width_val
+
+        # Height: prefer explicit "height"; fall back to "min_height" if present.
+        height_val = None
         if "height" in style and style.get("height") is not None:
-            params["height"] = style.get("height")
+            height_val = style.get("height")
+        elif "min_height" in style and style.get("min_height") is not None:
+            height_val = style.get("min_height")
+        if height_val is not None:
+            params["height"] = height_val
         if "font_size" in style and style.get("font_size") is not None:
             params["font"] = ("Roboto-SemiBold", style.get("font_size"))
 

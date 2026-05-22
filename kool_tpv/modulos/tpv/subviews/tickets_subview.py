@@ -31,14 +31,46 @@ class TicketsSubView(CTkFrame):
 
         from customtkinter import CTkEntry
 
+        # Date pickers for filtering range (desde / hasta)
+        try:
+            from kool_tpv.utils.widgets.date_picker_entry import DatePickerEntry
+            self.date_from = DatePickerEntry(self.header_frame, module_name='tickets', width=90, allow_future=False, command=lambda d=None: self._on_date_change())
+            self.date_from.pack(side="left", padx=(0, 4))
+            # small separator label
+            try:
+                from customtkinter import CTkLabel
+                self._date_range_label = CTkLabel(self.header_frame, text='a')
+                self._date_range_label.pack(side='left')
+            except Exception:
+                self._date_range_label = None
+            self.date_to = DatePickerEntry(self.header_frame, module_name='tickets', width=90, allow_future=False, command=lambda d=None: self._on_date_change())
+            self.date_to.pack(side="left", padx=(4, 6))
+            # Botón 'X' pequeño junto a los date pickers (config-driven, con fallback)
+            try:
+                from kool_tpv.utils.config_loader import create_action_button
+                self.btn_x = create_action_button(parent=self.header_frame, button_key='x', command=lambda: self._on_x_clicked(), width=40)
+                self.btn_x.pack(side='left', padx=6)
+            except Exception:
+                try:
+                    from customtkinter import CTkButton
+                    self.btn_x = CTkButton(self.header_frame, text='X', command=lambda: self._on_x_clicked(), width=40)
+                    self.btn_x.pack(side='left', padx=6)
+                except Exception:
+                    self.btn_x = None
+        except Exception:
+            self.date_from = None
+            self.date_to = None
+
         self.search_entry = CTkEntry(
             self.header_frame,
             placeholder_text="Buscar ticket...",
-            width=300,
+            width=250,
         )
         self.search_entry.pack(side="left", padx=10)
 
         self.btn_imprimir.pack(side="right", padx=10)
+
+        
 
         # Content area: left = list, right = ticket display
         self.list_frame = CTkFrame(self)
@@ -58,6 +90,13 @@ class TicketsSubView(CTkFrame):
             self.repo = TicketRepository(self.db)
         except Exception:
             self.repo = None
+
+        # Auth service (used to protect dangerous actions)
+        try:
+            from kool_tpv.utils.auth_service import AuthService
+            self.auth_service = AuthService(self.db)
+        except Exception:
+            self.auth_service = None
 
         # Mode: if pending_only, list only tickets with cierre_id IS NULL
         self.pending_only = bool(pending_only)
@@ -135,12 +174,62 @@ class TicketsSubView(CTkFrame):
         try:
             if not self.repo:
                 return []
+            # obtener lista base desde repo
             if self.pending_only:
-                return self.repo.listar_tickets_pendientes(texto or '')
-            return self.repo.listar_tickets(texto or '')
+                rows = self.repo.listar_tickets_pendientes(texto or '')
+            else:
+                rows = self.repo.listar_tickets(texto or '')
+
+            # aplicar filtro por rango de fechas si los date pickers existen
+            date_from = None
+            date_to = None
+            try:
+                if getattr(self, 'date_from', None):
+                    date_from = self.date_from.get() or None
+            except Exception:
+                date_from = None
+            try:
+                if getattr(self, 'date_to', None):
+                    date_to = self.date_to.get() or None
+            except Exception:
+                date_to = None
+
+            if (date_from or date_to) and rows:
+                filtered = []
+                for r in rows:
+                    try:
+                        created = r.get('created_at') if isinstance(r, dict) else (r[2] if len(r) > 2 else None)
+                        if not created:
+                            continue
+                        # created may be 'YYYY-MM-DD' or 'YYYY-MM-DD HH:MM:SS'
+                        created_date = str(created).split(' ')[0]
+                        if date_from and created_date < date_from:
+                            continue
+                        if date_to and created_date > date_to:
+                            continue
+                        filtered.append(r)
+                    except Exception:
+                        filtered.append(r)
+                return filtered
+
+            return rows
         except Exception:
             logger.exception('Error buscando tickets')
             return []
+
+    def _on_date_change(self):
+        try:
+            # trigger navlist refresh
+            try:
+                self.search_list._on_search()
+            except Exception:
+                # fallback: set search text to re-trigger
+                try:
+                    self.search_list.set_search_text(self.search_entry.get())
+                except Exception:
+                    pass
+        except Exception:
+            logger.exception('Error en _on_date_change')
 
     def _map_ticket(self, detalle):
         try:
@@ -295,6 +384,53 @@ class TicketsSubView(CTkFrame):
 
         except Exception:
             logger.exception('Error en _on_imprimir')
+
+    def _on_x_clicked(self):
+        try:
+            from kool_tpv.utils.custom_dialog import show_password_dialog, show_warning, show_info
+
+            parent = None
+            try:
+                parent = self.winfo_toplevel()
+            except Exception:
+                parent = None
+
+            password = show_password_dialog(
+                parent,
+                titulo="Autenticación Admin",
+                mensaje="Introduce contraseña de administrador:"
+            )
+
+            if password is None or password == "":
+                return
+
+            # Validate admin password
+            try:
+                if not (self.auth_service and self.auth_service.validate_admin_password(password)):
+                    show_warning(parent, "ACCESO DENEGADO", "Contraseña incorrecta.", callback=self._on_x_clicked)
+                    return
+            except Exception:
+                logger.exception('Error validando contraseña admin')
+                show_warning(parent, 'Error', 'Fallo validando contraseña admin')
+                return
+
+            # Authenticated: ask for explicit confirmation to close tickets
+            logger.info("Botón 'X' presionado en TicketsSubView (autenticado)")
+            try:
+                confirmed = False
+                try:
+                    confirmed = bool(show_info(parent, 'AUTENTICADO', '¿Quieres cerrar los tickets mostrados en el Display?', confirm=True))
+                except Exception:
+                    confirmed = False
+
+                if not confirmed:
+                    return
+                # If confirmed, the closing action will be handled later (placeholder)
+            except Exception:
+                logger.exception('Error mostrando confirmación tras autenticación')
+
+        except Exception:
+            logger.exception('Error en _on_x_clicked')
 
     def destroy(self):
         try:

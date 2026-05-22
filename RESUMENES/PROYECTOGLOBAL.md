@@ -90,3 +90,25 @@ Referencias y archivos modificados
 
 ---
 Fin: PROYECTOGLOBAL.md — resumen actualizado con anexo del visor global.
+
+## Nueva sección: Cierres (21/05/2026)
+
+Se ha incorporado soporte para cierres de caja (Cierre Z) y un historial asociado.
+
+- Migraciones:
+  - `scripts/migrate_cierres.sql` crea `cierres` y `cierres_lineas` (índices: fecha, num y relaciones tickets).
+
+- Flujo implementado:
+  - `CierreCajaProcessor.process()` calcula totales, crea una entrada en `cierres` y genera líneas en `cierres_lineas` por cada ticket incluido. El método es atómico y **no imprime**.
+  - La impresión del cierre la realiza la UI a través de `ImpresoraService` y `CierreTicketGenerator`.
+  - Se añadió `TicketsSubView(pending_only=True)` para mostrar tickets pendientes de cierre (filtro `cierre_id IS NULL`).
+
+- Cambios en el controlador/UI:
+  - `tpv_controller` expone un proxy `view._cierre_ui.show()` para mantener compatibilidad con el mapeo de botones existente.
+  - `CierresSubView` lista cierres y permite abrir la vista de tickets pendientes y ejecutar cierres desde la UI.
+
+- Recomendaciones para el siguiente desarrollador:
+  - Revisar `scripts/migrate_cierres.sql`, ejecutar migración en entorno de pruebas.
+  - Probar cierre completo: abrir `CIERRES` → ver pendientes → seleccionar rango/entradas → ejecutar cierre → verificar tablas `cierres` y `cierres_lineas`.
+  - Verificar que el `CierreCajaProcessor` devuelve la estructura esperada y que la UI marca `printed` sólo tras la operación de impresión.
+
