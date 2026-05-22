@@ -112,3 +112,22 @@ Se ha incorporado soporte para cierres de caja (Cierre Z) y un historial asociad
   - Probar cierre completo: abrir `CIERRES` → ver pendientes → seleccionar rango/entradas → ejecutar cierre → verificar tablas `cierres` y `cierres_lineas`.
   - Verificar que el `CierreCajaProcessor` devuelve la estructura esperada y que la UI marca `printed` sólo tras la operación de impresión.
 
+  ## Update 22/05/2026 — Cambios recientes (tickets / cierres)
+
+  Resumen breve de lo implementado hoy:
+
+  - Añadidos `date_from` y `date_to` (`date_picker_entry`) en la cabecera de la subvista `TicketsSubView` y conectados al filtrado de la lista (refresh automático al cambiar fechas).
+  - Añadido botón pequeño configurable `X` en la cabecera (config-driven) protegido por autenticación admin (flujo via `AuthService`).
+  - Flujo de cierre: al pulsar `X` y tras autenticación se construye la selección de tickets (rango si fechas, sino pendientes), se ejecuta `CierreCajaProcessor.process()` (inserta `cierres` y `cierres_lineas`) y se genera texto de cierre con `CierreTicketGenerator` para mostrar un preview en el `TicketDisplay` global. La fase de preview ejecuta `process()` (ya persiste en BD); la confirmación final solo completa UI (ocultar visor, limpiar cache y refrescar lista).
+  - Corrección crítica en `kool_tpv/modulos/ticket/cierre_caja_processor.py`: `num_ticket` ahora se inserta en `cierres_lineas` como texto (no convertir a int) para evitar pérdida/formato incorrecto.
+  - `CierresSubView._map_cierre()` ahora convierte `total_ingresos` de céntimos a euros al leer de BD (mostrar valores legibles en la UI).
+  - Añadido `TpvController.show_cierre(cierre_id)` que genera el texto del cierre desde la BD y lo muestra en el `TicketDisplay` global.
+  - Pequeño fix sintáctico en `tpv_controller.py` (try/except faltante) y varios `logger.info` de trazabilidad en el flujo de cierre.
+
+  Notas operativas:
+
+  - Los cambios están en la rama `feature/tickets-overlay` y han sido commiteados y empujados al remoto.
+  - Pendiente: mover operaciones pesadas (generación/tareas DB) a hilo de fondo para no bloquear la UI; decidir si `process()` debe ejecutarse solo tras la confirmación final (ahora se ejecuta durante preview, por intención del flujo actual).
+
+  Fin: update 22/05/2026
+
