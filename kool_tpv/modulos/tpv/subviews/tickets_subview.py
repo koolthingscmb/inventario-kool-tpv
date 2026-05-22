@@ -564,7 +564,73 @@ class TicketsSubView(CTkFrame):
                         except Exception:
                             pass
                         return
-                    # If confirmed, stop here and wait for next phase (do not execute close now)
+
+                    # If confirmed2 is True: show processing info and finalize UI state.
+                    try:
+                        try:
+                            # Inform the user we're finalizing (non-blocking info)
+                            show_info(parent, 'Procesando cierre...', 'Procesando cierre...')
+                        except Exception:
+                            pass
+
+                        cierre_id = None
+                        try:
+                            cierre_id = resultado.get('cierre_id') if resultado else None
+                        except Exception:
+                            cierre_id = None
+
+                        try:
+                            from kool_tpv.utils.custom_dialog import show_success, show_error
+                        except Exception:
+                            show_success = None
+                            show_error = None
+
+                        # Show success feedback
+                        try:
+                            if cierre_id and show_success:
+                                show_success(parent, 'Cierre realizado', f'Cierre #{cierre_id} guardado correctamente')
+                            elif show_success:
+                                show_success(parent, 'Cierre realizado', 'Cierre guardado correctamente')
+                        except Exception:
+                            logger.exception('Error mostrando show_success')
+
+                        # Hide visor and cleanup cache
+                        try:
+                            ctrl = getattr(self.view, 'controller', None)
+                            if ctrl:
+                                try:
+                                    ctrl.hide_ticket()
+                                except Exception:
+                                    pass
+                                try:
+                                    ctrl._ticket_display_cache.pop('cierre_preview', None)
+                                except Exception:
+                                    pass
+                        except Exception:
+                            logger.exception('Error limpiando visor tras cierre')
+
+                        # Refresh ticket list in UI
+                        try:
+                            try:
+                                self.search_list._on_search()
+                            except Exception:
+                                # fallback: set_search_text to trigger refresh
+                                try:
+                                    self.search_list.set_search_text(self.search_entry.get())
+                                except Exception:
+                                    pass
+                        except Exception:
+                            logger.exception('Error refrescando lista de tickets tras cierre')
+
+                        logger.info(f'Cierre ejecutado exitosamente: cierre_id={cierre_id}')
+
+                    except Exception:
+                        logger.exception('Error finalizando cierre tras confirmación')
+                        try:
+                            from kool_tpv.utils.custom_dialog import show_error
+                            show_error(parent, 'Error', 'Error finalizando el cierre')
+                        except Exception:
+                            pass
                 except Exception:
                     logger.exception('Error pidiendo confirmación final para cierre')
             except Exception:
