@@ -208,12 +208,22 @@ class CierreService:
 
             # Construir desglose IVA por tipo para uso en snapshot/BD
             try:
+                from kool_tpv.base_datos.money_adapter import read_from_db
+
                 iva_desglose = {}
                 for t, base in base_by_type.items():
                     cuota = iva_by_type.get(t, Decimal('0'))
+                    try:
+                        base_euros = float(read_from_db(int(base)))
+                    except Exception:
+                        base_euros = float(base)
+                    try:
+                        cuota_euros = float(read_from_db(int(cuota)))
+                    except Exception:
+                        cuota_euros = float(cuota)
                     iva_desglose[str(int(t))] = {
-                        'base': float(base),
-                        'iva': float(cuota)
+                        'base': base_euros,
+                        'iva': cuota_euros
                     }
                 result['iva_desglose'] = iva_desglose
             except Exception:
@@ -231,6 +241,20 @@ class CierreService:
             except Exception:
                 result['tesoro_otorgado'] = 0.0
                 result['tesoro_gastado'] = 0.0
+
+            # Convertir total_* (que estaban en céntimos) a EUROS antes de convertir Decimals a floats
+            try:
+                from kool_tpv.base_datos.money_adapter import read_from_db
+
+                result['total_ingresos'] = float(read_from_db(int(result.get('total_ingresos', 0))))
+                result['total_efectivo'] = float(read_from_db(int(result.get('total_efectivo', 0))))
+                result['total_tarjeta'] = float(read_from_db(int(result.get('total_tarjeta', 0))))
+                result['total_web'] = float(read_from_db(int(result.get('total_web', 0))))
+                result['total_devoluciones'] = float(read_from_db(int(result.get('total_devoluciones', 0))))
+                result['total_descuentos'] = float(read_from_db(int(result.get('total_descuentos', 0))))
+            except Exception:
+                # leave existing numeric values if conversion fails
+                pass
 
             # Convert Decimals to floats for caller convenience
             for k in ['total_ingresos', 'total_efectivo', 'total_tarjeta', 'total_web', 'base_21', 'iva_21', 'base_4', 'iva_4', 'total_base_imponible', 'total_iva']:
@@ -251,6 +275,30 @@ class CierreService:
             except Exception:
                 result['tesoro_otorgado'] = 0.0
                 result['tesoro_gastado'] = 0.0
+
+            # Convertir bases/ivas de céntimos→euros
+            try:
+                from kool_tpv.base_datos.money_adapter import read_from_db
+
+                # Convertir IVA y bases
+                result['base_21'] = float(read_from_db(int(result['base_21'])))
+                result['iva_21'] = float(read_from_db(int(result['iva_21'])))
+                result['base_4'] = float(read_from_db(int(result['base_4'])))
+                result['iva_4'] = float(read_from_db(int(result['iva_4'])))
+                result['total_base_imponible'] = float(read_from_db(int(result['total_base_imponible'])))
+                result['total_iva'] = float(read_from_db(int(result['total_iva'])))
+
+            except Exception:
+                logging.exception('Error convirtiendo bases/ivas de céntimos a euros')
+
+            # Diagnostic logging: show key monetary values and their types to confirm units
+            try:
+                logging.debug(
+                    "compute_totals_for_ticket_ids diagnostic: %s",
+                    {k: (result.get(k), type(result.get(k)).__name__) for k in ['total_ingresos', 'total_efectivo', 'total_tarjeta', 'total_web', 'base_21', 'iva_21']}
+                )
+            except Exception:
+                pass
 
             return result
         except Exception:
@@ -301,30 +349,33 @@ class CierreService:
                 if cierre_text is None:
                     cierre_text = f"Cierre {cierre_num} - tickets: {len(ticket_ids)}"
 
+                # Ensure monetary fields are stored as integer céntimos in DB
+                from kool_tpv.base_datos.money_adapter import prepare_for_db
+
                 values = (
                     cierre_num,
                     # fecha_hora: use SQLite CURRENT_TIMESTAMP
                     None,
                     cajero,
-                    totals.get('total_ingresos', 0.0),
+                    prepare_for_db(totals.get('total_ingresos', 0.0)),
                     totals.get('num_ventas', 0),
                     totals.get('rango_inicio_ticket'),
                     totals.get('rango_fin_ticket'),
-                    totals.get('total_efectivo', 0.0),
-                    totals.get('total_tarjeta', 0.0),
-                    totals.get('total_web', 0.0),
-                    totals.get('total_devoluciones', 0.0),
-                    totals.get('total_descuentos', 0.0),
-                    # tesoro
+                    prepare_for_db(totals.get('total_efectivo', 0.0)),
+                    prepare_for_db(totals.get('total_tarjeta', 0.0)),
+                    prepare_for_db(totals.get('total_web', 0.0)),
+                    prepare_for_db(totals.get('total_devoluciones', 0.0)),
+                    prepare_for_db(totals.get('total_descuentos', 0.0)),
+                    # tesoro (puntos) kept as numeric floats
                     totals.get('tesoro_otorgado', 0.0),
                     totals.get('tesoro_gastado', 0.0),
                     json.dumps(totals.get('iva_desglose', {}), ensure_ascii=False),
-                    totals.get('base_21', 0.0),
-                    totals.get('iva_21', 0.0),
-                    totals.get('base_4', 0.0),
-                    totals.get('iva_4', 0.0),
-                    totals.get('total_base_imponible', 0.0),
-                    totals.get('total_iva', 0.0),
+                    prepare_for_db(totals.get('base_21', 0.0)),
+                    prepare_for_db(totals.get('iva_21', 0.0)),
+                    prepare_for_db(totals.get('base_4', 0.0)),
+                    prepare_for_db(totals.get('iva_4', 0.0)),
+                    prepare_for_db(totals.get('total_base_imponible', 0.0)),
+                    prepare_for_db(totals.get('total_iva', 0.0)),
                     cierre_text,
                     usuario_id,
                 )
@@ -348,19 +399,21 @@ class CierreService:
                                     'rango_inicio_ticket', 'rango_fin_ticket', 'total_efectivo', 'total_tarjeta',
                                     'total_web', 'total_devoluciones', 'total_descuentos', 'tesoro_ganado', 'tesoro_gastado', 'iva_desglose', 'cierre_text', 'usuario_id'
                             )
+                            from kool_tpv.base_datos.money_adapter import prepare_for_db
+
                             fallback_values = (
                                 cierre_num,
                                 None,
                                 cajero,
-                                totals.get('total_ingresos', 0.0),
+                                prepare_for_db(totals.get('total_ingresos', 0.0)),
                                 totals.get('num_ventas', 0),
                                 totals.get('rango_inicio_ticket'),
                                 totals.get('rango_fin_ticket'),
-                                totals.get('total_efectivo', 0.0),
-                                totals.get('total_tarjeta', 0.0),
-                                totals.get('total_web', 0.0),
-                                0.0,
-                                0.0,
+                                prepare_for_db(totals.get('total_efectivo', 0.0)),
+                                prepare_for_db(totals.get('total_tarjeta', 0.0)),
+                                prepare_for_db(totals.get('total_web', 0.0)),
+                                0,
+                                0,
                                     totals.get('tesoro_otorgado', 0.0),
                                     totals.get('tesoro_gastado', 0.0),
                                     json.dumps(totals.get('iva_desglose', {}), ensure_ascii=False),
@@ -422,6 +475,122 @@ class CierreService:
             return [self._row_to_dict(r) for r in rows]
         except Exception:
             logging.exception('Error listando cierres')
+            return []
+
+    def get_cierre_lineas(self, cierre_id: int) -> List[Dict[str, Any]]:
+        """Obtener todas las líneas de un cierre desde cierres_lineas.
+
+        Args:
+            cierre_id: ID del cierre
+
+        Returns:
+            Lista de dicts con: id, ticket_id, ticket_num, ticket_total, forma_pago, etc.
+        """
+
+        sql = 'SELECT id, ticket_id, ticket_num, ticket_total, forma_pago, efectivo, tarjeta FROM cierres_lineas WHERE cierre_id = ? ORDER BY id ASC'
+
+        try:
+            self.db.connect()
+            rows = self.db.fetch_all(sql, (cierre_id,))
+
+            result: List[Dict[str, Any]] = []
+            for r in rows or []:
+                try:
+                    result.append({
+                        'id': r[0],
+                        'ticket_id': r[1],
+                        'ticket_num': r[2],
+                        'ticket_total': r[3],
+                        'forma_pago': r[4],
+                        'efectivo': r[5],
+                        'tarjeta': r[6],
+                    })
+                except Exception:
+                    continue
+
+            return result
+
+        except Exception:
+            logging.exception('Error obteniendo líneas de cierre')
+            return []
+
+    def get_ventas_por_forma_pago(self, cierre_id: int) -> Dict[str, int]:
+        """Devolver conteo de tickets agrupado por `forma_pago` para un cierre.
+
+        Retorna un dict: {'efectivo': 2, 'tarjeta': 3, 'web': 1}
+        """
+        try:
+            sql = 'SELECT forma_pago, COUNT(*) FROM cierres_lineas WHERE cierre_id = ? GROUP BY forma_pago'
+            self.db.connect()
+            rows = self.db.fetch_all(sql, (cierre_id,))
+            result: Dict[str, int] = {}
+            for r in rows or []:
+                try:
+                    key = (r[0] or 'UNKNOWN')
+                    result[str(key)] = int(r[1] or 0)
+                except Exception:
+                    continue
+            return result
+        except Exception:
+            logging.exception('Error obteniendo ventas por forma de pago')
+            return {}
+
+    def get_ventas_por_cajero(self, cierre_id: int) -> List[tuple]:
+        """Devuelve lista de (cajero, numero_ventas, total_euros) para un cierre.
+
+        Query sobre `tickets` y conversión de totales (céntimos -> euros) con `read_from_db`.
+        """
+        try:
+            sql = 'SELECT cajero, COUNT(*), SUM(total) FROM tickets WHERE cierre_id = ? GROUP BY cajero'
+            self.db.connect()
+            rows = self.db.fetch_all(sql, (cierre_id,))
+            result: List[tuple] = []
+            from kool_tpv.base_datos.money_adapter import read_from_db
+            for r in rows or []:
+                try:
+                    cajero = r[0] or ''
+                    cnt = int(r[1] or 0)
+                    total_cents = int(r[2] or 0)
+                    total_euros = float(read_from_db(total_cents))
+                    result.append((cajero, cnt, total_euros))
+                except Exception:
+                    continue
+            return result
+        except Exception:
+            logging.exception('Error obteniendo ventas por cajero')
+            return []
+
+    def get_ventas_por_categoria(self, cierre_id: int) -> List[tuple]:
+        """Devuelve lista de (nombre_categoria, nº_ventas, total_euros) para un cierre.
+
+        Se agrupa por categoría usando las líneas de los tickets incluidos en el cierre.
+        """
+        try:
+            sql = (
+                "SELECT c.nombre, COUNT(DISTINCT tl.ticket_id) as tickets_cnt, "
+                "COALESCE(SUM(tl.cantidad * tl.precio),0) as total_cents "
+                "FROM ticket_lines tl "
+                "JOIN productos p ON tl.producto_id = p.id "
+                "JOIN categorias c ON p.categoria = c.id "
+                "WHERE tl.ticket_id IN (SELECT ticket_id FROM cierres_lineas WHERE cierre_id = ?) "
+                "GROUP BY c.id, c.nombre"
+            )
+            self.db.connect()
+            rows = self.db.fetch_all(sql, (cierre_id,))
+            result: List[tuple] = []
+            from kool_tpv.base_datos.money_adapter import read_from_db
+            for r in rows or []:
+                try:
+                    nombre = r[0] or ''
+                    cnt = int(r[1] or 0)
+                    total_cents = int(r[2] or 0)
+                    total_euros = float(read_from_db(total_cents))
+                    result.append((nombre, cnt, total_euros))
+                except Exception:
+                    continue
+            return result
+        except Exception:
+            logging.exception('Error obteniendo ventas por categoría')
             return []
 
     def ultimo_num_cierre(self) -> Optional[int]:

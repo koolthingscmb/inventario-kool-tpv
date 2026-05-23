@@ -13,14 +13,17 @@ class AuthService:
     def __init__(self, db):
         self.db = db
 
-    def validate_admin_password(self, password: str) -> bool:
+    def validate_admin_password(self, password: str):
         """Valida contraseña contra CUALQUIER usuario con rol='admin'.
 
         Args:
             password: Contraseña en texto plano
 
         Returns:
-            True si coincide con algún admin, False si no
+            Tuple `(is_valid: bool, user_obj: dict | None)` donde `user_obj` tiene
+            al menos `id` y `nombre` del admin autenticado. Mantiene compatibilidad
+            con consumidores que solo evaluaban truthiness (devuelven tuple, que
+            es truthy cuando is_valid True).
         """
         try:
             # Hash del password ingresado
@@ -37,28 +40,30 @@ class AuthService:
 
             if not admins:
                 logging.warning('No hay usuarios admin en la BD')
-                return False
+                return (False, None)
 
             # Verificar si alguno coincide
             for admin in admins:
                 try:
                     # fetch_all devuelve tuplas/Rows: índices 0=id, 1=nombre, 2=password
                     stored_hash = admin[2] if len(admin) > 2 else ''
+                    admin_id = admin[0] if len(admin) > 0 else None
                     admin_nombre = admin[1] if len(admin) > 1 else 'desconocido'
 
                     if stored_hash and stored_hash.lower() == password_hash.lower():
+                        user_obj = {'id': admin_id, 'nombre': admin_nombre}
                         logging.info('Autenticación admin exitosa para: %s', admin_nombre)
-                        return True
+                        return (True, user_obj)
                 except Exception:
                     logging.exception('Error procesando admin en validación')
                     continue
 
             logging.warning('Password admin incorrecto')
-            return False
+            return (False, None)
 
         except Exception:
             logging.exception('Error validando password admin')
-            return False
+            return (False, None)
 
     def get_admin_users(self) -> List[Dict[str, Any]]:
         """Obtener lista de usuarios admin (sin passwords).

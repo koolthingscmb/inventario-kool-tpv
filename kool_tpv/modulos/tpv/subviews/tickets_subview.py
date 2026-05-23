@@ -404,9 +404,24 @@ class TicketsSubView(CTkFrame):
             if password is None or password == "":
                 return
 
-            # Validate admin password
+            # Validate admin password (new API returns (is_valid, user_obj))
             try:
-                if not (self.auth_service and self.auth_service.validate_admin_password(password)):
+                is_valid = False
+                admin_user = None
+                if self.auth_service:
+                    try:
+                        res = self.auth_service.validate_admin_password(password)
+                    except Exception:
+                        res = (False, None)
+
+                    if isinstance(res, tuple):
+                        is_valid, admin_user = res
+                    else:
+                        # backward-compat: if some caller still returns bool
+                        is_valid = bool(res)
+                        admin_user = None
+
+                if not is_valid:
                     show_warning(parent, "ACCESO DENEGADO", "Contraseña incorrecta.", callback=self._on_x_clicked)
                     return
             except Exception:
@@ -468,7 +483,17 @@ class TicketsSubView(CTkFrame):
                 from kool_tpv.modulos.ticket.cierre_caja_processor import CierreCajaProcessor
 
                 processor = CierreCajaProcessor(self.db)
-                resultado = processor.process(ticket_ids=ticket_ids)
+                # Pass authenticated admin info (usuario_id and cajero nombre) to processor
+                usuario_id = None
+                cajero_nombre = None
+                try:
+                    if admin_user and isinstance(admin_user, dict):
+                        usuario_id = admin_user.get('id')
+                        cajero_nombre = admin_user.get('nombre')
+                except Exception:
+                    pass
+
+                resultado = processor.process(ticket_ids=ticket_ids, usuario_id=usuario_id, cajero=cajero_nombre)
 
                 logger.info(f"Resultado proceso cierre: success={resultado.get('success')}, cierre_id={resultado.get('cierre_id')}")
 

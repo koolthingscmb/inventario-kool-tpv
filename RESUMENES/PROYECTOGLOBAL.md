@@ -131,3 +131,17 @@ Se ha incorporado soporte para cierres de caja (Cierre Z) y un historial asociad
 
   Fin: update 22/05/2026
 
+## Update 23/05/2026 — Cambios implementados (captura admin y cierre)
+
+- `AuthService.validate_admin_password` ahora devuelve una tupla `(is_valid, user_obj)` donde `user_obj` contiene al menos `id` y `nombre` del admin autenticado. Esto permite propagar identificación del autorizador en flujos sensibles sin recurrir a estado mutable.
+- `TicketsSubView` (handler del botón `X`) desempaqueta la respuesta de `validate_admin_password`, NO guarda el usuario en `self` y pasa `usuario_id` y `cajero` como parámetros locales a `CierreCajaProcessor.process(...)`.
+- `CierreCajaProcessor.process(...)` ya acepta `usuario_id` y `cajero` y los transmite a `CierreService.create_cierre_atomic(...)`, de forma que la columna `cierres.usuario_id` y `cierres.cajero` quedan pobladas al crear el cierre.
+- Se añadieron tests unitarios básicos en `tests/test_auth_service.py` para verificar la nueva API de `AuthService.validate_admin_password` (casos: éxito y fallo); los tests se ejecutaron localmente y pasan.
+- Se actualizó la UI y puntos de validación en `ConfigView` para ser compatibles con la nueva API (manteniendo compatibilidad hacia atrás con llamadas que esperen `bool`).
+- Commit y push: los cambios locales fueron commiteados y enviados al remoto (`feature/tickets-overlay` workflow). Ver log para el hash de commit.
+
+Impacto y recomendaciones:
+- Flujo más robusto: la identidad del autorizador se transmite explícitamente, evitando estados mutables en las vistas y mejorando trazabilidad/auditoría.
+- Recomendado: revisar `create_cierre_atomic` en pruebas integradas para asegurar que los valores `usuario_id` y `cajero` queden visibles en la UI (preview/imprimir) y en la BD.
+
+

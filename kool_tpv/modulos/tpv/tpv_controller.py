@@ -359,97 +359,50 @@ class TpvController:
             logger.exception('Error ocultando visor global')
 
     def show_cierre(self, cierre_id: int):
-        """Mostrar cierre en visor global (similar a show_ticket).
+        """Mostrar cierre en visor global."""
 
-        Recupera cierre y sus líneas, genera el texto con el generador
-        de cierres e inserta el resultado en el visor global.
-        """
         try:
             if cierre_id is None:
                 return
 
-            # 1) Recuperar cierre
-            cierre_row = None
-            try:
-                cierre_row = self.db.fetch_one(
-                    "SELECT id, cierre_num, created_at, cajero FROM cierres WHERE id = ?",
-                    (cierre_id,)
-                )
-            except Exception:
-                logger.exception('Error recuperando cierre de BD')
-                cierre_row = None
+            # Generar texto usando ImpresoraService
+            imp = self.impresora_service
+            if not imp:
+                from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
+                imp = ImpresoraService(db=self.db)
 
-            if not cierre_row:
+            texto = imp.generar_cierre_desde_id(cierre_id)
+
+            if not texto:
+                logger.error(f'No se pudo generar cierre {cierre_id}')
                 return
 
-            # 2) Recuperar tickets del cierre
+            # Mostrar en visor
+            cache_key = f'cierre_{cierre_id}'
             try:
-                tickets_rows = self.db.fetch_all(
-                    "SELECT id, num_ticket, ticket_total FROM cierres_lineas WHERE cierre_id = ?",
-                    (cierre_id,)
-                )
+                self._ticket_display_cache[cache_key] = texto
             except Exception:
-                logger.exception('Error recuperando líneas de cierre')
-                tickets_rows = []
-
-            # 3) Preparar datos para el generador
-            try:
-                cierre_data = {'cierre_id': cierre_row[0], 'cierre_num': cierre_row[1]}
-            except Exception:
-                cierre_data = {'cierre_id': cierre_id}
-
-            tickets = []
-            for r in (tickets_rows or []):
                 try:
-                    tid = r[0]
-                    total = r[2]
-                    tickets.append({'id': tid, 'num_ventas': 0, 'total': total})
+                    self._ticket_display_cache = {cache_key: texto}
                 except Exception:
-                    continue
+                    pass
 
-            # 4) Generar texto via ImpresoraService / CierreTicketGenerator
-            try:
-                imp = self.impresora_service
-                if not imp:
-                    from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
-                    imp = ImpresoraService(db=self.db)
-
-                config = getattr(imp, 'config', {}) or {}
-                texto = imp.cierre_ticket_generator.generate(config, cierre_data, tickets, totals={})
-            except Exception:
-                logger.exception('Error generando texto de cierre para visor')
-                return
-
-            # 5) Mostrar en visor global
-            try:
-                cache_key = f'cierre_{cierre_id}'
+            if self._ticket_display:
                 try:
-                    self._ticket_display_cache[cache_key] = texto
+                    self._ticket_display.set_content(texto)
+                except Exception:
+                    logger.exception('Error seteando contenido en _ticket_display')
+                try:
+                    self._ticket_display.place(relx=0, rely=0, relwidth=1, relheight=1)
                 except Exception:
                     try:
-                        self._ticket_display_cache = {cache_key: texto}
+                        self._ticket_display.pack(fill='both', expand=True)
                     except Exception:
                         pass
-
-                if getattr(self, '_ticket_display', None):
-                    try:
-                        self._ticket_display.set_content(texto)
-                    except Exception:
-                        logger.exception('Error seteando contenido en _ticket_display')
-                    try:
-                        self._ticket_display.place(relx=0, rely=0, relwidth=1, relheight=1)
-                    except Exception:
-                        try:
-                            self._ticket_display.pack(fill='both', expand=True)
-                        except Exception:
-                            pass
-                    try:
-                        self._ticket_display.lift()
-                    except Exception:
-                        pass
-
-            except Exception:
-                logger.exception('Error mostrando cierre en visor global')
+                try:
+                    self._ticket_display.lift()
+                except Exception:
+                    pass
 
         except Exception:
             logger.exception(f'Error en show_cierre({cierre_id})')

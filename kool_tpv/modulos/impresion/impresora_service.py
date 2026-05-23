@@ -506,6 +506,105 @@ class ImpresoraService:
             logging.exception(f'Error generando ticket desde ID {ticket_id}')
             return None
 
+    def generar_cierre_desde_id(self, cierre_id: int) -> Optional[str]:
+        """Generar ticket de cierre desde ID (similar a generar_ticket_desde_id).
+
+        Devuelve: texto formateado del cierre, o None si error.
+        """
+
+        try:
+            from kool_tpv.base_datos.cierre_service import CierreService
+            from kool_tpv.base_datos.money_adapter import read_from_db
+
+            cierre_svc = CierreService(self.db)
+
+            # 1. Obtener cierre
+            cierre_data = cierre_svc.obtener_cierre_por_id(cierre_id)
+            if not cierre_data:
+                return None
+
+            # 2. Obtener líneas
+            tickets_rows = cierre_svc.get_cierre_lineas(cierre_id)
+
+            # 3. Splitear fecha_hora
+            fecha_hora = cierre_data.get('fecha_hora') or ''
+            fecha, hora = ('', '')
+            try:
+                if ' ' in fecha_hora:
+                    fecha, hora = fecha_hora.split(' ', 1)
+                else:
+                    fecha = fecha_hora
+            except Exception:
+                fecha = str(fecha_hora)
+
+            # 4. Preparar cierre_context
+            cierre_context = {
+                'cierre_id': cierre_data.get('cierre_num'),
+                'fecha': fecha,
+                'hora': hora,
+                'usuario': cierre_data.get('cajero') or 'N/A',
+            }
+
+            # 5. Convertir tickets: céntimos → euros
+            tickets = []
+            for r in (tickets_rows or []):
+                try:
+                    ticket_total_cents = int(r.get('ticket_total') or 0)
+                    ticket_total_euros = read_from_db(ticket_total_cents)
+                    tickets.append({
+                        'id': r.get('ticket_id'),
+                        'num_ventas': 0,
+                        'total': ticket_total_euros
+                    })
+                except Exception:
+                    continue
+
+            # 6. Preparar totals
+            totals = {
+                'total_efectivo': cierre_data.get('total_efectivo', 0),
+                'total_tarjeta': cierre_data.get('total_tarjeta', 0),
+                'total_web': cierre_data.get('total_web', 0),
+                'total_descuentos': cierre_data.get('total_descuentos', 0),
+                'base_21': cierre_data.get('base_21', 0),
+                'iva_21': cierre_data.get('iva_21', 0),
+                'base_4': cierre_data.get('base_4', 0),
+                'iva_4': cierre_data.get('iva_4', 0),
+                'total_base_imponible': cierre_data.get('total_base_imponible', 0),
+                'total_iva': cierre_data.get('total_iva', 0),
+            }
+
+            # 6b. Recuperar desglose adicional (ventas x forma pago, x cajero, x categoría)
+            try:
+                ventas_por_forma_pago = cierre_svc.get_ventas_por_forma_pago(cierre_id)
+            except Exception:
+                ventas_por_forma_pago = {}
+            try:
+                ventas_por_cajero = cierre_svc.get_ventas_por_cajero(cierre_id)
+            except Exception:
+                ventas_por_cajero = []
+            try:
+                ventas_por_categoria = cierre_svc.get_ventas_por_categoria(cierre_id)
+            except Exception:
+                ventas_por_categoria = []
+
+            # Agregar estos datos a totals
+            totals['ventas_por_forma_pago'] = ventas_por_forma_pago
+            totals['ventas_por_cajero'] = ventas_por_cajero
+            totals['ventas_por_categoria'] = ventas_por_categoria
+
+            # 7. Generar
+            config = self.config
+            texto = self.cierre_ticket_generator.generate(config, cierre_context, tickets, totals=totals)
+
+            return texto
+
+        except Exception:
+            try:
+                self.logger.exception(f'Error generando cierre desde ID {cierre_id}')
+            except Exception:
+                logging.exception(f'Error generando cierre desde ID {cierre_id}')
+            return None
+
     def _imprimir_texto_generico(self, texto: str, meta: dict, printer_name: Optional[str] = None):
         """Lógica común para imprimir un texto ya generado.
 

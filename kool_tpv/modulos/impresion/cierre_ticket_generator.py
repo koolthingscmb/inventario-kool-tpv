@@ -165,7 +165,71 @@ class CierreTicketGenerator(BaseTicketGenerator):
         lines.append(self._format_line_lr('Total cierre:', self._format_currency(total_general)))
         lines.append(self.DOUBLE_DIVIDER)
 
-        
+        # Secciones adicionales: ventas por forma de pago, por cajero y por categoría
+        try:
+            # 1) Ventas por forma de pago
+            vpf = None
+            if totals and isinstance(totals, dict):
+                vpf = totals.get('ventas_por_forma_pago')
+            if vpf:
+                lines.append('VENTAS POR FORMA DE PAGO'.center(self.WIDTH))
+                try:
+                    # Mostrar claves conocidas con labels legibles
+                    ef = int(vpf.get('efectivo', 0) or 0) if isinstance(vpf, dict) else 0
+                    ta = int(vpf.get('tarjeta', 0) or 0) if isinstance(vpf, dict) else 0
+                    web = int(vpf.get('web', 0) or 0) if isinstance(vpf, dict) else 0
+                except Exception:
+                    ef = ta = web = 0
+                lines.append(self._format_line_lr('Ventas Efectivo:', str(ef)))
+                lines.append(self._format_line_lr('Ventas Tarjeta:', str(ta)))
+                lines.append(self._format_line_lr('Ventas Web:', str(web)))
+                lines.append(self.DIVIDER)
+        except Exception:
+            pass
+
+        try:
+            # 2) Ventas por cajero
+            vpc = None
+            if totals and isinstance(totals, dict):
+                vpc = totals.get('ventas_por_cajero')
+            if vpc:
+                lines.append('VENTAS POR CAJERO'.center(self.WIDTH))
+                lines.append(self.DIVIDER)
+                for entry in vpc:
+                    try:
+                        nombre = str(entry[0] or '')
+                        cnt = int(entry[1] or 0)
+                        total_val = entry[2] or 0
+                        total_str = self._format_currency(total_val)
+                        line = f"{nombre} - {cnt} - {total_str}"
+                        lines.append(line[: self.WIDTH])
+                    except Exception:
+                        continue
+                lines.append(self.DIVIDER)
+        except Exception:
+            pass
+
+        try:
+            # 3) Ventas por categoría
+            vpcat = None
+            if totals and isinstance(totals, dict):
+                vpcat = totals.get('ventas_por_categoria')
+            if vpcat:
+                lines.append('VENTAS POR CATEGORÍA'.center(self.WIDTH))
+                lines.append(self.DIVIDER)
+                for entry in vpcat:
+                    try:
+                        nombre = str(entry[0] or '')
+                        cnt = int(entry[1] or 0)
+                        total_val = entry[2] or 0
+                        total_str = self._format_currency(total_val)
+                        line = f"{nombre} - {cnt} - {total_str}"
+                        lines.append(line[: self.WIDTH])
+                    except Exception:
+                        continue
+                lines.append(self.DOUBLE_DIVIDER)
+        except Exception:
+            pass
 
         # Desglose IVA si se proporcionan totales
         try:

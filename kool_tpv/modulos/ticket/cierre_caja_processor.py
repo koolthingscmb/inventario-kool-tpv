@@ -75,7 +75,7 @@ class CierreCajaProcessor(TicketProcessor):
                 params = (
                     cierre_id,
                     int(tid),
-                    int(num_ticket) if num_ticket is not None else None,
+                    num_ticket,
                     int(total_db) if isinstance(total_db, int) else int(total_db or 0),
                     str(forma),
                     int(efectivo_db) if isinstance(efectivo_db, int) else int(efectivo_db or 0),
@@ -94,7 +94,7 @@ class CierreCajaProcessor(TicketProcessor):
                     try:
                         cur.execute(
                             'INSERT INTO cierres_lineas (cierre_id, ticket_id, ticket_num, ticket_total, forma_pago) VALUES (?, ?, ?, ?, ?)',
-                            (cierre_id, int(tid), int(num_ticket) if num_ticket is not None else None, int(total_db) if isinstance(total_db, int) else int(total_db or 0), str(forma)),
+                            (cierre_id, int(tid), num_ticket, int(total_db) if isinstance(total_db, int) else int(total_db or 0), str(forma)),
                         )
                     except Exception:
                         pass

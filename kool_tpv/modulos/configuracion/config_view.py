@@ -311,8 +311,22 @@ class ConfigView(BaseModuleView):
             if password is None or password == "":
                 return
 
-            if self.auth_service and self.auth_service.validate_admin_password(password):
-                logging.info('Config: abriendo USUARIO (autenticado)...')
+                is_valid = False
+                try:
+                    if self.auth_service:
+                        res = self.auth_service.validate_admin_password(password)
+                    else:
+                        res = (False, None)
+
+                    if isinstance(res, tuple):
+                        is_valid = bool(res[0])
+                    else:
+                        is_valid = bool(res)
+                except Exception:
+                    is_valid = False
+
+                if is_valid:
+                    logging.info('Config: abriendo USUARIO (autenticado)...')
                 # Si autenticado, mostrar UI de usuarios
                 try:
                     self.show_usuarios()
@@ -344,7 +358,21 @@ class ConfigView(BaseModuleView):
             if password is None or password == "":
                 return
 
-            if not (self.auth_service and self.auth_service.validate_admin_password(password)):
+                is_valid = False
+                try:
+                    if self.auth_service:
+                        res = self.auth_service.validate_admin_password(password)
+                    else:
+                        res = (False, None)
+
+                    if isinstance(res, tuple):
+                        is_valid = bool(res[0])
+                    else:
+                        is_valid = bool(res)
+                except Exception:
+                    is_valid = False
+
+                if not is_valid:
                 show_warning(
                     parent,
                     "ACCESO DENEGADO",
@@ -644,7 +672,21 @@ class ConfigView(BaseModuleView):
             if password is None or password == "":
                 return
 
-            if not (self.auth_service and self.auth_service.validate_admin_password(password)):
+            is_valid = False
+            try:
+                if self.auth_service:
+                    res = self.auth_service.validate_admin_password(password)
+                else:
+                    res = (False, None)
+
+                if isinstance(res, tuple):
+                    is_valid = bool(res[0])
+                else:
+                    is_valid = bool(res)
+            except Exception:
+                is_valid = False
+
+            if not is_valid:
                 show_warning(
                     parent,
                     "ACCESO DENEGADO",
