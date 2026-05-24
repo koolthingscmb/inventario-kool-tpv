@@ -6,7 +6,7 @@ Las entradas deben ser ya preparadas (p.ej. cantidades en céntimos).
 """
 import logging
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.base_datos.money_adapter import prepare_for_db
@@ -36,6 +36,13 @@ class TicketRepository:
                 cliente_val = str(cliente)
         except Exception:
             cliente_val = None
+
+        # ensure created_at is set (UTC) to avoid NULLs and mixed timezones
+        try:
+            if created_at is None:
+                created_at = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+        except Exception:
+            created_at = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
 
         cur = self.db.connection.cursor()
         insert_ticket_q = (
@@ -97,6 +104,13 @@ class TicketRepository:
 
     def insert_payment(self, ticket_id: int, metodo: str, importe_cents: int, created_at: str):
         try:
+            # ensure created_at in UTC if not provided
+            if created_at is None:
+                try:
+                    created_at = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+                except Exception:
+                    created_at = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+
             cur = self.db.connection.cursor()
             cur.execute('INSERT INTO payments (ticket_id, metodo, importe, created_at) VALUES (?, ?, ?, ?)', (ticket_id, metodo, int(importe_cents), created_at))
             self.db.connection.commit()
@@ -105,6 +119,17 @@ class TicketRepository:
 
     def insert_audit_log(self, created_at: str, ticket_id: int, usuario: Optional[str], accion: str, detalles: str):
         try:
+            # ensure created_at in UTC if not provided
+            if created_at is None:
+                try:
+                    created_at = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+                except Exception:
+                    try:
+                        from kool_tpv.utils.time_utils import now_utc_str
+                        created_at = now_utc_str()
+                    except Exception:
+                        created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
             cur = self.db.connection.cursor()
             cur.execute('INSERT INTO audit_logs (created_at, ticket_id, usuario, accion, detalles) VALUES (?, ?, ?, ?, ?)', (created_at, ticket_id, usuario, accion, detalles))
             self.db.connection.commit()
@@ -119,7 +144,10 @@ class TicketRepository:
         """
         try:
             if created_at is None:
-                created_at = datetime.now().isoformat()
+                try:
+                    created_at = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+                except Exception:
+                    created_at = datetime.now(timezone.utc).isoformat()
 
             cur = self.db.connection.cursor()
             cur.execute(

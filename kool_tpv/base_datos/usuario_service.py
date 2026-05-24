@@ -70,7 +70,11 @@ class UsuarioService:
                 return False
             password_hash = self.hash_password(password or '')
 
-            created_at = datetime.now().isoformat(sep=' ', timespec='seconds')
+            try:
+                from kool_tpv.utils.time_utils import now_utc_str
+                created_at = now_utc_str()
+            except Exception:
+                created_at = datetime.now().isoformat(sep=' ', timespec='seconds')
             query = """
                 INSERT INTO usuarios
                 (nombre, password, rol, permiso_cierre, permiso_descuento, permiso_devolucion, permiso_tickets, created_at, telefono, email)

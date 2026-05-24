@@ -358,21 +358,21 @@ class ConfigView(BaseModuleView):
             if password is None or password == "":
                 return
 
+            is_valid = False
+            try:
+                if self.auth_service:
+                    res = self.auth_service.validate_admin_password(password)
+                else:
+                    res = (False, None)
+
+                if isinstance(res, tuple):
+                    is_valid = bool(res[0])
+                else:
+                    is_valid = bool(res)
+            except Exception:
                 is_valid = False
-                try:
-                    if self.auth_service:
-                        res = self.auth_service.validate_admin_password(password)
-                    else:
-                        res = (False, None)
 
-                    if isinstance(res, tuple):
-                        is_valid = bool(res[0])
-                    else:
-                        is_valid = bool(res)
-                except Exception:
-                    is_valid = False
-
-                if not is_valid:
+            if not is_valid:
                 show_warning(
                     parent,
                     "ACCESO DENEGADO",

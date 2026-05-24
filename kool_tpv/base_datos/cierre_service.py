@@ -6,6 +6,7 @@ import logging
 from typing import Optional, List, Dict, Any
 from decimal import Decimal
 import json
+from datetime import datetime, timezone
 
 
 class CierreService:
@@ -113,7 +114,8 @@ class CierreService:
             placeholders = ','.join(['?'] * len(ticket_ids))
 
             # Obtener datos principales de tickets
-            sql_tickets = f"SELECT id, num_ticket, created_at, total, forma_pago, importe_efectivo, importe_tarjeta FROM tickets WHERE id IN ({placeholders})"
+            # include `cambio` so we can compute efectivo neto = importe_efectivo - cambio
+            sql_tickets = f"SELECT id, num_ticket, created_at, total, forma_pago, importe_efectivo, cambio, importe_tarjeta FROM tickets WHERE id IN ({placeholders})"
             self.db.connect()
             ticket_rows = self.db.fetch_all(sql_tickets, tuple(ticket_ids))
 
@@ -125,12 +127,14 @@ class CierreService:
                 except Exception:
                     pass
                 try:
-                    ef = Decimal(str(tr[5] or 0))
-                    result['total_efectivo'] += ef
+                    importe_ef = Decimal(str(tr[5] or 0))
+                    cambio = Decimal(str(tr[6] or 0))
+                    net_ef = importe_ef - cambio
+                    result['total_efectivo'] += net_ef
                 except Exception:
                     pass
                 try:
-                    ta = Decimal(str(tr[6] or 0))
+                    ta = Decimal(str(tr[7] or 0))
                     result['total_tarjeta'] += ta
                 except Exception:
                     pass
@@ -352,10 +356,14 @@ class CierreService:
                 # Ensure monetary fields are stored as integer céntimos in DB
                 from kool_tpv.base_datos.money_adapter import prepare_for_db
 
+                # Capture fecha_hora in Python to avoid relying on SQLite CURRENT_TIMESTAMP
+                # use UTC for DB timestamps
+                fecha_hora = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+
                 values = (
                     cierre_num,
-                    # fecha_hora: use SQLite CURRENT_TIMESTAMP
-                    None,
+                    # fecha_hora: captured in Python
+                    fecha_hora,
                     cajero,
                     prepare_for_db(totals.get('total_ingresos', 0.0)),
                     totals.get('num_ventas', 0),
@@ -428,11 +436,7 @@ class CierreService:
                     except Exception:
                         raise
 
-                # If fecha_hora should be set to current timestamp, update it
-                try:
-                    cur.execute('UPDATE cierres SET fecha_hora = CURRENT_TIMESTAMP WHERE id = ?', (cierre_id,))
-                except Exception:
-                    pass
+                # fecha_hora already set from Python; no DB-side CURRENT_TIMESTAMP update required
 
                 # Marcar tickets con cierre_id
                 placeholders = ','.join(['?'] * len(ticket_ids))
@@ -494,19 +498,71 @@ class CierreService:
             rows = self.db.fetch_all(sql, (cierre_id,))
 
             result: List[Dict[str, Any]] = []
+            ticket_ids = [r[1] for r in (rows or []) if r and len(r) > 1]
+
+            # Obtener recuento de líneas por ticket desde ticket_lines
+            counts: Dict[int, int] = {}
+            if ticket_ids:
+                try:
+                    placeholders = ','.join(['?'] * len(ticket_ids))
+                    q = f"SELECT ticket_id, COUNT(*) FROM ticket_lines WHERE ticket_id IN ({placeholders}) GROUP BY ticket_id"
+                    cnt_rows = self.db.fetch_all(q, tuple(ticket_ids))
+                    for cr in cnt_rows or []:
+                        try:
+                            counts[int(cr[0])] = int(cr[1] or 0)
+                        except Exception:
+                            continue
+                except Exception:
+                    logging.exception('Error contando líneas de ticket en get_cierre_lineas')
+
             for r in rows or []:
                 try:
+                    tid = r[1]
+                    num_lines = counts.get(int(tid), 0) if tid is not None else 0
                     result.append({
                         'id': r[0],
                         'ticket_id': r[1],
                         'ticket_num': r[2],
                         'ticket_total': r[3],
                         'forma_pago': r[4],
-                        'efectivo': r[5],
-                        'tarjeta': r[6],
+                        # compute efectivo neto = importe_efectivo - cambio and tarjeta from tickets
+                        'efectivo': None,
+                        'tarjeta': None,
+                        'num_lineas': num_lines,
+                        'num_ventas': num_lines,
                     })
                 except Exception:
                     continue
+
+            # Fill efectivo/tarjeta from tickets table to ensure net efectivo (importe_efectivo - cambio)
+            try:
+                if ticket_ids:
+                    placeholders = ','.join(['?'] * len(ticket_ids))
+                    q = f"SELECT id, COALESCE(importe_efectivo,0), COALESCE(cambio,0), COALESCE(importe_tarjeta,0) FROM tickets WHERE id IN ({placeholders})"
+                    ticket_rows = self.db.fetch_all(q, tuple(ticket_ids))
+                    ticket_map = {r[0]: (int(r[1] or 0), int(r[2] or 0), int(r[3] or 0)) for r in (ticket_rows or [])}
+                else:
+                    ticket_map = {}
+
+                for item in result:
+                    tid = item.get('ticket_id')
+                    if tid is None:
+                        item['efectivo'] = 0
+                        item['tarjeta'] = 0
+                        continue
+                    ief, cambio, itar = ticket_map.get(tid, (0, 0, 0))
+                    try:
+                        net_ef = int(ief) - int(cambio)
+                    except Exception:
+                        net_ef = 0
+                    try:
+                        tar_val = int(itar)
+                    except Exception:
+                        tar_val = 0
+                    item['efectivo'] = net_ef
+                    item['tarjeta'] = tar_val
+            except Exception:
+                logging.exception('Error rellenando efectivo/tarjeta en get_cierre_lineas')
 
             return result
 
@@ -520,13 +576,17 @@ class CierreService:
         Retorna un dict: {'efectivo': 2, 'tarjeta': 3, 'web': 1}
         """
         try:
-            sql = 'SELECT forma_pago, COUNT(*) FROM cierres_lineas WHERE cierre_id = ? GROUP BY forma_pago'
+            # Normalizar forma_pago a lowercase/trim y contar tickets únicos
+            sql = (
+                "SELECT LOWER(TRIM(COALESCE(forma_pago, 'UNKNOWN'))), COUNT(DISTINCT ticket_id) "
+                "FROM cierres_lineas WHERE cierre_id = ? GROUP BY LOWER(TRIM(COALESCE(forma_pago, 'UNKNOWN')))"
+            )
             self.db.connect()
             rows = self.db.fetch_all(sql, (cierre_id,))
             result: Dict[str, int] = {}
             for r in rows or []:
                 try:
-                    key = (r[0] or 'UNKNOWN')
+                    key = (r[0] or 'unknown')
                     result[str(key)] = int(r[1] or 0)
                 except Exception:
                     continue

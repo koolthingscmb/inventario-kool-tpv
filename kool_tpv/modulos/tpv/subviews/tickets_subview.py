@@ -237,9 +237,9 @@ class TicketsSubView(CTkFrame):
             created = detalle.get('created_at')
             created_str = created
             try:
+                from kool_tpv.utils.time_utils import utc_str_to_local_str
                 if created:
-                    created_dt = datetime.fromisoformat(created)
-                    created_str = created_dt.strftime('%d/%m/%Y %H:%M')
+                    created_str = utc_str_to_local_str(created, out_fmt='%d/%m/%Y %H:%M')
             except Exception:
                 try:
                     if isinstance(created, datetime):

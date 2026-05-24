@@ -16,6 +16,8 @@ Esta documentación ofrece un resumen técnico del proyecto `KOOL_TPV_V2` pensad
 Resumen ejecutivo
 ------------------
 - Estado general del TPV: UI en CustomTkinter, servicios modulares, persistencia SQLite.
+ - Timestamps en BD: almacenar en UTC (política estándar).  <-- NOTE: timestamps en BD = UTC
+ - Nuevo util de tiempo: `kool_tpv/utils/time_utils.py` con `now_utc_str()` y `utc_str_to_local_str()`; garantiza que los timestamps se guarden en UTC y se conviertan a horario local solo al mostrar.
 - Se ha abordado un problema crítico con el manejo de dinero (mezcla céntimos/Decimal) y aplicado fixes y helpers (`prepare_for_db`, `read_from_db`, `ensure_cents` en utils).
 - Se añadió una subvista profesional para `TICKETS` con paginación y búsqueda, y se re-diseñó el `TicketDisplay` como visor global (overlay) gestionado por el `TpvController`.
 
@@ -25,6 +27,7 @@ Cambios claves (resumen)
 - `kool_tpv/modulos/tpv/subviews/tickets_subview.py`: nueva subvista `TicketsSubView` con `SearchablePaginatedNavList` en la izquierda y delegación al visor central.
 - `kool_tpv/modulos/tpv/tpv_controller.py`: creado `setup_ticket_display()`, `show_ticket(ticket_id)` y `hide_ticket()`; cache en memoria por `ticket_id`.
 - `kool_tpv/utils/widgets/ticket_display.py`: widget existente reutilizado; ahora usado como overlay gestionado por el controlador.
+ - Widget añadido / centralizado: `TicketDisplay` (CTkFrame) usado como overlay global por `TpvController` — facilita previews (tickets/cierres) y evita duplicación de UI.
 - Tests: añadido `tests/test_ticket_repository_listar_tickets.py` (DB :memory:) — verde.
 
 Detalles: `TicketsSubView` (qué y por qué)

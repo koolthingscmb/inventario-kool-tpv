@@ -340,13 +340,23 @@ class ImpresoraService:
                     'total': total_linea,
                 })
 
-            # Separar fecha y hora
-            fecha_completa = ticket_row[2] or ''
-            if ' ' in fecha_completa:
-                fecha, hora = fecha_completa.split(' ', 1)
-            else:
-                fecha = fecha_completa
-                hora = ''
+            # Separar fecha y hora (convertir UTC -> hora local para visualización)
+            try:
+                from kool_tpv.utils.time_utils import utc_str_to_local_str
+                fecha_completa_raw = ticket_row[2] or ''
+                fecha_completa = utc_str_to_local_str(fecha_completa_raw)
+                if ' ' in fecha_completa:
+                    fecha, hora = fecha_completa.split(' ', 1)
+                else:
+                    fecha = fecha_completa
+                    hora = ''
+            except Exception:
+                fecha_completa = ticket_row[2] or ''
+                if ' ' in fecha_completa:
+                    fecha, hora = fecha_completa.split(' ', 1)
+                else:
+                    fecha = fecha_completa
+                    hora = ''
 
             # Si hay tesoro gastado, prorratearlo entre tipos de IVA y ajustar bases/IVA
             try:
@@ -526,16 +536,26 @@ class ImpresoraService:
             # 2. Obtener líneas
             tickets_rows = cierre_svc.get_cierre_lineas(cierre_id)
 
-            # 3. Splitear fecha_hora
-            fecha_hora = cierre_data.get('fecha_hora') or ''
-            fecha, hora = ('', '')
+            # 3. Splitear fecha_hora (convertir UTC -> hora local para visualización)
             try:
-                if ' ' in fecha_hora:
-                    fecha, hora = fecha_hora.split(' ', 1)
+                from kool_tpv.utils.time_utils import utc_str_to_local_str
+                fecha_hora_raw = cierre_data.get('fecha_hora') or ''
+                fecha_hora_local = utc_str_to_local_str(fecha_hora_raw)
+                fecha, hora = ('', '')
+                if ' ' in fecha_hora_local:
+                    fecha, hora = fecha_hora_local.split(' ', 1)
                 else:
-                    fecha = fecha_hora
+                    fecha = fecha_hora_local
             except Exception:
-                fecha = str(fecha_hora)
+                fecha_hora = cierre_data.get('fecha_hora') or ''
+                fecha, hora = ('', '')
+                try:
+                    if ' ' in fecha_hora:
+                        fecha, hora = fecha_hora.split(' ', 1)
+                    else:
+                        fecha = fecha_hora
+                except Exception:
+                    fecha = str(fecha_hora)
 
             # 4. Preparar cierre_context
             cierre_context = {
@@ -551,9 +571,11 @@ class ImpresoraService:
                 try:
                     ticket_total_cents = int(r.get('ticket_total') or 0)
                     ticket_total_euros = read_from_db(ticket_total_cents)
+                    # Use the num_lineas / num_ventas passed by get_cierre_lineas
+                    num_ventas = int(r.get('num_ventas') or r.get('num_lineas') or 0)
                     tickets.append({
                         'id': r.get('ticket_id'),
-                        'num_ventas': 0,
+                        'num_ventas': num_ventas,
                         'total': ticket_total_euros
                     })
                 except Exception:

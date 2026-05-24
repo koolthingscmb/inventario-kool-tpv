@@ -412,7 +412,11 @@ class TpvController:
 
         Convierte importes a céntimos y prepara la estructura esperada.
         """
-        created_at = datetime.now().isoformat(sep=' ', timespec='seconds')
+        try:
+            from kool_tpv.utils.time_utils import now_utc_str
+            created_at = now_utc_str()
+        except Exception:
+            created_at = datetime.now().isoformat(sep=' ', timespec='seconds')
         num_ticket = kwargs.get('num_ticket')
         # safe Decimal extraction
         def _dec(v, default='0'):

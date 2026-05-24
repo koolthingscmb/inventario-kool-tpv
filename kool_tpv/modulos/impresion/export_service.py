@@ -70,7 +70,12 @@ class ExportService:
                 w.writerow(['campo', 'valor'])
                 w.writerow(['cierre_id', cierre.get('id')])
                 w.writerow(['cierre_num', cierre.get('cierre_num')])
-                w.writerow(['fecha_hora', cierre.get('fecha_hora')])
+                try:
+                    from kool_tpv.utils.time_utils import utc_str_to_local_str
+                    fh = utc_str_to_local_str(cierre.get('fecha_hora'))
+                except Exception:
+                    fh = cierre.get('fecha_hora')
+                w.writerow(['fecha_hora', fh])
                 w.writerow(['cajero', cierre.get('cajero')])
                 w.writerow(['total_ingresos', cierre.get('total_ingresos')])
                 w.writerow(['num_ventas', cierre.get('num_ventas')])
@@ -84,7 +89,12 @@ class ExportService:
                 w.writerow(header)
                 for r in tickets or []:
                     try:
-                        w.writerow([r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8]])
+                        try:
+                            from kool_tpv.utils.time_utils import utc_str_to_local_str
+                            created = utc_str_to_local_str(r[8])
+                        except Exception:
+                            created = r[8]
+                        w.writerow([r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], created])
                     except Exception:
                         logging.exception('Error escribiendo fila ticket en CSV')
 
