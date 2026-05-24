@@ -147,4 +147,32 @@ Impacto y recomendaciones:
 - Flujo más robusto: la identidad del autorizador se transmite explícitamente, evitando estados mutables en las vistas y mejorando trazabilidad/auditoría.
 - Recomendado: revisar `create_cierre_atomic` en pruebas integradas para asegurar que los valores `usuario_id` y `cajero` queden visibles en la UI (preview/imprimir) y en la BD.
 
+## Update 24/05/2026 — Agregaciones y servicios de reporte
+
+- Nueva agregación y servicios añadidos (resumen):
+  - Repositorios nuevos/extendidos:
+    - `kool_tpv/modulos/almacen/producto_repository.py`: `get_ventas_por_producto(ticket_ids, limit=100)`
+    - `kool_tpv/modulos/almacen/categoria_repository.py`: `get_ventas_por_categoria(ticket_ids)` (nuevo)
+    - `kool_tpv/modulos/almacen/tipo_repository.py`: `get_ventas_por_tipo(ticket_ids)` (nuevo)
+  - Servicios delegadores añadidos:
+    - `kool_tpv/base_datos/producto_service.py`: `get_ventas_por_producto(ticket_ids, limit=100)`
+    - `kool_tpv/base_datos/categoria_service.py`: `get_ventas_por_categoria(ticket_ids)`
+    - `kool_tpv/base_datos/tipo_service.py`: `get_ventas_por_tipo(ticket_ids)`
+
+- Motivo: preparar un `ReporteCierreService` que construya un `totals` completo
+  (incluyendo `productos` y `tipos`) para `CierreTicketGenerator` sin exponer SQL
+  al generador.
+
+- Cambios de infraestructura aplicados (recordatorio):
+  - Política: `Timestamps en BD = UTC` (util `kool_tpv/utils/time_utils.py`).
+  - Fix en cierres: `compute_totals_for_ticket_ids()` ahora calcula `total_efectivo` NETO (importe_efectivo - cambio).
+  - Ajustes en `CierreCajaProcessor` y `get_cierre_lineas()` para mantener coherencia céntimos↔euros en impresión y BD.
+
+- Siguientes pasos recomendados:
+  1. Implementar `kool_tpv/modulos/reportes/reporte_cierre_service.py` que use repos existentes y devuelva `totals` con `productos` y `tipos`.
+  2. Inyectar `totals['productos']` y `totals['tipos']` en `ImpresoraService.generar_cierre_desde_id()` antes de llamar a `CierreTicketGenerator.generate(...)`.
+  3. Añadir tests unitarios para las agregaciones y test de integración que verifique inserción correcta en `cierres` y `cierres_lineas`.
+
+Fin: update 24/05/2026
+
 
