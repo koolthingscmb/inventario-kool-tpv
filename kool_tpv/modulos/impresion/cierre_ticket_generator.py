@@ -11,15 +11,30 @@ from kool_tpv.modulos.impresion.base_ticket_generator import BaseTicketGenerator
 class CierreTicketGenerator(BaseTicketGenerator):
     """Generador de tickets de cierre.
 
-    Método `generate` espera:
-      - config: dict con datos del comercio (nombre_negocio, direccion, nif, pie_texto)
-      - cierre_data: dict con 'fecha', 'hora', 'usuario', 'cierre_id' (opcionales)
-      - tickets: lista de dicts con {'id', 'num_ventas', 'total'}
+    Contrato:
+      - `config`: dict con datos del comercio (nombre_negocio, direccion, nif, pie_texto)
+      - `cierre_data`: dict con 'fecha', 'hora', 'usuario', 'cierre_id' (opcionales)
+      - `tickets`: lista de dicts con {'id', 'num_ventas', 'total'} donde `total` debe ser
+        un `Decimal` expresando euros (no float). El generador trabaja internamente con
+        `Decimal` para todos los importes.
+      - `totals` (opcional): dict con totales y desgloses; sus valores monetarios
+        también deben ser `Decimal` (euros). El generador convertirá entradas no-Decimal
+        cuando sea posible, pero la interfaz preferida es `Decimal`.
 
     Devuelve el texto completo del ticket de cierre.
     """
 
     def generate(self, config, cierre_data, tickets, totals: dict = None):
+        from decimal import Decimal as _D
+
+        def _to_decimal(v):
+            if isinstance(v, Decimal):
+                return v
+            try:
+                return _D(str(v))
+            except Exception:
+                return _D('0')
+
         lines = []
 
         # Construir contexto para placeholders de cierre
@@ -47,11 +62,6 @@ class CierreTicketGenerator(BaseTicketGenerator):
         lines.append('CIERRE DE CAJA'.center(self.WIDTH))
         lines.append(self.DIVIDER)
 
-        fecha = cierre_data.get('fecha', '') if cierre_data else ''
-        hora = cierre_data.get('hora', '') if cierre_data else ''
-        usuario = cierre_data.get('usuario', '') if cierre_data else ''
-        cierre_id = cierre_data.get('cierre_id', '') if cierre_data else ''
-
         info = f"{fecha} {hora}  Usuario: {usuario}"
         if cierre_id:
             info = f"{info}  ID:{cierre_id}"
@@ -72,11 +82,11 @@ class CierreTicketGenerator(BaseTicketGenerator):
             try:
                 tid = str(t.get('id') or '')
                 nventas = int(t.get('num_ventas') or 0)
-                total = Decimal(str(t.get('total') or 0))
+                total = _to_decimal(t.get('total', _D('0')))
             except Exception:
                 tid = str(t.get('id', ''))
                 nventas = 0
-                total = Decimal('0')
+                total = _to_decimal(0)
 
             total_general += total
             total_ventas += nventas
@@ -136,20 +146,20 @@ class CierreTicketGenerator(BaseTicketGenerator):
         # Mostrar totales por forma de pago si se proporcionan en `totals`
         try:
             if totals and isinstance(totals, dict):
-                te = totals.get('total_efectivo', 0) or 0
-                tt = totals.get('total_tarjeta', 0) or 0
-                tw = totals.get('total_web', 0) or 0
-                if te and float(te) != 0:
+                te = _to_decimal(totals.get('total_efectivo', _D('0')))
+                tt = _to_decimal(totals.get('total_tarjeta', _D('0')))
+                tw = _to_decimal(totals.get('total_web', _D('0')))
+                if te != _D('0'):
                     lines.append(self._format_line_lr('Total Efectivo:', self._format_currency(te)))
-                if tt and float(tt) != 0:
+                if tt != _D('0'):
                     lines.append(self._format_line_lr('Total Tarjeta:', self._format_currency(tt)))
-                if tw and float(tw) != 0:
+                if tw != _D('0'):
                     lines.append(self._format_line_lr('Total Web:', self._format_currency(tw)))
                 # Mostrar total de descuentos si existe
-                td = totals.get('total_descuentos', 0) if isinstance(totals, dict) else 0
+                td = totals.get('total_descuentos', _D('0')) if isinstance(totals, dict) else _D('0')
                 try:
-                    if td and float(td) != 0:
-                        lines.append(self._format_line_lr('Total Descuentos:', f"-{self._format_currency(td)}"))
+                    if _to_decimal(td) != _D('0'):
+                        lines.append(self._format_line_lr('Total Descuentos:', f"-{self._format_currency(_to_decimal(td))}"))
                 except Exception:
                     pass
         except Exception:
@@ -157,8 +167,8 @@ class CierreTicketGenerator(BaseTicketGenerator):
 
         # Mostrar importe total de devoluciones (negativo) si existen devoluciones
         try:
-            if devol_count and float(devol_sum) != 0:
-                lines.append(self._format_line_lr('Total Devoluciones:', f"-{self._format_currency(abs(devol_sum))}"))
+            if devol_count and _to_decimal(devol_sum) != _D('0'):
+                lines.append(self._format_line_lr('Total Devoluciones:', f"-{self._format_currency(_to_decimal(abs(devol_sum)))}"))
         except Exception:
             pass
 
@@ -200,7 +210,7 @@ class CierreTicketGenerator(BaseTicketGenerator):
                         nombre = str(entry[0] or '')
                         cnt = int(entry[1] or 0)
                         total_val = entry[2] or 0
-                        total_str = self._format_currency(total_val)
+                        total_str = self._format_currency(_to_decimal(total_val))
                         line = f"{nombre} - {cnt} - {total_str}"
                         lines.append(line[: self.WIDTH])
                     except Exception:
@@ -222,7 +232,7 @@ class CierreTicketGenerator(BaseTicketGenerator):
                         nombre = str(entry[0] or '')
                         cnt = int(entry[1] or 0)
                         total_val = entry[2] or 0
-                        total_str = self._format_currency(total_val)
+                        total_str = self._format_currency(_to_decimal(total_val))
                         line = f"{nombre} - {cnt} - {total_str}"
                         lines.append(line[: self.WIDTH])
                     except Exception:
@@ -239,18 +249,18 @@ class CierreTicketGenerator(BaseTicketGenerator):
                 if 'base_21' in totals or 'iva_21' in totals:
                     base21 = totals.get('base_21', 0)
                     iva21 = totals.get('iva_21', 0)
-                    lines.append(self._format_line_lr('Base 21%:', self._format_currency(base21)))
-                    lines.append(self._format_line_lr('IVA 21%:', self._format_currency(iva21)))
+                    lines.append(self._format_line_lr('Base 21%:', self._format_currency(_to_decimal(base21))))
+                    lines.append(self._format_line_lr('IVA 21%:', self._format_currency(_to_decimal(iva21))))
                 if 'base_4' in totals or 'iva_4' in totals:
                     base4 = totals.get('base_4', 0)
                     iva4 = totals.get('iva_4', 0)
-                    lines.append(self._format_line_lr('Base 4%:', self._format_currency(base4)))
-                    lines.append(self._format_line_lr('IVA 4%:', self._format_currency(iva4)))
+                    lines.append(self._format_line_lr('Base 4%:', self._format_currency(_to_decimal(base4))))
+                    lines.append(self._format_line_lr('IVA 4%:', self._format_currency(_to_decimal(iva4))))
                 # totales
                 if 'total_base_imponible' in totals:
-                    lines.append(self._format_line_lr('Base Imponible:', self._format_currency(totals.get('total_base_imponible', 0))))
+                    lines.append(self._format_line_lr('Base Imponible:', self._format_currency(_to_decimal(totals.get('total_base_imponible', 0)))))
                 if 'total_iva' in totals:
-                    lines.append(self._format_line_lr('Total IVA:', self._format_currency(totals.get('total_iva', 0))))
+                    lines.append(self._format_line_lr('Total IVA:', self._format_currency(_to_decimal(totals.get('total_iva', 0)))))
                 lines.append(self.DOUBLE_DIVIDER)
         except Exception:
             pass
@@ -268,7 +278,7 @@ class CierreTicketGenerator(BaseTicketGenerator):
                         nombre = str(p[0] or '')
                         tickets_cnt = int(p[1] or 0)
                         uds = int(p[2] or 0)
-                        total_p = self._format_currency(p[3] or 0)
+                        total_p = self._format_currency(_to_decimal(p[3] or 0))
                         left = f"{nombre}: {tickets_cnt} ({uds}uds)"
                         # pad so total lines up on the right
                         space = self.WIDTH - len(left) - len(total_p)
@@ -299,7 +309,7 @@ class CierreTicketGenerator(BaseTicketGenerator):
                         nombre = str(c[0] or '')
                         tickets_cnt = int(c[1] or 0)
                         uds = int(c[2] or 0)
-                        total_c = self._format_currency(c[3] or 0)
+                        total_c = self._format_currency(_to_decimal(c[3] or 0))
                         left = f"{nombre}: {tickets_cnt} ({uds}uds)"
                         space = self.WIDTH - len(left) - len(total_c)
                         if space < 1:
@@ -328,7 +338,7 @@ class CierreTicketGenerator(BaseTicketGenerator):
                         nombre = str(t[0] or '')
                         tickets_cnt = int(t[1] or 0)
                         uds = int(t[2] or 0)
-                        total_t = self._format_currency(t[3] or 0)
+                        total_t = self._format_currency(_to_decimal(t[3] or 0))
                         left = f"{nombre}: {tickets_cnt} ({uds}uds)"
                         space = self.WIDTH - len(left) - len(total_t)
                         if space < 1:

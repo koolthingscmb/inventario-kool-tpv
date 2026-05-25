@@ -113,28 +113,33 @@ class CierreService:
             # Prepare placeholders
             placeholders = ','.join(['?'] * len(ticket_ids))
 
-            # Obtener datos principales de tickets
-            # include `cambio` so we can compute efectivo neto = importe_efectivo - cambio
+            # Obtener datos principales de tickets (totales y pagos en céntimos)
             sql_tickets = f"SELECT id, num_ticket, created_at, total, forma_pago, importe_efectivo, cambio, importe_tarjeta FROM tickets WHERE id IN ({placeholders})"
             self.db.connect()
             ticket_rows = self.db.fetch_all(sql_tickets, tuple(ticket_ids))
 
+            from kool_tpv.base_datos.money_adapter import read_from_db
+
             nums = []
             for tr in ticket_rows or []:
                 try:
-                    total = Decimal(str(tr[3] or 0))
-                    result['total_ingresos'] += total
+                    total_cents = int(tr[3] or 0)
+                    total_euros = read_from_db(total_cents)
+                    result['total_ingresos'] += total_euros
                 except Exception:
                     pass
                 try:
-                    importe_ef = Decimal(str(tr[5] or 0))
-                    cambio = Decimal(str(tr[6] or 0))
+                    importe_ef_cents = int(tr[5] or 0)
+                    cambio_cents = int(tr[6] or 0)
+                    importe_ef = read_from_db(importe_ef_cents)
+                    cambio = read_from_db(cambio_cents)
                     net_ef = importe_ef - cambio
                     result['total_efectivo'] += net_ef
                 except Exception:
                     pass
                 try:
-                    ta = Decimal(str(tr[7] or 0))
+                    ta_cents = int(tr[7] or 0)
+                    ta = read_from_db(ta_cents)
                     result['total_tarjeta'] += ta
                 except Exception:
                     pass
@@ -142,7 +147,8 @@ class CierreService:
                 try:
                     forma = (tr[4] or '').lower() if tr[4] else ''
                     if forma and 'web' in forma:
-                        result['total_web'] += Decimal(str(tr[3] or 0))
+                        total_cents = int(tr[3] or 0)
+                        result['total_web'] += read_from_db(total_cents)
                 except Exception:
                     pass
                 nums.append(tr[1])
@@ -167,7 +173,10 @@ class CierreService:
             for ln in lines or []:
                 try:
                     cantidad = Decimal(str(ln[1] or 0))
-                    precio = Decimal(str(ln[2] or 0))
+                    # precio stored in DB as cents -> convert to euros (Decimal)
+                    precio_cents = int(ln[2] or 0)
+                    from kool_tpv.base_datos.money_adapter import read_from_db as _r
+                    precio = _r(precio_cents)
                     tipo_iva = int(float(ln[3])) if ln[3] is not None else 21
                     line_tipo = ln[4] if len(ln) > 4 else 'venta'
                     # determine effective gross: precio already can be negative (discounts)
@@ -197,7 +206,7 @@ class CierreService:
                 except Exception:
                     logging.exception('Error procesando linea ticket en compute_totals_for_ticket_ids')
 
-            # Mapear a campos concretos
+            # Mapear a campos concretos (mantener Decimal en memoria)
             result['base_21'] = base_by_type.get(21, Decimal('0'))
             result['iva_21'] = iva_by_type.get(21, Decimal('0'))
             result['base_4'] = base_by_type.get(4, Decimal('0'))
@@ -206,104 +215,41 @@ class CierreService:
             result['total_base_imponible'] = sum(base_by_type.values())
             result['total_iva'] = sum(iva_by_type.values())
 
-            # totals for discounts and devoluciones
-            result['total_descuentos'] = float(total_descuentos)
-            result['total_devoluciones'] = float(total_devoluciones)
+            # totals for discounts and devoluciones (Decimal)
+            result['total_descuentos'] = total_descuentos
+            result['total_devoluciones'] = total_devoluciones
 
-            # Construir desglose IVA por tipo para uso en snapshot/BD
-            try:
-                from kool_tpv.base_datos.money_adapter import read_from_db
-
-                iva_desglose = {}
-                for t, base in base_by_type.items():
-                    cuota = iva_by_type.get(t, Decimal('0'))
-                    try:
-                        base_euros = float(read_from_db(int(base)))
-                    except Exception:
-                        base_euros = float(base)
-                    try:
-                        cuota_euros = float(read_from_db(int(cuota)))
-                    except Exception:
-                        cuota_euros = float(cuota)
-                    iva_desglose[str(int(t))] = {
-                        'base': base_euros,
-                        'iva': cuota_euros
-                    }
-                result['iva_desglose'] = iva_desglose
-            except Exception:
-                result['iva_desglose'] = {}
+            # Construir desglose IVA por tipo para uso en snapshot/BD (mantener Decimal)
+            iva_desglose = {}
+            for t, base in base_by_type.items():
+                cuota = iva_by_type.get(t, Decimal('0'))
+                iva_desglose[str(int(t))] = {
+                    'base': base,
+                    'iva': cuota
+                }
+            result['iva_desglose'] = iva_desglose
 
             # Calcular tesoro (puntos) asociados a los tickets
             try:
                 placeholders = ','.join(['?'] * len(ticket_ids))
                 q = f"SELECT COALESCE(SUM(CASE WHEN puntos>0 THEN puntos ELSE 0 END),0), COALESCE(SUM(CASE WHEN puntos<0 THEN -puntos ELSE 0 END),0) FROM points_movements WHERE ticket_id IN ({placeholders})"
                 row = self.db.fetch_one(q, tuple(ticket_ids))
-                otorgado = float(row[0] or 0)
-                gastado = float(row[1] or 0)
+                # Representar tesoro en memoria como Decimal (consistencia de tipos en memoria)
+                from decimal import Decimal as _D
+                otorgado = _D(str(int(row[0] or 0)))
+                gastado = _D(str(int(row[1] or 0)))
                 result['tesoro_otorgado'] = otorgado
                 result['tesoro_gastado'] = gastado
             except Exception:
-                result['tesoro_otorgado'] = 0.0
-                result['tesoro_gastado'] = 0.0
+                from decimal import Decimal as _D
+                result['tesoro_otorgado'] = _D('0')
+                result['tesoro_gastado'] = _D('0')
 
-            # Convertir total_* (que estaban en céntimos) a EUROS antes de convertir Decimals a floats
-            try:
-                from kool_tpv.base_datos.money_adapter import read_from_db
-
-                result['total_ingresos'] = float(read_from_db(int(result.get('total_ingresos', 0))))
-                result['total_efectivo'] = float(read_from_db(int(result.get('total_efectivo', 0))))
-                result['total_tarjeta'] = float(read_from_db(int(result.get('total_tarjeta', 0))))
-                result['total_web'] = float(read_from_db(int(result.get('total_web', 0))))
-                result['total_devoluciones'] = float(read_from_db(int(result.get('total_devoluciones', 0))))
-                result['total_descuentos'] = float(read_from_db(int(result.get('total_descuentos', 0))))
-            except Exception:
-                # leave existing numeric values if conversion fails
-                pass
-
-            # Convert Decimals to floats for caller convenience
-            for k in ['total_ingresos', 'total_efectivo', 'total_tarjeta', 'total_web', 'base_21', 'iva_21', 'base_4', 'iva_4', 'total_base_imponible', 'total_iva']:
-                try:
-                    result[k] = float(result[k])
-                except Exception:
-                    result[k] = 0.0
-
-            # Ensure iva_desglose and tesoro fields are serializables
-            try:
-                if 'iva_desglose' not in result:
-                    result['iva_desglose'] = {}
-            except Exception:
+            # Ensure iva_desglose present
+            if 'iva_desglose' not in result:
                 result['iva_desglose'] = {}
-            try:
-                result['tesoro_otorgado'] = float(result.get('tesoro_otorgado', 0.0))
-                result['tesoro_gastado'] = float(result.get('tesoro_gastado', 0.0))
-            except Exception:
-                result['tesoro_otorgado'] = 0.0
-                result['tesoro_gastado'] = 0.0
 
-            # Convertir bases/ivas de céntimos→euros
-            try:
-                from kool_tpv.base_datos.money_adapter import read_from_db
-
-                # Convertir IVA y bases
-                result['base_21'] = float(read_from_db(int(result['base_21'])))
-                result['iva_21'] = float(read_from_db(int(result['iva_21'])))
-                result['base_4'] = float(read_from_db(int(result['base_4'])))
-                result['iva_4'] = float(read_from_db(int(result['iva_4'])))
-                result['total_base_imponible'] = float(read_from_db(int(result['total_base_imponible'])))
-                result['total_iva'] = float(read_from_db(int(result['total_iva'])))
-
-            except Exception:
-                logging.exception('Error convirtiendo bases/ivas de céntimos a euros')
-
-            # Diagnostic logging: show key monetary values and their types to confirm units
-            try:
-                logging.debug(
-                    "compute_totals_for_ticket_ids diagnostic: %s",
-                    {k: (result.get(k), type(result.get(k)).__name__) for k in ['total_ingresos', 'total_efectivo', 'total_tarjeta', 'total_web', 'base_21', 'iva_21']}
-                )
-            except Exception:
-                pass
-
+            # result now holds Decimal monetary values for in-memory use
             return result
         except Exception:
             logging.exception('Error computing totals for ticket ids')
@@ -360,6 +306,26 @@ class CierreService:
                 # use UTC for DB timestamps
                 fecha_hora = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
 
+                # Prepare iva_desglose for DB serialization (convert Decimal -> céntimos int)
+                iva_desglose_obj = totals.get('iva_desglose', {}) or {}
+                iva_desglose_serializable = {}
+                try:
+                    for k, v in iva_desglose_obj.items():
+                        try:
+                            base_v = v.get('base') if isinstance(v, dict) else None
+                            iva_v = v.get('iva') if isinstance(v, dict) else None
+                            # Use prepare_for_db to enforce DB contract: store as int céntimos
+                            base_cents = prepare_for_db(base_v) if base_v is not None else 0
+                            iva_cents = prepare_for_db(iva_v) if iva_v is not None else 0
+                            iva_desglose_serializable[str(k)] = {
+                                'base': int(base_cents),
+                                'iva': int(iva_cents),
+                            }
+                        except Exception:
+                            iva_desglose_serializable[str(k)] = {'base': 0, 'iva': 0}
+                except Exception:
+                    iva_desglose_serializable = {}
+
                 values = (
                     cierre_num,
                     # fecha_hora: captured in Python
@@ -374,10 +340,10 @@ class CierreService:
                     prepare_for_db(totals.get('total_web', 0.0)),
                     prepare_for_db(totals.get('total_devoluciones', 0.0)),
                     prepare_for_db(totals.get('total_descuentos', 0.0)),
-                    # tesoro (puntos) kept as numeric floats
-                    totals.get('tesoro_otorgado', 0.0),
-                    totals.get('tesoro_gastado', 0.0),
-                    json.dumps(totals.get('iva_desglose', {}), ensure_ascii=False),
+                    # tesoro (puntos): kept as Decimal in-memory, persist as int
+                    int(totals.get('tesoro_otorgado', Decimal('0'))),
+                    int(totals.get('tesoro_gastado', Decimal('0'))),
+                    json.dumps(iva_desglose_serializable, ensure_ascii=False),
                     prepare_for_db(totals.get('base_21', 0.0)),
                     prepare_for_db(totals.get('iva_21', 0.0)),
                     prepare_for_db(totals.get('base_4', 0.0)),
@@ -394,47 +360,9 @@ class CierreService:
                 )
 
                 # If fecha_hora is None, use parameter as CURRENT_TIMESTAMP via SQL function - workaround: insert NULL then update
-                try:
-                    cur.execute(insert_sql, values)
-                    cierre_id = cur.lastrowid
-                except Exception as e:
-                    # Fallback for DBs that don't have the newer IVA columns: insert a reduced set
-                    try:
-                        import sqlite3 as _sqlite
-                        if isinstance(e, _sqlite.OperationalError):
-                            fallback_cols = (
-                                'cierre_num', 'fecha_hora', 'cajero', 'total_ingresos', 'num_ventas',
-                                    'rango_inicio_ticket', 'rango_fin_ticket', 'total_efectivo', 'total_tarjeta',
-                                    'total_web', 'total_devoluciones', 'total_descuentos', 'tesoro_ganado', 'tesoro_gastado', 'iva_desglose', 'cierre_text', 'usuario_id'
-                            )
-                            from kool_tpv.base_datos.money_adapter import prepare_for_db
-
-                            fallback_values = (
-                                cierre_num,
-                                None,
-                                cajero,
-                                prepare_for_db(totals.get('total_ingresos', 0.0)),
-                                totals.get('num_ventas', 0),
-                                totals.get('rango_inicio_ticket'),
-                                totals.get('rango_fin_ticket'),
-                                prepare_for_db(totals.get('total_efectivo', 0.0)),
-                                prepare_for_db(totals.get('total_tarjeta', 0.0)),
-                                prepare_for_db(totals.get('total_web', 0.0)),
-                                0,
-                                0,
-                                    totals.get('tesoro_otorgado', 0.0),
-                                    totals.get('tesoro_gastado', 0.0),
-                                    json.dumps(totals.get('iva_desglose', {}), ensure_ascii=False),
-                                    cierre_text,
-                                    usuario_id,
-                            )
-                            fallback_sql = 'INSERT INTO cierres (' + ','.join(fallback_cols) + ') VALUES (' + ','.join(['?'] * len(fallback_cols)) + ')'
-                            cur.execute(fallback_sql, fallback_values)
-                            cierre_id = cur.lastrowid
-                        else:
-                            raise
-                    except Exception:
-                        raise
+                # Ejecutar insert principal; si falla, dejar que la excepción llegue
+                cur.execute(insert_sql, values)
+                cierre_id = cur.lastrowid
 
                 # fecha_hora already set from Python; no DB-side CURRENT_TIMESTAMP update required
 
