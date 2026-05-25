@@ -563,6 +563,7 @@ class ImpresoraService:
                 'fecha': fecha,
                 'hora': hora,
                 'usuario': cierre_data.get('cajero') or 'N/A',
+                'cierre_text': cierre_data.get('cierre_text'),
             }
 
             # 5. Convertir tickets: céntimos → euros
@@ -581,19 +582,34 @@ class ImpresoraService:
                 except Exception:
                     continue
 
-            # 6. Preparar totals
-            totals = {
-                'total_efectivo': cierre_data.get('total_efectivo', 0),
-                'total_tarjeta': cierre_data.get('total_tarjeta', 0),
-                'total_web': cierre_data.get('total_web', 0),
-                'total_descuentos': cierre_data.get('total_descuentos', 0),
-                'base_21': cierre_data.get('base_21', 0),
-                'iva_21': cierre_data.get('iva_21', 0),
-                'base_4': cierre_data.get('base_4', 0),
-                'iva_4': cierre_data.get('iva_4', 0),
-                'total_base_imponible': cierre_data.get('total_base_imponible', 0),
-                'total_iva': cierre_data.get('total_iva', 0),
-            }
+            # 6. Preparar totals (convertir de céntimos DB -> Decimal euros)
+            try:
+                totals = {
+                    'total_efectivo': read_from_db(int(cierre_data.get('total_efectivo') or 0)),
+                    'total_tarjeta': read_from_db(int(cierre_data.get('total_tarjeta') or 0)),
+                    'total_web': read_from_db(int(cierre_data.get('total_web') or 0)),
+                    'total_descuentos': read_from_db(int(cierre_data.get('total_descuentos') or 0)),
+                    'base_21': read_from_db(int(cierre_data.get('base_21') or 0)),
+                    'iva_21': read_from_db(int(cierre_data.get('iva_21') or 0)),
+                    'base_4': read_from_db(int(cierre_data.get('base_4') or 0)),
+                    'iva_4': read_from_db(int(cierre_data.get('iva_4') or 0)),
+                    'total_base_imponible': read_from_db(int(cierre_data.get('total_base_imponible') or 0)),
+                    'total_iva': read_from_db(int(cierre_data.get('total_iva') or 0)),
+                }
+            except Exception:
+                # Fallback conservador: usar valores tal cual si la conversión falla
+                totals = {
+                    'total_efectivo': cierre_data.get('total_efectivo', 0),
+                    'total_tarjeta': cierre_data.get('total_tarjeta', 0),
+                    'total_web': cierre_data.get('total_web', 0),
+                    'total_descuentos': cierre_data.get('total_descuentos', 0),
+                    'base_21': cierre_data.get('base_21', 0),
+                    'iva_21': cierre_data.get('iva_21', 0),
+                    'base_4': cierre_data.get('base_4', 0),
+                    'iva_4': cierre_data.get('iva_4', 0),
+                    'total_base_imponible': cierre_data.get('total_base_imponible', 0),
+                    'total_iva': cierre_data.get('total_iva', 0),
+                }
 
             # 6b. Recuperar desglose adicional (ventas x forma pago, x cajero, x categoría)
             try:
@@ -604,15 +620,83 @@ class ImpresoraService:
                 ventas_por_cajero = cierre_svc.get_ventas_por_cajero(cierre_id)
             except Exception:
                 ventas_por_cajero = []
-            try:
-                ventas_por_categoria = cierre_svc.get_ventas_por_categoria(cierre_id)
-            except Exception:
-                ventas_por_categoria = []
-
-            # Agregar estos datos a totals
+            # Agregar estos datos a totals (ventas_por_categoria ya calculado por el processor cuando procede)
             totals['ventas_por_forma_pago'] = ventas_por_forma_pago
             totals['ventas_por_cajero'] = ventas_por_cajero
-            totals['ventas_por_categoria'] = ventas_por_categoria
+
+            # 6c. Intentar recuperar desglose por categoría y por tipo reconstruyendo
+            # a partir de los ticket_ids incluidos en el cierre. Esto cubre el caso
+            # en que se está generando el cierre desde la BD sin disponer de los
+            # `totals` en memoria (reconstrucción); así mostramos las mismas secciones
+            # que el `CierreCajaProcessor` cuando proceda.
+            try:
+                ticket_ids = [r.get('ticket_id') for r in (tickets_rows or []) if r and r.get('ticket_id') is not None]
+                if ticket_ids:
+                    # Categorías (ventas y devoluciones por separado)
+                    try:
+                        from kool_tpv.base_datos.categoria_service import CategoriaService
+                        cat_svc = CategoriaService(self.db)
+                        ventas_cat = cat_svc.get_ventas_por_categoria(ticket_ids, line_tipo='venta') or []
+                        ventas_cat_simple = []
+                        for entry in ventas_cat:
+                            try:
+                                nombre = entry[0]
+                                tickets_cnt = int(entry[1] or 0)
+                                total_euros = entry[3] if len(entry) > 3 else entry[2]
+                                ventas_cat_simple.append((nombre, tickets_cnt, total_euros))
+                            except Exception:
+                                continue
+                        if ventas_cat_simple:
+                            totals['ventas_por_categoria'] = ventas_cat_simple
+
+                        devol_cat = cat_svc.get_ventas_por_categoria(ticket_ids, line_tipo='devolucion') or []
+                        devol_cat_simple = []
+                        for entry in devol_cat:
+                            try:
+                                nombre = entry[0]
+                                tickets_cnt = int(entry[1] or 0)
+                                total_euros = entry[3] if len(entry) > 3 else entry[2]
+                                devol_cat_simple.append((nombre, tickets_cnt, total_euros))
+                            except Exception:
+                                continue
+                        if devol_cat_simple:
+                            totals['devoluciones_por_categoria'] = devol_cat_simple
+                    except Exception:
+                        pass
+
+                    # Tipos (ventas y devoluciones por separado)
+                    try:
+                        from kool_tpv.base_datos.tipo_service import TipoService
+                        tipo_svc = TipoService(self.db)
+                        tipos_ventas = tipo_svc.get_ventas_por_tipo(ticket_ids, line_tipo='venta') or []
+                        tipos_simple = []
+                        for entry in tipos_ventas:
+                            try:
+                                nombre = entry[0]
+                                tickets_cnt = int(entry[1] or 0)
+                                total_euros = entry[3] if len(entry) > 3 else entry[2]
+                                tipos_simple.append((nombre, tickets_cnt, total_euros))
+                            except Exception:
+                                continue
+                        if tipos_simple:
+                            totals['ventas_por_tipo'] = tipos_simple
+
+                        tipos_devol = tipo_svc.get_ventas_por_tipo(ticket_ids, line_tipo='devolucion') or []
+                        tipos_devol_simple = []
+                        for entry in tipos_devol:
+                            try:
+                                nombre = entry[0]
+                                tickets_cnt = int(entry[1] or 0)
+                                total_euros = entry[3] if len(entry) > 3 else entry[2]
+                                tipos_devol_simple.append((nombre, tickets_cnt, total_euros))
+                            except Exception:
+                                continue
+                        if tipos_devol_simple:
+                            totals['devoluciones_por_tipo'] = tipos_devol_simple
+                    except Exception:
+                        pass
+            except Exception:
+                pass
 
             # 7. Generar
             config = self.config
@@ -653,7 +737,7 @@ class ImpresoraService:
         # Comportamiento según modo
         if self.modo_impresion == "texto":
             self.logger.info("Ticket impreso (simulado) num_ticket=%s", meta.get("num_ticket"))
-            return
+            return True
 
         # modo escpos
         if self.modo_impresion == "escpos":
@@ -684,7 +768,7 @@ class ImpresoraService:
                 self.logger.error(
                     "Modo 'escpos' requiere un 'printer_name' no vacío. Configure 'printer_name' en la tabla configuracion o páselo como argumento al método. No se enviará el trabajo."
                 )
-                return
+                return False
 
             try:
                 # Preparar parámetro de logo si está habilitado (usar ruta absoluta)
@@ -718,9 +802,12 @@ class ImpresoraService:
                 # Enviar a impresora (nombre validado)
                 self.printer_adapter.send_to_printer(final_printer, data)
                 self.logger.info("Ticket enviado a impresora ESC/POS (printer=%s) num_ticket=%s", final_printer, meta.get("num_ticket"))
+                return True
             except Exception:
                 self.logger.exception("Error al renderizar/enviar ticket en modo escpos")
-            return
+                return False
+        # Should not reach here, but return False defensively
+        return False
 
     def imprimir_ticket_nivel(self, nivel_data: dict, printer_name: Optional[str] = None):
         """Genera e imprime un ticket de subida de nivel usando el generador específico.

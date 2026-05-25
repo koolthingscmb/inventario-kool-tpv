@@ -42,14 +42,15 @@ class CierreTicketGenerator(BaseTicketGenerator):
         hora = cierre_data.get('hora', '') if cierre_data else ''
         usuario = cierre_data.get('usuario', '') if cierre_data else ''
         cierre_id = cierre_data.get('cierre_id', '') if cierre_data else ''
+        cierre_text = cierre_data.get('cierre_text', '') if cierre_data else ''
         context = {
             'fecha': fecha,
             'hora': hora,
             'usuario': usuario,
             'cierre_id': cierre_id,
+            'cierre_text': cierre_text,
         }
 
-        # Soportar header por tipo 'cierre' con fallback al header genérico
         header_key = 'ticket_header_cierre'
         footer_key = 'ticket_footer_cierre'
         header_val = config.get(header_key)
@@ -59,23 +60,22 @@ class CierreTicketGenerator(BaseTicketGenerator):
             lines.extend(self._format_header(config))
 
         lines.append(self.DOUBLE_DIVIDER)
-        lines.append('CIERRE DE CAJA'.center(self.WIDTH))
-        lines.append(self.DIVIDER)
 
         info = f"{fecha} {hora}  Usuario: {usuario}"
-        if cierre_id:
-            info = f"{info}  ID:{cierre_id}"
+        # Mostrar fecha/hora y usuario en la primera línea (no incluir aquí cierre_text)
         lines.append(info[: self.WIDTH])
+        # El identificador del cierre en su propia línea; incluir primero cierre_text, luego el id
+        # Mostrar solo el `cierre_text` (el código humano). No añadir el id numérico final.
+        if cierre_text:
+            lines.append(f"Cierre ID: {cierre_text}"[: self.WIDTH])
         lines.append(self.DIVIDER)
 
-        # Cabecera de tabla interna
-        header = f"{'ID':<8}{'Ventas':<10}{'Total':>{self.WIDTH-18}}"
-        lines.append(header[: self.WIDTH])
-        lines.append(self.DIVIDER)
-
+        # BLOQUE DE VENTAS: renderizado reemplazado.
+        # Se conserva el cálculo de totales y la separación en filas para uso
+        # posterior; el renderizado de filas ha sido eliminado y se añadirá
+        # un nuevo bloque aquí cuando se indique.
         total_general = Decimal('0')
         total_ventas = 0
-        # separar ventas y devoluciones para presentar en secciones distintas
         ventas_rows = []
         devoluciones_rows = []
         for t in tickets or []:
@@ -97,51 +97,76 @@ class CierreTicketGenerator(BaseTicketGenerator):
             else:
                 ventas_rows.append(entry)
 
-        # renderizar ventas (excluir devoluciones)
-        for tid, nventas, total in ventas_rows:
-            left = f"{tid:<8}{nventas:<10}"
-            right = self._format_currency(total)
-            # rellenar hasta WIDTH
-            space = self.WIDTH - len(left) - len(right)
-            if space < 1:
-                line = (left + ' ' + right)[: self.WIDTH]
-            else:
-                line = left + (' ' * space) + right
-            lines.append(line)
-        # Sección Devoluciones (mostrar separadas si existen) - situada justo tras las ventas
+        # Nuevo bloque 'VENTAS' (Facturas Simplificadas, Devoluciones y TOTAL)
         try:
-            if devoluciones_rows:
-                lines.append(self.DIVIDER)
-                lines.append('DEVOLUCIONES'.center(self.WIDTH))
-                lines.append(self.DIVIDER)
-                for tid, nventas, total in devoluciones_rows:
-                    # Mostrar importe en negativo tal cual
-                    display_total = f"-{self._format_currency(abs(total))}"
-                    left = f"{tid:<8}{nventas:<10}"
-                    space = self.WIDTH - len(left) - len(display_total)
-                    if space < 1:
-                        line = (left + ' ' + display_total)[: self.WIDTH]
-                    else:
-                        line = left + (' ' * space) + display_total
-                    lines.append(line)
+            # Preferir los agregados pasados en `totals` (calculados por el processor)
+            ventas_count = None
+            devoluciones_count = None
+            total_facturas_amt = None
+            total_devoluciones_amt = None
+            total_ventas_net = None
+
+            if totals and isinstance(totals, dict):
+                ventas_count = totals.get('ventas_count')
+                devoluciones_count = totals.get('devoluciones_count')
+                total_facturas_amt = totals.get('total_facturas')
+                total_devoluciones_amt = totals.get('total_devoluciones')
+                total_ventas_net = totals.get('total_ventas_net')
+
+            # Fallback a cálculo local si no se proporcionaron valores
+            if ventas_count is None:
+                ventas_count = len(ventas_rows)
+            if devoluciones_count is None:
+                devoluciones_count = len(devoluciones_rows)
+            if total_facturas_amt is None:
+                # sumar solo filas de ventas (valores positivos)
+                try:
+                    total_facturas_amt = sum([v[2] for v in ventas_rows], Decimal('0'))
+                except Exception:
+                    total_facturas_amt = Decimal('0')
+            if total_devoluciones_amt is None:
+                try:
+                    total_devoluciones_amt = sum([abs(d[2]) for d in devoluciones_rows], Decimal('0'))
+                except Exception:
+                    total_devoluciones_amt = Decimal('0')
+            if total_ventas_net is None:
+                try:
+                    total_ventas_net = total_facturas_amt - total_devoluciones_amt
+                except Exception:
+                    total_ventas_net = Decimal('0')
+
+            lines.append('VENTAS:'.center(self.WIDTH))
+
+            # Facturas Simplificadas: cuenta a la izquierda, suma a la derecha
+            fs_left = f"Facturas Simplificadas: {ventas_count}"
+            fs_right = self._format_currency(total_facturas_amt)
+            space = self.WIDTH - len(fs_left) - len(fs_right)
+            if space < 1:
+                lines.append((fs_left + ' ' + fs_right)[: self.WIDTH])
+            else:
+                lines.append(fs_left + (' ' * space) + fs_right)
+
+            # Devoluciones: mostrar recuento sin signo y total negativo a la derecha
+            if devoluciones_count:
+                left = f"Devoluciones: {devoluciones_count}"
+                right = f"-{self._format_currency(total_devoluciones_amt)}"
+                lines.append(self._format_line_lr(left, right))
+
+            # Separador y total neto de ventas
+            lines.append(self.DIVIDER)
+            lines.append(self._format_line_lr('TOTAL VENTAS:', self._format_currency(total_ventas_net)))
         except Exception:
+            # No fallar la generación del ticket por este bloque
             pass
 
         # Separador y título del bloque resumen/totales
         lines.append(self.DOUBLE_DIVIDER)
         lines.append('RESUMEN FINANCIERO'.center(self.WIDTH))
         lines.append(self._format_line_lr('Tickets incluidos:', str(len(tickets or []))))
-        lines.append(self._format_line_lr('Unidades/ líneas vendidas:', str(total_ventas)))
 
-        # Devoluciones totales: mostrar sólo el recuento aquí
-        try:
-            devol_count = len(devoluciones_rows)
-            devol_sum = sum([d[2] for d in devoluciones_rows], Decimal('0')) if devol_count else Decimal('0')
-            if devol_count:
-                lines.append(self._format_line_lr('Devoluciones totales:', str(devol_count)))
-        except Exception:
-            devol_count = 0
-            devol_sum = Decimal('0')
+        # Nota: el importe total de devoluciones se muestra únicamente en el
+        # bloque 'VENTAS' (línea "Devoluciones: <count>    -<importe>").
+        # No repetirlo en el RESUMEN FINANCIERO. (Cálculos ya realizados arriba.)
 
         # Mostrar totales por forma de pago si se proporcionan en `totals`
         try:
@@ -165,37 +190,15 @@ class CierreTicketGenerator(BaseTicketGenerator):
         except Exception:
             pass
 
-        # Mostrar importe total de devoluciones (negativo) si existen devoluciones
-        try:
-            if devol_count and _to_decimal(devol_sum) != _D('0'):
-                lines.append(self._format_line_lr('Total Devoluciones:', f"-{self._format_currency(_to_decimal(abs(devol_sum)))}"))
-        except Exception:
-            pass
+        # Nota: el importe total de devoluciones se muestra únicamente en el
+        # bloque 'VENTAS' (línea "Devoluciones: <count>    -<importe>").
+        # No repetirlo en el RESUMEN FINANCIERO.
 
         lines.append(self._format_line_lr('Total cierre:', self._format_currency(total_general)))
         lines.append(self.DOUBLE_DIVIDER)
 
         # Secciones adicionales: ventas por forma de pago, por cajero y por categoría
-        try:
-            # 1) Ventas por forma de pago
-            vpf = None
-            if totals and isinstance(totals, dict):
-                vpf = totals.get('ventas_por_forma_pago')
-            if vpf:
-                lines.append('VENTAS POR FORMA DE PAGO'.center(self.WIDTH))
-                try:
-                    # Mostrar claves conocidas con labels legibles
-                    ef = int(vpf.get('efectivo', 0) or 0) if isinstance(vpf, dict) else 0
-                    ta = int(vpf.get('tarjeta', 0) or 0) if isinstance(vpf, dict) else 0
-                    web = int(vpf.get('web', 0) or 0) if isinstance(vpf, dict) else 0
-                except Exception:
-                    ef = ta = web = 0
-                lines.append(self._format_line_lr('Ventas Efectivo:', str(ef)))
-                lines.append(self._format_line_lr('Ventas Tarjeta:', str(ta)))
-                lines.append(self._format_line_lr('Ventas Web:', str(web)))
-                lines.append(self.DIVIDER)
-        except Exception:
-            pass
+        # 'Ventas por forma de pago' eliminado intencionalmente — no mostrar.
 
         try:
             # 2) Ventas por cajero
@@ -233,6 +236,73 @@ class CierreTicketGenerator(BaseTicketGenerator):
                         cnt = int(entry[1] or 0)
                         total_val = entry[2] or 0
                         total_str = self._format_currency(_to_decimal(total_val))
+                        line = f"{nombre} - {cnt} - {total_str}"
+                        lines.append(line[: self.WIDTH])
+                    except Exception:
+                        continue
+                lines.append(self.DOUBLE_DIVIDER)
+        except Exception:
+            pass
+
+        # DEVOLUCIONES POR CATEGORÍA: mostrar solo si existen devoluciones agrupadas
+        try:
+            devol_cat = None
+            if totals and isinstance(totals, dict):
+                devol_cat = totals.get('devoluciones_por_categoria')
+            if devol_cat:
+                lines.append('DEVOLUCIONES POR CATEGORÍA'.center(self.WIDTH))
+                lines.append(self.DIVIDER)
+                for entry in devol_cat:
+                    try:
+                        nombre = str(entry[0] or '')
+                        cnt = int(entry[1] or 0)
+                        total_val = entry[2] or 0
+                        # Mostrar importe de devoluciones con signo negativo
+                        total_str = f"-{self._format_currency(_to_decimal(total_val))}"
+                        line = f"{nombre} - {cnt} - {total_str}"
+                        lines.append(line[: self.WIDTH])
+                    except Exception:
+                        continue
+                lines.append(self.DOUBLE_DIVIDER)
+        except Exception:
+            pass
+
+        # VENTAS POR TIPO: igual formato que VENTAS POR CATEGORÍA (solo ventas)
+        try:
+            vpt = None
+            if totals and isinstance(totals, dict):
+                vpt = totals.get('ventas_por_tipo')
+            if vpt:
+                lines.append('VENTAS POR TIPO'.center(self.WIDTH))
+                lines.append(self.DIVIDER)
+                for entry in vpt:
+                    try:
+                        nombre = str(entry[0] or '')
+                        cnt = int(entry[1] or 0)
+                        total_val = entry[2] or 0
+                        total_str = self._format_currency(_to_decimal(total_val))
+                        line = f"{nombre} - {cnt} - {total_str}"
+                        lines.append(line[: self.WIDTH])
+                    except Exception:
+                        continue
+                lines.append(self.DOUBLE_DIVIDER)
+        except Exception:
+            pass
+
+        # DEVOLUCIONES POR TIPO: mostrar solo si existen devoluciones agrupadas por tipo
+        try:
+            dpt = None
+            if totals and isinstance(totals, dict):
+                dpt = totals.get('devoluciones_por_tipo')
+            if dpt:
+                lines.append('DEVOLUCIONES POR TIPO'.center(self.WIDTH))
+                lines.append(self.DIVIDER)
+                for entry in dpt:
+                    try:
+                        nombre = str(entry[0] or '')
+                        cnt = int(entry[1] or 0)
+                        total_val = entry[2] or 0
+                        total_str = f"-{self._format_currency(_to_decimal(total_val))}"
                         line = f"{nombre} - {cnt} - {total_str}"
                         lines.append(line[: self.WIDTH])
                     except Exception:
@@ -297,63 +367,9 @@ class CierreTicketGenerator(BaseTicketGenerator):
         except Exception:
             pass
 
-        # Sección de Categorías (igual formato que productos)
-        try:
-            categorias = None
-            if totals and isinstance(totals, dict):
-                categorias = totals.get('categorias')
-            if categorias:
-                lines.append('VENTAS POR CATEGORÍA'.center(self.WIDTH))
-                for c in categorias:
-                    try:
-                        nombre = str(c[0] or '')
-                        tickets_cnt = int(c[1] or 0)
-                        uds = int(c[2] or 0)
-                        total_c = self._format_currency(_to_decimal(c[3] or 0))
-                        left = f"{nombre}: {tickets_cnt} ({uds}uds)"
-                        space = self.WIDTH - len(left) - len(total_c)
-                        if space < 1:
-                            line = (left + ' ' + total_c)[: self.WIDTH]
-                        else:
-                            line = left + (' ' * space) + total_c
-                        lines.append(line)
-                    except Exception:
-                        try:
-                            lines.append(f"{c[0]} - {c[1]} - {c[2]} - {c[3]}")
-                        except Exception:
-                            pass
-                lines.append(self.DOUBLE_DIVIDER)
-        except Exception:
-            pass
+        # (Sección de Categorías removida: usar `ventas_por_categoria` / `devoluciones_por_categoria`)
 
-        # Sección de Tipos (igual formato que productos)
-        try:
-            tipos = None
-            if totals and isinstance(totals, dict):
-                tipos = totals.get('tipos')
-            if tipos:
-                lines.append('VENTAS POR TIPO'.center(self.WIDTH))
-                for t in tipos:
-                    try:
-                        nombre = str(t[0] or '')
-                        tickets_cnt = int(t[1] or 0)
-                        uds = int(t[2] or 0)
-                        total_t = self._format_currency(_to_decimal(t[3] or 0))
-                        left = f"{nombre}: {tickets_cnt} ({uds}uds)"
-                        space = self.WIDTH - len(left) - len(total_t)
-                        if space < 1:
-                            line = (left + ' ' + total_t)[: self.WIDTH]
-                        else:
-                            line = left + (' ' * space) + total_t
-                        lines.append(line)
-                    except Exception:
-                        try:
-                            lines.append(f"{t[0]} - {t[1]} - {t[2]} - {t[3]}")
-                        except Exception:
-                            pass
-                lines.append(self.DOUBLE_DIVIDER)
-        except Exception:
-            pass
+        # (Sección de Tipos removida: usar `ventas_por_tipo` / `devoluciones_por_tipo`)
 
         # Footer para cierre: solo añadir si existe la clave específica en config
         footer_val = config.get(footer_key)
