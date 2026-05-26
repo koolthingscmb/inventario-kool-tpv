@@ -100,21 +100,34 @@ class ResetService:
         try:
             conn = self.db.connection
             cur = conn.cursor()
-
             if ticket_nums:
                 placeholders = ','.join('?' * len(ticket_nums))
+                # Eliminar stock_movements relacionados con las líneas de esos tickets
+                cur.execute(
+                    f"DELETE FROM stock_movements WHERE ticket_line_id IN (SELECT id FROM ticket_lines WHERE ticket_id IN (SELECT id FROM tickets WHERE num_ticket IN ({placeholders})))",
+                    ticket_nums,
+                )
+                # Eliminar points_movements relacionados con esos tickets
+                cur.execute(
+                    f"DELETE FROM points_movements WHERE ticket_id IN (SELECT id FROM tickets WHERE num_ticket IN ({placeholders}))",
+                    ticket_nums,
+                )
                 # devoluciones no tiene ON DELETE CASCADE, borrar manualmente
                 cur.execute(
                     f"DELETE FROM devoluciones WHERE ticket_id IN "
                     f"(SELECT id FROM tickets WHERE num_ticket IN ({placeholders}))",
                     ticket_nums,
                 )
+                # Finalmente borrar los tickets
                 cur.execute(f"DELETE FROM tickets WHERE num_ticket IN ({placeholders})", ticket_nums)
                 logging.info('Tickets borrados: %s', ticket_nums)
             else:
+                # Borrado global: eliminar movimientos y referencias antes de tickets
+                cur.execute("DELETE FROM stock_movements")
+                cur.execute("DELETE FROM points_movements")
                 cur.execute("DELETE FROM devoluciones")
                 cur.execute("DELETE FROM tickets")
-                logging.warning('TODOS los tickets borrados (CASCADE limpia ticket_lines y movimientos)')
+                logging.warning('TODOS los tickets borrados (movimientos y referencias eliminados previamente)')
 
             conn.commit()
             return True

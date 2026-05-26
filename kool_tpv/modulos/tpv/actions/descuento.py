@@ -1,150 +1,120 @@
-import logging
-from typing import Any, Dict
+"""
+DescuentoAction
 
-from kool_tpv.utils.custom_dialog import show_error, show_warning
+Este action es llamado desde el mapper de botones del TPV cuando se
+presiona el botón 'DESCUENTO'. Requiere autenticación de administrador
+mediante `AuthService.validate_admin_password` antes de abrir la
+subvista `DescuentoSubView`.
+"""
+import logging
+from typing import Any
+
+from kool_tpv.utils.custom_dialog import show_password_dialog, show_warning
+
+logger = logging.getLogger(__name__)
 
 
 class DescuentoAction:
-    """Controlador para aplicar descuentos desde el TPV.
-
-    Realiza validaciones de permisos y estado del carrito antes de abrir
-    el overlay de descuentos (`UIDescuento`).
-    """
-
     def __init__(self, view: Any, carrito_service: Any):
         self.view = view
         self.carrito_service = carrito_service
-        self.logger = logging.getLogger(self.__class__.__name__)
+        # Resolver DB: preferir view.db, luego intentar extraer de carrito_service
+        db = None
+        try:
+            db = getattr(view, 'db', None)
+        except Exception:
+            db = None
+        if db is None:
+            try:
+                db = getattr(carrito_service, 'db', None)
+            except Exception:
+                db = None
+        self.db = db
+
+        # AuthService (may be None if DB not available)
+        try:
+            from kool_tpv.utils.auth_service import AuthService
+
+            if self.db is not None:
+                self.auth_service = AuthService(self.db)
+            else:
+                # fallback: try constructing with carrito_service.db if present
+                self.auth_service = AuthService(getattr(carrito_service, 'db', None))
+        except Exception:
+            self.auth_service = None
+
+        self.logger = logger.getChild('DescuentoAction')
 
     def ejecutar(self) -> None:
-        """Validar permisos y estado del carrito; abrir overlay si OK."""
         try:
-            # Validar rol del cajero
-            cajero_rol = getattr(self.view, 'cajero_rol', None)
-            if not cajero_rol:
-                show_warning(self.view.parent if hasattr(self.view, 'parent') else None,
-                             'ACCESO DENEGADO', 'Debe autenticarse como cajero')
-                self.logger.warning('Intento de descuento sin cajero autenticado')
+            parent = None
+            try:
+                parent = self.view.parent.winfo_toplevel()
+            except Exception:
+                try:
+                    parent = self.view.parent
+                except Exception:
+                    parent = self.view
+
+            # Validar carrito no vacío: evitar pedir contraseña si no hay artículos
+            try:
+                carrito = self.carrito_service or getattr(self.view, 'carrito_service', None)
+                if carrito is not None:
+                    try:
+                        if carrito.is_empty():
+                            show_warning(parent, 'Carrito vacío', 'Carrito vacío')
+                            return
+                    except Exception:
+                        # Si is_empty falla, no bloqueamos la acción; continuar
+                        pass
+            except Exception:
+                pass
+
+            # Pedir contraseña admin
+            password = show_password_dialog(parent, titulo="Autenticación Admin", mensaje="Introduce contraseña de administrador:")
+            if password is None or password == "":
                 return
 
-            if str(cajero_rol) != 'admin':
-                cajero_id = getattr(self.view, 'cajero_id', None)
-                permiso = 0
-                try:
-                    if getattr(self.view, 'db', None) is not None and cajero_id is not None:
-                        row = self.view.db.fetch_one(
-                            'SELECT permiso_descuento FROM usuarios WHERE id = ?',
-                            (cajero_id,)
-                        )
-                        if row:
-                            # row can be tuple or dict
-                            if isinstance(row, dict):
-                                permiso = int(row.get('permiso_descuento', 0) or 0)
-                            else:
-                                permiso = int(row[0] or 0)
-                except Exception:
-                    self.logger.exception('Error consultando permiso_descuento en BD')
-                    permiso = 0
-
-                if permiso != 1:
-                    show_warning(self.view.parent if hasattr(self.view, 'parent') else None,
-                                 'SIN PERMISOS', 'No tiene permisos para aplicar descuentos')
-                    self.logger.warning('Cajero %s sin permiso_descuento', cajero_id)
-                    return
-
-            # Validar carrito no vacío
+            # Validar contraseña admin
             try:
-                items = self.carrito_service.get_items()
-            except Exception:
-                items = None
+                is_valid = False
+                admin_user = None
+                if self.auth_service:
+                    try:
+                        res = self.auth_service.validate_admin_password(password)
+                    except Exception:
+                        res = (False, None)
 
-            if not items:
-                show_warning(self.view.parent if hasattr(self.view, 'parent') else None,
-                             'CARRITO VACÍO', 'Añada productos antes de aplicar descuentos')
-                self.logger.warning('Intento de descuento con carrito vacío')
+                    if isinstance(res, tuple):
+                        is_valid, admin_user = res
+                    else:
+                        is_valid = bool(res)
+
+                if not is_valid:
+                    show_warning(parent, 'ACCESO DENEGADO', 'Contraseña incorrecta.')
+                    return
+            except Exception:
+                self.logger.exception('Error validando contraseña admin')
+                show_warning(parent, 'ERROR', 'Fallo validando contraseña admin')
                 return
 
-            # Validar que no exista ya un descuento aplicado
+            # Autenticado: abrir DescuentoSubView
             try:
-                descuento_actual = self.carrito_service.get_descuento()
-            except Exception:
-                descuento_actual = None
+                from kool_tpv.modulos.tpv.subviews.descuento_subview import DescuentoSubView
 
-            if descuento_actual is not None:
-                show_warning(self.view.parent if hasattr(self.view, 'parent') else None,
-                             'DESCUENTO EXISTENTE', 'Ya hay un descuento aplicado. Elimínelo primero.')
-                self.logger.warning('Intento de nuevo descuento cuando ya existe: %s', descuento_actual)
-                return
-
-            # Si ya hay puntos canjeados, avisar y no abrir el overlay
-            try:
-                puntos = self.carrito_service.get_puntos_canjeados()
+                parent_area = getattr(self.view, 'center_area', self.view)
+                subview = DescuentoSubView(parent=parent_area, db=self.db, carrito_service=self.carrito_service, view=self.view)
                 try:
-                    from decimal import Decimal
-                    puntos_dec = Decimal(str(puntos))
+                    self.view.push_subview(subview, 'DESCUENTOS')
                 except Exception:
-                    puntos_dec = puntos
-                if puntos_dec > Decimal('0.00'):
-                    show_error(self.view.parent if hasattr(self.view, 'parent') else None,
-                               'PUNTOS CANJEADOS', 'Hay puntos canjeados en este ticket. Elimine el canje antes de aplicar un descuento.')
-                    self.logger.warning('Intento de descuento cuando hay puntos canjeados: %s', puntos_dec)
-                    return
+                    # fallback: if view has controller, try pushing there
+                    try:
+                        if getattr(self.view, 'controller', None):
+                            self.view.controller.view.push_subview(subview, 'DESCUENTOS')
+                    except Exception:
+                        self.logger.exception('Error mostrando DescuentoSubView')
             except Exception:
-                self.logger.exception('Error comprobando puntos canjeados antes de abrir overlay descuento')
-
-            # Abrir overlay de descuentos (lazy import para evitar dependencia en import-time)
-            try:
-                try:
-                    from kool_tpv.modulos.tpv.ui.descuento_ui import UIDescuento
-                except Exception:
-                    UIDescuento = None
-
-                if UIDescuento is None:
-                    show_error(self.view.parent if hasattr(self.view, 'parent') else None,
-                               'ERROR', 'Interfaz de descuento no disponible')
-                    self.logger.error('UIDescuento no disponible')
-                    return
-
-                # Pass the TpvView (self.view) so SelectionOverlayTemplate can
-                # access `right_container` and compute the correct overlay width.
-                overlay = UIDescuento(self.view, self.view.db, self._on_descuento_aplicado)
-                overlay.show()
-            except Exception:
-                self.logger.exception('Error abriendo UIDescuento')
+                self.logger.exception('Error creando DescuentoSubView')
 
         except Exception:
-            self.logger.exception('Error en ejecución de DescuentoAction')
-
-    def _on_descuento_aplicado(self, descuento_data: Dict[str, Any]) -> None:
-        """Callback cuando se aplica un descuento desde el overlay."""
-        try:
-            # Intentar aplicar descuento en el servicio
-            self.carrito_service.aplicar_descuento(descuento_data)
-
-            # Si OK, actualizar UI
-            try:
-                if getattr(self.view, 'carrito_ui', None) is not None:
-                    self.view.carrito_ui.update_display()
-            except Exception:
-                self.logger.exception('Error actualizando carrito_ui tras descuento')
-
-            # Loguear
-            self.logger.info(f"Descuento aplicado: {descuento_data}")
-
-        except ValueError as e:
-            # Capturar errores de validación del servicio: mostrar como WARNING
-            try:
-                parent = self.view.parent.winfo_toplevel() if hasattr(self.view, 'parent') else None
-                show_warning(parent, 'ERROR AL APLICAR DESCUENTO', str(e))
-            except Exception:
-                self.logger.exception('Error mostrando diálogo de warning por ValueError')
-            self.logger.warning(f'Error al aplicar descuento: {e}')
-
-        except Exception as e:
-            # Capturar cualquier otro error
-            try:
-                parent = self.view.parent.winfo_toplevel() if hasattr(self.view, 'parent') else None
-                show_error(parent, 'ERROR INESPERADO', f'No se pudo aplicar el descuento: {str(e)}')
-            except Exception:
-                self.logger.exception('Error mostrando diálogo de error inesperado')
-            self.logger.error(f'Error inesperado al aplicar descuento: {e}', exc_info=True)
+            self.logger.exception('Error ejecutando DescuentoAction')

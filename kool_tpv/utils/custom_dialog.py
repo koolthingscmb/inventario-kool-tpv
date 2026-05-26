@@ -95,6 +95,11 @@ class CustomDialog(ctk.CTkToplevel):
         super().__init__(parent)
 
         self.callback = callback
+        # parent used to schedule callbacks so they survive dialog destruction
+        try:
+            self._cb_parent = parent if parent is not None and callable(getattr(parent, 'after', None)) else self
+        except Exception:
+            self._cb_parent = self
         # Cargar configuración desde JSON
         self.dialogs_colors, self.fonts_data, self.geometry_cfg, self.fallbacks = _load_dialog_config()
 
@@ -435,8 +440,21 @@ class CustomDialog(ctk.CTkToplevel):
     def _on_close(self):
         """Cerrar diálogo y ejecutar callback si existe."""
         try:
+            # Ejecutar callback de forma diferida para evitar reentradas/modales
             if self.callback and callable(self.callback):
-                self.callback()
+                try:
+                    cb = self.callback
+                    # schedule after short delay so the dialog destruction completes
+                    try:
+                        self._cb_parent.after(20, lambda: cb())
+                    except Exception:
+                        # fallback to self.after if parent scheduling fails
+                        try:
+                            self.after(20, lambda: cb())
+                        except Exception:
+                            logging.exception('Error ejecutando callback en _on_close fallback')
+                except Exception:
+                    logging.exception('Error programando callback en _on_close')
         except Exception:
             logging.exception('Error ejecutando callback de CustomDialog')
         finally:
@@ -449,11 +467,19 @@ class CustomDialog(ctk.CTkToplevel):
     def _on_accept(self):
         try:
             self.result = True
+            # Ejecutar callback de forma diferida para evitar reentradas/modales
             if self.callback and callable(self.callback):
                 try:
-                    self.callback(True)
+                    cb = self.callback
+                    try:
+                        self._cb_parent.after(20, lambda: cb(True))
+                    except Exception:
+                        try:
+                            self.after(20, lambda: cb(True))
+                        except Exception:
+                            logging.exception('Error ejecutando callback en accept fallback')
                 except Exception:
-                    logging.exception('Error ejecutando callback en accept')
+                    logging.exception('Error programando callback en accept')
         except Exception:
             logging.exception('Error en _on_accept CustomDialog')
         finally:
@@ -466,11 +492,19 @@ class CustomDialog(ctk.CTkToplevel):
     def _on_cancel(self):
         try:
             self.result = False
+            # Ejecutar callback de forma diferida para evitar reentradas/modales
             if self.callback and callable(self.callback):
                 try:
-                    self.callback(False)
+                    cb = self.callback
+                    try:
+                        self._cb_parent.after(20, lambda: cb(False))
+                    except Exception:
+                        try:
+                            self.after(20, lambda: cb(False))
+                        except Exception:
+                            logging.exception('Error ejecutando callback en cancel fallback')
                 except Exception:
-                    logging.exception('Error ejecutando callback en cancel')
+                    logging.exception('Error programando callback en cancel')
         except Exception:
             logging.exception('Error en _on_cancel CustomDialog')
         finally:

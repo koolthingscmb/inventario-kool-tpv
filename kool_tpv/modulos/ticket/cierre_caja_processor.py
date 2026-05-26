@@ -45,7 +45,7 @@ class CierreCajaProcessor(TicketProcessor):
 
         # Recuperar registros de tickets para poblar cierres_lineas
         placeholders = ','.join(['?'] * len(ticket_ids))
-        sql = f"SELECT id, num_ticket, total, forma_pago, importe_efectivo, importe_tarjeta FROM tickets WHERE id IN ({placeholders})"
+        sql = f"SELECT id, num_ticket, total, forma_pago, importe_efectivo, importe_tarjeta, importe_web FROM tickets WHERE id IN ({placeholders})"
         self.db.connect()
         ticket_rows = self.db.fetch_all(sql, tuple(ticket_ids))
 
@@ -188,6 +188,7 @@ class CierreCajaProcessor(TicketProcessor):
                 forma = tr[3] or ''
                 efectivo_db = tr[4] or 0
                 tarjeta_db = tr[5] or 0
+                web_db = tr[6] if len(tr) > 6 else 0
 
                 # Convertir total a Decimal euros para generador
                 try:
@@ -207,7 +208,7 @@ class CierreCajaProcessor(TicketProcessor):
                     str(forma),
                     int(efectivo_db) if isinstance(efectivo_db, int) else int(efectivo_db or 0),
                     int(tarjeta_db) if isinstance(tarjeta_db, int) else int(tarjeta_db or 0),
-                    0,  # web
+                    int(web_db) if isinstance(web_db, int) else int(web_db or 0),
                     0,  # descuentos
                     0,  # devoluciones
                     0,  # tesoro_ganado
