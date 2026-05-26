@@ -544,6 +544,12 @@ class TpvController:
         except Exception:
             payload['descuento_valor'] = None
 
+        # No generar snapshot aquí: el `num_ticket` real se asigna en el processor
+        # dentro de la transacción. La snapshot se generará y persistirá tras
+        # la creación exitosa del ticket (ver finalize_sale). Mantener
+        # `ticket_text_snapshot` vacío para evitar pasar Decimals a la BD.
+        payload['ticket_text_snapshot'] = None
+
         # Log para depuración: mostrar pagos y campos relacionados
         try:
             logger.debug('TPV payload pagos: %s importe_web_cents=%s forma_pago=%s', pagos, payload.get('importe_web_cents'), payload.get('forma_pago'))
@@ -763,6 +769,8 @@ class TpvController:
             if result['success']:
                 ticket_id = result['ticket_id']
                 num_ticket = result['num_ticket']
+
+                # (Snapshot persistence removed by user request)
 
                 # Limpiar carrito
                 carrito_service.clear()
