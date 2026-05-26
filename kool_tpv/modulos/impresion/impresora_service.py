@@ -636,27 +636,37 @@ class ImpresoraService:
                     try:
                         from kool_tpv.base_datos.categoria_service import CategoriaService
                         cat_svc = CategoriaService(self.db)
-                        ventas_cat = cat_svc.get_ventas_por_categoria(ticket_ids, line_tipo='venta') or []
+                        ventas_cat = cat_svc.get_ventas_por_categoria(ticket_ids, line_tipo='venta', as_dict=True) or []
                         ventas_cat_simple = []
                         for entry in ventas_cat:
                             try:
-                                nombre = entry[0]
-                                tickets_cnt = int(entry[1] or 0)
-                                total_euros = entry[3] if len(entry) > 3 else entry[2]
-                                ventas_cat_simple.append((nombre, tickets_cnt, total_euros))
+                                if isinstance(entry, dict):
+                                    nombre = entry.get('nombre')
+                                    uds = int(entry.get('uds', 0) or 0)
+                                    total_euros = entry.get('total')
+                                else:
+                                    nombre = entry[0]
+                                    uds = int(entry[2] or 0) if len(entry) > 2 else int(entry[1] or 0)
+                                    total_euros = entry[3] if len(entry) > 3 else entry[2]
+                                ventas_cat_simple.append((nombre, uds, total_euros))
                             except Exception:
                                 continue
                         if ventas_cat_simple:
                             totals['ventas_por_categoria'] = ventas_cat_simple
 
-                        devol_cat = cat_svc.get_ventas_por_categoria(ticket_ids, line_tipo='devolucion') or []
+                        devol_cat = cat_svc.get_ventas_por_categoria(ticket_ids, line_tipo='devolucion', as_dict=True) or []
                         devol_cat_simple = []
                         for entry in devol_cat:
                             try:
-                                nombre = entry[0]
-                                tickets_cnt = int(entry[1] or 0)
-                                total_euros = entry[3] if len(entry) > 3 else entry[2]
-                                devol_cat_simple.append((nombre, tickets_cnt, total_euros))
+                                if isinstance(entry, dict):
+                                    nombre = entry.get('nombre')
+                                    uds = int(entry.get('uds', 0) or 0)
+                                    total_euros = entry.get('total')
+                                else:
+                                    nombre = entry[0]
+                                    uds = int(entry[2] or 0) if len(entry) > 2 else int(entry[1] or 0)
+                                    total_euros = entry[3] if len(entry) > 3 else entry[2]
+                                devol_cat_simple.append((nombre, uds, total_euros))
                             except Exception:
                                 continue
                         if devol_cat_simple:
@@ -668,27 +678,37 @@ class ImpresoraService:
                     try:
                         from kool_tpv.base_datos.tipo_service import TipoService
                         tipo_svc = TipoService(self.db)
-                        tipos_ventas = tipo_svc.get_ventas_por_tipo(ticket_ids, line_tipo='venta') or []
+                        tipos_ventas = tipo_svc.get_ventas_por_tipo(ticket_ids, line_tipo='venta', as_dict=True) or []
                         tipos_simple = []
                         for entry in tipos_ventas:
                             try:
-                                nombre = entry[0]
-                                tickets_cnt = int(entry[1] or 0)
-                                total_euros = entry[3] if len(entry) > 3 else entry[2]
-                                tipos_simple.append((nombre, tickets_cnt, total_euros))
+                                if isinstance(entry, dict):
+                                    nombre = entry.get('nombre')
+                                    uds = int(entry.get('uds', 0) or 0)
+                                    total_euros = entry.get('total')
+                                else:
+                                    nombre = entry[0]
+                                    uds = int(entry[2] or 0) if len(entry) > 2 else int(entry[1] or 0)
+                                    total_euros = entry[3] if len(entry) > 3 else entry[2]
+                                tipos_simple.append((nombre, uds, total_euros))
                             except Exception:
                                 continue
                         if tipos_simple:
                             totals['ventas_por_tipo'] = tipos_simple
 
-                        tipos_devol = tipo_svc.get_ventas_por_tipo(ticket_ids, line_tipo='devolucion') or []
+                        tipos_devol = tipo_svc.get_ventas_por_tipo(ticket_ids, line_tipo='devolucion', as_dict=True) or []
                         tipos_devol_simple = []
                         for entry in tipos_devol:
                             try:
-                                nombre = entry[0]
-                                tickets_cnt = int(entry[1] or 0)
-                                total_euros = entry[3] if len(entry) > 3 else entry[2]
-                                tipos_devol_simple.append((nombre, tickets_cnt, total_euros))
+                                if isinstance(entry, dict):
+                                    nombre = entry.get('nombre')
+                                    uds = int(entry.get('uds', 0) or 0)
+                                    total_euros = entry.get('total')
+                                else:
+                                    nombre = entry[0]
+                                    uds = int(entry[2] or 0) if len(entry) > 2 else int(entry[1] or 0)
+                                    total_euros = entry[3] if len(entry) > 3 else entry[2]
+                                tipos_devol_simple.append((nombre, uds, total_euros))
                             except Exception:
                                 continue
                         if tipos_devol_simple:

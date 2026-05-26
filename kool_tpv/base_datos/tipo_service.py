@@ -1,4 +1,5 @@
 from .db_wrapper import Database
+from typing import List
 import logging
 
 from kool_tpv.modulos.almacen.tipo_repository import TipoRepository
@@ -46,15 +47,31 @@ class TipoService:
             logging.exception('Error eliminando tipo %s', id)
             return False
 
-    def get_ventas_por_tipo(self, ticket_ids: List[int], line_tipo: str = None):
+    def get_ventas_por_tipo(self, ticket_ids: List[int], line_tipo: str = None, as_dict: bool = False):
         """Delega al repo para obtener ventas por tipo.
 
         Args:
             ticket_ids: lista de IDs de tickets
             line_tipo: opcional, filtrar por tipo de línea ('venta'|'devolucion')
+            as_dict: si True, devuelve lista de dicts con keys: nombre, tickets_cnt, uds, total
         """
         try:
-            return self.repo.get_ventas_por_tipo(ticket_ids, line_tipo=line_tipo)
+            rows = self.repo.get_ventas_por_tipo(ticket_ids, line_tipo=line_tipo)
+            if not as_dict:
+                return rows
+
+            result = []
+            for r in (rows or []):
+                try:
+                    nombre = r[0]
+                    tickets_cnt = int(r[1] or 0) if len(r) > 1 else 0
+                    uds = int(r[2] or 0) if len(r) > 2 else 0
+                    total = r[3] if len(r) > 3 else (r[2] if len(r) > 2 else 0)
+                    result.append({'nombre': nombre, 'tickets_cnt': tickets_cnt, 'uds': uds, 'total': total})
+                except Exception:
+                    logging.exception('Error convirtiendo fila de ventas por tipo')
+                    continue
+            return result
         except Exception:
             logging.exception('Error obteniendo ventas por tipo')
             return []
