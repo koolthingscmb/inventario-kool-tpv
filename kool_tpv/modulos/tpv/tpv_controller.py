@@ -530,7 +530,8 @@ class TpvController:
         efectivo=None,
         forma_pago='Efectivo',
         importe_efectivo=None,
-        importe_tarjeta=None
+        importe_tarjeta=None,
+        importe_web=None,
     ):
         """Finalizar venta: preparar datos y delegar a TpvService.
 
@@ -591,6 +592,7 @@ class TpvController:
                 'forma_pago': forma_pago,
                 'importe_efectivo': importe_efectivo or 0.0,
                 'importe_tarjeta': importe_tarjeta or 0.0,
+                'importe_web': importe_web if importe_web is not None else None,
                 'descuento_data': carrito_service.get_descuento() or {},
                 'carrito_service': carrito_service
             }
@@ -675,6 +677,7 @@ class TpvController:
                 forma_pago=forma_pago,
                 importe_efectivo=importe_efectivo,
                 importe_tarjeta=importe_tarjeta,
+                importe_web=importe_web,
                 descuento_data=ticket_data.get('descuento_data'),
                 puntos_otorgar_cents=puntos_otorgar_cents,
                 puntos_gastados_cents=puntos_gastados_cents,
