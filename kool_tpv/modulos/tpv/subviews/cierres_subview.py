@@ -241,25 +241,17 @@ class CierresSubView(CTkFrame):
                     logger.info('No se pudo crear el cierre')
                 return
 
-            # Imprimir cierre desde UI
+            # Impresión delegada: la impresión se realiza ahora desde CierreCajaProcessor
+            # (si se solicitó). Aquí solo se muestra feedback al usuario.
             try:
-                from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
-                from kool_tpv.modulos.impresion.ticket_type import TicketType
-                imp = ImpresoraService(db=self.db, imprimir_en_consola=True)
-                cierre_data = res.get('cierre') or {}
-                cierre_data['totals'] = res.get('totals')
-                tickets = res.get('tickets') or []
-                imp.imprimir(TicketType.CIERRE, cierre_data, items=tickets)
-
-                # Marcar cierre como impreso
-                cierre_id = res.get('cierre_id')
-                try:
-                    self.db.connect()
-                    self.db.execute_query('UPDATE cierres SET printed = 1, printed_at = CURRENT_TIMESTAMP WHERE id = ?', (cierre_id,))
-                except Exception:
-                    logger.exception('Error marcando cierre impreso')
+                cierre_id = res.get('cierre_id') if res else None
+                printed = res.get('printed') if res else False
+                if printed:
+                    logger.info('Cierre marcado como impreso por el processor: cierre_id=%s', cierre_id)
+                else:
+                    logger.info('Cierre creado pero no impreso automáticamente: cierre_id=%s', cierre_id)
             except Exception:
-                logger.exception('Error imprimiendo cierre desde UI')
+                logger.exception('Error procesando estado de impresión del cierre')
 
             # Refrescar lista
             try:

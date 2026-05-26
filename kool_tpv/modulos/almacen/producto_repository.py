@@ -140,6 +140,54 @@ class ProductoRepository:
             return []
         return [dict(row) for row in rows]
 
+    def get_ventas_por_producto(self, ticket_ids: List[int], limit: int = 100):
+        """Obtiene ventas agrupadas por producto para un rango de tickets.
+
+        Args:
+            ticket_ids: Lista de IDs de tickets
+            limit: Máximo de productos a retornar
+
+        Returns:
+            List[(nombre_producto, tickets_count, unidades_sum, total_euros)]
+        """
+        if not ticket_ids:
+            return []
+
+        try:
+            placeholders = ','.join(['?'] * len(ticket_ids))
+            sql = f"""
+            SELECT p.nombre, 
+                   COUNT(DISTINCT tl.ticket_id) AS tickets_cnt, 
+                   COALESCE(SUM(tl.cantidad), 0) AS uds,
+                   COALESCE(SUM(tl.cantidad * tl.precio), 0) AS total_cents
+            FROM ticket_lines tl
+            JOIN productos p ON tl.producto_id = p.id
+            WHERE tl.ticket_id IN ({placeholders})
+            GROUP BY p.id, p.nombre
+            ORDER BY total_cents DESC
+            LIMIT ?
+            """
+
+            params = tuple(ticket_ids) + (limit,)
+            rows = self.db.fetch_all(sql, params)
+
+            # Convertir céntimos a euros
+            from kool_tpv.base_datos.money_adapter import read_from_db
+            result = []
+            for row in (rows or []):
+                nombre = row[0]
+                tickets_cnt = int(row[1] or 0)
+                uds = int(row[2] or 0)
+                total_cents = int(row[3] or 0)
+                total_euros = read_from_db(total_cents)
+                result.append((nombre, tickets_cnt, uds, float(total_euros)))
+
+            return result
+
+        except Exception as e:
+            logging.exception(f"Error obteniendo ventas por producto: {e}")
+            return []
+
     def listar_con_resumen(self, termino: str = ''):
         """Productos con resumen para listados (JOIN con categorias, tipos y precios).
 

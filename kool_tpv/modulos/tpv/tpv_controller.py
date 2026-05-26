@@ -677,8 +677,14 @@ class TpvController:
                 except Exception:
                     logger.debug('DEBUG payload logging failed')
 
-                ticket_id = processor.process(**payload)
-                result = {'success': True, 'ticket_id': ticket_id, 'num_ticket': payload.get('num_ticket')}
+                proc_res = processor.process(**payload)
+                if isinstance(proc_res, (tuple, list)):
+                    ticket_id = proc_res[0]
+                    num_ticket = proc_res[1] if len(proc_res) > 1 else payload.get('num_ticket')
+                else:
+                    ticket_id = proc_res
+                    num_ticket = payload.get('num_ticket')
+                result = {'success': True, 'ticket_id': ticket_id, 'num_ticket': num_ticket}
             except Exception as e:
                 logger.exception('Error procesando ticket con processor')
                 result = {'success': False, 'error': str(e)}

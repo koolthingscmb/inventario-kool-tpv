@@ -116,17 +116,48 @@ class Database:
         if self.connection is None:
             raise RuntimeError("La conexión a la base de datos no está inicializada.")
         cur = self.connection.cursor()
+        # Support nested transactions using SAVEPOINTs. If there's no active
+        # transaction, start a normal one with BEGIN/COMMIT/ROLLBACK. If there
+        # is already a transaction (connection.in_transaction), use a SAVEPOINT
+        # so that we can rollback/commit locally without disturbing the outer
+        # transaction.
+        use_savepoint = getattr(self.connection, 'in_transaction', False)
+        sp_name = None
         try:
-            cur.execute('BEGIN')
-            yield cur
-            try:
-                self.connection.commit()
-            except Exception:
-                self.connection.rollback()
-                raise
+            if use_savepoint:
+                # create a unique savepoint name
+                import uuid
+
+                sp_name = f"sp_{uuid.uuid4().hex[:12]}"
+                cur.execute(f"SAVEPOINT {sp_name}")
+                yield cur
+                # Release the savepoint to commit the nested work
+                cur.execute(f"RELEASE SAVEPOINT {sp_name}")
+            else:
+                cur.execute('BEGIN')
+                yield cur
+                try:
+                    self.connection.commit()
+                except Exception:
+                    self.connection.rollback()
+                    raise
         except Exception:
             try:
-                self.connection.rollback()
+                if use_savepoint and sp_name:
+                    try:
+                        cur.execute(f"ROLLBACK TO SAVEPOINT {sp_name}")
+                        cur.execute(f"RELEASE SAVEPOINT {sp_name}")
+                    except Exception:
+                        # Best effort: if rollback to savepoint fails, try a full rollback
+                        try:
+                            self.connection.rollback()
+                        except Exception:
+                            pass
+                else:
+                    try:
+                        self.connection.rollback()
+                    except Exception:
+                        pass
             except Exception:
                 pass
             raise

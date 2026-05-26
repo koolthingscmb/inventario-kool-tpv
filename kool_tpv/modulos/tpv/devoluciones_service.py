@@ -11,7 +11,8 @@ import logging
 from decimal import Decimal
 
 from kool_tpv.base_datos.db_wrapper import Database
-from kool_tpv.base_datos.ticket_service import save_ticket
+from kool_tpv.modulos.ticket.devolucion_processor import DevolucionProcessor
+from kool_tpv.base_datos.money_adapter import prepare_for_db
 
 
 class DevolucionesService:
@@ -162,24 +163,53 @@ class DevolucionesService:
                 except Exception:
                     pass
 
-            # Delegar a save_ticket
+            # Delegar a DevolucionProcessor directamente para asegurar NULLs en BD
             logging.info(f'DevolucionesService: confirmando devolución usuario={usuario} cliente_id={cliente_id}')
 
-            ticket_id, num_ticket = save_ticket(
-                db=self.db,
-                carrito_items=items,
-                resumen=resumen,
-                efectivo=efectivo,
-                cajero=usuario,
-                cliente=cliente_nombre,
-                cliente_id=cliente_id,
-                forma_pago=forma_pago,
-                importe_efectivo=importe_efectivo,
-                importe_tarjeta=importe_tarjeta,
-                descuento_data=descuento_data,
-                carrito_service=self.carrito,
-                fidelizacion_service=None  # Devoluciones no otorgan puntos
-            )
+            # Convertir importes/resumen a céntimos y construir payload para el processor
+            try:
+                subtotal_cents = prepare_for_db(Decimal(str(resumen.get('subtotal', 0))))
+            except Exception:
+                subtotal_cents = prepare_for_db(Decimal('0'))
+            try:
+                total_cents = prepare_for_db(Decimal(str(resumen.get('total', 0))))
+            except Exception:
+                total_cents = prepare_for_db(Decimal('0'))
+
+            pagado_cents = prepare_for_db(efectivo) if efectivo is not None else None
+            try:
+                cambio_cents = prepare_for_db(efectivo - Decimal(str(resumen.get('total', 0)))) if efectivo is not None else None
+            except Exception:
+                cambio_cents = None
+
+            # For devoluciones we do not persist a payment method or importe desglose: pass None
+            payload = {
+                'created_at': None,
+                'num_ticket': None,
+                'cajero': usuario,
+                'cliente': cliente_nombre,
+                'cliente_id': cliente_id,
+                'subtotal_cents': subtotal_cents,
+                'total_cents': total_cents,
+                'pagado_cents': pagado_cents,
+                'cambio_cents': cambio_cents,
+                'importe_efectivo_cents': None,
+                'importe_tarjeta_cents': None,
+                'descuento_euros_cents': 0,
+                'descuento_tipo': (descuento_data.get('tipo') if descuento_data else None),
+                'descuento_valor': (descuento_data.get('valor') if descuento_data else None),
+                'forma_pago': None,
+                'puntos_otorgar_cents': 0,
+                'puntos_gastados_cents': 0,
+                'ticket_text_snapshot': None,
+                'carrito_items': items,
+                'resumen': resumen,
+                'pagos': [],
+            }
+
+            processor = DevolucionProcessor(self.db)
+            ticket_id = processor.process(**payload)
+            num_ticket = None
 
             # Finalizar modo devolución tras éxito
             try:

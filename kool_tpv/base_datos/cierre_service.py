@@ -91,6 +91,7 @@ class CierreService:
         """
         result = {
             'total_ingresos': Decimal('0'),
+            'total_facturas': Decimal('0'),
             'num_ventas': 0,
             'total_efectivo': Decimal('0'),
             'total_tarjeta': Decimal('0'),
@@ -121,11 +122,14 @@ class CierreService:
             from kool_tpv.base_datos.money_adapter import read_from_db
 
             nums = []
+            # Sum only positive ticket totals as `total_facturas` (facturas)
+            total_facturas = Decimal('0')
             for tr in ticket_rows or []:
                 try:
                     total_cents = int(tr[3] or 0)
                     total_euros = read_from_db(total_cents)
-                    result['total_ingresos'] += total_euros
+                    if total_cents >= 0:
+                        total_facturas += total_euros
                 except Exception:
                     pass
                 try:
@@ -219,6 +223,13 @@ class CierreService:
             result['total_descuentos'] = total_descuentos
             result['total_devoluciones'] = total_devoluciones
 
+            # Persist facturas and set total_ingresos to net ventas (facturas - devoluciones)
+            result['total_facturas'] = total_facturas
+            try:
+                result['total_ingresos'] = total_facturas - total_devoluciones
+            except Exception:
+                result['total_ingresos'] = Decimal('0')
+
             # Construir desglose IVA por tipo para uso en snapshot/BD (mantener Decimal)
             iva_desglose = {}
             for t, base in base_by_type.items():
@@ -272,18 +283,18 @@ class CierreService:
                 logging.error('No DB connection available for create_cierre_atomic')
                 return None
 
-            cur = conn.cursor()
             try:
-                cur.execute('BEGIN')
+                # Use the Database.transaction context manager to avoid nested BEGIN
+                with self.db.transaction() as cur:
 
-                # Calcular totales
-                totals = self.compute_totals_for_ticket_ids(ticket_ids)
+                    # Calcular totales
+                    totals = self.compute_totals_for_ticket_ids(ticket_ids)
 
-                # Obtener siguiente cierre_num
-                cur.execute('SELECT MAX(cierre_num) FROM cierres')
-                row = cur.fetchone()
-                last = int(row[0]) if row and row[0] is not None else 0
-                cierre_num = last + 1
+                    # Obtener siguiente cierre_num
+                    cur.execute('SELECT MAX(cierre_num) FROM cierres')
+                    row = cur.fetchone()
+                    last = int(row[0]) if row and row[0] is not None else 0
+                    cierre_num = last + 1
 
                 # Preparar campos para insertar
                 insert_cols = (
@@ -297,7 +308,11 @@ class CierreService:
 
                 # Compute minimal values for devoluciones/discounts as 0 for now
                 if cierre_text is None:
-                    cierre_text = f"Cierre {cierre_num} - tickets: {len(ticket_ids)}"
+                    # Build a human-friendly cierre code and store it in cierre_text.
+                    # Keep `cierre_num` as the integer sequential number for audit/queries.
+                    now_for_code = datetime.now(timezone.utc)
+                    cierre_code = f"CKD-{now_for_code.day:02d}-{now_for_code.month:02d}-{now_for_code.year}-{cierre_num:06d}"
+                    cierre_text = cierre_code
 
                 # Ensure monetary fields are stored as integer céntimos in DB
                 from kool_tpv.base_datos.money_adapter import prepare_for_db
@@ -364,18 +379,15 @@ class CierreService:
                 cur.execute(insert_sql, values)
                 cierre_id = cur.lastrowid
 
-                # fecha_hora already set from Python; no DB-side CURRENT_TIMESTAMP update required
-
                 # Marcar tickets con cierre_id
                 placeholders = ','.join(['?'] * len(ticket_ids))
                 update_sql = f'UPDATE tickets SET cierre_id = ? WHERE id IN ({placeholders})'
                 params = (cierre_id, *ticket_ids)
                 cur.execute(update_sql, params)
 
-                conn.commit()
+                # commit handled by Database.transaction
                 return int(cierre_id)
             except Exception:
-                conn.rollback()
                 logging.exception('Error creando cierre atómico, transacción revertida')
                 return None
         except Exception:

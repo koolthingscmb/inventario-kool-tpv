@@ -97,8 +97,14 @@ def save_ticket(db, carrito_items, resumen, efectivo=0.0, cajero=None, cliente=N
 
     # Execute
     try:
-        ticket_id = processor.process(**payload)
-        return ticket_id, payload.get('num_ticket')
+        res = processor.process(**payload)
+        # Support processors returning either ticket_id or (ticket_id, num_ticket)
+        if isinstance(res, tuple) or isinstance(res, list):
+            ticket_id, num_ticket = res[0], (res[1] if len(res) > 1 else None)
+        else:
+            ticket_id = res
+            num_ticket = payload.get('num_ticket')
+        return ticket_id, num_ticket
     except Exception:
         logger.exception('Error procesando ticket en save_ticket shim')
         raise

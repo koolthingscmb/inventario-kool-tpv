@@ -45,3 +45,16 @@ class CategoriaService:
         except Exception:
             logging.exception('Error eliminando categoría %s', id)
             return False
+
+    def get_ventas_por_categoria(self, ticket_ids: List[int], line_tipo: str = None):
+        """Delega al repo para obtener ventas por categoría.
+
+        Args:
+            ticket_ids: lista de IDs de tickets
+            line_tipo: opcional, filtrar por tipo de línea ('venta'|'devolucion')
+        """
+        try:
+            return self.repo.get_ventas_por_categoria(ticket_ids, line_tipo=line_tipo)
+        except Exception:
+            logging.exception('Error obteniendo ventas por categoría')
+            return []

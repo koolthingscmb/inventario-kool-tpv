@@ -18,8 +18,10 @@ class NivelesRepository:
             Exception si falla la inserción.
         """
         try:
+            in_tx = getattr(self.db.connection, 'in_transaction', False)
             cur = self.db.connection.cursor()
-            cur.execute('BEGIN')
+            if not in_tx:
+                cur.execute('BEGIN')
             cur.execute(
                 """
                 INSERT INTO niveles_fidelidad
@@ -36,11 +38,17 @@ class NivelesRepository:
                 )
             )
             nuevo_id = cur.lastrowid
-            self.db.connection.commit()
+            if not in_tx:
+                self.db.connection.commit()
             logger.info('Nivel level=%s insertado con id=%s', data['level'], nuevo_id)
             return nuevo_id
         except Exception:
-            self.db.connection.rollback()
+            try:
+                in_tx = getattr(self.db.connection, 'in_transaction', False)
+                if not in_tx:
+                    self.db.connection.rollback()
+            except Exception:
+                pass
             logger.exception('Error insertando nivel level=%s', data.get('level'))
             raise
 
@@ -51,8 +59,10 @@ class NivelesRepository:
             Exception si falla la actualización.
         """
         try:
+            in_tx = getattr(self.db.connection, 'in_transaction', False)
             cur = self.db.connection.cursor()
-            cur.execute('BEGIN')
+            if not in_tx:
+                cur.execute('BEGIN')
             cur.execute(
                 """
                 UPDATE niveles_fidelidad
@@ -70,10 +80,16 @@ class NivelesRepository:
                     nivel_id,
                 )
             )
-            self.db.connection.commit()
+            if not in_tx:
+                self.db.connection.commit()
             logger.info('Nivel id=%s actualizado', nivel_id)
         except Exception:
-            self.db.connection.rollback()
+            try:
+                in_tx = getattr(self.db.connection, 'in_transaction', False)
+                if not in_tx:
+                    self.db.connection.rollback()
+            except Exception:
+                pass
             logger.exception('Error actualizando nivel id=%s', nivel_id)
             raise
 
@@ -84,13 +100,21 @@ class NivelesRepository:
             Exception si falla la eliminación.
         """
         try:
+            in_tx = getattr(self.db.connection, 'in_transaction', False)
             cur = self.db.connection.cursor()
-            cur.execute('BEGIN')
+            if not in_tx:
+                cur.execute('BEGIN')
             cur.execute('DELETE FROM niveles_fidelidad WHERE id = ?', (nivel_id,))
-            self.db.connection.commit()
+            if not in_tx:
+                self.db.connection.commit()
             logger.info('Nivel id=%s eliminado', nivel_id)
         except Exception:
-            self.db.connection.rollback()
+            try:
+                in_tx = getattr(self.db.connection, 'in_transaction', False)
+                if not in_tx:
+                    self.db.connection.rollback()
+            except Exception:
+                pass
             logger.exception('Error eliminando nivel id=%s', nivel_id)
             raise
 

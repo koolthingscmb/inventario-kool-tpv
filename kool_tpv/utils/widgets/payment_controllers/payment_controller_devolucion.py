@@ -173,18 +173,9 @@ class PaymentControllerDevolucion(ctk.CTkFrame):
                 border_width=btn_bw,
             )
 
-        self.btn_efectivo = _make_btn(
-            "DEVOLVER EFECTIVO", self._btn_efectivo, lambda: self._on_btn("Efectivo")
-        )
-        self.btn_efectivo.pack(pady=(0, 4))
-
-        self.btn_tarjeta = _make_btn(
-            "DEVOLVER TARJETA", self._btn_tarjeta, lambda: self._on_btn("Tarjeta")
-        )
-        self.btn_tarjeta.pack(pady=(0, 4))
-
+        # Solo mostrar el botón de CAMBIO para finalizar devoluciones
         self.btn_cambio = _make_btn(
-            "CAMBIO", self._btn_cambio, lambda: self._on_btn("cambio")
+            "FINALIZAR", self._btn_cambio, lambda: self._on_btn("cambio")
         )
         self.btn_cambio.pack(pady=(0, 0))
 

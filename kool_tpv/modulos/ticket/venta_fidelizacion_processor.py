@@ -9,7 +9,11 @@ logger = logging.getLogger(__name__)
 
 class VentaFidelizacionProcessor(VentaProcessor):
     def process(self, **kwargs):
-        ticket_id = super().process(**kwargs)
+        proc_res = super().process(**kwargs)
+        if isinstance(proc_res, (tuple, list)):
+            ticket_id = proc_res[0]
+        else:
+            ticket_id = proc_res
         cliente_id = kwargs.get('cliente_id')
         puntos_otorgar_cents = kwargs.get('puntos_otorgar_cents')
         puntos_gastados_cents = kwargs.get('puntos_gastados_cents')

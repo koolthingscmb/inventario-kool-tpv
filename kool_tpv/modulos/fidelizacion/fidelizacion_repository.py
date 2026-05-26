@@ -115,8 +115,11 @@ class FidelizacionRepository:
         dentro de una única transacción atómica.
         """
         try:
+            # If we're already inside a transaction, reuse it; otherwise start one.
+            in_tx = getattr(self.db.connection, 'in_transaction', False)
             cur = self.db.connection.cursor()
-            cur.execute('BEGIN')
+            if not in_tx:
+                cur.execute('BEGIN')
 
             cur.execute(
                 """
@@ -157,11 +160,13 @@ class FidelizacionRepository:
                 (cliente_id, cliente_id),
             )
 
-            self.db.connection.commit()
+            if not in_tx:
+                self.db.connection.commit()
 
         except Exception:
             try:
-                self.db.connection.rollback()
+                if not in_tx:
+                    self.db.connection.rollback()
             except Exception:
                 logger.exception('Rollback fallido en actualizar_loyalty_y_recalcular_nivel para cliente %s', cliente_id)
             logger.exception('Error en actualizar_loyalty_y_recalcular_nivel para cliente %s', cliente_id)
@@ -228,45 +233,69 @@ class FidelizacionRepository:
     def actualizar_fidelizacion_categoria(self, categoria_id: int, fide_porcentaje: float) -> None:
         """Actualiza el porcentaje de fidelización de una categoría."""
         try:
+            in_tx = getattr(self.db.connection, 'in_transaction', False)
             cur = self.db.connection.cursor()
-            cur.execute('BEGIN')
+            if not in_tx:
+                cur.execute('BEGIN')
             cur.execute(
                 "UPDATE categorias SET fide_porcentaje = ? WHERE id = ?",
                 (fide_porcentaje, categoria_id)
             )
-            self.db.connection.commit()
+            if not in_tx:
+                self.db.connection.commit()
         except Exception:
-            self.db.connection.rollback()
+            try:
+                in_tx = getattr(self.db.connection, 'in_transaction', False)
+                if not in_tx:
+                    self.db.connection.rollback()
+            except Exception:
+                pass
             logger.exception('Error actualizando fidelización categoría %s', categoria_id)
             raise
 
     def actualizar_fidelizacion_tipo(self, tipo_id: int, fide_porcentaje: float) -> None:
         """Actualiza el porcentaje de fidelización de un tipo."""
         try:
+            in_tx = getattr(self.db.connection, 'in_transaction', False)
             cur = self.db.connection.cursor()
-            cur.execute('BEGIN')
+            if not in_tx:
+                cur.execute('BEGIN')
             cur.execute(
                 "UPDATE tipos SET fide_porcentaje = ? WHERE id = ?",
                 (fide_porcentaje, tipo_id)
             )
-            self.db.connection.commit()
+            if not in_tx:
+                self.db.connection.commit()
         except Exception:
-            self.db.connection.rollback()
+            try:
+                in_tx = getattr(self.db.connection, 'in_transaction', False)
+                if not in_tx:
+                    self.db.connection.rollback()
+            except Exception:
+                pass
             logger.exception('Error actualizando fidelización tipo %s', tipo_id)
             raise
 
     def actualizar_fidelizacion_producto(self, producto_id: int, fide_tipo: str, fide_valor: float) -> None:
         """Actualiza el tipo y valor de fidelización de un producto."""
         try:
+            in_tx = getattr(self.db.connection, 'in_transaction', False)
             cur = self.db.connection.cursor()
-            cur.execute('BEGIN')
+            if not in_tx:
+                cur.execute('BEGIN')
             cur.execute(
                 "UPDATE productos SET fidelizacion_tipo = ?, fidelizacion_valor = ? WHERE id = ?",
                 (fide_tipo, fide_valor, producto_id)
             )
-            self.db.connection.commit()
+            if not in_tx:
+                self.db.connection.commit()
         except Exception:
-            self.db.connection.rollback()
+            try:
+                in_tx = getattr(self.db.connection, 'in_transaction', False)
+                if not in_tx:
+                    self.db.connection.rollback()
+            except Exception:
+                pass
             logger.exception('Error actualizando fidelización producto %s', producto_id)
             raise
 
@@ -282,8 +311,10 @@ class FidelizacionRepository:
         Si todos OK -> TODOS se guardan (commit único).
         """
         try:
+            in_tx = getattr(self.db.connection, 'in_transaction', False)
             cur = self.db.connection.cursor()
-            cur.execute('BEGIN')
+            if not in_tx:
+                cur.execute('BEGIN')
 
             for prod_id, fide_tipo, fide_valor in productos_updates:
                 cur.execute(
@@ -291,8 +322,14 @@ class FidelizacionRepository:
                     (fide_tipo, fide_valor, prod_id)
                 )
 
-            self.db.connection.commit()
+            if not in_tx:
+                self.db.connection.commit()
         except Exception:
-            self.db.connection.rollback()
+            try:
+                in_tx = getattr(self.db.connection, 'in_transaction', False)
+                if not in_tx:
+                    self.db.connection.rollback()
+            except Exception:
+                pass
             logger.exception('Error en actualización masiva de fidelización productos')
             raise
