@@ -221,7 +221,7 @@ class TicketRepository:
             if termino:
                 like = f"%{termino}%"
                 query = (
-                    "SELECT id, num_ticket, created_at, total, cajero, cliente, forma_pago, ticket_text "
+                    "SELECT id, num_ticket, created_at, total, cajero, cliente, forma_pago, cierre_id, ticket_text, descuento_euros, descuento_tipo, descuento_valor, dto_aplicado_id "
                     "FROM tickets "
                     "WHERE cliente LIKE ? OR cajero LIKE ? OR CAST(num_ticket AS TEXT) LIKE ? "
                     "ORDER BY created_at DESC"
@@ -229,7 +229,7 @@ class TicketRepository:
                 rows = self.db.fetch_all(query, (like, like, like))
             else:
                 query = (
-                    "SELECT id, num_ticket, created_at, total, cajero, cliente, forma_pago, cierre_id, ticket_text "
+                    "SELECT id, num_ticket, created_at, total, cajero, cliente, forma_pago, cierre_id, ticket_text, descuento_euros, descuento_tipo, descuento_valor, dto_aplicado_id "
                     "FROM tickets "
                     "ORDER BY created_at DESC"
                 )
@@ -251,6 +251,10 @@ class TicketRepository:
                         'forma_pago': r[6],
                         'cierre_id': r[7] if len(r) > 7 else None,
                         'ticket_text': r[8] if len(r) > 8 else None,
+                        'descuento_euros': read_from_db(r[9]) if len(r) > 9 and r[9] is not None else None,
+                        'descuento_tipo': r[10] if len(r) > 10 else None,
+                        'descuento_valor': r[11] if len(r) > 11 else None,
+                        'dto_aplicado_id': r[12] if len(r) > 12 else None,
                     }
 
                 # Convertir total (céntimos) a Decimal euros
@@ -258,6 +262,12 @@ class TicketRepository:
                     row['total'] = read_from_db(row.get('total'))
                 except Exception:
                     row['total'] = read_from_db(0)
+
+                # descuento_euros stored in DB as cents; convert for display if present
+                try:
+                    row['descuento_euros'] = read_from_db(row.get('descuento_euros')) if row.get('descuento_euros') is not None else None
+                except Exception:
+                    row['descuento_euros'] = None
 
                 results.append(row)
 
@@ -276,7 +286,7 @@ class TicketRepository:
             if termino:
                 like = f"%{termino}%"
                 query = (
-                    "SELECT id, num_ticket, created_at, total, cajero, cliente, forma_pago, cierre_id, ticket_text "
+                    "SELECT id, num_ticket, created_at, total, cajero, cliente, forma_pago, cierre_id, ticket_text, descuento_euros, descuento_tipo, descuento_valor, dto_aplicado_id "
                     "FROM tickets "
                     "WHERE (cliente LIKE ? OR cajero LIKE ? OR CAST(num_ticket AS TEXT) LIKE ?) AND (cierre_id IS NULL) "
                     "ORDER BY created_at DESC"
@@ -284,7 +294,7 @@ class TicketRepository:
                 params = (like, like, like)
             else:
                 query = (
-                    "SELECT id, num_ticket, created_at, total, cajero, cliente, forma_pago, cierre_id, ticket_text "
+                    "SELECT id, num_ticket, created_at, total, cajero, cliente, forma_pago, cierre_id, ticket_text, descuento_euros, descuento_tipo, descuento_valor, dto_aplicado_id "
                     "FROM tickets "
                     "WHERE cierre_id IS NULL "
                     "ORDER BY created_at DESC"
@@ -307,12 +317,21 @@ class TicketRepository:
                         'forma_pago': r[6],
                         'cierre_id': r[7] if len(r) > 7 else None,
                         'ticket_text': r[8] if len(r) > 8 else None,
+                        'descuento_euros': read_from_db(r[9]) if len(r) > 9 and r[9] is not None else None,
+                        'descuento_tipo': r[10] if len(r) > 10 else None,
+                        'descuento_valor': r[11] if len(r) > 11 else None,
+                        'dto_aplicado_id': r[12] if len(r) > 12 else None,
                     }
 
                 try:
                     row['total'] = read_from_db(row.get('total'))
                 except Exception:
                     row['total'] = read_from_db(0)
+
+                try:
+                    row['descuento_euros'] = read_from_db(row.get('descuento_euros')) if row.get('descuento_euros') is not None else None
+                except Exception:
+                    row['descuento_euros'] = None
 
                 results.append(row)
 
