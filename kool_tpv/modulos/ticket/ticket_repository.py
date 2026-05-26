@@ -21,7 +21,7 @@ class TicketRepository:
 
     def insert_ticket(self, *, created_at, cajero, cliente, cliente_id, num_ticket,
                       subtotal_cents, forma_pago, total_cents, pagado_cents, cambio_cents,
-                      importe_efectivo_cents, importe_tarjeta_cents,
+                      importe_efectivo_cents, importe_tarjeta_cents, importe_web_cents=None,
                       descuento_euros_cents, descuento_tipo, descuento_valor,
                       tesoro_ganado_str, tesoro_gastado_str, ticket_text_snapshot=None,
                       iva_desglose_json='{}', cur=None):
@@ -49,12 +49,13 @@ class TicketRepository:
         if not use_external_cursor:
             cur = self.db.connection.cursor()
         insert_ticket_q = (
-            "INSERT INTO tickets (created_at, cajero, cliente, cliente_id, num_ticket, subtotal, forma_pago, total, pagado, cambio, importe_efectivo, importe_tarjeta, descuento_euros, descuento_tipo, descuento_valor, tesoro_ganado, tesoro_gastado, ticket_text, iva_desglose) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO tickets (created_at, cajero, cliente, cliente_id, num_ticket, subtotal, forma_pago, total, pagado, cambio, importe_efectivo, importe_tarjeta, importe_web, descuento_euros, descuento_tipo, descuento_valor, tesoro_ganado, tesoro_gastado, ticket_text, iva_desglose) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )
         # Prepare values allowing nullable fields (forma_pago and importes pueden ser None)
         importe_efectivo_val = int(importe_efectivo_cents) if importe_efectivo_cents is not None else None
         importe_tarjeta_val = int(importe_tarjeta_cents) if importe_tarjeta_cents is not None else None
+        importe_web_val = int(importe_web_cents) if importe_web_cents is not None else None
 
         cur.execute(
             insert_ticket_q,
@@ -71,6 +72,7 @@ class TicketRepository:
                 int(cambio_cents),
                 importe_efectivo_val,
                 importe_tarjeta_val,
+                importe_web_val,
                 int(descuento_euros_cents),
                 descuento_tipo,
                 descuento_valor,

@@ -42,6 +42,7 @@ class VentaProcessor(TicketProcessor):
                     cambio_cents=kwargs.get('cambio_cents', 0),
                     importe_efectivo_cents=kwargs.get('importe_efectivo_cents', 0),
                     importe_tarjeta_cents=kwargs.get('importe_tarjeta_cents', 0),
+                    importe_web_cents=kwargs.get('importe_web_cents', None),
                     descuento_euros_cents=kwargs.get('descuento_euros_cents', 0),
                     descuento_tipo=kwargs.get('descuento_tipo'),
                     descuento_valor=kwargs.get('descuento_valor'),
