@@ -248,13 +248,15 @@ class ImpresoraService:
                 """SELECT id, num_ticket, created_at, cajero, cliente, cliente_id,
                           total, forma_pago, importe_efectivo, importe_tarjeta,
                           tesoro_ganado, tesoro_gastado,
-                          subtotal, iva_desglose
+                          subtotal, iva_desglose,
+                          descuento_euros, descuento_tipo, descuento_valor, dto_aplicado_id
                    FROM tickets WHERE id = ?""",
                 (ticket_id,)
             )
             # Índices: 0=id,1=num_ticket,2=created_at,3=cajero,4=cliente,5=cliente_id,
             #          6=total,7=forma_pago,8=importe_efectivo,9=importe_tarjeta,
-            #          10=tesoro_ganado,11=tesoro_gastado,12=subtotal,13=iva_desglose
+            #          10=tesoro_ganado,11=tesoro_gastado,12=subtotal,13=iva_desglose,
+            #          14=descuento_euros,15=descuento_tipo,16=descuento_valor,17=dto_aplicado_id
 
             if not ticket_row:
                 return None
@@ -446,6 +448,25 @@ class ImpresoraService:
                 'importe_efectivo': importe_efectivo,
                 'importe_tarjeta': importe_tarjeta,
             }
+
+            # Añadir snapshot de descuento si está presente en la fila
+            try:
+                # `descuento_euros` en BD está almacenado en céntimos
+                if len(ticket_row) > 14 and ticket_row[14] is not None:
+                    ticket_data['descuento_euros'] = read_from_db(int(ticket_row[14]))
+                else:
+                    ticket_data['descuento_euros'] = None
+
+                ticket_data['descuento_tipo'] = ticket_row[15] if len(ticket_row) > 15 else None
+                ticket_data['descuento_valor'] = ticket_row[16] if len(ticket_row) > 16 else None
+                # dto_aplicado_id (opcional)
+                if len(ticket_row) > 17:
+                    ticket_data['dto_aplicado_id'] = ticket_row[17]
+            except Exception:
+                # No fallar si no existen columnas por compatibilidad
+                ticket_data['descuento_euros'] = None
+                ticket_data['descuento_tipo'] = None
+                ticket_data['descuento_valor'] = None
 
             # Cliente si existe
             cliente_data = None
