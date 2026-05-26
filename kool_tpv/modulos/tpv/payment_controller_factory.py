@@ -62,12 +62,22 @@ def create_controllers(
                         importe_efectivo=efectivo_val,
                         importe_tarjeta=tarjeta_val
                     )
-                elif tipo_pago in ('Tarjeta', 'Web'):
+                elif tipo_pago == 'Tarjeta':
+                    # Tarjeta: pasar importe a `importe_tarjeta`
                     on_finalize(
-                        efectivo=None,  # No efectivo
-                        forma_pago=tipo_pago,
+                        efectivo=None,
+                        forma_pago='Tarjeta',
                         importe_efectivo=0.0,
                         importe_tarjeta=data.get('total', 0.0)
+                    )
+                elif tipo_pago == 'Web':
+                    # Web: pasar importe a `importe_web` y dejar `importe_tarjeta` a 0
+                    on_finalize(
+                        efectivo=None,
+                        forma_pago='Web',
+                        importe_efectivo=0.0,
+                        importe_tarjeta=0.0,
+                        importe_web=data.get('total', 0.0)
                     )
                 elif tipo_pago == 'Devolucion':
                     forma   = data.get('forma_pago', 'Efectivo')
