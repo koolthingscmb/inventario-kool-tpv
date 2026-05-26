@@ -465,6 +465,7 @@ class TpvController:
             ),
             'importe_efectivo_cents': prepare_for_db(_dec(kwargs.get('importe_efectivo', 0))),
             'importe_tarjeta_cents': prepare_for_db(_dec(kwargs.get('importe_tarjeta', 0))),
+            'importe_web_cents': prepare_for_db(_dec(kwargs.get('importe_web', 0))) if kwargs.get('importe_web', None) is not None else None,
             'descuento_euros_cents': prepare_for_db(_dec(kwargs.get('descuento_data', {}).get('euros', 0))),
             'descuento_tipo': kwargs.get('descuento_data', {}).get('tipo'),
             'descuento_valor': kwargs.get('descuento_data', {}).get('valor'),
@@ -475,13 +476,44 @@ class TpvController:
             'pagos': [],
         }
 
-        # pagos desglosados
+        # pagos desglosados (métodos normalizados en minúsculas)
         pagos = []
-        if kwargs.get('importe_efectivo'):
-            pagos.append(('efectivo', prepare_for_db(_dec(kwargs.get('importe_efectivo')))))
-        if kwargs.get('importe_tarjeta'):
-            pagos.append(('tarjeta', prepare_for_db(_dec(kwargs.get('importe_tarjeta')))))
+        efectivo_val = kwargs.get('importe_efectivo')
+        tarjeta_val = kwargs.get('importe_tarjeta')
+        web_val = kwargs.get('importe_web')
+        if efectivo_val:
+            pagos.append(('efectivo', prepare_for_db(_dec(efectivo_val))))
+        if tarjeta_val:
+            pagos.append(('tarjeta', prepare_for_db(_dec(tarjeta_val))))
+        # Preferimos importe_web si se proporciona; si no y la forma de pago indica 'web',
+        # calcular el resto pendiente como pago web para mantener consistencia.
+        if web_val:
+            pagos.append(('web', prepare_for_db(_dec(web_val))))
+        else:
+            forma = (kwargs.get('forma_pago') or '').lower()
+            try:
+                total_cents = prepare_for_db(_dec(resumen.get('total', '0')))
+            except Exception:
+                total_cents = None
+            # calcular restante = total - efectivo - tarjeta
+            try:
+                restante = None
+                if total_cents is not None:
+                    efe = prepare_for_db(_dec(efectivo_val)) if efectivo_val is not None else 0
+                    tar = prepare_for_db(_dec(tarjeta_val)) if tarjeta_val is not None else 0
+                    restante = int(total_cents) - int(efe) - int(tar)
+                if forma in ('web', 'online') and restante and int(restante) > 0:
+                    pagos.append(('web', int(restante)))
+            except Exception:
+                # no bloquear: si falla cálculo, no añadir pago web automáticamente
+                pass
         payload['pagos'] = pagos
+
+        # Log para depuración: mostrar pagos y campos relacionados
+        try:
+            logger.debug('TPV payload pagos: %s importe_web_cents=%s forma_pago=%s', pagos, payload.get('importe_web_cents'), payload.get('forma_pago'))
+        except Exception:
+            pass
 
         # puntos ya en céntimos (int) — sin conversión adicional
         if 'puntos_otorgar_cents' in kwargs:
