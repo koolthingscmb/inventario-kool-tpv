@@ -419,6 +419,11 @@ class CarritoUI:
                 resumen_tmp = self.carrito_service.get_resumen_financiero() or {}
             except Exception:
                 resumen_tmp = {}
+            # Log para diagnosticar presencia de descuento en resumen
+            try:
+                logger.info('CarritoUI.update_display: resumen_tmp keys=%s', list(resumen_tmp.keys()))
+            except Exception:
+                pass
 
             descuento_euros = resumen_tmp.get('descuento_euros', None)
             descuento_tipo = resumen_tmp.get('descuento_tipo', None)

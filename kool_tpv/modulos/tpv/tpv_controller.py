@@ -468,7 +468,9 @@ class TpvController:
             'importe_web_cents': prepare_for_db(_dec(kwargs.get('importe_web', 0))) if kwargs.get('importe_web', None) is not None else None,
             'descuento_euros_cents': prepare_for_db(_dec(kwargs.get('descuento_data', {}).get('euros', 0))),
             'descuento_tipo': kwargs.get('descuento_data', {}).get('tipo'),
-            'descuento_valor': kwargs.get('descuento_data', {}).get('valor'),
+            # Normalizar descuento_valor según tipo: porcentaje -> int, directo -> céntimos int
+            # Evitar pasar decimal.Decimal directamente al repositorio (SQLite no lo admite)
+            'descuento_valor': None,
             'forma_pago': kwargs.get('forma_pago', 'Efectivo'),
             'ticket_text_snapshot': None,
             'carrito_items': carrito_items,
@@ -508,6 +510,39 @@ class TpvController:
                 # no bloquear: si falla cálculo, no añadir pago web automáticamente
                 pass
         payload['pagos'] = pagos
+
+        # Normalizar descuento_valor y asignarlo al payload (int or None)
+        try:
+            descuento_raw = (kwargs.get('descuento_data') or {})
+            d_tipo = descuento_raw.get('tipo')
+            d_val = descuento_raw.get('valor')
+            if d_tipo is None:
+                payload['descuento_valor'] = None
+            else:
+                from decimal import Decimal as _Dec
+                if d_val is None:
+                    payload['descuento_valor'] = None
+                else:
+                    # porcentaje esperado como entero (e.g., 10)
+                    if str(d_tipo).lower() in ('porcentaje', 'percent', '%'):
+                        try:
+                            payload['descuento_valor'] = int(_Dec(str(d_val)))
+                        except Exception:
+                            try:
+                                payload['descuento_valor'] = int(float(d_val))
+                            except Exception:
+                                payload['descuento_valor'] = None
+                    else:
+                        # directo: valor expresado en euros -> convertir a céntimos
+                        try:
+                            payload['descuento_valor'] = int(prepare_for_db(_Dec(str(d_val))))
+                        except Exception:
+                            try:
+                                payload['descuento_valor'] = int(prepare_for_db(_Dec(str(d_val or 0))))
+                            except Exception:
+                                payload['descuento_valor'] = None
+        except Exception:
+            payload['descuento_valor'] = None
 
         # Log para depuración: mostrar pagos y campos relacionados
         try:

@@ -70,6 +70,37 @@ class DescuentoAction:
             except Exception:
                 pass
 
+            # Bloquear acceso a descuentos si hay una devolución en curso
+            try:
+                carrito = self.carrito_service or getattr(self.view, 'carrito_service', None)
+                if carrito is not None:
+                    try:
+                        ticket_type = None
+                        if callable(getattr(carrito, 'get_ticket_type', None)):
+                            ticket_type = carrito.get_ticket_type()
+                        if ticket_type == 'devolucion':
+                            show_warning(parent, 'Devolución en curso', 'Devolución en curso')
+                            return
+                    except Exception:
+                        # No bloquear si falla la comprobación
+                        pass
+            except Exception:
+                pass
+
+            # Bloquear acceso si ya hay un descuento aplicado en el carrito
+            try:
+                carrito = self.carrito_service or getattr(self.view, 'carrito_service', None)
+                if carrito is not None and getattr(carrito, 'has_descuento', None):
+                    try:
+                        if carrito.has_descuento():
+                            show_warning(parent, 'Ya hay un descuento en curso', 'Ya hay un descuento en curso')
+                            return
+                    except Exception:
+                        # si la comprobación falla, no bloqueamos
+                        pass
+            except Exception:
+                pass
+
             # Pedir contraseña admin
             password = show_password_dialog(parent, titulo="Autenticación Admin", mensaje="Introduce contraseña de administrador:")
             if password is None or password == "":

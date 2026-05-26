@@ -10,6 +10,7 @@ import logging
 
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.tpv.subviews.cliente_subview import ClienteSubView
+from kool_tpv.utils.custom_dialog import show_warning
 
 
 class ClienteAction:
@@ -31,6 +32,23 @@ class ClienteAction:
     def ejecutar(self) -> None:
         """Mostrar el overlay de clientes. Reutiliza la instancia si ya existe."""
         try:
+            # Bloquear añadir cliente si ya hay un descuento aplicado en el carrito
+            try:
+                carrito = self.carrito_service or getattr(self.view, 'carrito_service', None)
+                if carrito is not None and getattr(carrito, 'has_descuento', None):
+                    try:
+                        if carrito.has_descuento():
+                            parent = None
+                            try:
+                                parent = self.view.parent.winfo_toplevel()
+                            except Exception:
+                                parent = getattr(self.view, 'parent', self.view)
+                            show_warning(parent, 'No se puede añadir cliente con un descuento en curso', 'No se puede añadir cliente con un descuento en curso')
+                            return
+                    except Exception:
+                        logging.exception('ClienteAction: error comprobando descuento activo')
+            except Exception:
+                logging.exception('ClienteAction: error comprobando descuento activo (outer)')
             try:
                 subview = ClienteSubView(
                     parent=self.view.center_area,

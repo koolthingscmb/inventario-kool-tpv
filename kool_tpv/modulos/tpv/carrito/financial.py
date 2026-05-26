@@ -58,7 +58,9 @@ def calculate_resumen(items: List[Dict], puntos_canjeados: Decimal = Decimal('0.
     iva_desglose.setdefault(21, Decimal('0.00'))
 
     total_iva = sum(iva_desglose.values(), Decimal('0.00'))
-    total = _quantize(total_bruto_pvp)
+    # total_bruto_original before applying descuentos/puntos
+    total_bruto_original = _quantize(total_bruto_pvp)
+    total = total_bruto_original
     subtotal = _quantize(total - total_iva)
 
     puntos = Decimal('0.00')
@@ -138,7 +140,8 @@ def calculate_resumen(items: List[Dict], puntos_canjeados: Decimal = Decimal('0.
         total_iva = total_iva_nuevo
         total = subtotal + total_iva
 
-    descuento_aplicado = (((subtotal + total_iva) - total) if (subtotal + total_iva) - total > Decimal('0.00') else Decimal('0.00'))
+    # descuento_aplicado = diferencia entre bruto original y total final
+    descuento_aplicado = (total_bruto_original - total) if (total_bruto_original - total) > Decimal('0.00') else Decimal('0.00')
 
     return {
         'subtotal': subtotal,
@@ -146,8 +149,8 @@ def calculate_resumen(items: List[Dict], puntos_canjeados: Decimal = Decimal('0.
         'total_iva': total_iva,
         'total': total,
         'puntos_canjeados': puntos,
-        'descuento_euros': descuento_aplicado,
+        'descuento_euros': _quantize(descuento_aplicado),
         'descuento_tipo': descuento_tipo,
         'descuento_valor': descuento_valor,
-        'total_bruto_original': (subtotal + total_iva),
+        'total_bruto_original': total_bruto_original,
     }

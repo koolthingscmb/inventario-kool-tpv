@@ -112,6 +112,14 @@ class CarritoService:
             try:
                 has_devol = any(str(it.get('line_tipo', '')).lower() == 'devolucion' for it in self._items)
                 setattr(self, '_devolucion_active', bool(has_devol))
+                # Si tras eliminar no quedan items, olvidar descuentos y puntos canjeados
+                if len(self._items) == 0:
+                    try:
+                        self._descuento = None
+                        self._puntos_canjeados = Decimal('0.00')
+                    except Exception:
+                        self._descuento = None
+                        self._puntos_canjeados = Decimal(0)
             except Exception:
                 logging.exception('Error actualizando bandera _devolucion_active tras eliminar item')
             return True
@@ -478,3 +486,32 @@ class CarritoService:
 
         # Default: venta normal
         return 'venta'
+
+    def apply_discount_tipo(self, tipo: str, valor=None) -> bool:
+        """Convenience wrapper to apply a discount by `tipo`.
+
+        - tipo '%' expects `valor` as Decimal (percentage, e.g. Decimal('10')).
+        - tipo '€' expects `valor` as Decimal representing euros.
+
+        Returns True when applied successfully.
+        """
+        try:
+            from decimal import Decimal
+            if tipo == '%':
+                if valor is None:
+                    raise ValueError('Porcentaje requerido')
+                pct = Decimal(str(valor))
+                self.aplicar_descuento({'tipo': 'porcentaje', 'valor': pct})
+                return True
+            elif tipo == '€' or tipo == 'directo':
+                if valor is None:
+                    raise ValueError('Importe requerido')
+                euros = Decimal(str(valor))
+                self.aplicar_descuento({'tipo': 'directo', 'valor': euros})
+                return True
+            else:
+                # unsupported tipo
+                raise ValueError(f"Tipo de descuento desconocido: {tipo}")
+        except Exception:
+            # Let caller handle/log exceptions; do not swallow all
+            raise

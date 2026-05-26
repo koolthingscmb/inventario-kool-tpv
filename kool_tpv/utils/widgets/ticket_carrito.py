@@ -687,6 +687,25 @@ class TicketCarrito(ctk.CTkFrame):
         except Exception:
             logger.exception("Error en _remove_tesoro_visual")
 
+    def _remove_descuento_visual(self):
+        """Eliminar visualmente el descuento: delegar al servicio y refrescar UI."""
+        try:
+            if self.carrito_service:
+                try:
+                    self.carrito_service.eliminar_descuento()
+                except Exception:
+                    # Fallback: asignar None directamente
+                    try:
+                        self.carrito_service._descuento = None
+                    except Exception:
+                        pass
+            try:
+                self.update_carrito()
+            except Exception:
+                pass
+        except Exception:
+            logger.exception("Error en _remove_descuento_visual")
+
     def update_totales(self, subtotal: float, total: float, desglose_iva: list = None):
         """Actualizar totales del footer con desglose de IVA.
 
@@ -895,6 +914,47 @@ class TicketCarrito(ctk.CTkFrame):
                             "visual": True,
                             "on_remove": self._remove_tesoro_visual
                         })
+                except Exception:
+                    import logging
+                    logging.exception("Error añadiendo línea visual de canje")
+
+                # Añadir línea visual de descuento si aplica (similar a CarritoUI)
+                try:
+                    resumen_tmp = self.carrito_service.get_resumen_financiero() or {}
+                except Exception:
+                    resumen_tmp = {}
+
+                try:
+                    descuento_euros = resumen_tmp.get('descuento_euros', None)
+                    descuento_tipo = resumen_tmp.get('descuento_tipo', None)
+                    descuento_valor = resumen_tmp.get('descuento_valor', None)
+                    from decimal import Decimal
+                    logger.info(f"TicketCarrito.update_carrito: resumen_financiero={resumen_tmp}")
+                    if descuento_euros and Decimal(str(descuento_euros)) > Decimal('0') and descuento_tipo is not None:
+                        try:
+                            logger.info(f"TicketCarrito.update_carrito: detectado descuento {descuento_tipo} -> {descuento_valor} ({descuento_euros}€)")
+                            if descuento_tipo == 'directo':
+                                texto_descuento = '>> Descuento Directo:'
+                            elif descuento_tipo == 'porcentaje':
+                                texto_descuento = f'>> Descuento -{descuento_valor}%:'
+                            else:
+                                texto_descuento = '>> Descuento:'
+
+                            # Insert visual discount row
+                            self.carrito_nav_list.add_item({
+                                "id": "__descuento_visual__",
+                                "nombre": texto_descuento,
+                                "cantidad": "",
+                                "pvp": "",
+                                "total": -float(descuento_euros),
+                                "line_tipo": "descuento",
+                                "visual": True,
+                                "on_remove": self._remove_descuento_visual if hasattr(self, '_remove_descuento_visual') else (lambda: None)
+                            })
+                            logger.info("TicketCarrito.update_carrito: línea de descuento añadida al NavList")
+                        except Exception:
+                            import logging
+                            logging.exception('Error insertando línea visual de descuento')
                 except Exception:
                     import logging
                     logging.exception("Error añadiendo línea visual de canje")
