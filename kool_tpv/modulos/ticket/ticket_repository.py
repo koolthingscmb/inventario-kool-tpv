@@ -106,11 +106,33 @@ class TicketRepository:
         if not use_external_cursor:
             self.db.connection.commit()
 
+    def update_stock_and_record_movement(self, producto_id: int, stock_change: int, ventas_change: int, motivo: str, ticket_line_id: Optional[int] = None, cur=None):
+        """Atomicamente actualizar stock/ventas y registrar movimiento de stock.
+
+        Lanza excepción si falla, para que el caller (processor) pueda hacer rollback.
+        """
+        use_external_cursor = cur is not None
+        if not use_external_cursor:
+            cur = self.db.connection.cursor()
+        try:
+            cur.execute('UPDATE productos SET stock_actual = COALESCE(stock_actual,0) + ?, ventas_totales = COALESCE(ventas_totales,0) + ? WHERE id = ?', (stock_change, ventas_change, producto_id))
+            cur.execute('INSERT INTO stock_movements (producto_id, cantidad, motivo, ticket_line_id) VALUES (?, ?, ?, ?)', (producto_id, stock_change, motivo, ticket_line_id))
+            if not use_external_cursor:
+                self.db.connection.commit()
+        except Exception:
+            # Log full exception and re-raise so transaction semantics are preserved
+            logger.exception('Error actualizando stock y registrando movimiento para producto_id=%s, motivo=%s', producto_id, motivo)
+            if not use_external_cursor:
+                try:
+                    self.db.connection.rollback()
+                except Exception:
+                    pass
+            raise
+
     def insert_stock_movement(self, producto_id: int, cantidad: int, motivo: str, ticket_line_id: Optional[int], cur=None):
         try:
-            if ticket_line_id is None:
-                logger.error('Refusing to insert stock_movements without ticket_line_id')
-                return
+            # Allow ticket_line_id to be None - the FK permits NULL. Insert and let callers
+            # handle transactionality. Detailed exception logging is important for debugging.
             use_external_cursor = cur is not None
             if not use_external_cursor:
                 cur = self.db.connection.cursor()
@@ -118,7 +140,7 @@ class TicketRepository:
             if not use_external_cursor:
                 self.db.connection.commit()
         except Exception:
-            logger.warning('stock_movements table not present or insert failed')
+            logger.exception('insert_stock_movement failed for producto_id=%s, ticket_line_id=%s', producto_id, ticket_line_id)
 
     def insert_payment(self, ticket_id: int, metodo: str, importe_cents: int, created_at: str, cur=None):
         try:

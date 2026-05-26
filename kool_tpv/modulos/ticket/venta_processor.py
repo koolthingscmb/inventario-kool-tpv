@@ -78,11 +78,12 @@ class VentaProcessor(TicketProcessor):
                         else:
                             stock_change = -int(it.get('cantidad', 0))
                             ventas_change = int(it.get('cantidad', 0))
-                        self.repo.update_producto_stock_y_ventas(prod_id, stock_change, ventas_change, cur=cur)
                         try:
-                            self.repo.insert_stock_movement(prod_id, stock_change, f"ticket:{ticket_id}", line_id, cur=cur)
+                            # Atomic update + movement recording to ensure consistency
+                            self.repo.update_stock_and_record_movement(prod_id, stock_change, ventas_change, f"ticket:{ticket_id}", ticket_line_id=line_id, cur=cur)
                         except Exception:
-                            logger.debug('stock movement insert ignored')
+                            logger.exception('Error updating stock and recording movement for producto_id=%s in ticket=%s', prod_id, ticket_id)
+                            raise
 
                 pagos = kwargs.get('pagos', [])
                 for metodo, importe_cents in pagos:
