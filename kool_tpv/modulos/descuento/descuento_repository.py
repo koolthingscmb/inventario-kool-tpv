@@ -69,16 +69,23 @@ class DescuentoRepository:
             conn.commit()
             return cur.lastrowid
 
-    def apply_to_ticket(self, ticket_id: int, dto_aplicado_id: Optional[int], descuento_tipo: Optional[str], descuento_valor: Optional[int], descuento_euros_cents: Optional[int]) -> None:
+    def apply_to_ticket(self, ticket_id: int, dto_aplicado_id: Optional[int], descuento_tipo: Optional[str], descuento_valor: Optional[int], descuento_euros_cents: Optional[int], cur: Optional[sqlite3.Cursor] = None) -> None:
         """Guarda en la fila `tickets` el `dto_aplicado_id` y campos snapshot del descuento.
 
         - `descuento_tipo`: por ejemplo 'directo' o 'porcentaje'
         - `descuento_valor`: porcentaje entero (ej. 10) o valor en céntimos según `descuento_tipo`
         - `descuento_euros_cents`: importe en céntimos aplicado al ticket
         """
-        with self._connect() as conn:
-            cur = conn.cursor()
+        if cur is not None:
             cur.execute(
+                """UPDATE tickets SET dto_aplicado_id = ?, descuento_tipo = ?, descuento_valor = ?, descuento_euros = ? WHERE id = ?""",
+                (dto_aplicado_id, descuento_tipo, descuento_valor, descuento_euros_cents, ticket_id),
+            )
+            return
+
+        with self._connect() as conn:
+            cur2 = conn.cursor()
+            cur2.execute(
                 """UPDATE tickets SET dto_aplicado_id = ?, descuento_tipo = ?, descuento_valor = ?, descuento_euros = ? WHERE id = ?""",
                 (dto_aplicado_id, descuento_tipo, descuento_valor, descuento_euros_cents, ticket_id),
             )
