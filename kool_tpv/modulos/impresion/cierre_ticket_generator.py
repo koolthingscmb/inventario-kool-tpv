@@ -180,6 +180,8 @@ class CierreTicketGenerator(BaseTicketGenerator):
                     lines.append(self._format_line_lr('Total Tarjeta:', self._format_currency(tt)))
                 if tw != _D('0'):
                     lines.append(self._format_line_lr('Total Web:', self._format_currency(tw)))
+                # Añadir separador sencillo entre los totales por forma de pago y el total general
+                lines.append(self.DIVIDER)
                 # Mostrar total de descuentos si existe
                 td = totals.get('total_descuentos', _D('0')) if isinstance(totals, dict) else _D('0')
                 try:
@@ -194,7 +196,8 @@ class CierreTicketGenerator(BaseTicketGenerator):
         # bloque 'VENTAS' (línea "Devoluciones: <count>    -<importe>").
         # No repetirlo en el RESUMEN FINANCIERO.
 
-        lines.append(self._format_line_lr('Total cierre:', self._format_currency(total_general)))
+        # Mostrar total general bajo la etiqueta 'Total Formas de Pago'
+        lines.append(self._format_line_lr('Total Formas de Pago:', self._format_currency(total_general)))
         lines.append(self.DOUBLE_DIVIDER)
 
         # Secciones adicionales: ventas por forma de pago, por cajero y por categoría
