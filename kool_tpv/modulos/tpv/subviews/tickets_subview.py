@@ -119,22 +119,31 @@ class TicketsSubView(CTkFrame):
             pass
 
         columns = [
-            ("num_ticket", 80, "Nº"),
+            ("id", 80, "ID"),
             ("created_at", 180, "Día / Hora"),
             ("total", 120, "Total"),
+            ("cierre_id", 80, "Cierre ID"),
             ("cajero", 140, "Cajero"),
             ("cliente", 180, "Cliente"),
             ("forma_pago", 120, "Forma Pago"),
         ]
 
         from kool_tpv.utils.widgets.searchable_paginated_navlist import SearchablePaginatedNavList
-
-        # layout config (optional)
+        # layout config (optional) - allows overriding columns via config key 'tickets_columns'
         try:
             from kool_tpv.utils.config_loader import load_layout_config
             layout_config = load_layout_config()
         except Exception:
             layout_config = None
+
+        # If a layout config provides tickets_columns, use it (format: list of (field, width, label))
+        try:
+            if layout_config and isinstance(layout_config, dict):
+                cfg = layout_config.get('tickets_columns')
+                if cfg and isinstance(cfg, (list, tuple)):
+                    columns = cfg
+        except Exception:
+            pass
 
         self.search_list = SearchablePaginatedNavList(
             parent=self.list_frame,
@@ -256,10 +265,12 @@ class TicketsSubView(CTkFrame):
 
             return {
                 'ticket_id': detalle.get('id'),
+                'id': detalle.get('id'),
                 'num_ticket': detalle.get('num_ticket'),
                 'created_at': created_str,
                 'total': total_str,
                 'cajero': detalle.get('cajero') or '',
+                'cierre_id': detalle.get('cierre_id') if detalle.get('cierre_id') is not None else '',
                 'cliente': detalle.get('cliente') or '',
                 'forma_pago': detalle.get('forma_pago') or '',
             }
@@ -395,6 +406,94 @@ class TicketsSubView(CTkFrame):
             except Exception:
                 parent = None
 
+            # --- PRIMERA FASE: obtener tickets pendientes según filtro y pedir confirmación previa ---
+            try:
+                # Extraer filas pendientes: siempre partir de tickets pendientes, luego aplicar filtro de fechas
+                rows_preview = []
+                try:
+                    if getattr(self, 'repo', None) is not None:
+                        rows_preview = self.repo.listar_tickets_pendientes('') or []
+                except Exception:
+                    rows_preview = []
+
+                # aplicar filtro por rango de fechas si los date pickers existen
+                date_from = None
+                date_to = None
+                try:
+                    if getattr(self, 'date_from', None):
+                        date_from = self.date_from.get() or None
+                except Exception:
+                    date_from = None
+                try:
+                    if getattr(self, 'date_to', None):
+                        date_to = self.date_to.get() or None
+                except Exception:
+                    date_to = None
+
+                if (date_from or date_to) and rows_preview:
+                    filtered_preview = []
+                    for r in rows_preview:
+                        try:
+                            created = r.get('created_at') if isinstance(r, dict) else (r[2] if len(r) > 2 else None)
+                            if not created:
+                                continue
+                            created_date = str(created).split(' ')[0]
+                            if date_from and created_date < date_from:
+                                continue
+                            if date_to and created_date > date_to:
+                                continue
+                            filtered_preview.append(r)
+                        except Exception:
+                            filtered_preview.append(r)
+                    rows_preview = filtered_preview
+
+                ticket_ids_preview = []
+                for r in (rows_preview or []):
+                    try:
+                        if isinstance(r, dict):
+                            tid = r.get('id')
+                        else:
+                            tid = r[0] if len(r) > 0 else None
+                        if tid is None:
+                            continue
+                        ticket_ids_preview.append(int(tid))
+                    except Exception:
+                        continue
+
+                # Si no hay tickets pendientes: warning y salir
+                if not ticket_ids_preview:
+                    try:
+                        show_warning(parent, 'No hay tickets para cerrar', 'No hay tickets para cerrar')
+                    except Exception:
+                        logger.info('No hay tickets para cerrar')
+                    return
+
+                # Construir texto de preview (limitar longitud si hay muchos ids)
+                try:
+                    MAX_SHOW = 20
+                    total_cnt = len(ticket_ids_preview)
+                    if total_cnt <= MAX_SHOW:
+                        ids_str = ', '.join(str(x) for x in ticket_ids_preview)
+                    else:
+                        first = ', '.join(str(x) for x in ticket_ids_preview[:10])
+                        ids_str = f"{first} y {total_cnt - 10} más"
+                    preview_msg = f"Se van a cerrar los siguientes tickets: {ids_str}"
+                except Exception:
+                    preview_msg = f"Se van a cerrar {len(ticket_ids_preview)} tickets"
+
+                # Mostrar primer diálogo de confirmación con la lista
+                try:
+                    proceed = bool(show_info(parent, 'Confirmar cierres', preview_msg, confirm=True))
+                except Exception:
+                    proceed = False
+
+                if not proceed:
+                    return
+            except Exception:
+                logger.exception('Error preparando preview de tickets a cerrar')
+                return
+
+            # --- A continuación pedir contraseña admin ---
             password = show_password_dialog(
                 parent,
                 titulo="Autenticación Admin",
@@ -443,20 +542,50 @@ class TicketsSubView(CTkFrame):
 
                 logger.info(f"Confirmación cierre: {confirmed}")
 
-                # --- EXTRAER ticket_ids segun filtro (rango) o pendientes ---
-                rows = None
+                # --- REVALIDAR tickets pendientes justo antes del procesamiento ---
+                # Volver a consultar los tickets pendientes y tomar la intersección con los anteriores
+                # Volver a consultar tickets pendientes y aplicar el mismo filtro de fechas
+                rows_now = []
                 try:
-                    if getattr(self, 'date_from', None) or getattr(self, 'date_to', None):
-                        rows = self._buscar_tickets('')
-                    else:
-                        rows = self.repo.listar_tickets_pendientes('') if getattr(self, 'repo', None) is not None else []
+                    if getattr(self, 'repo', None) is not None:
+                        rows_now = self.repo.listar_tickets_pendientes('') or []
                 except Exception:
-                    rows = []
+                    rows_now = []
 
-                logger.info(f"Rows extraídos: {len(rows or [])} tickets")
+                # aplicar filtro por rango de fechas si los date pickers existen
+                date_from = None
+                date_to = None
+                try:
+                    if getattr(self, 'date_from', None):
+                        date_from = self.date_from.get() or None
+                except Exception:
+                    date_from = None
+                try:
+                    if getattr(self, 'date_to', None):
+                        date_to = self.date_to.get() or None
+                except Exception:
+                    date_to = None
+
+                if (date_from or date_to) and rows_now:
+                    filtered_now = []
+                    for r in rows_now:
+                        try:
+                            created = r.get('created_at') if isinstance(r, dict) else (r[2] if len(r) > 2 else None)
+                            if not created:
+                                continue
+                            created_date = str(created).split(' ')[0]
+                            if date_from and created_date < date_from:
+                                continue
+                            if date_to and created_date > date_to:
+                                continue
+                            filtered_now.append(r)
+                        except Exception:
+                            filtered_now.append(r)
+                    rows_now = filtered_now
 
                 ticket_ids = []
-                for r in (rows or []):
+                now_set = set()
+                for r in (rows_now or []):
                     try:
                         if isinstance(r, dict):
                             tid = r.get('id')
@@ -464,20 +593,26 @@ class TicketsSubView(CTkFrame):
                             tid = r[0] if len(r) > 0 else None
                         if tid is None:
                             continue
-                        ticket_ids.append(int(tid))
+                        now_set.add(int(tid))
                     except Exception:
                         continue
 
-                logger.info(f"Ticket_ids extraídos: {ticket_ids}")
+                # Intersección con los ids mostrados en el preview (si preview no existe por alguna razón, usar now_set)
+                try:
+                    intersect_ids = [tid for tid in ticket_ids_preview if int(tid) in now_set]
+                except Exception:
+                    intersect_ids = list(now_set)
+
+                ticket_ids = intersect_ids
+
+                logger.info(f"Ticket_ids revalidados: {ticket_ids}")
 
                 if not ticket_ids:
                     try:
-                        show_warning(parent, 'Nada que cerrar', 'No hay tickets a cerrar en el rango seleccionado o pendientes')
+                        show_warning(parent, 'Nada que cerrar', 'No hay tickets pendientes para cerrar tras revalidación')
                     except Exception:
-                        logger.info('No hay tickets a cerrar')
+                        logger.info('No hay tickets a cerrar tras revalidación')
                     return
-
-                logger.info('Procesando cierre para %d tickets (preview)', len(ticket_ids))
 
                 # --- PROCESAR CIERRE (no capturar excepciones aquí según indicación) ---
                 from kool_tpv.modulos.ticket.cierre_caja_processor import CierreCajaProcessor

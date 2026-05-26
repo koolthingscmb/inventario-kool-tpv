@@ -229,7 +229,7 @@ class TicketRepository:
                 rows = self.db.fetch_all(query, (like, like, like))
             else:
                 query = (
-                    "SELECT id, num_ticket, created_at, total, cajero, cliente, forma_pago, ticket_text "
+                    "SELECT id, num_ticket, created_at, total, cajero, cliente, forma_pago, cierre_id, ticket_text "
                     "FROM tickets "
                     "ORDER BY created_at DESC"
                 )
@@ -249,7 +249,8 @@ class TicketRepository:
                         'cajero': r[4],
                         'cliente': r[5],
                         'forma_pago': r[6],
-                        'ticket_text': r[7] if len(r) > 7 else None,
+                        'cierre_id': r[7] if len(r) > 7 else None,
+                        'ticket_text': r[8] if len(r) > 8 else None,
                     }
 
                 # Convertir total (céntimos) a Decimal euros
@@ -275,7 +276,7 @@ class TicketRepository:
             if termino:
                 like = f"%{termino}%"
                 query = (
-                    "SELECT id, num_ticket, created_at, total, cajero, cliente, forma_pago, ticket_text "
+                    "SELECT id, num_ticket, created_at, total, cajero, cliente, forma_pago, cierre_id, ticket_text "
                     "FROM tickets "
                     "WHERE (cliente LIKE ? OR cajero LIKE ? OR CAST(num_ticket AS TEXT) LIKE ?) AND (cierre_id IS NULL) "
                     "ORDER BY created_at DESC"
@@ -283,7 +284,7 @@ class TicketRepository:
                 params = (like, like, like)
             else:
                 query = (
-                    "SELECT id, num_ticket, created_at, total, cajero, cliente, forma_pago, ticket_text "
+                    "SELECT id, num_ticket, created_at, total, cajero, cliente, forma_pago, cierre_id, ticket_text "
                     "FROM tickets "
                     "WHERE cierre_id IS NULL "
                     "ORDER BY created_at DESC"
@@ -304,7 +305,8 @@ class TicketRepository:
                         'cajero': r[4],
                         'cliente': r[5],
                         'forma_pago': r[6],
-                        'ticket_text': r[7] if len(r) > 7 else None,
+                        'cierre_id': r[7] if len(r) > 7 else None,
+                        'ticket_text': r[8] if len(r) > 8 else None,
                     }
 
                 try:
