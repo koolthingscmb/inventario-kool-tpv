@@ -139,6 +139,9 @@ class VentaTicketGenerator(BaseTicketGenerator):
 
         # Función para formatear cada linea de ítem respetando WIDTH
         for it in items or []:
+            # Saltar líneas de descuento (ya se imprimen en bloque resumen después)
+            if it.get('line_tipo') == 'descuento':
+                continue
             # cantidad
             cant = None
             for k in ("cantidad", "cant", "qty", "cantidad_articulo"):
