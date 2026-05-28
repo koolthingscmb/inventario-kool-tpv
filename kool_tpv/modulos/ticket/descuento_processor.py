@@ -47,12 +47,24 @@ class DescuentoProcessor(TicketProcessor):
 
                     # porcentaje-based
                     if tipo == 'porcentaje' or dto.get('valor_porcentaje') is not None:
+                        # Si viene valor_cents precalculado (desde CarritoService), usarlo directo
+                        if dto.get('valor_cents'):
+                            try:
+                                monto = int(dto.get('valor_cents'))
+                            except Exception:
+                                monto = 0
+                        else:
+                            # Fallback: recalcular si no viene precalculado
+                            try:
+                                porcentaje = int(dto.get('valor_porcentaje') or dto.get('valor') or 0)
+                            except Exception:
+                                porcentaje = 0
+                            monto = (subtotal_cents * porcentaje) // 100
+
                         try:
-                            porcentaje = int(dto.get('valor_porcentaje') or dto.get('valor') or 0)
+                            descuento_val = int(dto.get('valor_porcentaje') or dto.get('valor') or 0)
                         except Exception:
-                            porcentaje = 0
-                        monto = (subtotal_cents * porcentaje) // 100
-                        descuento_val = porcentaje
+                            descuento_val = 0
                     else:
                         # directo: valor en céntimos
                         try:
