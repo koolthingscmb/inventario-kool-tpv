@@ -22,7 +22,7 @@ class DescuentoProcessor(TicketProcessor):
         except Exception:
             row = None
 
-        subtotal_cents = int(row.get('subtotal') or 0) if row else 0
+        subtotal_cents = int(row['subtotal'] or 0) if row else 0
 
         desc_repo = DescuentoRepository(self.db)
         created_lines = []

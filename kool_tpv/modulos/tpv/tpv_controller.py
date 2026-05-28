@@ -564,6 +564,17 @@ class TpvController:
         if 'puntos_gastados_cents' in kwargs:
             payload['puntos_gastados_cents'] = int(kwargs.get('puntos_gastados_cents', 0))
 
+        # Construir lista de descuentos para DescuentoProcessor
+        descuentos_list = []
+        desc_data = kwargs.get('descuento_data') or {}
+        if desc_data and desc_data.get('euros') and float(desc_data.get('euros', 0)) > 0:
+            descuentos_list.append({
+                'tipo': desc_data.get('tipo'),
+                'valor': desc_data.get('valor'),
+                'valor_cents': prepare_for_db(_dec(desc_data.get('euros', 0))),
+            })
+        payload['descuentos'] = descuentos_list
+
         return payload
 
     def finalize_sale(

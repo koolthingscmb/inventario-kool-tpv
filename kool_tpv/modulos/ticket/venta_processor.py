@@ -16,7 +16,6 @@ class VentaProcessor(TicketProcessor):
         cliente = kwargs.get('cliente')
         cliente_id = kwargs.get('cliente_id')
 
-        # Perform entire ticket creation inside a single transaction to ensure atomicity
         try:
             from kool_tpv.base_datos.configuracion_service import ConfiguracionService
             config_service = ConfiguracionService(self.db)
@@ -93,7 +92,20 @@ class VentaProcessor(TicketProcessor):
                 self.repo.insert_audit_log(kwargs.get('created_at'), ticket_id, kwargs.get('cajero'), 'save_ticket', f'num_ticket={num_ticket}', cur=cur)
 
             # Transaction committed successfully
+
+            # Procesar descuentos (crear línea negativa)
+            descuentos = kwargs.get('descuentos', [])
+            if descuentos:
+                try:
+                    from kool_tpv.modulos.ticket.descuento_processor import DescuentoProcessor
+                    desc_proc = DescuentoProcessor(self.db)
+                    desc_proc.process(ticket_id=ticket_id, descuentos=descuentos)
+                except Exception:
+                    logger.exception('Error procesando descuentos')
+                    raise
+
             return ticket_id, num_ticket
+
         except Exception:
             logger.exception('Error procesando venta en transacción')
             raise
