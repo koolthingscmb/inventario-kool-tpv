@@ -10,6 +10,58 @@ from datetime import datetime, timezone
 
 
 class CierreService:
+    def get_puntos_resumen_cierre(self, ticket_ids: list) -> dict:
+            """Obtener resumen de puntos (totales + por cliente) para un cierre.
+
+            Args:
+                ticket_ids: Lista de IDs de tickets del cierre
+
+            Returns:
+                Dict con: tesoro_otorgado, tesoro_gastado, clientes_puntos
+            """
+
+            from kool_tpv.modulos.fidelizacion.fidelizacion_repository import FidelizacionRepository
+            from decimal import Decimal as _D
+
+            result = {
+                'tesoro_otorgado': _D('0'),
+                'tesoro_gastado': _D('0'),
+                'clientes_puntos': []
+            }
+
+            if not ticket_ids:
+                return result
+
+            try:
+                fid_repo = FidelizacionRepository(self.db)
+                clientes_data = fid_repo.get_puntos_por_cliente_para_tickets(ticket_ids)
+
+                if not clientes_data:
+                    return result
+
+                # Agregar lista de clientes
+                result['clientes_puntos'] = clientes_data
+
+                # Calcular totales
+                total_ganados = _D('0')
+                total_gastados = _D('0')
+
+                for cliente in clientes_data:
+                    try:
+                        total_ganados += _D(str(cliente.get('puntos_ganados', 0)))
+                        total_gastados += _D(str(cliente.get('puntos_gastados', 0)))
+                    except Exception:
+                        continue
+
+                result['tesoro_otorgado'] = total_ganados
+                result['tesoro_gastado'] = total_gastados
+
+                return result
+
+            except Exception:
+                import logging
+                logging.exception('Error obteniendo resumen de puntos para cierre')
+                return result
     def __init__(self, db):
         """Crear servicio usando el wrapper `Database` del proyecto.
 

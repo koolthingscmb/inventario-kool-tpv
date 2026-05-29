@@ -45,7 +45,7 @@ class CierreCajaProcessor(TicketProcessor):
 
         # Recuperar registros de tickets para poblar cierres_lineas
         placeholders = ','.join(['?'] * len(ticket_ids))
-        sql = f"SELECT id, num_ticket, total, forma_pago, importe_efectivo, importe_tarjeta, importe_web FROM tickets WHERE id IN ({placeholders})"
+        sql = f"SELECT id, num_ticket, total, forma_pago, importe_efectivo, importe_tarjeta, importe_web, descuento_euros, tesoro_ganado, tesoro_gastado FROM tickets WHERE id IN ({placeholders})"
         self.db.connect()
         ticket_rows = self.db.fetch_all(sql, tuple(ticket_ids))
 
@@ -172,6 +172,25 @@ class CierreCajaProcessor(TicketProcessor):
         except Exception:
             pass
 
+        # --- INTEGRACIÓN RESUMEN DE PUNTOS POR CLIENTE (TESORO) ---
+        try:
+            puntos_resumen = cierre_svc.get_puntos_resumen_cierre(ticket_ids)
+
+            # Agregar totales de tesoro a totals
+            totals['tesoro_otorgado'] = puntos_resumen.get('tesoro_otorgado', Decimal('0'))
+            totals['tesoro_gastado'] = puntos_resumen.get('tesoro_gastado', Decimal('0'))
+
+            # Agregar detalle de clientes con puntos
+            totals['clientes_puntos'] = puntos_resumen.get('clientes_puntos', [])
+
+        except Exception:
+            import logging
+            logging.exception('Error agregando resumen de puntos a totals en cierre')
+            # Fallback: valores por defecto
+            totals['tesoro_otorgado'] = Decimal('0')
+            totals['tesoro_gastado'] = Decimal('0')
+            totals['clientes_puntos'] = []
+
         # Insertar en cierres_lineas
         cur = getattr(self.db, 'connection', None).cursor()
         insert_sql = (
@@ -180,53 +199,64 @@ class CierreCajaProcessor(TicketProcessor):
         )
 
         tickets_for_print = []
+
         for tr in ticket_rows or []:
             try:
-                tid = tr[0]
+                tid = int(tr[0])
                 num_ticket = tr[1]
-                total_db = tr[2] or 0
-                forma = tr[3] or ''
-                efectivo_db = tr[4] or 0
-                tarjeta_db = tr[5] or 0
-                web_db = tr[6] if len(tr) > 6 else 0
+                total_db = int(tr[2] or 0)
+                forma = str(tr[3] or '')
+                efectivo_db = int(tr[4] or 0)
+                tarjeta_db = int(tr[5] or 0)
+                web_db = int(tr[6] or 0) if len(tr) > 6 else 0
+
+                # Extraer nuevos campos con validación
+                descuento_euros = int(tr[7] or 0) if len(tr) > 7 else 0
+                tesoro_ganado = int(tr[8] or 0) if len(tr) > 8 else 0
+                tesoro_gastado = int(tr[9] or 0) if len(tr) > 9 else 0
+
+                # LÓGICA: Distinguir descuentos vs devoluciones
+                descuentos_valor = 0
+                devoluciones_valor = 0
+                if total_db < 0:
+                    devoluciones_valor = abs(total_db)
+                    descuentos_valor = 0
+                else:
+                    descuentos_valor = descuento_euros
 
                 # Convertir total a Decimal euros para generador
                 try:
-                    total_decimal = read_from_db(int(total_db))
+                    total_decimal = read_from_db(total_db)
                 except Exception:
                     total_decimal = Decimal('0')
 
-                # Preparar fila para imprimir
                 tickets_for_print.append({'id': tid, 'num_ventas': 0, 'total': total_decimal})
 
-                # Insertar línea de cierre (almacenar totales en céntimos)
                 params = (
                     cierre_id,
-                    int(tid),
+                    tid,
                     num_ticket,
-                    int(total_db) if isinstance(total_db, int) else int(total_db or 0),
-                    str(forma),
-                    int(efectivo_db) if isinstance(efectivo_db, int) else int(efectivo_db or 0),
-                    int(tarjeta_db) if isinstance(tarjeta_db, int) else int(tarjeta_db or 0),
-                    int(web_db) if isinstance(web_db, int) else int(web_db or 0),
-                    0,  # descuentos
-                    0,  # devoluciones
-                    0,  # tesoro_ganado
-                    0,  # tesoro_gastado
+                    total_db,
+                    forma,
+                    efectivo_db,
+                    tarjeta_db,
+                    web_db,
+                    descuentos_valor,
+                    devoluciones_valor,
+                    tesoro_ganado,
+                    tesoro_gastado,
                     None,
                 )
                 try:
                     cur.execute(insert_sql, params)
                 except Exception:
-                    # intentar sin campos opcionales si esquema antiguo
                     try:
                         cur.execute(
                             'INSERT INTO cierres_lineas (cierre_id, ticket_id, ticket_num, ticket_total, forma_pago) VALUES (?, ?, ?, ?, ?)',
-                            (cierre_id, int(tid), num_ticket, int(total_db) if isinstance(total_db, int) else int(total_db or 0), str(forma)),
+                            (cierre_id, tid, num_ticket, total_db, forma),
                         )
                     except Exception:
                         pass
-
             except Exception:
                 logging.exception('Error procesando fila de ticket al crear cierre')
                 continue

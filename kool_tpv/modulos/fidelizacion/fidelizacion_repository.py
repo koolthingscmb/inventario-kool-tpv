@@ -10,6 +10,59 @@ logger = logging.getLogger(__name__)
 
 
 class FidelizacionRepository:
+    def get_puntos_por_cliente_para_tickets(self, ticket_ids: list) -> list:
+            """Obtener resumen de puntos ganados/gastados por cliente para un conjunto de tickets.
+
+            Args:
+                ticket_ids: Lista de IDs de tickets
+
+            Returns:
+                Lista de dicts: [{'cliente_id', 'cliente_nombre', 'nivel_nombre', 'puntos_ganados', 'puntos_gastados'}, ...]
+            """
+
+            if not ticket_ids:
+                return []
+
+            try:
+                placeholders = ','.join(['?'] * len(ticket_ids))
+
+                sql = f"""
+                    SELECT 
+                        pm.cliente_id,
+                        c.nombre as cliente_nombre,
+                        COALESCE(nf.nombre_nivel, '') as nivel_nombre,
+                        COALESCE(SUM(CASE WHEN pm.puntos > 0 THEN pm.puntos ELSE 0 END), 0) as puntos_ganados,
+                        COALESCE(SUM(CASE WHEN pm.puntos < 0 THEN -pm.puntos ELSE 0 END), 0) as puntos_gastados
+                    FROM points_movements pm
+                    JOIN clientes c ON pm.cliente_id = c.id
+                    LEFT JOIN niveles_fidelidad nf ON c.id_nivel = nf.id
+                    WHERE pm.ticket_id IN ({placeholders})
+                    GROUP BY pm.cliente_id, c.nombre, nf.nombre_nivel
+                    ORDER BY c.nombre ASC
+                """
+
+                self.db.connect()
+                rows = self.db.fetch_all(sql, tuple(ticket_ids))
+
+                result = []
+                for row in rows or []:
+                    try:
+                        result.append({
+                            'cliente_id': int(row[0]),
+                            'cliente_nombre': str(row[1] or ''),
+                            'nivel_nombre': str(row[2] or ''),
+                            'puntos_ganados': int(row[3] or 0),
+                            'puntos_gastados': int(row[4] or 0),
+                        })
+                    except Exception:
+                        continue
+
+                return result
+
+            except Exception:
+                import logging
+                logging.exception('Error obteniendo puntos por cliente para tickets')
+                return []
     def __init__(self, db: Database):
         self.db = db
 

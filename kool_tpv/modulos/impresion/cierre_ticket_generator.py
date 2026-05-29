@@ -376,6 +376,41 @@ class CierreTicketGenerator(BaseTicketGenerator):
 
         # (Sección de Tipos removida: usar `ventas_por_tipo` / `devoluciones_por_tipo`)
 
+
+        # Bloque PUNTOS DE TESORO
+        try:
+            tesoro_otorgado = _to_decimal(totals.get('tesoro_otorgado', _D('0'))) if totals else _D('0')
+            tesoro_gastado = _to_decimal(totals.get('tesoro_gastado', _D('0'))) if totals else _D('0')
+            clientes_puntos = totals.get('clientes_puntos', []) if totals else []
+
+            # Solo mostrar si hay puntos o clientes
+            if tesoro_otorgado > _D('0') or tesoro_gastado > _D('0') or clientes_puntos:
+                lines.append('=' * 42)
+                lines.append(self._center_text('PUNTOS DE TESORO'))
+
+                if tesoro_otorgado > _D('0') or tesoro_gastado > _D('0'):
+                    lines.append(self._format_line_lr('Puntos ganados:', f"{int(tesoro_otorgado)}"))
+                    lines.append(self._format_line_lr('Puntos gastados:', f"{int(tesoro_gastado)}"))
+
+                if clientes_puntos:
+                    lines.append('-' * 42)
+                    for cliente in clientes_puntos:
+                        try:
+                            nombre = cliente.get('cliente_nombre', '')
+                            nivel = cliente.get('nivel_nombre', '')
+                            ganados = int(cliente.get('puntos_ganados', 0))
+                            gastados = int(cliente.get('puntos_gastados', 0))
+
+                            # Formato: Nombre - Nivel - Ganados - Gastados
+                            linea = f"{nombre} - {nivel} - {ganados} - {gastados}"
+                            lines.append(linea[:42])  # Truncar si es muy largo
+                        except Exception:
+                            continue
+
+                lines.append('=' * 42)
+        except Exception:
+            logging.exception('Error agregando bloque de tesoro al cierre')
+
         # Footer para cierre: solo añadir si existe la clave específica en config
         footer_val = config.get(footer_key)
         if footer_val:
