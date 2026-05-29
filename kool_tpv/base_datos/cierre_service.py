@@ -226,7 +226,9 @@ class CierreService:
             # Persist facturas and set total_ingresos to net ventas (facturas - devoluciones)
             result['total_facturas'] = total_facturas
             try:
-                result['total_ingresos'] = total_facturas - total_devoluciones - total_descuentos
+                # Los descuentos YA están incluidos en total_facturas (viene del ticket total final)
+                # Solo restar devoluciones, no restar descuentos de nuevo
+                result['total_ingresos'] = total_facturas - total_devoluciones
             except Exception:
                 result['total_ingresos'] = Decimal('0')
 

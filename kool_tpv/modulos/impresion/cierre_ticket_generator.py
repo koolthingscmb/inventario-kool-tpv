@@ -131,8 +131,9 @@ class CierreTicketGenerator(BaseTicketGenerator):
                     total_devoluciones_amt = Decimal('0')
             if total_ventas_net is None:
                 try:
-                    total_descuentos_amt = _to_decimal(totals.get('total_descuentos', _D('0'))) if totals else _D('0')
-                    total_ventas_net = total_facturas_amt - total_devoluciones_amt - total_descuentos_amt
+                    # Los descuentos YA están incluidos en total_facturas_amt
+                    # Solo restar devoluciones, no restar descuentos de nuevo
+                    total_ventas_net = total_facturas_amt - total_devoluciones_amt
                 except Exception:
                     total_ventas_net = Decimal('0')
 
