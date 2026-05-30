@@ -4,7 +4,9 @@ Generador de ticket para cierres (resumen de caja / Cierre Z).
 Proporciona un formato compacto listando tickets incluidos en el cierre,
 con número de ventas por ticket, totales parciales y el total del cierre.
 """
+
 from decimal import Decimal
+import logging
 from kool_tpv.modulos.impresion.base_ticket_generator import BaseTicketGenerator
 
 
@@ -383,17 +385,20 @@ class CierreTicketGenerator(BaseTicketGenerator):
             tesoro_gastado = _to_decimal(totals.get('tesoro_gastado', _D('0'))) if totals else _D('0')
             clientes_puntos = totals.get('clientes_puntos', []) if totals else []
 
+            logging.info(f"DEBUG TESORO: otorgado={tesoro_otorgado}, gastado={tesoro_gastado}, clientes={len(clientes_puntos)}")
+
             # Solo mostrar si hay puntos o clientes
             if tesoro_otorgado > _D('0') or tesoro_gastado > _D('0') or clientes_puntos:
-                lines.append('=' * 42)
-                lines.append(self._center_text('PUNTOS DE TESORO'))
+                logging.info("DEBUG: Entrando en bloque TESORO")
+                lines.append('=' * self.WIDTH)
+                lines.append('PUNTOS DE TESORO'.center(self.WIDTH))
 
                 if tesoro_otorgado > _D('0') or tesoro_gastado > _D('0'):
                     lines.append(self._format_line_lr('Puntos ganados:', f"{int(tesoro_otorgado)}"))
                     lines.append(self._format_line_lr('Puntos gastados:', f"{int(tesoro_gastado)}"))
 
                 if clientes_puntos:
-                    lines.append('-' * 42)
+                    lines.append('-' * self.WIDTH)
                     for cliente in clientes_puntos:
                         try:
                             nombre = cliente.get('cliente_nombre', '')
@@ -403,13 +408,15 @@ class CierreTicketGenerator(BaseTicketGenerator):
 
                             # Formato: Nombre - Nivel - Ganados - Gastados
                             linea = f"{nombre} - {nivel} - {ganados} - {gastados}"
-                            lines.append(linea[:42])  # Truncar si es muy largo
+                            lines.append(linea[:self.WIDTH])  # Truncar si es muy largo
                         except Exception:
                             continue
 
-                lines.append('=' * 42)
-        except Exception:
-            logging.exception('Error agregando bloque de tesoro al cierre')
+                lines.append('=' * self.WIDTH)
+            else:
+                logging.info("DEBUG: NO entra en bloque TESORO (sin datos)")
+        except Exception as e:
+            logging.exception(f'Error agregando bloque de tesoro: {e}')
 
         # Footer para cierre: solo añadir si existe la clave específica en config
         footer_val = config.get(footer_key)
@@ -418,4 +425,8 @@ class CierreTicketGenerator(BaseTicketGenerator):
 
         # Nota: si no hay footer específico, mantener comportamiento actual
 
-        return "\n".join(lines)
+        logging.info(f"DEBUG RETURN: líneas totales={len(lines)}")
+        logging.info(f"DEBUG RETURN: ¿Contiene 'TESORO'? {'TESORO' in '\n'.join(lines)}")
+        texto_final = "\n".join(lines)
+        logging.info(f"DEBUG RETURN: texto_final length={len(texto_final)}")
+        return texto_final

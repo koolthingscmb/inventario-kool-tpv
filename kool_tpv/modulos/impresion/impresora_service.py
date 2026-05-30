@@ -605,6 +605,17 @@ class ImpresoraService:
 
             # 6. Preparar totals (convertir de céntimos DB -> Decimal euros)
             try:
+                # Recuperar clientes_puntos si está serializado en la BD (opcional, según implementación)
+                clientes_puntos = []
+                if 'clientes_puntos' in cierre_data and cierre_data['clientes_puntos']:
+                    try:
+                        import json
+                        if isinstance(cierre_data['clientes_puntos'], str):
+                            clientes_puntos = json.loads(cierre_data['clientes_puntos'])
+                        elif isinstance(cierre_data['clientes_puntos'], list):
+                            clientes_puntos = cierre_data['clientes_puntos']
+                    except Exception:
+                        clientes_puntos = []
                 totals = {
                     'total_efectivo': read_from_db(int(cierre_data.get('total_efectivo') or 0)),
                     'total_tarjeta': read_from_db(int(cierre_data.get('total_tarjeta') or 0)),
@@ -616,6 +627,10 @@ class ImpresoraService:
                     'iva_4': read_from_db(int(cierre_data.get('iva_4') or 0)),
                     'total_base_imponible': read_from_db(int(cierre_data.get('total_base_imponible') or 0)),
                     'total_iva': read_from_db(int(cierre_data.get('total_iva') or 0)),
+                    # Añadir los campos de tesoro
+                    'tesoro_otorgado': int(cierre_data.get('tesoro_ganado') or 0),
+                    'tesoro_gastado': int(cierre_data.get('tesoro_gastado') or 0),
+                    'clientes_puntos': clientes_puntos,
                 }
             except Exception:
                 # Fallback conservador: usar valores tal cual si la conversión falla
@@ -630,6 +645,9 @@ class ImpresoraService:
                     'iva_4': cierre_data.get('iva_4', 0),
                     'total_base_imponible': cierre_data.get('total_base_imponible', 0),
                     'total_iva': cierre_data.get('total_iva', 0),
+                    # Añadir los campos de tesoro también en fallback
+                    'tesoro_otorgado': int(cierre_data.get('tesoro_ganado') or 0),
+                    'tesoro_gastado': int(cierre_data.get('tesoro_gastado') or 0),
                 }
 
             # 6b. Recuperar desglose adicional (ventas x forma pago, x cajero, x categoría)
@@ -766,6 +784,9 @@ class ImpresoraService:
             meta: diccionario con metadatos (ej. {'num_ticket': ...}) usado solo para logs
             printer_name: nombre de impresora opcional
         """
+        logging.info(f"DEBUG _imprimir_generico: texto length={len(texto)}")
+        logging.info(f"DEBUG _imprimir_generico: ¿Contiene 'TESORO'? {'TESORO' in texto}")
+        logging.info(f"DEBUG _imprimir_generico: últimas 300 chars={texto[-300:]}")
         # Simulación mediante logging
         if self.imprimir_en_consola:
             sep = "=" * 50
@@ -903,6 +924,9 @@ class ImpresoraService:
             totals = cierre_data.get('totals') if isinstance(cierre_data, dict) else None
             texto = self.cierre_ticket_generator.generate(self.config, cierre_data, tickets, totals=totals)
             meta = {'num_ticket': cierre_data.get('cierre_id', '')}
+            logging.info(f"DEBUG IMPRESORA CIERRE: texto retornado length={len(texto)}")
+            logging.info(f"DEBUG IMPRESORA CIERRE: ¿Contiene 'TESORO'? {'TESORO' in texto}")
+            logging.info(f"DEBUG IMPRESORA CIERRE: últimas 300 chars={texto[-300:]}")
         elif ticket_type == TicketType.NIVEL:
             texto = self.nivel_ticket_generator.generate(self.config, data or {})
             meta = {'num_ticket': data.get('cliente', '')}

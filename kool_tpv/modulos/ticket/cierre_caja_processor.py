@@ -38,6 +38,18 @@ class CierreCajaProcessor(TicketProcessor):
         # calcular totales para pasar al generador e insertar en cierre
         totals = cierre_svc.compute_totals_for_ticket_ids(ticket_ids)
 
+        # Calcular y agregar tesoro ANTES de guardar en BD
+        try:
+            puntos_resumen = cierre_svc.get_puntos_resumen_cierre(ticket_ids)
+            totals['tesoro_otorgado'] = puntos_resumen.get('tesoro_otorgado', Decimal('0'))
+            totals['tesoro_gastado'] = puntos_resumen.get('tesoro_gastado', Decimal('0'))
+            totals['clientes_puntos'] = puntos_resumen.get('clientes_puntos', [])
+        except Exception:
+            logging.exception('Error agregando resumen de puntos a totals en cierre')
+            totals['tesoro_otorgado'] = Decimal('0')
+            totals['tesoro_gastado'] = Decimal('0')
+            totals['clientes_puntos'] = []
+
         # crear el cierre (inserta en `cierres` y marca tickets)
         cierre_id = cierre_svc.create_cierre_atomic(ticket_ids, usuario_id, cajero, cierre_text=cierre_text)
         if cierre_id is None:
@@ -172,24 +184,6 @@ class CierreCajaProcessor(TicketProcessor):
         except Exception:
             pass
 
-        # --- INTEGRACIÓN RESUMEN DE PUNTOS POR CLIENTE (TESORO) ---
-        try:
-            puntos_resumen = cierre_svc.get_puntos_resumen_cierre(ticket_ids)
-
-            # Agregar totales de tesoro a totals
-            totals['tesoro_otorgado'] = puntos_resumen.get('tesoro_otorgado', Decimal('0'))
-            totals['tesoro_gastado'] = puntos_resumen.get('tesoro_gastado', Decimal('0'))
-
-            # Agregar detalle de clientes con puntos
-            totals['clientes_puntos'] = puntos_resumen.get('clientes_puntos', [])
-
-        except Exception:
-            import logging
-            logging.exception('Error agregando resumen de puntos a totals en cierre')
-            # Fallback: valores por defecto
-            totals['tesoro_otorgado'] = Decimal('0')
-            totals['tesoro_gastado'] = Decimal('0')
-            totals['clientes_puntos'] = []
 
         # Insertar en cierres_lineas
         cur = getattr(self.db, 'connection', None).cursor()
