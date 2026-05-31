@@ -668,6 +668,7 @@ class ImpresoraService:
             # en que se está generando el cierre desde la BD sin disponer de los
             # `totals` en memoria (reconstrucción); así mostramos las mismas secciones
             # que el `CierreCajaProcessor` cuando proceda.
+
             try:
                 ticket_ids = [r.get('ticket_id') for r in (tickets_rows or []) if r and r.get('ticket_id') is not None]
                 if ticket_ids:
@@ -752,6 +753,16 @@ class ImpresoraService:
                                 continue
                         if tipos_devol_simple:
                             totals['devoluciones_por_tipo'] = tipos_devol_simple
+                    except Exception:
+                        pass
+
+                    # Productos (ventas por producto)
+                    try:
+                        from kool_tpv.base_datos.producto_service import ProductoService
+                        prod_svc = ProductoService(self.db)
+                        productos = prod_svc.get_ventas_por_producto(ticket_ids) or []
+                        if productos:
+                            totals['productos'] = productos
                     except Exception:
                         pass
             except Exception:
