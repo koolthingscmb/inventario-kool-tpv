@@ -72,9 +72,6 @@ class CierreTicketGenerator(BaseTicketGenerator):
             lines.append(f"Cierre ID: {cierre_text}"[: self.WIDTH])
         lines.append(self.DIVIDER)
 
-        # ============================================================
-        # BLOQUE DE VENTAS
-        # ============================================================
         # BLOQUE DE VENTAS: renderizado reemplazado.
         # Se conserva el cálculo de totales y la separación en filas para uso
         # posterior; el renderizado de filas ha sido eliminado y se añadirá
@@ -172,9 +169,6 @@ class CierreTicketGenerator(BaseTicketGenerator):
             # No fallar la generación del ticket por este bloque
             pass
 
-        # ============================================================
-        # RESUMEN FINANCIERO
-        # ============================================================
         # Separador y título del bloque resumen/totales
         lines.append(self.DOUBLE_DIVIDER)
         lines.append('RESUMEN FINANCIERO'.center(self.WIDTH))
@@ -210,37 +204,11 @@ class CierreTicketGenerator(BaseTicketGenerator):
         lines.append(self._format_line_lr('Total Formas de Pago:', self._format_currency(total_mostrar)))
         lines.append(self.DOUBLE_DIVIDER)
 
-        # ============================================================
-        # DESGLOSE IVA
-        # ============================================================
-        try:
-            if totals and isinstance(totals, dict):
-                lines.append('DESGLOSE IVA'.center(self.WIDTH))
-                # soportar claves base_21, iva_21, base_4, iva_4
-                if 'base_21' in totals or 'iva_21' in totals:
-                    base21 = totals.get('base_21', 0)
-                    iva21 = totals.get('iva_21', 0)
-                    lines.append(self._format_line_lr('Base 21%:', self._format_currency(_to_decimal(base21))))
-                    lines.append(self._format_line_lr('IVA 21%:', self._format_currency(_to_decimal(iva21))))
-                if 'base_4' in totals or 'iva_4' in totals:
-                    base4 = totals.get('base_4', 0)
-                    iva4 = totals.get('iva_4', 0)
-                    lines.append(self._format_line_lr('Base 4%:', self._format_currency(_to_decimal(base4))))
-                    lines.append(self._format_line_lr('IVA 4%:', self._format_currency(_to_decimal(iva4))))
-                # totales
-                if 'total_base_imponible' in totals:
-                    lines.append(self._format_line_lr('Base Imponible:', self._format_currency(_to_decimal(totals.get('total_base_imponible', 0)))))
-                if 'total_iva' in totals:
-                    lines.append(self._format_line_lr('Total IVA:', self._format_currency(_to_decimal(totals.get('total_iva', 0)))))
-                lines.append(self.DOUBLE_DIVIDER)
-        except Exception:
-            pass
+        # Secciones adicionales: ventas por forma de pago, por cajero y por categoría
+        # 'Ventas por forma de pago' eliminado intencionalmente — no mostrar.
 
-        # ============================================================
-        # DESGLOSES (Cajero, Categoría, Tipo)
-        # ============================================================
         try:
-            # 1) Ventas por cajero
+            # 2) Ventas por cajero
             vpc = None
             if totals and isinstance(totals, dict):
                 vpc = totals.get('ventas_por_cajero')
@@ -350,14 +318,35 @@ class CierreTicketGenerator(BaseTicketGenerator):
         except Exception:
             pass
 
-        # ============================================================
-        # VENTAS POR PRODUCTO
-        # ============================================================
+        # Desglose IVA si se proporcionan totales
+        try:
+            if totals and isinstance(totals, dict):
+                lines.append('DESGLOSE IVA'.center(self.WIDTH))
+                # soportar claves base_21, iva_21, base_4, iva_4
+                if 'base_21' in totals or 'iva_21' in totals:
+                    base21 = totals.get('base_21', 0)
+                    iva21 = totals.get('iva_21', 0)
+                    lines.append(self._format_line_lr('Base 21%:', self._format_currency(_to_decimal(base21))))
+                    lines.append(self._format_line_lr('IVA 21%:', self._format_currency(_to_decimal(iva21))))
+                if 'base_4' in totals or 'iva_4' in totals:
+                    base4 = totals.get('base_4', 0)
+                    iva4 = totals.get('iva_4', 0)
+                    lines.append(self._format_line_lr('Base 4%:', self._format_currency(_to_decimal(base4))))
+                    lines.append(self._format_line_lr('IVA 4%:', self._format_currency(_to_decimal(iva4))))
+                # totales
+                if 'total_base_imponible' in totals:
+                    lines.append(self._format_line_lr('Base Imponible:', self._format_currency(_to_decimal(totals.get('total_base_imponible', 0)))))
+                if 'total_iva' in totals:
+                    lines.append(self._format_line_lr('Total IVA:', self._format_currency(_to_decimal(totals.get('total_iva', 0)))))
+                lines.append(self.DOUBLE_DIVIDER)
+        except Exception:
+            pass
+
+        # Sección de Productos (opcional) si se proporcionó detalle en totals
         try:
             productos = None
             if totals and isinstance(totals, dict):
                 productos = totals.get('productos')
-            logging.info(f"DEBUG CIERRE: productos en totals = {repr(productos)}")
             if productos:
                 lines.append('VENTAS POR PRODUCTO'.center(self.WIDTH))
                 # productos expected as iterable of (nombre, tickets_count, uds, total)
@@ -368,50 +357,28 @@ class CierreTicketGenerator(BaseTicketGenerator):
                         uds = int(p[2] or 0)
                         total_p = self._format_currency(_to_decimal(p[3] or 0))
                         left = f"{nombre}: {tickets_cnt} ({uds}uds)"
-                        
-                        # Si la línea completa cabe en WIDTH, imprimirla en una sola línea
-                        full_line = left + ' ' + total_p
-                        if len(full_line) <= self.WIDTH:
-                            space = self.WIDTH - len(left) - len(total_p)
-                            line = left + (' ' * space) + total_p
-                            lines.append(line)
+                        # pad so total lines up on the right
+                        space = self.WIDTH - len(left) - len(total_p)
+                        if space < 1:
+                            line = (left + ' ' + total_p)[: self.WIDTH]
                         else:
-                            # Word-wrap: nombre en línea(s) separada(s), precio alineado a derecha en última línea
-                            nombre_lines = self._wrap_line(left, max_width=self.WIDTH, indent='  ')
-                            for nl in nombre_lines[:-1]:
-                                lines.append(nl)
-                            # Última línea con precio alineado a derecha
-                            last_name = nombre_lines[-1] if nombre_lines else ''
-                            space = self.WIDTH - len(last_name) - len(total_p)
-                            if space < 1:
-                                # Si no cabe, poner precio en línea separada
-                                lines.append(last_name)
-                                lines.append((' ' * (self.WIDTH - len(total_p))) + total_p)
-                            else:
-                                lines.append(last_name + (' ' * space) + total_p)
-                        
-                        logging.info(f"DEBUG CIERRE: línea(s) producto generada(s)")
-                    except Exception as e:
+                            line = left + (' ' * space) + total_p
+                        lines.append(line)
+                    except Exception:
                         # Fallback simple join
                         try:
                             lines.append(f"{p[0]} - {p[1]} - {p[2]} - {p[3]}")
-                            logging.info(f"DEBUG CIERRE: fallback join producto: {p}")
-                        except Exception as e2:
-                            logging.exception(f"Error en fallback join producto: {e2}")
+                        except Exception:
+                            pass
                 lines.append(self.DOUBLE_DIVIDER)
-                logging.info(f"DEBUG CIERRE: líneas tras productos: {lines[-5:]}")
-            else:
-                logging.info("DEBUG CIERRE: productos está vacío o None, no se imprime sección productos")
-        except Exception as e:
-            logging.exception(f"Error en bloque productos: {e}")
+        except Exception:
+            pass
 
         # (Sección de Categorías removida: usar `ventas_por_categoria` / `devoluciones_por_categoria`)
 
         # (Sección de Tipos removida: usar `ventas_por_tipo` / `devoluciones_por_tipo`)
 
-        # ============================================================
-        # PUNTOS DE TESORO
-        # ============================================================
+
         # Bloque PUNTOS DE TESORO
         try:
             tesoro_otorgado = _to_decimal(totals.get('tesoro_otorgado', _D('0'))) if totals else _D('0')

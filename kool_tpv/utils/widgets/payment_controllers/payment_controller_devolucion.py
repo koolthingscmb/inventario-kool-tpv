@@ -3,46 +3,18 @@ PaymentControllerDevolucion - Widget visual para modo devolución activo.
 Muestra el indicador MODO DEVOLUCIÓN en el payment_area del TicketCarrito.
 """
 import logging
-from pathlib import Path
-import json
 import customtkinter as ctk
 from typing import Optional, Callable
+from . import PaymentConfigHelper, load_config, norm_color
 
 logger = logging.getLogger(__name__)
-
-
-def load_config(config_name: str) -> dict:
-    try:
-        base = Path(__file__).resolve().parents[3]
-        config_path = base / "config" / config_name
-        with open(config_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        logger.exception(f"Error cargando {config_name}")
-        return {}
-
-
-def _norm_color(val: str) -> str:
-    try:
-        if not val:
-            return ''
-        if not isinstance(val, str):
-            return val
-        s = val.strip()
-        if not s:
-            return ''
-        if s.lower() in ("transparent", "none"):
-            return s.lower()
-        return '#' + s.lstrip('#')
-    except Exception:
-        return val
 
 
 def _resolve_token(tokens: dict, token: str, fallback: str) -> str:
     """Busca un token de color en el dict anidado de design_tokens."""
     for section in tokens.values():
         if isinstance(section, dict) and token in section:
-            return _norm_color(section[token])
+            return norm_color(section[token])
     return fallback
 
 
@@ -56,51 +28,47 @@ class PaymentControllerDevolucion(ctk.CTkFrame):
         on_finalizar: Optional[Callable] = None,
         **kwargs
     ):
-        self.colors     = load_config("colors_config.json")
-        self.fonts      = load_config("font_config.json")
-        self.layout     = load_config("layout_config.json")
-        self.tokens     = load_config("design_tokens.json")
+        # Cargar tokens y styles (devolución no tiene config propio)
+        self.tokens = load_config("design_tokens.json")
         self.btn_styles = load_config("button_styles.json")
+        
+        # ConfigHelpers para los botones de efectivo y tarjeta
+        self.config_efectivo = PaymentConfigHelper("efectivo")
+        self.config_tarjeta = PaymentConfigHelper("tarjeta")
+        self.config_layout = PaymentConfigHelper("efectivo")  # Cualquiera para layout general
 
-        # --- Colores banner "MODO DEVOLUCIÓN" ---
+        # Colores del banner "MODO DEVOLUCIÓN"
         style = self.btn_styles.get("tpv_danger", {})
-        self._color_danger = _resolve_token(self.tokens, style.get("bg_token",   "red_danger"), "#FF0000")
-        self._color_text   = _resolve_token(self.tokens, style.get("text_token", "white_base"), "#FFFFFF")
+        self._color_danger = _resolve_token(self.tokens, style.get("bg_token", "red_danger"), "#FF0000")
+        self._color_text = _resolve_token(self.tokens, style.get("text_token", "white_base"), "#FFFFFF")
 
-        # --- Colores botones de acción ---
-        pc_colors = self.colors.get("tpv", {}).get("payment_controllers", {})
-        _ef  = pc_colors.get("efectivo", {}).get("button", {})
-        _tar = pc_colors.get("tarjeta",  {}).get("button", {})
-
+        # Colores de botones de acción (usan configs de otros payment controllers)
         self._btn_efectivo = {
-            "bg":     _norm_color(_ef.get("bg",     "#000000")),
-            "hover":  _norm_color(_ef.get("hover",  "#197307")),
-            "text":   _norm_color(_ef.get("text",   "#2cff00")),
-            "border": _norm_color(_ef.get("border", "#2cff00")),
+            "bg": self.config_efectivo.get_color("bg", context="button"),
+            "hover": self.config_efectivo.get_color("hover", context="button"),
+            "text": self.config_efectivo.get_color("text", context="button"),
+            "border": self.config_efectivo.get_color("border", context="button"),
         }
         self._btn_tarjeta = {
-            "bg":     _norm_color(_tar.get("bg",     "#000000")),
-            "hover":  _norm_color(_tar.get("hover",  "#2A7D58")),
-            "text":   _norm_color(_tar.get("text",   "#53ffb1")),
-            "border": _norm_color(_tar.get("border", "#53ffb1")),
+            "bg": self.config_tarjeta.get_color("bg", context="button"),
+            "hover": self.config_tarjeta.get_color("hover", context="button"),
+            "text": self.config_tarjeta.get_color("text", context="button"),
+            "border": self.config_tarjeta.get_color("border", context="button"),
         }
         self._btn_cambio = {
-            "bg":     "#000000",
-            "hover":  _resolve_token(self.tokens, "orange_hover",  "#e67e22"),
-            "text":   _resolve_token(self.tokens, "orange_config", "#FF9800"),
+            "bg": "#000000",
+            "hover": _resolve_token(self.tokens, "orange_hover", "#e67e22"),
+            "text": _resolve_token(self.tokens, "orange_config", "#FF9800"),
             "border": _resolve_token(self.tokens, "orange_config", "#FF9800"),
         }
 
-        # --- Frame ---
-        pc_layout = self.layout.get("modules", {}).get("tpv", {}).get("ticket_carrito", {}).get("payment_controllers", {})
-        footer_bg = self.colors.get("tpv", {}).get("ticket_carrito", {}).get("footer", {}).get("bg", "#1a1a1a")
-
+        # Frame principal
         super().__init__(
             parent,
-            fg_color=_norm_color(footer_bg),
-            border_width=pc_layout.get("border_width", 5),
+            fg_color=self.config_layout.get_bg_color(),
+            border_width=self.config_layout.get_layout_value("border_width"),
             border_color=self._color_danger,
-            corner_radius=pc_layout.get("corner_radius", 18),
+            corner_radius=self.config_layout.get_layout_value("corner_radius"),
             **kwargs
         )
 
@@ -111,22 +79,20 @@ class PaymentControllerDevolucion(ctk.CTkFrame):
         logger.info("PaymentControllerDevolucion inicializado")
 
     def _create_widgets(self):
-        fonts_cfg  = self.fonts.get("modules", {}).get("tpv", {}).get("payment_controllers", {})
-        layout_cfg = self.layout.get("modules", {}).get("tpv", {}).get("ticket_carrito", {}).get("payment_controllers", {})
-        style      = self.btn_styles.get("tpv_danger", {})
-
-        title_font_cfg = fonts_cfg.get("titulo", {})
-        btn_font_cfg   = fonts_cfg.get("button",  {})
-        btn_layout     = layout_cfg.get("button", {})
+        # Obtener configuraciones
+        title_font = self.config_layout.get_font("titulo")
+        button_font = self.config_layout.get_font("button")
+        style = self.btn_styles.get("tpv_danger", {})
 
         main_container = ctk.CTkFrame(self, fg_color="transparent")
         main_container.pack(
-            fill="both", expand=True,
-            padx=layout_cfg.get("padding", 20),
-            pady=layout_cfg.get("spacing", 12),
+            fill="both", 
+            expand=True,
+            padx=self.config_layout.get_layout_value("padding"),
+            pady=self.config_layout.get_layout_value("spacing"),
         )
 
-        # --- Banner decorativo: MODO DEVOLUCIÓN (no clicable) ---
+        # Banner decorativo: MODO DEVOLUCIÓN (no clicable)
         self.btn_modo = ctk.CTkButton(
             main_container,
             text="⚠ MODO DEVOLUCIÓN",
@@ -135,27 +101,22 @@ class PaymentControllerDevolucion(ctk.CTkFrame):
             hover_color=self._color_danger,
             text_color=self._color_text,
             font=(
-                title_font_cfg.get("family", "Courier New"),
+                title_font[0] if title_font else "Courier New",
                 style.get("font_size", 36),
                 "bold",
             ),
             width=style.get("width", 185),
-            height=btn_layout.get("height", 45),
+            height=self.config_layout.get_layout_value("button", "height"),
             corner_radius=style.get("corner_radius", 18),
             border_width=style.get("border_width", 0),
         )
-        self.btn_modo.pack(pady=(0, layout_cfg.get("button_spacing_bottom", 8)))
+        self.btn_modo.pack(pady=(0, self.config_layout.get_layout_value("button_spacing_bottom")))
 
-        # --- Botones de acción ---
-        btn_w  = btn_layout.get("width",         200)
-        btn_h  = btn_layout.get("height",         45)
-        btn_cr = btn_layout.get("corner_radius",  22)
-        btn_bw = btn_layout.get("border_width",    2)
-        btn_font = (
-            btn_font_cfg.get("family", "Courier New"),
-            btn_font_cfg.get("size",   20),
-            "bold",
-        )
+        # Botones de acción
+        btn_w = self.config_layout.get_layout_value("button", "width")
+        btn_h = self.config_layout.get_layout_value("button", "height")
+        btn_cr = self.config_layout.get_layout_value("button", "corner_radius")
+        btn_bw = self.config_layout.get_layout_value("button", "border_width")
 
         def _make_btn(text, colors, command):
             return ctk.CTkButton(
@@ -166,7 +127,7 @@ class PaymentControllerDevolucion(ctk.CTkFrame):
                 hover_color=colors["hover"],
                 text_color=colors["text"],
                 border_color=colors["border"],
-                font=btn_font,
+                font=button_font,
                 width=btn_w,
                 height=btn_h,
                 corner_radius=btn_cr,

@@ -49,9 +49,7 @@ class CierresSubView(CTkFrame):
         try:
             from kool_tpv.base_datos.cierre_service import CierreService
             self.service = CierreService(self.db)
-            logger.info('CierreService inicializado correctamente')
-        except Exception as e:
-            logger.error(f'Error inicializando CierreService: {e}', exc_info=True)
+        except Exception:
             self.service = None
 
         # Keyboard manager
@@ -122,11 +120,8 @@ class CierresSubView(CTkFrame):
     def _buscar_cierres(self, texto):
         try:
             if not self.service:
-                logger.warning('_buscar_cierres: service es None, devolviendo lista vacía')
                 return []
-            logger.info(f'_buscar_cierres: buscando con texto="{texto}"')
             rows = self.service.listar_cierres(limit=1000, offset=0)
-            logger.info(f'_buscar_cierres: service.listar_cierres devolvió {len(rows)} filas')
             if texto:
                 txt = texto.lower()
                 def match(r):
@@ -134,9 +129,7 @@ class CierresSubView(CTkFrame):
                         return txt in str(r.get('cierre_num', '')).lower() or txt in str(r.get('cajero', '')).lower() or txt in str(r.get('cierre_text', '')).lower()
                     except Exception:
                         return False
-                filtered = [r for r in rows if match(r)]
-                logger.info(f'_buscar_cierres: filtrado, {len(filtered)} filas coinciden')
-                return filtered
+                return [r for r in rows if match(r)]
             return rows
         except Exception:
             logger.exception('Error buscando cierres')
@@ -144,7 +137,6 @@ class CierresSubView(CTkFrame):
 
     def _map_cierre(self, detalle):
         try:
-            logger.debug(f'_map_cierre: mapeando detalle id={detalle.get("id")}')
             created = detalle.get('created_at')
             created_str = created
             try:
@@ -169,7 +161,7 @@ class CierresSubView(CTkFrame):
             printed = detalle.get('printed')
             printed_str = 'Sí' if printed else 'No'
 
-            mapped = {
+            return {
                 'id': detalle.get('id'),
                 'cierre_id': detalle.get('id'),
                 'cierre_num': detalle.get('cierre_num'),
@@ -179,10 +171,8 @@ class CierresSubView(CTkFrame):
                 'cajero': detalle.get('cajero') or '',
                 'printed': printed_str,
             }
-            logger.debug(f'_map_cierre: mapped={mapped}')
-            return mapped
         except Exception:
-            logger.exception(f'Error mapeando cierre id={detalle.get("id") if detalle else "None"}')
+            logger.exception('Error mapeando cierre')
             return {}
 
     def _on_nav_select(self, data):

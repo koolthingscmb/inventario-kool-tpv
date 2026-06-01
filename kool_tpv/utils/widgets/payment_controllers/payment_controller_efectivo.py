@@ -3,45 +3,12 @@ PaymentControllerEfectivo - Widget para pago en efectivo
 Entry + cálculo de cambio + validación
 """
 import logging
-from pathlib import Path
-import json
 import customtkinter as ctk
 from typing import Optional, Callable
 from decimal import Decimal, InvalidOperation
+from . import PaymentConfigHelper
 
 logger = logging.getLogger(__name__)
-
-
-def load_config(config_name: str) -> dict:
-    """Cargar archivo de configuración."""
-    try:
-        base = Path(__file__).resolve().parents[3]
-        config_path = base / "config" / config_name
-        with open(config_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        logger.exception(f"Error cargando {config_name}")
-        return {}
-
-
-def _norm_color(val: str) -> str:
-    """Normaliza valores de color: elimina hashes repetidos y espacios."""
-    try:
-        if not val:
-            return ''
-        if not isinstance(val, str):
-            return val
-        s = val.strip()
-        if not s:
-            return ''
-        s_low = s.lower()
-        if s_low in ("transparent", "none"):
-            return s_low
-        # remove leading # and return normalized hex-like string
-        s = s.lstrip('#')
-        return '#' + s
-    except Exception:
-        return val
 
 
 class PaymentControllerEfectivo(ctk.CTkFrame):
@@ -60,35 +27,15 @@ class PaymentControllerEfectivo(ctk.CTkFrame):
             total: Total a cobrar
             on_finalizar: Callback cuando se pulsa Finalizar
         """
-        # Cargar configs
-        self.colors = load_config("colors_config.json")
-        self.fonts = load_config("font_config.json")
-        self.layout = load_config("layout_config.json")
-
-        # Leer configuración específica de payment_controllers.efectivo
-        pc_colors = self.colors.get("tpv", {}).get("payment_controllers", {}).get("efectivo", {})
-        pc_layout = self.layout.get("modules", {}).get("tpv", {}).get("ticket_carrito", {}).get("payment_controllers", {})
-
-        # Aplicar colores y bordes desde config (fallback a footer.bg si bg es 'transparent')
-        footer_bg = self.colors.get("tpv", {}).get("ticket_carrito", {}).get("footer", {}).get("bg", "#1a1a1a")
-        raw_bg = (pc_colors.get("bg", "transparent") or "").strip()
-        if raw_bg.lower() in ("transparent", "none", ""):
-            final_bg = _norm_color(footer_bg)
-        else:
-            final_bg = _norm_color(raw_bg)
-
-        # Debug: log raw and normalized colors to trace invalid values
-        try:
-            logger.debug(f"PaymentControllerEfectivo raw_bg={raw_bg!r}, footer_bg={footer_bg!r}, final_bg={final_bg!r}, border={pc_colors.get('border')!r}")
-        except Exception:
-            pass
+        # Inicializar ConfigHelper
+        self.config = PaymentConfigHelper("efectivo")
 
         super().__init__(
             parent,
-            fg_color=final_bg,
-            border_width=pc_layout.get("border_width", 3),
-            border_color=_norm_color(pc_colors.get("border", "#2ecc71")),
-            corner_radius=pc_layout.get("corner_radius", 18),
+            fg_color=self.config.get_bg_color(),
+            border_width=self.config.get_layout_value("border_width"),
+            border_color=self.config.get_color("border"),
+            corner_radius=self.config.get_layout_value("corner_radius"),
             **kwargs
         )
 
@@ -99,73 +46,42 @@ class PaymentControllerEfectivo(ctk.CTkFrame):
         # Crear UI
         self._create_widgets()
 
+        # Focus automático en entry después de crear widgets
+        self.after_idle(lambda: self.entry_cantidad.focus_set())
+
         logger.info("PaymentControllerEfectivo inicializado")
 
     def _create_widgets(self):
         """Crear widgets del controller."""
-        # Obtener tokens de configuración para payment controllers
-        pcfg = self.colors.get("tpv", {}).get("payment_controllers", {}).get("efectivo", {})
-        fonts_cfg = self.fonts.get("modules", {}).get("tpv", {}).get("payment_controllers", {})
-        layout_cfg = self.layout.get("modules", {}).get("tpv", {}).get("payment_controllers", {})
-
-        # Fonts
-        btn_font = (
-            fonts_cfg.get("titulo", {}).get("family", "Courier New"),
-            fonts_cfg.get("titulo", {}).get("size", 20),
-            fonts_cfg.get("titulo", {}).get("weight", "bold")
-        )
-
-        entry_font = (
-            fonts_cfg.get("entry", {}).get("family", "Courier New"),
-            fonts_cfg.get("entry", {}).get("size", 16)
-        )
-
-        label_font = (
-            fonts_cfg.get("label", {}).get("family", "Courier New"),
-            fonts_cfg.get("label", {}).get("size", 14),
-            fonts_cfg.get("label", {}).get("weight", "bold")
-        )
-
-        cambio_font = (
-            fonts_cfg.get("cambio", {}).get("family", "Courier New"),
-            fonts_cfg.get("cambio", {}).get("size", 18),
-            fonts_cfg.get("cambio", {}).get("weight", "bold")
-        )
-
-        error_font = (
-            fonts_cfg.get("error", {}).get("family", "Courier New"),
-            fonts_cfg.get("error", {}).get("size", 12)
-        )
-
-        # Layout sizes
-        entry_w = layout_cfg.get("efectivo", {}).get("entry_width", 112)
-        entry_h = layout_cfg.get("efectivo", {}).get("entry_height", 40)
-        btn_layout = layout_cfg.get("button", {})
-
-        # Button colors
-        btn_cfg = pcfg.get("button", {})
-        # normalize button token colors
-        btn_cfg = {k: _norm_color(v) if isinstance(v, str) else v for k, v in btn_cfg.items()}
+        # Obtener configuraciones usando ConfigHelper
+        titulo_font = self.config.get_font("titulo")
+        label_font = self.config.get_font("label")
+        entry_font = self.config.get_font("entry")
+        button_font = self.config.get_font("button")
+        cambio_font = self.config.get_font("cambio")
+        error_font = self.config.get_font("error")
 
         # Container principal
         main_container = ctk.CTkFrame(self, fg_color="transparent")
-        main_container.pack(fill="both", expand=True, padx=layout_cfg.get("padding", 20), pady=layout_cfg.get("spacing", 12))
-
-        # Leer espaciados específicos
-        efectivo_cfg = layout_cfg.get("efectivo", {})
+        main_container.pack(
+            fill="both", 
+            expand=True, 
+            padx=self.config.get_layout_value("padding"), 
+            pady=self.config.get_layout_value("spacing")
+        )
 
         # Título
         titulo = ctk.CTkLabel(
             main_container,
             text="PAGO EN EFECTIVO",
-            font=btn_font,
-            text_color=_norm_color(pcfg.get("text_titulo", "#2ecc71"))
+            font=titulo_font,
+            text_color=self.config.get_color("text_titulo")
         )
-        titulo.pack(pady=(0, efectivo_cfg.get("titulo_bottom", 12)))
+        titulo.pack(pady=(0, self.config.get_layout_value("titulo_bottom")))
 
         # Grid 1×3
         grid_frame = ctk.CTkFrame(main_container, fg_color="transparent")
-        grid_frame.pack(fill="x", pady=(0, efectivo_cfg.get("grid_bottom", 8)))
+        grid_frame.pack(fill="x", pady=(0, self.config.get_layout_value("grid_bottom")))
 
         # Configurar columnas
         grid_frame.grid_columnconfigure(0, weight=0)
@@ -177,19 +93,19 @@ class PaymentControllerEfectivo(ctk.CTkFrame):
             grid_frame,
             text="Entregado:",
             font=label_font,
-            text_color=_norm_color(pcfg.get("text_label", "#000000")),
+            text_color=self.config.get_color("text_label"),
             anchor="e"
-        ).grid(row=0, column=0, sticky="e", padx=(0, efectivo_cfg.get("label_padx_right", 8)))
+        ).grid(row=0, column=0, sticky="e", padx=(0, self.config.get_layout_value("label_padx_right")))
 
         # COLUMNA 2: Entry
         self.entry_cantidad = ctk.CTkEntry(
             grid_frame,
-            width=entry_w,
-            height=entry_h,
+            width=self.config.get_layout_value("entry_width"),
+            height=self.config.get_layout_value("entry_height"),
             font=entry_font,
             justify="center"
         )
-        self.entry_cantidad.grid(row=0, column=1, padx=(0, efectivo_cfg.get("entry_padx_right", 12)))
+        self.entry_cantidad.grid(row=0, column=1, padx=(0, self.config.get_layout_value("entry_padx_right")))
         self.entry_cantidad.bind('<KeyRelease>', self._on_cantidad_change)
         self.entry_cantidad.bind('<Return>', lambda e: self._on_finalizar())
         self.entry_cantidad.bind('<Tab>', lambda e: (self.btn_finalizar.focus_set(), 'break'))
@@ -199,7 +115,7 @@ class PaymentControllerEfectivo(ctk.CTkFrame):
             grid_frame,
             text=f"Cambio: 0.00€",
             font=cambio_font,
-            text_color=_norm_color(pcfg.get("text_cambio", "#2ecc71")),
+            text_color=self.config.get_color("text_cambio"),
             anchor="e"
         )
         self.cambio_label.grid(row=0, column=2, sticky="e")
@@ -209,38 +125,45 @@ class PaymentControllerEfectivo(ctk.CTkFrame):
             main_container,
             text="",
             font=error_font,
-            text_color=_norm_color(pcfg.get("text_error", "#e74c3c")),
+            text_color=self.config.get_color("text_error"),
             anchor="center"
         )
-        self.error_label.pack(pady=(efectivo_cfg.get("error_top", 4), efectivo_cfg.get("error_bottom", 8)))
+        self.error_label.pack(pady=(self.config.get_layout_value("error_top"), self.config.get_layout_value("error_bottom")))
+
+        # Colores de borde para feedback visual de focus
+        color_borde_normal = self.config.get_color("border", context="button")
+        color_borde_foco = self.config.get_color("border_hover")  # Del payment_controller (más brillante)
+        if not color_borde_foco:
+            color_borde_foco = self.config.get_color("hover", context="button")
 
         # Botón Finalizar
-        btn_spacing_top = layout_cfg.get("button_spacing_top", 12)
-        btn_spacing_bottom = layout_cfg.get("button_spacing_bottom", 8)
-
         self.btn_finalizar = ctk.CTkButton(
             main_container,
             text="FINALIZAR VENTA",
             command=self._on_finalizar,
-            fg_color=btn_cfg.get("bg", "#2ecc71"),
-            hover_color=btn_cfg.get("hover", "#27ae60"),
-            text_color=_norm_color(btn_cfg.get("text", "#000000")),
-            font=(btn_cfg.get("family", btn_font[0]), btn_cfg.get("size", btn_font[1])),
-            width=btn_layout.get("width", 200),
-            height=btn_layout.get("height", 45),
-            corner_radius=btn_layout.get("corner_radius", 22),
-            border_width=btn_layout.get("border_width", 2),
-            border_color=_norm_color(btn_cfg.get("border", "#000000")),
+            fg_color=self.config.get_color("bg", context="button"),
+            hover_color=self.config.get_color("hover", context="button"),
+            text_color=self.config.get_color("text", context="button"),
+            font=button_font,
+            width=self.config.get_layout_value("button", "width"),
+            height=self.config.get_layout_value("button", "height"),
+            corner_radius=self.config.get_layout_value("button", "corner_radius"),
+            border_width=self.config.get_layout_value("button", "border_width"),
+            border_color=color_borde_normal,
             state="disabled"
         )
-        self.btn_finalizar.pack(pady=(btn_spacing_top, btn_spacing_bottom))
+        self.btn_finalizar.pack(pady=(self.config.get_layout_value("button_spacing_top"), self.config.get_layout_value("button_spacing_bottom")))
+        
+        # BINDINGS
+        # 1. TAB para navegar
         self.btn_finalizar.bind('<Tab>', lambda e: (self.entry_cantidad.focus_set(), 'break'))
-
-        # Focus automático
-        try:
-            self.entry_cantidad.focus_set()
-        except Exception:
-            pass
+        
+        # 2. ENTER para finalizar
+        self.btn_finalizar.bind('<Return>', lambda e: self._on_finalizar())
+        
+        # 3. Feedback visual de focus (borde más brillante cuando tiene focus)
+        self.btn_finalizar.bind('<FocusIn>', lambda e: self.btn_finalizar.configure(border_color=color_borde_foco))
+        self.btn_finalizar.bind('<FocusOut>', lambda e: self.btn_finalizar.configure(border_color=color_borde_normal))
 
     def _on_cantidad_change(self, event=None):
         """Handler cuando cambia la cantidad en el entry."""

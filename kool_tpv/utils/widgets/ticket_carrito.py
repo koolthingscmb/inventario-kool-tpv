@@ -894,6 +894,13 @@ class TicketCarrito(ctk.CTkFrame):
                         item['total'] = total_linea
                     self.carrito_nav_list.add_item(item)
 
+                # Sincronizar cliente visual con el servicio
+                try:
+                    cliente_actual = self.carrito_service.get_cliente()
+                    self.update_cliente(cliente_actual)
+                except Exception:
+                    logger.exception("Error sincronizando cliente en update_carrito")
+
                 try:
                     pass
                     puntos = self.carrito_service.get_puntos_canjeados()
@@ -904,12 +911,14 @@ class TicketCarrito(ctk.CTkFrame):
                         has_tesoro = False
                     from decimal import Decimal
                     if not has_tesoro and puntos and Decimal(str(puntos)) > Decimal('0'):
+                        # Convertir puntos (euros) a centavos para consistencia con sistema
+                        puntos_centavos = int(Decimal(str(puntos)) * 100)
                         self.carrito_nav_list.add_item({
                             "id": "__tesoro_visual__",
                             "nombre": ">> TESORO CANJEADO <<",
                             "cantidad": "",
                             "pvp": "",
-                            "total": -float(puntos),
+                            "total": -puntos_centavos,  # Negativo en centavos
                             "line_tipo": "tesoro_visual",
                             "visual": True,
                             "on_remove": self._remove_tesoro_visual
