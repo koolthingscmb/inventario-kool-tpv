@@ -110,13 +110,9 @@ class TicketsSubView(CTkFrame):
 
         self.keyboard_manager = root.keyboard_manager
 
-        # Power handler registration
-        try:
-            root = self.winfo_toplevel()
-            if hasattr(root, "register_power_handler"):
-                root.register_power_handler(self._handle_power, owner=self)
-        except Exception:
-            pass
+        # NOTE: Power handler registration removed from __init__
+        # TpvView already handles power button for subviews via pop_subview()
+        # No need for individual subviews to register their own handlers
 
         columns = [
             ("id", 80, "ID"),
@@ -299,19 +295,8 @@ class TicketsSubView(CTkFrame):
         except Exception:
             logger.exception('Error en _on_nav_select')
 
-    def _handle_power(self):
-        try:
-            if self.view and hasattr(self.view, "pop_subview"):
-                self.view.pop_subview()
-                try:
-                    if getattr(self.view, "ticket_carrito", None):
-                        self.view.ticket_carrito.update_carrito()
-                except Exception:
-                    pass
-                return True
-        except Exception:
-            pass
-        return False
+    # NOTE: _handle_power removed - TpvView handles power button via pop_subview()
+    # Individual subviews don't need their own power handlers
 
     def _on_imprimir(self):
         """Handler del botón IMPRIMIR en la subvista Tickets.
@@ -800,12 +785,8 @@ class TicketsSubView(CTkFrame):
             logger.exception('Error en _on_x_clicked')
 
     def destroy(self):
-        try:
-            root = self.winfo_toplevel()
-            if hasattr(root, "unregister_power_handler"):
-                root.unregister_power_handler(owner=self)
-        except Exception:
-            pass
+        # NOTE: No need to unregister - we don't register in __init__ anymore
+        # TpvView manages power handling for all subviews
 
         # Ensure global ticket display is hidden when this subview is destroyed
         try:

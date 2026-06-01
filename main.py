@@ -86,7 +86,7 @@ class App(ctk.CTk):
         self.keyboard_manager = self.keyboard_mgr
         self.nav_buttons = {}
         self.current_view = None
-        self._power_handler = None 
+        self._power_stack = []  # Stack de handlers (LIFO - último registrado tiene prioridad) 
 
         # 5. UI - Estructura Principal
         self._init_ui_structure()
@@ -250,14 +250,75 @@ class App(ctk.CTk):
 
     # --- Power Handler System ---
     def register_power_handler(self, handler: Callable, owner: Any = None):
-        self._power_handler = handler
+        """Registrar power handler con prioridad (último = mayor prioridad).
+        
+        Args:
+            handler: Función a ejecutar cuando se presiona Power X
+            owner: Widget/objeto dueño del handler (para identificación)
+        """
+        # Evitar duplicados del mismo owner
+        if owner is not None:
+            self._power_stack = [h for h in self._power_stack if h.get('owner') != owner]
+        
+        # Añadir al stack (último = mayor prioridad)
+        owner_name = owner.__class__.__name__ if owner and hasattr(owner, '__class__') else 'unknown'
+        self._power_stack.append({
+            'handler': handler,
+            'owner': owner,
+            'name': owner_name
+        })
+        
+        logging.info(f"Power handler registrado: {owner_name}")
+        logging.info(f"Stack actual: {[h['name'] for h in self._power_stack]}")
 
     def unregister_power_handler(self, handler: Callable = None, owner: Any = None):
-        self._power_handler = None
+        """Desregistrar power handler específico del owner.
+        
+        Args:
+            handler: (Ignorado, se mantiene por compatibilidad)
+            owner: Widget/objeto dueño del handler a eliminar
+        """
+        if owner is not None:
+            before_count = len(self._power_stack)
+            self._power_stack = [h for h in self._power_stack if h.get('owner') != owner]
+            after_count = len(self._power_stack)
+            
+            if before_count > after_count:
+                owner_name = owner.__class__.__name__ if hasattr(owner, '__class__') else str(owner)
+                logging.info(f"Power handler desregistrado: {owner_name}")
+                logging.info(f"Stack actual: {[h['name'] for h in self._power_stack]}")
 
     def _dispatch_power(self):
-        if self._power_handler and self._power_handler():
-            return 
+        """Ejecutar handler con mayor prioridad (último del stack).
+        
+        Itera desde el final del stack (mayor prioridad) hacia el inicio.
+        Si un handler retorna True, se considera procesado.
+        Si ningún handler procesa o el stack está vacío, cierra la app.
+        """
+        # Copiar stack para iterar (evita problemas si handler modifica stack)
+        handlers_to_try = list(self._power_stack)
+        
+        # Iterar desde el final (mayor prioridad)
+        while handlers_to_try:
+            entry = handlers_to_try.pop()
+            handler = entry.get('handler')
+            handler_name = entry.get('name', 'unknown')
+            
+            try:
+                # Ejecutar handler - si retorna True, fue procesado
+                result = handler()
+                if result is True:
+                    logging.info(f"Power procesado por: {handler_name}")
+                    return
+                else:
+                    logging.debug(f"Power NO procesado por {handler_name} (retornó {result})")
+            except Exception:
+                logging.exception(f"Error ejecutando power handler: {handler_name}")
+                # Continuar con siguiente handler
+                continue
+        
+        # No hay handlers o ninguno procesó - cerrar app
+        logging.info("Power no procesado por ningún handler - cerrando app")
         self.close_app() 
 
     def _on_power_click(self):

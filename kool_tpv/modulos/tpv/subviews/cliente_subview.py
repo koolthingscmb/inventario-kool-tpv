@@ -64,13 +64,9 @@ class ClienteSubView(CTkFrame):
         self.keyboard_manager = root.keyboard_manager
         print("KeyboardManager en TPV:", self.keyboard_manager)
 
-        # Registrar handler de Power para esta sub-vista
-        try:
-            root = self.winfo_toplevel()
-            if hasattr(root, "register_power_handler"):
-                root.register_power_handler(self._handle_power, owner=self)
-        except Exception:
-            pass
+        # NOTE: Power handler registration removed from __init__
+        # TpvView already handles power button for subviews via pop_subview()
+        # No need for individual subviews to register their own handlers
 
         # Columnas para la NavList
         columns = [
@@ -163,22 +159,12 @@ class ClienteSubView(CTkFrame):
         except Exception:
             return {}
 
-    def _handle_power(self):
-        try:
-            if self.view and hasattr(self.view, "pop_subview"):
-                self.view.pop_subview()
-                return True
-        except Exception:
-            pass
-        return False
+    # NOTE: _handle_power removed - TpvView handles power button via pop_subview()
+    # Individual subviews don't need their own power handlers
 
     def destroy(self):
-        try:
-            root = self.winfo_toplevel()
-            if hasattr(root, "unregister_power_handler"):
-                root.unregister_power_handler(owner=self)
-        except Exception:
-            pass
+        # NOTE: No need to unregister - we don't register in __init__ anymore
+        # TpvView manages power handling for all subviews
         super().destroy()
 
     

@@ -91,11 +91,9 @@ class BuscarArticuloPanel:
                 except Exception:
                     app_root = None
 
-                if app_root is not None and hasattr(app_root, 'register_power_handler'):
-                    try:
-                        app_root.register_power_handler(self.hide, owner=self)
-                    except Exception:
-                        logger.exception('Error registrando power handler desde BuscarArticuloPanel')
+                # NOTE: Power handler registration removed from __init__
+                # It's now only registered in show() to avoid polluting the stack
+                # with handlers from components that aren't visible yet
 
                 # Prefer central dispatcher for the button if available
                 try:
