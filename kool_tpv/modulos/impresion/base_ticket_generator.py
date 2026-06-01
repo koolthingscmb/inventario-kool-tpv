@@ -77,6 +77,62 @@ class BaseTicketGenerator(ABC):
         valor_width = self.WIDTH - label_width
         return f"{label:<{label_width}}{valor:>{valor_width}}"
 
+    def _wrap_line(self, texto, max_width=None, indent=''):
+        """Divide texto largo en múltiples líneas sin cortar palabras.
+        
+        Args:
+            texto: Texto a dividir
+            max_width: Ancho máximo por línea (default: self.WIDTH)
+            indent: Indentación para líneas adicionales (default: '')
+            
+        Returns:
+            Lista de strings, cada uno <= max_width
+        """
+        width = max_width if max_width is not None else self.WIDTH
+        if len(texto) <= width:
+            return [texto]
+        
+        # Word-wrap inteligente: no cortar palabras
+        words = texto.split()
+        lines = []
+        current = ''
+        indent_len = len(indent)
+        
+        for i, word in enumerate(words):
+            # Primera línea sin indent, resto con indent
+            line_width = width if not lines else (width - indent_len)
+            
+            if not current:
+                candidate = word
+            else:
+                candidate = current + ' ' + word
+            
+            if len(candidate) <= line_width:
+                current = candidate
+            else:
+                # Línea llena, guardarla
+                if current:
+                    if not lines:
+                        lines.append(current)
+                    else:
+                        lines.append(indent + current)
+                    current = word
+                else:
+                    # Palabra sola muy larga: forzar en su propia línea
+                    if not lines:
+                        lines.append(word[:line_width])
+                    else:
+                        lines.append(indent + word[:line_width])
+        
+        # Agregar última línea
+        if current:
+            if not lines:
+                lines.append(current)
+            else:
+                lines.append(indent + current)
+        
+        return lines if lines else [texto[:width]]    
+
     def _format_header(self, config):
         """Generar encabezado común (nombre, dirección, NIF).
 
