@@ -53,7 +53,7 @@
       "button_width": 160,
       "button_height": 55,
       "corner_radius": 20,
-      "wraplength": 450,
+      "wraplength": "auto",
       "focus_border_width": 3,
       "padding_x": 20,
       "padding_y": 20,

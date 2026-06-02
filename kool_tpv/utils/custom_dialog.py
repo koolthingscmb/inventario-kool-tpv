@@ -41,7 +41,7 @@ def _load_dialog_config():
             'button_width': 160,
             'button_height': 55,
             'corner_radius': 0,
-            'wraplength': 500,
+            'wraplength': 'auto',
             'focus_border_width': 3,
             'entry_width': 300,
             'entry_height': 35
@@ -174,6 +174,7 @@ class CustomDialog(ctk.CTkToplevel):
 
         self.geometry(f"{width}x{height}")
         self.resizable(False, False)
+        self._dialog_width = width  # Guardar para cálculo dinámico de wraplength
 
         # Obtener configuración del tipo específico
         tipo_config = self.dialogs_colors.get(self.tipo, {})
@@ -436,7 +437,13 @@ class CustomDialog(ctk.CTkToplevel):
         # Mensaje
         if mensaje:
             msg_color = tipo_config.get('message_text', self.fallbacks['colors']['message_text'])
-            wraplength = int(self.geometry_cfg.get('wraplength', self.fallbacks['geometry']['wraplength'])) if isinstance(self.geometry_cfg.get('wraplength', None), int) else int(self.fallbacks['geometry']['wraplength'])
+            # Calcular wraplength: si es "auto", usar ancho del diálogo menos paddings
+            wraplength_cfg = self.geometry_cfg.get('wraplength', self.fallbacks['geometry']['wraplength'])
+            if wraplength_cfg == 'auto':
+                padding_x = int(self.geometry_cfg.get('padding_x', 20))
+                wraplength = max(200, self._dialog_width - (padding_x * 2) - 40)  # 40px margen de seguridad
+            else:
+                wraplength = int(wraplength_cfg) if isinstance(wraplength_cfg, (int, float)) else int(self.fallbacks['geometry']['wraplength'])
             mensaje_label = ctk.CTkLabel(
                 content_parent,
                 text=mensaje.upper(),
@@ -731,6 +738,7 @@ class CustomInputDialog(ctk.CTkToplevel):
 
         self.geometry(f"{width}x{height}")
         self.resizable(False, False)
+        self._dialog_width = width  # Guardar para cálculo dinámico de wraplength
         try:
             tipo_config = self.dialogs_colors.get(self.tipo, {})
             bg = tipo_config.get('bg', None)
@@ -836,7 +844,13 @@ class CustomInputDialog(ctk.CTkToplevel):
         # Mensaje
         if mensaje:
             msg_color = tipo_config.get('message_text', self.fallbacks['colors']['message_text'])
-            wraplength = int(self.geometry_cfg.get('wraplength', self.fallbacks['geometry']['wraplength'])) if isinstance(self.geometry_cfg.get('wraplength', None), int) else int(self.fallbacks['geometry']['wraplength'])
+            # Calcular wraplength: si es "auto", usar ancho del diálogo menos paddings
+            wraplength_cfg = self.geometry_cfg.get('wraplength', self.fallbacks['geometry']['wraplength'])
+            if wraplength_cfg == 'auto':
+                padding_x = int(self.geometry_cfg.get('padding_x', 20))
+                wraplength = max(200, self._dialog_width - (padding_x * 2) - 40)  # 40px margen de seguridad
+            else:
+                wraplength = int(wraplength_cfg) if isinstance(wraplength_cfg, (int, float)) else int(self.fallbacks['geometry']['wraplength'])
             mensaje_label = ctk.CTkLabel(
                 content_parent,
                 text=mensaje.upper(),
