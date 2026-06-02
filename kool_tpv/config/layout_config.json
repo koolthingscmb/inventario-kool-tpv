@@ -46,15 +46,21 @@
   },
   "components": {
     "dialog": {
-      "default_width": 700,
-      "default_height": 450,
-      "border_width": 4,
+      "default_width": 500,
+      "default_height": 380,
+      "border_width": 10,
       "icon_size": 120,
       "button_width": 160,
       "button_height": 55,
       "corner_radius": 20,
-      "wraplength": 500,
-      "focus_border_width": 3
+      "wraplength": 450,
+      "focus_border_width": 3,
+      "padding_x": 20,
+      "padding_y": 20,
+      "content_align_x": "center",
+      "content_align_y": "center",
+      "entry_width": 300,
+      "entry_height": 35
     },
     "nav_list": {
       "row_height": 35,

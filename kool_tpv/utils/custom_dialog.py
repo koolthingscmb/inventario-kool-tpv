@@ -10,6 +10,8 @@ from PIL import Image
 import logging
 import json
 
+from kool_tpv.utils.factories.button_factory import ButtonFactory
+
 
 def _load_dialog_config():
     """Carga configuración de diálogos desde JSON con fallbacks centralizados.
@@ -64,8 +66,10 @@ def _load_dialog_config():
         with open(config_dir / "font_config.json", 'r', encoding='utf-8') as f:
             fonts_data = json.load(f)
 
-        # Extraer geometría
-        geometry = dialogs_colors.get('geometry', {})
+        # Cargar geometría desde layout_config.json
+        with open(config_dir / "layout_config.json", 'r', encoding='utf-8') as f:
+            layout_data = json.load(f)
+            geometry = layout_data.get('components', {}).get('dialog', {})
 
         return dialogs_colors, fonts_data, geometry, FALLBACKS
 
@@ -73,6 +77,43 @@ def _load_dialog_config():
         logging.exception("Error cargando configuración de diálogos, usando fallbacks")
         # En caso de error total, devolver solo fallbacks
         return {}, {}, {}, FALLBACKS
+
+
+def _create_dialog_content_container(main_frame, geometry_cfg):
+    """Construye el contenedor de contenido según alineación configurada.
+
+    Soporta:
+    - content_align_x: left|center
+    - content_align_y: top|center
+    """
+    try:
+        align_x = str(geometry_cfg.get('content_align_x', 'left')).lower()
+        align_y = str(geometry_cfg.get('content_align_y', 'top')).lower()
+    except Exception:
+        align_x = 'left'
+        align_y = 'top'
+
+    use_centering = (align_x == 'center') or (align_y == 'center')
+    if not use_centering:
+        return main_frame
+
+    anchor_frame = ctk.CTkFrame(main_frame, fg_color='transparent')
+    anchor_frame.pack(fill='both', expand=True)
+
+    # Grid 3x3 para poder centrar en eje X/Y sin posicionamiento absoluto.
+    anchor_frame.grid_rowconfigure(0, weight=1)
+    anchor_frame.grid_rowconfigure(1, weight=0)
+    anchor_frame.grid_rowconfigure(2, weight=1)
+    anchor_frame.grid_columnconfigure(0, weight=1)
+    anchor_frame.grid_columnconfigure(1, weight=0)
+    anchor_frame.grid_columnconfigure(2, weight=1)
+
+    row = 1 if align_y == 'center' else 0
+    col = 1 if align_x == 'center' else 0
+
+    content_frame = ctk.CTkFrame(anchor_frame, fg_color='transparent')
+    content_frame.grid(row=row, column=col)
+    return content_frame
 
 
 class CustomDialog(ctk.CTkToplevel):
@@ -103,7 +144,9 @@ class CustomDialog(ctk.CTkToplevel):
         # Cargar configuración desde JSON
         self.dialogs_colors, self.fonts_data, self.geometry_cfg, self.fallbacks = _load_dialog_config()
 
-        allowed_types = list(self.dialogs_colors.keys()) if self.dialogs_colors else ['info', 'success', 'warning', 'error', 'password']
+        # Filtrar tipos válidos (no incluir 'geometry' ni otras claves no-tipo)
+        valid_dialog_types = ['info', 'success', 'warning', 'error', 'password']
+        allowed_types = [k for k in self.dialogs_colors.keys() if k in valid_dialog_types] if self.dialogs_colors else valid_dialog_types
         self.tipo = tipo if tipo in allowed_types else 'info'
         self.confirm = bool(confirm)
         self.result = False
@@ -226,15 +269,26 @@ class CustomDialog(ctk.CTkToplevel):
         """Obtiene tupla de fuente desde configuración.
 
         Args:
-            font_key: Clave en font_config.json (ej: 'dialog_title')
+            font_key: Clave en components.dialog de font_config.json ('title', 'message', 'button', 'input')
 
         Returns:
             tuple: (family, size, weight) o (family, size)
         """
         try:
-            font_data = self.fonts_data.get(font_key, {})
-            # Prefer values from font_config.json, otherwise use centralized fallback
-            fallback_font_tuple = self.fallbacks.get('fonts', {}).get(font_key) or self.fallbacks.get('fonts', {}).get('dialog_message')
+            # Leer desde components.dialog.{font_key}
+            dialog_fonts = self.fonts_data.get('components', {}).get('dialog', {})
+            font_data = dialog_fonts.get(font_key, {})
+            
+            # Mapeo para fallback según font_key
+            fallback_map = {
+                'title': 'dialog_title',
+                'message': 'dialog_message',
+                'button': 'dialog_button',
+                'input': 'dialog_input'
+            }
+            fallback_key = fallback_map.get(font_key, 'dialog_message')
+            fallback_font_tuple = self.fallbacks.get('fonts', {}).get(fallback_key, ('Courier New', 16))
+            
             family = font_data.get('family') or fallback_font_tuple[0]
             size = font_data.get('size') or fallback_font_tuple[1]
             weight = font_data.get('weight', 'normal')
@@ -243,12 +297,30 @@ class CustomDialog(ctk.CTkToplevel):
                 return (family, size, weight)
             return (family, size)
         except Exception:
-            # Si falla, intentar obtener del fallback o usar default mínimo
-            try:
-                # Devolver la entrada desde FALLBACKS; asumimos que existe
-                return self.fallbacks.get('fonts', {}).get(font_key) or self.fallbacks.get('fonts', {}).get('dialog_message')
-            except Exception:
-                return self.fallbacks.get('fonts', {}).get(font_key) or self.fallbacks.get('fonts', {}).get('dialog_message')
+            # Si falla, usar fallback
+            fallback_map = {
+                'title': 'dialog_title',
+                'message': 'dialog_message',
+                'button': 'dialog_button',
+                'input': 'dialog_input'
+            }
+            fallback_key = fallback_map.get(font_key, 'dialog_message')
+            return self.fallbacks.get('fonts', {}).get(fallback_key, ('Courier New', 16))
+
+    def _get_button_style_key(self):
+        """Obtiene el style_key de ButtonFactory según el tipo de diálogo.
+        
+        Returns:
+            str: style_key para ButtonFactory (ej: 'dialog_info_btn')
+        """
+        style_map = {
+            'info': 'dialog_info_btn',
+            'success': 'dialog_success_btn',
+            'warning': 'dialog_warning_btn',
+            'error': 'dialog_error_btn',
+            'password': 'dialog_password_btn'
+        }
+        return style_map.get(self.tipo, 'dialog_info_btn')
 
     def _setup_button_focus(self, btn, is_accept=True):
         """Configura eventos de foco en un botón.
@@ -260,7 +332,14 @@ class CustomDialog(ctk.CTkToplevel):
         tipo_config = self.dialogs_colors.get(self.tipo, {})
         focus_border = tipo_config.get('button_focus_border', self.fallbacks['colors']['button_focus_border'])
         focus_width = int(self.geometry_cfg.get('focus_border_width', self.fallbacks['geometry']['focus_border_width'])) if isinstance(self.geometry_cfg.get('focus_border_width', None), int) else int(self.fallbacks['geometry']['focus_border_width'])
-        normal_width = 0  # Sin borde cuando no tiene foco
+        try:
+            normal_width = int(btn.cget('border_width'))
+        except Exception:
+            normal_width = 0
+        try:
+            normal_border_color = btn.cget('border_color')
+        except Exception:
+            normal_border_color = None
 
         def on_focus_in(event):
             try:
@@ -270,7 +349,10 @@ class CustomDialog(ctk.CTkToplevel):
 
         def on_focus_out(event):
             try:
-                btn.configure(border_width=normal_width)
+                if normal_border_color is not None:
+                    btn.configure(border_width=normal_width, border_color=normal_border_color)
+                else:
+                    btn.configure(border_width=normal_width)
             except Exception:
                 pass
 
@@ -324,26 +406,27 @@ class CustomDialog(ctk.CTkToplevel):
         """Crear widgets del diálogo usando configuración."""
         tipo_config = self.dialogs_colors.get(self.tipo, {})
 
-        # Obtener fuentes
-        title_font = self._get_font('dialog_title')
-        message_font = self._get_font('dialog_message')
-        button_font = self._get_font('dialog_button')
+        # Obtener fuentes desde components.dialog
+        title_font = self._get_font('title')
+        message_font = self._get_font('message')
+        button_font = self._get_font('button')
 
         # Frame principal
         main_frame = ctk.CTkFrame(self, fg_color='transparent')
         main_frame.pack(fill='both', expand=True, padx=20, pady=20)
+        content_parent = _create_dialog_content_container(main_frame, self.geometry_cfg)
 
         # Icono
         icon = self._cargar_icono()
         if icon:
-            icon_label = ctk.CTkLabel(main_frame, image=icon, text='')
+            icon_label = ctk.CTkLabel(content_parent, image=icon, text='')
             icon_label.pack(pady=(0, 10))
 
         # Título
         if titulo:
             title_color = tipo_config.get('title_text', self.fallbacks['colors']['title_text'])
             titulo_label = ctk.CTkLabel(
-                main_frame,
+                content_parent,
                 text=titulo.upper(),
                 font=title_font,
                 text_color=title_color
@@ -355,7 +438,7 @@ class CustomDialog(ctk.CTkToplevel):
             msg_color = tipo_config.get('message_text', self.fallbacks['colors']['message_text'])
             wraplength = int(self.geometry_cfg.get('wraplength', self.fallbacks['geometry']['wraplength'])) if isinstance(self.geometry_cfg.get('wraplength', None), int) else int(self.fallbacks['geometry']['wraplength'])
             mensaje_label = ctk.CTkLabel(
-                main_frame,
+                content_parent,
                 text=mensaje.upper(),
                 font=message_font,
                 text_color=msg_color,
@@ -364,46 +447,64 @@ class CustomDialog(ctk.CTkToplevel):
             )
             mensaje_label.pack(pady=(0, 25))
 
-        # Botones usando geometría
-        btn_width = int(self.geometry_cfg.get('button_width', self.fallbacks['geometry']['button_width'])) if isinstance(self.geometry_cfg.get('button_width', None), int) else int(self.fallbacks['geometry']['button_width'])
-        btn_height = int(self.geometry_cfg.get('button_height', self.fallbacks['geometry']['button_height'])) if isinstance(self.geometry_cfg.get('button_height', None), int) else int(self.fallbacks['geometry']['button_height'])
-        corner_radius = int(self.geometry_cfg.get('corner_radius', self.fallbacks['geometry']['corner_radius'])) if isinstance(self.geometry_cfg.get('corner_radius', None), int) else int(self.fallbacks['geometry']['corner_radius'])
+        # Obtener style_key para ButtonFactory
+        style_key = self._get_button_style_key()
 
         if self.confirm:
-            btn_frame = ctk.CTkFrame(main_frame, fg_color='transparent')
+            btn_frame = ctk.CTkFrame(content_parent, fg_color='transparent')
             btn_frame.pack()
 
-            # Cancelar
-            btn_cancel = ctk.CTkButton(
-                btn_frame,
-                text='CANCELAR',
-                command=self._on_cancel,
-                fg_color=tipo_config.get('cancel_bg', self.fallbacks['colors']['cancel_bg']),
-                hover_color=tipo_config.get('cancel_hover', self.fallbacks['colors']['cancel_hover']),
-                text_color=tipo_config.get('button_text', self.fallbacks['colors']['button_text']),
-                font=button_font,
-                width=btn_width,
-                height=btn_height,
-                corner_radius=corner_radius,
-                border_width=0  # Inicial sin borde
-            )
+            # Cancelar - usar ButtonFactory con style_key específico
+            try:
+                btn_cancel = ButtonFactory.create_button(
+                    parent=btn_frame,
+                    text='CANCELAR',
+                    command=self._on_cancel,
+                    style_key='dialog_cancel_btn',
+                    font=button_font
+                )
+            except Exception as e:
+                logging.warning(f"Error creando botón CANCELAR con ButtonFactory: {e}, usando fallback")
+                btn_cancel = ctk.CTkButton(
+                    btn_frame,
+                    text='CANCELAR',
+                    command=self._on_cancel,
+                    fg_color=tipo_config.get('cancel_bg', self.fallbacks['colors']['cancel_bg']),
+                    hover_color=tipo_config.get('cancel_hover', self.fallbacks['colors']['cancel_hover']),
+                    text_color=tipo_config.get('button_text', self.fallbacks['colors']['button_text']),
+                    font=button_font,
+                    width=int(self.geometry_cfg.get('button_width', self.fallbacks['geometry']['button_width'])),
+                    height=int(self.geometry_cfg.get('button_height', self.fallbacks['geometry']['button_height'])),
+                    corner_radius=int(self.geometry_cfg.get('corner_radius', self.fallbacks['geometry']['corner_radius'])),
+                    border_width=0  # Inicial sin borde
+                )
             btn_cancel.pack(side='left', padx=(0, 10))
             self._setup_button_focus(btn_cancel, is_accept=False)
 
-            # Aceptar
-            btn_accept = ctk.CTkButton(
-                btn_frame,
-                text=btn_text.upper(),
-                command=self._on_accept,
-                fg_color=tipo_config.get('button_bg', self.fallbacks['colors']['button_bg']),
-                hover_color=tipo_config.get('button_hover', self.fallbacks['colors']['button_hover']),
-                text_color=tipo_config.get('button_text', self.fallbacks['colors']['button_text']),
-                font=button_font,
-                width=btn_width,
-                height=btn_height,
-                corner_radius=corner_radius,
-                border_width=0  # Inicial sin borde
-            )
+            # Aceptar - usar ButtonFactory con style_key
+            try:
+                btn_accept = ButtonFactory.create_button(
+                    parent=btn_frame,
+                    text=btn_text,
+                    command=self._on_accept,
+                    style_key=style_key,
+                    font=button_font  # Sobrescribir font del style con config
+                )
+            except Exception as e:
+                logging.warning(f"Error creando botón con ButtonFactory: {e}, usando fallback")
+                btn_accept = ctk.CTkButton(
+                    btn_frame,
+                    text=btn_text.upper(),
+                    command=self._on_accept,
+                    fg_color=tipo_config.get('button_bg', self.fallbacks['colors']['button_bg']),
+                    hover_color=tipo_config.get('button_hover', self.fallbacks['colors']['button_hover']),
+                    text_color=tipo_config.get('button_text', self.fallbacks['colors']['button_text']),
+                    font=button_font,
+                    width=int(self.geometry_cfg.get('button_width', self.fallbacks['geometry']['button_width'])),
+                    height=int(self.geometry_cfg.get('button_height', self.fallbacks['geometry']['button_height'])),
+                    corner_radius=int(self.geometry_cfg.get('corner_radius', self.fallbacks['geometry']['corner_radius'])),
+                    border_width=0
+                )
             btn_accept.pack(side='left')
             self._setup_button_focus(btn_accept, is_accept=True)
             self.btn = btn_accept
@@ -420,20 +521,30 @@ class CustomDialog(ctk.CTkToplevel):
             self.btn_accept = btn_accept
 
         else:
-            # Botón único
-            self.btn = ctk.CTkButton(
-                main_frame,
-                text=btn_text.upper(),
-                command=self._on_close,
-                fg_color=tipo_config.get('button_bg', self.fallbacks['colors']['button_bg']),
-                hover_color=tipo_config.get('button_hover', self.fallbacks['colors']['button_hover']),
-                text_color=tipo_config.get('button_text', self.fallbacks['colors']['button_text']),
-                font=button_font,
-                width=btn_width,
-                height=btn_height,
-                corner_radius=corner_radius,
-                border_width=0
-            )
+            # Botón único - usar ButtonFactory con style_key
+            try:
+                self.btn = ButtonFactory.create_button(
+                    parent=content_parent,
+                    text=btn_text,
+                    command=self._on_close,
+                    style_key=style_key,
+                    font=button_font  # Sobrescribir font del style con config
+                )
+            except Exception as e:
+                logging.warning(f"Error creando botón con ButtonFactory: {e}, usando fallback")
+                self.btn = ctk.CTkButton(
+                    content_parent,
+                    text=btn_text.upper(),
+                    command=self._on_close,
+                    fg_color=tipo_config.get('button_bg', self.fallbacks['colors']['button_bg']),
+                    hover_color=tipo_config.get('button_hover', self.fallbacks['colors']['button_hover']),
+                    text_color=tipo_config.get('button_text', self.fallbacks['colors']['button_text']),
+                    font=button_font,
+                    width=int(self.geometry_cfg.get('button_width', self.fallbacks['geometry']['button_width'])),
+                    height=int(self.geometry_cfg.get('button_height', self.fallbacks['geometry']['button_height'])),
+                    corner_radius=int(self.geometry_cfg.get('corner_radius', self.fallbacks['geometry']['corner_radius'])),
+                    border_width=0
+                )
             self.btn.pack()
             self._setup_button_focus(self.btn, is_accept=True)
 
@@ -576,7 +687,7 @@ class CustomInputDialog(ctk.CTkToplevel):
     Soporta enmascarado cuando se solicita un `password` (show='*').
     """
 
-    def __init__(self, parent, tipo='success', titulo='', mensaje='', valor_defecto='', callback=None, password=False):
+    def __init__(self, parent, tipo='success', titulo='', mensaje='', valor_defecto='', callback=None, password=False, window_title=None):
         """
         Args:
             parent: Ventana padre
@@ -592,13 +703,15 @@ class CustomInputDialog(ctk.CTkToplevel):
         # Cargar configuración
         self.dialogs_colors, self.fonts_data, self.geometry_cfg, self.fallbacks = _load_dialog_config()
 
-        allowed_types = list(self.dialogs_colors.keys()) if self.dialogs_colors else ['info', 'success', 'warning', 'error', 'password']
+        # Filtrar tipos válidos (no incluir 'geometry' ni otras claves no-tipo)
+        valid_dialog_types = ['info', 'success', 'warning', 'error', 'password']
+        allowed_types = [k for k in self.dialogs_colors.keys() if k in valid_dialog_types] if self.dialogs_colors else valid_dialog_types
         self.tipo = tipo if tipo in allowed_types else 'success'
         self.result = None
         self.password = bool(password)
 
         # Configurar ventana y geometría
-        self.title(titulo)
+        self.title(window_title if window_title is not None else titulo)
         try:
             width = self.geometry_cfg.get('width') if isinstance(self.geometry_cfg.get('width'), int) else None
             height = self.geometry_cfg.get('height') if isinstance(self.geometry_cfg.get('height'), int) else None
@@ -693,33 +806,27 @@ class CustomInputDialog(ctk.CTkToplevel):
         """Crear widgets del diálogo InputDialog usando configuración."""
         tipo_config = self.dialogs_colors.get(self.tipo, {})
 
-        # Fuentes
-        title_font = None
-        try:
-            title_font = self._get_font('dialog_title')
-        except Exception:
-            # Obtener desde FALLBACKS (debe existir)
-            try:
-                title_font = self.fallbacks.get('fonts', {}).get('dialog_title')
-            except Exception:
-                title_font = None
-        input_font = self._get_font('dialog_input')
-        button_font = self._get_font('dialog_button')
+        # Fuentes desde components.dialog
+        title_font = self._get_font('title')
+        message_font = self._get_font('message')
+        input_font = self._get_font('input')
+        button_font = self._get_font('button')
 
         main_frame = ctk.CTkFrame(self, fg_color='transparent')
         main_frame.pack(fill='both', expand=True, padx=20, pady=20)
+        content_parent = _create_dialog_content_container(main_frame, self.geometry_cfg)
 
         # Icono
         icon = self._cargar_icono()
         if icon:
-            icon_label = ctk.CTkLabel(main_frame, image=icon, text='')
+            icon_label = ctk.CTkLabel(content_parent, image=icon, text='')
             icon_label.pack(pady=(10, 15))
 
         # Título
         if titulo:
             title_color = tipo_config.get('title_text', self.fallbacks['colors']['title_text'])
             titulo_label = ctk.CTkLabel(
-                main_frame,
+                content_parent,
                 text=titulo.upper(),
                 font=title_font,
                 text_color=title_color
@@ -731,9 +838,9 @@ class CustomInputDialog(ctk.CTkToplevel):
             msg_color = tipo_config.get('message_text', self.fallbacks['colors']['message_text'])
             wraplength = int(self.geometry_cfg.get('wraplength', self.fallbacks['geometry']['wraplength'])) if isinstance(self.geometry_cfg.get('wraplength', None), int) else int(self.fallbacks['geometry']['wraplength'])
             mensaje_label = ctk.CTkLabel(
-                main_frame,
+                content_parent,
                 text=mensaje.upper(),
-                font=self._get_font('dialog_message'),
+                font=message_font,
                 text_color=msg_color,
                 wraplength=wraplength,
                 justify='center'
@@ -745,7 +852,7 @@ class CustomInputDialog(ctk.CTkToplevel):
         entry_height = int(self.geometry_cfg.get('entry_height', self.fallbacks['geometry']['entry_height'])) if isinstance(self.geometry_cfg.get('entry_height', None), int) else int(self.fallbacks['geometry']['entry_height'])
 
         entry_params = {
-            "master": main_frame,
+            "master": content_parent,
             "width": entry_width,
             "height": entry_height,
             "font": input_font,
@@ -762,39 +869,62 @@ class CustomInputDialog(ctk.CTkToplevel):
             self.entry.select_range(0, 'end')
 
         # Botones
-        btn_frame = ctk.CTkFrame(main_frame, fg_color='transparent')
+        btn_frame = ctk.CTkFrame(content_parent, fg_color='transparent')
         btn_frame.pack()
 
-        # CANCELAR
-        btn_cancel = ctk.CTkButton(
-            btn_frame,
-            text='CANCELAR',
-            command=self._on_cancel,
-            fg_color=tipo_config.get('cancel_bg', self.fallbacks['colors']['cancel_bg']),
-            hover_color=tipo_config.get('cancel_hover', self.fallbacks['colors']['cancel_hover']),
-            text_color=tipo_config.get('button_text', self.fallbacks['colors']['button_text']),
-            font=button_font,
-            width=int(self.geometry_cfg.get('button_width', self.fallbacks['geometry']['button_width'])) if isinstance(self.geometry_cfg.get('button_width', None), int) else int(self.fallbacks['geometry']['button_width']),
-            height=int(self.geometry_cfg.get('button_height', self.fallbacks['geometry']['button_height'])) if isinstance(self.geometry_cfg.get('button_height', None), int) else int(self.fallbacks['geometry']['button_height']),
-            corner_radius=int(self.geometry_cfg.get('corner_radius', self.fallbacks['geometry']['corner_radius'])) if isinstance(self.geometry_cfg.get('corner_radius', None), int) else int(self.fallbacks['geometry']['corner_radius']),
-            border_width=0
-        )
+        # Obtener style_key para ButtonFactory
+        style_key = self._get_button_style_key()
+
+        # CANCELAR - usar ButtonFactory con style_key específico
+        try:
+            btn_cancel = ButtonFactory.create_button(
+                parent=btn_frame,
+                text='CANCELAR',
+                command=self._on_cancel,
+                style_key='dialog_cancel_btn',
+                font=button_font
+            )
+        except Exception as e:
+            logging.warning(f"Error creando botón CANCELAR con ButtonFactory en InputDialog: {e}, usando fallback")
+            btn_cancel = ctk.CTkButton(
+                btn_frame,
+                text='CANCELAR',
+                command=self._on_cancel,
+                fg_color=tipo_config.get('cancel_bg', self.fallbacks['colors']['cancel_bg']),
+                hover_color=tipo_config.get('cancel_hover', self.fallbacks['colors']['cancel_hover']),
+                text_color=tipo_config.get('button_text', self.fallbacks['colors']['button_text']),
+                font=button_font,
+                width=int(self.geometry_cfg.get('button_width', self.fallbacks['geometry']['button_width'])),
+                height=int(self.geometry_cfg.get('button_height', self.fallbacks['geometry']['button_height'])),
+                corner_radius=int(self.geometry_cfg.get('corner_radius', self.fallbacks['geometry']['corner_radius'])),
+                border_width=0
+            )
         btn_cancel.pack(side='left', padx=(0, 10))
 
-        # ACEPTAR
-        btn_accept = ctk.CTkButton(
-            btn_frame,
-            text='ACEPTAR',
-            command=self._on_accept,
-            fg_color=tipo_config.get('button_bg', self.fallbacks['colors']['button_bg']),
-            hover_color=tipo_config.get('button_hover', self.fallbacks['colors']['button_hover']),
-            text_color=tipo_config.get('button_text', self.fallbacks['colors']['button_text']),
-            font=button_font,
-            width=int(self.geometry_cfg.get('button_width', self.fallbacks['geometry']['button_width'])) if isinstance(self.geometry_cfg.get('button_width', None), int) else int(self.fallbacks['geometry']['button_width']),
-            height=int(self.geometry_cfg.get('button_height', self.fallbacks['geometry']['button_height'])) if isinstance(self.geometry_cfg.get('button_height', None), int) else int(self.fallbacks['geometry']['button_height']),
-            corner_radius=int(self.geometry_cfg.get('corner_radius', self.fallbacks['geometry']['corner_radius'])) if isinstance(self.geometry_cfg.get('corner_radius', None), int) else int(self.fallbacks['geometry']['corner_radius']),
-            border_width=0
-        )
+        # ACEPTAR - usar ButtonFactory con style_key
+        try:
+            btn_accept = ButtonFactory.create_button(
+                parent=btn_frame,
+                text='ACEPTAR',
+                command=self._on_accept,
+                style_key=style_key,
+                font=button_font  # Sobrescribir font del style con config
+            )
+        except Exception as e:
+            logging.warning(f"Error creando botón con ButtonFactory en InputDialog: {e}, usando fallback")
+            btn_accept = ctk.CTkButton(
+                btn_frame,
+                text='ACEPTAR',
+                command=self._on_accept,
+                fg_color=tipo_config.get('button_bg', self.fallbacks['colors']['button_bg']),
+                hover_color=tipo_config.get('button_hover', self.fallbacks['colors']['button_hover']),
+                text_color=tipo_config.get('button_text', self.fallbacks['colors']['button_text']),
+                font=button_font,
+                width=int(self.geometry_cfg.get('button_width', self.fallbacks['geometry']['button_width'])),
+                height=int(self.geometry_cfg.get('button_height', self.fallbacks['geometry']['button_height'])),
+                corner_radius=int(self.geometry_cfg.get('corner_radius', self.fallbacks['geometry']['corner_radius'])),
+                border_width=0
+            )
         btn_accept.pack(side='left')
         self.btn = btn_accept
 
@@ -855,6 +985,21 @@ class CustomInputDialog(ctk.CTkToplevel):
         except Exception as e:
             logging.warning(f"Error centrando ventana InputDialog: {e}")
 
+    def _get_button_style_key(self):
+        """Obtiene el style_key de ButtonFactory según el tipo de diálogo.
+        
+        Returns:
+            str: style_key para ButtonFactory (ej: 'dialog_info_btn')
+        """
+        style_map = {
+            'info': 'dialog_info_btn',
+            'success': 'dialog_success_btn',
+            'warning': 'dialog_warning_btn',
+            'error': 'dialog_error_btn',
+            'password': 'dialog_password_btn'
+        }
+        return style_map.get(self.tipo, 'dialog_success_btn')
+
     def _setup_button_focus(self, btn, is_accept=True):
         """Configura eventos de foco en un botón para InputDialog.
 
@@ -865,7 +1010,14 @@ class CustomInputDialog(ctk.CTkToplevel):
         tipo_config = self.dialogs_colors.get(self.tipo, {})
         focus_border = tipo_config.get('button_focus_border', self.fallbacks['colors']['button_focus_border'])
         focus_width = int(self.geometry_cfg.get('focus_border_width', self.fallbacks['geometry']['focus_border_width'])) if isinstance(self.geometry_cfg.get('focus_border_width', None), int) else int(self.fallbacks['geometry']['focus_border_width'])
-        normal_width = 0
+        try:
+            normal_width = int(btn.cget('border_width'))
+        except Exception:
+            normal_width = 0
+        try:
+            normal_border_color = btn.cget('border_color')
+        except Exception:
+            normal_border_color = None
 
         def on_focus_in(event):
             try:
@@ -875,7 +1027,10 @@ class CustomInputDialog(ctk.CTkToplevel):
 
         def on_focus_out(event):
             try:
-                btn.configure(border_width=normal_width)
+                if normal_border_color is not None:
+                    btn.configure(border_width=normal_width, border_color=normal_border_color)
+                else:
+                    btn.configure(border_width=normal_width)
             except Exception:
                 pass
 
@@ -890,24 +1045,46 @@ class CustomInputDialog(ctk.CTkToplevel):
             pass
 
     def _get_font(self, font_key):
-        """Obtener fuente desde la configuración de fonts cargada."""
+        """Obtener fuente desde la configuración de fonts cargada.
+        
+        Args:
+            font_key: Clave en components.dialog de font_config.json ('title', 'message', 'button', 'input')
+            
+        Returns:
+            tuple: (family, size, weight) o (family, size)
+        """
         try:
-            font_data = self.fonts_data.get(font_key, {})
-            # Prefer values from font_config.json, otherwise use centralized fallback
-            fallback_font_tuple = self.fallbacks.get('fonts', {}).get(font_key) or self.fallbacks.get('fonts', {}).get('dialog_message')
+            # Leer desde components.dialog.{font_key}
+            dialog_fonts = self.fonts_data.get('components', {}).get('dialog', {})
+            font_data = dialog_fonts.get(font_key, {})
+            
+            # Mapeo para fallback según font_key
+            fallback_map = {
+                'title': 'dialog_title',
+                'message': 'dialog_message',
+                'button': 'dialog_button',
+                'input': 'dialog_input'
+            }
+            fallback_key = fallback_map.get(font_key, 'dialog_message')
+            fallback_font_tuple = self.fallbacks.get('fonts', {}).get(fallback_key, ('Courier New', 16))
+            
             family = font_data.get('family') or fallback_font_tuple[0]
             size = font_data.get('size') or fallback_font_tuple[1]
             weight = font_data.get('weight', 'normal')
+
             if weight and weight != 'normal':
                 return (family, size, weight)
             return (family, size)
         except Exception:
-            # Si falla, intentar obtener del fallback o usar default mínimo
-            try:
-                # Devolver la entrada desde FALLBACKS; asumimos que existe
-                return self.fallbacks.get('fonts', {}).get(font_key) or self.fallbacks.get('fonts', {}).get('dialog_message')
-            except Exception:
-                return self.fallbacks.get('fonts', {}).get(font_key) or self.fallbacks.get('fonts', {}).get('dialog_message')
+            # Si falla, usar fallback
+            fallback_map = {
+                'title': 'dialog_title',
+                'message': 'dialog_message',
+                'button': 'dialog_button',
+                'input': 'dialog_input'
+            }
+            fallback_key = fallback_map.get(font_key, 'dialog_message')
+            return self.fallbacks.get('fonts', {}).get(fallback_key, ('Courier New', 16))
 
     def get_input(self):
         """Esperar a que el diálogo se cierre y devolver el resultado.
@@ -918,13 +1095,13 @@ class CustomInputDialog(ctk.CTkToplevel):
         return self.result
 
 
-def show_input_dialog(parent, titulo, mensaje, tipo='success', valor_defecto='', callback=None, password=False):
+def show_input_dialog(parent, titulo, mensaje, tipo='success', valor_defecto='', callback=None, password=False, window_title=None):
     """Mostrar diálogo de entrada y devolver valor ingresado o None si canceló.
 
     Args:
         password: si True, el campo será enmascarado (show='*').
     """
-    dialog = CustomInputDialog(parent, tipo=tipo, titulo=titulo, mensaje=mensaje, valor_defecto=valor_defecto, callback=callback, password=password)
+    dialog = CustomInputDialog(parent, tipo=tipo, titulo=titulo, mensaje=mensaje, valor_defecto=valor_defecto, callback=callback, password=password, window_title=window_title)
     return dialog.get_input()
 
 
@@ -934,7 +1111,9 @@ def show_password_dialog(parent, titulo="Contraseña", mensaje="Introduce tu con
     Returns:
         str o None: Password ingresado o None si canceló
     """
-    return show_input_dialog(parent, titulo=titulo, mensaje=mensaje, tipo="info", password=True)
+    # En dialogs de password mostramos título en la barra de ventana,
+    # pero no como título grande dentro del contenido.
+    return show_input_dialog(parent, titulo="", mensaje=mensaje, tipo="password", password=True, window_title=titulo)
 
 
 def show_text_viewer(parent, titulo, texto, width=600, height=800, callback=None):
