@@ -44,7 +44,9 @@ def _load_dialog_config():
             'wraplength': 'auto',
             'focus_border_width': 3,
             'entry_width': 300,
-            'entry_height': 35
+            'entry_height': 35,
+            'padding_x': 20,
+            'padding_y': 20
         },
         'fonts': {
             'dialog_title': ('Courier New', 28, 'bold'),
@@ -412,9 +414,11 @@ class CustomDialog(ctk.CTkToplevel):
         message_font = self._get_font('message')
         button_font = self._get_font('button')
 
-        # Frame principal
+        # Frame principal - padding desde configuración JSON
+        padding_x = int(self.geometry_cfg.get('padding_x', 20))
+        padding_y = int(self.geometry_cfg.get('padding_y', 20))
         main_frame = ctk.CTkFrame(self, fg_color='transparent')
-        main_frame.pack(fill='both', expand=True, padx=20, pady=20)
+        main_frame.pack(fill='both', expand=True, padx=padding_x, pady=padding_y)
         content_parent = _create_dialog_content_container(main_frame, self.geometry_cfg)
 
         # Icono
@@ -820,8 +824,11 @@ class CustomInputDialog(ctk.CTkToplevel):
         input_font = self._get_font('input')
         button_font = self._get_font('button')
 
+        # Frame principal - padding desde configuración JSON
+        padding_x = int(self.geometry_cfg.get('padding_x', 20))
+        padding_y = int(self.geometry_cfg.get('padding_y', 20))
         main_frame = ctk.CTkFrame(self, fg_color='transparent')
-        main_frame.pack(fill='both', expand=True, padx=20, pady=20)
+        main_frame.pack(fill='both', expand=True, padx=padding_x, pady=padding_y)
         content_parent = _create_dialog_content_container(main_frame, self.geometry_cfg)
 
         # Icono
