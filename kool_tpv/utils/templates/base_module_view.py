@@ -94,6 +94,8 @@ class BaseModuleView:
             logging.exception('Error creando botón power en BaseModuleView')
 
         # Registrar handler de power en el root (si existe la API)
+        # El handler permanece en el stack (igual que TPV) - al reabrir el módulo,
+        # register_power_handler filtra duplicados por owner y reemplaza el antiguo
         try:
             app_root = getattr(self, 'parent', None)
             if app_root is not None and hasattr(app_root, 'register_power_handler'):
@@ -110,27 +112,6 @@ class BaseModuleView:
                     logging.exception('BaseModuleView: error registrando power handler en root')
         except Exception:
             logging.exception('BaseModuleView: error comprobando registro power handler')
-
-        # Desregistrar handler automáticamente al destruir el sidebar
-        try:
-            def _on_destroy(event=None):
-                try:
-                    app = getattr(self, 'parent', None)
-                    if app is not None and hasattr(app, 'unregister_power_handler'):
-                        try:
-                            app.unregister_power_handler(owner=self)
-                            logging.info('BaseModuleView: power handler desregistrado en destroy')
-                        except Exception:
-                            logging.exception('BaseModuleView: error desregistrando power handler')
-                except Exception:
-                    pass
-
-            try:
-                self.sidebar.bind('<Destroy>', _on_destroy)
-            except Exception:
-                pass
-        except Exception:
-            logging.exception('BaseModuleView: error vinculando Destroy para desregistro')
 
         # Container for menu buttons
         self._menu_frame = ctk.CTkFrame(self.sidebar, fg_color='transparent')

@@ -128,7 +128,7 @@ class DevolucionProcessor(VentaProcessor):
                         logger.exception('DevolucionProcessor: error revirtiendo puntos (ticket_id=%s)', ticket_id)
 
             # Transaction committed successfully
-            return ticket_id
+            return ticket_id, num_ticket
         except Exception:
             logger.exception('Error procesando devolucion en transacción')
             raise

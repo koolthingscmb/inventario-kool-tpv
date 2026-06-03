@@ -624,5 +624,83 @@
     "corner_radius": 6,
     "font_size": 18,
     "height": 56
+  },
+
+  "dialog_info_btn": {
+    "type": "outline",
+    "bg_token": "black_base",
+    "text_token": "blue_action",
+    "border_token": "blue_action",
+    "hover_token": "blue_hover_strong",
+    "width": 160,
+    "height": 55,
+    "corner_radius": 12,
+    "border_width": 10,
+    "font_size": 20
+  },
+
+  "dialog_success_btn": {
+    "type": "outline",
+    "bg_token": "black_base",
+    "text_token": "green_success",
+    "border_token": "green_success",
+    "hover_token": "green_hover_strong",
+    "width": 160,
+    "height": 55,
+    "corner_radius": 12,
+    "border_width": 10,
+    "font_size": 20
+  },
+
+  "dialog_warning_btn": {
+    "type": "outline",
+    "bg_token": "black_base",
+    "text_token": "orange_config",
+    "border_token": "orange_config",
+    "hover_token": "orange_hover",
+    "width": 160,
+    "height": 55,
+    "corner_radius": 12,
+    "border_width": 10,
+    "font_size": 20
+  },
+
+  "dialog_error_btn": {
+    "type": "outline",
+    "bg_token": "black_base",
+    "text_token": "red_danger",
+    "border_token": "red_danger",
+    "hover_token": "red_soft",
+    "width": 160,
+    "height": 55,
+    "corner_radius": 12,
+    "border_width": 10,
+    "font_size": 20
+  },
+
+  "dialog_cancel_btn": {
+    "type": "outline",
+    "bg_token": "black_base",
+    "text_token": "gray_light",
+    "border_token": "gray_light",
+    "hover_token": "gray_medium",
+    "width": 160,
+    "height": 55,
+    "corner_radius": 12,
+    "border_width": 5,
+    "font_size": 20
+  },
+
+  "dialog_password_btn": {
+    "type": "solid",
+    "bg_token": "purple_special",
+    "text_token": "black_base",
+    "border_token": "purple_special",
+    "hover_token": "white_base",
+    "width": 160,
+    "height": 55,
+    "corner_radius": 12,
+    "border_width": 2,
+    "font_size": 20
   }
 }

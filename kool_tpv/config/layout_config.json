@@ -16,6 +16,11 @@
     "navigation": {
       "button_padx": 20,
       "button_pady": 14
+    },
+    "keyboard_navigation": {
+      "focus_border_color": "#F2F0E6",
+      "focus_border_width": 5,
+      "normal_border_width": 2
     }
     ,
     "main_menu_layout": {

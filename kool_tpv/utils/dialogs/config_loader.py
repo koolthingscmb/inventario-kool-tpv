@@ -1,9 +1,14 @@
 """
 Carga configuración de diálogos desde JSON con fallbacks centralizados.
+
+Implementa patrón singleton/cache: los JSON se leen una sola vez en memoria.
 """
 from pathlib import Path
 import logging
 import json
+
+# Cache global de configuración (se carga una sola vez)
+_CONFIG_CACHE = None
 
 
 # Fallbacks centralizados (solo se usan si falla la carga del JSON)
@@ -47,9 +52,18 @@ FALLBACKS = {
 def load_dialog_config():
     """Carga configuración de diálogos desde JSON con fallbacks centralizados.
 
+    Implementa cache: los archivos JSON se leen una sola vez.
+    Las siguientes llamadas devuelven el cache en memoria.
+
     Returns:
         tuple: (colors_dict, fonts_dict, geometry_dict, fallbacks_dict)
     """
+    global _CONFIG_CACHE
+
+    # Si ya tenemos cache, devolverlo directamente (no leer disco)
+    if _CONFIG_CACHE is not None:
+        return _CONFIG_CACHE
+
     try:
         config_dir = Path(__file__).resolve().parents[2] / "config"
 
@@ -67,9 +81,12 @@ def load_dialog_config():
             layout_data = json.load(f)
             geometry = layout_data.get('components', {}).get('dialog', {})
 
-        return dialogs_colors, fonts_data, geometry, FALLBACKS
+        # Guardar en cache para futuras llamadas
+        _CONFIG_CACHE = (dialogs_colors, fonts_data, geometry, FALLBACKS)
+        return _CONFIG_CACHE
 
     except Exception as e:
         logging.exception("Error cargando configuración de diálogos, usando fallbacks")
-        # En caso de error total, devolver solo fallbacks
-        return {}, {}, {}, FALLBACKS
+        # En caso de error, cachear fallbacks para no reintentar
+        _CONFIG_CACHE = ({}, {}, {}, FALLBACKS)
+        return _CONFIG_CACHE

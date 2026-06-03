@@ -111,24 +111,15 @@ class BaseDialog(ctk.CTkToplevel):
             pass
 
     def _center_window(self, parent, w, h):
-        """Centra la ventana respecto al padre o pantalla."""
+        """Centra la ventana en el centro de la pantalla.
+
+        Todos los diálogos aparecen en el mismo lugar (centro de pantalla),
+        independientemente de dónde esté la ventana padre.
+        """
         try:
             self.update_idletasks()
-            if parent is not None and getattr(parent, 'winfo_ismapped', None) and parent.winfo_ismapped():
-                try:
-                    parent.update_idletasks()
-                    px = parent.winfo_rootx()
-                    py = parent.winfo_rooty()
-                    pw = parent.winfo_width() or parent.winfo_reqwidth()
-                    ph = parent.winfo_height() or parent.winfo_reqheight()
-                    x = px + max(0, (pw - w) // 2)
-                    y = py + max(0, (ph - h) // 2)
-                except Exception:
-                    x = (self.winfo_screenwidth() // 2) - (w // 2)
-                    y = (self.winfo_screenheight() // 2) - (h // 2)
-            else:
-                x = (self.winfo_screenwidth() // 2) - (w // 2)
-                y = (self.winfo_screenheight() // 2) - (h // 2)
+            x = (self.winfo_screenwidth() // 2) - (w // 2)
+            y = (self.winfo_screenheight() // 2) - (h // 2)
             self.geometry(f"{w}x{h}+{x}+{y}")
         except Exception as e:
             logging.warning(f"Error centrando ventana: {e}")

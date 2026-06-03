@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 from kool_tpv.modulos.tpv.carrito.carrito_service import CarritoService
 
 # 2. IMPORTACIÓN EXACTA (SOLUCIÓN)
-from kool_tpv.modulos.tpv.actions.buscar_articulo import BuscarArticuloPanel
+from kool_tpv.modulos.tpv.subviews.buscar_subview import BuscarSubView
 
 # --- RUTA CONFIG ---
 BASE_DIR = Path(__file__).resolve().parents[2] 
@@ -23,6 +23,7 @@ CONFIG_DIR = BASE_DIR / "config"
 
 # Central ButtonFactory
 from kool_tpv.utils.factories.button_factory import ButtonFactory
+from kool_tpv.utils.keyboard_nav_mixin import KeyboardNavigableMixin
 
 def load_config(filename: str) -> dict:
     try:
@@ -50,9 +51,10 @@ class ClickableBreadcrumb(ctk.CTkFrame):
 
 # use central ButtonFactory (imported above)
 
-class TpvView(ctk.CTkFrame):
+class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
     def __init__(self, parent, db=None):
-        super().__init__(parent)
+        ctk.CTkFrame.__init__(self, parent)
+        KeyboardNavigableMixin.__init_keyboard_mixin__(self)
         self.db = db
 
         # Referencia al contenedor para diálogos (requerido por TpvController)
@@ -112,14 +114,11 @@ class TpvView(ctk.CTkFrame):
         # Stack para sub-vistas dinámicas (push/pop views)
         self._subview_stack = []
 
-        # PANEL DE BÚSQUEDA (Con los datos pasados explícitamente)
-        self.panel_buscar = BuscarArticuloPanel(
-            self, 
-            db=self.db, 
-            carrito_service=self.carrito_service
-        )
-
         self._build_grid_buttons()
+        
+        # Configurar navegación por teclado para los botones del grid
+        self._setup_grid_keyboard_navigation()
+        
         # Instanciar controlador (gestiona payment controllers, acciones y rebind de botones)
         try:
             from kool_tpv.modulos.tpv.tpv_controller import TpvController
@@ -155,7 +154,7 @@ class TpvView(ctk.CTkFrame):
 
             # preserve command mapping for buscar_articulo
             cmd_name = btn_data.get("command")
-            cmd = self.panel_buscar.show if cmd_name == "buscar_articulo" else None
+            cmd = self._mostrar_buscar if cmd_name == "buscar_articulo" else None
             btn = ButtonFactory.create_button(
                 parent=self.grid_frame,
                 text=btn_data.get("label", "???"),
@@ -167,13 +166,40 @@ class TpvView(ctk.CTkFrame):
             # Guardar referencia para mapper (lista de widgets, como espera el mapper)
             self.grid_buttons.append(btn)
 
-    
+    def _setup_grid_keyboard_navigation(self):
+        """Configurar navegación por teclado para los botones del grid principal (lista interna)."""
+        # Poblar lista navegable con TODOS los botones del grid
+        # Los callbacks se actualizarán dinámicamente en _execute_nav_command
+        self._navigable_buttons = []
+        for btn in self.grid_buttons:
+            # Usar un wrapper que obtiene el comando actual del botón
+            wrapped_callback = lambda b=btn: self._execute_nav_command(b)
+            self._navigable_buttons.append((btn, wrapped_callback))
+        
+        # Activar navegación si hay botones
+        if self._navigable_buttons:
+            self._setup_keyboard_navigation()
+
+    def _execute_nav_command(self, btn):
+        """Ejecutar el comando actual de un botón (obtenido dinámicamente)."""
+        try:
+            cmd = btn.cget("command")
+            if callable(cmd):
+                cmd()
+        except Exception:
+            pass
 
     def teardown(self):
         pass
 
     def clear_grid(self):
         """Eliminar todos los widgets del grid y resetear referencias."""
+        # Limpiar navegación por teclado primero
+        try:
+            self.clear_keyboard_navigation()
+        except Exception:
+            pass
+            
         try:
             if hasattr(self, 'grid_frame') and self.grid_frame is not None:
                 for widget in list(self.grid_frame.winfo_children()):
@@ -237,6 +263,25 @@ class TpvView(ctk.CTkFrame):
             except Exception:
                 pass
 
+    def _mostrar_buscar(self):
+        """Mostrar subvista de búsqueda (reemplaza el grid)."""
+        def refresh_ticket():
+            try:
+                ticket = getattr(self, 'ticket_widget', None) or getattr(self, 'ticket_carrito', None) or getattr(self, 'ticket', None)
+                if ticket and hasattr(ticket, 'update_carrito'):
+                    ticket.update_carrito()
+            except Exception:
+                pass
+        
+        buscar_view = BuscarSubView(
+            self.center_area,
+            db=self.db,
+            carrito_service=self.carrito_service,
+            on_add_callback=refresh_ticket,
+            on_close_callback=self.pop_subview
+        )
+        self.push_subview(buscar_view, "Buscar")
+
     def pop_subview(self):
         """Cerrar la sub-vista actual y mostrar la anterior (o el grid base)."""
         try:
@@ -272,6 +317,8 @@ class TpvView(ctk.CTkFrame):
                     self._build_grid_buttons()
                     if hasattr(self, "controller") and self.controller:
                         self.controller.rebind_buttons()
+                    # Reconfigurar navegación por teclado después de reconstruir
+                    self._setup_grid_keyboard_navigation()
                 except Exception:
                     pass
                 try:

@@ -296,12 +296,6 @@ class BuscarArticuloPanel:
             except Exception:
                 logger.exception('Error posicionando close_btn en BuscarArticuloPanel')
 
-            # Focus hint
-            if self.widget and hasattr(self.widget, 'btn_cat_mode'):
-                try:
-                    self.widget.after(50, lambda: self.widget.btn_cat_mode.focus_set())
-                except Exception:
-                    pass
         except Exception:
             logger.exception("Error mostrando overlay")
 
@@ -324,6 +318,7 @@ class BuscarArticuloPanel:
                 pass
 
         self._visible = False
+        
         if callable(self.on_close):
             try:
                 self.on_close()

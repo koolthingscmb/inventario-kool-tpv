@@ -1,28 +1,26 @@
-from customtkinter import CTkFrame, CTkLabel, CTkScrollableFrame
+"""
+Subvista de selección de cajero con navegación por teclado (mixin).
+"""
+from customtkinter import CTkFrame, CTkScrollableFrame
 from kool_tpv.base_datos.usuario_service import UsuarioService
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.custom_dialog import show_password_dialog, show_warning
 from kool_tpv.utils.auth_service import AuthService
+from kool_tpv.utils.keyboard_nav_mixin import KeyboardNavigableMixin
 
 
-class CajeroSubView(CTkFrame):
+class CajeroSubView(CTkFrame, KeyboardNavigableMixin):
+    """Subvista para selección y autenticación de cajero."""
 
     def __init__(self, parent, db, carrito_service, view=None):
-        super().__init__(parent)
+        CTkFrame.__init__(self, parent)
+        KeyboardNavigableMixin.__init_keyboard_mixin__(self)
+
         self.db = db
         self.carrito_service = carrito_service
         self.view = view
 
-        # Frame completamente vacío
-        # Sin header
-        # Sin NavList
-        # Sin search
-        # Sin botones
-        # Sin servicios
-        # Sin columnas
-        # Sin nada más
-
-        # Servicio de usuarios (cajeros)
+        # Servicios
         try:
             self.usuario_service = UsuarioService(self.db)
         except Exception:
@@ -37,7 +35,12 @@ class CajeroSubView(CTkFrame):
         self.chips_frame = CTkScrollableFrame(self)
         self.chips_frame.pack(fill="both", expand=True, padx=20, pady=20)
 
-        # Poblar chips con los usuarios (cajeros)
+        # Crear chips y configurar navegación
+        self._create_chips()
+        self._setup_keyboard_navigation()
+
+    def _create_chips(self):
+        """Crear botones de cajero y poblar lista navegable."""
         cajeros = []
         try:
             if self.usuario_service:
@@ -51,15 +54,21 @@ class CajeroSubView(CTkFrame):
             cajero_id = cajero.get("id") if isinstance(cajero, dict) else getattr(cajero, "id", None)
             nombre = cajero.get("nombre") if isinstance(cajero, dict) else getattr(cajero, "nombre", str(cajero))
 
+            # Callback que se ejecuta con Enter
+            callback = lambda uid=cajero_id, n=nombre: self._select_cajero(uid, n)
+
             btn = ButtonFactory.create_button(
                 parent=self.chips_frame,
                 text=nombre,
                 style_key="cajero_chip",
-                command=(lambda uid=cajero_id, n=nombre: self._select_cajero(uid, n))
+                command=callback
             )
             btn.grid(row=row, column=col, padx=8, pady=8, sticky="nsew")
 
-        # Ajustar columnas para que se expandan equitativamente
+            # Añadir a lista navegable del mixin: (widget, callback)
+            self._navigable_buttons.append((btn, callback))
+
+        # Configurar columnas
         for c in range(3):
             try:
                 self.chips_frame.grid_columnconfigure(c, weight=1)
@@ -78,7 +87,7 @@ class CajeroSubView(CTkFrame):
             # Pedir contraseña
             password = show_password_dialog(
                 parent,
-                titulo="Autenticación",
+                titulo="Autenticar Cajero",
                 mensaje=f"Introduce la contraseña de {nombre}:"
             )
 

@@ -659,7 +659,7 @@ class TpvController:
             if not cajero_obj:
                 show_error(
                     self.view.container,
-                    'Sin cajero',
+                    '',
                     'Debe autenticar un cajero antes de finalizar la venta.'
                 )
                 return

@@ -163,3 +163,14 @@ class ClickableBreadcrumb(ctk.CTkFrame):
             return ' / '.join([text for text, _ in self.parts])
         except Exception:
             return ''
+    
+    def get_parts(self) -> list:
+        """Obtener lista de partes del breadcrumb.
+
+        Returns:
+            Lista de tuplas (texto, callback)
+        """
+        try:
+            return self.parts if hasattr(self, 'parts') else []
+        except Exception:
+            return []

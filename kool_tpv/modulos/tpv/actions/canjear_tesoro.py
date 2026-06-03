@@ -60,7 +60,7 @@ class CanjearTesoroAction:
         # Validar que haya productos en el carrito
         try:
             if self.carrito_service.is_empty():
-                show_warning(parent_window, 'Carrito vacío', 'NO HAY PRODUCTOS EN EL CARRITO. NO SE PUEDE CANJEAR TESORO.')
+                show_warning(parent_window, '', 'NO HAY PRODUCTOS EN EL CARRITO. NO SE PUEDE CANJEAR TESORO.')
                 return
         except Exception:
             logging.exception('Error validando carrito vacío')

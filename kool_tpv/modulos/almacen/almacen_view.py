@@ -172,11 +172,16 @@ class AlmacenView(BaseModuleView):
         self.breadcrumb_callbacks = {
             'ALMACÉN': self.show_albaranes, # Click en ALMACÉN vuelve a vista principal albaranes
             'ALBARANES': self.show_albaranes,
+            'BUSQUEDA': self.show_busqueda,
+            'BÚSQUEDA': self.show_busqueda,
+            'TIPOS': self.show_tipos,
+            'CATEGORIAS': self.show_categorias,
+            'CATEGORÍAS': self.show_categorias,
+            'PROVEEDORES': self.show_proveedores,
             'CONSULTAR': self.show_consultar,
             'ENTRADA MANUAL': self.show_entrada_manual,
             'SALIDA MANUAL': self.show_salida_manual,
             'DEVOLUCIÓN': self.show_devolucion,
-            'PROVEEDORES': self.show_proveedores, # ← AÑADIDO para navegación clickeable
         }
 
     def _on_power(self):
@@ -191,11 +196,31 @@ class AlmacenView(BaseModuleView):
                 # SÍ → Destruir la sub-vista actual
                 for widget in self.central_area.winfo_children():
                     widget.destroy()
-                # Actualizar breadcrumb a nivel raíz
+                
+                # Intentar volver a la vista anterior según el breadcrumb
                 try:
+                    # Obtener partes del breadcrumb actual
+                    breadcrumb_parts = self.breadcrumb.get_parts() if hasattr(self.breadcrumb, 'get_parts') else []
+                    
+                    # Si hay más de 2 partes (SISTEMA_KOOL + ALMACÉN + algo más), volver a la vista anterior
+                    if len(breadcrumb_parts) > 2:
+                        # Obtener la penúltima parte
+                        previous_part = breadcrumb_parts[-2] if len(breadcrumb_parts) >= 2 else None
+                        previous_name = previous_part[0] if previous_part else None
+                        
+                        # Intentar volver a la vista anterior
+                        if previous_name and previous_name in self.breadcrumb_callbacks:
+                            callback = self.breadcrumb_callbacks[previous_name]
+                            if callable(callback):
+                                callback()
+                                return True
+                    
+                    # Si no hay vista anterior definida, volver a ALMACÉN raíz
                     self.actualizar_ruta('ALMACÉN')
                 except Exception:
-                    pass
+                    # En caso de error, volver a ALMACÉN raíz
+                    self.actualizar_ruta('ALMACÉN')
+                
                 return True  # "Ya gestioné el Power, NO me cierres"
             else:
                 # NO → Zona vacía, permite que main.py cierre el módulo
@@ -209,6 +234,15 @@ class AlmacenView(BaseModuleView):
         """Instancia y muestra la UI de creación en la zona central."""
         try:
             from .ui.Productos.crear_producto_ui import CrearProductoUI
+            
+            # Guardar breadcrumb actual para preservar navegación
+            current_breadcrumb_text = None
+            try:
+                if hasattr(self, 'breadcrumb') and self.breadcrumb:
+                    current_breadcrumb_text = self.breadcrumb.get_text()
+            except Exception:
+                pass
+            
             # Always instantiate a fresh UI to avoid using destroyed widgets
             try:
                 crear_ui = CrearProductoUI(self.central_area, db=self.db, producto_id=producto_id, module_name='almacen')
@@ -231,7 +265,18 @@ class AlmacenView(BaseModuleView):
                 # Actualizar breadcrumb DESPUÉS de verificar cambios (solo si navegación exitosa)
                 if navigated:
                     try:
-                        self.actualizar_ruta('ALMACEN / CREAR_PRODUCTO')
+                        # Si venimos de otra vista (breadcrumb tiene más de 2 partes), preservar la ruta
+                        if current_breadcrumb_text and ' / ' in current_breadcrumb_text:
+                            parts = current_breadcrumb_text.split(' / ')
+                            # Si ya estamos en una subvista (más de SISTEMA_KOOL + ALMACÉN)
+                            if len(parts) > 2:
+                                # Eliminar última parte si existe y agregar CREAR_PRODUCTO
+                                base_path = ' / '.join(parts[1:-1])  # Quitar SISTEMA_KOOL y última parte
+                                self.actualizar_ruta(f'{base_path} / CREAR_PRODUCTO')
+                            else:
+                                self.actualizar_ruta('ALMACEN / CREAR_PRODUCTO')
+                        else:
+                            self.actualizar_ruta('ALMACEN / CREAR_PRODUCTO')
                     except Exception:
                         pass
 

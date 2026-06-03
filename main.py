@@ -412,12 +412,24 @@ class App(ctk.CTk):
                 self.nav_frame.pack(side="left", fill="y")
             return
 
-        # 2. Si hay otros módulos abiertos, preguntarles si gestionan el Power
+        # 2. Si hay otros módulos abiertos Y VISIBLES, preguntarles si gestionan el Power
         modules = ['almacen_view', 'clientes_view', 'informes_view', 'config_view']
 
         for mod_name in modules:
             if hasattr(self, mod_name):
                 view = getattr(self, mod_name)
+                
+                # Verificar si el módulo está visible (sidebar mapeado)
+                is_visible = False
+                try:
+                    if view and hasattr(view, 'sidebar') and view.sidebar.winfo_ismapped():
+                        is_visible = True
+                except Exception:
+                    pass
+                
+                # Solo procesar módulos visibles
+                if not is_visible:
+                    continue
 
                 # Preguntar al módulo si tiene método _on_power
                 if view and hasattr(view, '_on_power'):
@@ -430,9 +442,9 @@ class App(ctk.CTk):
                     except Exception:
                         logging.exception(f'Error llamando a _on_power en {mod_name}')
 
-                # Si _on_power devolvió False (o no existe), destruir el módulo
+                # Si _on_power devolvió False (o no existe), ocultar el módulo (igual que TPV)
                 if view:
-                    # FIX: Ocultar los frames internos del módulo (sidebar y main_frame)
+                    # Ocultar frames del módulo (NO destruir - handler permanece en stack)
                     try:
                         if hasattr(view, 'sidebar'):
                             view.sidebar.pack_forget()
@@ -444,17 +456,6 @@ class App(ctk.CTk):
                             view.main_frame.pack_forget()
                     except Exception:
                         pass
-
-                    # Destruir el módulo completo
-                    if hasattr(view, 'winfo_exists'):
-                        try:
-                            if view.winfo_exists():
-                                view.destroy()
-                        except Exception:
-                            pass
-
-                    # Limpiar referencia
-                    delattr(self, mod_name)
 
                 # Restaurar Menú Principal
                 self.nav_frame.pack(side="left", fill="y")

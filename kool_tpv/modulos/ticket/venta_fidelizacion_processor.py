@@ -12,8 +12,10 @@ class VentaFidelizacionProcessor(VentaProcessor):
         proc_res = super().process(**kwargs)
         if isinstance(proc_res, (tuple, list)):
             ticket_id = proc_res[0]
+            num_ticket = proc_res[1] if len(proc_res) > 1 else None
         else:
             ticket_id = proc_res
+            num_ticket = None
         cliente_id = kwargs.get('cliente_id')
         puntos_otorgar_cents = kwargs.get('puntos_otorgar_cents')
         puntos_gastados_cents = kwargs.get('puntos_gastados_cents')
@@ -35,4 +37,4 @@ class VentaFidelizacionProcessor(VentaProcessor):
                     unidades_vendidas=kwargs.get('total_unidades', 0),
                     fecha=(kwargs.get('created_at') or '').split(' ')[0]
                 )
-        return ticket_id
+        return ticket_id, num_ticket
