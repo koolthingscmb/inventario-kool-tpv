@@ -467,7 +467,21 @@ class AlmacenView(BaseModuleView):
                 logging.exception('Error instanciando DevolucionUI en show_devolucion')
         except Exception:
             logging.exception('Error abriendo devolución en AlmacenView')
-    
+
+    def show_importar_albaran(self):
+        """Mostrar UI de importar albarán desde CSV."""
+        try:
+            from .ui.albaranes.importar_albaran import ImportarAlbaranUI
+            try:
+                importar_ui = ImportarAlbaranUI(self.central_area, db=self.db, owner=self, module_name='almacen')
+                if self.set_central_content(importar_ui):
+                    self.actualizar_ruta('ALBARANES / IMPORTAR CSV', callbacks=self.breadcrumb_callbacks)
+                    logging.info('Abriendo importar albarán...')
+            except Exception:
+                logging.exception('Error instanciando ImportarAlbaranUI en show_importar_albaran')
+        except Exception:
+            logging.exception('Error abriendo importar albarán en AlmacenView')
+
     def show_consultar(self):
         """Mostrar UI de consulta de albaranes con filtros."""
         try:

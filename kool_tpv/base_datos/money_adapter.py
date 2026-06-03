@@ -51,4 +51,49 @@ def read_from_db(value: Optional[Union[int, str]]) -> Decimal:
     return from_cents(int(value))
 
 
-__all__ = ["prepare_for_db", "read_from_db"]
+def calcular_descuento_porcentaje(importe: MoneyInput, porcentaje: Union[int, float, Decimal]) -> int:
+    """Calcula descuento en céntimos desde un importe base y porcentaje.
+
+    Args:
+        importe: Importe base (euros o céntimos)
+        porcentaje: Porcentaje de descuento (ej: 30 para 30%)
+
+    Returns:
+        Descuento en céntimos (siempre int)
+
+    Example:
+        >>> calcular_descuento_porcentaje(Decimal('7.69'), 30)
+        231  # 2.31€ de descuento en céntimos
+    """
+    # Convertir importe a Decimal euros si viene en céntimos
+    if isinstance(importe, int):
+        base_euros = read_from_db(importe)
+    else:
+        base_euros = Decimal(str(importe))
+
+    porcentaje_dec = Decimal(str(porcentaje))
+    descuento_euros = base_euros * (porcentaje_dec / Decimal('100'))
+
+    return prepare_for_db(descuento_euros)
+
+
+def calcular_importe_con_descuento(importe: MoneyInput, descuento: MoneyInput) -> int:
+    """Calcula importe final restando descuento, resultado en céntimos.
+
+    Args:
+        importe: Importe base (euros o céntimos)
+        descuento: Descuento a aplicar (euros o céntimos)
+
+    Returns:
+        Importe final en céntimos
+
+    Example:
+        >>> calcular_importe_con_descuento(Decimal('7.69'), Decimal('2.31'))
+        538  # 5.38€ en céntimos
+    """
+    importe_cents = prepare_for_db(importe)
+    descuento_cents = prepare_for_db(descuento)
+    return max(0, importe_cents - descuento_cents)
+
+
+__all__ = ["prepare_for_db", "read_from_db", "calcular_descuento_porcentaje", "calcular_importe_con_descuento"]

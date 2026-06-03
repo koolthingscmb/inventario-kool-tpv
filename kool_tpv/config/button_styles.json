@@ -586,7 +586,8 @@
     "hover_token": "green_success",
     "border_width": 2,
     "corner_radius": 8,
-    "font_size": 18,
+    "font_size": 14,
+    "min_width": 160,
     "height": 48
   },
 
@@ -598,7 +599,8 @@
     "hover_token": "green_success",
     "border_width": 2,
     "corner_radius": 8,
-    "font_size": 18,
+    "font_size": 14,
+    "min_width": 160,
     "height": 48
   },
 
@@ -610,7 +612,8 @@
     "hover_token": "green_success",
     "border_width": 1,
     "corner_radius": 6,
-    "font_size": 18,
+    "font_size": 14,
+    "min_width": 160,
     "height": 56
   },
 
@@ -622,7 +625,8 @@
     "hover_token": "green_success",
     "border_width": 1,
     "corner_radius": 6,
-    "font_size": 18,
+    "font_size": 14,
+    "min_width": 160,
     "height": 56
   },
 

@@ -33,7 +33,7 @@ class AlbaranesUI:
         # Prefer creating buttons from config when available, fallback to CTkButton
         botones = [
             ('ENTRADA MANUAL', 'entrada_manual', self.show_entrada_manual),
-            ('IMPORTAR ALBARÁN', 'importar_csv', self._placeholder),
+            ('IMPORTAR ALBARÁN', 'importar_csv', self.show_importar_albaran),
             ('CONSULTAR', 'consultar_albaranes', self.show_consultar),
             ('EXPORTAR', 'exportar', self._placeholder),
             ('SALIDA MANUAL', 'salida_manual', self.show_salida_manual),
@@ -87,7 +87,15 @@ class AlbaranesUI:
         except Exception:
             logging.exception('Error en show_devolucion')
 
-    
+    def show_importar_albaran(self):
+        """Mostrar importar albarán desde CSV (delega a owner)."""
+        try:
+            if getattr(self, 'owner', None) and hasattr(self.owner, 'show_importar_albaran'):
+                self.owner.show_importar_albaran()
+            else:
+                logging.warning('AlbaranesUI: owner no disponible para show_importar_albaran')
+        except Exception:
+            logging.exception('Error en show_importar_albaran')
 
     def _placeholder(self):
         logging.info('Función pendiente de implementar')

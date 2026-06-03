@@ -200,8 +200,8 @@
         "main_button_height": 130,
         "category_button_min_width": 120,
         "category_button_height": 48,
-        "article_button_height": 56,
-        "grid_spacing": 12
+        "article_button_height": 50,
+        "grid_spacing": 5
       }
     },
     "almacen": {},
