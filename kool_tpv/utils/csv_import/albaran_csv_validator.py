@@ -23,6 +23,10 @@ class CsvAlbaranLine:
     coste_cents: int  # Coste unitario en céntimos
     descuento_cents: int  # Descuento en céntimos (ya calculado desde %)
     tipo_iva: int
+    # Campos opcionales
+    editorial: str = ''
+    fabricante: str = ''
+    pvpr_cents: int = 0  # PVP recomendado en céntimos
     existe_en_bd: bool = False
     producto_id: Optional[int] = None
     errores: List[str] = field(default_factory=list)
@@ -106,6 +110,12 @@ class AlbaranCsvValidator:
             dto_porcentaje = fila.get('descuento', 0)  # Porcentaje (ej: 30 para 30%)
             tipo_iva = fila.get('tipo_iva', 21)
 
+            # Campos opcionales
+            editorial = fila.get('editorial', '')
+            fabricante = fila.get('fabricante', '')
+            pvpr_euros = Decimal(str(fila.get('pvpr', 0.0)))
+            pvpr_cents = prepare_for_db(pvpr_euros)
+
             # Convertir a céntimos
             coste_cents = prepare_for_db(coste_euros)
             # Calcular descuento en céntimos desde porcentaje
@@ -119,6 +129,9 @@ class AlbaranCsvValidator:
                 coste_cents=coste_cents,
                 descuento_cents=descuento_cents,
                 tipo_iva=tipo_iva,
+                editorial=editorial,
+                fabricante=fabricante,
+                pvpr_cents=pvpr_cents,
             )
 
             # Validaciones básicas

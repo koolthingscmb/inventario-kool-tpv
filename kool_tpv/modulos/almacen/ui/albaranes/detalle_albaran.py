@@ -564,17 +564,21 @@ class DetalleAlbaranUI:
 
     def _update_totals(self):
         try:
-            neto = 0.0
-            iva4 = 0.0
-            iva10 = 0.0
-            iva21 = 0.0
+            from decimal import Decimal
+            neto = Decimal('0.0')
+            iva4 = Decimal('0.0')
+            iva10 = Decimal('0.0')
+            iva21 = Decimal('0.0')
 
             for line in self.lines:
-                importe_linea = (line['cantidad'] * line['coste']) - line['descuento']
+                cantidad = Decimal(str(line['cantidad']))
+                coste = line['coste'] if isinstance(line['coste'], Decimal) else Decimal(str(line['coste']))
+                descuento = line['descuento'] if isinstance(line['descuento'], Decimal) else Decimal(str(line['descuento']))
+                importe_linea = (cantidad * coste) - descuento
                 neto += importe_linea
 
                 tipo = line['tipo_iva']
-                iva_calc = importe_linea * (tipo / 100.0)
+                iva_calc = importe_linea * (Decimal(str(tipo)) / Decimal('100'))
 
                 if tipo == 4:
                     iva4 += iva_calc

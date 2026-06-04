@@ -176,6 +176,9 @@ CREATE TABLE albaran_lines (
     descuento REAL DEFAULT 0.0,
     importe REAL,
     tipo_iva INTEGER DEFAULT 21,
+    editorial TEXT,
+    fabricante TEXT,
+    pvpr_cents INTEGER DEFAULT 0,
     FOREIGN KEY(albaran_id) REFERENCES albaranes(id) ON DELETE CASCADE,
     FOREIGN KEY(producto_id) REFERENCES productos(id)
 );

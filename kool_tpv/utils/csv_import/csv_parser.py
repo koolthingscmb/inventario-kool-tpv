@@ -186,6 +186,10 @@ class CsvParser:
             'columna_descuento': 'descuento',
             'columna_iva': 'tipo_iva',
             'columna_tipo_iva': 'tipo_iva',
+            # Campos opcionales
+            'columna_editorial': 'editorial',
+            'columna_fabricante': 'fabricante',
+            'columna_pvpr': 'pvpr',
         }
 
         header_set = set(headers)
@@ -240,6 +244,17 @@ class CsvParser:
             result['tipo_iva'] = int(float(iva_str)) if iva_str else 21
         except (ValueError, TypeError):
             result['tipo_iva'] = 21
+
+        # Campos opcionales (editorial, fabricante, pvpr)
+        result['editorial'] = str(result.get('editorial', '')).strip()
+        result['fabricante'] = str(result.get('fabricante', '')).strip()
+
+        # PVPR (float, opcional) - PVP recomendado
+        try:
+            pvpr_str = str(result.get('pvpr', '0')).replace(',', '.')
+            result['pvpr'] = float(pvpr_str) if pvpr_str else 0.0
+        except (ValueError, TypeError):
+            result['pvpr'] = 0.0
 
         return result if result['ean'] else None
 

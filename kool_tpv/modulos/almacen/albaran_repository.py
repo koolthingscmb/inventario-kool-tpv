@@ -59,8 +59,9 @@ class AlbaranRepository:
                     """
                     INSERT INTO albaran_lines
                     (albaran_id, producto_id, ean, nombre, cantidad,
-                     coste, descuento, importe, tipo_iva)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     coste, descuento, importe, tipo_iva,
+                     editorial, fabricante, pvpr_cents)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         albaran_id,
@@ -72,10 +73,14 @@ class AlbaranRepository:
                         int(prepare_for_db(line['descuento'])),
                         int(prepare_for_db(line['importe'])),
                         line['tipo_iva'],
+                        line.get('editorial', ''),
+                        line.get('fabricante', ''),
+                        int(line.get('pvpr_cents', 0)),
                     )
                 )
 
-                if line['producto_id']:
+                # Solo sumar stock a productos EXISTENTES (no a nuevos creados desde albarán)
+                if line['producto_id'] and not line.get('es_producto_nuevo', False):
                     cantidad_ajuste = line['cantidad'] if tipo == 'ENTRADA' else -line['cantidad']
                     try:
                         cur.execute(
@@ -137,8 +142,9 @@ class AlbaranRepository:
                     """
                     INSERT INTO albaran_lines
                     (albaran_id, producto_id, ean, nombre, cantidad,
-                     coste, descuento, importe, tipo_iva)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     coste, descuento, importe, tipo_iva,
+                     editorial, fabricante, pvpr_cents)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         albaran_id,
@@ -150,6 +156,9 @@ class AlbaranRepository:
                         int(prepare_for_db(line['descuento'])),
                         int(prepare_for_db(line['importe'])),
                         line['tipo_iva'],
+                        line.get('editorial', ''),
+                        line.get('fabricante', ''),
+                        int(line.get('pvpr_cents', 0)),
                     )
                 )
 

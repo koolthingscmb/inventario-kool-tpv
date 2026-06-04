@@ -9,6 +9,7 @@ import customtkinter as ctk
 
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
 from kool_tpv.utils.config_loader import load_colors
+from kool_tpv.utils.font_loader import load_font_config
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.widgets.nav_list import NavList
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
@@ -72,6 +73,32 @@ class ImportarAlbaranUI:
         # Cargar proveedores
         self._cargar_proveedores_import()
 
+        # Frame de datos de cabecera (Nº Albarán y Fecha)
+        cabecera_frame = ctk.CTkFrame(self.container, fg_color='transparent')
+        cabecera_frame.pack(fill='x', padx=20, pady=5)
+
+        # Nº Albarán + botón SIGUIENTE
+        ctk.CTkLabel(cabecera_frame, text='Nº Albarán:', font=('Courier New', 11), width=100, anchor='e').pack(side='left')
+        self.entry_num_albaran = ctk.CTkEntry(cabecera_frame, font=('Courier New', 11), width=120)
+        self.entry_num_albaran.pack(side='left', padx=5)
+
+        btn_siguiente = ButtonFactory.create_button(
+            parent=cabecera_frame,
+            text='SIGUIENTE',
+            command=self._set_next_num,
+            style_key='mini_action'
+        )
+        btn_siguiente.pack(side='left', padx=(5, 20))
+
+        # Fecha (read-only)
+        ctk.CTkLabel(cabecera_frame, text='Fecha:', font=('Courier New', 11), width=60, anchor='e').pack(side='left')
+        from datetime import date
+        self.entry_fecha_albaran = ctk.CTkEntry(cabecera_frame, font=('Courier New', 11), width=100, state='readonly')
+        self.entry_fecha_albaran.pack(side='left', padx=5)
+        self.entry_fecha_albaran.configure(state='normal')
+        self.entry_fecha_albaran.insert(0, date.today().strftime('%Y-%m-%d'))
+        self.entry_fecha_albaran.configure(state='readonly')
+
         # Frame de selección de archivo
         file_frame = ctk.CTkFrame(self.container, fg_color='transparent')
         file_frame.pack(fill='x', padx=20, pady=10)
@@ -95,33 +122,28 @@ class ImportarAlbaranUI:
         )
         self.lbl_archivo.pack(side='left', fill='x', expand=True)
 
-        # Botón Continuar (deshabilitado hasta seleccionar archivo)
-        self.btn_continuar = ButtonFactory.create_button(
-            parent=file_frame,
-            text='CONTINUAR →',
-            command=self._on_continuar_click,
-            style_key='action_success'
-        )
-        self.btn_continuar.pack(side='left', padx=(10, 0))
-        self.btn_continuar.configure(state='disabled')
-
         # Frame de resumen (inicialmente oculto)
         self.resumen_frame = ctk.CTkFrame(self.container, fg_color='#1a1a1a')
         self.resumen_frame.pack(fill='x', padx=20, pady=5)
         self.resumen_frame.pack_forget()  # Oculto hasta analizar
 
+        # Usar fuente del font_config (subtitle para destacar)
+        font_config = load_font_config()
+        resumen_font = font_config.get('subtitle', {'family': 'Courier New', 'size': 14})
         self.lbl_resumen = ctk.CTkLabel(
             self.resumen_frame,
             text='',
             text_color=self.colors.get('text', COLOR_MATRIX),
-            font=('Courier New', 12)
+            font=(resumen_font['family'], resumen_font['size'], resumen_font.get('weight', 'normal'))
         )
         self.lbl_resumen.pack(pady=10)
 
-        # Tabla NavList para preview de líneas
+        # Tabla NavList para preview de líneas (todas las columnas de BD)
         self.columns = [
-            ('EAN', 120), ('NOMBRE', 250), ('UDS', 60),
-            ('COSTE', 80), ('DTO', 60), ('IVA', 50), ('ESTADO', 100)
+            ('EAN', 120), ('NOMBRE', 200), ('UDS', 50),
+            ('COSTE', 70), ('DTO', 50), ('IVA', 40),
+            ('IMPORTE', 70), ('EDITORIAL', 100), ('FABRICANTE', 100),
+            ('PVPR', 60), ('ESTADO', 80)
         ]
 
         self.nav_list = NavList(
@@ -155,6 +177,9 @@ class ImportarAlbaranUI:
             style_key='action_secondary'
         )
         self.btn_volver.pack(side='right')
+
+        # Pre-rellenar número de albarán
+        self._set_next_num()
 
     def _on_seleccionar_click(self):
         """Abrir file dialog para seleccionar CSV y analizar automáticamente."""
@@ -295,6 +320,10 @@ class ImportarAlbaranUI:
             # Formatear valores (usar propiedades que devuelven Decimal)
             coste_str = f'{linea.coste_cents / 100:.2f}'
             dto_str = f'{linea.descuento_cents / 100:.2f}' if linea.descuento_cents else '-'
+            importe_str = f'{linea.importe_cents / 100:.2f}' if linea.importe_cents else '-'
+            pvpr_str = f'{linea.pvpr_cents / 100:.2f}' if hasattr(linea, 'pvpr_cents') and linea.pvpr_cents else '-'
+            editorial = getattr(linea, 'editorial', '') or '-'
+            fabricante = getattr(linea, 'fabricante', '') or '-'
 
             # NavList espera un diccionario con keys que coincidan con columnas
             row_data = {
@@ -304,18 +333,49 @@ class ImportarAlbaranUI:
                 'COSTE': coste_str,
                 'DTO': dto_str,
                 'IVA': f'{linea.tipo_iva}%',
+                'IMPORTE': importe_str,
+                'EDITORIAL': editorial[:30],
+                'FABRICANTE': fabricante[:30],
+                'PVPR': pvpr_str,
                 'ESTADO': estado
             }
 
             self.nav_list.add_item(row_data)
 
     def _on_continuar_click(self):
-        """Continuar a configurar cabecera del albarán (antes de crear productos)."""
+        """Continuar a crear productos o guardar directamente (cabecera ya está en la primera vista)."""
         if not self.parse_result:
             return
 
-        # Ir a configurar cabecera primero (para obtener proveedor)
-        self._mostrar_ui_configurar_cabecera()
+        # Validar que tenemos proveedor y número de albarán
+        proveedor_id = self.combo_proveedor_import.get_id()
+        if not proveedor_id:
+            self._mostrar_error('Selecciona un proveedor')
+            return
+
+        num_albaran = self.entry_num_albaran.get().strip()
+        if not num_albaran:
+            self._mostrar_error('Introduce un número de albarán')
+            return
+
+        # Guardar datos de cabecera
+        prov_nombre = self.combo_proveedor_import._var.get().strip()
+        self._cabecera_data = {
+            'num_albaran': num_albaran,
+            'fecha': self.entry_fecha_albaran.get().strip(),
+            'proveedor_id': proveedor_id,
+            'proveedor_nombre': prov_nombre
+        }
+
+        logger.info(f'Cabecera configurada: {self._cabecera_data}')
+
+        # Ahora ir a crear productos nuevos si los hay
+        nuevos = len(self.parse_result.productos_nuevos)
+        if nuevos > 0:
+            self._iniciar_creacion_productos()
+        else:
+            # Si no hay productos nuevos, ir directamente a la vista de guardar
+            self._mostrar_ui_guardar_albaran()
 
     def _mostrar_ui_configurar_cabecera(self):
         """Mostrar UI para configurar cabecera del albarán (proveedor, fecha, nº)."""
@@ -459,7 +519,7 @@ class ImportarAlbaranUI:
             self.btn_seleccionar.configure(state='disabled')
 
     def _cargar_proveedores(self):
-        """Cargar proveedores desde la base de datos."""
+        """Cargar proveedores desde la base de datos (para UI de cabecera)."""
         self._proveedores = []
         try:
             if self.db:
@@ -468,8 +528,9 @@ class ImportarAlbaranUI:
                 proveedores = prov_service.get_all_proveedores()
                 opts = [(p['id'], p['nombre']) for p in proveedores]
                 self._proveedores = opts
-                # Actualizar opciones del SearchableCombo
-                self.combo_proveedor.set_options(opts)
+                # Actualizar opciones del SearchableCombo si existe
+                if hasattr(self, 'combo_proveedor') and self.combo_proveedor:
+                    self.combo_proveedor.set_options(opts)
         except Exception:
             logger.exception('Error cargando proveedores')
             self._proveedores = []
@@ -809,10 +870,10 @@ class ImportarAlbaranUI:
             cantidad_final = data.get('cantidad_final', cantidad_original)
             self.lbl_stock_calc.configure(text=str(cantidad_final))
         else:
-            # Default: sin conversión
+            # Default: sin conversión (factor 0 para productos nuevos)
             self.chk_convertir.deselect()
             self.entry_factor.delete(0, 'end')
-            self.entry_factor.insert(0, '1')
+            self.entry_factor.insert(0, '0')
             self.entry_factor.configure(state='disabled')
             self.lbl_stock_calc.configure(text=str(cantidad_original))
 
@@ -1000,17 +1061,25 @@ class ImportarAlbaranUI:
             f"Total: {totales.get('total', Decimal('0')):.2f} €  |  "
             f"Líneas: {len(self.parse_result.lineas)}"
         )
+        # Usar fuente del font_config para el resumen
+        font_config = load_font_config()
+        resumen_font = font_config.get('subtitle', {'family': 'Courier New', 'size': 20, 'weight': 'bold'})
         ctk.CTkLabel(
             header_frame,
             text=header_text,
-            font=('Courier New', 11),
+            font=(resumen_font['family'], resumen_font['size'], resumen_font.get('weight', 'normal')),
             justify='left'
         ).pack(pady=10, padx=15)
 
-        # Tabla de líneas con NavList
+        # Tabla de líneas con NavList (todas las columnas de BD)
         self.nav_list_albaran = NavList(
             self.container,
-            columns=[('EAN', 140), ('NOMBRE', 250), ('UDS', 60), ('COSTE', 80), ('DTO', 50), ('IMPORTE', 80)],
+            columns=[
+                ('EAN', 120), ('NOMBRE', 200), ('UDS', 50),
+                ('COSTE', 70), ('DTO', 50), ('IVA', 40),
+                ('IMPORTE', 70), ('EDITORIAL', 100), ('FABRICANTE', 100),
+                ('PVPR', 60), ('ESTADO', 80)
+            ],
             module_name=self.module_name,
             keyboard_manager=None
         )
@@ -1047,6 +1116,15 @@ class ImportarAlbaranUI:
             coste_str = f'{linea.coste_cents / 100:.2f}' if linea.coste_cents else '0.00'
             dto_str = f'{linea.descuento_cents / 100:.2f}' if linea.descuento_cents else '0.00'
             importe_str = f'{linea.importe_cents / 100:.2f}' if linea.importe_cents else '0.00'
+            pvpr_str = f'{linea.pvpr_cents / 100:.2f}' if hasattr(linea, 'pvpr_cents') and linea.pvpr_cents else '-'
+            editorial = getattr(linea, 'editorial', '') or '-'
+            fabricante = getattr(linea, 'fabricante', '') or '-'
+
+            # Estado
+            if linea.existe_en_bd:
+                estado = '✓ OK'
+            else:
+                estado = '✗ NUEVO'
 
             row_data = {
                 'EAN': linea.ean,
@@ -1054,7 +1132,12 @@ class ImportarAlbaranUI:
                 'UDS': str(linea.cantidad),
                 'COSTE': coste_str,
                 'DTO': dto_str,
-                'IMPORTE': importe_str
+                'IVA': f'{linea.tipo_iva}%',
+                'IMPORTE': importe_str,
+                'EDITORIAL': editorial[:30],
+                'FABRICANTE': fabricante[:30],
+                'PVPR': pvpr_str,
+                'ESTADO': estado
             }
             self.nav_list_albaran.add_item(row_data)
 
@@ -1078,13 +1161,15 @@ class ImportarAlbaranUI:
             for linea in self.parse_result.lineas:
                 # Buscar producto_id (productos nuevos ya tienen ID, existentes hay que buscar)
                 producto_id = None
+                es_producto_nuevo = False
                 if hasattr(self, '_productos_data') and linea.ean in self._productos_data:
                     producto_id = self._productos_data[linea.ean].get('producto_id')
+                    es_producto_nuevo = True  # Viene de productos_data = producto nuevo
                 # Si no está en productos nuevos, buscar en productos_existentes
                 if not producto_id:
                     for prod in self.parse_result.productos_existentes:
                         if prod.ean == linea.ean:
-                            producto_id = prod.id
+                            producto_id = prod.producto_id
                             break
 
                 lineas_repo.append({
@@ -1095,7 +1180,11 @@ class ImportarAlbaranUI:
                     'coste': linea.coste_cents,
                     'descuento': linea.descuento_cents,
                     'importe': linea.importe_cents,
-                    'tipo_iva': linea.tipo_iva
+                    'tipo_iva': linea.tipo_iva,
+                    'editorial': getattr(linea, 'editorial', ''),
+                    'fabricante': getattr(linea, 'fabricante', ''),
+                    'pvpr_cents': getattr(linea, 'pvpr_cents', 0),
+                    'es_producto_nuevo': es_producto_nuevo
                 })
 
             # Preparar totales (convertir de euros a céntimos)
