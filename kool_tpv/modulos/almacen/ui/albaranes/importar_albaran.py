@@ -47,12 +47,19 @@ class ImportarAlbaranUI:
 
     def _setup_ui(self):
         """Configurar la UI completa con preview."""
+        # Cargar configuración de fuentes
+        font_config = load_font_config()
+        title_font = font_config.get('title', {'family': 'Courier New', 'size': 22, 'weight': 'bold'})
+        label_font = font_config.get('label', {'family': 'Courier New', 'size': 16})
+        entry_font = font_config.get('entry', {'family': 'Courier New', 'size': 14})
+        small_font = font_config.get('default', {'family': 'Courier New', 'size': 12})
+
         # Título
         lbl_titulo = ctk.CTkLabel(
             self.container,
             text='IMPORTAR ALBARÁN DESDE CSV',
             text_color=self.colors.get('text', COLOR_MATRIX),
-            font=('Courier New', 16, 'bold')
+            font=(title_font['family'], title_font['size'], title_font.get('weight', 'normal'))
         )
         lbl_titulo.pack(pady=(10, 5))
 
@@ -60,7 +67,7 @@ class ImportarAlbaranUI:
         prov_frame = ctk.CTkFrame(self.container, fg_color='transparent')
         prov_frame.pack(fill='x', padx=20, pady=5)
 
-        ctk.CTkLabel(prov_frame, text='Proveedor:', font=('Courier New', 11), width=100, anchor='e').pack(side='left')
+        ctk.CTkLabel(prov_frame, text='Proveedor:', font=(label_font['family'], label_font['size']), width=100, anchor='e').pack(side='left')
         self.combo_proveedor_import = SearchableCombo(
             prov_frame,
             options=[],
@@ -78,8 +85,8 @@ class ImportarAlbaranUI:
         cabecera_frame.pack(fill='x', padx=20, pady=5)
 
         # Nº Albarán + botón SIGUIENTE
-        ctk.CTkLabel(cabecera_frame, text='Nº Albarán:', font=('Courier New', 11), width=100, anchor='e').pack(side='left')
-        self.entry_num_albaran = ctk.CTkEntry(cabecera_frame, font=('Courier New', 11), width=120)
+        ctk.CTkLabel(cabecera_frame, text='Nº Albarán:', font=(label_font['family'], label_font['size']), width=100, anchor='e').pack(side='left')
+        self.entry_num_albaran = ctk.CTkEntry(cabecera_frame, font=(entry_font['family'], entry_font['size']), width=120)
         self.entry_num_albaran.pack(side='left', padx=5)
 
         btn_siguiente = ButtonFactory.create_button(
@@ -91,9 +98,9 @@ class ImportarAlbaranUI:
         btn_siguiente.pack(side='left', padx=(5, 20))
 
         # Fecha (read-only)
-        ctk.CTkLabel(cabecera_frame, text='Fecha:', font=('Courier New', 11), width=60, anchor='e').pack(side='left')
+        ctk.CTkLabel(cabecera_frame, text='Fecha:', font=(label_font['family'], label_font['size']), width=60, anchor='e').pack(side='left')
         from datetime import date
-        self.entry_fecha_albaran = ctk.CTkEntry(cabecera_frame, font=('Courier New', 11), width=100, state='readonly')
+        self.entry_fecha_albaran = ctk.CTkEntry(cabecera_frame, font=(entry_font['family'], entry_font['size']), width=100, state='readonly')
         self.entry_fecha_albaran.pack(side='left', padx=5)
         self.entry_fecha_albaran.configure(state='normal')
         self.entry_fecha_albaran.insert(0, date.today().strftime('%Y-%m-%d'))
@@ -118,7 +125,7 @@ class ImportarAlbaranUI:
             file_frame,
             text='Ningún archivo seleccionado',
             text_color=self.colors.get('text_secondary', '#888888'),
-            font=('Courier New', 11)
+            font=(small_font['family'], small_font['size'])
         )
         self.lbl_archivo.pack(side='left', fill='x', expand=True)
 
@@ -377,99 +384,6 @@ class ImportarAlbaranUI:
             # Si no hay productos nuevos, ir directamente a la vista de guardar
             self._mostrar_ui_guardar_albaran()
 
-    def _mostrar_ui_configurar_cabecera(self):
-        """Mostrar UI para configurar cabecera del albarán (proveedor, fecha, nº)."""
-        # Limpiar container
-        for widget in self.container.winfo_children():
-            widget.destroy()
-
-        # Cargar proveedores
-        self._cargar_proveedores()
-
-        # Título
-        lbl_titulo = ctk.CTkLabel(
-            self.container,
-            text='CONFIGURAR CABECERA DEL ALBARÁN',
-            text_color=self.colors.get('text', COLOR_MATRIX),
-            font=('Courier New', 16, 'bold')
-        )
-        lbl_titulo.pack(pady=(20, 10))
-
-        # Formulario
-        form_frame = ctk.CTkFrame(self.container, fg_color='#1a1a1a')
-        form_frame.pack(fill='x', padx=20, pady=10)
-
-        # Nº Albarán
-        row1 = ctk.CTkFrame(form_frame, fg_color='transparent')
-        row1.pack(fill='x', padx=10, pady=5)
-        ctk.CTkLabel(row1, text='Nº Albarán:', font=('Courier New', 11), width=100, anchor='e').pack(side='left')
-        self.entry_num_albaran = ctk.CTkEntry(row1, font=('Courier New', 11), width=150)
-        self.entry_num_albaran.pack(side='left', padx=5)
-
-        btn_siguiente = ButtonFactory.create_button(
-            parent=row1,
-            text='SIGUIENTE',
-            command=self._set_next_num,
-            style_key='mini_action'
-        )
-        btn_siguiente.pack(side='left', padx=(5, 20))
-
-        # Fecha
-        row2 = ctk.CTkFrame(form_frame, fg_color='transparent')
-        row2.pack(fill='x', padx=10, pady=5)
-        ctk.CTkLabel(row2, text='Fecha:', font=('Courier New', 11), width=100, anchor='e').pack(side='left')
-        from datetime import date
-        self.entry_fecha_albaran = ctk.CTkEntry(row2, font=('Courier New', 11), width=120)
-        self.entry_fecha_albaran.pack(side='left', padx=5)
-        self.entry_fecha_albaran.insert(0, date.today().strftime('%Y-%m-%d'))
-
-        # Proveedor
-        row3 = ctk.CTkFrame(form_frame, fg_color='transparent')
-        row3.pack(fill='x', padx=10, pady=5)
-        ctk.CTkLabel(row3, text='Proveedor:', font=('Courier New', 11), width=100, anchor='e').pack(side='left')
-        self.combo_proveedor = SearchableCombo(
-            row3,
-            options=[],  # Se cargan con set_options después
-            placeholder='Buscar proveedor',
-            width=250
-        )
-        self.combo_proveedor.pack(side='left', padx=5)
-        self._cargar_proveedores()
-
-        # Resumen
-        nuevos = len(self.parse_result.productos_nuevos)
-        existentes = len(self.parse_result.productos_existentes)
-        lbl_resumen = ctk.CTkLabel(
-            form_frame,
-            text=f'Productos en CSV: {nuevos + existentes} | Nuevos: {nuevos} | Existentes: {existentes}',
-            font=('Courier New', 11),
-            text_color='#888888'
-        )
-        lbl_resumen.pack(pady=10)
-
-        # Botones
-        btn_frame = ctk.CTkFrame(self.container, fg_color='transparent')
-        btn_frame.pack(pady=20)
-
-        btn_siguiente = ButtonFactory.create_button(
-            parent=btn_frame,
-            text='SIGUIENTE →',
-            command=self._on_guardar_cabecera_y_continuar,
-            style_key='action_success'
-        )
-        btn_siguiente.pack(side='left', padx=10)
-
-        btn_volver = ButtonFactory.create_button(
-            parent=btn_frame,
-            text='← VOLVER',
-            command=self._on_volver_desde_creacion,
-            style_key='action_secondary'
-        )
-        btn_volver.pack(side='left', padx=10)
-
-        # Pre-rellenar con el siguiente número disponible
-        self._set_next_num()
-
     def _set_next_num(self):
         """Obtener el siguiente número de albarán disponible."""
         try:
@@ -517,51 +431,6 @@ class ImportarAlbaranUI:
             self.btn_seleccionar.configure(state='normal')
         else:
             self.btn_seleccionar.configure(state='disabled')
-
-    def _cargar_proveedores(self):
-        """Cargar proveedores desde la base de datos (para UI de cabecera)."""
-        self._proveedores = []
-        try:
-            if self.db:
-                from kool_tpv.base_datos.proveedor_service import ProveedorService
-                prov_service = ProveedorService(self.db)
-                proveedores = prov_service.get_all_proveedores()
-                opts = [(p['id'], p['nombre']) for p in proveedores]
-                self._proveedores = opts
-                # Actualizar opciones del SearchableCombo si existe
-                if hasattr(self, 'combo_proveedor') and self.combo_proveedor:
-                    self.combo_proveedor.set_options(opts)
-        except Exception:
-            logger.exception('Error cargando proveedores')
-            self._proveedores = []
-
-    def _on_guardar_cabecera_y_continuar(self):
-        """Guardar datos de cabecera y continuar a creación de productos."""
-        # Validar proveedor
-        proveedor_id = self.combo_proveedor.get_id()
-        if not proveedor_id:
-            self._mostrar_error('Selecciona un proveedor válido')
-            return
-
-        prov_nombre = self.combo_proveedor._var.get().strip()
-
-        # Guardar datos de cabecera
-        self._cabecera_data = {
-            'num_albaran': self.entry_num_albaran.get().strip(),
-            'fecha': self.entry_fecha_albaran.get().strip(),
-            'proveedor_id': proveedor_id,
-            'proveedor_nombre': prov_nombre
-        }
-
-        logger.info(f'Cabecera configurada: {self._cabecera_data}')
-
-        # Ahora ir a crear productos nuevos si los hay
-        nuevos = len(self.parse_result.productos_nuevos)
-        if nuevos > 0:
-            self._iniciar_creacion_productos()
-        else:
-            # Todos existen, ir directo a guardar albarán
-            self._mostrar_ui_guardar_albaran()
 
     def _iniciar_creacion_productos(self):
         """Mostrar UI de creación de productos."""
@@ -617,6 +486,13 @@ class ImportarAlbaranUI:
 
     def _mostrar_ui_creacion_productos(self):
         """Mostrar UI para completar datos de productos nuevos."""
+        # Cargar configuración de fuentes
+        font_config = load_font_config()
+        title_font = font_config.get('title', {'family': 'Courier New', 'size': 22, 'weight': 'bold'})
+        label_font = font_config.get('label', {'family': 'Courier New', 'size': 16})
+        entry_font = font_config.get('entry', {'family': 'Courier New', 'size': 14})
+        small_font = font_config.get('default', {'family': 'Courier New', 'size': 12})
+
         # Limpiar container y reconstruir UI
         for widget in self.container.winfo_children():
             widget.destroy()
@@ -628,7 +504,7 @@ class ImportarAlbaranUI:
             self.container,
             text=f'COMPLETAR {total} PRODUCTOS NUEVOS',
             text_color=self.colors.get('text', COLOR_MATRIX),
-            font=('Courier New', 16, 'bold')
+            font=(title_font['family'], title_font['size'], title_font.get('weight', 'normal'))
         )
         lbl_titulo.pack(pady=(10, 5))
 
@@ -637,7 +513,7 @@ class ImportarAlbaranUI:
             self.container,
             text=f'Completados: 0/{total}',
             text_color=self.colors.get('text_secondary', '#888888'),
-            font=('Courier New', 12)
+            font=(small_font['family'], small_font['size'])
         )
         self.lbl_progreso.pack(pady=5)
 
@@ -661,28 +537,28 @@ class ImportarAlbaranUI:
         # EAN (solo lectura)
         row1 = ctk.CTkFrame(panel_frame, fg_color='transparent')
         row1.pack(fill='x', padx=10, pady=5)
-        ctk.CTkLabel(row1, text='EAN:', font=('Courier New', 11), width=80, anchor='e').pack(side='left')
-        self.entry_ean = ctk.CTkEntry(row1, font=('Courier New', 11), state='readonly', width=200)
+        ctk.CTkLabel(row1, text='EAN:', font=(label_font['family'], label_font['size']), width=80, anchor='e').pack(side='left')
+        self.entry_ean = ctk.CTkEntry(row1, font=(entry_font['family'], entry_font['size']), state='readonly', width=200)
         self.entry_ean.pack(side='left', padx=5)
 
         # Nombre (editable)
         row2 = ctk.CTkFrame(panel_frame, fg_color='transparent')
         row2.pack(fill='x', padx=10, pady=5)
-        ctk.CTkLabel(row2, text='Nombre:', font=('Courier New', 11), width=80, anchor='e').pack(side='left')
-        self.entry_nombre = ctk.CTkEntry(row2, font=('Courier New', 11), width=400)
+        ctk.CTkLabel(row2, text='Nombre:', font=(label_font['family'], label_font['size']), width=80, anchor='e').pack(side='left')
+        self.entry_nombre = ctk.CTkEntry(row2, font=(entry_font['family'], entry_font['size']), width=400)
         self.entry_nombre.pack(side='left', padx=5, fill='x', expand=True)
 
         # SKU
         row_sku = ctk.CTkFrame(panel_frame, fg_color='transparent')
         row_sku.pack(fill='x', padx=10, pady=5)
-        ctk.CTkLabel(row_sku, text='SKU:', font=('Courier New', 11), width=80, anchor='e').pack(side='left')
-        self.entry_sku = ctk.CTkEntry(row_sku, font=('Courier New', 11), width=150, placeholder_text='Opcional')
+        ctk.CTkLabel(row_sku, text='SKU:', font=(label_font['family'], label_font['size']), width=80, anchor='e').pack(side='left')
+        self.entry_sku = ctk.CTkEntry(row_sku, font=(entry_font['family'], entry_font['size']), width=150, placeholder_text='Opcional')
         self.entry_sku.pack(side='left', padx=5)
 
         # Categoría
         row3 = ctk.CTkFrame(panel_frame, fg_color='transparent')
         row3.pack(fill='x', padx=10, pady=5)
-        ctk.CTkLabel(row3, text='Categoría:', font=('Courier New', 11), width=80, anchor='e').pack(side='left')
+        ctk.CTkLabel(row3, text='Categoría:', font=(label_font['family'], label_font['size']), width=80, anchor='e').pack(side='left')
         self.combo_categoria = SearchableCombo(
             row3,
             options=self._categorias,
@@ -695,7 +571,7 @@ class ImportarAlbaranUI:
         # Tipo
         row4 = ctk.CTkFrame(panel_frame, fg_color='transparent')
         row4.pack(fill='x', padx=10, pady=5)
-        ctk.CTkLabel(row4, text='Tipo:', font=('Courier New', 11), width=80, anchor='e').pack(side='left')
+        ctk.CTkLabel(row4, text='Tipo:', font=(label_font['family'], label_font['size']), width=80, anchor='e').pack(side='left')
         self.combo_tipo = SearchableCombo(
             row4,
             options=self._tipos,
@@ -708,39 +584,39 @@ class ImportarAlbaranUI:
         # PVP
         row5 = ctk.CTkFrame(panel_frame, fg_color='transparent')
         row5.pack(fill='x', padx=10, pady=5)
-        ctk.CTkLabel(row5, text='PVP:', font=('Courier New', 11), width=80, anchor='e').pack(side='left')
-        self.entry_pvp = ctk.CTkEntry(row5, font=('Courier New', 11), width=100, placeholder_text='0.00')
+        ctk.CTkLabel(row5, text='PVP:', font=(label_font['family'], label_font['size']), width=80, anchor='e').pack(side='left')
+        self.entry_pvp = ctk.CTkEntry(row5, font=(entry_font['family'], entry_font['size']), width=100, placeholder_text='0.00')
         self.entry_pvp.pack(side='left', padx=5)
-        ctk.CTkLabel(row5, text='€', font=('Courier New', 11)).pack(side='left')
+        ctk.CTkLabel(row5, text='€', font=(label_font['family'], label_font['size'])).pack(side='left')
 
         # Conversión de unidades (para casos como Magic: 1 caja = 36 sobres)
         row_conv = ctk.CTkFrame(panel_frame, fg_color='transparent')
         row_conv.pack(fill='x', padx=10, pady=5)
-        ctk.CTkLabel(row_conv, text='CONV:', font=('Courier New', 11), width=80, anchor='e').pack(side='left')
+        ctk.CTkLabel(row_conv, text='CONV:', font=(label_font['family'], label_font['size']), width=80, anchor='e').pack(side='left')
 
         self.chk_convertir = ctk.CTkCheckBox(
             row_conv,
             text='Convertir unidades',
-            font=('Courier New', 10),
+            font=(small_font['family'], small_font['size']),
             checkbox_width=18,
             checkbox_height=18,
             command=self._on_cambio_conversion
         )
         self.chk_convertir.pack(side='left', padx=5)
 
-        self.entry_factor = ctk.CTkEntry(row_conv, font=('Courier New', 11), width=60, placeholder_text='1')
+        self.entry_factor = ctk.CTkEntry(row_conv, font=(entry_font['family'], entry_font['size']), width=60, placeholder_text='1')
         self.entry_factor.pack(side='left', padx=5)
         self.entry_factor.configure(state='disabled')
         self.entry_factor.bind('<KeyRelease>', self._on_calcular_stock)
 
-        ctk.CTkLabel(row_conv, text='uds/caja → Stock:', font=('Courier New', 10)).pack(side='left')
-        self.lbl_stock_calc = ctk.CTkLabel(row_conv, text='0', font=('Courier New', 11, 'bold'), text_color='#00aa00')
+        ctk.CTkLabel(row_conv, text='uds/caja → Stock:', font=(small_font['family'], small_font['size'])).pack(side='left')
+        self.lbl_stock_calc = ctk.CTkLabel(row_conv, text='0', font=(entry_font['family'], entry_font['size'], 'bold'), text_color='#00aa00')
         self.lbl_stock_calc.pack(side='left', padx=5)
 
         # Info del CSV
         row6 = ctk.CTkFrame(panel_frame, fg_color='transparent')
         row6.pack(fill='x', padx=10, pady=5)
-        self.lbl_info_csv = ctk.CTkLabel(row6, text='', font=('Courier New', 10), text_color='#888888')
+        self.lbl_info_csv = ctk.CTkLabel(row6, text='', font=(small_font['family'], small_font['size']), text_color='#888888')
         self.lbl_info_csv.pack(side='left', padx=85)
 
         # Botones de acción
@@ -1034,6 +910,11 @@ class ImportarAlbaranUI:
 
     def _mostrar_ui_vista_previa_albaran(self):
         """Mostrar vista previa del albarán con cabecera y líneas antes de guardar."""
+        # Cargar configuración de fuentes
+        font_config = load_font_config()
+        title_font = font_config.get('title', {'family': 'Courier New', 'size': 22, 'weight': 'bold'})
+        subtitle_font = font_config.get('subtitle', {'family': 'Courier New', 'size': 20, 'weight': 'bold'})
+
         # Limpiar container
         for widget in self.container.winfo_children():
             widget.destroy()
@@ -1046,7 +927,7 @@ class ImportarAlbaranUI:
             self.container,
             text='VISTA PREVIA DEL ALBARÁN',
             text_color=self.colors.get('text', COLOR_MATRIX),
-            font=('Courier New', 16, 'bold')
+            font=(title_font['family'], title_font['size'], title_font.get('weight', 'normal'))
         )
         lbl_titulo.pack(pady=(20, 10))
 
@@ -1062,12 +943,10 @@ class ImportarAlbaranUI:
             f"Líneas: {len(self.parse_result.lineas)}"
         )
         # Usar fuente del font_config para el resumen
-        font_config = load_font_config()
-        resumen_font = font_config.get('subtitle', {'family': 'Courier New', 'size': 20, 'weight': 'bold'})
         ctk.CTkLabel(
             header_frame,
             text=header_text,
-            font=(resumen_font['family'], resumen_font['size'], resumen_font.get('weight', 'normal')),
+            font=(subtitle_font['family'], subtitle_font['size'], subtitle_font.get('weight', 'normal')),
             justify='left'
         ).pack(pady=10, padx=15)
 
