@@ -6,6 +6,7 @@ import customtkinter as ctk
 from kool_tpv.base_datos.albaran_service import AlbaranService
 from kool_tpv.base_datos.proveedor_service import ProveedorService
 from kool_tpv.utils.config_loader import create_action_button, load_colors
+from kool_tpv.modulos.almacen.ui.albaranes.exportar_albaran import ExportarAlbaranUI
 
 
 
@@ -35,7 +36,7 @@ class AlbaranesUI:
             ('ENTRADA MANUAL', 'entrada_manual', self.show_entrada_manual),
             ('IMPORTAR ALBARÁN', 'importar_csv', self.show_importar_albaran),
             ('CONSULTAR', 'consultar_albaranes', self.show_consultar),
-            ('EXPORTAR', 'exportar', self._placeholder),
+            ('EXPORTAR', 'exportar', self.show_exportar),
             ('SALIDA MANUAL', 'salida_manual', self.show_salida_manual),
             ('DEVOLUCIÓN', 'devoluciones', self.show_devolucion)
         ]
@@ -96,6 +97,17 @@ class AlbaranesUI:
                 logging.warning('AlbaranesUI: owner no disponible para show_importar_albaran')
         except Exception:
             logging.exception('Error en show_importar_albaran')
+
+    def show_exportar(self):
+        """Mostrar ventana de exportación de albaranes."""
+        try:
+            ExportarAlbaranUI(
+                parent=self.container,
+                db=self.db,
+                on_close_callback=None
+            )
+        except Exception:
+            logging.exception('Error mostrando ExportarAlbaranUI')
 
     def _placeholder(self):
         logging.info('Función pendiente de implementar')
