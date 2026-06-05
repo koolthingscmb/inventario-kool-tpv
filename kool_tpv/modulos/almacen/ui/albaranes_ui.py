@@ -99,15 +99,26 @@ class AlbaranesUI:
             logging.exception('Error en show_importar_albaran')
 
     def show_exportar(self):
-        """Mostrar ventana de exportación de albaranes."""
+        """Mostrar interfaz de exportación de albaranes."""
         try:
-            ExportarAlbaranUI(
-                parent=self.container,
+            # Limpiar área central
+            for widget in self.central_area.winfo_children():
+                widget.destroy()
+
+            # Crear UI de exportación en el área central
+            self.current_view = ExportarAlbaranUI(
+                parent=self.central_area,
                 db=self.db,
-                on_close_callback=None
+                on_close_callback=lambda: self._limpiar_central_area()
             )
         except Exception:
             logging.exception('Error mostrando ExportarAlbaranUI')
+
+    def _limpiar_central_area(self):
+        """Limpiar área central."""
+        for widget in self.central_area.winfo_children():
+            widget.destroy()
+        self.current_view = None
 
     def _placeholder(self):
         logging.info('Función pendiente de implementar')

@@ -504,12 +504,16 @@ class ConfigView(BaseModuleView):
             logging.exception('Error en show_textos_tickets')
 
     def show_plantillas(self):
-        """Placeholder para plantillas (a implementar después)."""
+        """Mostrar configuración de plantilla PDF de albaranes."""
         try:
-            logging.info('Config: PLANTILLAS - pendiente implementación')
-            from kool_tpv.utils.custom_dialog import show_warning
-            parent = self._get_dialog_parent()
-            show_warning(parent, 'Plantillas', 'Funcionalidad en desarrollo')
+            from kool_tpv.modulos.configuracion.impresion.plantillas_albaran_ui import PlantillasAlbaranUI
+            ui = PlantillasAlbaranUI(self.central_area, db=self.db, module_name='config')
+            if self.set_central_content(ui):
+                try:
+                    self.actualizar_ruta('CONFIG / IMPRESIÓN / PLANTILLAS', callbacks=self.breadcrumb_callbacks)
+                except Exception:
+                    pass
+                logging.info('Config: abriendo PLANTILLAS...')
         except Exception:
             logging.exception('Error en show_plantillas')
 
