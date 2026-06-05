@@ -1,4 +1,5 @@
 venv/
+.venv/
 __pycache__/
 *.pyc
 *.pyo
@@ -8,3 +9,9 @@ __pycache__/
 kool_tpv/base_datos/*.test.db
 # Ignore any local DB snapshots
 kool_tpv/base_datos/kool_bd.*.db
+
+# Backups locales
+backups/
+
+# Base de datos de trabajo (se genera automáticamente al arrancar)
+kool_tpv/base_datos/kool_bd.db

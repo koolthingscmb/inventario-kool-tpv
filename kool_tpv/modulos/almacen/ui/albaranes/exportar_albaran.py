@@ -87,12 +87,15 @@ class ExportarAlbaranUI:
     def _mostrar_vista_seleccion(self, albaranes):
         self._clear_container()
         self.albaranes_encontrados = albaranes
+        plantilla = self.busqueda_service.obtener_plantilla_albaran()
+        mostrar_tienda = plantilla.get('albaran_pdf_mostrar_tienda', '0') == '1'
         self.vista_actual = VistaSeleccion(
             parent=self.container, albaranes=albaranes,
             on_volver_callback=self._mostrar_vista_filtros,
             on_exportar_csv_callback=self._on_exportar_csv,
             on_exportar_pdf_callback=self._on_exportar_pdf,
-            on_imprimir_callback=self._on_imprimir
+            on_imprimir_callback=self._on_imprimir,
+            mostrar_tienda_default=mostrar_tienda
         )
         self.vista_actual.pack(fill='both', expand=True)
 

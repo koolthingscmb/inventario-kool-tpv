@@ -24,6 +24,7 @@ class VistaSeleccion(ctk.CTkFrame, KeyboardNavigableMixin):
         on_exportar_csv_callback: Callable[[List[int], bool], None],
         on_exportar_pdf_callback: Callable[[List[int], bool, bool], None],
         on_imprimir_callback: Callable[[List[int]], None],
+        mostrar_tienda_default: bool = False,
         **kwargs
     ):
         ctk.CTkFrame.__init__(self, parent, **kwargs)
@@ -34,6 +35,7 @@ class VistaSeleccion(ctk.CTkFrame, KeyboardNavigableMixin):
         self.on_exportar_csv_callback = on_exportar_csv_callback
         self.on_exportar_pdf_callback = on_exportar_pdf_callback
         self.on_imprimir_callback = on_imprimir_callback
+        self.mostrar_tienda_default = mostrar_tienda_default
 
         # Config
         self.colors = load_colors('almacen')
@@ -81,7 +83,7 @@ class VistaSeleccion(ctk.CTkFrame, KeyboardNavigableMixin):
         _body_font = ctk.CTkFont(family=_body.get('family', 'Arial'), size=_body.get('size', 13))
 
         # Checkbox "Incluir cabecera de tienda"
-        self.var_cabecera = ctk.BooleanVar(value=False)
+        self.var_cabecera = ctk.BooleanVar(value=self.mostrar_tienda_default)
         self.chk_cabecera = ctk.CTkCheckBox(
             self.frame_opciones,
             text="Incluir cabecera de tienda",
