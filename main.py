@@ -56,17 +56,21 @@ class App(ctk.CTk):
 
         self.title("Kool TPV")
 
-        # --- FIX GEOMETRÍA ---
-        self.geometry(f"{width}x{height}")
+        # --- GEOMETRÍA: maximizado para adaptarse a cualquier resolución ---
         self.minsize(win_cfg.get("min_width", 1024), win_cfg.get("min_height", 768))
-        self.resizable(True, True) 
+        self.resizable(True, True)
 
-        def freeze_window():
-            self.geometry(f"{width}x{height}")
-            self.resizable(False, False)
+        def maximize_window():
+            try:
+                self.state('zoomed')  # Windows / Linux
+            except Exception:
+                try:
+                    self.attributes('-zoomed', True)  # Algunos Linux
+                except Exception:
+                    self.geometry(f"{width}x{height}")  # Fallback
             self.update_idletasks()
 
-        self.after(200, freeze_window)
+        self.after(100, maximize_window)
         # ---------------------
 
         # Fondo
