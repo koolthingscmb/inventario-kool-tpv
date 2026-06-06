@@ -21,7 +21,7 @@ except Exception:
 
 
 class ImpresoraService:
-    def __init__(self, db=None, imprimir_en_consola=True, verbose=False, modo_impresion: str = "texto", debug_dump: bool = False, dump_directory: Optional[Path] = None):
+    def __init__(self, db=None, imprimir_en_consola=True, verbose=False, modo_impresion: str = "texto", debug_dump: bool = False, dump_directory: Optional[Path] = None, codepage: str = "cp858"):
         self.db = db
         self.imprimir_en_consola = imprimir_en_consola
         self.verbose = verbose
@@ -36,6 +36,8 @@ class ImpresoraService:
         if modo_impresion not in ("texto", "escpos"):
             raise ValueError("modo_impresion must be 'texto' or 'escpos'")
         self.modo_impresion = modo_impresion
+        # codepage: encoding para ESC/POS (cp858, cp1252, cp437)
+        self.codepage = codepage if codepage in ("cp858", "cp1252", "cp437") else "cp858"
 
         # Inicializar componentes ESC/POS si están disponibles y si se pide modo escpos
         # No anotar con tipos que podrían no existir en tiempo de ejecución
@@ -44,8 +46,8 @@ class ImpresoraService:
         if modo_impresion == "escpos":
             if EscPosRenderer is not None:
                 try:
-                    # Pasar opciones de debug al renderer si se solicitan
-                    self.esc_renderer = EscPosRenderer(debug_dump=bool(debug_dump), dump_directory=dump_directory)
+                    # Pasar opciones de debug y encoding al renderer
+                    self.esc_renderer = EscPosRenderer(encoding=self.codepage, debug_dump=bool(debug_dump), dump_directory=dump_directory)
                 except Exception:
                     self.logger.exception("No se pudo instanciar EscPosRenderer")
             else:

@@ -152,7 +152,51 @@ class ImpresoraUI:
         except Exception:
             logging.exception('Error creando switch modo físico en ImpresoraUI')
 
-        # --- Fila 3: Selector y preview de logo ---
+        # --- Fila 3: Codepage (encoding para ESC/POS) ---
+        try:
+            lbl_codepage = ctk.CTkLabel(
+                self.impresora_frame,
+                text='Juego de caracteres',
+                text_color=self.colors.get('text', COLOR_MATRIX),
+                font=get_font('label', module=module_name)
+            )
+            lbl_codepage.grid(row=3, column=0, sticky='w', padx=6, pady=6)
+
+            self.codepage_var = ctk.StringVar(value='cp858')
+            self.cb_codepage = ctk.CTkComboBox(
+                self.impresora_frame,
+                variable=self.codepage_var,
+                values=['cp858', 'cp1252', 'cp437'],
+                width=180,
+                **combo_kwargs
+            )
+            self.cb_codepage.grid(row=3, column=1, sticky='w', padx=6, pady=6)
+
+            # Label informativo sobre qué soporta cada codepage
+            self.lbl_codepage_info = ctk.CTkLabel(
+                self.impresora_frame,
+                text='CP858: €, tildes (recomendado POS)',
+                text_color='#888888',
+                font=get_font('small', module=module_name),
+                wraplength=400,
+                justify='left'
+            )
+            self.lbl_codepage_info.grid(row=3, column=2, columnspan=6, sticky='w', padx=6, pady=6)
+
+            # Callback para actualizar info cuando cambia
+            def _on_codepage_change(choice):
+                info_map = {
+                    'cp858': 'CP858: €, tildes, ñ (recomendado impresoras térmicas)',
+                    'cp1252': 'CP1252: €, tildes, ñ, puntos suspensivos (Windows)',
+                    'cp437': 'CP437: Sin €, compatible más antiguo (DOS)'
+                }
+                self.lbl_codepage_info.configure(text=info_map.get(choice, ''))
+
+            self.cb_codepage.configure(command=_on_codepage_change)
+        except Exception:
+            logging.exception('Error creando selector codepage en ImpresoraUI')
+
+        # --- Fila 4: Selector y preview de logo ---
         try:
             lbl_logo = ctk.CTkLabel(
                 self.impresora_frame,
@@ -160,7 +204,7 @@ class ImpresoraUI:
                 text_color=self.colors.get('text', COLOR_MATRIX),
                 font=get_font('label', module=module_name)
             )
-            lbl_logo.grid(row=3, column=0, sticky='w', padx=6, pady=6)
+            lbl_logo.grid(row=4, column=0, sticky='w', padx=6, pady=6)
 
             self.switch_logo = ctk.CTkSwitch(
                 self.impresora_frame,
@@ -168,18 +212,18 @@ class ImpresoraUI:
                 fg_color=self.colors.get('primary', '#FF9800'),
                 font=get_font('label', module=module_name)
             )
-            self.switch_logo.grid(row=3, column=1, sticky='w', padx=6, pady=6)
+            self.switch_logo.grid(row=4, column=1, sticky='w', padx=6, pady=6)
 
-            # Botón seleccionar logo (fila 4, debajo del switch)
+            # Botón seleccionar logo (fila 5)
             btn_seleccionar = ButtonFactory.create_button(
                 parent=self.impresora_frame,
                 text='SELECCIONAR LOGO',
                 command=self._seleccionar_logo,
                 style_key='mini_action'
             )
-            btn_seleccionar.grid(row=4, column=1, sticky='w', padx=6, pady=6)
+            btn_seleccionar.grid(row=5, column=1, sticky='w', padx=6, pady=6)
 
-            # Fila 5: Preview del logo
+            # Fila 6: Preview del logo
             self.logo_preview_label = ctk.CTkLabel(
                 self.impresora_frame,
                 text='Sin logo',
@@ -190,13 +234,13 @@ class ImpresoraUI:
                 fg_color=self.colors.get('bg_dark', '#0d0d0d'),
                 corner_radius=8
             )
-            self.logo_preview_label.grid(row=5, column=0, columnspan=4, sticky='w', padx=6, pady=12)
+            self.logo_preview_label.grid(row=6, column=0, columnspan=4, sticky='w', padx=6, pady=12)
 
             # Variable interna para filename
             self.logo_filename = None
         except Exception:
             logging.exception('Error creando controles de logo en ImpresoraUI')
-        # --- Fila 4/5: QR en ticket (activar + URL) ---
+        # --- Fila 7-8: QR en ticket (activar + URL) ---
         try:
             lbl_qr = ctk.CTkLabel(
                 self.impresora_frame,
@@ -204,7 +248,7 @@ class ImpresoraUI:
                 text_color=self.colors.get('text', COLOR_MATRIX),
                 font=get_font('label', module=module_name)
             )
-            lbl_qr.grid(row=6, column=0, sticky='w', padx=6, pady=6)
+            lbl_qr.grid(row=7, column=0, sticky='w', padx=6, pady=6)
 
             self.switch_qr = ctk.CTkSwitch(
                 self.impresora_frame,
@@ -212,7 +256,7 @@ class ImpresoraUI:
                 fg_color=self.colors.get('primary', '#FF9800'),
                 font=get_font('label', module=module_name)
             )
-            self.switch_qr.grid(row=6, column=1, sticky='w', padx=6, pady=6)
+            self.switch_qr.grid(row=7, column=1, sticky='w', padx=6, pady=6)
 
             lbl_qr_url = ctk.CTkLabel(
                 self.impresora_frame,
@@ -220,14 +264,14 @@ class ImpresoraUI:
                 text_color=self.colors.get('text', COLOR_MATRIX),
                 font=get_font('label', module=module_name)
             )
-            lbl_qr_url.grid(row=7, column=0, sticky='w', padx=6, pady=6)
+            lbl_qr_url.grid(row=8, column=0, sticky='w', padx=6, pady=6)
 
             self.entry_qr_url = ctk.CTkEntry(
                 self.impresora_frame,
                 placeholder_text='https://tutienda.com',
                 **combo_kwargs
             )
-            self.entry_qr_url.grid(row=7, column=1, columnspan=7, sticky='we', padx=6, pady=6)
+            self.entry_qr_url.grid(row=8, column=1, columnspan=7, sticky='we', padx=6, pady=6)
         except Exception:
             logging.exception('Error creando controles de QR en ImpresoraUI')
 
@@ -345,6 +389,23 @@ class ImpresoraUI:
             except Exception:
                 pass
 
+            # Cargar codepage (encoding para ESC/POS)
+            try:
+                row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'printer_codepage'")
+                if row and row[0]:
+                    codepage = row[0]
+                    if codepage in ('cp858', 'cp1252', 'cp437'):
+                        self.codepage_var.set(codepage)
+                        # Actualizar label informativo
+                        info_map = {
+                            'cp858': 'CP858: €, tildes, ñ (recomendado impresoras térmicas)',
+                            'cp1252': 'CP1252: €, tildes, ñ, puntos suspensivos (Windows)',
+                            'cp437': 'CP437: Sin €, compatible más antiguo (DOS)'
+                        }
+                        self.lbl_codepage_info.configure(text=info_map.get(codepage, ''))
+            except Exception:
+                pass
+
             # Cargar logo_enabled
             try:
                 row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'logo_enabled'")
@@ -425,6 +486,16 @@ class ImpresoraUI:
                 cambios['modo_impresion'] = 'escpos' if self.switch_modo_fisico.get() else 'texto'
             except Exception:
                 cambios['modo_impresion'] = 'texto'
+
+            # printer_codepage (cp858, cp1252, cp437)
+            try:
+                codepage = self.codepage_var.get()
+                if codepage in ('cp858', 'cp1252', 'cp437'):
+                    cambios['printer_codepage'] = codepage
+                else:
+                    cambios['printer_codepage'] = 'cp858'
+            except Exception:
+                cambios['printer_codepage'] = 'cp858'
 
             # logo_enabled
             try:

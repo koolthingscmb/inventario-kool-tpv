@@ -41,10 +41,10 @@ class EscPosRenderer:
         """
         parts: list[bytes] = []
 
-        # 1) Inicializar impresora (ESC @) + seleccionar codepage CP858 (ESC t 19) para soporte €
+        # 1) Inicializar impresora (ESC @) + seleccionar codepage configurado
         try:
             parts.append(self.ESC + b"@")
-            parts.append(self._set_codepage_cp858())
+            parts.append(self._set_codepage())
         except Exception:
             # safety: shouldn't fail
             self.logger.exception("Error creando secuencia de inicialización ESC@ / selección codepage")
@@ -241,17 +241,29 @@ class EscPosRenderer:
             text = text.replace(unicode_char, ascii_char)
         return text
 
-    def _set_codepage_cp858(self) -> bytes:
-        """Secuencia ESC/POS para seleccionar codepage CP858 (con soporte €).
+    def _set_codepage(self) -> bytes:
+        """Secuencia ESC/POS para seleccionar el codepage configurado.
 
-        Utiliza `ESC t 19` (0x13) que en muchas impresoras corresponde a CP858.
-        Devuelve los bytes a insertar justo después de `ESC @`.
+        Mapea el encoding configurado al número de codepage ESC/POS:
+        - cp437: ESC t 0 (PC437 USA/Europe)
+        - cp850: ESC t 2 (PC850 Multilingual)
+        - cp858: ESC t 19 (PC858 Euro)
+        - cp1252: ESC t 16 (PC1252 Latin 1 - Windows)
+
+        Devuelve los bytes ESC t n para seleccionar el codepage.
         """
         try:
-            # ESC t n  -> select character code table n (19 -> CP858 en muchas máquinas)
-            return self.ESC + b"t" + b"\x13"
+            # Mapeo de encoding a número de codepage ESC/POS
+            codepage_map = {
+                'cp437': b'\x00',   # PC437
+                'cp850': b'\x02',   # PC850 Multilingual
+                'cp858': b'\x13',   # PC858 Euro (19 en decimal)
+                'cp1252': b'\x10',  # PC1252 Windows Latin 1 (16 en decimal)
+            }
+            code = codepage_map.get(self.encoding, b'\x13')  # default CP858
+            return self.ESC + b"t" + code
         except Exception:
-            self.logger.exception("No se pudo construir secuencia ESC t 19 (CP858)")
+            self.logger.exception(f"No se pudo construir secuencia ESC t para {self.encoding}")
             return b""
 
     def _set_bold(self, enable: bool) -> bytes:

@@ -173,6 +173,7 @@ class TpvService:
             # Leer configuración de impresión desde BD
             modo_impresion = 'texto'
             printer_name = None
+            codepage = 'cp858'
             try:
                 if self.db and getattr(self.db, 'fetch_one', None):
                     row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'modo_impresion'")
@@ -181,6 +182,9 @@ class TpvService:
                     row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'printer_name'")
                     if row and row[0]:
                         printer_name = row[0]
+                    row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'printer_codepage'")
+                    if row and row[0]:
+                        codepage = row[0]
             except Exception:
                 logger.exception('Error leyendo configuración de impresión desde BD')
 
@@ -188,13 +192,14 @@ class TpvService:
             if modo_impresion != 'escpos':
                 logger.info('Modo impresión = texto (simulación). Para imprimir físicamente, activa ESC/POS en Config.')
 
-            # Crear ImpresoraService con el modo correcto
+            # Crear ImpresoraService con el modo y codepage correctos
             try:
                 from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
                 imp = ImpresoraService(
                     db=self.db,
                     imprimir_en_consola=True,
-                    modo_impresion=modo_impresion
+                    modo_impresion=modo_impresion,
+                    codepage=codepage
                 )
                 # Generar e imprimir ticket
                 texto = imp.generar_ticket_desde_id(ticket_id)
