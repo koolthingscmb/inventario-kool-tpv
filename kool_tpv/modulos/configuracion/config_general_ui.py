@@ -178,6 +178,48 @@ class ConfigGeneralUI:
 
         # (Logo field removed per spec)
 
+        # CONFIGURACIÓN UI - Densidad de interfaz
+        self.ui_config_frame = ctk.CTkFrame(self.container, fg_color=bg)
+        self.ui_config_frame.pack(fill='both', expand=False, padx=12, pady=(0, 8))
+
+        for c in range(8):
+            try:
+                self.ui_config_frame.grid_columnconfigure(c, weight=1, uniform='col')
+            except Exception:
+                pass
+
+        # Label separador
+        lbl_ui = ctk.CTkLabel(self.ui_config_frame, text='CONFIGURACIÓN DE INTERFAZ',
+                              font=lbl_font, text_color=self.colors.get('secondary', '#FFB74D'))
+        lbl_ui.grid(row=0, column=0, columnspan=8, sticky='w', padx=6, pady=(12, 6))
+
+        # Row 1: Densidad UI
+        lbl_density = ctk.CTkLabel(self.ui_config_frame, text='Densidad interfaz',
+                                   font=lbl_font, text_color=self.colors.get('text'))
+        lbl_density.grid(row=1, column=0, sticky='w', padx=6, pady=6)
+        self.cb_density = ctk.CTkComboBox(
+            self.ui_config_frame,
+            values=['normal', 'compact', 'touch'],
+            fg_color=bg,
+            text_color=self.colors.get('text', '#FFFFFF'),
+            border_width=2,
+            border_color=self.colors.get('border', self.colors.get('primary')),
+            corner_radius=4,
+            font=get_font('entry', module=module_name),
+            dropdown_fg_color=bg,
+            dropdown_text_color=self.colors.get('text', '#FFFFFF'),
+            width=200
+        )
+        self.cb_density.grid(row=1, column=1, columnspan=3, sticky='w', padx=6, pady=6)
+        self.cb_density.set('normal')
+
+        # Info label
+        lbl_info = ctk.CTkLabel(self.ui_config_frame,
+                                text='Normal: monitores estándar | Compact: pantallas pequeñas/cuadradas | Touch: botones grandes',
+                                font=get_font('caption', module=module_name),
+                                text_color=self.colors.get('muted', '#888888'))
+        lbl_info.grid(row=2, column=0, columnspan=8, sticky='w', padx=6, pady=(0, 6))
+
         # Bottom buttons frame
         self.btn_frame = ctk.CTkFrame(self.container, fg_color=bg)
         self.btn_frame.pack(side='bottom', fill='x', padx=12, pady=12)
@@ -239,6 +281,14 @@ class ConfigGeneralUI:
             except Exception:
                 logging.warning('Error cargando checkbox RE')
 
+            # Densidad UI (ComboBox)
+            try:
+                density_val = datos.get('ui_density', 'normal')
+                if hasattr(self, 'cb_density') and density_val in ['normal', 'compact', 'touch']:
+                    self.cb_density.set(density_val)
+            except Exception:
+                logging.warning('Error cargando ui_density')
+
         except Exception:
             logging.exception('Error cargando datos de configuracion')
 
@@ -285,6 +335,14 @@ class ConfigGeneralUI:
                 cambios['re_activo'] = re_activo
             except Exception:
                 logging.warning('Error leyendo re_activo')
+
+            # Guardar densidad UI
+            try:
+                density_val = getattr(self, 'cb_density', None)
+                if density_val:
+                    cambios['ui_density'] = density_val.get()
+            except Exception:
+                logging.warning('Error leyendo ui_density')
 
             self.config_repo.guardar_multiples(cambios)
 
