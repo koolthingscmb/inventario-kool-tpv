@@ -170,44 +170,56 @@ class TpvService:
             ticket_id: ID del ticket a imprimir
         """
         try:
-            if not self.impresora_service:
-                logger.warning('ImpresoraService no disponible, skip impresión')
-                return
-
-            # Leer el texto final del ticket ya persistido y enviarlo a la impresora
-            texto = None
+            # Leer configuración de impresión desde BD
+            modo_impresion = 'texto'
+            printer_name = None
             try:
                 if self.db and getattr(self.db, 'fetch_one', None):
-                    row = self.db.fetch_one('SELECT ticket_text FROM tickets WHERE id = ?', (ticket_id,))
-                    if row:
-                        texto = row[0]
+                    row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'modo_impresion'")
+                    if row and row[0]:
+                        modo_impresion = row[0]
+                    row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'printer_name'")
+                    if row and row[0]:
+                        printer_name = row[0]
             except Exception:
-                logger.exception('Error leyendo ticket_text desde BD')
+                logger.exception('Error leyendo configuración de impresión desde BD')
 
-            if texto:
-                # Log simulación
-                logger.info("=" * 50)
-                logger.info(" IMPRIMIENDO TICKET (simulado) ")
-                logger.info("=" * 50)
-                logger.info("\n%s", texto)
-                logger.info("=" * 50)
-            else:
-                # Generar ticket directamente desde BD (sin snapshot guardado)
-                try:
-                    from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
-                    imp = ImpresoraService(db=self.db, imprimir_en_consola=True)
-                    texto = imp.generar_ticket_desde_id(ticket_id)
+            # Si no hay modo escpos activado, solo simular
+            if modo_impresion != 'escpos':
+                logger.info('Modo impresión = texto (simulación). Para imprimir físicamente, activa ESC/POS en Config.')
 
-                    if texto:
-                        logger.info("=" * 50)
-                        logger.info(" IMPRIMIENDO TICKET (simulado) ")
-                        logger.info("=" * 50)
-                        logger.info("\n%s", texto)
-                        logger.info("=" * 50)
+            # Crear ImpresoraService con el modo correcto
+            try:
+                from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
+                imp = ImpresoraService(
+                    db=self.db,
+                    imprimir_en_consola=True,
+                    modo_impresion=modo_impresion
+                )
+                # Generar e imprimir ticket
+                texto = imp.generar_ticket_desde_id(ticket_id)
+
+                if texto:
+                    logger.info("=" * 50)
+                    if modo_impresion == 'escpos':
+                        logger.info(" ENVIANDO A IMPRESORA: %s ", printer_name or 'NO CONFIGURADA')
                     else:
-                        logger.warning(f'No se pudo generar ticket para ticket_id={ticket_id}')
-                except Exception:
-                    logger.exception(f'Error generando ticket para ticket_id={ticket_id}')
+                        logger.info(" SIMULACIÓN TICKET (modo texto) ")
+                    logger.info("=" * 50)
+                    logger.info("\n%s", texto)
+                    logger.info("=" * 50)
+
+                    # Si es modo escpos, enviar a impresora física
+                    if modo_impresion == 'escpos' and printer_name:
+                        try:
+                            imp._imprimir_texto_generico(texto, {'num_ticket': ticket_id}, printer_name)
+                            logger.info('Ticket enviado a impresora física')
+                        except Exception:
+                            logger.exception('Error enviando a impresora física')
+                else:
+                    logger.warning(f'No se pudo generar ticket para ticket_id={ticket_id}')
+            except Exception:
+                logger.exception(f'Error generando/imprimiendo ticket_id={ticket_id}')
 
         except Exception:
             logger.exception('Error en _print_ticket')
