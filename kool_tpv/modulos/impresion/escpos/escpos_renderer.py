@@ -81,10 +81,7 @@ class EscPosRenderer:
                 line_with_newline = line + "\n"
                 stripped = line.strip()
                 if stripped.startswith("TOTAL:"):
-                    # Separador normal igual que el resto del ticket
-                    separator = "=" * 42
-                    parts.append((separator + "\n").encode(self.encoding))
-                    # Solo negrita, sin doble tamaño (más compatible con impresoras)
+                    # Solo negrita, sin doble tamaño ni separadores extras
                     parts.append(self._set_bold(True))
                     try:
                         parts.append(line_with_newline.encode(self.encoding))
