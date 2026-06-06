@@ -108,19 +108,47 @@ class ImpresoraUI:
         try:
             lbl_modo = ctk.CTkLabel(
                 self.impresora_frame,
-                text='Modo físico',
+                text='Imprimir tickets',
                 text_color=self.colors.get('text', COLOR_MATRIX),
                 font=get_font('label', module=module_name)
             )
             lbl_modo.grid(row=2, column=0, sticky='w', padx=6, pady=6)
 
+            modo_frame = ctk.CTkFrame(self.impresora_frame, fg_color='transparent')
+            modo_frame.grid(row=2, column=1, columnspan=6, sticky='w', padx=6, pady=6)
+
             self.switch_modo_fisico = ctk.CTkSwitch(
-                self.impresora_frame,
-                text='ESC/POS (impresora térmica)',
-                fg_color=self.colors.get('primary', '#FF9800'),
+                modo_frame,
+                text='',
+                fg_color='#666666',  # Color apagado (gris)
+                progress_color='#00AA00',  # Color encendido (verde)
+                width=50,
+                height=24
+            )
+            self.switch_modo_fisico.pack(side='left')
+
+            self.lbl_modo_estado = ctk.CTkLabel(
+                modo_frame,
+                text='NO (solo simulación en pantalla)',
+                text_color='#FF6666',  # Rojo apagado
                 font=get_font('label', module=module_name)
             )
-            self.switch_modo_fisico.grid(row=2, column=1, columnspan=4, sticky='w', padx=6, pady=6)
+            self.lbl_modo_estado.pack(side='left', padx=(8, 0))
+
+            # Callback para actualizar texto cuando cambia
+            def _on_modo_change():
+                if self.switch_modo_fisico.get():
+                    self.lbl_modo_estado.configure(
+                        text='SÍ - Enviar a impresora térmica',
+                        text_color='#66FF66'  # Verde encendido
+                    )
+                else:
+                    self.lbl_modo_estado.configure(
+                        text='NO (solo simulación en pantalla)',
+                        text_color='#FF6666'  # Rojo apagado
+                    )
+
+            self.switch_modo_fisico.configure(command=_on_modo_change)
         except Exception:
             logging.exception('Error creando switch modo físico en ImpresoraUI')
 
@@ -293,17 +321,25 @@ class ImpresoraUI:
                 except Exception:
                     pass
 
-            # Cargar modo_impresion (escpos o texto)
+            # Cargar modo_impresion (escpos o texto) y sincronizar label de estado
             try:
                 row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'modo_impresion'")
                 if row and row[0] == 'escpos':
                     try:
                         self.switch_modo_fisico.select()
+                        self.lbl_modo_estado.configure(
+                            text='SÍ - Enviar a impresora térmica',
+                            text_color='#66FF66'
+                        )
                     except Exception:
                         pass
                 else:
                     try:
                         self.switch_modo_fisico.deselect()
+                        self.lbl_modo_estado.configure(
+                            text='NO (solo simulación en pantalla)',
+                            text_color='#FF6666'
+                        )
                     except Exception:
                         pass
             except Exception:
