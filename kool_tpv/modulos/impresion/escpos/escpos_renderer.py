@@ -60,12 +60,15 @@ class EscPosRenderer:
             except Exception:
                 self.logger.exception("Error generando bytes de logo desde %s", str(logo_path))
 
-        # 3) Normalizar saltos de línea y codificar
+        # 3) Normalizar saltos de línea, sanitizar caracteres Unicode y codificar
         if text is None:
             text = ""
 
         # Normalize CR/LF to LF
         normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+
+        # Sanitizar caracteres Unicode que no existen en CP858
+        normalized = self._sanitize_text(normalized)
         if not normalized.endswith("\n"):
             normalized += "\n"
 
@@ -205,6 +208,38 @@ class EscPosRenderer:
         except Exception:
             self.logger.exception("Error generando QR code")
             return b""
+
+    def _sanitize_text(self, text: str) -> str:
+        """Reemplaza caracteres Unicode problemáticos por equivalentes ASCII seguros.
+
+        CP858 (y la mayoría de codepages ESC/POS) no soporta:
+        - Puntos suspensivos "…" (U+2026)
+        - Guiones largos "–" (U+2013), "—" (U+2014)
+        - Comillas tipográficas " " ' '
+        - Algunos caracteres de dibujo de cajas
+
+        Args:
+            text: Texto con posibles caracteres Unicode
+
+        Returns:
+            Texto sanitizado con solo caracteres compatibles con CP858
+        """
+        replacements = {
+            '\u2026': '...',      # … (puntos suspensivos) -> tres puntos
+            '\u2013': '-',        # – (en dash) -> guión simple
+            '\u2014': '-',        # — (em dash) -> guión simple
+            '\u2018': "'",        # ' (comilla simple izq) -> '
+            '\u2019': "'",        # ' (comilla simple der) -> '
+            '\u201C': '"',        # " (comilla doble izq) -> "
+            '\u201D': '"',        # " (comilla doble der) -> "
+            '\u2002': ' ',        # (espacio en) -> espacio normal
+            '\u2003': ' ',        # (em space) -> espacio normal
+            '\u2009': ' ',        # (thin space) -> espacio normal
+            '\u00A0': ' ',        # (nbsp) -> espacio normal
+        }
+        for unicode_char, ascii_char in replacements.items():
+            text = text.replace(unicode_char, ascii_char)
+        return text
 
     def _set_codepage_cp858(self) -> bytes:
         """Secuencia ESC/POS para seleccionar codepage CP858 (con soporte €).
