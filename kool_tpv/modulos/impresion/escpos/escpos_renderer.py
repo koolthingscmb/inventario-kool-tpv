@@ -72,40 +72,13 @@ class EscPosRenderer:
         if not normalized.endswith("\n"):
             normalized += "\n"
 
+        # Codificar todo el texto plano sin modificaciones ni estilos especiales
+        # El formato completo debe venir del generator (separación de responsabilidades)
         try:
-            # Codificar línea a línea para permitir aplicar estilos a líneas específicas
-            # Evitar línea vacía final innecesaria
-            lines = normalized.rstrip("\n").split("\n")
-            for idx, line in enumerate(lines):
-                # Construir la línea con salto explícito
-                line_with_newline = line + "\n"
-                stripped = line.strip()
-                if stripped.startswith("TOTAL:"):
-                    # Solo negrita, sin doble tamaño ni separadores extras
-                    parts.append(self._set_bold(True))
-                    try:
-                        parts.append(line_with_newline.encode(self.encoding))
-                    except Exception:
-                        parts.append(line_with_newline.encode("utf-8", errors="replace"))
-                    parts.append(self._set_bold(False))
-                elif stripped.startswith("SUBIDA DE NIVEL"):
-                    parts.append(self._set_bold(True))
-                    try:
-                        parts.append(line_with_newline.encode(self.encoding))
-                    except Exception:
-                        parts.append(line_with_newline.encode("utf-8", errors="replace"))
-                    parts.append(self._set_bold(False))
-                else:
-                    try:
-                        parts.append(line_with_newline.encode(self.encoding))
-                    except Exception:
-                        parts.append(line_with_newline.encode("utf-8", errors="replace"))
+            parts.append(normalized.encode(self.encoding))
         except Exception:
-            # Fallback robusto: codificar todo como antes
-            try:
-                parts.append(normalized.encode(self.encoding))
-            except Exception:
-                parts.append(normalized.encode("utf-8", errors="replace"))
+            # Fallback a UTF-8 si el encoding específico falla
+            parts.append(normalized.encode("utf-8", errors="replace"))
 
         # 4) Añadir una línea extra de separación (antes del corte)
 
