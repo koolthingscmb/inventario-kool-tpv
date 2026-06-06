@@ -24,6 +24,7 @@ CONFIG_DIR = BASE_DIR / "config"
 # Central ButtonFactory
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.keyboard_nav_mixin import KeyboardNavigableMixin
+from kool_tpv.utils.scale_manager import get_scale_manager
 
 def load_config(filename: str) -> dict:
     try:
@@ -67,8 +68,12 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
         self.layout_cfg = load_config("layout_config.json")
         self.font_cfg = load_config("font_config.json")
 
-        # PANEL DERECHO (TICKET)
-        self.right_container = ctk.CTkFrame(self, width=520, corner_radius=0, fg_color="#1a1a1a")
+        # ScaleManager para densidad de interfaz
+        self.scale_mgr = get_scale_manager(db)
+
+        # PANEL DERECHO (TICKET) - tamaño escalado según densidad
+        right_width = self.scale_mgr.get_width(520)
+        self.right_container = ctk.CTkFrame(self, width=right_width, corner_radius=0, fg_color="#1a1a1a")
         self.right_container.pack(side="right", fill="y")
         self.right_container.pack_propagate(False)
 
@@ -100,9 +105,11 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
         self.center_area.pack(side="left", fill="both", expand=True)
 
         bread_cfg = self.font_cfg.get("breadcrumb", {})
-        bread_font = (bread_cfg.get("family", "Courier New"), bread_cfg.get("size", 20), "bold")
+        bread_font_size = self.scale_mgr.get_font_size(bread_cfg.get("size", 20))
+        bread_font = (bread_cfg.get("family", "Courier New"), bread_font_size, "bold")
 
-        self.breadcrumb = ClickableBreadcrumb(self.center_area, font=bread_font, text_color="#00FF00", height=50)
+        breadcrumb_height = self.scale_mgr.get_height(50)
+        self.breadcrumb = ClickableBreadcrumb(self.center_area, font=bread_font, text_color="#00FF00", height=breadcrumb_height)
         self.breadcrumb.pack(side="top", fill="x", padx=20, pady=10)
         self.breadcrumb.update_parts([("INICIO", None), ("VENTAS", None), ("TPV", None)])
 

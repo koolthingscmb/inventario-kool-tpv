@@ -257,6 +257,7 @@ class ConfigGeneralUI:
             're_general': 'e_re_general',
             're_reducido': 'e_re_reducido',
             're_superreducido': 'e_re_superreducido',
+            'ui_density': None,  # Manejado aparte como ComboBox
         }
 
         try:
