@@ -81,21 +81,16 @@ class EscPosRenderer:
                 line_with_newline = line + "\n"
                 stripped = line.strip()
                 if stripped.startswith("TOTAL:"):
-                    # Separador visual fuerte
-                    separator = "*" * 42
+                    # Separador normal igual que el resto del ticket
+                    separator = "=" * 42
                     parts.append((separator + "\n").encode(self.encoding))
-                    # Centrar, doble tamaño y negrita para la línea TOTAL
-                    parts.append(self.ESC + b"a" + b"\x01")
+                    # Solo negrita, sin doble tamaño (más compatible con impresoras)
                     parts.append(self._set_bold(True))
-                    parts.append(self._set_double_size(True))
-                    centered_line = line.strip().center(42)
                     try:
-                        parts.append((centered_line + "\n").encode(self.encoding))
+                        parts.append(line_with_newline.encode(self.encoding))
                     except Exception:
-                        parts.append((centered_line + "\n").encode("utf-8", errors="replace"))
-                    parts.append(self._set_double_size(False))
+                        parts.append(line_with_newline.encode("utf-8", errors="replace"))
                     parts.append(self._set_bold(False))
-                    parts.append(self.ESC + b"a" + b"\x00")
                 elif stripped.startswith("SUBIDA DE NIVEL"):
                     parts.append(self._set_bold(True))
                     try:
