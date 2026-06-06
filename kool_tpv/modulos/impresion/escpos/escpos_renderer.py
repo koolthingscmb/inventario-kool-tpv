@@ -16,7 +16,7 @@ class EscPosRenderer:
     implementa únicamente lo mínimo pedido ahora.
     """
 
-    def __init__(self, encoding: str = "cp850", debug_dump: bool = False, dump_directory: Optional[Path] = None) -> None:
+    def __init__(self, encoding: str = "cp858", debug_dump: bool = False, dump_directory: Optional[Path] = None) -> None:
         self.logger = logging.getLogger(__name__)
         self.encoding = encoding
         # Control bytes
@@ -41,10 +41,10 @@ class EscPosRenderer:
         """
         parts: list[bytes] = []
 
-        # 1) Inicializar impresora (ESC @) + seleccionar codepage CP850 (ESC t 2)
+        # 1) Inicializar impresora (ESC @) + seleccionar codepage CP858 (ESC t 19) para soporte €
         try:
             parts.append(self.ESC + b"@")
-            parts.append(self._set_codepage_cp850())
+            parts.append(self._set_codepage_cp858())
         except Exception:
             # safety: shouldn't fail
             self.logger.exception("Error creando secuencia de inicialización ESC@ / selección codepage")
@@ -206,17 +206,17 @@ class EscPosRenderer:
             self.logger.exception("Error generando QR code")
             return b""
 
-    def _set_codepage_cp850(self) -> bytes:
-        """Secuencia ESC/POS para seleccionar codepage CP850.
+    def _set_codepage_cp858(self) -> bytes:
+        """Secuencia ESC/POS para seleccionar codepage CP858 (con soporte €).
 
-        Utiliza `ESC t 2` que en muchas impresoras corresponde a CP850.
+        Utiliza `ESC t 19` (0x13) que en muchas impresoras corresponde a CP858.
         Devuelve los bytes a insertar justo después de `ESC @`.
         """
         try:
-            # ESC t n  -> select character code table n (2 -> CP850 en muchas máquinas)
-            return self.ESC + b"t" + b"\x02"
+            # ESC t n  -> select character code table n (19 -> CP858 en muchas máquinas)
+            return self.ESC + b"t" + b"\x13"
         except Exception:
-            self.logger.exception("No se pudo construir secuencia ESC t 2 (CP850)")
+            self.logger.exception("No se pudo construir secuencia ESC t 19 (CP858)")
             return b""
 
     def _set_bold(self, enable: bool) -> bytes:
