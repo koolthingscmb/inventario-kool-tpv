@@ -268,7 +268,20 @@ class CierreCajaProcessor(TicketProcessor):
         printed = False
         if imprimir:
             try:
-                imp = ImpresoraService(db=self.db, imprimir_en_consola=True)
+                # Leer configuración de impresión desde BD
+                modo_impresion = 'texto'
+                codepage = 'cp858'
+                try:
+                    row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'modo_impresion'")
+                    if row and row[0]:
+                        modo_impresion = row[0]
+                    row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'printer_codepage'")
+                    if row and row[0]:
+                        codepage = row[0]
+                except Exception:
+                    logging.exception('Error leyendo configuración de impresión desde BD')
+
+                imp = ImpresoraService(db=self.db, imprimir_en_consola=True, modo_impresion=modo_impresion, codepage=codepage)
                 try:
                     printed = bool(imp.imprimir(TicketType.CIERRE, cierre_data, items=tickets_for_print, printer_name=printer_name))
                 except Exception:
