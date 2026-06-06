@@ -140,18 +140,18 @@ class ImpresoraUI:
                 fg_color=self.colors.get('primary', '#FF9800'),
                 font=get_font('label', module=module_name)
             )
-            self.switch_logo.grid(row=2, column=1, sticky='w', padx=6, pady=6)
+            self.switch_logo.grid(row=3, column=1, sticky='w', padx=6, pady=6)
 
-            # Botón seleccionar logo
+            # Botón seleccionar logo (fila 4, debajo del switch)
             btn_seleccionar = ButtonFactory.create_button(
                 parent=self.impresora_frame,
                 text='SELECCIONAR LOGO',
                 command=self._seleccionar_logo,
                 style_key='mini_action'
             )
-            btn_seleccionar.grid(row=2, column=2, columnspan=2, sticky='w', padx=6, pady=6)
+            btn_seleccionar.grid(row=4, column=1, sticky='w', padx=6, pady=6)
 
-            # Fila 3: Preview del logo
+            # Fila 5: Preview del logo
             self.logo_preview_label = ctk.CTkLabel(
                 self.impresora_frame,
                 text='Sin logo',
@@ -162,7 +162,7 @@ class ImpresoraUI:
                 fg_color=self.colors.get('bg_dark', '#0d0d0d'),
                 corner_radius=8
             )
-            self.logo_preview_label.grid(row=4, column=0, columnspan=4, sticky='w', padx=6, pady=12)
+            self.logo_preview_label.grid(row=5, column=0, columnspan=4, sticky='w', padx=6, pady=12)
 
             # Variable interna para filename
             self.logo_filename = None
@@ -176,7 +176,7 @@ class ImpresoraUI:
                 text_color=self.colors.get('text', COLOR_MATRIX),
                 font=get_font('label', module=module_name)
             )
-            lbl_qr.grid(row=5, column=0, sticky='w', padx=6, pady=6)
+            lbl_qr.grid(row=6, column=0, sticky='w', padx=6, pady=6)
 
             self.switch_qr = ctk.CTkSwitch(
                 self.impresora_frame,
@@ -184,7 +184,7 @@ class ImpresoraUI:
                 fg_color=self.colors.get('primary', '#FF9800'),
                 font=get_font('label', module=module_name)
             )
-            self.switch_qr.grid(row=5, column=1, sticky='w', padx=6, pady=6)
+            self.switch_qr.grid(row=6, column=1, sticky='w', padx=6, pady=6)
 
             lbl_qr_url = ctk.CTkLabel(
                 self.impresora_frame,
@@ -192,14 +192,14 @@ class ImpresoraUI:
                 text_color=self.colors.get('text', COLOR_MATRIX),
                 font=get_font('label', module=module_name)
             )
-            lbl_qr_url.grid(row=6, column=0, sticky='w', padx=6, pady=6)
+            lbl_qr_url.grid(row=7, column=0, sticky='w', padx=6, pady=6)
 
             self.entry_qr_url = ctk.CTkEntry(
                 self.impresora_frame,
                 placeholder_text='https://tutienda.com',
                 **combo_kwargs
             )
-            self.entry_qr_url.grid(row=6, column=1, columnspan=7, sticky='we', padx=6, pady=6)
+            self.entry_qr_url.grid(row=7, column=1, columnspan=7, sticky='we', padx=6, pady=6)
         except Exception:
             logging.exception('Error creando controles de QR en ImpresoraUI')
 
