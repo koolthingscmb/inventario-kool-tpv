@@ -6,3 +6,4 @@ pillow==12.1.0
 # Nota: `setuptools` está en el entorno virtual, pero normalmente no se incluye en `requirements.txt`.
 
 reportlab==4.4.10
+pywin32==308; platform_system=='Windows'

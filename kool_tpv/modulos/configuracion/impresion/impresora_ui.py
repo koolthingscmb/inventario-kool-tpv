@@ -104,7 +104,27 @@ class ImpresoraUI:
         except Exception:
             pass
 
-        # --- Fila 2: Selector y preview de logo ---
+        # --- Fila 2: Modo impresora física (ESC/POS) ---
+        try:
+            lbl_modo = ctk.CTkLabel(
+                self.impresora_frame,
+                text='Modo físico',
+                text_color=self.colors.get('text', COLOR_MATRIX),
+                font=get_font('label', module=module_name)
+            )
+            lbl_modo.grid(row=2, column=0, sticky='w', padx=6, pady=6)
+
+            self.switch_modo_fisico = ctk.CTkSwitch(
+                self.impresora_frame,
+                text='ESC/POS (impresora térmica)',
+                fg_color=self.colors.get('primary', '#FF9800'),
+                font=get_font('label', module=module_name)
+            )
+            self.switch_modo_fisico.grid(row=2, column=1, columnspan=4, sticky='w', padx=6, pady=6)
+        except Exception:
+            logging.exception('Error creando switch modo físico en ImpresoraUI')
+
+        # --- Fila 3: Selector y preview de logo ---
         try:
             lbl_logo = ctk.CTkLabel(
                 self.impresora_frame,
@@ -112,7 +132,7 @@ class ImpresoraUI:
                 text_color=self.colors.get('text', COLOR_MATRIX),
                 font=get_font('label', module=module_name)
             )
-            lbl_logo.grid(row=2, column=0, sticky='w', padx=6, pady=6)
+            lbl_logo.grid(row=3, column=0, sticky='w', padx=6, pady=6)
 
             self.switch_logo = ctk.CTkSwitch(
                 self.impresora_frame,
@@ -142,7 +162,7 @@ class ImpresoraUI:
                 fg_color=self.colors.get('bg_dark', '#0d0d0d'),
                 corner_radius=8
             )
-            self.logo_preview_label.grid(row=3, column=0, columnspan=4, sticky='w', padx=6, pady=12)
+            self.logo_preview_label.grid(row=4, column=0, columnspan=4, sticky='w', padx=6, pady=12)
 
             # Variable interna para filename
             self.logo_filename = None
@@ -156,7 +176,7 @@ class ImpresoraUI:
                 text_color=self.colors.get('text', COLOR_MATRIX),
                 font=get_font('label', module=module_name)
             )
-            lbl_qr.grid(row=4, column=0, sticky='w', padx=6, pady=6)
+            lbl_qr.grid(row=5, column=0, sticky='w', padx=6, pady=6)
 
             self.switch_qr = ctk.CTkSwitch(
                 self.impresora_frame,
@@ -164,7 +184,7 @@ class ImpresoraUI:
                 fg_color=self.colors.get('primary', '#FF9800'),
                 font=get_font('label', module=module_name)
             )
-            self.switch_qr.grid(row=4, column=1, sticky='w', padx=6, pady=6)
+            self.switch_qr.grid(row=5, column=1, sticky='w', padx=6, pady=6)
 
             lbl_qr_url = ctk.CTkLabel(
                 self.impresora_frame,
@@ -172,14 +192,14 @@ class ImpresoraUI:
                 text_color=self.colors.get('text', COLOR_MATRIX),
                 font=get_font('label', module=module_name)
             )
-            lbl_qr_url.grid(row=5, column=0, sticky='w', padx=6, pady=6)
+            lbl_qr_url.grid(row=6, column=0, sticky='w', padx=6, pady=6)
 
             self.entry_qr_url = ctk.CTkEntry(
                 self.impresora_frame,
                 placeholder_text='https://tutienda.com',
                 **combo_kwargs
             )
-            self.entry_qr_url.grid(row=5, column=1, columnspan=7, sticky='we', padx=6, pady=6)
+            self.entry_qr_url.grid(row=6, column=1, columnspan=7, sticky='we', padx=6, pady=6)
         except Exception:
             logging.exception('Error creando controles de QR en ImpresoraUI')
 
@@ -273,6 +293,22 @@ class ImpresoraUI:
                 except Exception:
                     pass
 
+            # Cargar modo_impresion (escpos o texto)
+            try:
+                row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'modo_impresion'")
+                if row and row[0] == 'escpos':
+                    try:
+                        self.switch_modo_fisico.select()
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        self.switch_modo_fisico.deselect()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
             # Cargar logo_enabled
             try:
                 row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'logo_enabled'")
@@ -347,6 +383,12 @@ class ImpresoraUI:
 
             # printer_width
             cambios['printer_width'] = self.paper_width_var.get()
+
+            # modo_impresion (escpos o texto)
+            try:
+                cambios['modo_impresion'] = 'escpos' if self.switch_modo_fisico.get() else 'texto'
+            except Exception:
+                cambios['modo_impresion'] = 'texto'
 
             # logo_enabled
             try:
