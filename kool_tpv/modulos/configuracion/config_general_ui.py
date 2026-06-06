@@ -25,8 +25,12 @@ class ConfigGeneralUI:
 
         bg = self.colors.get('background', COLOR_BG_TERMINAL)
 
-        # Container frame
+        # Container principal (no scrolleable, fijo)
         self.container = ctk.CTkFrame(parent, fg_color=bg)
+
+        # Scrollable frame para el contenido (para pantallas pequeñas)
+        self.scrollable = ctk.CTkScrollableFrame(self.container, fg_color=bg, corner_radius=0)
+        self.scrollable.pack(fill='both', expand=True, padx=0, pady=0)
 
         # Fonts and common kwargs (use font_config)
         lbl_font = get_font('label', module=module_name)
@@ -39,9 +43,9 @@ class ConfigGeneralUI:
             "font": get_font('entry', module=module_name),
         }
 
-        # Configure grid inside container: we'll use two stacked frames with 8 columns each
+        # Configure grid inside scrollable: we'll use two stacked frames with 8 columns each
         # IDENTIDAD COMERCIAL
-        self.identidad_frame = ctk.CTkFrame(self.container, fg_color=bg)
+        self.identidad_frame = ctk.CTkFrame(self.scrollable, fg_color=bg)
         self.identidad_frame.pack(fill='both', expand=False, padx=12, pady=8)
 
         for c in range(8):
@@ -78,7 +82,7 @@ class ConfigGeneralUI:
         self.e_email.insert(0, '')
 
         # DATOS FISCALES
-        self.fiscal_frame = ctk.CTkFrame(self.container, fg_color=bg)
+        self.fiscal_frame = ctk.CTkFrame(self.scrollable, fg_color=bg)
         self.fiscal_frame.pack(fill='both', expand=True, padx=12, pady=(0, 8))
 
         for c in range(8):
@@ -88,7 +92,7 @@ class ConfigGeneralUI:
                 pass
 
         # PARÁMETROS FISCALES
-        self.fiscal_params_frame = ctk.CTkFrame(self.container, fg_color=bg)
+        self.fiscal_params_frame = ctk.CTkFrame(self.scrollable, fg_color=bg)
         self.fiscal_params_frame.pack(fill='both', expand=False, padx=12, pady=(0, 8))
 
         for c in range(8):
@@ -179,7 +183,7 @@ class ConfigGeneralUI:
         # (Logo field removed per spec)
 
         # CONFIGURACIÓN UI - Densidad de interfaz
-        self.ui_config_frame = ctk.CTkFrame(self.container, fg_color=bg)
+        self.ui_config_frame = ctk.CTkFrame(self.scrollable, fg_color=bg)
         self.ui_config_frame.pack(fill='both', expand=False, padx=12, pady=(0, 8))
 
         for c in range(8):
@@ -221,8 +225,8 @@ class ConfigGeneralUI:
         lbl_info.grid(row=2, column=0, columnspan=8, sticky='w', padx=6, pady=(0, 6))
 
         # Bottom buttons frame
-        self.btn_frame = ctk.CTkFrame(self.container, fg_color=bg)
-        self.btn_frame.pack(side='bottom', fill='x', padx=12, pady=12)
+        self.btn_frame = ctk.CTkFrame(self.scrollable, fg_color=bg)
+        self.btn_frame.pack(fill='x', padx=12, pady=12)
 
         from kool_tpv.utils.config_loader import create_action_button
         btn_save = create_action_button(self.btn_frame, 'guardar', self._on_save)
