@@ -71,8 +71,8 @@
       "input": { "family": "Courier New", "size": 16, "weight": "normal", "fallback": ["Courier New", "Arial"] }
     },
     "nav_list": {
-      "header": { "family": "Courier New", "size": 14, "weight": "bold", "fallback": ["Courier New"] },
-      "row": { "family": "Courier New", "size": 12, "weight": "normal", "fallback": ["Courier New"] }
+      "header": { "family": "Courier New", "size": 12, "weight": "bold", "fallback": ["Courier New"] },
+      "row": { "family": "Courier New", "size": 10, "weight": "normal", "fallback": ["Courier New"] }
     }
   },
 

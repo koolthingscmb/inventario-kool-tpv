@@ -17,7 +17,7 @@ import tkinter as tk
 import customtkinter as ctk
 from typing import List, Tuple, Callable, Optional, Any
 
-from kool_tpv.utils.config_loader import load_colors, load_layout_config
+from kool_tpv.utils.config_loader import load_colors, load_layout_config, load_font_config
 
 logger = logging.getLogger(__name__)
 
@@ -59,9 +59,20 @@ class VirtualNavList(ctk.CTkFrame):
         nav_layout = layout_root.get('components', {}).get('nav_list', {}) or {}
         self.row_height: int = int(nav_layout.get('row_height', nav_cfg.get('row_height', _ROW_HEIGHT_DEFAULT)))
 
-        font_cfg = self.colors.get('fonts', {})
-        self._font_header = tuple(font_cfg.get('header', list(_FONT_HEADER_DEFAULT)))
-        self._font_row    = tuple(font_cfg.get('row',    list(_FONT_ROW_DEFAULT)))
+        _fc = load_font_config()
+        _nav_fonts = _fc.get('components', {}).get('nav_list', {})
+        _hdr = _nav_fonts.get('header', {})
+        _row = _nav_fonts.get('row', {})
+        self._font_header = (
+            _hdr.get('family', _FONT_HEADER_DEFAULT[0]),
+            _hdr.get('size',   _FONT_HEADER_DEFAULT[1]),
+            _hdr.get('weight', _FONT_HEADER_DEFAULT[2]),
+        )
+        self._font_row = (
+            _row.get('family', _FONT_ROW_DEFAULT[0]),
+            _row.get('size',   _FONT_ROW_DEFAULT[1]),
+            _row.get('weight', 'normal'),
+        )
 
         super().__init__(
             parent,
@@ -167,6 +178,12 @@ class VirtualNavList(ctk.CTkFrame):
                 self._on_return_callback()
             except Exception:
                 logger.exception('Error en return callback VirtualNavList')
+            finally:
+                # Mantener foco en el canvas para permitir múltiples Enters
+                try:
+                    self._canvas.focus_set()
+                except Exception:
+                    pass
 
     def set_items(self, items: List[dict]):
         """Reemplazar datos y reconstruir filas."""
@@ -236,7 +253,7 @@ class VirtualNavList(ctk.CTkFrame):
         labels = []
         x = 8
         for key, width, _ in self.columns:
-            val = str(data.get(key, ''))
+            val = self._truncate(str(data.get(key, '')), width)
             lbl = tk.Label(row, text=val, font=self._font_row, fg=fg_row, bg=bg_row, anchor='w')
             lbl.place(x=x, y=0, width=width, height=rh)
             labels.append(lbl)
@@ -341,6 +358,19 @@ class VirtualNavList(ctk.CTkFrame):
                 self.on_double_click_callback(self._all_data[idx])
             except Exception:
                 pass
+
+    def _truncate(self, text: str, width_px: int) -> str:
+        """Truncar texto con ... si supera el ancho de columna en píxeles."""
+        try:
+            size = self._font_row[1] if len(self._font_row) > 1 else 10
+            # Estimación: Courier New ~0.65 * size px por carácter
+            char_w = max(1, int(size * 0.65))
+            max_chars = max(1, (width_px - 8) // char_w)
+            if len(text) > max_chars:
+                return text[:max(1, max_chars - 1)] + '…'
+        except Exception:
+            pass
+        return text
 
     def _on_mousewheel(self, event):
         if event.num == 4:
