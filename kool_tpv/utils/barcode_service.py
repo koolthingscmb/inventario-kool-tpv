@@ -28,6 +28,7 @@ class BarcodeService:
         self._last_key_time: float = 0.0
         self._attached = False
         self._just_dispatched = False
+        self._ignore_return_until: float = 0.0
 
     def attach(self):
         if self._attached:
@@ -64,6 +65,8 @@ class BarcodeService:
         self._buffer.clear()
         self._last_key_time = 0.0
         self._just_dispatched = True
+        # Ignorar cualquier Return/Enter que llegue en los próximos 300ms
+        self._ignore_return_until = time.monotonic() * 1000 + 300
         if len(code) >= MIN_CODE_LENGTH:
             logger.info(f'BarcodeService: código detectado ({source}) -> {code}')
             try:
@@ -82,10 +85,10 @@ class BarcodeService:
             # Terminador explícito (Enter, Tab, \r)
             is_terminator = keysym in ('Return', 'KP_Enter', 'Tab') or char in ('\r', '\n', '\t')
             if is_terminator:
-                if self._just_dispatched:
-                    # Ignorar terminador que llega justo después de disparo por EAN-13
+                if now < self._ignore_return_until or self._just_dispatched:
+                    # Consumir el Enter del escáner para que no llegue al CarritoNavList
                     self._just_dispatched = False
-                    return
+                    return 'break'
                 elapsed = now - self._last_key_time
                 if self._buffer and elapsed < THRESHOLD_MS * 10:
                     self._dispatch('terminator')
