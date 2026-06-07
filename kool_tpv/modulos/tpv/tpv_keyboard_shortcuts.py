@@ -79,16 +79,14 @@ class TpvKeyboardShortcuts:
                 self._zone = 'payment'
                 return
 
-            on_fin = self.ctrl.payment_controllers.get(tipo)
-
             if tipo == 'cash':
-                ticket.activar_pago_efectivo(on_finalizar=on_fin)
+                ticket.activar_pago_efectivo()
             elif tipo == 'tarjeta':
-                ticket.activar_pago_tarjeta(on_finalizar=on_fin)
+                ticket.activar_pago_tarjeta()
             elif tipo == 'web':
-                ticket.activar_pago_web(on_finalizar=on_fin)
+                ticket.activar_pago_web()
             elif tipo == 'multi':
-                ticket.activar_pago_multi(on_finalizar=on_fin)
+                ticket.activar_pago_multi()
 
             self._zone = 'payment'
             self._apply_zone_indicator('payment')
