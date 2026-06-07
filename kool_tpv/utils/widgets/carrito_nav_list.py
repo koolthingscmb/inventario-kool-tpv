@@ -119,21 +119,18 @@ class CarritoNavList(NavList):
         self._last_any_key_time = time.monotonic() * 1000
 
     def _on_enter_key(self, event=None):
-        """Handler Enter: añadir +1 unidad al item seleccionado.
-
-        Se acepta `event` para poder devolver "break" y evitar propagación
-        que pueda cambiar foco o seleccionar otra cosa.
-        """
+        """Handler Enter: añadir +1 unidad al item seleccionado."""
         try:
             import time
             now = time.monotonic() * 1000
-            last = getattr(self, '_last_enter_time', 0.0)
-            self._last_enter_time = now
-            # Si el Enter llega menos de 500ms después del último KeyPress general,
-            # puede ser del escáner — ignorar si no hay tiempo razonable de interacción humana
-            last_key = getattr(self, '_last_any_key_time', 0.0)
-            if last_key > 0 and (now - last_key) < 50:
-                return "break"
+
+            # Ignorar Enter si el BarcodeService acaba de despachar un código (es el Enter del escáner)
+            barcode_svc = getattr(self, '_barcode_service', None)
+            if barcode_svc is not None:
+                last_dispatch = barcode_svc.get_last_dispatch_time()
+                if last_dispatch > 0 and (now - last_dispatch) < 300:
+                    logger.debug('CarritoNavList: Enter ignorado (viene del escáner)')
+                    return 'break'
 
             if self.selected_index < 0:
                 return "break"

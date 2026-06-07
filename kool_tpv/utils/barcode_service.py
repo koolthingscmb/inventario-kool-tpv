@@ -59,13 +59,16 @@ class BarcodeService:
         except Exception:
             return False
 
+    def get_last_dispatch_time(self) -> float:
+        """Devuelve el timestamp (monotonic ms) del último código despachado."""
+        return self._ignore_return_until - 300
+
     def _dispatch(self, source: str):
         """Disparar callback con el código acumulado."""
         code = ''.join(self._buffer).strip()
         self._buffer.clear()
         self._last_key_time = 0.0
         self._just_dispatched = True
-        # Ignorar cualquier Return/Enter que llegue en los próximos 300ms
         self._ignore_return_until = time.monotonic() * 1000 + 300
         if len(code) >= MIN_CODE_LENGTH:
             logger.info(f'BarcodeService: código detectado ({source}) -> {code}')
