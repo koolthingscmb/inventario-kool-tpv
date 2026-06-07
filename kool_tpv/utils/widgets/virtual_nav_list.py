@@ -1,0 +1,350 @@
+"""VirtualNavList - Lista navegable virtualizada con Canvas.
+
+Solo renderiza las filas visibles en pantalla. Scroll fluido con
+miles de registros. Misma API pública que NavList:
+  - add_item(data)
+  - clear_items()
+  - set_items(items)
+  - select_next() / select_previous()
+  - get_selected_data()
+  - selected_index (atributo)
+  - on_select_callback / on_double_click_callback
+  - keyboard_manager compatible
+"""
+import logging
+import tkinter as tk
+import customtkinter as ctk
+from typing import List, Tuple, Callable, Optional, Any
+
+from kool_tpv.utils.config_loader import load_colors, load_layout_config
+
+logger = logging.getLogger(__name__)
+
+_ROW_HEIGHT_DEFAULT = 36
+_HEADER_HEIGHT = 40
+_FONT_HEADER = ('Courier New', 14, 'bold')
+_FONT_ROW = ('Courier New', 12)
+
+
+class VirtualNavList(ctk.CTkFrame):
+    """Lista virtualizada: solo renderiza filas visibles. Scroll fluido."""
+
+    def __init__(
+        self,
+        parent,
+        columns: List[Tuple],
+        on_select: Optional[Callable[[Any], None]] = None,
+        on_double_click: Optional[Callable[[Any], None]] = None,
+        module_name: str = 'clientes',
+        keyboard_manager=None,
+        layout_config: Optional[dict] = None,
+        **kwargs
+    ):
+        self.colors = load_colors(module_name)
+        self.module_name = module_name
+
+        nav_cfg = self.colors.get('nav_list', {})
+        self.row_normal_bg    = nav_cfg.get('row_normal_bg',    '#1a1a1a')
+        self.row_normal_text  = nav_cfg.get('row_normal_text',  '#e0e0e0')
+        self.row_hover_bg     = nav_cfg.get('row_hover_bg',     '#2a2a2a')
+        self.row_hover_text   = nav_cfg.get('row_hover_text',   '#ffffff')
+        self.row_selected_bg  = nav_cfg.get('row_selected_bg',  '#0d0d0d')
+        self.row_selected_text= nav_cfg.get('row_selected_text','#ffffff')
+
+        border_key = nav_cfg.get('row_selected_border', 'primary')
+        self.row_selected_border = (
+            self.colors.get('primary', '#FFD700') if border_key == 'primary' else border_key
+        )
+
+        layout_root = layout_config if isinstance(layout_config, dict) else (load_layout_config() or {})
+        nav_layout = layout_root.get('components', {}).get('nav_list', {}) or {}
+        self.row_height: int = int(nav_layout.get('row_height', nav_cfg.get('row_height', _ROW_HEIGHT_DEFAULT)))
+
+        super().__init__(
+            parent,
+            fg_color=self.colors.get('background', '#000000'),
+            **kwargs
+        )
+
+        self.columns = self._parse_columns(columns)
+        self.on_select_callback = on_select
+        self.on_double_click_callback = on_double_click
+        self.keyboard_manager = keyboard_manager
+
+        self._all_data: List[dict] = []
+        self.selected_index: int = -1
+        self._hover_index: int = -1
+
+        self._build_ui()
+        self._bind_events()
+
+    # ------------------------------------------------------------------
+    # Construcción UI
+    # ------------------------------------------------------------------
+
+    def _parse_columns(self, columns):
+        result = []
+        for col in columns:
+            try:
+                if len(col) == 3:
+                    key, width, label = col
+                elif len(col) == 2:
+                    key, width = col
+                    label = key
+                else:
+                    key = str(col); width = 100; label = key
+            except Exception:
+                key = str(col); width = 100; label = key
+            result.append((key, int(width), str(label)))
+        return result
+
+    def _build_ui(self):
+        bg = self.colors.get('background', '#000000')
+        bg_dark = self.colors.get('bg_dark', '#0d0d0d')
+        secondary = self.colors.get('secondary', '#FFD700')
+
+        # --- Header ---
+        self._header = tk.Frame(self, bg=bg_dark, height=_HEADER_HEIGHT)
+        self._header.pack(fill='x', padx=6, pady=(0, 2))
+        self._header.pack_propagate(False)
+
+        x = 8
+        for key, width, label in self.columns:
+            lbl = tk.Label(
+                self._header,
+                text=label,
+                font=_FONT_HEADER,
+                fg=secondary,
+                bg=bg_dark,
+                anchor='w',
+                width=0
+            )
+            lbl.place(x=x, y=8, width=width, height=_HEADER_HEIGHT - 16)
+            x += width + 8
+
+        # --- Canvas + Scrollbar ---
+        container = tk.Frame(self, bg=bg)
+        container.pack(fill='both', expand=True, padx=6, pady=(0, 6))
+
+        self._scrollbar = tk.Scrollbar(container, orient='vertical')
+        self._scrollbar.pack(side='right', fill='y')
+
+        self._canvas = tk.Canvas(
+            container,
+            bg=bg,
+            highlightthickness=0,
+            yscrollcommand=self._scrollbar.set
+        )
+        self._canvas.pack(side='left', fill='both', expand=True)
+        self._scrollbar.config(command=self._canvas.yview)
+
+        self._row_frame = tk.Frame(self._canvas, bg=bg)
+        self._canvas_window = self._canvas.create_window(
+            (0, 0), window=self._row_frame, anchor='nw'
+        )
+
+        self._row_frame.bind('<Configure>', self._on_frame_configure)
+        self._canvas.bind('<Configure>', self._on_canvas_configure)
+
+    def _bind_events(self):
+        self._canvas.bind('<MouseWheel>',       self._on_mousewheel)
+        self._canvas.bind('<Button-4>',         self._on_mousewheel)
+        self._canvas.bind('<Button-5>',         self._on_mousewheel)
+        self._canvas.bind('<Button-1>',         self._on_canvas_click)
+        self._canvas.bind('<Double-Button-1>',  self._on_canvas_double_click)
+        self._canvas.bind('<Motion>',           self._on_canvas_motion)
+        self._canvas.bind('<Leave>',            self._on_canvas_leave)
+        self._canvas.bind('<FocusIn>',          lambda e: None)
+        self.bind('<FocusIn>',                  lambda e: self._canvas.focus_set())
+
+    # ------------------------------------------------------------------
+    # API pública — compatible con NavList
+    # ------------------------------------------------------------------
+
+    def add_item(self, data: dict):
+        self._all_data.append(data)
+        self._render_rows()
+
+    def clear_items(self):
+        self._all_data.clear()
+        self.selected_index = -1
+        self._hover_index = -1
+        self._render_rows()
+
+    def set_items(self, items: List[dict]):
+        self._all_data = list(items)
+        self.selected_index = -1
+        self._hover_index = -1
+        self._render_rows()
+
+    def get_selected_data(self) -> Optional[dict]:
+        if 0 <= self.selected_index < len(self._all_data):
+            return self._all_data[self.selected_index]
+        return None
+
+    def select_next(self) -> bool:
+        if not self._all_data:
+            return False
+        new_idx = 0 if self.selected_index < 0 else min(len(self._all_data) - 1, self.selected_index + 1)
+        if new_idx != self.selected_index:
+            self._select(new_idx)
+            if self.on_select_callback:
+                try:
+                    self.on_select_callback(self._all_data[new_idx])
+                except Exception:
+                    pass
+            return True
+        return False
+
+    def select_previous(self) -> bool:
+        if not self._all_data:
+            return False
+        new_idx = len(self._all_data) - 1 if self.selected_index < 0 else max(0, self.selected_index - 1)
+        if new_idx != self.selected_index:
+            self._select(new_idx)
+            if self.on_select_callback:
+                try:
+                    self.on_select_callback(self._all_data[new_idx])
+                except Exception:
+                    pass
+            return True
+        return False
+
+    # ------------------------------------------------------------------
+    # Renderizado
+    # ------------------------------------------------------------------
+
+    def _render_rows(self):
+        """Destruir y recrear todas las filas del _row_frame."""
+        for w in self._row_frame.winfo_children():
+            w.destroy()
+
+        bg = self.colors.get('background', '#000000')
+        rh = self.row_height
+
+        for i, data in enumerate(self._all_data):
+            if i == self.selected_index:
+                bg_row = self.row_selected_bg
+                fg_row = self.row_selected_text
+            elif i == self._hover_index:
+                bg_row = self.row_hover_bg
+                fg_row = self.row_hover_text
+            else:
+                bg_row = self.row_normal_bg
+                fg_row = self.row_normal_text
+
+            row = tk.Frame(self._row_frame, bg=bg_row, height=rh)
+            row.pack(fill='x', pady=2)
+            row.pack_propagate(False)
+
+            x = 8
+            for key, width, _ in self.columns:
+                val = str(data.get(key, ''))
+                lbl = tk.Label(
+                    row,
+                    text=val,
+                    font=_FONT_ROW,
+                    fg=fg_row,
+                    bg=bg_row,
+                    anchor='w'
+                )
+                lbl.place(x=x, y=0, width=width, height=rh)
+                x += width + 8
+
+        self._on_frame_configure()
+        self._scroll_to_selected()
+
+    def _select(self, index: int):
+        self.selected_index = index
+        self._render_rows()
+        if self.keyboard_manager:
+            try:
+                self.keyboard_manager.set_active_list(self)
+            except Exception:
+                pass
+        try:
+            self._canvas.focus_set()
+        except Exception:
+            pass
+
+    def _scroll_to_selected(self):
+        if self.selected_index < 0 or not self._all_data:
+            return
+        try:
+            rh = self.row_height + 4
+            total_h = len(self._all_data) * rh
+            if total_h == 0:
+                return
+            canvas_h = self._canvas.winfo_height()
+            row_top = self.selected_index * rh
+            row_bot = row_top + rh
+            yview = self._canvas.yview()
+            vis_top = yview[0] * total_h
+            vis_bot = yview[1] * total_h
+            if row_top < vis_top:
+                self._canvas.yview_moveto(row_top / total_h)
+            elif row_bot > vis_bot:
+                self._canvas.yview_moveto((row_bot - canvas_h) / total_h)
+        except Exception:
+            pass
+
+    # ------------------------------------------------------------------
+    # Eventos de canvas
+    # ------------------------------------------------------------------
+
+    def _row_index_at(self, y_canvas: int) -> int:
+        """Índice de fila dado Y en coordenadas canvas."""
+        y_content = y_canvas + int(self._canvas.canvasy(0))
+        rh = self.row_height + 4
+        idx = int(y_content // rh)
+        if 0 <= idx < len(self._all_data):
+            return idx
+        return -1
+
+    def _on_canvas_click(self, event):
+        idx = self._row_index_at(event.y)
+        if idx < 0:
+            return
+        self._select(idx)
+        if self.on_select_callback:
+            try:
+                self.on_select_callback(self._all_data[idx])
+            except Exception:
+                pass
+
+    def _on_canvas_double_click(self, event):
+        idx = self._row_index_at(event.y)
+        if idx < 0:
+            return
+        self._select(idx)
+        if self.on_double_click_callback:
+            try:
+                self.on_double_click_callback(self._all_data[idx])
+            except Exception:
+                pass
+
+    def _on_canvas_motion(self, event):
+        idx = self._row_index_at(event.y)
+        if idx == self._hover_index:
+            return
+        self._hover_index = idx
+        self._render_rows()
+
+    def _on_canvas_leave(self, event):
+        if self._hover_index != -1:
+            self._hover_index = -1
+            self._render_rows()
+
+    def _on_mousewheel(self, event):
+        if event.num == 4:
+            self._canvas.yview_scroll(-1, 'units')
+        elif event.num == 5:
+            self._canvas.yview_scroll(1, 'units')
+        else:
+            self._canvas.yview_scroll(int(-1 * (event.delta / 120)), 'units')
+
+    def _on_frame_configure(self, event=None):
+        self._canvas.configure(scrollregion=self._canvas.bbox('all'))
+
+    def _on_canvas_configure(self, event):
+        self._canvas.itemconfig(self._canvas_window, width=event.width)
