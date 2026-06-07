@@ -31,6 +31,7 @@ class BarcodeService:
         self._buffer: list[str] = []
         self._last_key_time: float = 0.0
         self._attached = False
+        self._flush_timer = None
 
     def attach(self):
         """Registrar captura global de teclas en el root widget."""
@@ -115,8 +116,13 @@ class BarcodeService:
             self._buffer.append(char)
             self._last_key_time = now
 
-            # Programar disparo por timeout (por si el escáner no envía terminador)
-            self.root.after(200, self._flush_if_idle)
+            # Cancelar timer anterior y reprogramar (evita múltiples disparos)
+            if self._flush_timer is not None:
+                try:
+                    self.root.after_cancel(self._flush_timer)
+                except Exception:
+                    pass
+            self._flush_timer = self.root.after(200, self._flush_if_idle)
 
         except Exception:
             logger.exception('BarcodeService: error en _on_key')
