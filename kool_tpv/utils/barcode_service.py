@@ -32,6 +32,7 @@ class BarcodeService:
         self._last_key_time: float = 0.0
         self._attached = False
         self._flush_timer = None
+        self._processing = False
 
     def attach(self):
         """Registrar captura global de teclas en el root widget."""
@@ -129,11 +130,13 @@ class BarcodeService:
 
     def _flush_if_idle(self):
         """Disparar código si han pasado >150ms desde la última tecla (escáner sin terminador)."""
+        self._flush_timer = None
         try:
-            if not self._buffer:
+            if self._processing or not self._buffer:
                 return
             elapsed = (time.monotonic() * 1000) - self._last_key_time
             if elapsed >= 150 and len(self._buffer) >= MIN_CODE_LENGTH:
+                self._processing = True
                 code = ''.join(self._buffer).strip()
                 self._buffer.clear()
                 self._last_key_time = 0.0
@@ -142,5 +145,8 @@ class BarcodeService:
                     self.on_barcode(code)
                 except Exception:
                     logger.exception('BarcodeService: error en callback on_barcode')
+                finally:
+                    self._processing = False
         except Exception:
+            self._processing = False
             logger.exception('BarcodeService: error en _flush_if_idle')
