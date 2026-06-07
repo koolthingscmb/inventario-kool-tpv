@@ -37,8 +37,8 @@ class StockSubView(CTkFrame):
         self.search_entry.pack(side="left", padx=10)
 
         self.search_entry.bind(
-            "<KeyRelease>",
-            lambda e: self.search_list.set_search_text(self.search_entry.get())
+            "<Return>",
+            lambda e: self.search_list.search(self.search_entry.get())
         )
 
         self.btn_editar.pack(side="right", padx=10)
