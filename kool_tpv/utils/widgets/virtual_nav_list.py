@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 
 _ROW_HEIGHT_DEFAULT = 36
 _HEADER_HEIGHT = 40
-_FONT_HEADER = ('Courier New', 14, 'bold')
-_FONT_ROW = ('Courier New', 12)
+_FONT_HEADER_DEFAULT = ('Courier New', 14, 'bold')
+_FONT_ROW_DEFAULT = ('Courier New', 12)
 
 
 class VirtualNavList(ctk.CTkFrame):
@@ -59,6 +59,10 @@ class VirtualNavList(ctk.CTkFrame):
         layout_root = layout_config if isinstance(layout_config, dict) else (load_layout_config() or {})
         nav_layout = layout_root.get('components', {}).get('nav_list', {}) or {}
         self.row_height: int = int(nav_layout.get('row_height', nav_cfg.get('row_height', _ROW_HEIGHT_DEFAULT)))
+
+        font_cfg = self.colors.get('fonts', {})
+        self._font_header = tuple(font_cfg.get('header', list(_FONT_HEADER_DEFAULT)))
+        self._font_row    = tuple(font_cfg.get('row',    list(_FONT_ROW_DEFAULT)))
 
         super().__init__(
             parent,
@@ -113,7 +117,7 @@ class VirtualNavList(ctk.CTkFrame):
             lbl = tk.Label(
                 self._header,
                 text=label,
-                font=_FONT_HEADER,
+                font=self._font_header,
                 fg=secondary,
                 bg=bg_dark,
                 anchor='w',
@@ -147,19 +151,33 @@ class VirtualNavList(ctk.CTkFrame):
         self._canvas.bind('<Configure>', self._on_canvas_configure)
 
     def _bind_events(self):
-        self._canvas.bind('<MouseWheel>',       self._on_mousewheel)
-        self._canvas.bind('<Button-4>',         self._on_mousewheel)
-        self._canvas.bind('<Button-5>',         self._on_mousewheel)
-        self._canvas.bind('<Button-1>',         self._on_canvas_click)
-        self._canvas.bind('<Double-Button-1>',  self._on_canvas_double_click)
-        self._canvas.bind('<Motion>',           self._on_canvas_motion)
-        self._canvas.bind('<Leave>',            self._on_canvas_leave)
-        self._canvas.bind('<FocusIn>',          lambda e: None)
-        self.bind('<FocusIn>',                  lambda e: self._canvas.focus_set())
+        self._canvas.bind('<MouseWheel>', self._on_mousewheel)
+        self._canvas.bind('<Button-4>',   self._on_mousewheel)
+        self._canvas.bind('<Button-5>',   self._on_mousewheel)
+        self._canvas.bind('<Leave>',      self._on_canvas_leave)
+        self._row_frame.bind('<MouseWheel>', self._on_mousewheel)
+        self._row_frame.bind('<Button-4>',   self._on_mousewheel)
+        self._row_frame.bind('<Button-5>',   self._on_mousewheel)
+        self._canvas.bind('<FocusIn>',    lambda e: None)
+        self.bind('<FocusIn>',            lambda e: self._canvas.focus_set())
+        self._on_return_callback = None
 
     # ------------------------------------------------------------------
     # API pública — compatible con NavList
     # ------------------------------------------------------------------
+
+    def bind_return(self, callback):
+        """Bindear callback para tecla Enter sobre la lista."""
+        self._on_return_callback = callback
+        self._canvas.bind('<Return>', lambda e: self._fire_return())
+        self._canvas.bind('<KP_Enter>', lambda e: self._fire_return())
+
+    def _fire_return(self):
+        if self._on_return_callback and self.selected_index >= 0:
+            try:
+                self._on_return_callback()
+            except Exception:
+                logger.exception('Error en return callback VirtualNavList')
 
     def add_item(self, data: dict):
         self._all_data.append(data)
@@ -237,18 +255,34 @@ class VirtualNavList(ctk.CTkFrame):
             row.pack(fill='x', pady=2)
             row.pack_propagate(False)
 
+            # Bindear eventos directamente en el frame (los labels tapan el canvas)
+            row.bind('<Button-1>',        lambda e, idx=i: self._on_row_click(idx))
+            row.bind('<Double-Button-1>', lambda e, idx=i: self._on_row_double_click(idx))
+            row.bind('<Enter>',           lambda e, idx=i: self._on_row_enter(idx))
+            row.bind('<Leave>',           lambda e, idx=i: self._on_row_leave(idx))
+            row.bind('<MouseWheel>',      self._on_mousewheel)
+            row.bind('<Button-4>',        self._on_mousewheel)
+            row.bind('<Button-5>',        self._on_mousewheel)
+
             x = 8
             for key, width, _ in self.columns:
                 val = str(data.get(key, ''))
                 lbl = tk.Label(
                     row,
                     text=val,
-                    font=_FONT_ROW,
+                    font=self._font_row,
                     fg=fg_row,
                     bg=bg_row,
                     anchor='w'
                 )
                 lbl.place(x=x, y=0, width=width, height=rh)
+                lbl.bind('<Button-1>',        lambda e, idx=i: self._on_row_click(idx))
+                lbl.bind('<Double-Button-1>', lambda e, idx=i: self._on_row_double_click(idx))
+                lbl.bind('<Enter>',           lambda e, idx=i: self._on_row_enter(idx))
+                lbl.bind('<Leave>',           lambda e, idx=i: self._on_row_leave(idx))
+                lbl.bind('<MouseWheel>',      self._on_mousewheel)
+                lbl.bind('<Button-4>',        self._on_mousewheel)
+                lbl.bind('<Button-5>',        self._on_mousewheel)
                 x += width + 8
 
         self._on_frame_configure()
@@ -289,22 +323,10 @@ class VirtualNavList(ctk.CTkFrame):
             pass
 
     # ------------------------------------------------------------------
-    # Eventos de canvas
+    # Eventos de filas
     # ------------------------------------------------------------------
 
-    def _row_index_at(self, y_canvas: int) -> int:
-        """Índice de fila dado Y en coordenadas canvas."""
-        y_content = y_canvas + int(self._canvas.canvasy(0))
-        rh = self.row_height + 4
-        idx = int(y_content // rh)
-        if 0 <= idx < len(self._all_data):
-            return idx
-        return -1
-
-    def _on_canvas_click(self, event):
-        idx = self._row_index_at(event.y)
-        if idx < 0:
-            return
+    def _on_row_click(self, idx: int):
         self._select(idx)
         if self.on_select_callback:
             try:
@@ -312,10 +334,7 @@ class VirtualNavList(ctk.CTkFrame):
             except Exception:
                 pass
 
-    def _on_canvas_double_click(self, event):
-        idx = self._row_index_at(event.y)
-        if idx < 0:
-            return
+    def _on_row_double_click(self, idx: int):
         self._select(idx)
         if self.on_double_click_callback:
             try:
@@ -323,11 +342,15 @@ class VirtualNavList(ctk.CTkFrame):
             except Exception:
                 pass
 
-    def _on_canvas_motion(self, event):
-        idx = self._row_index_at(event.y)
+    def _on_row_enter(self, idx: int):
         if idx == self._hover_index:
             return
         self._hover_index = idx
+        self._render_rows()
+
+    def _on_row_leave(self, idx: int):
+        # Solo limpiar hover si el ratón sale realmente del área de filas
+        self._hover_index = -1
         self._render_rows()
 
     def _on_canvas_leave(self, event):

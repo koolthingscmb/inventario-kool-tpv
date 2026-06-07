@@ -110,15 +110,24 @@ class StockSubView(CTkFrame):
 
         self.search_list.pack(fill="both", expand=True)
 
-        # Bind Enter key on the internal nav_list to add selected producto
+        # Bind Enter en VirtualNavList para añadir producto al carrito
         try:
             nav = getattr(self.search_list, 'nav_list', None)
-            if nav:
-                nav.bind('<Return>', lambda e: self._add_selected_producto_to_carrito())
+            if nav and hasattr(nav, 'bind_return'):
+                nav.bind_return(self._add_selected_producto_to_carrito)
         except Exception:
             pass
 
+        # Foco automático en el entry al abrir
+        self.after(100, self._focus_search_entry)
+
                         
+    def _focus_search_entry(self):
+        try:
+            self.search_entry.focus_set()
+        except Exception:
+            pass
+
     def _on_cliente_double_click(self, data):
         try:
             if data:
