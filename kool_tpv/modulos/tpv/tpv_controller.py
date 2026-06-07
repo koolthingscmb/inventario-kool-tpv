@@ -92,6 +92,9 @@ class TpvController:
                 return
             carrito.add_item(producto, parent_window=self.view)
             logger.info('Barcode: producto añadido al carrito -> %s', producto.get('nombre'))
+            ticket = getattr(self.view, 'ticket_carrito', None)
+            if ticket and hasattr(ticket, 'update_carrito'):
+                ticket.update_carrito()
         except Exception:
             logger.exception('Error procesando código de barras: %s', code)
 
