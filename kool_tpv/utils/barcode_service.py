@@ -33,7 +33,7 @@ class BarcodeService:
         if self._attached:
             return
         try:
-            self.root.bind_all('<KeyPress>', self._on_key, add='+')
+            self.root.bind_all('<KeyPress>', self._on_key)
             self._attached = True
             logger.info('BarcodeService: captura de teclado activada')
         except Exception:
