@@ -79,14 +79,31 @@ class TpvKeyboardShortcuts:
                 self._zone = 'payment'
                 return
 
+            finalize = getattr(self.ctrl, 'finalize_sale', None)
+
+            def _make_wrapper(tipo_pago):
+                def wrapper(data: dict):
+                    if finalize is None:
+                        return
+                    if tipo_pago == 'Efectivo':
+                        efectivo = data.get('cantidad_entregada', data.get('total', 0.0))
+                        finalize(efectivo=efectivo, forma_pago='Efectivo', importe_efectivo=efectivo, importe_tarjeta=0.0)
+                    elif tipo_pago == 'Tarjeta':
+                        finalize(efectivo=None, forma_pago='Tarjeta', importe_efectivo=0.0, importe_tarjeta=data.get('total', 0.0))
+                    elif tipo_pago == 'Web':
+                        finalize(efectivo=None, forma_pago='Web', importe_efectivo=0.0, importe_tarjeta=0.0, importe_web=data.get('total', 0.0))
+                    elif tipo_pago == 'Multi':
+                        finalize(efectivo=None, forma_pago='Multi', importe_efectivo=data.get('efectivo', 0.0), importe_tarjeta=data.get('tarjeta', 0.0))
+                return wrapper
+
             if tipo == 'cash':
-                ticket.activar_pago_efectivo()
+                ticket.activar_pago_efectivo(on_finalizar=_make_wrapper('Efectivo'))
             elif tipo == 'tarjeta':
-                ticket.activar_pago_tarjeta()
+                ticket.activar_pago_tarjeta(on_finalizar=_make_wrapper('Tarjeta'))
             elif tipo == 'web':
-                ticket.activar_pago_web()
+                ticket.activar_pago_web(on_finalizar=_make_wrapper('Web'))
             elif tipo == 'multi':
-                ticket.activar_pago_multi()
+                ticket.activar_pago_multi(on_finalizar=_make_wrapper('Multi'))
 
             self._zone = 'payment'
             self._apply_zone_indicator('payment')
