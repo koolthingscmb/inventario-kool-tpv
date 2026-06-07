@@ -211,9 +211,11 @@ class StockSubView(CTkFrame):
                 except Exception:
                     pass
 
-                # Mantener StockSubView abierto; devolver foco a búsqueda
+                # Mantener foco en la nav_list para seguir con flechas/Enter
                 try:
-                    self.search_entry.focus_set()
+                    nav = getattr(self.search_list, 'nav_list', None)
+                    if nav and hasattr(nav, '_canvas'):
+                        self.after(50, nav._canvas.focus_set)
                 except Exception:
                     pass
 
