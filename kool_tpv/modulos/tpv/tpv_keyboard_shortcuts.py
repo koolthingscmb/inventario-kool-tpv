@@ -186,16 +186,17 @@ class TpvKeyboardShortcuts:
                 except Exception:
                     pass
 
-            # Borde en payment_area
-            if ticket and hasattr(ticket, 'payment_area'):
-                pa = ticket.payment_area
-                try:
-                    if zone == 'payment':
-                        pa.configure(border_color=color_payment, border_width=bw)
-                    else:
-                        pa.configure(border_width=0)
-                except Exception:
-                    pass
+            # Borde en el payment controller activo
+            if ticket and hasattr(ticket, 'active_payment_controller'):
+                ctrl = ticket.active_payment_controller
+                if ctrl is not None:
+                    try:
+                        if zone == 'payment':
+                            ctrl.configure(border_color=color_payment, border_width=bw)
+                        else:
+                            ctrl.configure(border_width=0)
+                    except Exception:
+                        pass
 
         except Exception:
             logger.exception('Error aplicando indicador de zona')
