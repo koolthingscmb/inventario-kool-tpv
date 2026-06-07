@@ -54,13 +54,49 @@ class TpvController:
         # Payment controllers (dict)
         self.payment_controllers = {}
 
+        # Barcode service
+        self._barcode_service = None
+
         # Ejecutar setups
         self.setup_services()
         self.setup_actions()
         self.setup_payment_controllers()
         self.rebind_buttons()
+        self.setup_barcode()
 
         logger.info('TpvController inicializado')
+
+    def setup_barcode(self):
+        """Inicializar captura de código de barras."""
+        try:
+            from kool_tpv.utils.barcode_service import BarcodeService
+            root = self.view.winfo_toplevel()
+            self._barcode_service = BarcodeService(root, on_barcode=self._on_barcode_scanned)
+            self._barcode_service.attach()
+            logger.info('BarcodeService inicializado')
+        except Exception:
+            logger.exception('Error inicializando BarcodeService')
+
+    def _on_barcode_scanned(self, code: str):
+        """Callback cuando el escáner detecta un código de barras."""
+        try:
+            from kool_tpv.base_datos.producto_service import ProductoService
+            from kool_tpv.utils.custom_dialog import show_error
+            producto_service = ProductoService(self.db)
+            producto = producto_service.buscar_por_ean(code)
+            if producto is None:
+                show_error(self.view, 'Código no encontrado', f'No se encontró ningún producto con el código:\n{code}')
+                return
+            carrito = getattr(self.view, 'carrito_service', None)
+            if carrito is None:
+                return
+            carrito.add_item(producto, parent_window=self.view)
+            ticket = getattr(self.view, 'ticket_carrito', None) or getattr(self.view, 'ticket_widget', None)
+            if ticket and hasattr(ticket, 'refresh'):
+                ticket.refresh()
+            logger.info('Barcode: producto añadido al carrito -> %s', producto.get('nombre'))
+        except Exception:
+            logger.exception('Error procesando código de barras: %s', code)
 
     def setup_services(self):
         """Instanciar servicios de negocio."""

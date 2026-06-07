@@ -197,7 +197,11 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
             pass
 
     def teardown(self):
-        pass
+        try:
+            if self.controller and hasattr(self.controller, '_barcode_service') and self.controller._barcode_service:
+                self.controller._barcode_service.detach()
+        except Exception:
+            pass
 
     def clear_grid(self):
         """Eliminar todos los widgets del grid y resetear referencias."""

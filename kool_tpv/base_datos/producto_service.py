@@ -325,3 +325,27 @@ class ProductoService:
                 'total_linea': Decimal('0.00'),
                 'line_tipo': line_tipo,
             }
+
+    def buscar_por_ean(self, ean: str):
+        """Buscar producto por código EAN/barcode y devolver datos listos para el carrito.
+
+        Returns:
+            dict con {id, sku, nombre, pvp, tipo_iva, cantidad, total_linea, line_tipo}
+            o None si no existe
+        """
+        try:
+            query = """
+            SELECT p.id
+            FROM productos p
+            INNER JOIN codigos_barras cb ON cb.producto_id = p.id
+            WHERE cb.ean = ?
+            LIMIT 1
+            """
+            row = self.db.fetch_one(query, (ean,))
+            if not row:
+                return None
+            producto_id = row[0]
+            return self.get_producto_para_carrito(producto_id)
+        except Exception:
+            logging.exception('Error buscando producto por EAN: %s', ean)
+            return None
