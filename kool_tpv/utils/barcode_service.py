@@ -72,10 +72,13 @@ class BarcodeService:
             char = event.char
             keysym = event.keysym
 
+            logger.debug(f'BarcodeService key: keysym={keysym!r} char={char!r} buffer_len={len(self._buffer)}')
+
             # Detectar Enter: fin de código de barras
             if keysym in ('Return', 'KP_Enter'):
                 elapsed = now - self._last_key_time
-                if self._buffer and elapsed < THRESHOLD_MS * 3:
+                logger.debug(f'BarcodeService Enter: buffer={self._buffer!r} elapsed={elapsed:.1f}ms')
+                if self._buffer and elapsed < THRESHOLD_MS * 10:
                     code = ''.join(self._buffer).strip()
                     self._buffer.clear()
                     self._last_key_time = 0.0

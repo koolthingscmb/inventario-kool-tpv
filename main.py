@@ -12,7 +12,8 @@ from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.base_datos.db_init import initialize_database
 from kool_tpv.utils.keyboard_manager import KeyboardManager
 from kool_tpv.utils.factories.button_factory import ButtonFactory
-from PIL import Image
+from PIL import ImageIY
+
 
 # Configuración de logs
 os.makedirs("logs", exist_ok=True)
@@ -24,6 +25,8 @@ logging.basicConfig(
         logging.StreamHandler(sys.stdout),
     ],
 )
+
+logging.getLogger('kool_tpv.utils.barcode_service').setLevel(logging.DEBUG)
 
 def load_json_config(filename: str) -> dict:
     base = Path(__file__).resolve().parents[0]
