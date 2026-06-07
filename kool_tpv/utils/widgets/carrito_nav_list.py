@@ -97,6 +97,9 @@ class CarritoNavList(NavList):
             # Hacer bind en el widget principal (self), no en _tree
             # NavList base ya gestiona flechas arriba/abajo internamente
 
+            # Registrar tiempo de cualquier tecla para detectar Enter de escáner
+            self.bind('<KeyPress>', self._on_any_key)
+
             # Enter: añadir +1 unidad (handler recibe event y puede prevenir propagación)
             self.bind('<Return>', self._on_enter_key)
             self.bind('<KP_Enter>', self._on_enter_key)  # Enter del teclado numérico
@@ -111,6 +114,10 @@ class CarritoNavList(NavList):
         except Exception:
             logger.exception("Error configurando bindings carrito")
 
+    def _on_any_key(self, event=None):
+        import time
+        self._last_any_key_time = time.monotonic() * 1000
+
     def _on_enter_key(self, event=None):
         """Handler Enter: añadir +1 unidad al item seleccionado.
 
@@ -118,6 +125,16 @@ class CarritoNavList(NavList):
         que pueda cambiar foco o seleccionar otra cosa.
         """
         try:
+            import time
+            now = time.monotonic() * 1000
+            last = getattr(self, '_last_enter_time', 0.0)
+            self._last_enter_time = now
+            # Si el Enter llega menos de 500ms después del último KeyPress general,
+            # puede ser del escáner — ignorar si no hay tiempo razonable de interacción humana
+            last_key = getattr(self, '_last_any_key_time', 0.0)
+            if last_key > 0 and (now - last_key) < 50:
+                return "break"
+
             if self.selected_index < 0:
                 return "break"
 
