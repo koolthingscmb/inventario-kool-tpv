@@ -74,10 +74,14 @@ class BarcodeService:
 
             logger.debug(f'BarcodeService key: keysym={keysym!r} char={char!r} buffer_len={len(self._buffer)}')
 
-            # Detectar Enter: fin de código de barras
-            if keysym in ('Return', 'KP_Enter'):
+            # Detectar fin de código: Enter, KP_Enter, Tab o \r
+            is_terminator = (
+                keysym in ('Return', 'KP_Enter', 'Tab')
+                or char in ('\r', '\n', '\t')
+            )
+            if is_terminator:
                 elapsed = now - self._last_key_time
-                logger.debug(f'BarcodeService Enter: buffer={self._buffer!r} elapsed={elapsed:.1f}ms')
+                logger.debug(f'BarcodeService terminator={keysym!r}: buffer={self._buffer!r} elapsed={elapsed:.1f}ms')
                 if self._buffer and elapsed < THRESHOLD_MS * 10:
                     code = ''.join(self._buffer).strip()
                     self._buffer.clear()
@@ -111,5 +115,26 @@ class BarcodeService:
             self._buffer.append(char)
             self._last_key_time = now
 
+            # Programar disparo por timeout (por si el escáner no envía terminador)
+            self.root.after(200, self._flush_if_idle)
+
         except Exception:
             logger.exception('BarcodeService: error en _on_key')
+
+    def _flush_if_idle(self):
+        """Disparar código si han pasado >150ms desde la última tecla (escáner sin terminador)."""
+        try:
+            if not self._buffer:
+                return
+            elapsed = (time.monotonic() * 1000) - self._last_key_time
+            if elapsed >= 150 and len(self._buffer) >= MIN_CODE_LENGTH:
+                code = ''.join(self._buffer).strip()
+                self._buffer.clear()
+                self._last_key_time = 0.0
+                logger.info(f'BarcodeService: código detectado (timeout) -> {code}')
+                try:
+                    self.on_barcode(code)
+                except Exception:
+                    logger.exception('BarcodeService: error en callback on_barcode')
+        except Exception:
+            logger.exception('BarcodeService: error en _flush_if_idle')
