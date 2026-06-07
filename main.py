@@ -26,7 +26,6 @@ logging.basicConfig(
     ],
 )
 
-logging.getLogger('kool_tpv.utils.barcode_service').setLevel(logging.DEBUG)
 
 def load_json_config(filename: str) -> dict:
     base = Path(__file__).resolve().parents[0]

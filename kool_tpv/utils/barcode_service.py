@@ -83,8 +83,6 @@ class BarcodeService:
             char = event.char
             keysym = event.keysym
 
-            logger.debug(f'BarcodeService key: keysym={keysym!r} char={char!r} buffer_len={len(self._buffer)}')
-
             # Terminador explícito (Enter, Tab, \r)
             is_terminator = keysym in ('Return', 'KP_Enter', 'Tab') or char in ('\r', '\n', '\t')
             if is_terminator:
