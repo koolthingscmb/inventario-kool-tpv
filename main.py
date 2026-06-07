@@ -12,7 +12,7 @@ from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.base_datos.db_init import initialize_database
 from kool_tpv.utils.keyboard_manager import KeyboardManager
 from kool_tpv.utils.factories.button_factory import ButtonFactory
-from PIL import ImageIY
+from PIL import Image
 
 
 # Configuración de logs
