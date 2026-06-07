@@ -6,12 +6,22 @@ Shortcuts registrados:
   F3  → Pago web
   F4  → Pago multi
   F5  → Ciclar foco: Grid → Carrito → Payment (si activo)
-  Space → Abrir BuscarProducto / cerrar subvista activa
 """
+import json
 import logging
-import time
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+
+def _load_layout_config() -> dict:
+    try:
+        path = Path(__file__).resolve().parents[3] / 'kool_tpv' / 'config' / 'layout_config.json'
+        with open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        logger.exception('Error cargando layout_config.json en TpvKeyboardShortcuts')
+        return {}
 
 
 class TpvKeyboardShortcuts:
@@ -19,26 +29,30 @@ class TpvKeyboardShortcuts:
 
     def __init__(self, controller):
         self.ctrl = controller
-        self._zone = 'grid'  # zona de foco actual: 'grid' | 'carrito' | 'payment'
+        self._zone = 'grid'
         self._root = controller.view.winfo_toplevel()
+        cfg = _load_layout_config()
+        nav = cfg.get('global', {}).get('keyboard_navigation', {})
+        self._zone_colors = nav.get('zone_colors', {'carrito': '#4A9EFF', 'payment': '#4AFF91', 'grid': 'transparent'})
+        self._zone_border_width = nav.get('zone_border_width', 3)
         self._register()
 
     def _register(self):
         root = self._root
-        root.bind_all('<F1>',     lambda e: self._fkey_pago('cash'))
-        root.bind_all('<F2>',     lambda e: self._fkey_pago('tarjeta'))
-        root.bind_all('<F3>',     lambda e: self._fkey_pago('web'))
-        root.bind_all('<F4>',     lambda e: self._fkey_pago('multi'))
-        root.bind_all('<F5>',     lambda e: self._ciclar_zona())
-        root.bind_all('<space>',  lambda e: self._spacebar(e))
-        logger.info('TpvKeyboardShortcuts registrados (F1-F5, Space)')
+        root.bind_all('<F1>', lambda e: self._fkey_pago('cash'))
+        root.bind_all('<F2>', lambda e: self._fkey_pago('tarjeta'))
+        root.bind_all('<F3>', lambda e: self._fkey_pago('web'))
+        root.bind_all('<F4>', lambda e: self._fkey_pago('multi'))
+        root.bind_all('<F5>', lambda e: self._ciclar_zona())
+        logger.info('TpvKeyboardShortcuts registrados (F1-F5)')
 
     def detach(self):
-        for key in ('<F1>', '<F2>', '<F3>', '<F4>', '<F5>', '<space>'):
+        for key in ('<F1>', '<F2>', '<F3>', '<F4>', '<F5>'):
             try:
                 self._root.unbind_all(key)
             except Exception:
                 pass
+        self._clear_zone_indicators()
 
     # ------------------------------------------------------------------
     # F1-F4: Formas de pago
@@ -77,6 +91,7 @@ class TpvKeyboardShortcuts:
                 ticket.activar_pago_multi(on_finalizar=on_fin)
 
             self._zone = 'payment'
+            self._apply_zone_indicator('payment')
             logger.info(f'F-key: pago {tipo} activado')
         except Exception:
             logger.exception(f'Error activando pago {tipo} por F-key')
@@ -123,6 +138,7 @@ class TpvKeyboardShortcuts:
                 self._focus_grid()
                 self._zone = 'grid'
 
+            self._apply_zone_indicator(self._zone)
             logger.debug(f'Zona de foco: {self._zone}')
         except Exception:
             logger.exception('Error ciclando zona de foco')
@@ -139,7 +155,6 @@ class TpvKeyboardShortcuts:
     def _focus_grid(self):
         try:
             view = self.ctrl.view
-            # El primer botón del grid tiene el foco por defecto
             center = getattr(view, 'center_area', None)
             if center:
                 center.focus_set()
@@ -147,45 +162,44 @@ class TpvKeyboardShortcuts:
             pass
 
     # ------------------------------------------------------------------
-    # Space: Buscar producto / cerrar subvista
+    # Indicadores visuales de zona
     # ------------------------------------------------------------------
 
-    def _spacebar(self, event):
-        """Abrir BuscarProducto o cerrar subvista activa."""
+    def _apply_zone_indicator(self, zone: str):
+        """Aplicar borde de color al widget de la zona activa."""
         try:
-            # No interceptar si el foco está en un Entry/Text
-            focused = self._root.focus_get()
-            if focused is not None:
-                cls = focused.__class__.__name__.lower()
-                if any(w in cls for w in ('entry', 'text', 'textbox', 'ctkentry', 'ctktextbox', 'spinbox', 'combobox')):
-                    return
-
             view = self.ctrl.view
+            ticket = getattr(view, 'ticket_carrito', None)
 
-            # Si hay subvista activa → cerrarla y enfocar grid
-            if hasattr(view, 'pop_subview'):
-                stack = getattr(view, '_subview_stack', [])
-                if len(stack) > 1:
-                    view.pop_subview()
-                    self._focus_grid()
-                    self._zone = 'grid'
-                    return
+            color_carrito = self._zone_colors.get('carrito', '#4A9EFF')
+            color_payment = self._zone_colors.get('payment', '#4AFF91')
+            bw = self._zone_border_width
 
-            # Si hay overlay de buscar_articulo visible → ocultarlo
-            buscar = getattr(view, '_buscar_articulo', None) or \
-                     getattr(self.ctrl, '_buscar_action', None)
-            if buscar is not None:
-                visible = getattr(buscar, '_visible', False)
-                if visible:
-                    buscar.hide()
-                    self._focus_grid()
-                    self._zone = 'grid'
-                    return
-                else:
-                    buscar.show()
-                    self._zone = 'grid'
-                    return
+            # Borde en carrito_nav_list
+            if ticket and hasattr(ticket, 'carrito_nav_list'):
+                nav = ticket.carrito_nav_list
+                try:
+                    if zone == 'carrito':
+                        nav.configure(border_color=color_carrito, border_width=bw)
+                    else:
+                        nav.configure(border_width=0)
+                except Exception:
+                    pass
 
-            logger.debug('Space: no hay subvista ni buscar_articulo disponible')
+            # Borde en payment_area
+            if ticket and hasattr(ticket, 'payment_area'):
+                pa = ticket.payment_area
+                try:
+                    if zone == 'payment':
+                        pa.configure(border_color=color_payment, border_width=bw)
+                    else:
+                        pa.configure(border_width=0)
+                except Exception:
+                    pass
+
         except Exception:
-            logger.exception('Error en spacebar handler')
+            logger.exception('Error aplicando indicador de zona')
+
+    def _clear_zone_indicators(self):
+        """Quitar todos los bordes de zona."""
+        self._apply_zone_indicator('grid')

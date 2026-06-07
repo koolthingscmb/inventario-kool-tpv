@@ -20,7 +20,13 @@
     "keyboard_navigation": {
       "focus_border_color": "#F2F0E6",
       "focus_border_width": 5,
-      "normal_border_width": 2
+      "normal_border_width": 2,
+      "zone_colors": {
+        "carrito": "#4A9EFF",
+        "payment": "#4AFF91",
+        "grid": "transparent"
+      },
+      "zone_border_width": 3
     }
     ,
     "main_menu_layout": {
