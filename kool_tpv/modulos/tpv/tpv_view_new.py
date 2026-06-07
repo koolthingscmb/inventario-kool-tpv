@@ -202,6 +202,11 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
                 self.controller._barcode_service.detach()
         except Exception:
             pass
+        try:
+            if self.controller and hasattr(self.controller, '_keyboard_shortcuts') and self.controller._keyboard_shortcuts:
+                self.controller._keyboard_shortcuts.detach()
+        except Exception:
+            pass
 
     def clear_grid(self):
         """Eliminar todos los widgets del grid y resetear referencias."""

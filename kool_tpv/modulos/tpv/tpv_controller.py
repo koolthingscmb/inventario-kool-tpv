@@ -63,7 +63,7 @@ class TpvController:
         self.setup_payment_controllers()
         self.rebind_buttons()
         self.setup_barcode()
-        self.setup_fkeys()
+        self._setup_keyboard_shortcuts()
 
         logger.info('TpvController inicializado')
 
@@ -82,62 +82,14 @@ class TpvController:
         except Exception:
             logger.exception('Error inicializando BarcodeService')
 
-    def setup_fkeys(self):
-        """Registrar teclas rápidas F1-F4 para formas de pago."""
+    def _setup_keyboard_shortcuts(self):
+        """Inicializar gestión de shortcuts de teclado."""
         try:
-            root = self.view.winfo_toplevel()
-            root.bind_all('<F1>', lambda e: self._fkey_pago('cash'))
-            root.bind_all('<F2>', lambda e: self._fkey_pago('tarjeta'))
-            root.bind_all('<F3>', lambda e: self._fkey_pago('web'))
-            root.bind_all('<F4>', lambda e: self._fkey_pago('multi'))
-            logger.info('F-keys de pago registradas (F1-F4)')
+            from kool_tpv.modulos.tpv.tpv_keyboard_shortcuts import TpvKeyboardShortcuts
+            self._keyboard_shortcuts = TpvKeyboardShortcuts(self)
         except Exception:
-            logger.exception('Error registrando F-keys de pago')
-
-    def _fkey_pago(self, tipo: str):
-        """Activar forma de pago por tecla rápida o recuperar foco si ya está activa."""
-        try:
-            ticket = getattr(self.view, 'ticket_carrito', None)
-            if ticket is None:
-                return
-            carrito = getattr(self.view, 'carrito_service', None)
-            if carrito is None or carrito.is_empty():
-                return
-
-            active_type = getattr(ticket, 'active_payment_type', None)
-            active_ctrl = getattr(ticket, 'active_payment_controller', None)
-
-            # Mapear key interna a active_payment_type del ticket
-            tipo_ticket = 'efectivo' if tipo == 'cash' else tipo
-
-            # Si ya está activo el mismo tipo → recuperar foco en su widget principal
-            if active_type == tipo_ticket and active_ctrl is not None:
-                try:
-                    if tipo == 'cash':
-                        active_ctrl.entry_cantidad.focus_set()
-                    elif tipo == 'multi':
-                        active_ctrl.entry_efectivo.focus_set()
-                    else:
-                        active_ctrl.btn_finalizar.focus_set()
-                except Exception:
-                    pass
-                return
-
-            # Obtener callback de finalización del payment_controllers dict
-            on_fin = self.payment_controllers.get(tipo)
-
-            if tipo == 'cash':
-                ticket.activar_pago_efectivo(on_finalizar=on_fin)
-            elif tipo == 'tarjeta':
-                ticket.activar_pago_tarjeta(on_finalizar=on_fin)
-            elif tipo == 'web':
-                ticket.activar_pago_web(on_finalizar=on_fin)
-            elif tipo == 'multi':
-                ticket.activar_pago_multi(on_finalizar=on_fin)
-
-            logger.info(f'F-key: pago {tipo} activado')
-        except Exception:
-            logger.exception(f'Error activando pago {tipo} por F-key')
+            logger.exception('Error inicializando TpvKeyboardShortcuts')
+            self._keyboard_shortcuts = None
 
     def _on_barcode_scanned(self, code: str):
         """Callback cuando el escáner detecta un código de barras."""
