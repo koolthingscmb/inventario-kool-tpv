@@ -651,6 +651,14 @@ class ImportarAlbaranUI:
         )
         btn_borrador.pack(side='left', padx=5)
 
+        btn_tpv = ButtonFactory.create_button(
+            parent=btn_frame,
+            text='TPV',
+            command=self._on_ir_a_tpv_click,
+            style_key='action_secondary'
+        )
+        btn_tpv.pack(side='left', padx=5)
+
         btn_volver = ButtonFactory.create_button(
             parent=btn_frame,
             text='VOLVER',
@@ -1124,6 +1132,14 @@ class ImportarAlbaranUI:
 
     def _on_guardar_borrador_click(self):
         """Guardar estado actual como borrador JSON."""
+        self._guardar_borrador(silencioso=False)
+
+    def _guardar_borrador(self, silencioso=False):
+        """Guardar estado actual como borrador JSON.
+
+        Args:
+            silencioso: si True, no muestra dialog de éxito (útil para ir a TPV)
+        """
         try:
             cabecera = getattr(self, '_cabecera_data', {})
             if not cabecera:
@@ -1145,10 +1161,45 @@ class ImportarAlbaranUI:
                 paso=paso
             )
             self._borrador_path = path
-            show_success(self.container, 'Borrador guardado', f'Albarán {cabecera.get("num_albaran", "")} guardado como borrador.')
+            if not silencioso:
+                show_success(self.container, 'Borrador guardado', f'Albarán {cabecera.get("num_albaran", "")} guardado como borrador.')
+            return True
         except Exception:
             logger.exception('Error guardando borrador')
-            show_error(self.container, 'Error', 'No se pudo guardar el borrador.')
+            if not silencioso:
+                show_error(self.container, 'Error', 'No se pudo guardar el borrador.')
+            return False
+
+    def _on_ir_a_tpv_click(self):
+        """Ir al TPV tras guardar borrador y confirmación del usuario."""
+        from kool_tpv.utils.dialogs import show_warning
+
+        resultado = show_warning(
+            self.container,
+            titulo='Ir a TPV',
+            mensaje='Se guardará el borrador del albarán\n¿Continuar al TPV?',
+            confirm=True
+        )
+        if not resultado:
+            return
+
+        # Guardar borrador silenciosamente
+        if not self._guardar_borrador(silencioso=True):
+            show_error(self.container, 'Error', 'No se pudo guardar el borrador')
+            return
+
+        # Navegar al TPV via owner.parent (la app principal)
+        try:
+            if (self.owner and hasattr(self.owner, 'parent') and
+                hasattr(self.owner.parent, 'load_tpv')):
+                self.owner.parent.load_tpv()
+                logger.info('Navegando al TPV desde albarán')
+            else:
+                logger.warning('No se pudo navegar al TPV: owner.parent.load_tpv no disponible')
+                show_error(self.container, 'Error', 'No se pudo abrir el TPV')
+        except Exception:
+            logger.exception('Error navegando al TPV desde albarán')
+            show_error(self.container, 'Error', 'Error al abrir el TPV')
 
     def cargar_borrador(self, borrador_info: dict):
         """Carga un borrador y restaura el estado de la UI.
