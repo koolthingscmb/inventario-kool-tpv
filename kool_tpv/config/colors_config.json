@@ -375,6 +375,31 @@
       "row_selected_text": "#000000",
       "row_selected_border": "primary"
     },
+    "carrito_nav_list": {
+      "line_normal": {
+        "bg": "#1a1a1a",
+        "text": "#e0e0e0",
+        "hover_bg": "#2a2a2a",
+        "selected_bg": "#0d0d0d",
+        "selected_border": "#00FF00"
+      },
+      "line_descuento": {
+        "bg": "#2a1a1a",
+        "text": "#ff6b6b"
+      },
+      "line_devolucion": {
+        "bg": "#1a1a2a",
+        "text": "#d9534f"
+      },
+      "line_tesoro": {
+        "bg": "#1a2a1a",
+        "text": "#FFD700"
+      },
+      "line_tesoro_visual": {
+        "bg": "#1a2a1a",
+        "text": "#FFD700"
+      }
+    },
     "ticket_carrito": {
       "header": {
         "bg": "#000000",
@@ -448,31 +473,6 @@
           "text": "#b4ea0a",
           "border": "#b4ea0a"
         }
-      }
-    },
-    "carrito_nav_list": {
-      "line_normal": {
-        "bg": "#1a1a1a",
-        "text": "#e0e0e0",
-        "hover_bg": "#2a2a2a",
-        "selected_bg": "#0d0d0d",
-        "selected_border": "#00FF00"
-      },
-      "line_descuento": {
-        "bg": "#2a1a1a",
-        "text": "#ff6b6b"
-      },
-      "line_devolucion": {
-        "bg": "#1a1a2a",
-        "text": "#d9534f"
-      },
-      "line_tesoro": {
-        "bg": "#1a2a1a",
-        "text": "#FFD700"
-      },
-      "line_tesoro_visual": {
-        "bg": "#1a2a1a",
-        "text": "#FFD700"
       }
     },
     "buscar_overlay": {
