@@ -1107,10 +1107,13 @@ class ImportarAlbaranUI:
                 totales=totales_repo
             )
 
-            # Eliminar borrador si existe
-            if getattr(self, '_borrador_path', None):
-                self._borrador_service.eliminar(self._borrador_path)
-                self._borrador_path = None
+            # Eliminar todos los borradores relacionados con este albarán
+            num_albaran = self._cabecera_data.get('num_albaran', '')
+            if num_albaran:
+                for borrador in self._borrador_service.listar():
+                    if borrador.get('num_albaran') == num_albaran:
+                        self._borrador_service.eliminar(borrador['path'])
+            self._borrador_path = None
             show_success(self.container, 'Éxito', f'Albarán guardado correctamente (ID: {albaran_id})')
             self._on_volver_desde_creacion()
 
@@ -1265,6 +1268,14 @@ class ImportarAlbaranUI:
             if paso == 'completar_productos' and productos_data:
                 self._cargar_categorias_tipos()
                 self._mostrar_ui_creacion_productos()
+
+            # Limpiar borradores antiguos del mismo albarán (dejar solo el actual)
+            num_albaran_cargado = cabecera.get('num_albaran', '')
+            if num_albaran_cargado:
+                for borrador in self._borrador_service.listar():
+                    if (borrador.get('num_albaran') == num_albaran_cargado and
+                        borrador['path'] != self._borrador_path):
+                        self._borrador_service.eliminar(borrador['path'])
 
             logger.info(f'Borrador cargado: albarán {cabecera.get("num_albaran")}')
         except Exception:
