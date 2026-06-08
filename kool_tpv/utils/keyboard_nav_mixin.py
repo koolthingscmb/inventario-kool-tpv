@@ -151,8 +151,21 @@ class KeyboardNavigableMixin:
         return "break"
 
     def _on_nav_enter(self, event):
-        """Activar el widget que tiene el foco."""
-        if 0 <= self._nav_focused_index < len(self._navigable_buttons):
+        """Activar el widget que tiene el foco (solo si el foco real está en nuestra lista)."""
+        # Verificar que el foco actual está realmente en un widget de nuestra lista
+        current_focus = self._nav_toplevel.focus_get() if self._nav_toplevel else None
+        if not current_focus:
+            return "break"
+
+        # Buscar si el widget con foco está en nuestra lista navegable
+        focused_in_list = False
+        for widget, _ in self._navigable_buttons:
+            if widget == current_focus:
+                focused_in_list = True
+                break
+
+        # Solo ejecutar si el foco real está en nuestra lista
+        if focused_in_list and 0 <= self._nav_focused_index < len(self._navigable_buttons):
             _, callback = self._navigable_buttons[self._nav_focused_index]
             if callable(callback):
                 callback()

@@ -204,9 +204,9 @@ class BaseDialog(ctk.CTkToplevel):
 
         try:
             if is_accept:
-                btn.bind('<Return>', lambda e: self._on_accept())
+                btn.bind('<Return>', lambda e: self._on_accept() or "break")
             else:
-                btn.bind('<Return>', lambda e: self._on_cancel())
+                btn.bind('<Return>', lambda e: self._on_cancel() or "break")
         except Exception:
             pass
 
