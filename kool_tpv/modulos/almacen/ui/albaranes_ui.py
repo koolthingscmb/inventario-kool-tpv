@@ -59,7 +59,7 @@ class AlbaranesUI:
         self.current_view = None
 
         # Comprobar borradores pendientes al arrancar
-        self.after(300, self._comprobar_borradores)
+        self.container.after(300, self._comprobar_borradores)
 
     def get_widget(self):
         return self.container
