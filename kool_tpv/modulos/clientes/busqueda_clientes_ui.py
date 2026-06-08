@@ -356,11 +356,11 @@ class BusquedaClientesUI:
                 pass
             # Mover foco al NavList para capturar teclas de navegación
             try:
-                if hasattr(self, 'nav_list') and self.nav_list is not None:
-                    try:
-                        self.nav_list.focus_set()
-                    except Exception:
-                        self.container.focus_set()
+                canvas = getattr(self.nav_list, '_canvas', None) if hasattr(self, 'nav_list') else None
+                if canvas is not None:
+                    canvas.focus_set()
+                elif hasattr(self, 'nav_list') and self.nav_list is not None:
+                    self.nav_list.focus_set()
                 else:
                     self.container.focus_set()
             except Exception:
