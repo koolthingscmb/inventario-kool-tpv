@@ -935,7 +935,8 @@ class ImpresoraService:
             cierre_data = data or {}
             tickets = items or []
             totals = cierre_data.get('totals') if isinstance(cierre_data, dict) else None
-            texto = self.cierre_ticket_generator.generate(self.config, cierre_data, tickets, totals=totals)
+            sections = cierre_data.get('sections') if isinstance(cierre_data, dict) else None
+            texto = self.cierre_ticket_generator.generate(self.config, cierre_data, tickets, totals=totals, sections=sections)
             meta = {'num_ticket': cierre_data.get('cierre_id', '')}
             logging.info(f"DEBUG IMPRESORA CIERRE: texto retornado length={len(texto)}")
             logging.info(f"DEBUG IMPRESORA CIERRE: ¿Contiene 'TESORO'? {'TESORO' in texto}")

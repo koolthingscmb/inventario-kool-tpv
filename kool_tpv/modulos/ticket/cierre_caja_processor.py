@@ -13,7 +13,7 @@ from kool_tpv.base_datos.tipo_service import TipoService
 
 
 class CierreCajaProcessor(TicketProcessor):
-    def process(self, ticket_ids: Optional[List[int]] = None, usuario_id: Optional[int] = None, cajero: Optional[str] = None, cierre_text: Optional[str] = None, imprimir: bool = True, printer_name: Optional[str] = None):
+    def process(self, ticket_ids: Optional[List[int]] = None, usuario_id: Optional[int] = None, cajero: Optional[str] = None, cierre_text: Optional[str] = None, imprimir: bool = True, printer_name: Optional[str] = None, sections: Optional[dict] = None):
         """Crear un cierre a partir de `ticket_ids`.
 
         Pasos:
@@ -21,6 +21,10 @@ class CierreCajaProcessor(TicketProcessor):
         - Calcular totales, crear cierre atómico (`CierreService.create_cierre_atomic`).
         - Insertar filas en `cierres_lineas` con resumen por ticket.
         - (Opcional) imprimir el cierre usando `ImpresoraService`.
+
+        Args:
+            sections: Dict con flags de qué secciones incluir en el ticket de cierre
+                     (categorias, tipos, cajero, productos, iva, tesoro)
 
         Retorna dict con `success`, `cierre_id` y `num_tickets` o `error`.
         """
@@ -264,6 +268,7 @@ class CierreCajaProcessor(TicketProcessor):
         # Devolver datos del cierre; además, imprimir desde aquí si se solicitó.
         cierre_data = cierre_svc.obtener_cierre_por_id(cierre_id) or {}
         cierre_data['totals'] = totals
+        cierre_data['sections'] = sections  # Pasar configuración de secciones a imprimir
 
         printed = False
         if imprimir:

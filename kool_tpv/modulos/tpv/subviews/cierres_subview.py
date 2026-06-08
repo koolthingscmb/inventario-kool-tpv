@@ -198,6 +198,17 @@ class CierresSubView(CTkFrame):
 
     def _on_cerrar(self):
         try:
+            # Mostrar diálogo de configuración de cierre
+            try:
+                from kool_tpv.utils.dialogs.helpers import show_cierre_config_dialog
+                root = self.winfo_toplevel()
+                sections = show_cierre_config_dialog(root)
+                if sections is None:
+                    return  # Usuario canceló
+            except Exception:
+                logger.exception('Error mostrando diálogo de configuración de cierre')
+                sections = None
+
             # Confirmación
             try:
                 from kool_tpv.utils.custom_dialog import show_info
@@ -209,11 +220,11 @@ class CierresSubView(CTkFrame):
             if not confirmed:
                 return
 
-            # Ejecutar processor
+            # Ejecutar processor con configuración de secciones
             try:
                 from kool_tpv.modulos.ticket.cierre_caja_processor import CierreCajaProcessor
                 proc = CierreCajaProcessor(db=self.db)
-                res = proc.process()
+                res = proc.process(sections=sections)
             except Exception:
                 logger.exception('Error ejecutando CierreCajaProcessor')
                 res = {'success': False}
