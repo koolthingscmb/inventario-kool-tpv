@@ -2,7 +2,7 @@ import logging
 import customtkinter as ctk
 from kool_tpv.utils.config_loader import load_colors, create_action_button
 from kool_tpv.utils.font_loader import get_font
-from kool_tpv.utils.widgets.nav_list import NavList
+from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.base_datos.niveles_service import NivelesService
 from kool_tpv.base_datos.money_adapter import prepare_for_db, read_from_db
 
@@ -126,7 +126,7 @@ class FidelizacionNivelesUI:
         btn_nuevo.pack(side='left', padx=10)
 
         # NavList para niveles
-        self.nav_list = NavList(
+        self.nav_list = VirtualNavList(
             self.container,
             columns=[
                 ('level', 80, 'Level'),

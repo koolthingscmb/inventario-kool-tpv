@@ -3,7 +3,7 @@ import customtkinter as ctk
 from kool_tpv.utils.config_loader import load_colors, create_action_button
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.widgets.tag_selector import TagSelector
-from kool_tpv.utils.widgets.nav_list import NavList
+from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.modulos.fidelizacion.fidelizacion_repository import FidelizacionRepository
 
 
@@ -110,7 +110,7 @@ class FidelizacionProductosUI:
         btn_confirmar.pack(side='left', padx=10)
 
         # NavList para mostrar productos seleccionados
-        self.nav_list = NavList(
+        self.nav_list = VirtualNavList(
             self.container,
             columns=[
                 ('nombre', 300, 'Producto'),

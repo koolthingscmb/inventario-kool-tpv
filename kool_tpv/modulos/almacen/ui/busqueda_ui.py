@@ -12,7 +12,7 @@ from kool_tpv.base_datos.categoria_service import CategoriaService
 from kool_tpv.base_datos.tipo_service import TipoService
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
-from kool_tpv.utils.widgets.nav_list import NavList
+from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 
 
 class BusquedaUI:
@@ -130,7 +130,7 @@ class BusquedaUI:
             ('TIPO', 110), ('PVP', 85), ('STOCK', 75), ('ESTADO', 95)
         ]
 
-        self.nav_list = NavList(
+        self.nav_list = VirtualNavList(
             self.container,
             columns=self.columns,
             module_name=module_name,

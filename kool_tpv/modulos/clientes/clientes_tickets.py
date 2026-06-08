@@ -23,7 +23,7 @@ from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.widgets.date_picker_entry import DatePickerEntry
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.keyboard_manager import KeyboardManager
-from kool_tpv.utils.widgets.nav_list import NavList
+from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 
 logger = logging.getLogger(__name__)
 
@@ -256,7 +256,7 @@ class ClientesTicketsUI(PaginaConVisor):
             except Exception:
                 pass
 
-            self.nav_list = NavList(
+            self.nav_list = VirtualNavList(
                 self.left_container,
                 columns=columns,
                 on_select=self._on_nav_select,

@@ -13,7 +13,7 @@ from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.config_loader import load_colors
 from kool_tpv.utils.keyboard_manager import KeyboardManager
-from kool_tpv.utils.widgets.nav_list import NavList
+from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.base_datos.money_adapter import read_from_db
 
 
@@ -119,7 +119,7 @@ class BusquedaClientesUI:
         ]
 
         try:
-            self.nav_list = NavList(
+            self.nav_list = VirtualNavList(
                 self.container,
                 columns=columns,
                 on_select=self._on_nav_select,
@@ -132,7 +132,7 @@ class BusquedaClientesUI:
             # Exponer alias usado por el código existente
             self.data_frame = self.nav_list
             # canvas para chequear scroll
-            self._canvas = getattr(self.nav_list, '_parent_canvas', getattr(self.nav_list, '_canvas', None))
+            self._canvas = getattr(self.nav_list, '_canvas', None)
         except Exception:
             logging.exception('Error creando NavList en BusquedaClientesUI')
             # Fallback: crear data_frame clásico

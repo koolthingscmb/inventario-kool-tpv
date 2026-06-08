@@ -8,7 +8,7 @@ import customtkinter as ctk
 
 from kool_tpv.utils.config_loader import load_colors, create_action_button
 from kool_tpv.utils.factories.button_factory import ButtonFactory
-from kool_tpv.utils.widgets.nav_list import NavList
+from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.custom_dialog import show_warning
@@ -176,7 +176,7 @@ class ClientesTopsUI(ctk.CTkFrame):
                     except Exception:
                         raise
 
-            self.nav_list = NavList(self, columns=columns, module_name=self.module_name, keyboard_manager=self.keyboard_manager, on_double_click=_on_double_click)
+            self.nav_list = VirtualNavList(self, columns=columns, module_name=self.module_name, keyboard_manager=self.keyboard_manager, on_double_click=_on_double_click)
             self.nav_list.pack(fill='both', expand=True, padx=12, pady=6)
 
             # Cargar datos
@@ -257,8 +257,6 @@ class ClientesTopsUI(ctk.CTkFrame):
                         pass
 
                     # Si ya había elementos en la lista, mantenerlos y salir
-                    if getattr(self, 'nav_list', None) and getattr(self.nav_list, 'rows_data', None):
-                        return
                 except Exception:
                     logger.exception('Error manejando caso sin resultados en _refrescar_top')
 
@@ -376,9 +374,6 @@ class ClientesTopsUI(ctk.CTkFrame):
                     show_warning(self, 'Sin resultados', 'No hay datos de tesoro para ese criterio')
                 except Exception:
                     pass
-                if getattr(self, 'nav_list', None) and getattr(self.nav_list, 'rows_data', None):
-                    return
-
             try:
                 self.nav_list.set_items(items)
             except Exception:
