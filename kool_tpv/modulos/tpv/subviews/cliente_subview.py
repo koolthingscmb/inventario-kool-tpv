@@ -56,6 +56,8 @@ class ClienteSubView(CTkFrame):
         from kool_tpv.utils.widgets.searchable_paginated_navlist import SearchablePaginatedNavList
         from kool_tpv.utils.config_loader import load_layout_config
 
+        _km = getattr(self.winfo_toplevel(), 'keyboard_manager', None)
+
         self.search_list = SearchablePaginatedNavList(
             parent=self.list_frame,
             columns=columns,
@@ -64,6 +66,7 @@ class ClienteSubView(CTkFrame):
             module_name="clientes",
             page_limit=50,
             on_double_click=self._on_cliente_seleccionado,
+            keyboard_manager=_km,
             layout_config=load_layout_config(),
         )
         self.search_list.pack(fill="both", expand=True)
