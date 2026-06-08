@@ -99,6 +99,9 @@ class App(ctk.CTk):
         self._create_navigation_menu()
         self._create_floating_power_button()
 
+        # Esc → botón Power (exclusivo y global)
+        self.bind('<Escape>', lambda e: self._dispatch_power())
+
         logging.info("Aplicación iniciada correctamente.")
 
     def _init_ui_structure(self):
