@@ -244,26 +244,26 @@ class EntradaManualUI:
         )
         self.nav_list.pack(fill='both', expand=True, padx=6, pady=2)
 
-        # Totales
+        # Totales - usando config de fuentes
+        from kool_tpv.utils.config_loader import load_font_config
+        fonts = load_font_config()
+        font_totales = fonts.get('large', {'family': 'Courier New', 'size': 26, 'weight': 'bold'})
+        font_tuple = (font_totales.get('family', 'Courier New'), font_totales.get('size', 26), font_totales.get('weight', 'bold'))
+
         totales_frame = ctk.CTkFrame(self.container, fg_color='transparent', height=50)
         totales_frame.pack(fill='x', padx=6, pady=12)
         totales_frame.pack_propagate(False)
 
-        font_totales = ('Courier New', 15, 'bold')
-        self.lbl_neto = ctk.CTkLabel(totales_frame, text='Neto: 0.00€', text_color=self.colors['text'], font=font_totales)
-        self.lbl_neto.pack(side='left', padx=8)
-        ctk.CTkLabel(totales_frame, text='-', text_color=self.colors['text'], font=font_totales).pack(side='left', padx=4)
-        self.lbl_iva4 = ctk.CTkLabel(totales_frame, text='IVA 4%: 0.00€', text_color=self.colors['text'], font=font_totales)
-        self.lbl_iva4.pack(side='left', padx=8)
-        ctk.CTkLabel(totales_frame, text='-', text_color=self.colors['text'], font=font_totales).pack(side='left', padx=4)
-        self.lbl_iva10 = ctk.CTkLabel(totales_frame, text='IVA 10%: 0.00€', text_color=self.colors['text'], font=font_totales)
-        self.lbl_iva10.pack(side='left', padx=8)
-        ctk.CTkLabel(totales_frame, text='-', text_color=self.colors['text'], font=font_totales).pack(side='left', padx=4)
-        self.lbl_iva21 = ctk.CTkLabel(totales_frame, text='IVA 21%: 0.00€', text_color=self.colors['text'], font=font_totales)
-        self.lbl_iva21.pack(side='left', padx=8)
-        ctk.CTkLabel(totales_frame, text='-', text_color=self.colors['text'], font=font_totales).pack(side='left', padx=4)
-        self.lbl_total = ctk.CTkLabel(totales_frame, text='TOTAL: 0.00€', text_color=self.colors.get('error', '#FF0000'), font=('Courier New', 16, 'bold'))
-        self.lbl_total.pack(side='left', padx=12)
+        self.lbl_neto = ctk.CTkLabel(totales_frame, text='Neto: 0.00€', text_color=self.colors['text'], font=font_tuple)
+        self.lbl_neto.pack(side='left', padx=12)
+        self.lbl_iva4 = ctk.CTkLabel(totales_frame, text='IVA 4%: 0.00€', text_color=self.colors['text'], font=font_tuple)
+        self.lbl_iva4.pack(side='left', padx=12)
+        self.lbl_iva10 = ctk.CTkLabel(totales_frame, text='IVA 10%: 0.00€', text_color=self.colors['text'], font=font_tuple)
+        self.lbl_iva10.pack(side='left', padx=12)
+        self.lbl_iva21 = ctk.CTkLabel(totales_frame, text='IVA 21%: 0.00€', text_color=self.colors['text'], font=font_tuple)
+        self.lbl_iva21.pack(side='left', padx=12)
+        self.lbl_total = ctk.CTkLabel(totales_frame, text='TOTAL: 0.00€', text_color=self.colors.get('error', '#e74c3c'), font=font_tuple)
+        self.lbl_total.pack(side='left', padx=20)
 
         # Label informativo según tipo
         try:
