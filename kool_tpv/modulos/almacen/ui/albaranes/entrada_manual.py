@@ -247,8 +247,8 @@ class EntradaManualUI:
         # Totales - usando config de fuentes
         from kool_tpv.utils.config_loader import load_font_config
         fonts = load_font_config()
-        font_totales = fonts.get('large', {'family': 'Courier New', 'size': 26, 'weight': 'bold'})
-        font_tuple = (font_totales.get('family', 'Courier New'), font_totales.get('size', 26), font_totales.get('weight', 'bold'))
+        font_totales = fonts.get('subtitle', {'family': 'Courier New', 'size': 20, 'weight': 'bold'})
+        font_tuple = (font_totales.get('family', 'Courier New'), font_totales.get('size', 20), font_totales.get('weight', 'bold'))
 
         totales_frame = ctk.CTkFrame(self.container, fg_color='transparent', height=50)
         totales_frame.pack(fill='x', padx=6, pady=12)
