@@ -215,7 +215,9 @@ class CsvParser:
             result[standard] = row_dict.get(original, '')
 
         # Normalizar tipos de datos
-        result['ean'] = str(result.get('ean', '')).strip()
+        # Limpiar EAN: solo dígitos (eliminar caracteres corruptos como BOM o símbolos extra)
+        ean_raw = str(result.get('ean', '')).strip()
+        result['ean'] = ''.join(c for c in ean_raw if c.isdigit())
         result['nombre'] = str(result.get('nombre', '')).strip()
 
         # Cantidad (int)
