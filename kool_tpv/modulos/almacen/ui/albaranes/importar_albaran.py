@@ -179,16 +179,6 @@ class ImportarAlbaranUI:
         self.btn_continuar.pack(side='right', padx=(10, 0))
         self.btn_continuar.configure(state='disabled')
 
-        # Botón guardar borrador
-        self.btn_borrador = ButtonFactory.create_button(
-            parent=action_frame,
-            text='GUARDAR BORRADOR',
-            command=self._on_guardar_borrador_click,
-            style_key='action_secondary'
-        )
-        self.btn_borrador.pack(side='left', padx=(0, 10))
-        self.btn_borrador.configure(state='disabled')
-
         # Botón volver
         self.btn_volver = ButtonFactory.create_button(
             parent=action_frame,
@@ -280,11 +270,9 @@ class ImportarAlbaranUI:
             # Cargar datos en tabla
             self._cargar_preview_tabla()
 
-            # Habilitar continuar y borrador si hay líneas válidas
+            # Habilitar continuar si hay líneas válidas
             if self.parse_result.lineas:
                 self.btn_continuar.configure(state='normal')
-                if hasattr(self, 'btn_borrador'):
-                    self.btn_borrador.configure(state='normal')
 
             logger.info(
                 f'CSV analizado: {len(self.parse_result.lineas)} líneas, '
@@ -654,6 +642,14 @@ class ImportarAlbaranUI:
         )
         self.btn_crear_todos.pack(side='right', padx=5)
         self.btn_crear_todos.configure(state='disabled')
+
+        btn_borrador = ButtonFactory.create_button(
+            parent=btn_frame,
+            text='GUARDAR BORRADOR',
+            command=self._on_guardar_borrador_click,
+            style_key='action_secondary'
+        )
+        btn_borrador.pack(side='left', padx=5)
 
         btn_volver = ButtonFactory.create_button(
             parent=btn_frame,
@@ -1141,11 +1137,12 @@ class ImportarAlbaranUI:
                     'proveedor_id': proveedor_id,
                     'proveedor_nombre': prov_nombre
                 }
+            paso = 'completar_productos' if getattr(self, '_productos_data', {}) else 'preview'
             path = self._borrador_service.guardar(
                 cabecera=cabecera,
                 productos_data=getattr(self, '_productos_data', {}),
                 csv_path=self.selected_file_path,
-                paso='preview'
+                paso=paso
             )
             self._borrador_path = path
             show_success(self.container, 'Borrador guardado', f'Albarán {cabecera.get("num_albaran", "")} guardado como borrador.')
