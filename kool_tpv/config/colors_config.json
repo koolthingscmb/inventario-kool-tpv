@@ -381,6 +381,7 @@
         "text": "#e0e0e0",
         "hover_bg": "#2a2a2a",
         "selected_bg": "#0d0d0d",
+        "selected_text": "#00FF00",
         "selected_border": "#00FF00"
       },
       "line_descuento": {

@@ -87,6 +87,7 @@ class CarritoNavList(NavList):
             self.row_normal_text = line_normal.get("text", self.row_normal_text)
             self.row_hover_bg = line_normal.get("hover_bg", self.row_hover_bg)
             self.row_selected_bg = line_normal.get("selected_bg", self.row_selected_bg)
+            self.row_selected_text = line_normal.get("selected_text", self.row_selected_text)
             self.row_selected_border = line_normal.get("selected_border", self.row_selected_border)
         except Exception:
             logger.exception("Error aplicando colores carrito")
