@@ -14,6 +14,7 @@ from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.dialogs import show_success, show_error, show_info
+from kool_tpv.modulos.almacen.ui.albaranes.albaran_borrador import AlbaranBorradorService
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,8 @@ class ImportarAlbaranUI:
         self.module_name = module_name
         self.selected_file_path = None
         self.parse_result = None
+        self._borrador_service = AlbaranBorradorService()
+        self._borrador_path = None
 
         try:
             self.colors = load_colors('almacen')
@@ -176,6 +179,16 @@ class ImportarAlbaranUI:
         self.btn_continuar.pack(side='right', padx=(10, 0))
         self.btn_continuar.configure(state='disabled')
 
+        # Botón guardar borrador
+        self.btn_borrador = ButtonFactory.create_button(
+            parent=action_frame,
+            text='GUARDAR BORRADOR',
+            command=self._on_guardar_borrador_click,
+            style_key='action_secondary'
+        )
+        self.btn_borrador.pack(side='left', padx=(0, 10))
+        self.btn_borrador.configure(state='disabled')
+
         # Botón volver
         self.btn_volver = ButtonFactory.create_button(
             parent=action_frame,
@@ -267,9 +280,11 @@ class ImportarAlbaranUI:
             # Cargar datos en tabla
             self._cargar_preview_tabla()
 
-            # Habilitar continuar si hay líneas válidas
+            # Habilitar continuar y borrador si hay líneas válidas
             if self.parse_result.lineas:
                 self.btn_continuar.configure(state='normal')
+                if hasattr(self, 'btn_borrador'):
+                    self.btn_borrador.configure(state='normal')
 
             logger.info(
                 f'CSV analizado: {len(self.parse_result.lineas)} líneas, '
@@ -1088,6 +1103,10 @@ class ImportarAlbaranUI:
                 totales=totales_repo
             )
 
+            # Eliminar borrador si existe
+            if getattr(self, '_borrador_path', None):
+                self._borrador_service.eliminar(self._borrador_path)
+                self._borrador_path = None
             show_success(self.container, 'Éxito', f'Albarán guardado correctamente (ID: {albaran_id})')
             self._on_volver_desde_creacion()
 
@@ -1106,6 +1125,94 @@ class ImportarAlbaranUI:
             self._mostrar_resumen()
             self._cargar_preview_tabla()
             self.btn_continuar.configure(state='normal')
+
+    def _on_guardar_borrador_click(self):
+        """Guardar estado actual como borrador JSON."""
+        try:
+            cabecera = getattr(self, '_cabecera_data', {})
+            if not cabecera:
+                proveedor_id = self.combo_proveedor_import.get_id()
+                prov_nombre = self.combo_proveedor_import._var.get().strip()
+                num_albaran = self.entry_num_albaran.get().strip()
+                fecha = self.entry_fecha_albaran.get().strip()
+                cabecera = {
+                    'num_albaran': num_albaran,
+                    'fecha': fecha,
+                    'proveedor_id': proveedor_id,
+                    'proveedor_nombre': prov_nombre
+                }
+            path = self._borrador_service.guardar(
+                cabecera=cabecera,
+                productos_data=getattr(self, '_productos_data', {}),
+                csv_path=self.selected_file_path,
+                paso='preview'
+            )
+            self._borrador_path = path
+            show_success(self.container, 'Borrador guardado', f'Albarán {cabecera.get("num_albaran", "")} guardado como borrador.')
+        except Exception:
+            logger.exception('Error guardando borrador')
+            show_error(self.container, 'Error', 'No se pudo guardar el borrador.')
+
+    def cargar_borrador(self, borrador_info: dict):
+        """Carga un borrador y restaura el estado de la UI.
+
+        Args:
+            borrador_info: dict devuelto por AlbaranBorradorService.listar()
+        """
+        try:
+            data = self._borrador_service.cargar(borrador_info['path'])
+            self._borrador_path = borrador_info['path']
+
+            # Restaurar archivo CSV
+            csv_path = data.get('csv_path', '')
+            if csv_path:
+                self.selected_file_path = csv_path
+                from pathlib import Path as _Path
+                self.lbl_archivo.configure(
+                    text=_Path(csv_path).name,
+                    text_color=self.colors.get('text', '#00FF00')
+                )
+
+            # Restaurar cabecera
+            cabecera = data.get('cabecera', {})
+            self._cabecera_data = cabecera
+
+            # Restaurar proveedor en combo
+            prov_id = cabecera.get('proveedor_id')
+            prov_nombre = cabecera.get('proveedor_nombre', '')
+            if prov_nombre:
+                self.combo_proveedor_import._var.set(prov_nombre)
+            if prov_id:
+                self._proveedor_seleccionado_id = prov_id
+                self.btn_seleccionar.configure(state='normal')
+
+            # Restaurar num_albaran y fecha
+            self.entry_num_albaran.delete(0, 'end')
+            self.entry_num_albaran.insert(0, cabecera.get('num_albaran', ''))
+            self.entry_fecha_albaran.configure(state='normal')
+            self.entry_fecha_albaran.delete(0, 'end')
+            self.entry_fecha_albaran.insert(0, cabecera.get('fecha', ''))
+            self.entry_fecha_albaran.configure(state='readonly')
+
+            # Restaurar productos_data si los hay
+            productos_data = data.get('productos_data', {})
+            if productos_data:
+                self._productos_data = productos_data
+
+            # Re-analizar el CSV para recuperar parse_result
+            if self.selected_file_path:
+                self._on_analizar_click()
+
+            # Si había productos pendientes, ir a ese paso
+            paso = data.get('paso', 'preview')
+            if paso == 'completar_productos' and productos_data:
+                self._cargar_categorias_tipos()
+                self._mostrar_ui_creacion_productos()
+
+            logger.info(f'Borrador cargado: albarán {cabecera.get("num_albaran")}')
+        except Exception:
+            logger.exception('Error cargando borrador')
+            show_error(self.container, 'Error', 'No se pudo cargar el borrador.')
 
     def _on_volver_click(self):
         """Volver a la vista anterior."""

@@ -58,6 +58,9 @@ class AlbaranesUI:
         # Estado inicial vacío
         self.current_view = None
 
+        # Comprobar borradores pendientes al arrancar
+        self.after(300, self._comprobar_borradores)
+
     def get_widget(self):
         return self.container
 
@@ -91,11 +94,11 @@ class AlbaranesUI:
         except Exception:
             logging.exception('Error en show_devolucion')
 
-    def show_importar_albaran(self):
+    def show_importar_albaran(self, borrador=None):
         """Mostrar importar albarán desde CSV (delega a owner)."""
         try:
             if getattr(self, 'owner', None) and hasattr(self.owner, 'show_importar_albaran'):
-                self.owner.show_importar_albaran()
+                self.owner.show_importar_albaran(borrador=borrador)
             else:
                 logging.warning('AlbaranesUI: owner no disponible para show_importar_albaran')
         except Exception:
@@ -146,3 +149,40 @@ class AlbaranesUI:
                 logging.warning('AlbaranesUI: owner no disponible para show_detalle_albaran')
         except Exception:
             logging.exception(f'Error en show_detalle_albaran para albarán {albaran_id}')
+
+    def _comprobar_borradores(self):
+        """Comprobar si hay borradores pendientes y avisar al usuario."""
+        try:
+            from kool_tpv.modulos.almacen.ui.albaranes.albaran_borrador import AlbaranBorradorService
+            from kool_tpv.utils.dialogs import show_warning
+
+            svc = AlbaranBorradorService()
+            borrador = svc.mas_reciente()
+            if not borrador:
+                return
+
+            num = borrador.get('num_albaran', '?')
+            prov = borrador.get('proveedor_nombre', '?')
+            ts = borrador.get('timestamp', '')[:16].replace('T', ' ')
+            mensaje = f'Albarán nº {num} ({prov})\nGuardado: {ts}'
+
+            resultado = show_warning(
+                self.container,
+                titulo='Borrador pendiente',
+                mensaje=mensaje,
+                confirm=True
+            )
+            if resultado:
+                self._continuar_borrador(borrador)
+        except Exception:
+            logging.exception('Error comprobando borradores')
+
+    def _continuar_borrador(self, borrador_info: dict):
+        """Abrir ImportarAlbaranUI y cargar el borrador."""
+        try:
+            if getattr(self, 'owner', None) and hasattr(self.owner, 'show_importar_albaran'):
+                self.owner.show_importar_albaran(borrador=borrador_info)
+            else:
+                logging.warning('AlbaranesUI: owner no disponible para continuar borrador')
+        except Exception:
+            logging.exception('Error continuando borrador')
