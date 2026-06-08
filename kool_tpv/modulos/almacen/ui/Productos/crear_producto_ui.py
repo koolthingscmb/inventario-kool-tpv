@@ -578,7 +578,14 @@ class CrearProductoUI:
             return
 
         # Prepare data
-        sku = (getattr(self, 'e_sku', None) and self.e_sku.get()) or None
+        sku = (getattr(self, 'e_sku', None) and self.e_sku.get() or '').strip()
+        if not sku:
+            try:
+                from kool_tpv.utils.custom_dialog import show_error
+                show_error(self.container, 'Validación', 'El SKU es obligatorio')
+            except Exception:
+                logging.error('Validación: El SKU es obligatorio')
+            return
         nombre = (self.e_nombre.get() or '').strip()
         nombre_boton = (self.e_nombre_btn.get() or '').strip()
         categoria_id = self.cb_categoria.get_id()
