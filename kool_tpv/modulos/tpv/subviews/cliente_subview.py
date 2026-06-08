@@ -1,6 +1,8 @@
-from customtkinter import CTkFrame, CTkLabel
+from customtkinter import CTkFrame, CTkEntry
+import logging
 from kool_tpv.modulos.clientes.cliente_service import ClienteService
-from kool_tpv.utils.widgets.nav_list import NavList
+
+logger = logging.getLogger(__name__)
 
 
 class ClienteSubView(CTkFrame):
@@ -8,14 +10,14 @@ class ClienteSubView(CTkFrame):
     def __init__(self, parent, db, carrito_service, view=None):
         super().__init__(parent)
 
-        # Mantener referencias a DB y servicio carrito
         self.db = db
         self.carrito_service = carrito_service
+        self.view = view
 
-        # Header (arriba)
+        # Header
         self.header_frame = CTkFrame(self)
         self.header_frame.pack(side="top", fill="x", padx=20, pady=10)
-        
+
         from kool_tpv.utils.factories.button_factory import ButtonFactory
         self.btn_editar = ButtonFactory.create_button(
             parent=self.header_frame,
@@ -24,60 +26,35 @@ class ClienteSubView(CTkFrame):
             command=self._on_editar_cliente
         )
 
-        from customtkinter import CTkEntry
-
         self.search_entry = CTkEntry(
             self.header_frame,
             placeholder_text="Buscar cliente...",
             width=300,
         )
         self.search_entry.pack(side="left", padx=10)
-
-        self.search_entry.bind(
-            "<KeyRelease>",
-            lambda e: self.search_list.set_search_text(self.search_entry.get())
-        )
+        self.search_entry.bind("<Return>", lambda e: self.search_list.search(self.search_entry.get()))
 
         self.btn_editar.pack(side="right", padx=10)
 
-        # Área de lista (contenido principal)
+        # Lista
         self.list_frame = CTkFrame(self)
         self.list_frame.pack(side="top", fill="both", expand=True, padx=20, pady=10)
 
-        # Servicio de clientes
         try:
             self.cliente_service = ClienteService(self.db)
         except Exception:
             self.cliente_service = None
 
-        # Guardar referencia a la vista que creó este subview (TpvView)
-        self.view = view
-
-        # Keyboard manager desde el toplevel (consistente con otras UIs)
-        root = self.winfo_toplevel()
-
-        from kool_tpv.utils.keyboard_manager import KeyboardManager
-
-        if not hasattr(root, "keyboard_manager") or root.keyboard_manager is None:
-            root.keyboard_manager = KeyboardManager(root)
-
-        self.keyboard_manager = root.keyboard_manager
-        print("KeyboardManager en TPV:", self.keyboard_manager)
-
-        # NOTE: Power handler registration removed from __init__
-        # TpvView already handles power button for subviews via pop_subview()
-        # No need for individual subviews to register their own handlers
-
-        # Columnas para la NavList
         columns = [
-            ("id", 60),
-            ("nombre", 240),
-            ("nivel_level", 80),
-            ("nivel_nombre", 160),
-            ("tesoro_total", 120),
+            ("id", 60, "ID"),
+            ("nombre", 240, "Nombre"),
+            ("nivel_level", 80, "Nivel"),
+            ("nivel_nombre", 160, "Categoría"),
+            ("tesoro_total", 120, "Tesoro"),
         ]
 
         from kool_tpv.utils.widgets.searchable_paginated_navlist import SearchablePaginatedNavList
+        from kool_tpv.utils.config_loader import load_layout_config
 
         self.search_list = SearchablePaginatedNavList(
             parent=self.list_frame,
@@ -86,58 +63,57 @@ class ClienteSubView(CTkFrame):
             map_function=self._map_cliente,
             module_name="clientes",
             page_limit=50,
-            on_double_click=self._on_cliente_double_click,
-            keyboard_manager=self.keyboard_manager
+            on_double_click=self._on_cliente_seleccionado,
+            layout_config=load_layout_config(),
         )
-
         self.search_list.pack(fill="both", expand=True)
 
-                        
-    def _on_cliente_double_click(self, data):
-        try:
-            if data:
-                detalle = self.cliente_service.get_cliente(data.get("id"))
-                self.carrito_service.set_cliente(detalle)
-                if hasattr(self.view, "ticket_carrito"):
-                    self.view.ticket_carrito.update_cliente(detalle)
+        nav = getattr(self.search_list, 'nav_list', None)
+        if nav and hasattr(nav, 'bind_return'):
+            nav.bind_return(self._add_selected_cliente)
 
-                # Volver atrás al grid
-                if getattr(self, "view", None) is not None:
-                    self.view.pop_subview()
-                else:
-                    parent_view = self.master.master  # fallback
-                    parent_view.pop_subview()
+        self.after(100, self.search_entry.focus_set)
+
+
+    def _on_cliente_seleccionado(self, data):
+        try:
+            if not data:
+                return
+            detalle = self.cliente_service.get_cliente(data.get("id"))
+            self.carrito_service.set_cliente(detalle)
+            if hasattr(self.view, "ticket_carrito"):
+                self.view.ticket_carrito.update_cliente(detalle)
+            self.view.pop_subview()
         except Exception:
-            import logging
-            logging.exception("Error asignando cliente al carrito")
+            logger.exception("Error asignando cliente al carrito")
+
+    def _add_selected_cliente(self):
+        nav = getattr(self.search_list, 'nav_list', None)
+        if nav:
+            data = nav.get_selected_data()
+            if data:
+                self._on_cliente_seleccionado(data)
 
     def _on_editar_cliente(self):
         try:
             selected = self.search_list.nav_list.get_selected_data()
             if not selected:
                 return
-
             cliente_id = selected.get("id")
             if not cliente_id:
                 return
 
             from kool_tpv.modulos.clientes.crear_cliente_ui import CrearClienteUI
-
             editar_ui = CrearClienteUI(
                 parent=self.view.center_area,
                 db=self.db,
                 cliente_id=cliente_id,
                 module_name="clientes"
             )
-
-            # IMPORTANTE: usar get_widget()
             widget = editar_ui.get_widget()
-
             self.view.push_subview(widget, "EDITAR")
-
         except Exception:
-            import logging
-            logging.exception("Error abriendo edición cliente")
+            logger.exception("Error abriendo edición cliente")
 
     def _buscar_clientes(self, texto):
         try:
@@ -159,12 +135,6 @@ class ClienteSubView(CTkFrame):
         except Exception:
             return {}
 
-    # NOTE: _handle_power removed - TpvView handles power button via pop_subview()
-    # Individual subviews don't need their own power handlers
-
     def destroy(self):
-        # NOTE: No need to unregister - we don't register in __init__ anymore
-        # TpvView manages power handling for all subviews
         super().destroy()
 
-    
