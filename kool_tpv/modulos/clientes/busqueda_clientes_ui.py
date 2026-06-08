@@ -163,6 +163,85 @@ class BusquedaClientesUI:
         except Exception:
             logging.exception('Error ejecutando búsqueda clientes')
 
+    def _buscar_clientes(self, texto: str):
+        """Función de búsqueda para SearchablePaginatedNavList."""
+        try:
+            filtrar_tesoro_activo = None
+            try:
+                if self.check_tesoro_activo.get() and not self.check_tesoro_inactivo.get():
+                    filtrar_tesoro_activo = True
+                elif not self.check_tesoro_activo.get() and self.check_tesoro_inactivo.get():
+                    filtrar_tesoro_activo = False
+            except Exception:
+                pass
+
+            query = """
+                SELECT c.id, c.nombre, c.telefono, c.email, c.ciudad,
+                       c.tesoro_total, c.total_compras, c.fecha_ultima_compra,
+                       c.fidelidad_activa, c.id_nivel,
+                       n.nombre_nivel
+                FROM clientes c
+                LEFT JOIN niveles_fidelidad n ON c.id_nivel = n.id
+                WHERE (c.nombre LIKE ? OR c.dni LIKE ? OR c.telefono LIKE ?)
+            """
+            params = [f'%{texto}%', f'%{texto}%', f'%{texto}%']
+
+            if filtrar_tesoro_activo is not None:
+                query += " AND c.fidelidad_activa = ?"
+                params.append(1 if filtrar_tesoro_activo else 0)
+
+            query += " ORDER BY c.tesoro_total DESC LIMIT 50 OFFSET 0"
+
+            rows = self.db.fetch_all(query, tuple(params))
+
+            clientes = []
+            for r in rows or []:
+                try:
+                    tesoro_euros = read_from_db(int(r[5] or 0))
+                except Exception:
+                    try:
+                        tesoro_euros = float(r[5] or 0.0)
+                    except Exception:
+                        tesoro_euros = 0.0
+
+                clientes.append({
+                    'id': r[0],
+                    'nombre': r[1] or '',
+                    'telefono': r[2] or '',
+                    'email': r[3] or '',
+                    'ciudad': r[4] or '',
+                    'tesoro_total': tesoro_euros,
+                    'total_compras': int(r[6] or 0),
+                    'fecha_ultima_compra': r[7] or 'Nunca',
+                    'fidelidad_activa': int(r[8] or 1),
+                    'id_nivel': r[9],
+                    'nivel_nombre': r[10] or 'Forastero'
+                })
+            return clientes
+        except Exception:
+            logging.exception('Error en _buscar_clientes')
+            return []
+
+    def _map_cliente(self, cliente: dict) -> dict:
+        """Mapear cliente a formato de fila para NavList."""
+        try:
+            return {
+                'id': str(cliente.get('id') or ''),
+                'nombre': cliente.get('nombre') or '',
+                'telefono': cliente.get('telefono') or '',
+                'email': cliente.get('email') or '',
+                'ciudad': cliente.get('ciudad') or '',
+                'tesoro': f"{cliente.get('tesoro_total', 0.0):.2f}€",
+                'nivel': cliente.get('nivel_nombre') or '',
+                'compras': str(cliente.get('total_compras', 0)),
+                'ultima_compra': cliente.get('fecha_ultima_compra') or 'Nunca',
+                'estado': 'ACTIVO' if cliente.get('fidelidad_activa') else 'INACTIVO',
+                '_id': cliente.get('id')
+            }
+        except Exception:
+            logging.exception('Error mapeando cliente')
+            return {}
+
     def _reset_and_load(self):
         # Limpiar filas existentes (NavList o data_frame)
         try:
@@ -367,10 +446,10 @@ class BusquedaClientesUI:
         try:
             cliente_id = None
             if isinstance(data, dict):
-                cliente_id = data.get('cliente_id') or data.get('ID')
+                cliente_id = data.get('_id') or data.get('id')
             if cliente_id and self.owner and hasattr(self.owner, 'show_editar_cliente'):
                 try:
-                    self.owner.show_editar_cliente(cliente_id)
+                    self.owner.show_editar_cliente(int(cliente_id))
                 except Exception:
                     logging.exception('Error llamando show_editar_cliente desde on_double_click')
         except Exception:
