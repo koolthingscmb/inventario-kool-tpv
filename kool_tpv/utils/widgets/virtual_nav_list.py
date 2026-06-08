@@ -190,6 +190,11 @@ class VirtualNavList(ctk.CTkFrame):
         self._all_data = list(items)
         self.selected_index = -1
         self._rebuild_rows()
+        if self.keyboard_manager:
+            try:
+                self.keyboard_manager.set_active_list(self)
+            except Exception:
+                pass
 
     def clear_items(self):
         self._all_data.clear()

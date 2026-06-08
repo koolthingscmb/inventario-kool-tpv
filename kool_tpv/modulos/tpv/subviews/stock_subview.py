@@ -6,12 +6,13 @@ logger = logging.getLogger(__name__)
 
 class StockSubView(CTkFrame):
 
-    def __init__(self, parent, db, carrito_service, view=None):
+    def __init__(self, parent, db, carrito_service, view=None, module_name='tpv'):
         super().__init__(parent)
 
         self.db = db
         self.carrito_service = carrito_service
         self.view = view
+        self.module_name = module_name
 
         # Header
         self.header_frame = CTkFrame(self)
@@ -65,7 +66,7 @@ class StockSubView(CTkFrame):
             columns=columns,
             search_function=self._buscar_productos,
             map_function=self._map_producto,
-            module_name="tpv",
+            module_name=self.module_name,
             page_limit=50,
             on_double_click=self._on_producto_seleccionado,
             keyboard_manager=_km,
