@@ -1,6 +1,6 @@
-"""UI de Búsqueda (Grid manual dentro de CTkScrollableFrame).
+"""UI de Búsqueda con SearchablePaginatedNavList.
 
-Provee búsqueda en tiempo real y scroll infinito (paginado).
+Búsqueda manual (Return) sin scroll infinito.
 """
 from typing import Optional, List
 import logging
@@ -12,7 +12,7 @@ from kool_tpv.base_datos.categoria_service import CategoriaService
 from kool_tpv.base_datos.tipo_service import TipoService
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
-from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
+from kool_tpv.utils.widgets.searchable_paginated_navlist import SearchablePaginatedNavList
 
 
 class BusquedaUI:
@@ -35,12 +35,12 @@ class BusquedaUI:
 
         # Breadcrumb handled by BaseModuleView (owner)
 
-        # Search entry
+        # Search entry - búsqueda manual con Return
         self.search_var = tk.StringVar()
         self.search_entry = ctk.CTkEntry(
             self.container,
             textvariable=self.search_var,
-            placeholder_text='Buscar...',
+            placeholder_text='Buscar... (pulsa Return)',
             height=36,
             fg_color=self.colors.get('background', '#1a1a1a'),
             text_color=self.colors.get('text', '#00FF00'),
@@ -48,7 +48,7 @@ class BusquedaUI:
             border_color=self.colors.get('border', '#00FF00'),
         )
         self.search_entry.pack(fill='x', padx=12, pady=(12, 6))
-        self.search_entry.bind('<KeyRelease>', lambda e: self._on_search())
+        self.search_entry.bind('<Return>', lambda e: self._on_search())
 
         # Barra de filtros horizontal
         filter_frame = ctk.CTkFrame(self.container, fg_color='transparent', height=40)
@@ -70,9 +70,6 @@ class BusquedaUI:
             width=160
         )
         self.cat_combo.set('Todas')
-        # Bind both key events and the selection virtual event to trigger search
-        self.cat_combo.entry.bind('<KeyRelease>', lambda e: self._on_search())
-        self.cat_combo.entry.bind('<<SearchableComboSelected>>', lambda e: self._on_search())
         self.cat_combo.pack(side='left', padx=(0, 12))
 
         # Label Tipos
@@ -83,8 +80,6 @@ class BusquedaUI:
             width=160
         )
         self.tipo_combo.set('Todos')
-        self.tipo_combo.entry.bind('<KeyRelease>', lambda e: self._on_search())
-        self.tipo_combo.entry.bind('<<SearchableComboSelected>>', lambda e: self._on_search())
         self.tipo_combo.pack(side='left', padx=(0, 12))
 
         # Frame para checkboxes de estado
@@ -102,7 +97,6 @@ class BusquedaUI:
             text_color=self.colors.get('text', '#00FF00'),
             fg_color=self.colors.get('primary', '#00FF00'),
             hover_color=self.colors.get('light', '#00AA00'),
-            command=self._on_search,
         ).pack(side='left', padx=4)
         ctk.CTkCheckBox(
             estado_frame,
@@ -111,7 +105,6 @@ class BusquedaUI:
             text_color=self.colors.get('text', '#00FF00'),
             fg_color=self.colors.get('secondary', '#00FF00'),
             hover_color=self.colors.get('light', '#00AA00'),
-            command=self._on_search,
         ).pack(side='left', padx=4)
         ctk.CTkCheckBox(
             estado_frame,
@@ -120,45 +113,44 @@ class BusquedaUI:
             text_color=self.colors.get('text', '#00FF00'),
             fg_color=self.colors.get('accent', '#00FF00'),
             hover_color=self.colors.get('light', '#00AA00'),
-            command=self._on_search,
         ).pack(side='left', padx=4)
 
-        # Crear NavList (reemplaza header + data area manual)
-        # Definimos columnas visibles y anchos (display keys)
-        self.columns = [
-            ('ID', 50), ('SKU', 140), ('NOMBRE', 280), ('CATEGORÍA', 140),
-            ('TIPO', 110), ('PVP', 85), ('STOCK', 75), ('ESTADO', 95)
+        # Botón Buscar
+        from kool_tpv.utils.factories.button_factory import ButtonFactory
+        self.btn_buscar = ButtonFactory.create_button(
+            parent=filter_frame,
+            text='BUSCAR',
+            command=self._on_search,
+            style_key='action_primary'
+        )
+        self.btn_buscar.pack(side='right', padx=12)
+
+        # Crear SearchablePaginatedNavList
+        columns = [
+            ('id', 50, 'ID'),
+            ('sku', 140, 'SKU'),
+            ('nombre', 280, 'NOMBRE'),
+            ('categoria', 140, 'CATEGORÍA'),
+            ('tipo', 110, 'TIPO'),
+            ('pvp', 85, 'PVP'),
+            ('stock_actual', 75, 'STOCK'),
+            ('estado', 95, 'ESTADO'),
         ]
 
-        self.nav_list = VirtualNavList(
-            self.container,
-            columns=self.columns,
+        from kool_tpv.utils.config_loader import load_layout_config
+
+        self.search_list = SearchablePaginatedNavList(
+            parent=self.container,
+            columns=columns,
+            search_function=self._buscar_productos,
+            map_function=self._map_producto,
             module_name=module_name,
-            keyboard_manager=self.keyboard_mgr,
+            page_limit=50,
             on_double_click=self._on_double_click_row,
+            keyboard_manager=self.keyboard_mgr,
+            layout_config=load_layout_config(),
         )
-        self.nav_list.pack(fill='both', expand=True, padx=12, pady=6)
-
-        # pagination state
-        self.page_limit = 50
-        self.offset = 0
-        self.termino = ''
-        self.loading = False
-
-        # list of rendered rows count
-        self.row_count = 0
-
-        # attempt to access underlying canvas for scroll checks
-        self._canvas = getattr(self.nav_list, '_canvas', None)
-
-        # start with first page
-        self._reset_and_load()
-
-        # start periodic check for scroll end (fallback)
-        try:
-            self._periodic_check()
-        except Exception:
-            pass
+        self.search_list.pack(fill='both', expand=True, padx=12, pady=6)
 
         # Auto-focus en search entry
         try:
@@ -170,25 +162,17 @@ class BusquedaUI:
         return self.container
 
     def _on_search(self):
-        self.termino = (self.search_var.get() or '').strip()
-        self._reset_and_load()
-
-    def _reset_and_load(self):
-        # Clear NavList rows
+        """Disparar búsqueda con filtros actuales."""
+        termino = (self.search_var.get() or '').strip()
         try:
-            self.nav_list.clear_items()
+            self.search_list.search(termino)
         except Exception:
-            pass
-        self.offset = 0
-        self.row_count = 0
-        self._load_next_page()
+            logging.exception('Error ejecutando búsqueda')
 
-    def _load_next_page(self):
-        if self.loading:
-            return
-        self.loading = True
+    def _buscar_productos(self, texto: str) -> List[dict]:
+        """Función de búsqueda para SearchablePaginatedNavList."""
         try:
-            # Recoger filtros activos usando get_id() de SearchableCombo
+            # Recoger filtros activos
             cat_id = None
             tipo_id = None
             try:
@@ -201,91 +185,48 @@ class BusquedaUI:
                 tipo_id = None
 
             estados = []
-            try:
-                if getattr(self, 'check_activo', None) and self.check_activo.get():
-                    estados.append('activo')
-                if getattr(self, 'check_sin_stock', None) and self.check_sin_stock.get():
-                    estados.append('sin_stock')
-                if getattr(self, 'check_archivado', None) and self.check_archivado.get():
-                    estados.append('archivado')
-            except Exception:
-                pass
+            if getattr(self, 'check_activo', None) and self.check_activo.get():
+                estados.append('activo')
+            if getattr(self, 'check_sin_stock', None) and self.check_sin_stock.get():
+                estados.append('sin_stock')
+            if getattr(self, 'check_archivado', None) and self.check_archivado.get():
+                estados.append('archivado')
 
-            items = self.service.buscar_productos_paginados(
-                termino_busqueda=self.termino,
+            return self.service.buscar(
+                termino=texto,
                 categoria_id=cat_id,
                 tipo_id=tipo_id,
                 estados=estados if estados else None,
-                limit=self.page_limit,
-                offset=self.offset
+                limit=50,
+                offset=0
             )
-            if not items:
-                self.loading = False
-                return
-            for i, it in enumerate(items):
-                try:
-                    mapped = self._map_item_to_row(it)
-                    self.nav_list.add_item(mapped)
-                except Exception:
-                    logging.exception('Error añadiendo item a NavList')
-            self.row_count += len(items)
-            self.offset += len(items)
         except Exception:
-            logging.exception('Error cargando página de búsqueda')
-        finally:
-            self.loading = False
+            logging.exception('Error en _buscar_productos')
+            return []
 
-    def _append_row(self, item: dict, index: int):
-        # Legacy compatibility: map and add to NavList
-        try:
-            mapped = self._map_item_to_row(item)
-            self.nav_list.add_item(mapped)
-        except Exception:
-            logging.exception('Error añadiendo fila a NavList (append)')
-
-    def _map_item_to_row(self, item: dict) -> dict:
-        # Map DB row to NavList row keys (display headers)
+    def _map_producto(self, item: dict) -> dict:
+        """Mapear producto a formato de fila para NavList."""
         try:
             estado = item.get('estado', 'Activo')
-            mapped = {
-                'ID': str(item.get('id') or ''),
-                'SKU': item.get('sku') or '',
-                'NOMBRE': item.get('nombre') or '',
-                'CATEGORÍA': item.get('categoria') or '',
-                'TIPO': item.get('tipo') or '',
-                'PVP': str(item.get('pvp') or '0.00'),
-                'STOCK': str(item.get('stock_actual') or 0),
-                'ESTADO': estado,
-                # keep original id for callbacks
+            return {
+                'id': str(item.get('id') or ''),
+                'sku': item.get('sku') or '',
+                'nombre': item.get('nombre') or '',
+                'categoria': item.get('categoria') or '',
+                'tipo': item.get('tipo') or '',
+                'pvp': str(item.get('pvp') or '0.00'),
+                'stock_actual': str(item.get('stock_actual') or 0),
+                'estado': estado,
                 '_id': item.get('id')
             }
-            return mapped
         except Exception:
-            logging.exception('Error mapeando item a row')
+            logging.exception('Error mapeando producto')
             return {}
 
-    def _periodic_check(self):
-        try:
-            canvas = self._canvas
-            if canvas is not None:
-                try:
-                    yview = canvas.yview()
-                    if len(yview) == 2 and yview[1] >= 0.995:
-                        # near bottom
-                        self._load_next_page()
-                except Exception:
-                    pass
-        except Exception:
-            pass
-        try:
-            self.container.after(200, self._periodic_check)
-        except Exception:
-            pass
-
     def _on_double_click_row(self, data: dict):
-        # Called by NavList when a row is double-clicked
+        """Manejar doble click en fila de producto."""
         try:
-            prod_id = data.get('_id') if data.get('_id') is not None else data.get('ID')
+            prod_id = data.get('_id') if data.get('_id') is not None else data.get('id')
             if self.owner and hasattr(self.owner, 'show_crear'):
                 try:
                     self.owner.show_crear(producto_id=prod_id)
@@ -293,6 +234,6 @@ class BusquedaUI:
                     try:
                         self.owner.show_crear(prod_id)
                     except Exception:
-                        logging.exception('Error llamando a show_crear desde BusquedaUI (double click)')
+                        logging.exception('Error llamando a show_crear desde BusquedaUI')
         except Exception:
             logging.exception('Error manejando doble click en NavList')
