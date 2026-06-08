@@ -244,6 +244,12 @@ class BusquedaClientesUI:
             self.row_count += len(items)
             self.offset += len(items)
 
+            if self.offset == len(items) and getattr(self, 'keyboard_manager', None) and getattr(self, 'nav_list', None):
+                try:
+                    self.keyboard_manager.set_active_list(self.nav_list)
+                except Exception:
+                    pass
+
         except Exception:
             logging.exception('Error cargando página de búsqueda clientes')
         finally:
