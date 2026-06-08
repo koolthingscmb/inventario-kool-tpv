@@ -13,5 +13,8 @@ kool_tpv/base_datos/kool_bd.*.db
 # Backups locales
 backups/
 
+# Borradores de albaranes (locales, no deben subirse al repo)
+kool_tpv/borradores/
+
 # Base de datos de trabajo (se genera automáticamente al arrancar)
 kool_tpv/base_datos/kool_bd.db
