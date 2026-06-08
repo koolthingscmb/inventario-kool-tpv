@@ -42,9 +42,11 @@ def create_global_close_button(parent, command=None):
     except Exception:
         height = 110
 
+    shortcut = btn_cfg.get("shortcut", "")
+    btn_text = f"({shortcut})" if shortcut else btn_cfg.get("text", "")
     btn_kwargs = {
         "master": parent,
-        "text": btn_cfg.get("text", ""),
+        "text": btn_text,
         "fg_color": btn_cfg.get("color", "#FF0000"),
         "hover_color": btn_cfg.get("hover_color", "#00A4DF"),
         "width": width,
@@ -103,7 +105,7 @@ def create_global_close_button(parent, command=None):
                 img_resized = img.resize((new_w, new_h), Image.LANCZOS)
                 ctk_img = ctk.CTkImage(img_resized, size=(new_w, new_h))
                 try:
-                    button.configure(image=ctk_img, text="")
+                    button.configure(image=ctk_img, text=btn_text, compound="top")
                 except Exception:
                     pass
             except Exception:
@@ -111,7 +113,7 @@ def create_global_close_button(parent, command=None):
                     # Fallback to previous behavior
                     size = (max(8, width - 16), max(8, height - 16))
                     ctk_img = ctk.CTkImage(img, size=size)
-                    button.configure(image=ctk_img, text="")
+                    button.configure(image=ctk_img, text=btn_text, compound="top")
                 except Exception:
                     logging.exception(f"Error ajustando la imagen para power button")
         else:

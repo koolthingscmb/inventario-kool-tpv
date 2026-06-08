@@ -27,7 +27,7 @@
     {"text": "CONFIG", "style_key": "menu_config", "command": "open_config"}
   ],
   "global_buttons": [
-    {"id": "power", "style_key": "power_btn", "command": "close_app", "image": "assets/power.png", "width": 140, "height": 140, "reserved_width": null, "reserved_height": null},
+    {"id": "power", "shortcut": "Esc", "style_key": "power_btn", "command": "close_app", "image": "assets/power.png", "width": 140, "height": 140, "reserved_width": null, "reserved_height": null},
     {"id": "print_on", "label": "PRINT ON", "style_key": "print_btn", "command": "toggle_print"}
   ],
   "buscar_overlay": {

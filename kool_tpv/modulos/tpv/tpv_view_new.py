@@ -162,9 +162,12 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
             # preserve command mapping for buscar_articulo
             cmd_name = btn_data.get("command")
             cmd = self._mostrar_buscar if cmd_name == "buscar_articulo" else None
+            label = btn_data.get("label", "???")
+            shortcut = btn_data.get("shortcut", "")
+            display_text = f"{label} ({shortcut})" if shortcut else label
             btn = ButtonFactory.create_button(
                 parent=self.grid_frame,
-                text=btn_data.get("label", "???"),
+                text=display_text,
                 command=cmd,
                 style_key=btn_data.get("style_key")
             )
