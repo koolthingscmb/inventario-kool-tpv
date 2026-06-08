@@ -555,7 +555,7 @@ class ImportarAlbaranUI:
         row_sku = ctk.CTkFrame(panel_frame, fg_color='transparent')
         row_sku.pack(fill='x', padx=10, pady=5)
         ctk.CTkLabel(row_sku, text='SKU:', font=(label_font['family'], label_font['size']), width=80, anchor='e').pack(side='left')
-        self.entry_sku = ctk.CTkEntry(row_sku, font=(entry_font['family'], entry_font['size']), width=150, placeholder_text='Opcional')
+        self.entry_sku = ctk.CTkEntry(row_sku, font=(entry_font['family'], entry_font['size']), width=150, placeholder_text='Obligatorio')
         self.entry_sku.pack(side='left', padx=5)
 
         # Categoría
@@ -798,6 +798,9 @@ class ImportarAlbaranUI:
             return
         if not tipo_nombre:
             self._mostrar_error('Selecciona un tipo')
+            return
+        if not sku:
+            self._mostrar_error('El SKU es obligatorio')
             return
         if not pvp_str:
             self._mostrar_error('El PVP es obligatorio')
