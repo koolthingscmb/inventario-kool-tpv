@@ -56,14 +56,19 @@ class StockSubView(CTkFrame):
         from kool_tpv.utils.widgets.searchable_paginated_navlist import SearchablePaginatedNavList
         from kool_tpv.utils.config_loader import load_layout_config
 
+        root = self.winfo_toplevel()
+        from kool_tpv.utils.keyboard_manager import KeyboardManager
+        _km = getattr(root, 'keyboard_manager', None)
+
         self.search_list = SearchablePaginatedNavList(
             parent=self.list_frame,
             columns=columns,
             search_function=self._buscar_productos,
             map_function=self._map_producto,
-            module_name="clientes",
+            module_name="tpv",
             page_limit=50,
             on_double_click=self._on_producto_seleccionado,
+            keyboard_manager=_km,
             layout_config=load_layout_config(),
         )
         self.search_list.pack(fill="both", expand=True)

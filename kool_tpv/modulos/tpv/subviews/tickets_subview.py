@@ -146,7 +146,7 @@ class TicketsSubView(CTkFrame):
             columns=columns,
             search_function=self._buscar_tickets,
             map_function=self._map_ticket,
-            module_name="tickets",
+            module_name="tpv",
             page_limit=50,
             on_double_click=None,
             keyboard_manager=self.keyboard_manager,
