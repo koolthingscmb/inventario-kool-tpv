@@ -39,6 +39,7 @@ class CrearProductoUI:
         self.parent = parent
         self.db = db
         self.module_name = module_name
+        self.producto_id = producto_id
         self.repo = ProductoRepository(db) if db is not None else None
         from kool_tpv.utils.config_loader import load_colors
         try:
@@ -714,7 +715,7 @@ class CrearProductoUI:
                 pvp=pvp,
                 coste=coste,
                 codigos_barras=codes,
-                producto_id=None,
+                producto_id=self.producto_id,
                 shopify_taxonomy=shopify_taxonomy,
                 descripcion_shopify=descripcion_full,
                 titulo=titulo,
