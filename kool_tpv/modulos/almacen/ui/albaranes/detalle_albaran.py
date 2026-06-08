@@ -10,7 +10,7 @@ from kool_tpv.base_datos.proveedor_service import ProveedorService
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
-from kool_tpv.utils.widgets.nav_list import NavList
+from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.custom_dialog import show_success
 from kool_tpv.utils.config_loader import create_action_button
 
@@ -215,7 +215,7 @@ class DetalleAlbaranUI:
         self.columns_lines = [
             ('EAN', 160), ('NOMBRE', 320), ('UDS', 90), ('COSTE', 90), ('DTO', 90), ('IMPORTE', 110)
         ]
-        self.nav_list = NavList(
+        self.nav_list = VirtualNavList(
             self.container,
             columns=self.columns_lines,
             module_name=self.module_name,

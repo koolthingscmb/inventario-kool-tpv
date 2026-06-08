@@ -15,7 +15,7 @@ from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.widgets.date_picker_entry import DatePickerEntry
-from kool_tpv.utils.widgets.nav_list import NavList
+from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 
 
@@ -137,7 +137,7 @@ class ConsultarAlbaranUI:
             ('CANT. PROD.', 100), ('TOTAL NETO', 100), ('TOTAL IVA', 100), ('TOTAL', 100)
         ]
 
-        self.nav_list = NavList(
+        self.nav_list = VirtualNavList(
             self.container,
             columns=self.columns,
             module_name=module_name,

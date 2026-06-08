@@ -11,7 +11,7 @@ from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
 from kool_tpv.utils.config_loader import load_colors
 from kool_tpv.utils.font_loader import load_font_config
 from kool_tpv.utils.factories.button_factory import ButtonFactory
-from kool_tpv.utils.widgets.nav_list import NavList
+from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.dialogs import show_success, show_error, show_info
 
@@ -153,7 +153,7 @@ class ImportarAlbaranUI:
             ('PVPR', 60), ('ESTADO', 80)
         ]
 
-        self.nav_list = NavList(
+        self.nav_list = VirtualNavList(
             self.container,
             columns=self.columns,
             module_name=self.module_name,
@@ -518,7 +518,7 @@ class ImportarAlbaranUI:
         self.lbl_progreso.pack(pady=5)
 
         # Tabla de productos
-        self.nav_list_crear = NavList(
+        self.nav_list_crear = VirtualNavList(
             self.container,
             columns=[('EAN', 120), ('NOMBRE', 300), ('ESTADO', 100)],
             module_name=self.module_name,
@@ -754,7 +754,7 @@ class ImportarAlbaranUI:
             self.lbl_stock_calc.configure(text=str(cantidad_original))
 
         # Seleccionar en tabla visualmente
-        self.nav_list_crear._select_row(index)
+        self.nav_list_crear._select(index)
 
     def _on_guardar_producto(self):
         """Guardar datos del producto actual y pasar al siguiente."""
@@ -951,7 +951,7 @@ class ImportarAlbaranUI:
         ).pack(pady=10, padx=15)
 
         # Tabla de líneas con NavList (todas las columnas de BD)
-        self.nav_list_albaran = NavList(
+        self.nav_list_albaran = VirtualNavList(
             self.container,
             columns=[
                 ('EAN', 120), ('NOMBRE', 200), ('UDS', 50),
