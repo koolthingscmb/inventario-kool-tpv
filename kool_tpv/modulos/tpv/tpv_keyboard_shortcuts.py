@@ -1,12 +1,12 @@
 """TpvKeyboardShortcuts - Gestión centralizada de shortcuts de teclado del TPV.
 
 Shortcuts registrados:
-  1   → Pago efectivo
-  2   → Pago tarjeta
-  3   → Pago web
-  4   → Pago multi
-  Q   → Ciclar foco: Grid → Carrito → Payment (si activo)
-  Esc → Botón Power (exclusivo, global)
+  Alt+1 → Pago efectivo
+  Alt+2 → Pago tarjeta
+  Alt+3 → Pago web
+  Alt+4 → Pago multi
+  Q     → Ciclar foco: Grid → Carrito → Payment (si activo)
+  Esc   → Botón Power (exclusivo, global)
 """
 import json
 import logging
@@ -40,16 +40,16 @@ class TpvKeyboardShortcuts:
 
     def _register(self):
         root = self._root
-        root.bind_all('<Key-1>', lambda e: self._fkey_pago('cash')    if not self._focus_is_entry(e) else None)
-        root.bind_all('<Key-2>', lambda e: self._fkey_pago('tarjeta') if not self._focus_is_entry(e) else None)
-        root.bind_all('<Key-3>', lambda e: self._fkey_pago('web')     if not self._focus_is_entry(e) else None)
-        root.bind_all('<Key-4>', lambda e: self._fkey_pago('multi')   if not self._focus_is_entry(e) else None)
-        root.bind_all('<Key-q>', lambda e: self._ciclar_zona()        if not self._focus_is_entry(e) else None)
-        root.bind_all('<Key-Q>', lambda e: self._ciclar_zona()        if not self._focus_is_entry(e) else None)
-        logger.info('TpvKeyboardShortcuts registrados (1-4, Q)')
+        root.bind_all('<Alt-Key-1>', lambda e: self._fkey_pago('cash'))
+        root.bind_all('<Alt-Key-2>', lambda e: self._fkey_pago('tarjeta'))
+        root.bind_all('<Alt-Key-3>', lambda e: self._fkey_pago('web'))
+        root.bind_all('<Alt-Key-4>', lambda e: self._fkey_pago('multi'))
+        root.bind_all('<Key-q>', lambda e: self._ciclar_zona() if not self._focus_is_entry(e) else None)
+        root.bind_all('<Key-Q>', lambda e: self._ciclar_zona() if not self._focus_is_entry(e) else None)
+        logger.info('TpvKeyboardShortcuts registrados (Alt+1-4, Q)')
 
     def detach(self):
-        for key in ('<Key-1>', '<Key-2>', '<Key-3>', '<Key-4>', '<Key-q>', '<Key-Q>'):
+        for key in ('<Alt-Key-1>', '<Alt-Key-2>', '<Alt-Key-3>', '<Alt-Key-4>', '<Key-q>', '<Key-Q>'):
             try:
                 self._root.unbind_all(key)
             except Exception:
