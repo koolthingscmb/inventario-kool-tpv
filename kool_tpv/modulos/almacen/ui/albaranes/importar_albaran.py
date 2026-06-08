@@ -1171,13 +1171,13 @@ class ImportarAlbaranUI:
             return False
 
     def _on_ir_a_tpv_click(self):
-        """Ir al TPV tras guardar borrador y confirmación del usuario."""
+        """Guardar borrador, cerrar módulo y volver al menú principal (para acceder al TPV)."""
         from kool_tpv.utils.dialogs import show_warning
 
         resultado = show_warning(
             self.container,
             titulo='Ir a TPV',
-            mensaje='Se guardará el borrador del albarán\n¿Continuar al TPV?',
+            mensaje='Se guardará el borrador del albarán\n¿Continuar al menú principal?',
             confirm=True
         )
         if not resultado:
@@ -1188,18 +1188,18 @@ class ImportarAlbaranUI:
             show_error(self.container, 'Error', 'No se pudo guardar el borrador')
             return
 
-        # Navegar al TPV via owner.parent (la app principal)
+        # Cerrar módulo y volver al menú principal
         try:
             if (self.owner and hasattr(self.owner, 'parent') and
-                hasattr(self.owner.parent, 'load_tpv')):
-                self.owner.parent.load_tpv()
-                logger.info('Navegando al TPV desde albarán')
+                hasattr(self.owner.parent, 'close_current_module_and_return_to_menu')):
+                self.owner.parent.close_current_module_and_return_to_menu()
+                logger.info('Volviendo al menú principal desde albarán (para ir a TPV)')
             else:
-                logger.warning('No se pudo navegar al TPV: owner.parent.load_tpv no disponible')
-                show_error(self.container, 'Error', 'No se pudo abrir el TPV')
+                logger.warning('No se pudo cerrar el módulo: método no disponible')
+                show_error(self.container, 'Error', 'No se pudo volver al menú principal')
         except Exception:
-            logger.exception('Error navegando al TPV desde albarán')
-            show_error(self.container, 'Error', 'Error al abrir el TPV')
+            logger.exception('Error volviendo al menú principal desde albarán')
+            show_error(self.container, 'Error', 'Error al volver al menú principal')
 
     def cargar_borrador(self, borrador_info: dict):
         """Carga un borrador y restaura el estado de la UI.

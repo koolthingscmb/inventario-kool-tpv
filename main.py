@@ -481,6 +481,35 @@ class App(ctk.CTk):
         self.destroy()
         sys.exit(0)
 
+    def close_current_module_and_return_to_menu(self):
+        """Cerrar el módulo actual y volver al menú principal.
+
+        Usado por acciones internas de módulos (ej: 'Ir a TPV' desde Albarán).
+        """
+        try:
+            modules = ['almacen_view', 'clientes_view', 'informes_view', 'config_view']
+            for mod_name in modules:
+                if hasattr(self, mod_name):
+                    view = getattr(self, mod_name)
+                    if view:
+                        try:
+                            if hasattr(view, 'sidebar'):
+                                view.sidebar.pack_forget()
+                        except Exception:
+                            pass
+                        try:
+                            if hasattr(view, 'main_frame'):
+                                view.main_frame.pack_forget()
+                        except Exception:
+                            pass
+            # Restaurar Menú Principal
+            self.nav_frame.pack(side="left", fill="y")
+            self.main_frame.pack(side="right", fill="both", expand=True)
+            self._clear_main()
+            logging.info('Módulo cerrado, volviendo al menú principal')
+        except Exception:
+            logging.exception('Error cerrando módulo y volviendo al menú')
+
     def _clear_main(self):
         for widget in self.main_frame.winfo_children():
             widget.destroy()
