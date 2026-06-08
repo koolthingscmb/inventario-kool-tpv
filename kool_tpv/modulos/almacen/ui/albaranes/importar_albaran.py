@@ -1174,7 +1174,7 @@ class ImportarAlbaranUI:
             cabecera = data.get('cabecera', {})
             self._cabecera_data = cabecera
 
-            # Restaurar proveedor en combo
+            # Restaurar proveedor en combo y cargar su mapeo CSV
             prov_id = cabecera.get('proveedor_id')
             prov_nombre = cabecera.get('proveedor_nombre', '')
             if prov_nombre:
@@ -1182,6 +1182,15 @@ class ImportarAlbaranUI:
             if prov_id:
                 self._proveedor_seleccionado_id = prov_id
                 self.btn_seleccionar.configure(state='normal')
+                # Cargar mapeo del proveedor explícitamente
+                if self.db:
+                    try:
+                        from kool_tpv.base_datos.proveedor_service import ProveedorService
+                        prov_service = ProveedorService(self.db)
+                        mapeo = prov_service.get_mapeo_csv(prov_id)
+                        self._mapeo_proveedor = mapeo
+                    except Exception:
+                        logger.warning('No se pudo cargar mapeo del proveedor al restaurar borrador')
 
             # Restaurar num_albaran y fecha
             self.entry_num_albaran.delete(0, 'end')
