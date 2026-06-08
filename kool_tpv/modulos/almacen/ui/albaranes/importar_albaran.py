@@ -630,7 +630,7 @@ class ImportarAlbaranUI:
             parent=btn_frame,
             text='GUARDAR Y SIGUIENTE',
             command=self._on_guardar_producto,
-            style_key='action_confirm'
+            style_key='action_primary'
         )
         self.btn_guardar.pack(side='left', padx=5)
 
