@@ -484,11 +484,11 @@ class TicketCarrito(ctk.CTkFrame):
                 self.active_payment_controller = None
                 self.active_payment_type = None
 
-            # Limpiar cualquier widget residual
+            # Limpiar cualquier widget residual (ocultar, NO destruir para preservar controllers pre-creados)
             if hasattr(self, 'payment_area'):
                 for widget in self.payment_area.winfo_children():
                     try:
-                        widget.destroy()
+                        widget.pack_forget()
                     except Exception:
                         pass
 
