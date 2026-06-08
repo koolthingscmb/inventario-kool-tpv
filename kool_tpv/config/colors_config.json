@@ -366,6 +366,15 @@
         "border_width": 5
       }
     },
+    "nav_list": {
+      "row_normal_bg": "#1a1a1a",
+      "row_normal_text": "#e0e0e0",
+      "row_hover_bg": "#2a2a2a",
+      "row_hover_text": "#ffffff",
+      "row_selected_bg": "#C7BA0C",
+      "row_selected_text": "#000000",
+      "row_selected_border": "primary"
+    },
     "ticket_carrito": {
       "header": {
         "bg": "#000000",
