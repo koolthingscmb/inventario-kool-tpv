@@ -290,8 +290,16 @@ class EntradaManualUI:
         footer.pack(side='bottom', fill='x', padx=6, pady=12)
         btn_guardar = create_action_button(footer, 'guardar', self._save_albaran)
         btn_guardar.pack(side='left', padx=8)
+        btn_eliminar = create_action_button(footer, 'eliminar', self._delete_selected_line)
+        btn_eliminar.pack(side='left', padx=8)
         btn_cancelar = create_action_button(footer, 'cancelar', self._cancel)
         btn_cancelar.pack(side='left', padx=8)
+
+        # Bind tecla Delete en NavList
+        try:
+            self.nav_list.bind('<Delete>', lambda e: self._delete_selected_line())
+        except Exception:
+            pass
 
         # Estado
         self.lines = []
@@ -467,6 +475,37 @@ class EntradaManualUI:
         except Exception:
             logging.exception('Error manejando doble click en línea')
 
+    def _delete_selected_line(self):
+        """Eliminar la línea seleccionada en la NavList."""
+        try:
+            data = self.nav_list.get_selected_data()
+            if not data:
+                return
+
+            # Encontrar índice por id o por EAN+NOMBRE
+            idx = None
+            row_id = data.get('_idx')
+            if row_id:
+                for i, ln in enumerate(self.lines):
+                    if ln.get('id') == row_id:
+                        idx = i
+                        break
+            if idx is None:
+                for i, ln in enumerate(self.lines):
+                    if ln.get('ean') == data.get('EAN') and ln.get('nombre') == data.get('NOMBRE'):
+                        idx = i
+                        break
+            if idx is None:
+                return
+
+            # Eliminar línea
+            self.lines.pop(idx)
+            self._render_lines()
+            self._update_totals()
+            logging.info(f'Línea eliminada: índice {idx}')
+        except Exception:
+            logging.exception('Error eliminando línea')
+
     def _add_line(self):
         try:
             uds = int(self.e_uds.get() or 0)
@@ -492,7 +531,12 @@ class EntradaManualUI:
                 'tipo_iva': tipo_iva
             }
 
-            self.lines.append(line)
+            # Si estamos editando, reemplazar; si no, añadir
+            if hasattr(self, '_editing_index') and self._editing_index is not None:
+                self.lines[self._editing_index] = line
+                self._editing_index = None
+            else:
+                self.lines.append(line)
             self._render_lines()
             self._update_totals()
 
