@@ -74,7 +74,7 @@ def _show_ui(view, attr_name: str):
 
 
 def _activate_payment(view, tipo: str):
-    """Activar payment controller pre-creado del factory.
+    """Activar forma de pago usando métodos de ticket_carrito (igual que atajos de teclado).
 
     Args:
         view: TpvView instance
@@ -91,24 +91,15 @@ def _activate_payment(view, tipo: str):
             except Exception:
                 pass
 
-        # Mapeo tipo → controller attribute
-        mapping = {
-            'efectivo': '_cash_controller',
-            'multi': '_multi_controller',
-            'tarjeta': '_tarjeta_controller',
-            'web': '_web_controller',
-            'devolucion': '_devolucion_controller',
-        }
-
-        attr_name = mapping.get(tipo)
-        if not attr_name:
-            logger.warning(f'Tipo de pago desconocido: {tipo}')
+        # Obtener controller para callback de finalización
+        ctrl = getattr(view, 'controller', None)
+        if ctrl is None:
+            logger.warning('Controller no disponible')
             return
 
-        # Obtener controller pre-creado
-        controller = getattr(view, attr_name, None)
-        if controller is None:
-            logger.warning(f'Controller {attr_name} no disponible')
+        finalize = getattr(ctrl, 'finalize_sale', None)
+        if finalize is None:
+            logger.warning('finalize_sale no disponible')
             return
 
         # Obtener TicketCarrito
@@ -117,30 +108,49 @@ def _activate_payment(view, tipo: str):
             logger.warning('ticket_carrito no disponible')
             return
 
-        # Limpiar payment_area
-        try:
-            for widget in tc.payment_area.winfo_children():
-                widget.pack_forget()
-        except Exception:
-            logger.exception('Error limpiando payment_area')
+        # Crear wrapper de finalización (igual que en TpvKeyboardShortcuts)
+        def _make_wrapper(tipo_pago):
+            def wrapper(data: dict):
+                if tipo_pago == 'Efectivo':
+                    efectivo = data.get('cantidad_entregada', data.get('total', 0.0))
+                    finalize(efectivo=efectivo, forma_pago='Efectivo', importe_efectivo=efectivo, importe_tarjeta=0.0)
+                elif tipo_pago == 'Tarjeta':
+                    finalize(efectivo=None, forma_pago='Tarjeta', importe_efectivo=0.0, importe_tarjeta=data.get('total', 0.0))
+                elif tipo_pago == 'Web':
+                    finalize(efectivo=None, forma_pago='Web', importe_efectivo=0.0, importe_tarjeta=0.0, importe_web=data.get('total', 0.0))
+                elif tipo_pago == 'Multi':
+                    finalize(efectivo=None, forma_pago='Multi', importe_efectivo=data.get('efectivo', 0.0), importe_tarjeta=data.get('tarjeta', 0.0))
+            return wrapper
 
-        # Empaquetar controller pre-creado
-        try:
-            controller.pack(in_=tc.payment_area, fill="both", expand=True)
-        except Exception:
-            logger.exception(f'Error empaquetando controller {tipo}')
-            return
+        # Activar forma de pago usando métodos de ticket_carrito (igual que atajos de teclado)
+        if tipo == 'efectivo':
+            tc.activar_pago_efectivo(on_finalizar=_make_wrapper('Efectivo'))
+        elif tipo == 'tarjeta':
+            tc.activar_pago_tarjeta(on_finalizar=_make_wrapper('Tarjeta'))
+        elif tipo == 'web':
+            tc.activar_pago_web(on_finalizar=_make_wrapper('Web'))
+        elif tipo == 'multi':
+            tc.activar_pago_multi(on_finalizar=_make_wrapper('Multi'))
+        elif tipo == 'devolucion':
+            # Para devolución, usar controller pre-creado del view
+            controller = getattr(view, '_devolucion_controller', None)
+            if controller:
+                try:
+                    for widget in tc.payment_area.winfo_children():
+                        widget.pack_forget()
+                except Exception:
+                    pass
+                try:
+                    controller.pack(in_=tc.payment_area, fill="both", expand=True)
+                    carrito = getattr(view, 'carrito_service', None)
+                    if carrito:
+                        resumen = carrito.get_resumen_financiero()
+                        total = resumen.get('total', 0.0)
+                        controller.set_total(total)
+                except Exception:
+                    logger.exception('Error activando devolución')
 
-        # Actualizar total
-        try:
-            carrito = getattr(view, 'carrito_service', None)
-            if carrito:
-                resumen = carrito.get_resumen_financiero()
-                total = resumen.get('total', 0.0)
-                controller.set_total(total)
-                logger.debug(f'Payment {tipo} activado con total={total}')
-        except Exception:
-            logger.exception('Error actualizando total del controller')
+        logger.info(f'Payment {tipo} activado desde botón')
 
     except Exception:
         logger.exception(f'Error activando pago {tipo}')
@@ -416,8 +426,10 @@ def rebind_buttons(view):
                 def _normalize(s: str) -> str:
                     if not s:
                         return ''
+                    # Remove content in parentheses (keyboard shortcuts like "(ALT+1)")
+                    s_norm = re.sub(r'\s*\([^)]*\)', '', s)
                     # Remove diacritics
-                    s_norm = unicodedata.normalize('NFKD', s)
+                    s_norm = unicodedata.normalize('NFKD', s_norm)
                     s_norm = ''.join(ch for ch in s_norm if not unicodedata.combining(ch))
                     # Remove punctuation/symbols, keep letters, numbers and spaces
                     s_norm = re.sub(r'[^A-Za-z0-9 ]+', '', s_norm)
