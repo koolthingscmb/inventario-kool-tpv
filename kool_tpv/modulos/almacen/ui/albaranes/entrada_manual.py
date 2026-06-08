@@ -149,6 +149,7 @@ class EntradaManualUI:
         try:
             self.e_uds.bind('<KeyRelease>', lambda e: self._recalc_importe())
             self.e_uds.bind('<FocusOut>', lambda e: self._recalc_importe())
+            self.e_uds.bind('<Return>', lambda e: self.btn_add.focus_set())
         except Exception:
             pass
         
