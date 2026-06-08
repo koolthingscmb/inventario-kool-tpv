@@ -26,7 +26,7 @@ class CierreTicketGenerator(BaseTicketGenerator):
     Devuelve el texto completo del ticket de cierre.
     """
 
-    def generate(self, config, cierre_data, tickets, totals: dict = None, sections: dict = None):
+    def generate(self, config, cierre_data, tickets, totals: dict = None):
         from decimal import Decimal as _D
 
         def _to_decimal(v):
@@ -36,17 +36,6 @@ class CierreTicketGenerator(BaseTicketGenerator):
                 return _D(str(v))
             except Exception:
                 return _D('0')
-
-        # Configuración de secciones a incluir (por defecto todo)
-        if sections is None:
-            sections = {
-                'categorias': True,
-                'tipos': True,
-                'cajero': True,
-                'productos': True,
-                'iva': True,
-                'tesoro': True,
-            }
 
         lines = []
 
@@ -218,14 +207,13 @@ class CierreTicketGenerator(BaseTicketGenerator):
         # Secciones adicionales: ventas por forma de pago, por cajero y por categoría
         # 'Ventas por forma de pago' eliminado intencionalmente — no mostrar.
 
-        # 2) Ventas por cajero
-        if sections.get('cajero', True):
-            try:
-                vpc = None
-                if totals and isinstance(totals, dict):
-                    vpc = totals.get('ventas_por_cajero')
-                if vpc:
-                    lines.append('VENTAS POR CAJERO'.center(self.WIDTH))
+        try:
+            # 2) Ventas por cajero
+            vpc = None
+            if totals and isinstance(totals, dict):
+                vpc = totals.get('ventas_por_cajero')
+            if vpc:
+                lines.append('VENTAS POR CAJERO'.center(self.WIDTH))
                 lines.append(self.DIVIDER)
                 for entry in vpc:
                     try:
@@ -238,17 +226,16 @@ class CierreTicketGenerator(BaseTicketGenerator):
                     except Exception:
                         continue
                 lines.append(self.DIVIDER)
-            except Exception:
-                pass
+        except Exception:
+            pass
 
-        # 3) Ventas por categoría
-        if sections.get('categorias', True):
-            try:
-                vpcat = None
-                if totals and isinstance(totals, dict):
-                    vpcat = totals.get('ventas_por_categoria')
-                if vpcat:
-                    lines.append('VENTAS POR CATEGORÍA'.center(self.WIDTH))
+        try:
+            # 3) Ventas por categoría
+            vpcat = None
+            if totals and isinstance(totals, dict):
+                vpcat = totals.get('ventas_por_categoria')
+            if vpcat:
+                lines.append('VENTAS POR CATEGORÍA'.center(self.WIDTH))
                 lines.append(self.DIVIDER)
                 for entry in vpcat:
                     try:
@@ -261,17 +248,16 @@ class CierreTicketGenerator(BaseTicketGenerator):
                     except Exception:
                         continue
                 lines.append(self.DOUBLE_DIVIDER)
-            except Exception:
-                pass
+        except Exception:
+            pass
 
         # DEVOLUCIONES POR CATEGORÍA: mostrar solo si existen devoluciones agrupadas
-        if sections.get('categorias', True):
-            try:
-                devol_cat = None
-                if totals and isinstance(totals, dict):
-                    devol_cat = totals.get('devoluciones_por_categoria')
-                if devol_cat:
-                    lines.append('DEVOLUCIONES POR CATEGORÍA'.center(self.WIDTH))
+        try:
+            devol_cat = None
+            if totals and isinstance(totals, dict):
+                devol_cat = totals.get('devoluciones_por_categoria')
+            if devol_cat:
+                lines.append('DEVOLUCIONES POR CATEGORÍA'.center(self.WIDTH))
                 lines.append(self.DIVIDER)
                 for entry in devol_cat:
                     try:
@@ -285,18 +271,17 @@ class CierreTicketGenerator(BaseTicketGenerator):
                     except Exception:
                         continue
                 lines.append(self.DOUBLE_DIVIDER)
-            except Exception:
-                pass
+        except Exception:
+            pass
 
         # VENTAS POR TIPO: igual formato que VENTAS POR CATEGORÍA (solo ventas)
-        if sections.get('tipos', True):
-            try:
-                vpt = None
-                if totals and isinstance(totals, dict):
-                    vpt = totals.get('ventas_por_tipo')
-                if vpt:
-                    lines.append('VENTAS POR TIPO'.center(self.WIDTH))
-                    lines.append(self.DIVIDER)
+        try:
+            vpt = None
+            if totals and isinstance(totals, dict):
+                vpt = totals.get('ventas_por_tipo')
+            if vpt:
+                lines.append('VENTAS POR TIPO'.center(self.WIDTH))
+                lines.append(self.DIVIDER)
                 for entry in vpt:
                     try:
                         nombre = str(entry[0] or '')
@@ -308,18 +293,17 @@ class CierreTicketGenerator(BaseTicketGenerator):
                     except Exception:
                         continue
                 lines.append(self.DOUBLE_DIVIDER)
-            except Exception:
-                pass
+        except Exception:
+            pass
 
         # DEVOLUCIONES POR TIPO: mostrar solo si existen devoluciones agrupadas por tipo
-        if sections.get('tipos', True):
-            try:
-                dpt = None
-                if totals and isinstance(totals, dict):
-                    dpt = totals.get('devoluciones_por_tipo')
-                if dpt:
-                    lines.append('DEVOLUCIONES POR TIPO'.center(self.WIDTH))
-                    lines.append(self.DIVIDER)
+        try:
+            dpt = None
+            if totals and isinstance(totals, dict):
+                dpt = totals.get('devoluciones_por_tipo')
+            if dpt:
+                lines.append('DEVOLUCIONES POR TIPO'.center(self.WIDTH))
+                lines.append(self.DIVIDER)
                 for entry in dpt:
                     try:
                         nombre = str(entry[0] or '')
@@ -331,14 +315,13 @@ class CierreTicketGenerator(BaseTicketGenerator):
                     except Exception:
                         continue
                 lines.append(self.DOUBLE_DIVIDER)
-            except Exception:
-                pass
+        except Exception:
+            pass
 
         # Desglose IVA si se proporcionan totales
-        if sections.get('iva', True):
-            try:
-                if totals and isinstance(totals, dict):
-                    lines.append('DESGLOSE IVA'.center(self.WIDTH))
+        try:
+            if totals and isinstance(totals, dict):
+                lines.append('DESGLOSE IVA'.center(self.WIDTH))
                 # soportar claves base_21, iva_21, base_4, iva_4
                 if 'base_21' in totals or 'iva_21' in totals:
                     base21 = totals.get('base_21', 0)
@@ -356,17 +339,16 @@ class CierreTicketGenerator(BaseTicketGenerator):
                 if 'total_iva' in totals:
                     lines.append(self._format_line_lr('Total IVA:', self._format_currency(_to_decimal(totals.get('total_iva', 0)))))
                 lines.append(self.DOUBLE_DIVIDER)
-            except Exception:
-                pass
+        except Exception:
+            pass
 
         # Sección de Productos (opcional) si se proporcionó detalle en totals
-        if sections.get('productos', True):
-            try:
-                productos = None
-                if totals and isinstance(totals, dict):
-                    productos = totals.get('productos')
-                if productos:
-                    lines.append('VENTAS POR PRODUCTO'.center(self.WIDTH))
+        try:
+            productos = None
+            if totals and isinstance(totals, dict):
+                productos = totals.get('productos')
+            if productos:
+                lines.append('VENTAS POR PRODUCTO'.center(self.WIDTH))
                 # productos expected as iterable of (nombre, tickets_count, uds, total)
                 for p in productos:
                     try:
@@ -389,52 +371,52 @@ class CierreTicketGenerator(BaseTicketGenerator):
                         except Exception:
                             pass
                 lines.append(self.DOUBLE_DIVIDER)
-            except Exception:
-                pass
+        except Exception:
+            pass
 
         # (Sección de Categorías removida: usar `ventas_por_categoria` / `devoluciones_por_categoria`)
 
         # (Sección de Tipos removida: usar `ventas_por_tipo` / `devoluciones_por_tipo`)
 
+
         # Bloque PUNTOS DE TESORO
-        if sections.get('tesoro', True):
-            try:
-                tesoro_otorgado = _to_decimal(totals.get('tesoro_otorgado', _D('0'))) if totals else _D('0')
-                tesoro_gastado = _to_decimal(totals.get('tesoro_gastado', _D('0'))) if totals else _D('0')
-                clientes_puntos = totals.get('clientes_puntos', []) if totals else []
+        try:
+            tesoro_otorgado = _to_decimal(totals.get('tesoro_otorgado', _D('0'))) if totals else _D('0')
+            tesoro_gastado = _to_decimal(totals.get('tesoro_gastado', _D('0'))) if totals else _D('0')
+            clientes_puntos = totals.get('clientes_puntos', []) if totals else []
 
-                logging.info(f"DEBUG TESORO: otorgado={tesoro_otorgado}, gastado={tesoro_gastado}, clientes={len(clientes_puntos)}")
+            logging.info(f"DEBUG TESORO: otorgado={tesoro_otorgado}, gastado={tesoro_gastado}, clientes={len(clientes_puntos)}")
 
-                # Solo mostrar si hay puntos o clientes
-                if tesoro_otorgado > _D('0') or tesoro_gastado > _D('0') or clientes_puntos:
-                    logging.info("DEBUG: Entrando en bloque TESORO")
-                    lines.append('=' * self.WIDTH)
-                    lines.append('PUNTOS DE TESORO'.center(self.WIDTH))
+            # Solo mostrar si hay puntos o clientes
+            if tesoro_otorgado > _D('0') or tesoro_gastado > _D('0') or clientes_puntos:
+                logging.info("DEBUG: Entrando en bloque TESORO")
+                lines.append('=' * self.WIDTH)
+                lines.append('PUNTOS DE TESORO'.center(self.WIDTH))
 
-                    if tesoro_otorgado > _D('0') or tesoro_gastado > _D('0'):
-                        lines.append(self._format_line_lr('Puntos ganados:', f"{int(tesoro_otorgado)}"))
-                        lines.append(self._format_line_lr('Puntos gastados:', f"{int(tesoro_gastado)}"))
+                if tesoro_otorgado > _D('0') or tesoro_gastado > _D('0'):
+                    lines.append(self._format_line_lr('Puntos ganados:', f"{int(tesoro_otorgado)}"))
+                    lines.append(self._format_line_lr('Puntos gastados:', f"{int(tesoro_gastado)}"))
 
-                    if clientes_puntos:
-                        lines.append('-' * self.WIDTH)
-                        for cliente in clientes_puntos:
-                            try:
-                                nombre = cliente.get('cliente_nombre', '')
-                                nivel = cliente.get('nivel_nombre', '')
-                                ganados = int(cliente.get('puntos_ganados', 0))
-                                gastados = int(cliente.get('puntos_gastados', 0))
+                if clientes_puntos:
+                    lines.append('-' * self.WIDTH)
+                    for cliente in clientes_puntos:
+                        try:
+                            nombre = cliente.get('cliente_nombre', '')
+                            nivel = cliente.get('nivel_nombre', '')
+                            ganados = int(cliente.get('puntos_ganados', 0))
+                            gastados = int(cliente.get('puntos_gastados', 0))
 
-                                # Formato: Nombre - Nivel - Ganados - Gastados
-                                linea = f"{nombre} - {nivel} - {ganados} - {gastados}"
-                                lines.append(linea[:self.WIDTH])  # Truncar si es muy largo
-                            except Exception:
-                                continue
+                            # Formato: Nombre - Nivel - Ganados - Gastados
+                            linea = f"{nombre} - {nivel} - {ganados} - {gastados}"
+                            lines.append(linea[:self.WIDTH])  # Truncar si es muy largo
+                        except Exception:
+                            continue
 
-                    lines.append('=' * self.WIDTH)
-                else:
-                    logging.info("DEBUG: NO entra en bloque TESORO (sin datos)")
-            except Exception as e:
-                logging.exception(f'Error agregando bloque de tesoro: {e}')
+                lines.append('=' * self.WIDTH)
+            else:
+                logging.info("DEBUG: NO entra en bloque TESORO (sin datos)")
+        except Exception as e:
+            logging.exception(f'Error agregando bloque de tesoro: {e}')
 
         # Footer para cierre: solo añadir si existe la clave específica en config
         footer_val = config.get(footer_key)

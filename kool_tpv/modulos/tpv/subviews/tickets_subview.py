@@ -599,17 +599,6 @@ class TicketsSubView(CTkFrame):
                         logger.info('No hay tickets a cerrar tras revalidación')
                     return
 
-                # --- DIÁLOGO CONFIGURACIÓN CIERRE ---
-                sections = None
-                try:
-                    from kool_tpv.utils.dialogs.helpers import show_cierre_config_dialog
-                    sections = show_cierre_config_dialog(parent)
-                    if sections is None:
-                        return  # Usuario canceló
-                except Exception:
-                    logging.exception('Error mostrando diálogo de configuración de cierre')
-                    sections = None
-
                 # --- PROCESAR CIERRE (no capturar excepciones aquí según indicación) ---
                 from kool_tpv.modulos.ticket.cierre_caja_processor import CierreCajaProcessor
 
@@ -624,7 +613,7 @@ class TicketsSubView(CTkFrame):
                 except Exception:
                     pass
 
-                resultado = processor.process(ticket_ids=ticket_ids, usuario_id=usuario_id, cajero=cajero_nombre, sections=sections)
+                resultado = processor.process(ticket_ids=ticket_ids, usuario_id=usuario_id, cajero=cajero_nombre)
 
                 logger.info(f"Resultado proceso cierre: success={resultado.get('success')}, cierre_id={resultado.get('cierre_id')}")
 

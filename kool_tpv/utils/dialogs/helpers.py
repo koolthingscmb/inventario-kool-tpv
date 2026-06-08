@@ -94,19 +94,3 @@ def show_text_viewer(parent, titulo, texto, width=600, height=800, callback=None
         _show(parent, titulo, texto, width=width, height=height, callback=callback)
     except Exception:
         logging.exception('Error delegando a textview_dialog.show_text_viewer')
-
-
-def show_cierre_config_dialog(parent, defaults=None, callback=None):
-    """Mostrar diálogo de configuración de cierre.
-
-    Args:
-        parent: Widget padre
-        defaults: Dict con valores por defecto para los checkboxes
-        callback: Función a llamar con el resultado
-
-    Returns:
-        Dict con las secciones seleccionadas o None si canceló
-    """
-    from .cierre_config_dialog import CierreConfigDialog
-    dialog = CierreConfigDialog(parent, callback=callback, defaults=defaults)
-    return dialog.get_config()
