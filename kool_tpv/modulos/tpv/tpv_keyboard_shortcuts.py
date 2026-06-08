@@ -1,11 +1,12 @@
 """TpvKeyboardShortcuts - Gestión centralizada de shortcuts de teclado del TPV.
 
 Shortcuts registrados:
-  F1  → Pago efectivo
-  F2  → Pago tarjeta
-  F3  → Pago web
-  F4  → Pago multi
-  F5  → Ciclar foco: Grid → Carrito → Payment (si activo)
+  1   → Pago efectivo
+  2   → Pago tarjeta
+  3   → Pago web
+  4   → Pago multi
+  Q   → Ciclar foco: Grid → Carrito → Payment (si activo)
+  Esc → Botón Power (exclusivo, global)
 """
 import json
 import logging
@@ -39,15 +40,16 @@ class TpvKeyboardShortcuts:
 
     def _register(self):
         root = self._root
-        root.bind_all('<F1>', lambda e: self._fkey_pago('cash'))
-        root.bind_all('<F2>', lambda e: self._fkey_pago('tarjeta'))
-        root.bind_all('<F3>', lambda e: self._fkey_pago('web'))
-        root.bind_all('<F4>', lambda e: self._fkey_pago('multi'))
-        root.bind_all('<F5>', lambda e: self._ciclar_zona())
-        logger.info('TpvKeyboardShortcuts registrados (F1-F5)')
+        root.bind_all('<Key-1>', lambda e: self._fkey_pago('cash')    if not self._focus_is_entry(e) else None)
+        root.bind_all('<Key-2>', lambda e: self._fkey_pago('tarjeta') if not self._focus_is_entry(e) else None)
+        root.bind_all('<Key-3>', lambda e: self._fkey_pago('web')     if not self._focus_is_entry(e) else None)
+        root.bind_all('<Key-4>', lambda e: self._fkey_pago('multi')   if not self._focus_is_entry(e) else None)
+        root.bind_all('<Key-q>', lambda e: self._ciclar_zona()        if not self._focus_is_entry(e) else None)
+        root.bind_all('<Key-Q>', lambda e: self._ciclar_zona()        if not self._focus_is_entry(e) else None)
+        logger.info('TpvKeyboardShortcuts registrados (1-4, Q)')
 
     def detach(self):
-        for key in ('<F1>', '<F2>', '<F3>', '<F4>', '<F5>'):
+        for key in ('<Key-1>', '<Key-2>', '<Key-3>', '<Key-4>', '<Key-q>', '<Key-Q>'):
             try:
                 self._root.unbind_all(key)
             except Exception:
@@ -55,7 +57,7 @@ class TpvKeyboardShortcuts:
         self._clear_zone_indicators()
 
     # ------------------------------------------------------------------
-    # F1-F4: Formas de pago
+    # 1-4: Formas de pago
     # ------------------------------------------------------------------
 
     def _fkey_pago(self, tipo: str):
@@ -107,9 +109,18 @@ class TpvKeyboardShortcuts:
 
             self._zone = 'payment'
             self._apply_zone_indicator('payment')
-            logger.info(f'F-key: pago {tipo} activado')
+            logger.info(f'Tecla pago {tipo} activado')
         except Exception:
             logger.exception(f'Error activando pago {tipo} por F-key')
+
+    def _focus_is_entry(self, event) -> bool:
+        """True si el foco está en un widget de texto (Entry, Text, CTkEntry)."""
+        try:
+            w = event.widget
+            wclass = w.winfo_class()
+            return wclass in ('Entry', 'Text', 'TEntry', 'TCombobox')
+        except Exception:
+            return False
 
     def _focus_payment(self, tipo: str, ctrl):
         try:
@@ -123,7 +134,7 @@ class TpvKeyboardShortcuts:
             pass
 
     # ------------------------------------------------------------------
-    # F5: Ciclar zonas
+    # Q: Ciclar zonas
     # ------------------------------------------------------------------
 
     def _ciclar_zona(self):
