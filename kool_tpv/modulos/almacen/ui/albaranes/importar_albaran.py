@@ -653,7 +653,7 @@ class ImportarAlbaranUI:
 
         btn_tpv = ButtonFactory.create_button(
             parent=btn_frame,
-            text='TPV',
+            text='MENÚ PRINCIPAL',
             command=self._on_ir_a_tpv_click,
             style_key='action_secondary'
         )
