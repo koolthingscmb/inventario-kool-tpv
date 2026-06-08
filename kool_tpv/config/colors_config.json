@@ -147,8 +147,8 @@
       "row_normal_text": "#e0e0e0",
       "row_hover_bg": "#2a2a2a",
       "row_hover_text": "#ffffff",
-      "row_selected_bg": "#0d0d0d",
-      "row_selected_text": "#ffffff",
+      "row_selected_bg": "#C7BA0C",
+      "row_selected_text": "#000000",
       "row_selected_border": "primary"
     }
   },
@@ -176,8 +176,8 @@
       "row_normal_text": "#e0e0e0",
       "row_hover_bg": "#2a2a2a",
       "row_hover_text": "#ffffff",
-      "row_selected_bg": "#0d0d0d",
-      "row_selected_text": "#ffffff",
+      "row_selected_bg": "#C7BA0C",
+      "row_selected_text": "#000000",
       "row_selected_border": "primary"
     }
   },
@@ -204,8 +204,8 @@
       "row_normal_text": "#e0e0e0",
       "row_hover_bg": "#2a2a2a",
       "row_hover_text": "#ffffff",
-      "row_selected_bg": "#0d0d0d",
-      "row_selected_text": "#ffffff",
+      "row_selected_bg": "#C7BA0C",
+      "row_selected_text": "#000000",
       "row_selected_border": "primary"
     }
   },
@@ -232,8 +232,8 @@
       "row_normal_text": "#e0e0e0",
       "row_hover_bg": "#2a2a2a",
       "row_hover_text": "#ffffff",
-      "row_selected_bg": "#0d0d0d",
-      "row_selected_text": "#ffffff",
+      "row_selected_bg": "#C7BA0C",
+      "row_selected_text": "#000000",
       "row_selected_border": "primary"
     }
   },
@@ -260,8 +260,8 @@
       "row_normal_text": "#e0e0e0",
       "row_hover_bg": "#2a2a2a",
       "row_hover_text": "#ffffff",
-      "row_selected_bg": "#0d0d0d",
-      "row_selected_text": "#ffffff",
+      "row_selected_bg": "#C7BA0C",
+      "row_selected_text": "#000000",
       "row_selected_border": "primary"
     }
   },
