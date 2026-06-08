@@ -72,6 +72,7 @@ class ResetService:
         try:
             conn = self.db.connection
             cur = conn.cursor()
+            cur.execute("PRAGMA foreign_keys = ON")
 
             if ticket_ids:
                 placeholders = ','.join('?' * len(ticket_ids))
@@ -100,6 +101,7 @@ class ResetService:
         try:
             conn = self.db.connection
             cur = conn.cursor()
+            cur.execute("PRAGMA foreign_keys = ON")
             if ticket_nums:
                 placeholders = ','.join('?' * len(ticket_nums))
                 # Eliminar stock_movements relacionados con las líneas de esos tickets
@@ -145,6 +147,7 @@ class ResetService:
         try:
             conn = self.db.connection
             cur = conn.cursor()
+            cur.execute("PRAGMA foreign_keys = ON")
 
             cur.execute("DELETE FROM cierres")
             logging.warning('TODOS los cierres borrados')
@@ -165,6 +168,7 @@ class ResetService:
         try:
             conn = self.db.connection
             cur = conn.cursor()
+            cur.execute("PRAGMA foreign_keys = ON")
 
             if albaran_ids:
                 placeholders = ','.join('?' * len(albaran_ids))
@@ -194,6 +198,7 @@ class ResetService:
         try:
             conn = self.db.connection
             cur = conn.cursor()
+            cur.execute("PRAGMA foreign_keys = ON")
 
             placeholders = ','.join('?' * len(producto_ids))
             cur.execute(f"DELETE FROM productos WHERE id IN ({placeholders})", producto_ids)
@@ -327,6 +332,7 @@ class ResetService:
         try:
             conn = self.db.connection
             cur = conn.cursor()
+            cur.execute("PRAGMA foreign_keys = ON")
 
             if factura_ids:
                 placeholders = ','.join('?' * len(factura_ids))
@@ -392,6 +398,7 @@ class ResetService:
         try:
             conn = self.db.connection
             cur = conn.cursor()
+            cur.execute("PRAGMA foreign_keys = ON")
 
             cur.execute("DELETE FROM devoluciones")
             logging.warning('RESET COMPLETO: devoluciones borradas')
