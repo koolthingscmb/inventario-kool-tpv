@@ -192,8 +192,8 @@ class BusquedaUI:
             if getattr(self, 'check_archivado', None) and self.check_archivado.get():
                 estados.append('archivado')
 
-            return self.service.buscar(
-                termino=texto,
+            return self.service.buscar_productos_paginados(
+                termino_busqueda=texto,
                 categoria_id=cat_id,
                 tipo_id=tipo_id,
                 estados=estados if estados else None,
