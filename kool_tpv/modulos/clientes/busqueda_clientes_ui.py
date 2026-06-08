@@ -1,9 +1,8 @@
-"""UI de Búsqueda Clientes (Grid manual dentro de CTkScrollableFrame).
+"""UI de Búsqueda Clientes con SearchablePaginatedNavList.
 
-Clon de busqueda_ui.py adaptado para clientes.
-Provee búsqueda en tiempo real y scroll infinito (paginado).
+Búsqueda manual (Return) sin scroll infinito.
 """
-from typing import Optional
+from typing import Optional, List, Dict, Any
 import logging
 import customtkinter as ctk
 import tkinter as tk
@@ -11,9 +10,10 @@ import tkinter as tk
 from kool_tpv.modulos.clientes.cliente_service import ClienteService
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
 from kool_tpv.utils.font_loader import get_font
-from kool_tpv.utils.config_loader import load_colors
+from kool_tpv.utils.config_loader import load_colors, load_layout_config
 from kool_tpv.utils.keyboard_manager import KeyboardManager
-from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
+from kool_tpv.utils.widgets.searchable_paginated_navlist import SearchablePaginatedNavList
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.base_datos.money_adapter import read_from_db
 
 
@@ -57,12 +57,12 @@ class BusquedaClientesUI:
             self.colors = {'text': COLOR_MATRIX, 'primary': COLOR_MATRIX, 'accent': COLOR_MATRIX}
         self.container = ctk.CTkFrame(self.parent, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
 
-        # Search entry
+        # Search entry - búsqueda manual con Return
         self.search_var = tk.StringVar()
         self.search_entry = ctk.CTkEntry(
             self.container,
             textvariable=self.search_var,
-            placeholder_text='Buscar cliente (nombre, DNI, teléfono)...',
+            placeholder_text='Buscar cliente (nombre, DNI, teléfono)... (pulsa Return)',
             height=36,
             fg_color=self.colors.get('background', COLOR_BG_TERMINAL),
             text_color=self.colors.get('text', COLOR_MATRIX),
@@ -71,7 +71,7 @@ class BusquedaClientesUI:
             font=get_font('entry', module=self.module_name)
         )
         self.search_entry.pack(fill='x', padx=12, pady=(12, 6))
-        self.search_entry.bind('<KeyRelease>', lambda e: self._on_search())
+        self.search_entry.bind('<Return>', lambda e: self._on_search())
 
         # Barra de filtros horizontal
         filter_frame = ctk.CTkFrame(self.container, fg_color='transparent', height=40)
@@ -98,8 +98,7 @@ class BusquedaClientesUI:
             variable=self.check_tesoro_activo,
             text_color=self.colors.get('text', COLOR_MATRIX),
             fg_color=self.colors.get('primary', COLOR_MATRIX),
-            hover_color=self.colors.get('buttons', {}).get('primary', {}).get('hover', self.colors.get('secondary', '#00AA00')),
-            command=self._on_search
+            hover_color=self.colors.get('buttons', {}).get('primary', {}).get('hover', self.colors.get('secondary', '#00AA00'))
         ).pack(side='left', padx=4)
 
         ctk.CTkCheckBox(
@@ -108,53 +107,44 @@ class BusquedaClientesUI:
             variable=self.check_tesoro_inactivo,
             text_color=self.colors.get('text', COLOR_MATRIX),
             fg_color=self.colors.get('primary', COLOR_MATRIX),
-            hover_color=self.colors.get('buttons', {}).get('primary', {}).get('hover', self.colors.get('secondary', '#00AA00')),
-            command=self._on_search
+            hover_color=self.colors.get('buttons', {}).get('primary', {}).get('hover', self.colors.get('secondary', '#00AA00'))
         ).pack(side='left', padx=4)
 
-        # Data area -> usar NavList para filas
+        # Botón Buscar
+        self.btn_buscar = ButtonFactory.create_button(
+            parent=filter_frame,
+            text='BUSCAR',
+            command=self._on_search,
+            style_key='action_primary'
+        )
+        self.btn_buscar.pack(side='right', padx=12)
+
+        # Crear SearchablePaginatedNavList
         columns = [
-            ('ID', 50), ('NOMBRE', 220), ('TELÉFONO', 120), ('EMAIL', 180), ('CIUDAD', 120),
-            ('TESORO', 90), ('NIVEL', 100), ('COMPRAS', 80), ('ÚLTIMA COMPRA', 120), ('ESTADO', 100)
+            ('id', 50, 'ID'),
+            ('nombre', 220, 'NOMBRE'),
+            ('telefono', 120, 'TELÉFONO'),
+            ('email', 180, 'EMAIL'),
+            ('ciudad', 120, 'CIUDAD'),
+            ('tesoro', 90, 'TESORO'),
+            ('nivel', 100, 'NIVEL'),
+            ('compras', 80, 'COMPRAS'),
+            ('ultima_compra', 120, 'ÚLTIMA COMPRA'),
+            ('estado', 100, 'ESTADO')
         ]
 
-        try:
-            self.nav_list = VirtualNavList(
-                self.container,
-                columns=columns,
-                on_select=self._on_nav_select,
-                on_double_click=self._on_nav_double_click,
-                module_name=self.module_name,
-                keyboard_manager=self.keyboard_manager
-            )
-            self.nav_list.pack(fill='both', expand=True, padx=12, pady=6)
-
-            # Exponer alias usado por el código existente
-            self.data_frame = self.nav_list
-            # canvas para chequear scroll
-            self._canvas = getattr(self.nav_list, '_canvas', None)
-        except Exception:
-            logging.exception('Error creando NavList en BusquedaClientesUI')
-            # Fallback: crear data_frame clásico
-            self.data_frame = ctk.CTkScrollableFrame(self.container, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
-            self.data_frame.pack(fill='both', expand=True, padx=12, pady=6)
-
-        # Paginación
-        self.page_limit = 50
-        self.offset = 0
-        self.termino = ''
-        self.loading = False
-        self.row_count = 0
-        self._canvas = getattr(self.data_frame, '_canvas', None)
-
-        # Cargar primera página
-        self._reset_and_load()
-
-        # Auto-scroll check
-        try:
-            self._periodic_check()
-        except Exception:
-            pass
+        self.search_list = SearchablePaginatedNavList(
+            parent=self.container,
+            columns=columns,
+            search_function=self._buscar_clientes,
+            map_function=self._map_cliente,
+            module_name=self.module_name,
+            page_limit=50,
+            on_double_click=self._on_nav_double_click,
+            keyboard_manager=self.keyboard_manager,
+            layout_config=load_layout_config()
+        )
+        self.search_list.pack(fill='both', expand=True, padx=12, pady=6)
 
         # Auto-focus
         try:
@@ -166,8 +156,12 @@ class BusquedaClientesUI:
         return self.container
 
     def _on_search(self):
-        self.termino = (self.search_var.get() or '').strip()
-        self._reset_and_load()
+        """Disparar búsqueda con filtros actuales."""
+        termino = (self.search_var.get() or '').strip()
+        try:
+            self.search_list.search(termino)
+        except Exception:
+            logging.exception('Error ejecutando búsqueda clientes')
 
     def _reset_and_load(self):
         # Limpiar filas existentes (NavList o data_frame)
