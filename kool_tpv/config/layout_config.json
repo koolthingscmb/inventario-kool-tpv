@@ -214,6 +214,19 @@
     "clientes": {},
     "shopify": {},
     "config": {},
-    "informes": {}
+    "informes": {
+      "viewer": {
+        "width": 800,
+        "height": 600
+      },
+      "formats": {
+        "justified_list": {
+          "left_width": 10,
+          "right_width": 12,
+          "separator_char": "-",
+          "separator_padding": 2
+        }
+      }
+    }
   }
 }

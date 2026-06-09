@@ -209,6 +209,66 @@ class TicketRepository:
         except Exception as e:
             logger.warning('Error insertando points_movement: %s', e)
 
+    def get_ticket_ids_by_date_range(self, fecha_inicio: str, fecha_fin: str) -> list:
+        """Devuelve lista de ticket IDs dentro del rango de fechas (inclusive).
+
+        Args:
+            fecha_inicio: 'YYYY-MM-DD'
+            fecha_fin: 'YYYY-MM-DD'
+
+        Returns:
+            List[int]: IDs de tickets con total > 0.
+        """
+        fecha_inicio_sql = f"{fecha_inicio} 00:00:00"
+        fecha_fin_sql = f"{fecha_fin} 23:59:59"
+        query = (
+            "SELECT id FROM tickets "
+            "WHERE created_at BETWEEN ? AND ? AND total > 0"
+        )
+        rows = self.db.fetch_all(query, (fecha_inicio_sql, fecha_fin_sql))
+        return [int(r[0]) for r in (rows or [])]
+
+    def get_resumen_ventas_por_rango(self, fecha_inicio: str, fecha_fin: str) -> dict:
+        """Resumen agregado de ventas entre fechas (total_tickets, total_ventas, total_base)."""
+        fecha_inicio_sql = f"{fecha_inicio} 00:00:00"
+        fecha_fin_sql = f"{fecha_fin} 23:59:59"
+        query = (
+            "SELECT COUNT(*) as total_tickets, "
+            "COALESCE(SUM(total), 0) as total_ventas, "
+            "COALESCE(SUM(subtotal), 0) as total_base "
+            "FROM tickets WHERE created_at BETWEEN ? AND ? AND total > 0"
+        )
+        row = self.db.fetch_one(query, (fecha_inicio_sql, fecha_fin_sql))
+        if not row:
+            return {"total_tickets": 0, "total_ventas": 0.0, "total_base": 0.0}
+
+        total_tickets = int(row[0] or 0)
+        total_ventas = float(read_from_db(row[1] or 0))
+        total_base = float(read_from_db(row[2] or 0))
+
+        return {
+            "total_tickets": total_tickets,
+            "total_ventas": total_ventas,
+            "total_base": total_base,
+        }
+
+    def get_ventas_diarias_por_rango(self, fecha_inicio: str, fecha_fin: str) -> list:
+        """Ventas agregadas por día dentro del rango."""
+        fecha_inicio_sql = f"{fecha_inicio} 00:00:00"
+        fecha_fin_sql = f"{fecha_fin} 23:59:59"
+        query = (
+            "SELECT DATE(created_at) as fecha, COALESCE(SUM(total), 0) as total_dia "
+            "FROM tickets WHERE created_at BETWEEN ? AND ? AND total > 0 "
+            "GROUP BY DATE(created_at) ORDER BY DATE(created_at) ASC"
+        )
+        rows = self.db.fetch_all(query, (fecha_inicio_sql, fecha_fin_sql))
+        result = []
+        for r in rows or []:
+            fecha = str(r[0]) if r[0] is not None else ''
+            total = float(read_from_db(r[1] or 0))
+            result.append({"fecha": fecha, "total": total})
+        return result
+
     def listar_tickets(self, termino: str = ''):
         """Listar tickets para vistas / búsquedas.
 
@@ -339,3 +399,27 @@ class TicketRepository:
         except Exception:
             logger.exception('Error listando tickets pendientes')
             return []
+
+    def get_ventas_por_cajero(self, fecha_inicio: str, fecha_fin: str) -> list:
+        """Ventas agregadas por cajero en el rango de fechas.
+
+        Retorna lista de tuplas: (cajero, num_tickets, total_ventas)
+        """
+        fecha_inicio_sql = f"{fecha_inicio} 00:00:00"
+        fecha_fin_sql = f"{fecha_fin} 23:59:59"
+
+        query = (
+            "SELECT cajero, COUNT(*) as num_tickets, "
+            "COALESCE(SUM(total), 0) as total_ventas "
+            "FROM tickets WHERE created_at BETWEEN ? AND ? AND total > 0 "
+            "GROUP BY cajero ORDER BY total_ventas DESC"
+        )
+
+        rows = self.db.fetch_all(query, (fecha_inicio_sql, fecha_fin_sql))
+        resultados = []
+        for r in rows or []:
+            cajero = r[0]
+            num_tickets = int(r[1] or 0)
+            total_ventas = float(read_from_db(r[2] or 0))
+            resultados.append((cajero, num_tickets, total_ventas))
+        return resultados

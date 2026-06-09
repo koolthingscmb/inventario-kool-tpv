@@ -64,11 +64,13 @@ class CategoriaRepository:
             'fide_porcentaje': row[4],
         }
 
-    def get_ventas_por_categoria(self, ticket_ids: List[int], line_tipo: str = None):
+    def get_ventas_por_categoria(self, ticket_ids: List[int], line_tipo: str = None, categoria_ids: List[int] = None):
         """Obtiene ventas agrupadas por categoría para un rango de tickets.
 
         Args:
             ticket_ids: Lista de IDs de tickets
+            line_tipo: Opcional, filtrar por tipo de línea ('venta', 'devolucion')
+            categoria_ids: Opcional, filtrar por IDs de categoría específicos
 
         Returns:
             List[(nombre_categoria, tickets_count, unidades_sum, total_euros)]
@@ -79,8 +81,8 @@ class CategoriaRepository:
         try:
             placeholders = ','.join(['?'] * len(ticket_ids))
             sql = f"""
-            SELECT c.nombre, 
-                   COUNT(DISTINCT tl.ticket_id) AS tickets_cnt, 
+            SELECT c.nombre,
+                   COUNT(DISTINCT tl.ticket_id) AS tickets_cnt,
                    COALESCE(SUM(tl.cantidad), 0) AS uds,
                    COALESCE(SUM(tl.cantidad * tl.precio), 0) AS total_cents
             FROM ticket_lines tl
@@ -90,10 +92,14 @@ class CategoriaRepository:
             """
 
             params = list(ticket_ids)
-            # Filtrar por tipo de línea si se indicó (ej. 'venta' o 'devolucion')
             if line_tipo:
                 sql += " AND tl.line_tipo = ?"
                 params.append(line_tipo)
+
+            if categoria_ids:
+                cat_placeholders = ','.join(['?'] * len(categoria_ids))
+                sql += f" AND p.categoria IN ({cat_placeholders})"
+                params.extend(categoria_ids)
 
             sql += " GROUP BY c.id, c.nombre ORDER BY total_cents DESC"
 
@@ -113,7 +119,7 @@ class CategoriaRepository:
             return result
 
         except Exception as e:
-            logging.exception(f"Error obteniendo ventas por categoría: {e}")
+            logging.exception("Error obteniendo ventas por categoría: %s", e)
             return []
 
     # ── ESCRITURA ─────────────────────────────────────────────────────────────

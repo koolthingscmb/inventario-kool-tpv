@@ -7,7 +7,7 @@ from typing import Optional
 import customtkinter as ctk
 import logging
 
-from kool_tpv.utils.config_loader import load_colors, create_action_button
+from kool_tpv.utils.config_loader import load_colors, create_action_button, load_layout_config
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.templates.base_module_view import BaseModuleView
 from kool_tpv.utils.utils import FONT_TERMINAL
@@ -162,7 +162,8 @@ class InformesView(BaseModuleView):
             self.cb_tipo_informe = ctk.CTkComboBox(
                 filters_frame,
                 values=[
-                    "Ventas por rango de fechas",
+                    "Resumen de ventas",
+                    "Ventas diarias",
                     "Ventas por cajero",
                     "Ventas por categoría",
                     "Ventas por tipo",
@@ -234,7 +235,14 @@ class InformesView(BaseModuleView):
             result_frame = ctk.CTkFrame(content_frame, fg_color='transparent')
             result_frame.pack(fill='both', expand=True, padx=12, pady=(6, 12))
 
-            self.result_textbox = ctk.CTkTextbox(result_frame)
+            # Leer configuración de layout para el viewer
+            layout_cfg = load_layout_config()
+            informes_cfg = layout_cfg.get('informes', {})
+            viewer_cfg = informes_cfg.get('viewer', {})
+            viewer_width = viewer_cfg.get('width', 800)
+            viewer_height = viewer_cfg.get('height', 600)
+
+            self.result_textbox = ctk.CTkTextbox(result_frame, width=viewer_width, height=viewer_height)
             self.result_textbox.pack(fill='both', expand=True)
             # Configurar como solo lectura pero copiable
             try:
@@ -324,8 +332,10 @@ class InformesView(BaseModuleView):
             service = InformesService(self.db)
 
             # Generar informe según tipo
-            if tipo_informe == "Ventas por rango de fechas":
-                report_data = service.get_informe_ventas_por_rango(fecha_inicio, fecha_fin)
+            if tipo_informe == "Resumen de ventas":
+                report_data = service.get_informe_resumen_ventas(fecha_inicio, fecha_fin)
+            elif tipo_informe == "Ventas diarias":
+                report_data = service.get_informe_ventas_diarias(fecha_inicio, fecha_fin)
             elif tipo_informe == "Ventas por cajero":
                 report_data = service.get_informe_ventas_por_cajero(fecha_inicio, fecha_fin)
             elif tipo_informe == "Ventas por categoría":
@@ -392,6 +402,12 @@ class InformesView(BaseModuleView):
                 self.result_textbox.delete('1.0', 'end')
             except Exception:
                 pass
+
+            # Check for special display formats
+            display_format = report_data.get('display_format')
+            if display_format == 'justified_list':
+                self._render_justified_list(report_data)
+                return
 
             # Title
             self.result_textbox.insert('end', f"{report_data.get('title', '')}\n")
@@ -496,6 +512,103 @@ class InformesView(BaseModuleView):
 
         except Exception:
             logging.exception('Error renderizando informe')
+
+    def _render_justified_list(self, report_data: dict):
+        """Renderizar informe con formato de lista justificada.
+
+        Formato:
+        - Tipo (X Tickets):
+        X uds ----------------------------- XX.XX€
+        """
+        try:
+            formatter = FormatterService()
+
+            # Leer configuración de layout
+            layout_cfg = load_layout_config()
+            formats_cfg = layout_cfg.get('informes', {}).get('formats', {}).get('justified_list', {})
+            left_width = formats_cfg.get('left_width', 10)
+            right_width = formats_cfg.get('right_width', 12)
+            sep_char = formats_cfg.get('separator_char', '-')
+            sep_padding = formats_cfg.get('separator_padding', 2)
+
+            # Limpiar textbox
+            try:
+                self.result_textbox.delete('1.0', 'end')
+            except Exception:
+                pass
+
+            # Title
+            title = report_data.get('title', '')
+            self.result_textbox.insert('end', f"{title}\n")
+            self.result_textbox.insert('end', '=' * 50 + "\n")
+
+            # Metadata: fecha y hora
+            generated_at = report_data.get('generated_at')
+            if generated_at:
+                try:
+                    self.result_textbox.insert('end', f"Generado: {formatter.format_fecha(generated_at)}\n")
+                except Exception:
+                    self.result_textbox.insert('end', f"Generado: {generated_at}\n")
+
+            # Rango
+            rng = report_data.get('range', {})
+            if rng:
+                start = rng.get('start', '')
+                end = rng.get('end', '')
+                self.result_textbox.insert('end', f"Rango: {start} → {end}\n")
+
+            self.result_textbox.insert('end', "\n")
+
+            # Calcular ancho del separador basado en viewer width
+            viewer_cfg = layout_cfg.get('informes', {}).get('viewer', {})
+            viewer_width = viewer_cfg.get('width', 800)
+            # Asumimos 8px por caracter aproximadamente
+            total_chars = viewer_width // 8
+            sep_width = total_chars - left_width - right_width - (sep_padding * 2) - 10  # 10 para "uds" y espacios
+            sep_width = max(sep_width, 10)  # Mínimo 10 guiones
+
+            # Renderizar items
+            total_tickets = 0
+            total_uds = 0
+            total_euros = 0.0
+
+            items = report_data.get('items', [])
+            for item in items:
+                tipo_nombre = item.get('nombre', 'Sin nombre')
+                tickets = item.get('tickets', 0)
+                uds = item.get('uds', 0)
+                euros = item.get('euros', 0.0)
+
+                total_tickets += tickets
+                total_uds += uds
+                total_euros += euros
+
+                # Línea de tipo con conteo de tickets
+                self.result_textbox.insert('end', f"- {tipo_nombre} ({tickets} Tickets):\n")
+
+                # Línea de datos justificada
+                left_text = f"{uds} uds"
+                right_text = formatter.format_precio(euros)
+                separator = sep_char * sep_width
+
+                line = f"  {left_text:<{left_width}} {separator:^{sep_width}} {right_text:>{right_width}}\n"
+                self.result_textbox.insert('end', line)
+
+            # Total
+            if items:
+                self.result_textbox.insert('end', "\n")
+                self.result_textbox.insert('end', "-" * 50 + "\n")
+                self.result_textbox.insert('end', f"TOTAL TIPOS ({total_tickets} Tickets):\n")
+
+                left_text = f"{total_uds} uds"
+                right_text = formatter.format_precio(total_euros)
+                separator = sep_char * sep_width
+
+                line = f"  {left_text:<{left_width}} {separator:^{sep_width}} {right_text:>{right_width}}\n"
+                self.result_textbox.insert('end', line)
+
+        except Exception:
+            logging.exception('Error renderizando justified_list')
 
     def _on_filter_change(self, event=None):
         try:

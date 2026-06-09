@@ -16,6 +16,7 @@ from datetime import datetime
 from typing import Optional, List
 
 from kool_tpv.base_datos.cierre_service import CierreService
+from kool_tpv.base_datos.configuracion_repository import ConfiguracionRepository
 
 
 class ExportService:
@@ -27,12 +28,43 @@ class ExportService:
     def __init__(self, db, out_dir: Optional[str] = None):
         self.db = db
         self.cierre_svc = CierreService(db)
+        self.config_repo = ConfiguracionRepository(db)
         base = out_dir or os.path.join(os.getcwd(), "exports")
         self.out_dir = os.path.abspath(base)
         try:
             os.makedirs(self.out_dir, exist_ok=True)
         except Exception:
             logging.exception('No se pudo crear carpeta de exports: %s', self.out_dir)
+
+    def _obtener_plantilla_informes(self) -> dict:
+        """Carga la configuración de plantilla para informes desde la BD."""
+        try:
+            claves = [
+                'informes_pdf_titulo',
+                'informes_pdf_color_primario',
+                'informes_pdf_color_secundario',
+                'informes_pdf_mostrar_logo',
+                'logo_pdf_filename',
+            ]
+            cfg = self.config_repo.obtener_multiples(claves)
+            result = {
+                'titulo': cfg.get('informes_pdf_titulo', 'INFORME DE VENTAS'),
+                'color_primario': cfg.get('informes_pdf_color_primario', '#1F6AA5'),
+                'color_secundario': cfg.get('informes_pdf_color_secundario', '#4A90A4'),
+                'mostrar_logo': cfg.get('informes_pdf_mostrar_logo', '0') == '1',
+                'logo_filename': cfg.get('logo_pdf_filename', ''),
+            }
+            logging.info('Plantilla informes cargada: mostrar_logo=%s, logo_filename=%s', result['mostrar_logo'], result['logo_filename'])
+            return result
+        except Exception:
+            logging.exception('Error cargando plantilla de informes')
+            return {
+                'titulo': 'INFORME DE VENTAS',
+                'color_primario': '#1F6AA5',
+                'color_secundario': '#4A90A4',
+                'mostrar_logo': False,
+                'logo_filename': '',
+            }
 
     def _timestamped_path(self, base_name: str, ext: str) -> str:
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -64,7 +96,7 @@ class ExportService:
 
         try:
             with open(path, 'w', newline='', encoding='utf-8') as f:
-                w = csv.writer(f)
+                w = csv.writer(f, delimiter=';', quoting=csv.QUOTE_MINIMAL)
 
                 # Metadatos
                 w.writerow(['campo', 'valor'])
@@ -124,7 +156,7 @@ class ExportService:
                 pass
 
             with open(path, mode='w', newline='', encoding='utf-8') as f:
-                writer = csv.writer(f)
+                writer = csv.writer(f, delimiter=';', quoting=csv.QUOTE_MINIMAL)
 
                 # Metadata
                 writer.writerow(['Informe de Ventas'])
@@ -179,7 +211,7 @@ class ExportService:
             # Write directly so we can apply per-section formatting (e.g. money columns)
             try:
                 with open(path, mode="w", newline="", encoding="utf-8") as f:
-                    writer = csv.writer(f)
+                    writer = csv.writer(f, delimiter=';', quoting=csv.QUOTE_MINIMAL)
 
                     # Metadata
                     writer.writerow([report_data.get("title", "")])
@@ -386,7 +418,7 @@ class ExportService:
 
         try:
             with open(path, 'w', newline='', encoding='utf-8') as f:
-                w = csv.writer(f)
+                w = csv.writer(f, delimiter=';', quoting=csv.QUOTE_MINIMAL)
                 for cid in cierre_ids:
                     cierre = self.cierre_svc.obtener_cierre_por_id(cid)
                     if cierre is None:
@@ -509,8 +541,31 @@ class ExportService:
 
             styles = getSampleStyleSheet()
 
+            # Cargar plantilla de informes
+            plantilla = self._obtener_plantilla_informes()
+            color_primario = colors.HexColor(plantilla.get('color_primario', '#1F6AA5'))
+            color_secundario = colors.HexColor(plantilla.get('color_secundario', '#4A90A4'))
+
+            # Logo si está configurado
+            logging.info('PDF export: mostrar_logo=%s, logo_filename=%s', plantilla.get('mostrar_logo'), plantilla.get('logo_filename'))
+            if plantilla.get('mostrar_logo'):
+                try:
+                    from pathlib import Path
+                    logo_path = Path(__file__).resolve().parents[2] / 'assets' / plantilla.get('logo_filename', '')
+                    logging.info('PDF export: logo_path=%s, exists=%s', logo_path, logo_path.exists())
+                    if logo_path.exists():
+                        try:
+                            from reportlab.platypus import Image as RLImage
+                            elements.append(RLImage(str(logo_path), width=2*inch, height=1*inch))
+                            elements.append(Spacer(1, 0.2 * inch))
+                            logging.info('PDF export: logo added successfully')
+                        except Exception:
+                            logging.exception('Error añadiendo logo al PDF')
+                except Exception:
+                    logging.exception('Error resolviendo path del logo')
+
             # Title
-            title = report_data.get('title', '')
+            title = plantilla.get('titulo', report_data.get('title', ''))
             if title:
                 elements.append(Paragraph(f"<b>{title}</b>", styles['Title']))
                 elements.append(Spacer(1, 0.3 * inch))
@@ -533,21 +588,27 @@ class ExportService:
             elements.append(Spacer(1, 0.3 * inch))
 
             # Sections
-            for section in report_data.get('sections', []) or []:
+            sections = report_data.get('sections', []) or []
+            logging.info('PDF export: %d sections found', len(sections))
+            for idx, section in enumerate(sections):
+                section_type = section.get('type', 'unknown')
+                section_title = section.get('title', '')
+                logging.info('PDF export: section[%d] type=%s title=%s', idx, section_type, section_title)
+
                 if section.get('title'):
                     elements.append(Paragraph(f"<b>{section.get('title')}</b>", styles.get('Heading2', styles['Heading2'])))
                     elements.append(Spacer(1, 0.2 * inch))
 
-                section_type = section.get('type')
-
                 if section_type == 'blocks':
                     blocks = section.get('blocks', []) or []
+                    logging.info('PDF export: section[%d] has %d blocks', idx, len(blocks))
 
                     for block in blocks:
                         block_title = block.get('title', '')
                         elements.append(Paragraph(f"<b>{block_title}</b>", styles.get('Heading3', styles['Heading3'])))
 
                         block_fields = block.get('fields', []) or []
+                        logging.info('PDF export: block[%s] has %d fields', block_title, len(block_fields))
 
                         # Build vertical table for each block
                         data = []
@@ -566,13 +627,19 @@ class ExportService:
 
                             data.append([label, value_str])
 
+                        if not data:
+                            logging.warning('PDF export: block[%s] has no data, skipping table', block_title)
+                            continue
+
                         table = Table(data, colWidths=[3*inch, 2*inch], hAlign="LEFT")
                         table.setStyle(TableStyle([
                             ("GRID", (0,0), (-1,-1), 0.5, colors.grey),
-                            ("BACKGROUND", (0,0), (0,-1), colors.whitesmoke),
+                            ("BACKGROUND", (0,0), (0,-1), color_primario),
                             ("FONTNAME", (0,0), (-1,-1), "Helvetica"),
                             ("FONTSIZE", (0,0), (-1,-1), 10),
-                            ("ALIGN", (1,0), (1,-1), "RIGHT")
+                            ("ALIGN", (1,0), (1,-1), "RIGHT"),
+                            ("TEXTCOLOR", (0,0), (0,-1), colors.white),
+                            ("TEXTCOLOR", (1,0), (1,-1), colors.black),
                         ]))
 
                         elements.append(table)
@@ -605,7 +672,8 @@ class ExportService:
                         table = Table(data, hAlign='LEFT')
                         table.setStyle(TableStyle([
                             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-                            ('BACKGROUND', (0, 0), (-1, 0), colors.whitesmoke),
+                            ('BACKGROUND', (0, 0), (-1, 0), color_secundario),
+                            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
                             ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
                             ('FONTSIZE', (0, 0), (-1, -1), 10),
                             ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
@@ -613,6 +681,7 @@ class ExportService:
                         elements.append(table)
                         elements.append(Spacer(1, 0.4 * inch))
 
+            logging.info('PDF export: %d elements to build', len(elements))
             doc.build(elements)
             return path
         except Exception:

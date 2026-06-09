@@ -7,6 +7,11 @@ from decimal import Decimal, ROUND_HALF_UP
 import logging
 from typing import List, Optional
 
+from kool_tpv.modulos.almacen.tipo_repository import TipoRepository
+from kool_tpv.modulos.almacen.categoria_repository import CategoriaRepository
+from kool_tpv.modulos.ticket.ticket_repository import TicketRepository
+from kool_tpv.base_datos.money_adapter import read_from_db
+
 
 class InformesService:
     """Placeholder service for Informes module.
@@ -35,152 +40,32 @@ class InformesService:
             return 0.0
 
     def get_resumen_ventas_por_rango(self, fecha_inicio: str, fecha_fin: str) -> dict:
-        """
-        Devuelve resumen agregado de ventas entre fechas (incluidas).
-        Excluye tickets con total <= 0.
-
-        Args:
-            fecha_inicio: fecha inicio en formato 'YYYY-MM-DD'
-            fecha_fin: fecha fin en formato 'YYYY-MM-DD'
-
-        Returns:
-            dict con claves: total_tickets (int), total_ventas (float),
-            total_base (float), total_iva (float), ticket_medio (float)
-        """
-        # Construir rango completo
-        fecha_inicio_sql = f"{fecha_inicio} 00:00:00"
-        fecha_fin_sql = f"{fecha_fin} 23:59:59"
-
-        query = (
-            "SELECT\n"
-            "    COUNT(*) as total_tickets,\n"
-            "    COALESCE(SUM(total), 0) as total_ventas,\n"
-            "    COALESCE(SUM(subtotal), 0) as total_base\n"
-            "FROM tickets\n"
-            "WHERE created_at BETWEEN ? AND ?\n"
-            "  AND total > 0"
-        )
-
-        row = None
-        try:
-            row = self.db.fetch_one(query, (fecha_inicio_sql, fecha_fin_sql))
-        except Exception:
-            # Let exceptions propagate in general use; but ensure we return a valid structure
-            row = None
-
-        # Manejar None y valores nulos
-        if not row:
-            total_tickets = 0
-            total_ventas = 0.0
-            total_base = 0.0
-        else:
-            # sqlite3.Row permite acceso por nombre o por índice
-            try:
-                total_tickets = int(row["total_tickets"] if "total_tickets" in row.keys() else row[0])
-            except Exception:
-                try:
-                    total_tickets = int(row[0] or 0)
-                except Exception:
-                    total_tickets = 0
-
-            try:
-                total_ventas = self._money_from_db(row["total_ventas"] if "total_ventas" in row.keys() else row[1])
-            except Exception:
-                try:
-                    total_ventas = self._money_from_db(row[1] or 0)
-                except Exception:
-                    total_ventas = 0.0
-
-            try:
-                total_base = self._money_from_db(row["total_base"] if "total_base" in row.keys() else row[2])
-            except Exception:
-                try:
-                    total_base = self._money_from_db(row[2] or 0)
-                except Exception:
-                    total_base = 0.0
-
-        # Cálculos derivados
+        """Resumen agregado de ventas entre fechas."""
+        repo = TicketRepository(self.db)
+        raw = repo.get_resumen_ventas_por_rango(fecha_inicio, fecha_fin)
+        total_tickets = raw["total_tickets"]
+        total_ventas = raw["total_ventas"]
+        total_base = raw["total_base"]
         total_iva = total_ventas - total_base
-        if total_tickets and total_tickets > 0:
-            try:
-                ticket_medio = total_ventas / total_tickets
-            except Exception:
-                ticket_medio = 0.0
-        else:
-            ticket_medio = 0.0
-
+        ticket_medio = total_ventas / total_tickets if total_tickets > 0 else 0.0
         return {
-            "total_tickets": int(total_tickets),
-            "total_ventas": float(total_ventas),
-            "total_base": float(total_base),
-            "total_iva": float(total_iva),
-            "ticket_medio": float(ticket_medio),
+            "total_tickets": total_tickets,
+            "total_ventas": total_ventas,
+            "total_base": total_base,
+            "total_iva": total_iva,
+            "ticket_medio": ticket_medio,
         }
 
     def get_ventas_diarias_por_rango(self, fecha_inicio: str, fecha_fin: str) -> list:
-        """
-        Devuelve lista de ventas agregadas por día dentro del rango.
-        Excluye tickets con total <= 0.
+        """Ventas agregadas por día dentro del rango."""
+        repo = TicketRepository(self.db)
+        return repo.get_ventas_diarias_por_rango(fecha_inicio, fecha_fin)
 
-        Retorna:
-            List[dict]: [{"fecha": "YYYY-MM-DD", "total": float}, ...]
-        """
-        fecha_inicio_sql = f"{fecha_inicio} 00:00:00"
-        fecha_fin_sql = f"{fecha_fin} 23:59:59"
-
-        query = (
-            "SELECT\n"
-            "  DATE(created_at) as fecha,\n"
-            "  COALESCE(SUM(total), 0) as total_dia\n"
-            "FROM tickets\n"
-            "WHERE created_at BETWEEN ? AND ?\n"
-            "  AND total > 0\n"
-            "GROUP BY DATE(created_at)\n"
-            "ORDER BY DATE(created_at) ASC"
-        )
-
-        try:
-            rows = self.db.fetch_all(query, (fecha_inicio_sql, fecha_fin_sql))
-        except Exception:
-            rows = None
-
-        result = []
-        if not rows:
-            return result
-
-        for r in rows:
-            try:
-                # soportar sqlite3.Row y tuplas
-                if hasattr(r, 'keys') and 'fecha' in r.keys():
-                    fecha = r['fecha']
-                    total = r['total_dia']
-                else:
-                    fecha = r[0]
-                    total = r[1]
-                # Normalizar tipos
-                fecha_str = fecha if fecha is not None else ''
-                try:
-                    total_f = self._money_from_db(total or 0)
-                except Exception:
-                    total_f = 0.0
-
-                result.append({"fecha": fecha_str, "total": total_f})
-            except Exception:
-                # ignorar filas mal formadas pero continuar
-                continue
-
-        return result
-
-    def get_informe_ventas_por_rango(self, fecha_inicio: str, fecha_fin: str) -> dict:
-        """Construye una estructura completa de informe de ventas para el rango.
-
-        No formatea valores; devuelve datos "crudos" listos para serializar.
-        """
+    def get_informe_resumen_ventas(self, fecha_inicio: str, fecha_fin: str) -> dict:
+        """Resumen agregado de ventas entre fechas."""
         try:
             resumen = self.get_resumen_ventas_por_rango(fecha_inicio, fecha_fin)
         except Exception:
-            logging = __import__('logging')
-            logging.exception('Error obteniendo resumen para get_informe_ventas_por_rango')
             resumen = {
                 "total_tickets": 0,
                 "total_ventas": 0.0,
@@ -189,355 +74,131 @@ class InformesService:
                 "ticket_medio": 0.0,
             }
 
+        from datetime import datetime
+
+        # Construir items para justified_list
+        items = [
+            {"nombre": "Total Tickets", "tickets": resumen.get("total_tickets", 0), "uds": resumen.get("total_tickets", 0), "euros": resumen.get("total_ventas", 0.0)},
+            {"nombre": "Base Imponible", "tickets": 0, "uds": 0, "euros": resumen.get("total_base", 0.0)},
+            {"nombre": "Total IVA", "tickets": 0, "uds": 0, "euros": resumen.get("total_iva", 0.0)},
+            {"nombre": "Ticket Medio", "tickets": 0, "uds": 0, "euros": resumen.get("ticket_medio", 0.0)},
+        ]
+
+        return {
+            "title": "INFORME RESUMEN DE VENTAS",
+            "display_format": "justified_list",
+            "generated_at": datetime.now().isoformat(),
+            "range": {"start": fecha_inicio, "end": fecha_fin},
+            "items": items,
+        }
+
+    def get_informe_ventas_diarias(self, fecha_inicio: str, fecha_fin: str) -> dict:
+        """Ventas agregadas por día dentro del rango."""
         try:
             ventas_diarias = self.get_ventas_diarias_por_rango(fecha_inicio, fecha_fin)
         except Exception:
-            logging = __import__('logging')
-            logging.exception('Error obteniendo ventas_diarias para get_informe_ventas_por_rango')
             ventas_diarias = []
 
         from datetime import datetime
 
-        # Apply monetary normalization to the resumen values (except total_tickets)
-        try:
-            resumen["total_ventas"] = self._money(resumen.get("total_ventas"))
-        except Exception:
-            resumen["total_ventas"] = 0.0
-        try:
-            resumen["total_base"] = self._money(resumen.get("total_base"))
-        except Exception:
-            resumen["total_base"] = 0.0
-        try:
-            resumen["total_iva"] = self._money(resumen.get("total_iva"))
-        except Exception:
-            resumen["total_iva"] = 0.0
-        try:
-            resumen["ticket_medio"] = self._money(resumen.get("ticket_medio"))
-        except Exception:
-            resumen["ticket_medio"] = 0.0
+        items = []
+        for item in ventas_diarias or []:
+            fecha = item.get("fecha", "")
+            total = item.get("total", 0.0)
+            items.append({
+                "nombre": fecha,
+                "tickets": 1,
+                "uds": 1,
+                "euros": total,
+            })
 
-        informe = {
-            "title": "Informe de Ventas",
+        return {
+            "title": "INFORME DE VENTAS DIARIAS",
+            "display_format": "justified_list",
             "generated_at": datetime.now().isoformat(),
-            "range": {
-                "start": fecha_inicio,
-                "end": fecha_fin,
-            },
-            "sections": [
-                {
-                    "type": "summary",
-                    "headers": [
-                        "Total tickets",
-                        "Total ventas",
-                        "Base imponible",
-                        "Total IVA",
-                        "Ticket medio",
-                    ],
-                    "money_columns": [1, 2, 3, 4],
-                    "rows": [[
-                        resumen.get("total_tickets"),
-                        resumen.get("total_ventas"),
-                        resumen.get("total_base"),
-                        resumen.get("total_iva"),
-                        resumen.get("ticket_medio"),
-                    ]],
-                },
-                {
-                    "type": "table",
-                    "title": "Ventas por día",
-                    "headers": ["Fecha", "Total"],
-                    "money_columns": [1],
-                    "rows": [
-                            [item.get("fecha"), self._money(item["total"]) ]
-                            for item in (ventas_diarias or [])
-                        ],
-                },
-            ],
+            "range": {"start": fecha_inicio, "end": fecha_fin},
+            "items": items,
         }
-
-        return informe
 
     def get_informe_ventas_por_cajero(self, fecha_inicio: str, fecha_fin: str) -> dict:
-        """Construye informe de ventas agrupado por cajero.
+        """Construye informe de ventas agrupado por cajero."""
+        repo = TicketRepository(self.db)
+        resultados = repo.get_ventas_por_cajero(fecha_inicio, fecha_fin)
 
-        Devuelve estructura genérica `report_data` con una sección tipo tabla.
-        """
-        # Construir rango completo
-        fecha_inicio_sql = f"{fecha_inicio} 00:00:00"
-        fecha_fin_sql = f"{fecha_fin} 23:59:59"
-
-        query = (
-            "SELECT\n"
-            "    cajero,\n"
-            "    COUNT(*) as num_tickets,\n"
-            "    COALESCE(SUM(total), 0) as total_ventas,\n"
-            "    COALESCE(SUM(subtotal), 0) as total_base,\n"
-            "    COALESCE(SUM(importe_efectivo), 0) as total_efectivo,\n"
-            "    COALESCE(SUM(importe_tarjeta), 0) as total_tarjeta,\n"
-            "    COALESCE(SUM(descuento_euros), 0) as total_descuentos\n"
-            "FROM tickets\n"
-            "WHERE created_at BETWEEN ? AND ?\n"
-            "  AND total > 0\n"
-            "GROUP BY cajero\n"
-            "ORDER BY total_ventas DESC"
-        )
-
-        try:
-            resultados = self.db.fetch_all(query, (fecha_inicio_sql, fecha_fin_sql))
-        except Exception:
-            resultados = None
-
-        # Normalizar resultados a lista vacía si es necesario
-        if not resultados:
-            resultados = []
-
-        blocks = []
-        for r in resultados:
-            try:
-                # Leer campos soportando sqlite3.Row o tuplas
-                if hasattr(r, 'keys') and 'cajero' in r.keys():
-                    cajero = r['cajero']
-                    num_tickets = int(r['num_tickets'] or 0)
-                    total_ventas = self._money_from_db(r['total_ventas'] or 0)
-                    total_base = self._money_from_db(r['total_base'] or 0)
-                    total_efectivo = self._money_from_db(r['total_efectivo'] or 0)
-                    total_tarjeta = self._money_from_db(r['total_tarjeta'] or 0)
-                    total_descuentos = self._money_from_db(r['total_descuentos'] or 0)
-                else:
-                    cajero = r[0]
-                    num_tickets = int(r[1] or 0)
-                    total_ventas = self._money_from_db(r[2] or 0)
-                    total_base = self._money_from_db(r[3] or 0)
-                    total_efectivo = self._money_from_db(r[4] or 0)
-                    total_tarjeta = self._money_from_db(r[5] or 0)
-                    total_descuentos = self._money_from_db(r[6] or 0)
-
-                total_iva = self._money(total_ventas - total_base)
-                if num_tickets > 0:
-                    try:
-                        ticket_medio = self._money(total_ventas / num_tickets)
-                    except Exception:
-                        ticket_medio = 0.0
-                else:
-                    ticket_medio = 0.0
-
-                # Construir block por cajero
-                block = {
-                    "title": cajero,
-                    "fields": [
-                        {"label": "Tickets", "value": num_tickets, "is_money": False},
-                        {"label": "Total ventas", "value": self._money(total_ventas), "is_money": True},
-                        {"label": "Base imponible", "value": self._money(total_base), "is_money": True},
-                        {"label": "Total IVA", "value": total_iva, "is_money": True},
-                        {"label": "Ticket medio", "value": ticket_medio, "is_money": True},
-                        {"label": "Efectivo", "value": self._money(total_efectivo), "is_money": True},
-                        {"label": "Tarjeta", "value": self._money(total_tarjeta), "is_money": True},
-                        {"label": "Descuentos", "value": self._money(total_descuentos), "is_money": True},
-                    ]
-                }
-
-                blocks.append(block)
-            except Exception:
-                # Ignorar filas mal formadas
-                continue
+        items = []
+        for cajero, num_tickets, total_ventas in resultados:
+            items.append({
+                "nombre": cajero,
+                "tickets": num_tickets,
+                "uds": num_tickets,
+                "euros": total_ventas,
+            })
 
         from datetime import datetime
 
-        report_data = {
-            "title": "Informe de Ventas por Cajero",
+        return {
+            "title": "INFORME DE VENTAS POR CAJERO",
+            "display_format": "justified_list",
             "generated_at": datetime.now().isoformat(),
-            "range": {
-                "start": fecha_inicio,
-                "end": fecha_fin
-            },
-            "sections": [
-                {
-                    "type": "blocks",
-                    "title": "Ventas por Cajero",
-                    "blocks": blocks
-                }
-            ]
+            "range": {"start": fecha_inicio, "end": fecha_fin},
+            "items": items,
         }
-
-        return report_data
 
     def get_informe_ventas_por_categoria(self, fecha_inicio: str, fecha_fin: str, categorias: list = None) -> dict:
-        """Informe de ventas agregadas por categoría.
+        """Informe de ventas agregadas por categoría."""
+        ticket_repo = TicketRepository(self.db)
+        ticket_ids = ticket_repo.get_ticket_ids_by_date_range(fecha_inicio, fecha_fin)
 
-        Devuelve una sección tipo `table` con columnas: Categoría, Tickets, Unidades, Total ventas.
-        """
-        fecha_inicio_sql = f"{fecha_inicio} 00:00:00"
-        fecha_fin_sql = f"{fecha_fin} 23:59:59"
+        cat_repo = CategoriaRepository(self.db)
+        categoria_ids = categorias if categorias and isinstance(categorias, (list, tuple)) and len(categorias) > 0 else None
+        resultados = cat_repo.get_ventas_por_categoria(ticket_ids, line_tipo='venta', categoria_ids=categoria_ids)
 
-        query = [
-            "SELECT",
-            "    c.nombre as categoria,",
-            "    COUNT(DISTINCT t.id) as num_tickets,",
-            "    COALESCE(SUM(tl.cantidad), 0) as total_unidades,",
-            "    COALESCE(SUM(tl.cantidad * tl.precio), 0) as total_ventas",
-            "FROM tickets t",
-            "JOIN ticket_lines tl ON t.id = tl.ticket_id",
-            "JOIN productos p ON tl.producto_id = p.id",
-            "JOIN categorias c ON p.categoria = c.id",
-            "WHERE t.created_at BETWEEN ? AND ?",
-            "  AND t.total > 0",
-            "  AND tl.line_tipo = 'venta'",
-        ]
-
-        params = [fecha_inicio_sql, fecha_fin_sql]
-
-        # Si se pasan categorías, aplicar filtro
-        if categorias and isinstance(categorias, (list, tuple)) and len(categorias) > 0:
-            placeholders = ','.join(['?'] * len(categorias))
-            query.append(f"  AND p.categoria IN ({placeholders})")
-            params.extend(categorias)
-
-        query.extend([
-            "GROUP BY c.nombre",
-            "ORDER BY total_ventas DESC"
-        ])
-
-        full_query = "\n".join(query)
-
-        try:
-            resultados = self.db.fetch_all(full_query, tuple(params))
-        except Exception:
-            logging.exception('Error ejecutando consulta get_informe_ventas_por_categoria')
-            resultados = None
-
-        if not resultados:
-            resultados = []
-
-        rows = []
-        for r in resultados:
-            try:
-                if hasattr(r, 'keys') and 'categoria' in r.keys():
-                    categoria = r['categoria']
-                    num_tickets = int(r['num_tickets'] or 0)
-                    total_unidades = int(r['total_unidades'] or 0)
-                    total_ventas = float(r['total_ventas'] or 0.0)
-                else:
-                    categoria = r[0]
-                    num_tickets = int(r[1] or 0)
-                    total_unidades = int(r[2] or 0)
-                    total_ventas = float(r[3] or 0.0)
-
-                rows.append([
-                    categoria,
-                    num_tickets,
-                    total_unidades,
-                    self._money(total_ventas),
-                ])
-            except Exception:
-                continue
+        items = []
+        for nombre, num_tickets, uds, total_euros in resultados:
+            items.append({
+                "nombre": nombre,
+                "tickets": num_tickets,
+                "uds": uds,
+                "euros": float(total_euros),
+            })
 
         from datetime import datetime
 
-        report_data = {
-            "title": "Informe de Ventas por Categoría",
+        return {
+            "title": "INFORME DE VENTAS POR CATEGORÍA",
+            "display_format": "justified_list",
             "generated_at": datetime.now().isoformat(),
             "range": {"start": fecha_inicio, "end": fecha_fin},
-            "sections": [
-                {
-                    "type": "table",
-                    "title": "Ventas por Categoría",
-                    "headers": ["Categoría", "Tickets", "Unidades", "Total ventas"],
-                    "money_columns": [3],
-                    "rows": rows,
-                }
-            ],
+            "items": items,
         }
-
-        return report_data
 
     def get_informe_ventas_por_tipo(self, fecha_inicio: str, fecha_fin: str, tipos: list = None) -> dict:
-        """Informe de ventas agregadas por tipo de producto.
+        """Informe de ventas agregadas por tipo de producto."""
+        ticket_repo = TicketRepository(self.db)
+        ticket_ids = ticket_repo.get_ticket_ids_by_date_range(fecha_inicio, fecha_fin)
 
-        Similar a categoría, agrupa por `tp.nombre`.
-        """
-        fecha_inicio_sql = f"{fecha_inicio} 00:00:00"
-        fecha_fin_sql = f"{fecha_fin} 23:59:59"
+        tipo_repo = TipoRepository(self.db)
+        tipo_ids = tipos if tipos and isinstance(tipos, (list, tuple)) and len(tipos) > 0 else None
+        resultados = tipo_repo.get_ventas_por_tipo(ticket_ids, line_tipo='venta', tipo_ids=tipo_ids)
 
-        query = [
-            "SELECT",
-            "    tp.nombre as tipo,",
-            "    COUNT(DISTINCT t.id) as num_tickets,",
-            "    COALESCE(SUM(tl.cantidad), 0) as total_unidades,",
-            "    COALESCE(SUM(tl.cantidad * tl.precio), 0) as total_ventas",
-            "FROM tickets t",
-            "JOIN ticket_lines tl ON t.id = tl.ticket_id",
-            "JOIN productos p ON tl.producto_id = p.id",
-            "JOIN tipos tp ON p.tipo = tp.id",
-            "WHERE t.created_at BETWEEN ? AND ?",
-            "  AND t.total > 0",
-            "  AND tl.line_tipo = 'venta'",
-        ]
-
-        params = [fecha_inicio_sql, fecha_fin_sql]
-
-        # Si se pasan tipos, aplicar filtro
-        if tipos and isinstance(tipos, (list, tuple)) and len(tipos) > 0:
-            placeholders = ','.join(['?'] * len(tipos))
-            query.append(f"  AND p.tipo IN ({placeholders})")
-            params.extend(tipos)
-
-        query.extend([
-            "GROUP BY tp.nombre",
-            "ORDER BY total_ventas DESC"
-        ])
-
-        full_query = "\n".join(query)
-
-        try:
-            resultados = self.db.fetch_all(full_query, tuple(params))
-        except Exception:
-            logging.exception('Error ejecutando consulta get_informe_ventas_por_tipo')
-            resultados = None
-
-        if not resultados:
-            resultados = []
-
-        rows = []
-        for r in resultados:
-            try:
-                if hasattr(r, 'keys') and 'tipo' in r.keys():
-                    tipo = r['tipo']
-                    num_tickets = int(r['num_tickets'] or 0)
-                    total_unidades = int(r['total_unidades'] or 0)
-                    total_ventas = self._money_from_db(r['total_ventas'] or 0)
-                else:
-                    tipo = r[0]
-                    num_tickets = int(r[1] or 0)
-                    total_unidades = int(r[2] or 0)
-                    total_ventas = self._money_from_db(r[3] or 0)
-
-                rows.append([
-                    tipo,
-                    num_tickets,
-                    total_unidades,
-                    self._money(total_ventas),
-                ])
-            except Exception:
-                continue
+        items = []
+        for nombre, num_tickets, uds, total_euros in resultados:
+            items.append({
+                "nombre": nombre,
+                "tickets": num_tickets,
+                "uds": uds,
+                "euros": float(total_euros),
+            })
 
         from datetime import datetime
 
-        report_data = {
-            "title": "Informe de Ventas por Tipo",
+        return {
+            "title": "INFORME DE VENTAS POR TIPO",
+            "display_format": "justified_list",
             "generated_at": datetime.now().isoformat(),
             "range": {"start": fecha_inicio, "end": fecha_fin},
-            "sections": [
-                {
-                    "type": "table",
-                    "title": "Ventas por Tipo",
-                    "headers": ["Tipo", "Tickets", "Unidades", "Total ventas"],
-                    "money_columns": [3],
-                    "rows": rows,
-                }
-            ],
+            "items": items,
         }
-
-        return report_data
 
     def buscar_categorias_dinamico(self, texto: str):
         """Búsqueda dinámica de categorías para widgets de tipo TagSelector.
@@ -593,141 +254,72 @@ class InformesService:
 
         return results
 
-    def get_informe_stock_por_categoria(self, categoria_ids: List[int] = None) -> dict:
-        """Informe de stock filtrable por categorías.
+    def _build_stock_report(self, group_by: str, filter_ids: list, title: str,
+                            section_title: str, fallback_name: str,
+                            export_headers: list) -> dict:
+        """Helper genérico para informes de stock agrupados."""
+        join_table = 'categorias' if group_by == 'categoria' else 'tipos'
+        alias = 'c' if group_by == 'categoria' else 't'
+        id_col = 'p.categoria' if group_by == 'categoria' else 'p.tipo'
+        name_col = f"{alias}.nombre as {group_by}"
+        order_by = f"{alias}.nombre, p.nombre"
 
-        Args:
-            categoria_ids: lista de ids de categoría a filtrar (None o lista vacía = todas)
+        query = (
+            f"SELECT p.sku, p.nombre, {name_col}, "
+            f"p.stock_actual, p.stock_minimo, COALESCE(pr.coste, 0) as precio_coste "
+            f"FROM productos p "
+            f"LEFT JOIN {join_table} {alias} ON {id_col} = {alias}.id "
+            f"LEFT JOIN precios pr ON p.id = pr.producto_id AND pr.activo = 1 "
+            f"WHERE p.activo = 1"
+        )
 
-        Returns:
-            report_data dict con una sección tipo `table`.
-        """
-        fecha_inicio_sql = None  # no aplica, mantenemos la firma coherente con otros informes
+        params = []
+        if filter_ids and isinstance(filter_ids, (list, tuple)) and len(filter_ids) > 0:
+            placeholders = ','.join(['?'] * len(filter_ids))
+            query += f" AND {id_col} IN ({placeholders})"
+            params.extend(filter_ids)
 
-        query = [
-            "SELECT",
-            "    p.sku,",
-            "    p.nombre,",
-            "    c.nombre as categoria,",
-            "    p.stock_actual,",
-            "    p.stock_minimo,",
-            "    COALESCE(pr.coste, 0) as precio_coste",
-            "FROM productos p",
-            "LEFT JOIN categorias c ON p.categoria = c.id",
-            "LEFT JOIN precios pr ON p.id = pr.producto_id AND pr.activo = 1",
-            "WHERE p.activo = 1",
-        ]
+        query += f" ORDER BY {order_by}"
 
-        params: List = []
+        rows = self.db.fetch_all(query, tuple(params) if params else ())
 
-        if categoria_ids and isinstance(categoria_ids, (list, tuple)) and len(categoria_ids) > 0:
-            placeholders = ','.join(['?'] * len(categoria_ids))
-            query.append(f"  AND p.categoria IN ({placeholders})")
-            params.extend(categoria_ids)
-
-        query.append("ORDER BY c.nombre, p.nombre")
-
-        full_query = "\n".join(query)
-
-        try:
-            resultados = self.db.fetch_all(full_query, tuple(params) if params else ())
-        except Exception:
-            logging.exception('Error ejecutando consulta get_informe_stock_por_categoria')
-            resultados = None
-
-        if not resultados:
-            resultados = []
-
-        # Agrupar por categoría
         from collections import defaultdict
         agrupado = defaultdict(list)
+        export_rows = []
 
-        for r in resultados:
-            try:
-                if hasattr(r, 'keys') and 'sku' in r.keys():
-                    sku = r['sku']
-                    nombre = r['nombre']
-                    categoria = r['categoria']
-                    stock_actual = r['stock_actual']
-                    stock_minimo = r['stock_minimo']
-                    precio_coste = r['precio_coste']
-                else:
-                    sku = r[0]
-                    nombre = r[1]
-                    categoria = r[2]
-                    stock_actual = r[3]
-                    stock_minimo = r[4]
-                    precio_coste = r[5]
+        for r in rows or []:
+            sku, nombre, group_name, stock_actual, stock_minimo, precio_coste = r
+            group_name = group_name or fallback_name
+            coste_fmt = float(read_from_db(precio_coste or 0))
 
-                cat_key = categoria or 'Sin categoría'
-                agrupado[cat_key].append({
-                    'sku': sku,
-                    'nombre': nombre,
-                    'stock_actual': stock_actual,
-                    'stock_minimo': stock_minimo,
-                    'precio_coste': precio_coste,
-                })
-            except Exception:
-                continue
+            agrupado[group_name].append({
+                'sku': sku, 'nombre': nombre,
+                'stock_actual': stock_actual, 'stock_minimo': stock_minimo,
+                'coste': coste_fmt,
+            })
+            export_rows.append([group_name, sku, nombre, stock_actual, stock_minimo, coste_fmt])
 
         blocks = []
-        for categoria, productos in agrupado.items():
+        for gname, productos in agrupado.items():
             fields = []
             for p in productos:
-                try:
-                    coste_fmt = self._money_from_db(p.get('precio_coste') or 0)
-                except Exception:
-                    coste_fmt = self._money_from_db(0)
-
-                label = f"{p.get('sku')} - {p.get('nombre')}"
-                value = f"Stock: {p.get('stock_actual')} - Mínimo: {p.get('stock_minimo')} - Coste: {coste_fmt}"
+                label = f"{p['sku']} - {p['nombre']}"
+                value = f"Stock: {p['stock_actual']} - Min: {p['stock_minimo']} - Coste: {p['coste']}"
                 fields.append({"label": label, "value": value, "is_money": False})
-
-            blocks.append({"title": categoria, "fields": fields})
-        # Construir tabla para exportación (analítica)
-        export_rows = []
-        for r in resultados:
-            try:
-                if hasattr(r, 'keys') and 'sku' in r.keys():
-                    sku = r['sku']
-                    nombre = r['nombre']
-                    categoria = r['categoria']
-                    stock_actual = r['stock_actual']
-                    stock_minimo = r['stock_minimo']
-                    precio_coste = r['precio_coste']
-                else:
-                    sku = r[0]
-                    nombre = r[1]
-                    categoria = r[2]
-                    stock_actual = r[3]
-                    stock_minimo = r[4]
-                    precio_coste = r[5]
-
-                coste_fmt = self._money(precio_coste)
-                export_rows.append([
-                    categoria or 'Sin categoría',
-                    sku,
-                    nombre,
-                    stock_actual,
-                    stock_minimo,
-                    coste_fmt,
-                ])
-            except Exception:
-                continue
+            blocks.append({"title": gname, "fields": fields})
 
         from datetime import datetime
-
-        report_data = {
-            "title": "Informe de Stock por Categoría",
+        return {
+            "title": title,
             "generated_at": datetime.now().isoformat(),
             "range": None,
             "sections": [
                 {
                     "type": "blocks",
-                    "title": "Stock por Categoría",
+                    "title": section_title,
                     "blocks": blocks,
                     "export_table": {
-                        "headers": ["Categoría", "SKU", "Nombre", "Stock actual", "Stock mínimo", "Precio coste"],
+                        "headers": export_headers,
                         "money_columns": [5],
                         "rows": export_rows,
                     }
@@ -735,148 +327,24 @@ class InformesService:
             ],
         }
 
-        return report_data
+    def get_informe_stock_por_categoria(self, categoria_ids: List[int] = None) -> dict:
+        """Informe de stock filtrable por categorías."""
+        return self._build_stock_report(
+            group_by='categoria',
+            filter_ids=categoria_ids,
+            title='Informe de Stock por Categoría',
+            section_title='Stock por Categoría',
+            fallback_name='Sin categoría',
+            export_headers=['Categoría', 'SKU', 'Nombre', 'Stock actual', 'Stock mínimo', 'Precio coste'],
+        )
 
     def get_informe_stock_por_tipo(self, tipo_ids: List[int] = None) -> dict:
-        """Informe de stock filtrable por tipos.
-        Args:
-            tipo_ids: lista de ids de tipo a filtrar (None o lista vacía = todos)
-
-        Returns:
-            report_data dict con una sección tipo `table`.
-        """
-        fecha_inicio_sql = None  # no aplica, mantenemos la firma coherente con otros informes
-
-        query = [
-            "SELECT",
-            "    p.sku,",
-            "    p.nombre,",
-            "    t.nombre as tipo,",
-            "    p.stock_actual,",
-            "    p.stock_minimo,",
-            "    COALESCE(pr.coste, 0) as precio_coste",
-            "FROM productos p",
-            "LEFT JOIN tipos t ON p.tipo = t.id",
-            "LEFT JOIN precios pr ON p.id = pr.producto_id AND pr.activo = 1",
-            "WHERE p.activo = 1",
-        ]
-
-        params: List = []
-
-        if tipo_ids and isinstance(tipo_ids, (list, tuple)) and len(tipo_ids) > 0:
-            placeholders = ','.join(['?'] * len(tipo_ids))
-            query.append(f"  AND p.tipo IN ({placeholders})")
-            params.extend(tipo_ids)
-
-        query.append("ORDER BY t.nombre, p.nombre")
-
-        full_query = "\n".join(query)
-
-        try:
-            resultados = self.db.fetch_all(full_query, tuple(params) if params else ())
-        except Exception:
-            logging.exception('Error ejecutando consulta get_informe_stock_por_tipo')
-            resultados = None
-
-        if not resultados:
-            resultados = []
-
-        # Agrupar por tipo
-        from collections import defaultdict
-        agrupado = defaultdict(list)
-
-        for r in resultados:
-            try:
-                if hasattr(r, 'keys') and 'sku' in r.keys():
-                    sku = r['sku']
-                    nombre = r['nombre']
-                    tipo_nombre = r['tipo']
-                    stock_actual = r['stock_actual']
-                    stock_minimo = r['stock_minimo']
-                    precio_coste = r['precio_coste']
-                else:
-                    sku = r[0]
-                    nombre = r[1]
-                    tipo_nombre = r[2]
-                    stock_actual = r[3]
-                    stock_minimo = r[4]
-                    precio_coste = r[5]
-
-                tipo_key = tipo_nombre or 'Sin tipo'
-                agrupado[tipo_key].append({
-                    'sku': sku,
-                    'nombre': nombre,
-                    'stock_actual': stock_actual,
-                    'stock_minimo': stock_minimo,
-                    'precio_coste': precio_coste,
-                })
-            except Exception:
-                continue
-
-        blocks = []
-        for tipo_nombre, productos in agrupado.items():
-            fields = []
-            for p in productos:
-                try:
-                    coste_fmt = self._money_from_db(p.get('precio_coste') or 0)
-                except Exception:
-                    coste_fmt = self._money_from_db(0)
-
-                label = f"{p.get('sku')} - {p.get('nombre')}"
-                value = f"Stock: {p.get('stock_actual')} - Mínimo: {p.get('stock_minimo')} - Coste: {coste_fmt}"
-                fields.append({"label": label, "value": value, "is_money": False})
-
-            blocks.append({"title": tipo_nombre, "fields": fields})
-
-        # Construir tabla para exportación (analítica)
-        export_rows = []
-        for r in resultados:
-            try:
-                if hasattr(r, 'keys') and 'sku' in r.keys():
-                    sku = r['sku']
-                    nombre = r['nombre']
-                    tipo_nombre = r['tipo']
-                    stock_actual = r['stock_actual']
-                    stock_minimo = r['stock_minimo']
-                    precio_coste = r['precio_coste']
-                else:
-                    sku = r[0]
-                    nombre = r[1]
-                    tipo_nombre = r[2]
-                    stock_actual = r[3]
-                    stock_minimo = r[4]
-                    precio_coste = r[5]
-
-                coste_fmt = self._money(precio_coste)
-                export_rows.append([
-                    tipo_nombre or 'Sin tipo',
-                    sku,
-                    nombre,
-                    stock_actual,
-                    stock_minimo,
-                    coste_fmt,
-                ])
-            except Exception:
-                continue
-
-        from datetime import datetime
-
-        report_data = {
-            "title": "Informe de Stock por Tipo",
-            "generated_at": datetime.now().isoformat(),
-            "range": None,
-            "sections": [
-                {
-                    "type": "blocks",
-                    "title": "Stock por Tipo",
-                    "blocks": blocks,
-                    "export_table": {
-                        "headers": ["Tipo", "SKU", "Nombre", "Stock actual", "Stock mínimo", "Precio coste"],
-                        "money_columns": [5],
-                        "rows": export_rows,
-                    }
-                }
-            ],
-        }
-
-        return report_data
+        """Informe de stock filtrable por tipos."""
+        return self._build_stock_report(
+            group_by='tipo',
+            filter_ids=tipo_ids,
+            title='Informe de Stock por Tipo',
+            section_title='Stock por Tipo',
+            fallback_name='Sin tipo',
+            export_headers=['Tipo', 'SKU', 'Nombre', 'Stock actual', 'Stock mínimo', 'Precio coste'],
+        )

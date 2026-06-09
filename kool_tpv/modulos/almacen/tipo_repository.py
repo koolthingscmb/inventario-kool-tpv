@@ -64,11 +64,13 @@ class TipoRepository:
             'fide_porcentaje': row[4],
         }
 
-    def get_ventas_por_tipo(self, ticket_ids: List[int], line_tipo: str = None):
+    def get_ventas_por_tipo(self, ticket_ids: List[int], line_tipo: str = None, tipo_ids: List[int] = None):
         """Obtiene ventas agrupadas por tipo para un rango de tickets.
 
         Args:
             ticket_ids: Lista de IDs de tickets
+            line_tipo: Opcional, filtrar por tipo de línea ('venta', 'devolucion')
+            tipo_ids: Opcional, filtrar por IDs de tipo específicos
 
         Returns:
             List[(nombre_tipo, tickets_count, unidades_sum, total_euros)]
@@ -79,8 +81,8 @@ class TipoRepository:
         try:
             placeholders = ','.join(['?'] * len(ticket_ids))
             sql = f"""
-            SELECT t.nombre, 
-                   COUNT(DISTINCT tl.ticket_id) AS tickets_cnt, 
+            SELECT t.nombre,
+                   COUNT(DISTINCT tl.ticket_id) AS tickets_cnt,
                    COALESCE(SUM(tl.cantidad), 0) AS uds,
                    COALESCE(SUM(tl.cantidad * tl.precio), 0) AS total_cents
             FROM ticket_lines tl
@@ -93,6 +95,11 @@ class TipoRepository:
             if line_tipo:
                 sql += " AND tl.line_tipo = ?"
                 params.append(line_tipo)
+
+            if tipo_ids:
+                tipo_placeholders = ','.join(['?'] * len(tipo_ids))
+                sql += f" AND p.tipo IN ({tipo_placeholders})"
+                params.extend(tipo_ids)
 
             sql += " GROUP BY t.id, t.nombre ORDER BY total_cents DESC"
 
@@ -112,7 +119,7 @@ class TipoRepository:
             return result
 
         except Exception as e:
-            logging.exception(f"Error obteniendo ventas por tipo: {e}")
+            logging.exception("Error obteniendo ventas por tipo: %s", e)
             return []
 
     # ── ESCRITURA ─────────────────────────────────────────────────────────────

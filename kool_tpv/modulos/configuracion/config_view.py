@@ -263,6 +263,7 @@ class ConfigView(BaseModuleView):
                 'show_impresora_config': self.show_impresora_config,
                 'show_textos_tickets': self.show_textos_tickets,
                 'show_plantillas': self.show_plantillas,
+                'show_plantillas_informes': self.show_plantillas_informes,
             }
 
             def _norm(s: str) -> str:
@@ -516,6 +517,20 @@ class ConfigView(BaseModuleView):
                 logging.info('Config: abriendo PLANTILLAS...')
         except Exception:
             logging.exception('Error en show_plantillas')
+
+    def show_plantillas_informes(self):
+        """Mostrar configuración de plantilla PDF de informes."""
+        try:
+            from kool_tpv.modulos.configuracion.impresion.plantillas_informes_ui import PlantillasInformesUI
+            ui = PlantillasInformesUI(self.central_area, db=self.db, module_name='config')
+            if self.set_central_content(ui):
+                try:
+                    self.actualizar_ruta('CONFIG / IMPRESIÓN / INFORMES', callbacks=self.breadcrumb_callbacks)
+                except Exception:
+                    pass
+                logging.info('Config: abriendo PLANTILLAS INFORMES...')
+        except Exception:
+            logging.exception('Error en show_plantillas_informes')
 
     def show_config_root(self):
         """Volver a vista raíz de Config (limpiar sidebar y central)."""

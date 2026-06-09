@@ -44,7 +44,8 @@
       "buttons": [
         {"id": "impresora", "text": "IMPRESORA", "action": "show_impresora_config"},
         {"id": "textos", "text": "TEXTOS", "action": "show_textos_tickets"},
-        {"id": "plantillas", "text": "PLANTILLAS", "action": "show_plantillas"}
+        {"id": "plantillas", "text": "PLANTILLAS", "action": "show_plantillas"},
+        {"id": "plantillas_informes", "text": "INFORMES", "action": "show_plantillas_informes"}
       ]
     },
     "fidelizacion_submenu": {
