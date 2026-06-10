@@ -247,11 +247,6 @@ class CarritoNavList(NavList):
                     if key in display:
                         v = display.get(key)
                         logger.info(f"[DEBUG NAVLIST] key={key}, v={v!r}, type={type(v).__name__}")
-                        # Skip empty strings - keep them empty for display
-                        if v == "" or v is None:
-                            logger.info(f"[DEBUG NAVLIST] empty/None value, keeping empty string")
-                            display[key] = ""
-                            continue
                         # int -> cents
                         if isinstance(v, int):
                             euros = read_from_db(v)

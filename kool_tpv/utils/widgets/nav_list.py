@@ -184,6 +184,7 @@ class NavList(ctk.CTkScrollableFrame):
 
             lbl = ctk.CTkLabel(**lbl_params)
             lbl.pack(side='left', padx=8, pady=8)
+            logger.info(f"[DEBUG LABEL CREATED] col_key={col_key!r}, text={lbl.cget('text')!r}, width={width}")
 
             # Bind clicks
             try:
