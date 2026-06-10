@@ -22,12 +22,13 @@ logger = logging.getLogger(__name__)
 
 
 class EntradaManualUI:
-    def __init__(self, parent, db=None, tipo='ENTRADA', module_name: str = 'almacen', keyboard_manager=None):
+    def __init__(self, parent, db=None, tipo='ENTRADA', module_name: str = 'almacen', keyboard_manager=None, albaran_id=None):
         self.parent = parent
         self.db = db
         self.tipo = tipo  # 'ENTRADA', 'SALIDA', 'DEVOLUCION'
         self.module_name = module_name
         self.keyboard_mgr = keyboard_manager
+        self.albaran_id = albaran_id  # None = nuevo albarán, int = edición
         from kool_tpv.utils.config_loader import load_colors
         try:
             self.colors = load_colors(module_name)
@@ -312,6 +313,10 @@ class EntradaManualUI:
         self.lines = []
         self._set_next_num()
         self.e_ean.focus_set()
+
+        # Si se pasa albaran_id, cargar datos existentes
+        if self.albaran_id is not None:
+            self.container.after(100, self._load_albaran_existente)
 
     def get_widget(self):
         return self.container
@@ -657,12 +662,71 @@ class EntradaManualUI:
         except Exception:
             logging.exception('Error actualizando totales')
 
+    def _load_albaran_existente(self):
+        """Precargar cabecera y líneas de un albarán existente para edición."""
+        try:
+            detalle = self.albaran_service.get_albaran_detalle(self.albaran_id)
+            if not detalle:
+                logging.error(f'Albarán {self.albaran_id} no encontrado')
+                return
+
+            albaran = detalle['albaran']
+            lines = detalle['lines'] or []
+
+            # Cabecera: num_albaran (readonly en edición)
+            try:
+                self.e_num_albaran.delete(0, 'end')
+                self.e_num_albaran.insert(0, str(albaran.get('num_albaran', '')))
+                self.e_num_albaran.configure(state='readonly')
+            except Exception:
+                pass
+
+            # Proveedor
+            try:
+                prov_nombre = albaran.get('proveedor_nombre', '')
+                self.cb_proveedor.set(prov_nombre)
+            except Exception:
+                pass
+
+            # Fecha
+            try:
+                self.e_fecha.delete(0, 'end')
+                self.e_fecha.insert(0, albaran.get('fecha', ''))
+            except Exception:
+                pass
+
+            # Líneas
+            self.lines = lines
+            self._render_lines()
+            self._update_totals()
+
+        except Exception:
+            logging.exception(f'Error cargando albarán existente {self.albaran_id}')
+
     def _save_albaran(self):
         try:
             if not self.lines:
                 logging.info('No hay líneas para guardar')
                 return
 
+            # MODO EDICIÓN: actualizar albarán existente
+            if self.albaran_id is not None:
+                success = self.albaran_service.update_albaran_with_new_lines(
+                    self.albaran_id,
+                    self.lines
+                )
+                if success:
+                    logging.info(f'Albarán {self.albaran_id} actualizado correctamente')
+                    try:
+                        show_success(self.container, 'Guardado', f'Albarán {self.albaran_id} actualizado correctamente')
+                    except Exception:
+                        pass
+                    self._load_albaran_existente()
+                else:
+                    logging.error(f'Error actualizando albarán {self.albaran_id}')
+                return
+
+            # MODO NUEVO
             num = int(self.e_num_albaran.get())
             prov_id = self.cb_proveedor.get_id()
             fecha = self.e_fecha.get()

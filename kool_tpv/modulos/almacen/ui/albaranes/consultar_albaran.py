@@ -282,10 +282,10 @@ class ConsultarAlbaranUI:
     def _on_double_click_row(self, data: dict):
         try:
             alb_id = data.get('_id') if data.get('_id') is not None else data.get('ID')
-            if self.owner and hasattr(self.owner, 'show_detalle_albaran'):
+            if self.owner and hasattr(self.owner, 'show_entrada_manual'):
                 try:
-                    self.owner.show_detalle_albaran(alb_id)
+                    self.owner.show_entrada_manual(albaran_id=alb_id)
                 except Exception:
-                    logging.exception('Error llamando a show_detalle_albaran desde ConsultarAlbaranUI')
+                    logging.exception('Error llamando a show_entrada_manual desde ConsultarAlbaranUI')
         except Exception:
             logging.exception('Error manejando doble click en NavList (albaranes)')

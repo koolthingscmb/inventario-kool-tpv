@@ -428,15 +428,16 @@ class AlmacenView(BaseModuleView):
         except Exception:
             logging.exception('Error abriendo mapeo CSV en AlmacenView')
 
-    def show_entrada_manual(self):
+    def show_entrada_manual(self, albaran_id=None):
         """Mostrar UI de entrada manual de albaranes."""
         try:
             from .ui.albaranes.entrada_manual import EntradaManualUI
             try:
-                entrada_ui = EntradaManualUI(self.central_area, db=self.db, module_name='almacen')
+                entrada_ui = EntradaManualUI(self.central_area, db=self.db, module_name='almacen', albaran_id=albaran_id)
                 if self.set_central_content(entrada_ui):
-                    self.actualizar_ruta('ALBARANES / ENTRADA MANUAL', callbacks=self.breadcrumb_callbacks)
-                    logging.info('Abriendo entrada manual...')
+                    ruta = 'ALBARANES / EDITAR ALBARÁN' if albaran_id else 'ALBARANES / ENTRADA MANUAL'
+                    self.actualizar_ruta(ruta, callbacks=self.breadcrumb_callbacks)
+                    logging.info(f'Abriendo entrada manual (albaran_id={albaran_id})...')
             except Exception:
                 logging.exception('Error instanciando EntradaManualUI en show_entrada_manual')
         except Exception:
