@@ -168,6 +168,7 @@ class NavList(ctk.CTkScrollableFrame):
 
             # col_key puede ser header o key; usar raw key si existe
             value = data.get(col_key, '')
+            logger.info(f"[DEBUG NAVLIST_BASE] col_key={col_key!r}, value={value!r}")
 
             lbl_params = {
                 'master': row_frame,
