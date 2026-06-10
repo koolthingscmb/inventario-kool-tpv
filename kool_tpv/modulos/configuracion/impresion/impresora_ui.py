@@ -303,12 +303,15 @@ class ImpresoraUI:
         """Obtener lista de impresoras instaladas en el sistema."""
         try:
             impresoras = []
+            logging.info("[DEBUG IMPRESORA] Iniciando detección de impresoras...")
 
             # Windows
             try:
                 import win32print
                 impresoras = [printer[2] for printer in win32print.EnumPrinters(2)]
-            except Exception:
+                logging.info(f"[DEBUG IMPRESORA] Windows detectó: {impresoras}")
+            except Exception as e:
+                logging.exception(f"[DEBUG IMPRESORA] Error detectando impresoras Windows: {e}")
                 # Mac/Linux: usar lpstat
                 try:
                     import subprocess
@@ -325,9 +328,13 @@ class ImpresoraUI:
             if not impresoras:
                 impresoras = ['Sin impresoras detectadas']
 
+            logging.info(f"[DEBUG IMPRESORA] Lista final de impresoras: {impresoras}")
+            
             try:
                 self.cb_impresora.configure(values=impresoras)
-            except Exception:
+                logging.info(f"[DEBUG IMPRESORA] ComboBox configurado con valores: {impresoras}")
+            except Exception as e:
+                logging.exception(f"[DEBUG IMPRESORA] Error configurando ComboBox: {e}")
                 try:
                     self.cb_impresora.set(impresoras[0])
                 except Exception:
@@ -343,15 +350,23 @@ class ImpresoraUI:
     def _load_data(self):
         """Cargar valores desde tabla configuracion."""
         if not self.db:
+            logging.error("[DEBUG IMPRESORA] No hay conexión a BD en _load_data")
             return
 
+        logging.info("[DEBUG IMPRESORA] Iniciando carga de datos desde BD...")
         try:
             # Cargar printer_name
             row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'printer_name'")
+            logging.info(f"[DEBUG IMPRESORA] BD devolvió printer_name: {row}")
             if row and row[0]:
+                printer_guardada = row[0]
+                logging.info(f"[DEBUG IMPRESORA] Intentando seleccionar impresora guardada: '{printer_guardada}'")
                 try:
-                    self.cb_impresora.set(row[0])
-                except Exception:
+                    self.cb_impresora.set(printer_guardada)
+                    logging.info(f"[DEBUG IMPRESORA] Impresora seleccionada OK: '{printer_guardada}'")
+                except Exception as e:
+                    logging.exception(f"[DEBUG IMPRESORA] Error al hacer set('{printer_guardada}'): {e}")
+                    logging.info(f"[DEBUG IMPRESORA] Valores actuales del ComboBox: {self.cb_impresora.cget('values')}")
                     try:
                         self.cb_impresora.configure(values=[row[0]])
                     except Exception:
