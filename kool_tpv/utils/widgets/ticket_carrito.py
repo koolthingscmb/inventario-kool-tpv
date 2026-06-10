@@ -918,7 +918,7 @@ class TicketCarrito(ctk.CTkFrame):
                             "id": "__tesoro_visual__",
                             "nombre": ">> TESORO CANJEADO <<",
                             "cantidad": "",
-                            "pvp": "",
+                            "pvp": -puntos_centavos,  # Mismo valor que total para mostrar -0.50€
                             "total": -puntos_centavos,  # Negativo en centavos
                             "line_tipo": "tesoro_visual",
                             "visual": True,
