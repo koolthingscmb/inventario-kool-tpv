@@ -139,17 +139,6 @@ class AlbaranesUI:
         except Exception:
             logging.exception('Error en show_consultar')
 
-    def show_detalle_albaran(self, albaran_id):
-        """Mostrar detalle de albarán (delega a owner)."""
-        try:
-            if getattr(self, 'owner', None) and hasattr(self.owner, 'show_detalle_albaran'):
-                self.owner.show_detalle_albaran(albaran_id)
-                logging.info(f'Detalle albarán {albaran_id} cargado correctamente')
-            else:
-                logging.warning('AlbaranesUI: owner no disponible para show_detalle_albaran')
-        except Exception:
-            logging.exception(f'Error en show_detalle_albaran para albarán {albaran_id}')
-
     def _comprobar_borradores(self):
         """Comprobar si hay borradores pendientes y avisar al usuario."""
         try:

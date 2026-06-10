@@ -72,7 +72,6 @@ class AlmacenView(BaseModuleView):
             'show_proveedores': self.show_proveedores,
             'show_entrada_manual': self.show_entrada_manual,
             'show_consultar': self.show_consultar,
-            'show_detalle_albaran': self.show_detalle_albaran,
         }
 
         # Iterate over configured buttons and rebind matching buttons in the UI
@@ -501,31 +500,6 @@ class AlmacenView(BaseModuleView):
                 logging.exception('Error instanciando ConsultarAlbaranUI en show_consultar')
         except Exception:
             logging.exception('Error abriendo consultar en AlmacenView')
-    
-    def show_detalle_albaran(self, albaran_id):
-        """Mostrar detalle de albarán para consulta/edición.
-
-        Args:
-            albaran_id (int): ID del albarán a mostrar
-        """
-        try:
-            from .ui.albaranes.detalle_albaran import DetalleAlbaranUI
-            try:
-                detalle_ui = DetalleAlbaranUI(
-                    self.central_area,
-                    db=self.db,
-                    albaran_id=albaran_id,
-                    owner=self,
-                    module_name='almacen',
-                    keyboard_manager=self.keyboard_mgr,
-                )
-                if self.set_central_content(detalle_ui):
-                    self.actualizar_ruta('ALBARANES / CONSULTAR / DETALLE', callbacks=self.breadcrumb_callbacks)
-                    logging.info(f'Abriendo detalle albarán {albaran_id}...')
-            except Exception:
-                logging.exception('Error instanciando DetalleAlbaranUI en show_detalle_albaran')
-        except Exception:
-            logging.exception(f'Error abriendo detalle albarán {albaran_id} en AlmacenView')
     
     def attach_to_nav(self, nav_frame, button_config: dict):
         """Adjunta el botón del módulo al frame de navegación usando ButtonFactory."""
