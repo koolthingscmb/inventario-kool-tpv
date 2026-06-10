@@ -193,6 +193,9 @@ class AlmacenView(BaseModuleView):
         try:
             # ¿Hay contenido en la zona central?
             if self.central_area.winfo_children():
+                # Verificar cambios sin guardar antes de destruir
+                if not self._check_unsaved_changes():
+                    return True  # Usuario canceló, NO cerrar nada
                 # SÍ → Destruir la sub-vista actual
                 for widget in self.central_area.winfo_children():
                     widget.destroy()
