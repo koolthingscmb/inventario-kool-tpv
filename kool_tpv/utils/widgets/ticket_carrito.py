@@ -951,12 +951,13 @@ class TicketCarrito(ctk.CTkFrame):
                                 texto_descuento = '>> Descuento:'
 
                             # Insert visual discount row
+                            descuento_negativo = -float(descuento_euros)
                             self.carrito_nav_list.add_item({
                                 "id": "__descuento_visual__",
                                 "nombre": texto_descuento,
                                 "cantidad": "",
-                                "pvp": "",
-                                "total": -float(descuento_euros),
+                                "pvp": descuento_negativo,  # Mismo valor que total para mostrar -X.XX€
+                                "total": descuento_negativo,
                                 "line_tipo": "descuento",
                                 "visual": True,
                                 "on_remove": self._remove_descuento_visual if hasattr(self, '_remove_descuento_visual') else (lambda: None)
