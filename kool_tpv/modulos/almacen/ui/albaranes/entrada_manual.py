@@ -376,12 +376,17 @@ class EntradaManualUI:
             logging.exception('Error en _on_producto_seleccionado_buscador')
 
     def has_unsaved_changes(self):
-        """Verificar si hay líneas añadidas sin guardar.
+        """Verificar si hay líneas sin guardar.
+
+        En modo edición: solo líneas nuevas (sin 'id') cuentan como cambios pendientes.
+        En modo nuevo: cualquier línea cuenta.
 
         Returns:
-            bool: True si hay líneas en memoria, False si está vacío
+            bool: True si hay cambios sin guardar
         """
         try:
+            if self.albaran_id is not None:
+                return any('id' not in line for line in self.lines)
             return len(self.lines) > 0
         except Exception:
             return False
