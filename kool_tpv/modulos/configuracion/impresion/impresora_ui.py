@@ -303,15 +303,12 @@ class ImpresoraUI:
         """Obtener lista de impresoras instaladas en el sistema."""
         try:
             impresoras = []
-            logging.info("[DEBUG IMPRESORA] Iniciando detección de impresoras...")
 
             # Windows
             try:
                 import win32print
                 impresoras = [printer[2] for printer in win32print.EnumPrinters(2)]
-                logging.info(f"[DEBUG IMPRESORA] Windows detectó: {impresoras}")
-            except Exception as e:
-                logging.exception(f"[DEBUG IMPRESORA] Error detectando impresoras Windows: {e}")
+            except Exception:
                 # Mac/Linux: usar lpstat
                 try:
                     import subprocess
@@ -328,13 +325,9 @@ class ImpresoraUI:
             if not impresoras:
                 impresoras = ['Sin impresoras detectadas']
 
-            logging.info(f"[DEBUG IMPRESORA] Lista final de impresoras: {impresoras}")
-            
             try:
                 self.cb_impresora.configure(values=impresoras)
-                logging.info(f"[DEBUG IMPRESORA] ComboBox configurado con valores: {impresoras}")
-            except Exception as e:
-                logging.exception(f"[DEBUG IMPRESORA] Error configurando ComboBox: {e}")
+            except Exception:
                 try:
                     self.cb_impresora.set(impresoras[0])
                 except Exception:
@@ -350,23 +343,15 @@ class ImpresoraUI:
     def _load_data(self):
         """Cargar valores desde tabla configuracion."""
         if not self.db:
-            logging.error("[DEBUG IMPRESORA] No hay conexión a BD en _load_data")
             return
 
-        logging.info("[DEBUG IMPRESORA] Iniciando carga de datos desde BD...")
         try:
             # Cargar printer_name
             row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'printer_name'")
-            logging.info(f"[DEBUG IMPRESORA] BD devolvió printer_name: {row}")
             if row and row[0]:
-                printer_guardada = row[0]
-                logging.info(f"[DEBUG IMPRESORA] Intentando seleccionar impresora guardada: '{printer_guardada}'")
                 try:
-                    self.cb_impresora.set(printer_guardada)
-                    logging.info(f"[DEBUG IMPRESORA] Impresora seleccionada OK: '{printer_guardada}'")
-                except Exception as e:
-                    logging.exception(f"[DEBUG IMPRESORA] Error al hacer set('{printer_guardada}'): {e}")
-                    logging.info(f"[DEBUG IMPRESORA] Valores actuales del ComboBox: {self.cb_impresora.cget('values')}")
+                    self.cb_impresora.set(row[0])
+                except Exception:
                     try:
                         self.cb_impresora.configure(values=[row[0]])
                     except Exception:
@@ -484,9 +469,7 @@ class ImpresoraUI:
 
     def _on_save(self):
         """Guardar configuración en BD."""
-        logging.info("[DEBUG IMPRESORA] _on_save INICIADO")
         if not self.db:
-            logging.error("[DEBUG IMPRESORA] _on_save: No hay conexión a BD")
             return
 
         try:
@@ -494,7 +477,6 @@ class ImpresoraUI:
 
             # printer_name
             cambios['printer_name'] = self.cb_impresora.get()
-            logging.info(f"[DEBUG IMPRESORA] _on_save: printer_name='{cambios['printer_name']}'")
 
             # printer_width
             cambios['printer_width'] = self.paper_width_var.get()
@@ -542,16 +524,12 @@ class ImpresoraUI:
             except Exception:
                 pass
 
-            logging.info(f"[DEBUG IMPRESORA] _on_save: Llamando guardar_multiples con {len(cambios)} campos")
             self.config_repo.guardar_multiples(cambios)
-            logging.info("[DEBUG IMPRESORA] _on_save: guardar_multiples ejecutado OK")
 
             from kool_tpv.utils.custom_dialog import show_success
             show_success(self.container, 'Guardado', 'Configuración de impresora guardada')
-            logging.info("[DEBUG IMPRESORA] _on_save: Mensaje de éxito mostrado")
 
-        except Exception as e:
-            logging.exception(f'[DEBUG IMPRESORA] _on_save: ERROR - {e}')
+        except Exception:
             from kool_tpv.utils.custom_dialog import show_error
             show_error(self.container, 'Error', 'No se pudo guardar')
 
