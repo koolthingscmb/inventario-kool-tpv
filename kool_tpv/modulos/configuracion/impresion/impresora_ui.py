@@ -484,7 +484,9 @@ class ImpresoraUI:
 
     def _on_save(self):
         """Guardar configuración en BD."""
+        logging.info("[DEBUG IMPRESORA] _on_save INICIADO")
         if not self.db:
+            logging.error("[DEBUG IMPRESORA] _on_save: No hay conexión a BD")
             return
 
         try:
@@ -492,6 +494,7 @@ class ImpresoraUI:
 
             # printer_name
             cambios['printer_name'] = self.cb_impresora.get()
+            logging.info(f"[DEBUG IMPRESORA] _on_save: printer_name='{cambios['printer_name']}'")
 
             # printer_width
             cambios['printer_width'] = self.paper_width_var.get()
@@ -539,13 +542,16 @@ class ImpresoraUI:
             except Exception:
                 pass
 
+            logging.info(f"[DEBUG IMPRESORA] _on_save: Llamando guardar_multiples con {len(cambios)} campos")
             self.config_repo.guardar_multiples(cambios)
+            logging.info("[DEBUG IMPRESORA] _on_save: guardar_multiples ejecutado OK")
 
             from kool_tpv.utils.custom_dialog import show_success
             show_success(self.container, 'Guardado', 'Configuración de impresora guardada')
+            logging.info("[DEBUG IMPRESORA] _on_save: Mensaje de éxito mostrado")
 
-        except Exception:
-            logging.exception('Error guardando configuración impresora')
+        except Exception as e:
+            logging.exception(f'[DEBUG IMPRESORA] _on_save: ERROR - {e}')
             from kool_tpv.utils.custom_dialog import show_error
             show_error(self.container, 'Error', 'No se pudo guardar')
 
