@@ -48,7 +48,6 @@ class EntradaManualUI:
         # buttons palette (optional nested config)
         _buttons_cfg = self.colors.get('buttons', {})
         _primary_btn = _buttons_cfg.get('primary', {})
-        _secondary_btn = _buttons_cfg.get('secondary', {})
 
         # Header
         header_frame = ctk.CTkFrame(self.container, fg_color='transparent')
@@ -79,14 +78,6 @@ class EntradaManualUI:
         self.e_fecha.pack(side='left')
         self.e_fecha.insert(0, date.today().strftime('%Y-%m-%d'))
 
-        # Grid header (layout values kept here; visual header moved below)
-        self.col_widths = [160, 320, 90, 90, 90, 110]
-        col_widths = self.col_widths
-        # color de fila por defecto (se alternará en _render_lines)
-        self._row_bg_main = self.colors.get('bg_dark', '#1a1a1a')
-        self._row_bg_alt = self.colors.get('bg_medium', '#111111')
-        headers = ['EAN', 'NOMBRE', 'UDS', 'COSTE', 'DTO', 'IMPORTE']
-
         # Título dinámico según tipo
         titulos = {
             'ENTRADA': 'INTRODUCIR DATOS LÍNEA ALBARÁN - ENTRADA',
@@ -96,28 +87,74 @@ class EntradaManualUI:
         texto_titulo = titulos.get(self.tipo, 'INTRODUCIR DATOS LÍNEA ALBARÁN')
 
         lbl_entrada = ctk.CTkLabel(self.container, text=texto_titulo,
-                       text_color=self.colors['text'], font=('Courier New', 13, 'bold'), anchor='w')
+                       text_color=self.colors['text'], font=get_font('label', module=self.module_name), anchor='w')
         lbl_entrada.pack(fill='x', padx=6, pady=(6, 2))
 
-        # Cabecera campos
-        cab_frame = ctk.CTkFrame(self.container, fg_color='transparent', height=20)
-        cab_frame.pack(fill='x', padx=6, pady=(0, 2))
-        cab_frame.pack_propagate(False)
+        # Layout principal: dos columnas (buscador izquierda | entrada+líneas derecha)
+        body_frame = ctk.CTkFrame(self.container, fg_color='transparent')
+        body_frame.pack(fill='both', expand=True, padx=6, pady=2)
 
-        self.col_widths = [160, 320, 90, 90, 90, 110]
+        # --- Panel IZQUIERDO: buscador de productos ---
+        left_panel = ctk.CTkFrame(body_frame, fg_color=self.colors.get('bg_dark', '#1a1a1a'), width=320)
+        left_panel.pack(side='left', fill='y', padx=(0, 6), pady=0)
+        left_panel.pack_propagate(False)
+
+        ctk.CTkLabel(left_panel, text='BUSCAR PRODUCTO', text_color=self.colors.get('text', COLOR_MATRIX),
+                     font=get_font('label', module=self.module_name)).pack(pady=(8, 4), padx=6)
+
+        self.search_entry = ctk.CTkEntry(
+            left_panel,
+            placeholder_text='Nombre o EAN…',
+            **default_entry_kw
+        )
+        self.search_entry.pack(fill='x', padx=6, pady=(0, 4))
+
+        from kool_tpv.utils.widgets.searchable_paginated_navlist import SearchablePaginatedNavList
+        from kool_tpv.utils.config_loader import load_layout_config
+
+        columns_buscador = [
+            ('nombre', 220, 'Nombre'),
+            ('stock_actual', 60, 'Stock'),
+        ]
+
+        self.buscador_list = SearchablePaginatedNavList(
+            parent=left_panel,
+            columns=columns_buscador,
+            search_function=self.albaran_service.buscar_productos_by_nombre,
+            map_function=lambda p: self._map_producto_buscador(p),
+            module_name=self.module_name,
+            page_limit=50,
+            on_double_click=self._on_producto_seleccionado_buscador,
+            keyboard_manager=self.keyboard_mgr,
+            layout_config=load_layout_config(),
+        )
+        self.buscador_list.pack(fill='both', expand=True, padx=6, pady=(0, 6))
+
+        self.search_entry.bind('<Return>', lambda e: self.buscador_list.search(self.search_entry.get()))
+
+        # --- Panel DERECHO: fila de entrada + lista de líneas + totales ---
+        right_panel = ctk.CTkFrame(body_frame, fg_color='transparent')
+        right_panel.pack(side='left', fill='both', expand=True)
+
+        # Cabecera de columnas
+        self.col_widths = [160, 260, 90, 90, 110]
         col_widths = self.col_widths
-        headers_input = ['EAN', 'NOMBRE', 'CANTIDAD', 'COSTE', 'DTO', 'IMPORTE']
+        headers_input = ['EAN', 'NOMBRE', 'CANTIDAD', 'COSTE', 'IMPORTE']
+
+        cab_frame = ctk.CTkFrame(right_panel, fg_color='transparent', height=20)
+        cab_frame.pack(fill='x', pady=(0, 2))
+        cab_frame.pack_propagate(False)
 
         x = 6
         for i, h in enumerate(headers_input):
             lbl = ctk.CTkLabel(cab_frame, text=h, text_color=self.colors['text'], anchor='w',
-                              font=('Courier New', 10), width=col_widths[i]-8)
+                              font=get_font('small', module=self.module_name), width=col_widths[i]-8)
             lbl.place(x=x, y=0)
             x += col_widths[i]
 
         # Fila de entrada
-        self.input_frame = ctk.CTkFrame(self.container, fg_color=self.colors.get('bg_dark', '#1a1a1a'), height=40)
-        self.input_frame.pack(fill='x', padx=6, pady=(0, 6))
+        self.input_frame = ctk.CTkFrame(right_panel, fg_color=self.colors.get('bg_dark', '#1a1a1a'), height=40)
+        self.input_frame.pack(fill='x', pady=(0, 6))
         self.input_frame.pack_propagate(False)
 
         entry_kw = default_entry_kw.copy()
@@ -126,23 +163,9 @@ class EntradaManualUI:
         self.e_ean.place(x=6, y=4)
         self.e_ean.bind('<Return>', self._on_ean_scanned)
 
-        self.cb_nombre = SearchableCombo(
-            self.input_frame,
-            search_function=self.albaran_service.buscar_productos_by_nombre,
-            placeholder='Buscar producto…',
-            width=col_widths[1]-12,
-            height=32
-        )
-        self.cb_nombre.entry.configure(width=col_widths[1]-12, **entry_kw)
-        self.cb_nombre.place(x=sum(col_widths[:1]) + 6, y=4)
-        # Bindings: autocompletar coste al seleccionar producto
-        try:
-            # Evento de selección explícita (Return o click)
-            self.cb_nombre.entry.bind('<<SearchableComboSelected>>', self._on_nombre_selected)
-            # También al salir del campo (previene perder coste si usuario hace Tab directo)
-            self.cb_nombre.entry.bind('<FocusOut>', self._on_nombre_selected)
-        except Exception:
-            pass
+        self.e_nombre = ctk.CTkEntry(self.input_frame, width=col_widths[1]-12, placeholder_text='Nombre producto',
+                                     state='readonly', **entry_kw)
+        self.e_nombre.place(x=sum(col_widths[:1]) + 6, y=4)
 
         self.e_uds = ctk.CTkEntry(self.input_frame, width=col_widths[2]-12, placeholder_text='Cantidad', **entry_kw)
         self.e_uds.place(x=sum(col_widths[:2]) + 6, y=4)
@@ -152,29 +175,19 @@ class EntradaManualUI:
             self.e_uds.bind('<Return>', lambda e: self.btn_add.focus_set())
         except Exception:
             pass
-        
 
         self.e_coste = ctk.CTkEntry(self.input_frame, width=col_widths[3]-12, placeholder_text='Coste', **entry_kw)
         self.e_coste.place(x=sum(col_widths[:3]) + 6, y=4)
         self.e_coste.insert(0, '0.00')
 
-        self.e_dto = ctk.CTkEntry(self.input_frame, width=col_widths[4]-12, placeholder_text='Descuento', **entry_kw)
-        self.e_dto.place(x=sum(col_widths[:4]) + 6, y=4)
-        self.e_dto.insert(0, '0')
-        try:
-            self.e_dto.bind('<KeyRelease>', lambda e: self._recalc_importe())
-            self.e_dto.bind('<FocusOut>', lambda e: self._recalc_importe())
-        except Exception:
-            pass
-
-        self.e_importe = ctk.CTkEntry(self.input_frame, width=col_widths[5]-12, placeholder_text='Importe', state='readonly', **entry_kw)
-        self.e_importe.place(x=sum(col_widths[:5]) + 6, y=4)
+        self.e_importe = ctk.CTkEntry(self.input_frame, width=col_widths[4]-12, placeholder_text='Importe',
+                                      state='readonly', **entry_kw)
+        self.e_importe.place(x=sum(col_widths[:4]) + 6, y=4)
         self.e_importe.insert(0, '0.00')
 
-        # Botón AÑADIR (usar botones config si existe)
+        # Botón AÑADIR
         _normal_fg = _primary_btn.get('bg', self.colors.get('primary', '#2ecc71'))
         _focus_fg = _primary_btn.get('hover', self.colors.get('secondary', '#c6ef0e'))
-        _hover_fg = _primary_btn.get('hover', self.colors.get('secondary', '#e0fc0f'))
         self.btn_add = ButtonFactory.create_button(
             parent=self.input_frame,
             text='AÑADIR',
@@ -182,19 +195,16 @@ class EntradaManualUI:
             style_key="mini_action"
         )
 
-        # permitir que el botón reciba foco por Tab
         try:
             self.btn_add.configure(takefocus=True)
         except Exception:
             pass
 
-        # al pulsar Tab desde DTO forzar foco al botón (evita que salte fuera)
         try:
-            self.e_dto.bind('<KeyPress-Tab>', lambda e: (self.btn_add.focus_set(), "break"))
+            self.e_coste.bind('<Return>', lambda e: self.btn_add.focus_set())
         except Exception:
             pass
 
-        # permitir activar con cualquier Enter (Return y keypad Enter) cuando el botón tiene foco
         def _invoke_add(event=None):
             try:
                 self.btn_add.invoke()
@@ -208,7 +218,6 @@ class EntradaManualUI:
         except Exception:
             pass
 
-        # foco visual: cambiar color cuando el botón recibe/ pierde foco
         def _on_btn_focus_in(ev=None):
             try:
                 self.btn_add.configure(fg_color=_focus_fg)
@@ -229,29 +238,27 @@ class EntradaManualUI:
 
         self.btn_add.place(x=sum(col_widths) + 12, y=4)
 
-        # Header labels removed — NavList will provide the visible header
-
-        # Área de líneas -> NavList para soporte teclado y selección
+        # Área de líneas añadidas
         self.columns_lines = [
-            ('EAN', 160), ('NOMBRE', 320), ('UDS', 90), ('COSTE', 90), ('DTO', 90), ('IMPORTE', 110)
+            ('EAN', 160), ('NOMBRE', 260), ('UDS', 90), ('COSTE', 90), ('IMPORTE', 110)
         ]
         self.nav_list = VirtualNavList(
-            self.container,
+            right_panel,
             columns=self.columns_lines,
             module_name=self.module_name,
             keyboard_manager=self.keyboard_mgr,
             on_double_click=self._on_double_click_line,
         )
-        self.nav_list.pack(fill='both', expand=True, padx=6, pady=2)
+        self.nav_list.pack(fill='both', expand=True, pady=2)
 
-        # Totales - usando config de fuentes
+        # Totales
         from kool_tpv.utils.config_loader import load_font_config
         fonts = load_font_config()
         font_totales = fonts.get('subtitle', {'family': 'Courier New', 'size': 20, 'weight': 'bold'})
         font_tuple = (font_totales.get('family', 'Courier New'), font_totales.get('size', 20), font_totales.get('weight', 'bold'))
 
-        totales_frame = ctk.CTkFrame(self.container, fg_color='transparent', height=50)
-        totales_frame.pack(fill='x', padx=6, pady=12)
+        totales_frame = ctk.CTkFrame(right_panel, fg_color='transparent', height=50)
+        totales_frame.pack(fill='x', pady=12)
         totales_frame.pack_propagate(False)
 
         self.lbl_neto = ctk.CTkLabel(totales_frame, text='Neto: 0.00€', text_color=self.colors['text'], font=font_tuple)
@@ -265,14 +272,13 @@ class EntradaManualUI:
         self.lbl_total = ctk.CTkLabel(totales_frame, text='TOTAL: 0.00€', text_color=self.colors.get('error', '#e74c3c'), font=font_tuple)
         self.lbl_total.pack(side='left', padx=20)
 
-        # Label informativo según tipo
         try:
             if self.tipo == 'SALIDA':
                 lbl_info = ctk.CTkLabel(
                     totales_frame,
                     text='⚠️ SE RESTARÁ DEL STOCK',
                     text_color=self.colors.get('warning', '#f39c12'),
-                    font=('Courier New', 13, 'bold')
+                    font=get_font('label', module=self.module_name)
                 )
                 lbl_info.pack(side='left', padx=20)
             elif self.tipo == 'DEVOLUCION':
@@ -280,7 +286,7 @@ class EntradaManualUI:
                     totales_frame,
                     text='🔙 DEVOLUCIÓN - SE RESTARÁ DEL STOCK',
                     text_color=self.colors.get('secondary', '#95a5a6'),
-                    font=('Courier New', 13, 'bold')
+                    font=get_font('label', module=self.module_name)
                 )
                 lbl_info.pack(side='left', padx=20)
         except Exception:
@@ -310,6 +316,60 @@ class EntradaManualUI:
     def get_widget(self):
         return self.container
 
+    def _map_producto_buscador(self, producto: dict) -> dict:
+        """Mapear producto de buscar_productos_by_nombre para mostrar en el buscador."""
+        try:
+            return {
+                'id': producto.get('id'),
+                'nombre': producto.get('nombre', ''),
+                'stock_actual': producto.get('stock_actual', ''),
+                '_ean': producto.get('ean', ''),
+                '_coste': producto.get('coste', 0.0),
+                '_tipo_iva': producto.get('tipo_iva', 21),
+                '_sku': producto.get('sku', ''),
+            }
+        except Exception:
+            logging.exception('Error en _map_producto_buscador')
+            return {}
+
+    def _on_producto_seleccionado_buscador(self, data: dict):
+        """Al hacer doble clic en el buscador: rellenar EAN, NOMBRE y COSTE."""
+        try:
+            ean = data.get('_ean', '')
+            nombre = data.get('nombre', '')
+            coste = data.get('_coste', 0.0)
+            tipo_iva = data.get('_tipo_iva', 21)
+            producto_id = data.get('id')
+            sku = data.get('_sku', '')
+
+            self._current_producto = {
+                'id': producto_id,
+                'nombre': nombre,
+                'coste': coste,
+                'tipo_iva': tipo_iva,
+                'ean': ean,
+                'sku': sku,
+            }
+
+            self.e_ean.delete(0, 'end')
+            self.e_ean.insert(0, ean)
+
+            try:
+                self.e_nombre.configure(state='normal')
+                self.e_nombre.delete(0, 'end')
+                self.e_nombre.insert(0, nombre)
+                self.e_nombre.configure(state='readonly')
+            except Exception:
+                pass
+
+            self.e_coste.delete(0, 'end')
+            self.e_coste.insert(0, f'{coste:.2f}')
+
+            self._recalc_importe()
+            self.e_uds.focus_set()
+        except Exception:
+            logging.exception('Error en _on_producto_seleccionado_buscador')
+
     def has_unsaved_changes(self):
         """Verificar si hay líneas añadidas sin guardar.
 
@@ -337,29 +397,13 @@ class EntradaManualUI:
         except Exception:
             logging.exception('Error obteniendo siguiente num_albaran')
 
-    def _on_nombre_selected(self, event=None):
-        """Autocompletar coste al seleccionar producto."""
-        try:
-            producto = self.cb_nombre.get_producto_data()
-            if producto:
-                self.e_coste.delete(0, 'end')
-                self.e_coste.insert(0, f"{producto['coste']:.2f}")
-                self._current_producto = producto
-                self.e_uds.focus_set()
-        except Exception:
-            logging.exception('Error en _on_nombre_selected')
-
     def _recalc_importe(self, event=None):
-        """Recalcula el importe visible usando coste, cantidad y descuento."""
+        """Recalcula el importe visible usando coste y cantidad."""
         try:
             try:
                 uds_val = int(self.e_uds.get() or 0)
             except Exception:
                 uds_val = 0
-            try:
-                dto_val = float(self.e_dto.get() or 0)
-            except Exception:
-                dto_val = 0.0
             try:
                 coste_val = float(self.e_coste.get() or 0.0)
             except Exception:
@@ -368,7 +412,7 @@ class EntradaManualUI:
             if uds_val <= 0:
                 importe_val = 0.0
             else:
-                importe_val = (coste_val * uds_val) - dto_val
+                importe_val = coste_val * uds_val
 
             try:
                 self.e_importe.configure(state='normal')
@@ -391,13 +435,26 @@ class EntradaManualUI:
 
             producto = self.albaran_service.buscar_producto_by_ean(ean)
             if producto:
-                self.cb_nombre.set(producto['nombre'])
+                try:
+                    self.e_nombre.configure(state='normal')
+                    self.e_nombre.delete(0, 'end')
+                    self.e_nombre.insert(0, producto['nombre'])
+                    self.e_nombre.configure(state='readonly')
+                except Exception:
+                    pass
                 self.e_coste.delete(0, 'end')
                 self.e_coste.insert(0, f"{producto['coste']:.2f}")
                 self._current_producto = producto
+                self._recalc_importe()
                 self.e_uds.focus_set()
             else:
-                self.cb_nombre.set('NO ENCONTRADO')
+                try:
+                    self.e_nombre.configure(state='normal')
+                    self.e_nombre.delete(0, 'end')
+                    self.e_nombre.insert(0, 'NO ENCONTRADO')
+                    self.e_nombre.configure(state='readonly')
+                except Exception:
+                    pass
                 self.e_coste.delete(0, 'end')
                 self.e_coste.insert(0, '0.00')
                 self._current_producto = None
@@ -406,13 +463,12 @@ class EntradaManualUI:
 
     def _map_line_to_row(self, line: dict) -> dict:
         try:
-            importe = (line.get('cantidad', 0) * line.get('coste', 0.0)) - line.get('descuento', 0.0)
+            importe = line.get('cantidad', 0) * line.get('coste', 0.0)
             mapped = {
                 'EAN': line.get('ean', ''),
                 'NOMBRE': line.get('nombre', ''),
                 'UDS': str(line.get('cantidad', '')),
                 'COSTE': f"{line.get('coste', 0.0):.2f}",
-                'DTO': f"{line.get('descuento', 0.0):.2f}",
                 'IMPORTE': f"{importe:.2f}",
                 '_idx': line.get('id') if 'id' in line else None
             }
@@ -447,7 +503,10 @@ class EntradaManualUI:
             except Exception:
                 pass
             try:
-                self.cb_nombre.set(line.get('nombre', ''))
+                self.e_nombre.configure(state='normal')
+                self.e_nombre.delete(0, 'end')
+                self.e_nombre.insert(0, line.get('nombre', ''))
+                self.e_nombre.configure(state='readonly')
             except Exception:
                 pass
             try:
@@ -458,11 +517,6 @@ class EntradaManualUI:
             try:
                 self.e_coste.delete(0, 'end')
                 self.e_coste.insert(0, f"{line.get('coste', 0.0):.2f}")
-            except Exception:
-                pass
-            try:
-                self.e_dto.delete(0, 'end')
-                self.e_dto.insert(0, f"{line.get('descuento', 0.0):.2f}")
             except Exception:
                 pass
 
@@ -513,11 +567,8 @@ class EntradaManualUI:
             if uds <= 0:
                 return
 
-            nombre = self.cb_nombre.get().strip()
-            if '(' in nombre and nombre.endswith(')'):
-                nombre = nombre.split('(')[0].strip()
+            nombre = self.e_nombre.get().strip()
             coste = float(self.e_coste.get() or 0)
-            dto = float(self.e_dto.get() or 0)
 
             producto_id = self._current_producto['id'] if hasattr(self, '_current_producto') and self._current_producto else None
             tipo_iva = self._current_producto['tipo_iva'] if hasattr(self, '_current_producto') and self._current_producto else 21
@@ -528,7 +579,6 @@ class EntradaManualUI:
                 'nombre': nombre,
                 'cantidad': uds,
                 'coste': coste,
-                'descuento': dto,
                 'tipo_iva': tipo_iva
             }
 
@@ -543,12 +593,15 @@ class EntradaManualUI:
 
             # Limpiar
             self.e_ean.delete(0, 'end')
-            self.cb_nombre.set('')
+            try:
+                self.e_nombre.configure(state='normal')
+                self.e_nombre.delete(0, 'end')
+                self.e_nombre.configure(state='readonly')
+            except Exception:
+                pass
             self.e_uds.delete(0, 'end')
             self.e_coste.delete(0, 'end')
             self.e_coste.insert(0, '0.00')
-            self.e_dto.delete(0, 'end')
-            self.e_dto.insert(0, '0')
             self._current_producto = None
             self.e_ean.focus_set()
 
@@ -581,7 +634,7 @@ class EntradaManualUI:
             iva21 = 0.0
 
             for line in self.lines:
-                importe_linea = (line['cantidad'] * line['coste']) - line['descuento']
+                importe_linea = line['cantidad'] * line['coste']
                 neto += importe_linea
 
                 tipo = line['tipo_iva']
@@ -637,7 +690,12 @@ class EntradaManualUI:
         try:
             self.lines = []
             self.e_ean.delete(0, 'end')
-            self.cb_nombre.set('')
+            try:
+                self.e_nombre.configure(state='normal')
+                self.e_nombre.delete(0, 'end')
+                self.e_nombre.configure(state='readonly')
+            except Exception:
+                pass
             try:
                 self.cb_proveedor.set('')
             except Exception:
@@ -645,8 +703,6 @@ class EntradaManualUI:
             self.e_uds.delete(0, 'end')
             self.e_coste.delete(0, 'end')
             self.e_coste.insert(0, '0.00')
-            self.e_dto.delete(0, 'end')
-            self.e_dto.insert(0, '0')
             # Limpiar importe
             try:
                 self.e_importe.configure(state='normal')

@@ -416,14 +416,18 @@ class AlbaranService:
             logging.exception('Error eliminando albarán')
             return False
 
-    def buscar_productos_by_nombre(self, termino, limit=50):
-        """Buscar productos por nombre para autocompletado."""
-        try:
-            if not termino or len(termino) < 2:
-                return []
+    def buscar_productos_by_nombre(self, termino='', limit=50):
+        """Buscar productos por nombre para autocompletado y buscador de albarán.
 
+        Si termino está vacío devuelve todos los productos activos (carga inicial).
+        Si termino tiene texto filtra por nombre.
+        """
+        try:
             query = """
-        SELECT p.id, p.nombre, p.sku, COALESCE(pr.coste, 0.0) AS coste, p.tipo_iva
+        SELECT p.id, p.nombre, p.sku,
+               COALESCE(pr.coste, 0.0) AS coste,
+               p.tipo_iva,
+               (SELECT cb.ean FROM codigos_barras cb WHERE cb.producto_id = p.id LIMIT 1) AS ean
         FROM productos p
         LEFT JOIN precios pr ON pr.producto_id = p.id AND pr.activo = 1
         WHERE p.activo = 1 AND p.nombre LIKE ?
@@ -454,7 +458,8 @@ class AlbaranService:
                     'nombre': r[1],
                     'sku': r[2] or '',
                     'coste': coste_val,
-                    'tipo_iva': int(r[4] or 21)
+                    'tipo_iva': int(r[4] or 21),
+                    'ean': r[5] or ''
                 })
 
             return resultados
