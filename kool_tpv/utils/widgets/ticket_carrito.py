@@ -902,8 +902,8 @@ class TicketCarrito(ctk.CTkFrame):
                     logger.exception("Error sincronizando cliente en update_carrito")
 
                 try:
-                    pass
                     puntos = self.carrito_service.get_puntos_canjeados()
+                    logger.info(f"[DEBUG TESORO] puntos={puntos!r}, type={type(puntos).__name__}")
                     # Añadir fila visual de canje SOLO si no hay una línea 'tesoro' real
                     try:
                         has_tesoro = any(str(it.get('line_tipo', '')).lower() == 'tesoro' for it in items)
@@ -913,6 +913,7 @@ class TicketCarrito(ctk.CTkFrame):
                     if not has_tesoro and puntos and Decimal(str(puntos)) > Decimal('0'):
                         # Convertir puntos (euros) a centavos para consistencia con sistema
                         puntos_centavos = int(Decimal(str(puntos)) * 100)
+                        logger.info(f"[DEBUG TESORO] puntos_centavos={puntos_centavos!r}, -puntos_centavos={-puntos_centavos!r}")
                         self.carrito_nav_list.add_item({
                             "id": "__tesoro_visual__",
                             "nombre": ">> TESORO CANJEADO <<",

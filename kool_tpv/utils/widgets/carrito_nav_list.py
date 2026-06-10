@@ -246,23 +246,31 @@ class CarritoNavList(NavList):
                 for key in ("pvp", "total"):
                     if key in display:
                         v = display.get(key)
+                        logger.info(f"[DEBUG NAVLIST] key={key}, v={v!r}, type={type(v).__name__}")
                         # int -> cents
                         if isinstance(v, int):
                             euros = read_from_db(v)
+                            logger.info(f"[DEBUG NAVLIST] int path: read_from_db({v!r}) = {euros!r}")
                         # digit-only string -> cents
                         elif isinstance(v, str) and v.isdigit():
                             euros = read_from_db(int(v))
+                            logger.info(f"[DEBUG NAVLIST] str.isdigit path: read_from_db(int({v!r})) = {euros!r}")
                         # float integral -> cents
                         elif isinstance(v, float) and float(v).is_integer():
                             euros = read_from_db(int(v))
+                            logger.info(f"[DEBUG NAVLIST] float.is_integer path: read_from_db(int({v!r})) = {euros!r}")
                         else:
                             try:
                                 euros = Decimal(str(v))
+                                logger.info(f"[DEBUG NAVLIST] else path: Decimal(str({v!r})) = {euros!r}")
                             except Exception:
                                 euros = Decimal('0')
+                                logger.info(f"[DEBUG NAVLIST] else path: Exception -> euros = Decimal('0')")
 
                         # Format for display
-                        display[key] = fmt.format_precio(euros)
+                        formatted = fmt.format_precio(euros)
+                        logger.info(f"[DEBUG NAVLIST] fmt.format_precio({euros!r}) = {formatted!r}")
+                        display[key] = formatted
             except Exception:
                 # If formatting helpers are unavailable, fall back to simple string
                 try:
