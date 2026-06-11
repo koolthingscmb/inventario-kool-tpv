@@ -38,6 +38,9 @@ class MapeoCsvUI:
         self.owner = owner
         self.proveedor_service = ProveedorService(db)
         self.mapeo_original = None
+        self._undo_stack = []
+        self._undo_index = -1
+        self._undo_active = False
 
         try:
             self.colors = load_colors('almacen')
