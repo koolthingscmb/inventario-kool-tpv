@@ -11,7 +11,7 @@ Reglas implementadas:
 import logging
 from typing import Optional, Dict, Any, List
 
-from kool_tpv.base_datos.money_adapter import prepare_for_db
+from kool_tpv.base_datos.money_adapter import prepare_for_db, read_from_db
 
 from kool_tpv.base_datos.db_wrapper import Database
 
@@ -130,7 +130,7 @@ class ProductoRepository:
         WHERE producto_id IN ({placeholders}) AND activo = 1
         """
         rows = self.db.fetch_all(query, tuple(producto_ids))
-        return {int(row[0]): float(row[1]) for row in (rows or [])}
+        return {int(row[0]): float(read_from_db(int(row[1]))) for row in (rows or [])}
 
     def get_ventas_por_producto_id(self, producto_id: int, limite: int = 20):
         """Historial de ventas de un producto (joins con tickets y clientes).
