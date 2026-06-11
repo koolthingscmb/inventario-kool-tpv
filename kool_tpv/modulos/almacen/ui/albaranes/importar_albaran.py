@@ -442,6 +442,7 @@ class ImportarAlbaranUI:
         # Inicializar datos de productos en memoria
         self._productos_data = {}
         for linea in self.parse_result.productos_nuevos:
+            pvpr_euros = linea.pvpr_cents / 100 if getattr(linea, 'pvpr_cents', 0) else None
             self._productos_data[linea.ean] = {
                 'ean': linea.ean,
                 'nombre': linea.nombre,
@@ -451,6 +452,7 @@ class ImportarAlbaranUI:
                 'categoria': None,
                 'tipo': None,
                 'pvp': None,
+                'pvpr': pvpr_euros,  # PVP recomendado calculado en preview
                 'sku': '',
                 'completado': False
             }
@@ -741,10 +743,11 @@ class ImportarAlbaranUI:
         else:
             self.combo_tipo._var.set('')
 
-        # PVP
+        # PVP: usar pvp guardado, si no hay usar pvpr como sugerencia
         self.entry_pvp.delete(0, 'end')
-        if data['pvp']:
-            self.entry_pvp.insert(0, f"{data['pvp']:.2f}")
+        pvp_valor = data.get('pvp') or data.get('pvpr')
+        if pvp_valor:
+            self.entry_pvp.insert(0, f'{pvp_valor:.2f}')
 
         # Info CSV
         cantidad_original = data.get('cantidad', 1)
