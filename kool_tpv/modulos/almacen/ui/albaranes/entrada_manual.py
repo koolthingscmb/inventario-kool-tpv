@@ -138,9 +138,9 @@ class EntradaManualUI:
         right_panel.pack(side='left', fill='both', expand=True)
 
         # Cabecera de columnas
-        self.col_widths = [160, 260, 90, 90, 110]
+        self.col_widths = [160, 240, 70, 80, 50, 70, 90]
         col_widths = self.col_widths
-        headers_input = ['EAN', 'NOMBRE', 'CANTIDAD', 'COSTE', 'IMPORTE']
+        headers_input = ['EAN', 'NOMBRE', 'CANTIDAD', 'COSTE', '%IVA', 'IVA', 'TOTAL']
 
         cab_frame = ctk.CTkFrame(right_panel, fg_color='transparent', height=20)
         cab_frame.pack(fill='x', pady=(0, 2))
@@ -181,9 +181,19 @@ class EntradaManualUI:
         self.e_coste.place(x=sum(col_widths[:3]) + 6, y=4)
         self.e_coste.insert(0, '0.00')
 
-        self.e_importe = ctk.CTkEntry(self.input_frame, width=col_widths[4]-12, placeholder_text='Importe',
+        self.e_pct_iva = ctk.CTkEntry(self.input_frame, width=col_widths[4]-12, placeholder_text='%IVA',
                                       state='readonly', **entry_kw)
-        self.e_importe.place(x=sum(col_widths[:4]) + 6, y=4)
+        self.e_pct_iva.place(x=sum(col_widths[:4]) + 6, y=4)
+        self.e_pct_iva.insert(0, '0')
+
+        self.e_iva = ctk.CTkEntry(self.input_frame, width=col_widths[5]-12, placeholder_text='IVA',
+                                  state='readonly', **entry_kw)
+        self.e_iva.place(x=sum(col_widths[:5]) + 6, y=4)
+        self.e_iva.insert(0, '0.00')
+
+        self.e_importe = ctk.CTkEntry(self.input_frame, width=col_widths[6]-12, placeholder_text='Total',
+                                      state='readonly', **entry_kw)
+        self.e_importe.place(x=sum(col_widths[:6]) + 6, y=4)
         self.e_importe.insert(0, '0.00')
 
         # Botón AÑADIR
@@ -241,7 +251,7 @@ class EntradaManualUI:
 
         # Área de líneas añadidas
         self.columns_lines = [
-            ('EAN', 160), ('NOMBRE', 260), ('UDS', 90), ('COSTE', 90), ('IMPORTE', 110)
+            ('EAN', 160), ('NOMBRE', 240), ('UDS', 70), ('COSTE', 80), ('%IVA', 50), ('IVA', 70), ('TOTAL', 90)
         ]
         self.nav_list = VirtualNavList(
             right_panel,
@@ -408,7 +418,7 @@ class EntradaManualUI:
             logging.exception('Error obteniendo siguiente num_albaran')
 
     def _recalc_importe(self, event=None):
-        """Recalcula el importe visible usando coste y cantidad."""
+        """Recalcula IVA y TOTAL visibles usando coste, cantidad y tipo_iva del producto."""
         try:
             try:
                 uds_val = int(self.e_uds.get() or 0)
@@ -419,18 +429,23 @@ class EntradaManualUI:
             except Exception:
                 coste_val = 0.0
 
-            if uds_val <= 0:
-                importe_val = 0.0
-            else:
-                importe_val = coste_val * uds_val
+            tipo_iva = int((self._current_producto or {}).get('tipo_iva', 21) or 21)
+            neto = coste_val * uds_val if uds_val > 0 else 0.0
+            iva_val = round(neto * tipo_iva / 100, 2)
+            total_val = round(neto + iva_val, 2)
 
-            try:
-                self.e_importe.configure(state='normal')
-                self.e_importe.delete(0, 'end')
-                self.e_importe.insert(0, f"{importe_val:.2f}")
-                self.e_importe.configure(state='readonly')
-            except Exception:
-                pass
+            for entry, value in [
+                (self.e_pct_iva, f"{tipo_iva}%"),
+                (self.e_iva, f"{iva_val:.2f}"),
+                (self.e_importe, f"{total_val:.2f}"),
+            ]:
+                try:
+                    entry.configure(state='normal')
+                    entry.delete(0, 'end')
+                    entry.insert(0, value)
+                    entry.configure(state='readonly')
+                except Exception:
+                    pass
         except Exception:
             logging.exception('Error recalculando importe')
 
@@ -473,13 +488,20 @@ class EntradaManualUI:
 
     def _map_line_to_row(self, line: dict) -> dict:
         try:
-            importe = line.get('cantidad', 0) * line.get('coste', 0.0)
+            cantidad = line.get('cantidad', 0)
+            coste = line.get('coste', 0.0)
+            tipo_iva = int(line.get('tipo_iva', 21) or 21)
+            neto = cantidad * coste
+            iva = round(float(neto) * tipo_iva / 100, 2)
+            total = round(float(neto) + iva, 2)
             mapped = {
                 'EAN': line.get('ean', ''),
                 'NOMBRE': line.get('nombre', ''),
-                'UDS': str(line.get('cantidad', '')),
-                'COSTE': f"{line.get('coste', 0.0):.2f}",
-                'IMPORTE': f"{importe:.2f}",
+                'UDS': str(cantidad),
+                'COSTE': f"{float(coste):.2f}",
+                '%IVA': f"{tipo_iva}%",
+                'IVA': f"{iva:.2f}",
+                'TOTAL': f"{total:.2f}",
                 '_idx': line.get('id') if 'id' in line else None
             }
             return mapped
@@ -778,14 +800,15 @@ class EntradaManualUI:
             self.e_uds.delete(0, 'end')
             self.e_coste.delete(0, 'end')
             self.e_coste.insert(0, '0.00')
-            # Limpiar importe
-            try:
-                self.e_importe.configure(state='normal')
-                self.e_importe.delete(0, 'end')
-                self.e_importe.insert(0, '0.00')
-                self.e_importe.configure(state='readonly')
-            except Exception:
-                pass
+            # Limpiar %IVA, IVA y TOTAL
+            for entry, val in [(self.e_pct_iva, '0%'), (self.e_iva, '0.00'), (self.e_importe, '0.00')]:
+                try:
+                    entry.configure(state='normal')
+                    entry.delete(0, 'end')
+                    entry.insert(0, val)
+                    entry.configure(state='readonly')
+                except Exception:
+                    pass
             self._render_lines()
             self._update_totals()
             self._set_next_num()

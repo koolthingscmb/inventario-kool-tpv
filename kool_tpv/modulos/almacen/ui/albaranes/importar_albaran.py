@@ -151,8 +151,7 @@ class ImportarAlbaranUI:
         # Tabla NavList para preview de líneas (todas las columnas de BD)
         self.columns = [
             ('EAN', 120), ('NOMBRE', 220), ('UDS', 50),
-            ('COSTE', 80), ('IVA', 40), ('PVPR', 80),
-            ('EDITORIAL', 100), ('FABRICANTE', 100), ('ESTADO', 80)
+            ('COSTE', 80), ('%IVA', 45), ('IVA', 70), ('PVPR', 80), ('TOTAL', 80)
         ]
 
         self.nav_list = VirtualNavList(
@@ -327,27 +326,21 @@ class ImportarAlbaranUI:
         self.nav_list.clear_items()
 
         for linea in self.parse_result.lineas:
-            # Estado con color visual
-            if linea.existe_en_bd:
-                estado = '✓ OK'
-            else:
-                estado = '✗ NUEVO'
-
-            coste_str = f'{linea.coste_cents / 100:.2f}'
-            pvpr_str = f'{linea.pvpr_cents / 100:.2f}' if hasattr(linea, 'pvpr_cents') and linea.pvpr_cents else '-'
-            editorial = getattr(linea, 'editorial', '') or '-'
-            fabricante = getattr(linea, 'fabricante', '') or '-'
+            coste = linea.coste_cents / 100
+            neto = coste * linea.cantidad
+            iva = round(neto * linea.tipo_iva / 100, 2)
+            total = round(neto + iva, 2)
+            pvpr_str = f'{linea.pvpr_cents / 100:.2f}' if getattr(linea, 'pvpr_cents', 0) else '-'
 
             row_data = {
                 'EAN': linea.ean,
                 'NOMBRE': linea.nombre[:40],
                 'UDS': str(linea.cantidad),
-                'COSTE': coste_str,
-                'IVA': f'{linea.tipo_iva}%',
+                'COSTE': f'{coste:.2f}',
+                '%IVA': f'{linea.tipo_iva}%',
+                'IVA': f'{iva:.2f}',
                 'PVPR': pvpr_str,
-                'EDITORIAL': editorial[:30],
-                'FABRICANTE': fabricante[:30],
-                'ESTADO': estado
+                'TOTAL': f'{total:.2f}'
             }
 
             self.nav_list.add_item(row_data)
@@ -981,8 +974,7 @@ class ImportarAlbaranUI:
             self.container,
             columns=[
                 ('EAN', 120), ('NOMBRE', 220), ('UDS', 50),
-                ('COSTE', 80), ('IVA', 40), ('PVPR', 80),
-                ('EDITORIAL', 100), ('FABRICANTE', 100), ('ESTADO', 80)
+                ('COSTE', 80), ('%IVA', 45), ('IVA', 70), ('PVPR', 80), ('TOTAL', 80)
             ],
             module_name=self.module_name,
             keyboard_manager=None
@@ -1017,22 +1009,21 @@ class ImportarAlbaranUI:
         self.nav_list_albaran.clear_items()
 
         for linea in self.parse_result.lineas:
-            coste_str = f'{linea.coste_cents / 100:.2f}' if linea.coste_cents else '0.00'
-            pvpr_str = f'{linea.pvpr_cents / 100:.2f}' if hasattr(linea, 'pvpr_cents') and linea.pvpr_cents else '-'
-            editorial = getattr(linea, 'editorial', '') or '-'
-            fabricante = getattr(linea, 'fabricante', '') or '-'
-            estado = '✓ OK' if linea.existe_en_bd else '✗ NUEVO'
+            coste = linea.coste_cents / 100
+            neto = coste * linea.cantidad
+            iva = round(neto * linea.tipo_iva / 100, 2)
+            total = round(neto + iva, 2)
+            pvpr_str = f'{linea.pvpr_cents / 100:.2f}' if getattr(linea, 'pvpr_cents', 0) else '-'
 
             row_data = {
                 'EAN': linea.ean,
                 'NOMBRE': linea.nombre[:35],
                 'UDS': str(linea.cantidad),
-                'COSTE': coste_str,
-                'IVA': f'{linea.tipo_iva}%',
+                'COSTE': f'{coste:.2f}',
+                '%IVA': f'{linea.tipo_iva}%',
+                'IVA': f'{iva:.2f}',
                 'PVPR': pvpr_str,
-                'EDITORIAL': editorial[:30],
-                'FABRICANTE': fabricante[:30],
-                'ESTADO': estado
+                'TOTAL': f'{total:.2f}'
             }
             self.nav_list_albaran.add_item(row_data)
 
