@@ -1378,5 +1378,15 @@ class ImportarAlbaranUI:
         except Exception:
             logger.info(mensaje)
 
+    def has_unsaved_changes(self):
+        """Detectar si hay un albarán en curso sin guardar."""
+        if self.parse_result and self.parse_result.lineas:
+            return True
+        if getattr(self, '_productos_data', None):
+            return True
+        if getattr(self, '_cabecera_data', None):
+            return True
+        return False
+
     def get_widget(self):
         return self.container
