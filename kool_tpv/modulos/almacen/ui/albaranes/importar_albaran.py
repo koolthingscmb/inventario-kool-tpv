@@ -150,10 +150,9 @@ class ImportarAlbaranUI:
 
         # Tabla NavList para preview de líneas (todas las columnas de BD)
         self.columns = [
-            ('EAN', 120), ('NOMBRE', 200), ('UDS', 50),
-            ('COSTE', 70), ('DTO', 50), ('IVA', 40),
-            ('IMPORTE', 70), ('EDITORIAL', 100), ('FABRICANTE', 100),
-            ('PVPR', 60), ('ESTADO', 80)
+            ('EAN', 120), ('NOMBRE', 220), ('UDS', 50),
+            ('COSTE', 80), ('IVA', 40), ('PVPR', 80),
+            ('EDITORIAL', 100), ('FABRICANTE', 100), ('ESTADO', 80)
         ]
 
         self.nav_list = VirtualNavList(
@@ -260,9 +259,16 @@ class ImportarAlbaranUI:
                 self._mostrar_error(f'Error al analizar CSV:\n{errores_text}')
                 return
 
-            # Validar contra BD
+            # Validar contra BD (pasar mapeo para aplicar fórmulas de cálculo)
             validator = AlbaranCsvValidator(self.db)
-            self.parse_result = validator.validar_datos(datos)
+            mapeo_dict = getattr(self, '_mapeo_proveedor', None)
+            if isinstance(mapeo_dict, str):
+                import json as _json
+                try:
+                    mapeo_dict = _json.loads(mapeo_dict)
+                except Exception:
+                    mapeo_dict = None
+            self.parse_result = validator.validar_datos(datos, mapeo=mapeo_dict)
 
             # Mostrar resumen
             self._mostrar_resumen()
@@ -327,26 +333,20 @@ class ImportarAlbaranUI:
             else:
                 estado = '✗ NUEVO'
 
-            # Formatear valores (usar propiedades que devuelven Decimal)
             coste_str = f'{linea.coste_cents / 100:.2f}'
-            dto_str = f'{linea.descuento_cents / 100:.2f}' if linea.descuento_cents else '-'
-            importe_str = f'{linea.importe_cents / 100:.2f}' if linea.importe_cents else '-'
             pvpr_str = f'{linea.pvpr_cents / 100:.2f}' if hasattr(linea, 'pvpr_cents') and linea.pvpr_cents else '-'
             editorial = getattr(linea, 'editorial', '') or '-'
             fabricante = getattr(linea, 'fabricante', '') or '-'
 
-            # NavList espera un diccionario con keys que coincidan con columnas
             row_data = {
                 'EAN': linea.ean,
-                'NOMBRE': linea.nombre[:40],  # Limitar longitud
+                'NOMBRE': linea.nombre[:40],
                 'UDS': str(linea.cantidad),
                 'COSTE': coste_str,
-                'DTO': dto_str,
                 'IVA': f'{linea.tipo_iva}%',
-                'IMPORTE': importe_str,
+                'PVPR': pvpr_str,
                 'EDITORIAL': editorial[:30],
                 'FABRICANTE': fabricante[:30],
-                'PVPR': pvpr_str,
                 'ESTADO': estado
             }
 

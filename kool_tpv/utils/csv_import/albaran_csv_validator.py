@@ -6,6 +6,7 @@ from typing import List, Dict, Any, Optional, Tuple
 
 from kool_tpv.base_datos.producto_service import ProductoService
 from kool_tpv.base_datos.money_adapter import calcular_descuento_porcentaje, calcular_importe_con_descuento, prepare_for_db
+from kool_tpv.utils.csv_import.albaran_csv_formulas import aplicar_formulas
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +93,7 @@ class AlbaranCsvValidator:
         self.db = db
         self.producto_service = ProductoService(db)
 
-    def validar_datos(self, datos_csv: List[Dict[str, Any]]) -> CsvImportResult:
+    def validar_datos(self, datos_csv: List[Dict[str, Any]], mapeo: Dict[str, Any] = None) -> CsvImportResult:
         """
         Valida los datos parseados del CSV y clasifica productos existentes vs nuevos.
 
@@ -105,6 +106,10 @@ class AlbaranCsvValidator:
         resultado = CsvImportResult()
 
         for i, fila in enumerate(datos_csv, start=2):
+            # Aplicar fórmulas del proveedor si hay mapeo con flags activas
+            if mapeo:
+                fila = aplicar_formulas(fila, mapeo)
+
             # Leer valores del CSV (en euros)
             coste_euros = Decimal(str(fila.get('coste', 0.0)))
             dto_porcentaje = fila.get('descuento', 0)  # Porcentaje (ej: 30 para 30%)

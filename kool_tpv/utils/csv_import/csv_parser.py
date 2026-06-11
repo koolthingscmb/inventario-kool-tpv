@@ -181,8 +181,9 @@ class CsvParser:
             'columna_ean': 'ean',
             'columna_nombre': 'nombre',
             'columna_cantidad': 'cantidad',
-            'columna_precio': 'coste',  # PRECIO en CSV = coste para nosotros
-            'columna_coste': 'coste',
+            'columna_precio_base': 'precio_base',  # Precio bruto sin dto (para calcular coste y pvpr)
+            'columna_precio': 'precio_base',        # Legacy: mismo significado
+            'columna_coste': 'coste',               # Coste neto directo (si el CSV ya lo trae)
             'columna_descuento': 'descuento',
             'columna_iva': 'tipo_iva',
             'columna_tipo_iva': 'tipo_iva',
@@ -226,7 +227,14 @@ class CsvParser:
         except (ValueError, TypeError):
             result['cantidad'] = 0
 
-        # Coste (float)
+        # Precio base (float) — precio bruto del distribuidor antes de dto
+        try:
+            pb_str = str(result.get('precio_base', '0')).replace(',', '.')
+            result['precio_base'] = float(pb_str) if pb_str else 0.0
+        except (ValueError, TypeError):
+            result['precio_base'] = 0.0
+
+        # Coste (float) — precio neto directo si el CSV lo trae
         try:
             coste_str = str(result.get('coste', '0')).replace(',', '.')
             result['coste'] = float(coste_str) if coste_str else 0.0
