@@ -21,8 +21,7 @@ class CsvAlbaranLine:
     ean: str
     nombre: str
     cantidad: int
-    coste_cents: int  # Coste unitario en céntimos
-    descuento_cents: int  # Descuento en céntimos (ya calculado desde %)
+    coste_cents: int  # Coste unitario neto en céntimos
     tipo_iva: int
     # Campos opcionales
     editorial: str = ''
@@ -34,14 +33,8 @@ class CsvAlbaranLine:
 
     @property
     def importe_cents(self) -> int:
-        """Calcula el importe de la línea en céntimos (después de descuento)."""
-        base = self.coste_cents * self.cantidad
-        return max(0, base - self.descuento_cents)
-
-    @property
-    def importe(self) -> Decimal:
-        """Importe en euros (Decimal) para compatibilidad."""
-        return Decimal(self.importe_cents) / Decimal('100')
+        """Importe de la línea en céntimos (coste neto × cantidad)."""
+        return self.coste_cents * self.cantidad
 
 
 @dataclass
@@ -121,10 +114,8 @@ class AlbaranCsvValidator:
             pvpr_euros = Decimal(str(fila.get('pvpr', 0.0)))
             pvpr_cents = prepare_for_db(pvpr_euros)
 
-            # Convertir a céntimos
+            # Convertir a céntimos (coste ya es neto)
             coste_cents = prepare_for_db(coste_euros)
-            # Calcular descuento en céntimos desde porcentaje
-            descuento_cents = calcular_descuento_porcentaje(coste_cents, dto_porcentaje)
 
             # Crear objeto línea con valores en céntimos
             linea = CsvAlbaranLine(
@@ -132,7 +123,6 @@ class AlbaranCsvValidator:
                 nombre=fila.get('nombre', ''),
                 cantidad=fila.get('cantidad', 0),
                 coste_cents=coste_cents,
-                descuento_cents=descuento_cents,
                 tipo_iva=tipo_iva,
                 editorial=editorial,
                 fabricante=fabricante,

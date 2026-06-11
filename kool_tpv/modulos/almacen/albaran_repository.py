@@ -59,9 +59,8 @@ class AlbaranRepository:
                     """
                     INSERT INTO albaran_lines
                     (albaran_id, producto_id, ean, nombre, cantidad,
-                     coste, descuento, importe, tipo_iva,
-                     editorial, fabricante, pvpr_cents)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     coste, tipo_iva, editorial, fabricante, pvpr_cents)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         albaran_id,
@@ -70,8 +69,6 @@ class AlbaranRepository:
                         line['nombre'],
                         line['cantidad'],
                         int(prepare_for_db(line['coste'])),
-                        int(prepare_for_db(line['descuento'])),
-                        int(prepare_for_db(line['importe'])),
                         line['tipo_iva'],
                         line.get('editorial', ''),
                         line.get('fabricante', ''),
@@ -142,9 +139,8 @@ class AlbaranRepository:
                     """
                     INSERT INTO albaran_lines
                     (albaran_id, producto_id, ean, nombre, cantidad,
-                     coste, descuento, importe, tipo_iva,
-                     editorial, fabricante, pvpr_cents)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     coste, tipo_iva, editorial, fabricante, pvpr_cents)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         albaran_id,
@@ -153,8 +149,6 @@ class AlbaranRepository:
                         line['nombre'],
                         line['cantidad'],
                         int(prepare_for_db(line['coste'])),
-                        int(prepare_for_db(line['descuento'])),
-                        int(prepare_for_db(line['importe'])),
                         line['tipo_iva'],
                         line.get('editorial', ''),
                         line.get('fabricante', ''),

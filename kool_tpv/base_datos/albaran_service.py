@@ -78,10 +78,9 @@ class AlbaranService:
                 nombre = line.get('nombre', '')
                 cantidad = int(line.get('cantidad', 0))
                 coste_dec = Decimal(str(line.get('coste', 0)))
-                descuento_dec = Decimal(str(line.get('descuento', 0)))
                 tipo_iva = int(line.get('tipo_iva', 21))
 
-                importe_dec = coste_dec * Decimal(cantidad) - descuento_dec
+                importe_dec = coste_dec * Decimal(cantidad)
                 total_neto += importe_dec
 
                 iva_aplicable = Decimal(str(tipo_iva)) / Decimal('100')
@@ -99,8 +98,6 @@ class AlbaranService:
                     'nombre': nombre,
                     'cantidad': cantidad,
                     'coste': coste_dec,
-                    'descuento': descuento_dec,
-                    'importe': importe_dec,
                     'tipo_iva': tipo_iva,
                 })
 
@@ -292,7 +289,7 @@ class AlbaranService:
 
             # Líneas
             query_lines = """
-        SELECT id, producto_id, ean, nombre, cantidad, coste, descuento, importe, tipo_iva
+        SELECT id, producto_id, ean, nombre, cantidad, coste, tipo_iva
         FROM albaran_lines
         WHERE albaran_id = ?
         ORDER BY id ASC
@@ -307,9 +304,7 @@ class AlbaranService:
                     'nombre': rl[3] or '',
                     'cantidad': int(rl[4] or 0),
                     'coste': read_from_db(int(rl[5] or 0)),
-                    'descuento': read_from_db(int(rl[6] or 0)),
-                    'importe': read_from_db(int(rl[7] or 0)),
-                    'tipo_iva': int(rl[8] or 21)
+                    'tipo_iva': int(rl[6] or 21)
                 })
 
             return {'albaran': albaran, 'lines': lines}
@@ -347,11 +342,9 @@ class AlbaranService:
             for line in all_lines:
                 cantidad = Decimal(str(line.get('cantidad', 0)))
                 coste = Decimal(str(line.get('coste', 0)))
-                dto = Decimal(str(line.get('descuento', 0)))
                 tipo_iva = int(line.get('tipo_iva', 21))
 
-                importe_bruto = coste * cantidad
-                importe_neto = importe_bruto - dto
+                importe_neto = coste * cantidad
                 total_neto += importe_neto
 
                 iva_aplicable = Decimal(str(tipo_iva)) / Decimal('100')
@@ -380,16 +373,12 @@ class AlbaranService:
             for line in new_lines:
                 cantidad = int(line.get('cantidad', 0))
                 coste_dec = Decimal(str(line.get('coste', 0)))
-                descuento_dec = Decimal(str(line.get('descuento', 0)))
-                importe_dec = coste_dec * Decimal(cantidad) - descuento_dec
                 nuevas_lineas_procesadas.append({
                     'producto_id': line.get('producto_id'),
                     'ean': line.get('ean', ''),
                     'nombre': line.get('nombre', ''),
                     'cantidad': cantidad,
                     'coste': coste_dec,
-                    'descuento': descuento_dec,
-                    'importe': importe_dec,
                     'tipo_iva': int(line.get('tipo_iva', 21)),
                 })
 

@@ -980,10 +980,9 @@ class ImportarAlbaranUI:
         self.nav_list_albaran = VirtualNavList(
             self.container,
             columns=[
-                ('EAN', 120), ('NOMBRE', 200), ('UDS', 50),
-                ('COSTE', 70), ('DTO', 50), ('IVA', 40),
-                ('IMPORTE', 70), ('EDITORIAL', 100), ('FABRICANTE', 100),
-                ('PVPR', 60), ('ESTADO', 80)
+                ('EAN', 120), ('NOMBRE', 220), ('UDS', 50),
+                ('COSTE', 80), ('IVA', 40), ('PVPR', 80),
+                ('EDITORIAL', 100), ('FABRICANTE', 100), ('ESTADO', 80)
             ],
             module_name=self.module_name,
             keyboard_manager=None
@@ -1019,29 +1018,20 @@ class ImportarAlbaranUI:
 
         for linea in self.parse_result.lineas:
             coste_str = f'{linea.coste_cents / 100:.2f}' if linea.coste_cents else '0.00'
-            dto_str = f'{linea.descuento_cents / 100:.2f}' if linea.descuento_cents else '0.00'
-            importe_str = f'{linea.importe_cents / 100:.2f}' if linea.importe_cents else '0.00'
             pvpr_str = f'{linea.pvpr_cents / 100:.2f}' if hasattr(linea, 'pvpr_cents') and linea.pvpr_cents else '-'
             editorial = getattr(linea, 'editorial', '') or '-'
             fabricante = getattr(linea, 'fabricante', '') or '-'
-
-            # Estado
-            if linea.existe_en_bd:
-                estado = '✓ OK'
-            else:
-                estado = '✗ NUEVO'
+            estado = '✓ OK' if linea.existe_en_bd else '✗ NUEVO'
 
             row_data = {
                 'EAN': linea.ean,
                 'NOMBRE': linea.nombre[:35],
                 'UDS': str(linea.cantidad),
                 'COSTE': coste_str,
-                'DTO': dto_str,
                 'IVA': f'{linea.tipo_iva}%',
-                'IMPORTE': importe_str,
+                'PVPR': pvpr_str,
                 'EDITORIAL': editorial[:30],
                 'FABRICANTE': fabricante[:30],
-                'PVPR': pvpr_str,
                 'ESTADO': estado
             }
             self.nav_list_albaran.add_item(row_data)
@@ -1083,8 +1073,6 @@ class ImportarAlbaranUI:
                     'nombre': linea.nombre,
                     'cantidad': linea.cantidad,
                     'coste': linea.coste_cents,
-                    'descuento': linea.descuento_cents,
-                    'importe': linea.importe_cents,
                     'tipo_iva': linea.tipo_iva,
                     'editorial': getattr(linea, 'editorial', ''),
                     'fabricante': getattr(linea, 'fabricante', ''),
@@ -1121,6 +1109,11 @@ class ImportarAlbaranUI:
                     if borrador.get('num_albaran') == num_albaran:
                         self._borrador_service.eliminar(borrador['path'])
             self._borrador_path = None
+            # Limpiar estado para que has_unsaved_changes = False
+            self.parse_result = None
+            self._productos_data = {}
+            self._cabecera_data = {}
+            self.selected_file_path = None
             show_success(self.container, 'Éxito', f'Albarán guardado correctamente (ID: {albaran_id})')
             self._on_volver_desde_creacion()
 
@@ -1129,16 +1122,10 @@ class ImportarAlbaranUI:
             show_error(self.container, 'Error', f'Error al guardar albarán: {e}')
 
     def _on_volver_desde_creacion(self):
-        """Volver desde la pantalla de creación a la de preview."""
-        # Limpiar y recargar la UI original
+        """Volver a la pantalla inicial limpia."""
         for widget in self.container.winfo_children():
             widget.destroy()
         self._setup_ui()
-        # Recargar datos si hay
-        if self.selected_file_path and self.parse_result:
-            self._mostrar_resumen()
-            self._cargar_preview_tabla()
-            self.btn_continuar.configure(state='normal')
 
     def _on_guardar_borrador_click(self):
         """Guardar estado actual como borrador JSON."""
