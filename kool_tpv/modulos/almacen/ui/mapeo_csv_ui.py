@@ -14,6 +14,22 @@ logger = logging.getLogger(__name__)
 class MapeoCsvUI:
     """Editor de configuración JSON para importación CSV por proveedor."""
 
+    PLANTILLA_JSON = '''{
+  "separador": ";",
+  "encoding": "utf-8",
+  "skip_rows": 0,
+  "columna_ean": "",
+  "columna_nombre": "",
+  "columna_cantidad": "",
+  "columna_precio_base": "",
+  "columna_coste": "",
+  "columna_descuento": "",
+  "columna_iva": "",
+  "columna_pvpr": "",
+  "calcular_coste_desde_precio_dto": false,
+  "calcular_pvpr_desde_precio_iva": false
+}'''
+
     def __init__(self, parent, db=None, proveedor_id=None, proveedor_nombre='', owner=None):
         self.parent = parent
         self.db = db
@@ -118,14 +134,29 @@ class MapeoCsvUI:
         )
         prov_label.pack(pady=(6, 6), padx=12, anchor='w')
 
-        # TextArea para JSON
+        # Header JSON + botón plantilla
+        json_header = ctk.CTkFrame(self.container, fg_color='transparent')
+        json_header.pack(fill='x', padx=12, pady=(0, 4))
+
         json_label = ctk.CTkLabel(
-            self.container,
+            json_header,
             text='CONFIGURACIÓN JSON:',
             font=('Courier New', 13, 'bold'),
             text_color='#FFFFFF'
         )
-        json_label.pack(pady=(0, 4), padx=12, anchor='w')
+        json_label.pack(side='left')
+
+        self.btn_plantilla = ctk.CTkButton(
+            json_header,
+            text='PLANTILLA',
+            font=('Courier New', 11, 'bold'),
+            fg_color='#9b59b6',
+            hover_color='#8e44ad',
+            width=90,
+            height=26,
+            command=self._insertar_plantilla
+        )
+        self.btn_plantilla.pack(side='right')
 
         self.textbox = ctk.CTkTextbox(
             self.container,
@@ -137,6 +168,9 @@ class MapeoCsvUI:
             wrap='none'
         )
         self.textbox.pack(fill='both', expand=True, padx=12, pady=(0, 12))
+
+        # Undo/redo manual para CTkTextbox
+        self._setup_undo()
 
         # Cargar mapeo actual
         self._cargar_mapeo()
@@ -175,21 +209,7 @@ class MapeoCsvUI:
 
             # Plantilla por defecto si no existe
             if not mapeo:
-                mapeo = '''{
-  "separador": ";",
-  "encoding": "utf-8",
-  "skip_rows": 0,
-  "columna_ean": "",
-  "columna_nombre": "",
-  "columna_cantidad": "",
-  "columna_precio_base": "",
-  "columna_coste": "",
-  "columna_descuento": "",
-  "columna_iva": "",
-  "columna_pvpr": "",
-  "calcular_coste_desde_precio_dto": false,
-  "calcular_pvpr_desde_precio_iva": false
-}'''
+                mapeo = self.PLANTILLA_JSON
 
             # Formatear bonito
             try:
@@ -255,6 +275,59 @@ class MapeoCsvUI:
 
         except Exception:
             logging.exception('Error guardando mapeo CSV')
+
+    def _insertar_plantilla(self):
+        """Insertar JSON plantilla en el editor."""
+        try:
+            self.textbox.delete('1.0', 'end')
+            self.textbox.insert('1.0', self.PLANTILLA_JSON)
+            self.textbox.focus_set()
+            self._save_undo_state()
+        except Exception:
+            logging.exception('Error insertando plantilla JSON')
+
+    def _save_undo_state(self):
+        """Guardar estado actual en el stack de undo."""
+        if self._undo_active:
+            return
+        current = self.textbox.get('1.0', 'end-1c')
+        if self._undo_index < 0 or self._undo_stack[self._undo_index] != current:
+            self._undo_stack = self._undo_stack[:self._undo_index + 1]
+            self._undo_stack.append(current)
+            self._undo_index += 1
+
+    def _setup_undo(self):
+        """Configurar undo/redo manual (Ctrl+Z / Ctrl+Y)."""
+        try:
+            self.textbox.bind('<KeyRelease>', lambda e: self._save_undo_state())
+
+            def undo(event=None):
+                if self._undo_index > 0:
+                    self._undo_active = True
+                    self._undo_index -= 1
+                    self.textbox.delete('1.0', 'end')
+                    self.textbox.insert('1.0', self._undo_stack[self._undo_index])
+                    self._undo_active = False
+                return 'break'
+
+            def redo(event=None):
+                if self._undo_index < len(self._undo_stack) - 1:
+                    self._undo_active = True
+                    self._undo_index += 1
+                    self.textbox.delete('1.0', 'end')
+                    self.textbox.insert('1.0', self._undo_stack[self._undo_index])
+                    self._undo_active = False
+                return 'break'
+
+            self.textbox.bind('<Control-z>', undo)
+            self.textbox.bind('<Control-Z>', undo)
+            self.textbox.bind('<Control-y>', redo)
+            self.textbox.bind('<Control-Y>', redo)
+
+            # Guardar estado inicial
+            self._save_undo_state()
+        except Exception:
+            logging.exception('Error configurando undo/redo')
 
     def _on_cancelar(self):
         """Cancelar edición y volver a proveedor."""
