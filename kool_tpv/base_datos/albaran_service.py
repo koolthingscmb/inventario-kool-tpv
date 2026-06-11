@@ -30,7 +30,7 @@ class AlbaranService:
         """
         try:
             query = """
-        SELECT p.id, p.nombre, COALESCE(pr.coste, 0.0) AS coste, p.tipo_iva
+        SELECT p.id, p.nombre, COALESCE(pr.coste, 0.0) AS coste, p.tipo_iva, COALESCE(pr.pvp, 0.0) AS pvp
         FROM productos p
         LEFT JOIN precios pr ON pr.producto_id = p.id AND pr.activo = 1
         INNER JOIN codigos_barras cb ON cb.producto_id = p.id
@@ -43,7 +43,8 @@ class AlbaranService:
                     'id': row[0],
                     'nombre': row[1] or '',
                     'coste': read_from_db(int(row[2] or 0)),
-                    'tipo_iva': int(row[3] or 21)
+                    'tipo_iva': int(row[3] or 21),
+                    'pvp': read_from_db(int(row[4] or 0))
                 }
             return None
         except Exception:

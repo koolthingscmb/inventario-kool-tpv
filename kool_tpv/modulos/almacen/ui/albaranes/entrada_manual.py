@@ -251,7 +251,7 @@ class EntradaManualUI:
 
         # Área de líneas añadidas
         self.columns_lines = [
-            ('EAN', 160), ('NOMBRE', 240), ('UDS', 70), ('COSTE', 80), ('%IVA', 50), ('IVA', 70), ('TOTAL', 90)
+            ('EAN', 160), ('NOMBRE', 220), ('UDS', 60), ('COSTE', 75), ('%IVA', 45), ('IVA', 65), ('PVP', 75), ('TOTAL', 85)
         ]
         self.nav_list = VirtualNavList(
             right_panel,
@@ -494,6 +494,7 @@ class EntradaManualUI:
             neto = cantidad * coste
             iva = round(float(neto) * tipo_iva / 100, 2)
             total = round(float(neto) + iva, 2)
+            pvp = line.get('pvp', 0.0)
             mapped = {
                 'EAN': line.get('ean', ''),
                 'NOMBRE': line.get('nombre', ''),
@@ -501,6 +502,7 @@ class EntradaManualUI:
                 'COSTE': f"{float(coste):.2f}",
                 '%IVA': f"{tipo_iva}%",
                 'IVA': f"{iva:.2f}",
+                'PVP': f"{float(pvp):.2f}" if pvp else '-',
                 'TOTAL': f"{total:.2f}",
                 '_idx': line.get('id') if 'id' in line else None
             }
@@ -604,6 +606,7 @@ class EntradaManualUI:
 
             producto_id = self._current_producto['id'] if hasattr(self, '_current_producto') and self._current_producto else None
             tipo_iva = self._current_producto['tipo_iva'] if hasattr(self, '_current_producto') and self._current_producto else 21
+            pvp = self._current_producto.get('pvp', 0.0) if hasattr(self, '_current_producto') and self._current_producto else 0.0
 
             line = {
                 'producto_id': producto_id,
@@ -611,7 +614,8 @@ class EntradaManualUI:
                 'nombre': nombre,
                 'cantidad': uds,
                 'coste': coste,
-                'tipo_iva': tipo_iva
+                'tipo_iva': tipo_iva,
+                'pvp': pvp
             }
 
             # Si estamos editando, reemplazar; si no, añadir
