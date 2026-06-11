@@ -50,19 +50,25 @@ class MapeoCsvUI:
         col_izq = ctk.CTkFrame(columnas_frame, fg_color='transparent')
         col_izq.pack(side='left', fill='both', expand=True, padx=(0, 10))
 
-        texto_izq = """CAMPOS DEL CSV (cambiar VALORES):
+        texto_izq = """COLUMNAS DEL CSV (pon el nombre exacto):
 
-    • "columna_ean": "nombre_columna_ean"
-    • "columna_cantidad": "nombre_columna_cant"
-    • "columna_precio": "nombre_columna_precio"
+    • "columna_ean": nombre col. EAN/código
+    • "columna_nombre": nombre col. descripción
+    • "columna_cantidad": nombre col. unidades
+    • "columna_precio_base": col. precio sin dto
+      (usar si NO hay coste directo)
+    • "columna_coste": col. coste directo
+      (usar si el CSV ya da el precio neto)
+    • "columna_descuento": col. descuento %
+    • "columna_iva": col. tipo IVA
+    • "columna_pvpr": col. PVP recomendado
+      (dejar vacío si hay que calcularlo)
 
-    EJEMPLO: Si tu CSV tiene cabecera:
-    "Código, Unidades, Precio"
-
-    Entonces configura:
-    "columna_ean": "Código"
-    "columna_cantidad": "Unidades"
-    "columna_precio": "Precio" """
+    CÁLCULOS AUTOMÁTICOS (true/false):
+    • "calcular_coste_desde_precio_dto"
+      → COSTE = precio_base × (1 - dto/100)
+    • "calcular_pvpr_desde_precio_iva"
+      → PVPR = precio_base × (1 + iva/100)"""
 
         lbl_izq = ctk.CTkLabel(
             col_izq,
@@ -170,12 +176,19 @@ class MapeoCsvUI:
             # Plantilla por defecto si no existe
             if not mapeo:
                 mapeo = '''{
-"columna_ean": "EAN",
-"columna_cantidad": "Cantidad",
-"columna_precio": "Precio",
-"separador": ",",
-"skip_rows": 0,
-"encoding": "utf-8"
+  "separador": ";",
+  "encoding": "utf-8",
+  "skip_rows": 0,
+  "columna_ean": "",
+  "columna_nombre": "",
+  "columna_cantidad": "",
+  "columna_precio_base": "",
+  "columna_coste": "",
+  "columna_descuento": "",
+  "columna_iva": "",
+  "columna_pvpr": "",
+  "calcular_coste_desde_precio_dto": false,
+  "calcular_pvpr_desde_precio_iva": false
 }'''
 
             # Formatear bonito
@@ -201,9 +214,14 @@ class MapeoCsvUI:
             try:
                 parsed = json.loads(contenido)
 
-                # Validar campos obligatorios (solo EAN, Cantidad, Precio)
-                campos_req = ['columna_ean', 'columna_cantidad', 'columna_precio']
-                faltantes = [c for c in campos_req if c not in parsed]
+                # Validar campos obligatorios: EAN y Cantidad siempre requeridos.
+                # Para el precio: vale con columna_precio_base, columna_coste o columna_precio (legacy)
+                campos_req_basicos = ['columna_ean', 'columna_cantidad']
+                faltantes = [c for c in campos_req_basicos if c not in parsed]
+
+                tiene_precio = any(k in parsed for k in ('columna_precio_base', 'columna_coste', 'columna_precio'))
+                if not tiene_precio:
+                    faltantes.append('columna_precio_base o columna_coste')
 
                 if faltantes:
                     show_error(
