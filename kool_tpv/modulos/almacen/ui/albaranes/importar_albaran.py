@@ -832,16 +832,17 @@ class ImportarAlbaranUI:
         factor = self._get_factor_conversion() if convertir else 1
         cantidad_final = cantidad_original * factor
 
-        # Guardar en memoria
+        # Guardar en memoria (coste ya está en euros desde _iniciar_creacion_productos)
         self._productos_data[ean] = {
             'ean': ean,
             'nombre': nombre,
             'sku': sku,
-            'coste': data['coste'] / 100 if isinstance(data['coste'], int) else data['coste'],  # Convertir si es céntimos
+            'coste': data['coste'],
             'tipo_iva': data['tipo_iva'],
             'categoria': categoria_id,
             'tipo': tipo_id,
             'pvp': pvp,
+            'pvpr': data.get('pvpr'),
             'completado': True,
             # Conversión de unidades
             'cantidad_original': cantidad_original,
@@ -902,18 +903,18 @@ class ImportarAlbaranUI:
                     # Usar guardar_producto_completo del repository
                     producto_id = repo.guardar_producto_completo(
                         nombre=data['nombre'],
-                        nombre_boton=data['nombre'][:20],  # Nombre corto para botón
-                        sku=data.get('sku', ''),  # SKU introducido por usuario
+                        nombre_boton=data['nombre'][:20],
+                        sku=data.get('sku', ''),
                         categoria_id=data['categoria'],
                         tipo_id=data['tipo'],
-                        proveedor_id=proveedor_id,  # Proveedor de la cabecera
+                        proveedor_id=proveedor_id,
                         iva=data['tipo_iva'],
-                        stock_actual=stock_producto,  # Stock ya convertido
+                        stock_actual=stock_producto,
                         stock_min=0,
                         activo=1,
                         pvp=data.get('pvp', 0),
-                        coste=data['coste'] / 100 if isinstance(data['coste'], int) else data['coste'],
-                        codigos_barras=[data['ean']],  # EAN como código de barras
+                        coste=data.get('coste', 0),
+                        codigos_barras=[data['ean']],
                     )
                     # Guardar el ID del producto creado para las líneas del albarán
                     data['producto_id'] = producto_id
