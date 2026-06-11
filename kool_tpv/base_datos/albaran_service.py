@@ -417,7 +417,8 @@ class AlbaranService:
         SELECT p.id, p.nombre, p.sku,
                COALESCE(pr.coste, 0.0) AS coste,
                p.tipo_iva,
-               (SELECT cb.ean FROM codigos_barras cb WHERE cb.producto_id = p.id LIMIT 1) AS ean
+               (SELECT cb.ean FROM codigos_barras cb WHERE cb.producto_id = p.id LIMIT 1) AS ean,
+               COALESCE(pr.pvp, 0.0) AS pvp
         FROM productos p
         LEFT JOIN precios pr ON pr.producto_id = p.id AND pr.activo = 1
         WHERE p.activo = 1 AND p.nombre LIKE ?
@@ -432,6 +433,7 @@ class AlbaranService:
             for r in rows or []:
                 nombre_display = f"{r[1]} ({r[2]})" if r[2] else r[1]
                 coste_val = read_from_db(int(r[3] or 0))
+                pvp_val = read_from_db(int(r[6] or 0))
                 # Si no hay coste activo, intentar fallback a cualquier precio histórico
                 if coste_val == 0.0:
                     try:
@@ -439,6 +441,14 @@ class AlbaranService:
                         row2 = self.db.fetch_one(q2, (r[0],))
                         if row2 and row2[0] is not None:
                             coste_val = read_from_db(int(row2[0] or 0))
+                    except Exception:
+                        pass
+                if pvp_val == 0.0:
+                    try:
+                        q2 = "SELECT pvp FROM precios WHERE producto_id = ? ORDER BY id DESC LIMIT 1"
+                        row2 = self.db.fetch_one(q2, (r[0],))
+                        if row2 and row2[0] is not None:
+                            pvp_val = read_from_db(int(row2[0] or 0))
                     except Exception:
                         pass
 
@@ -449,7 +459,8 @@ class AlbaranService:
                     'sku': r[2] or '',
                     'coste': coste_val,
                     'tipo_iva': int(r[4] or 21),
-                    'ean': r[5] or ''
+                    'ean': r[5] or '',
+                    'pvp': pvp_val
                 })
 
             return resultados

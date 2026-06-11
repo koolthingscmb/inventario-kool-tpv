@@ -36,6 +36,8 @@ class EntradaManualUI:
             self.colors = {'text': COLOR_MATRIX, 'primary': COLOR_MATRIX, 'secondary': COLOR_MATRIX, 'accent': COLOR_MATRIX}
         self.albaran_service = AlbaranService(db)
         self.proveedor_service = ProveedorService(db)
+        from kool_tpv.modulos.almacen.producto_repository import ProductoRepository
+        self.producto_repo = ProductoRepository(db)
 
         self.container = ctk.CTkFrame(parent, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
 
@@ -342,6 +344,7 @@ class EntradaManualUI:
                 '_coste': producto.get('coste', 0.0),
                 '_tipo_iva': producto.get('tipo_iva', 21),
                 '_sku': producto.get('sku', ''),
+                '_pvp': producto.get('pvp', 0.0),
             }
         except Exception:
             logging.exception('Error en _map_producto_buscador')
@@ -357,6 +360,7 @@ class EntradaManualUI:
             producto_id = data.get('id')
             sku = data.get('_sku', '')
 
+            pvp = data.get('_pvp', 0.0)
             self._current_producto = {
                 'id': producto_id,
                 'nombre': nombre,
@@ -364,6 +368,7 @@ class EntradaManualUI:
                 'tipo_iva': tipo_iva,
                 'ean': ean,
                 'sku': sku,
+                'pvp': pvp,
             }
 
             self.e_ean.delete(0, 'end')
@@ -732,7 +737,14 @@ class EntradaManualUI:
             except Exception:
                 pass
 
-            # Líneas
+            # Líneas: enriquecer con PVP desde ProductoRepository (una sola query)
+            producto_ids = [line.get('producto_id') for line in lines if line.get('producto_id')]
+            if producto_ids:
+                pvps = self.producto_repo.get_pvps_by_ids(producto_ids)
+                for line in lines:
+                    pid = line.get('producto_id')
+                    if pid and pid in pvps:
+                        line['pvp'] = pvps[pid]
             self.lines = lines
             self._render_lines()
             self._update_totals()

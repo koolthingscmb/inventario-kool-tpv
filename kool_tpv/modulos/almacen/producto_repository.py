@@ -115,6 +115,23 @@ class ProductoRepository:
             return None
         return dict(row)
 
+    def get_pvps_by_ids(self, producto_ids: List[int]) -> Dict[int, float]:
+        """Obtener PVP activo para una lista de producto_ids en una sola query.
+
+        Returns:
+            Dict {producto_id: pvp_euros}
+        """
+        if not producto_ids:
+            return {}
+        placeholders = ','.join(['?'] * len(producto_ids))
+        query = f"""
+        SELECT producto_id, COALESCE(pvp, 0.0) AS pvp
+        FROM precios
+        WHERE producto_id IN ({placeholders}) AND activo = 1
+        """
+        rows = self.db.fetch_all(query, tuple(producto_ids))
+        return {int(row[0]): float(row[1]) for row in (rows or [])}
+
     def get_ventas_por_producto_id(self, producto_id: int, limite: int = 20):
         """Historial de ventas de un producto (joins con tickets y clientes).
 
