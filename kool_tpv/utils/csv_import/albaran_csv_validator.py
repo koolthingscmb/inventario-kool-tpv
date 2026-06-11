@@ -54,7 +54,7 @@ class CsvImportResult:
         total_iva_21 = Decimal('0.0')
 
         for linea in self.lineas:
-            importe = Decimal(str(linea.importe))
+            importe = Decimal(linea.importe_cents) / Decimal('100')
             total_neto += importe
 
             iva_aplicable = Decimal(str(linea.tipo_iva)) / Decimal('100')
