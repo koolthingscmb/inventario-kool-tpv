@@ -111,6 +111,33 @@ class ValeDevolucionService:
         return [v for v in self.listar() if not v.get('usado', False)]
 
     # ------------------------------------------------------------------
+    def listar_todos(self) -> list[dict]:
+        """Devuelve todos los vales (activos + usados), del más reciente al más antiguo."""
+        result = []
+        for f in sorted(VALES_DIR.glob('*.json'), reverse=True):
+            try:
+                data = json.loads(f.read_text(encoding='utf-8'))
+                data['path'] = str(f)
+                result.append(data)
+            except Exception:
+                logger.warning(f'Vale corrupto ignorado: {f}')
+        return result
+
+    # ------------------------------------------------------------------
+    def eliminar_por_path(self, path_str: str) -> bool:
+        """Elimina un vale por su path de archivo (usado o no)."""
+        try:
+            p = Path(path_str)
+            if p.exists():
+                p.unlink()
+                logger.info(f'Vale eliminado por path: {path_str}')
+                return True
+            return False
+        except Exception:
+            logger.warning(f'No se pudo eliminar vale por path: {path_str}')
+            return False
+
+    # ------------------------------------------------------------------
     def marcar_usado(self, vale_id: str, num_ticket_venta_uso: str) -> bool:
         """Marca un vale como usado, renombra el archivo a USADO_ y guarda el ticket de venta asociado.
 

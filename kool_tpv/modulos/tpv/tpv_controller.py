@@ -338,14 +338,35 @@ class TpvController:
             logger.exception('Error en _after_vale_applied')
 
     def _after_vale_omitted(self):
-        """Callback tras omitir un vale: activa el pago original."""
+        """Callback tras omitir un vale: activa el pago original directamente."""
         try:
             tc = getattr(self.view, 'ticket_carrito', None)
             pending = getattr(tc, 'pending_payment_type', 'efectivo') if tc else 'efectivo'
+
+            def _make_wrapper(tipo_pago):
+                def wrapper(data: dict):
+                    if tipo_pago == 'Efectivo':
+                        efectivo = data.get('cantidad_entregada', data.get('total', 0.0))
+                        self.finalize_sale(efectivo=efectivo, forma_pago='Efectivo', importe_efectivo=efectivo, importe_tarjeta=0.0)
+                    elif tipo_pago == 'Tarjeta':
+                        self.finalize_sale(efectivo=None, forma_pago='Tarjeta', importe_efectivo=0.0, importe_tarjeta=data.get('total', 0.0))
+                    elif tipo_pago == 'Web':
+                        self.finalize_sale(efectivo=None, forma_pago='Web', importe_efectivo=0.0, importe_tarjeta=0.0, importe_web=data.get('total', 0.0))
+                    elif tipo_pago == 'Multi':
+                        self.finalize_sale(efectivo=None, forma_pago='Multi', importe_efectivo=data.get('efectivo', 0.0), importe_tarjeta=data.get('tarjeta', 0.0))
+                return wrapper
+
             try:
-                from kool_tpv.modulos.tpv.button_action_mapper import _activate_payment
-                _activate_payment(self.view, pending)
+                if pending == 'efectivo':
+                    tc.activar_pago_efectivo(on_finalizar=_make_wrapper('Efectivo'))
+                elif pending == 'tarjeta':
+                    tc.activar_pago_tarjeta(on_finalizar=_make_wrapper('Tarjeta'))
+                elif pending == 'web':
+                    tc.activar_pago_web(on_finalizar=_make_wrapper('Web'))
+                elif pending == 'multi':
+                    tc.activar_pago_multi(on_finalizar=_make_wrapper('Multi'))
             except Exception:
+                logger.exception('Error activando pago tras omitir vale')
                 # Fallback a efectivo
                 if tc:
                     try:

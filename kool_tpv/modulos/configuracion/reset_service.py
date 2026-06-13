@@ -19,6 +19,7 @@ _CLIENTES_RESET_SET = """
         total_compras = 0,
         total_compras_euros = 0,
         total_unidades = 0,
+        total_devoluciones = 0,
         fecha_ultima_compra = NULL,
         fecha_vencimiento_tesoro = NULL,
         fecha_ultima_comunicacion = NULL

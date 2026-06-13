@@ -25,6 +25,13 @@ class DevolucionSubView(CTkFrame):
             command=self._on_cliente_button
         )
 
+        self.btn_ver_vales = ButtonFactory.create_button(
+            parent=self.header_frame,
+            text="VER VALES",
+            style_key="mini_outline_clientes",
+            command=self._on_ver_vales
+        )
+
         from customtkinter import CTkEntry
 
         self.search_entry = CTkEntry(
@@ -36,6 +43,7 @@ class DevolucionSubView(CTkFrame):
 
         # Bind will be set after search_list exists
 
+        self.btn_ver_vales.pack(side="right", padx=10)
         self.btn_cliente.pack(side="right", padx=10)
 
         # Área de lista (contenido principal)
@@ -143,6 +151,19 @@ class DevolucionSubView(CTkFrame):
                 pass
         except Exception:
             self.devoluciones_service = None
+
+    def _on_ver_vales(self):
+        try:
+            from kool_tpv.modulos.tpv.subviews.vales_list_subview import ValesListSubView
+            if getattr(self, 'view', None) and hasattr(self.view, 'push_subview'):
+                subview = ValesListSubView(
+                    parent=self.view.center_area,
+                    view=self.view,
+                    module_name='tpv'
+                )
+                self.view.push_subview(subview, "VALES")
+        except Exception:
+            logging.exception('Error abriendo ValesListSubView')
 
     def _on_cliente_button(self):
         try:

@@ -238,6 +238,16 @@ class PaymentControllerMulti(ctk.CTkFrame):
         try:
             suma = self.efectivo + self.tarjeta
 
+            # Si total es 0 (vale cubre todo), permitir ambos en 0
+            if self.total <= 0:
+                if suma <= Decimal("0.01"):
+                    self.error_label.configure(text="")
+                    self.btn_finalizar.configure(state="normal")
+                else:
+                    self.error_label.configure(text=f"Suma incorrecta: {suma:.2f}€")
+                    self.btn_finalizar.configure(state="disabled")
+                return
+
             if self.efectivo <= 0 or self.tarjeta <= 0:
                 self.error_label.configure(text="Ambos importes deben ser > 0")
                 self.btn_finalizar.configure(state="disabled")
@@ -254,6 +264,17 @@ class PaymentControllerMulti(ctk.CTkFrame):
     def _on_finalizar(self):
         """Handler botón Finalizar."""
         try:
+            # Si total es 0 (vale cubre todo), permitir ambos en 0
+            if self.total <= 0:
+                if self.on_finalizar_callback:
+                    self.on_finalizar_callback({
+                        "tipo_pago": "Multi",
+                        "total": self.total,
+                        "efectivo": self.efectivo,
+                        "tarjeta": self.tarjeta
+                    })
+                return
+
             if self.efectivo <= 0 or self.tarjeta <= 0:
                 return
 
@@ -281,4 +302,17 @@ class PaymentControllerMulti(ctk.CTkFrame):
             pass
         self.efectivo = Decimal("0.0")
         self.tarjeta = Decimal("0.0")
+        # Si total es 0 (vale cubre todo), pre-llenar 0 y activar
+        if self.total <= 0:
+            try:
+                self.entry_efectivo.insert(0, '0')
+                self.entry_tarjeta.insert(0, '0')
+            except Exception:
+                pass
+            self.error_label.configure(text="")
+            try:
+                self.btn_finalizar.configure(state="normal")
+            except Exception:
+                pass
+            return
         self._validate()

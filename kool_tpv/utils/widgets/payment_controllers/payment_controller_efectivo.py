@@ -237,6 +237,21 @@ class PaymentControllerEfectivo(ctk.CTkFrame):
     def set_total(self, total: float):
         """Actualizar total a cobrar."""
         self.total = total
+        # Si total es 0 o negativo (vale cubre todo), pre-llenar 0 y activar botón
+        if self.total <= 0:
+            try:
+                self.entry_cantidad.delete(0, 'end')
+                self.entry_cantidad.insert(0, '0')
+            except Exception:
+                pass
+            self.cantidad_entregada = Decimal('0')
+            self.cambio_label.configure(text="Cambio: 0.00€")
+            self.error_label.configure(text="")
+            try:
+                self.btn_finalizar.configure(state="normal")
+            except Exception:
+                pass
+            return
         # Recalcular cambio
         try:
             self._on_cantidad_change()
