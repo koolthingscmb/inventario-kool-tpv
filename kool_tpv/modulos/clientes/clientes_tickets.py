@@ -17,7 +17,6 @@ import customtkinter as ctk
 from kool_tpv.base_datos.money_adapter import read_from_db
 
 from kool_tpv.utils.templates.pagina_con_visor import PaginaConVisor
-from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.config_loader import create_action_button
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.widgets.date_picker_entry import DatePickerEntry
@@ -178,50 +177,13 @@ class ClientesTicketsUI(PaginaConVisor):
             text_color=self.colors.get('text')
         ).pack(side='left', padx=(0, 12))
 
-        self.combo_producto = SearchableCombo(
+        self.entry_producto = ctk.CTkEntry(
             buscar_frame,
-            placeholder='Escribe nombre y pulsa FILTRAR',
-            module_name=self.module_name,
+            placeholder_text='Escribe nombre y pulsa FILTRAR',
             width=320
         )
-        self.combo_producto.pack(side='left', fill='x', expand=True, padx=(0, 12))
-
-        # Cargar productos del cliente
-        try:
-            self._cargar_productos_cliente()
-        except Exception:
-            logger.exception('Error cargando productos para buscador')
-
-        try:
-            self.combo_producto.entry.bind('<Return>', lambda e: self._aplicar_filtros())
-            self.combo_producto.entry.bind('<KeyRelease>', self._on_combo_keyrelease)
-        except Exception:
-            pass
-
-    def _on_combo_keyrelease(self, event):
-        """Maneja teclas en el buscador: Enter aplica filtro; si el campo queda vacío
-        recarga la lista completa y limpia el visor."""
-        try:
-            texto = (self.combo_producto.get() or '').strip()
-            if event.keysym == 'Return':
-                try:
-                    self._aplicar_filtros()
-                except Exception:
-                    logger.exception('Error aplicando filtros desde _on_combo_keyrelease')
-                return
-
-            # Si el usuario ha borrado el texto, recargar listado completo
-            if texto == '':
-                try:
-                    self._cargar_tickets()
-                    try:
-                        self.update_visor('')
-                    except Exception:
-                        pass
-                except Exception:
-                    logger.exception('Error recargando tickets al vaciar buscador')
-        except Exception:
-            logger.exception('Error en _on_combo_keyrelease')
+        self.entry_producto.pack(side='left', fill='x', expand=True, padx=(0, 12))
+        self.entry_producto.bind('<Return>', lambda e: self._aplicar_filtros())
 
     def _build_grid(self):
         """Implementar grid de tickets."""
@@ -308,7 +270,7 @@ class ClientesTicketsUI(PaginaConVisor):
                 (
                     int(r[0]),  # ticket_id
                     r[1] or '',  # created_at
-                    float(r[2]) if r[2] else 0.0,  # total
+                    float(read_from_db(int(r[2]))) if r[2] else 0.0,  # total
                     r[3] or '',  # ticket_text
                     int(r[4]) if r[4] else 0  # num_productos
                 )
@@ -551,12 +513,11 @@ class ClientesTicketsUI(PaginaConVisor):
             fecha_desde = (self.date_desde.get() or '').strip()
             fecha_hasta = (self.date_hasta.get() or '').strip()
             producto_id = None
+            texto_combo = ''
             try:
-                producto_id = self.combo_producto.get_id()
-                texto_combo = (self.combo_producto.get() or '').strip()
+                texto_combo = (self.entry_producto.get() or '').strip()
             except Exception:
-                logger.exception('Error obteniendo producto_id')
-                producto_id = None
+                logger.exception('Error obteniendo texto búsqueda producto')
 
             query = """
                 SELECT
@@ -577,28 +538,25 @@ class ClientesTicketsUI(PaginaConVisor):
 
             if fecha_hasta:
                 query += " AND t.created_at <= ?"
-                params.append(fecha_hasta)
+                params.append(fecha_hasta + ' 23:59:59')
 
-            if producto_id:
-                query += " AND EXISTS (SELECT 1 FROM ticket_lines WHERE ticket_id = t.id AND producto_id = ?)"
-                params.append(producto_id)
-            else:
-                # Si no hay ID pero el usuario escribió texto, filtrar por nombre
-                if texto_combo:
-                    query += " AND EXISTS (SELECT 1 FROM ticket_lines tl2 WHERE tl2.ticket_id = t.id AND tl2.nombre LIKE ?)"
-                    params.append(f'%{texto_combo}%')
+            if texto_combo:
+                query += " AND EXISTS (SELECT 1 FROM ticket_lines tl2 WHERE tl2.ticket_id = t.id AND tl2.nombre LIKE ?)"
+                params.append(f'%{texto_combo}%')
 
             query += " GROUP BY t.id ORDER BY t.created_at DESC"
 
+            logger.info('_aplicar_filtros query: %s | params: %s', query.strip(), params)
             cur = self.db.connection.cursor()
             cur.execute(query, tuple(params))
             rows = cur.fetchall()
+            logger.info('_aplicar_filtros rows: %s', len(rows))
 
             self.tickets_data = [
                 (
                     int(r[0]), # ticket_id
                     r[1] or '', # created_at
-                    float(r[2]) if r[2] else 0.0, # total
+                    float(read_from_db(int(r[2]))) if r[2] else 0.0, # total
                     r[3] or '', # ticket_text
                     int(r[4]) if r[4] else 0 # num_productos
                 )

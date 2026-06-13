@@ -12,6 +12,7 @@ from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.custom_dialog import show_warning
+from kool_tpv.base_datos.money_adapter import read_from_db
 from kool_tpv.modulos.clientes.services.clientes_tops_service import ClientesTopsService
 from kool_tpv.base_datos.categoria_service import CategoriaService
 from kool_tpv.base_datos.tipo_service import TipoService
@@ -157,11 +158,11 @@ class ClientesTopsUI(ctk.CTkFrame):
         # NavList (data area)
         try:
             columns = [
-                ("posicion", 60),
-                ("nombre", 200),
-                ("total_tickets", 120),
-                ("total_unidades", 120),
-                ("total_euros", 120),
+                ("posicion", 60, 'Posición'),
+                ("nombre", 200, 'Cliente'),
+                ("total_tickets", 120, 'Tickets'),
+                ("total_unidades", 120, 'Uds.'),
+                ("total_euros", 120, '€€'),
                 # Campos de tesoro (clave, ancho, texto a mostrar en header)
                 ("tesoro_total", 120, 'TESORO ACTUAL'),
                 ("tesoro_gastado_total", 140, 'TESORO GASTADO'),
@@ -182,13 +183,19 @@ class ClientesTopsUI(ctk.CTkFrame):
             # Cargar datos
             try:
                 items = self.service.get_top_clientes_general()
-                # Asegurar formato de total_euros (mostrar 2 decimales)
+                # Formatear valores monetarios (céntimos → euros)
                 for it in items:
                     try:
                         te = it.get('total_euros', 0.0)
-                        it['total_euros'] = f"{float(te):.2f}"
+                        it['total_euros'] = f"{float(read_from_db(int(te))):.2f}"
                     except Exception:
                         pass
+                    for k in ('tesoro_total', 'tesoro_gastado_total', 'tesoro_historico'):
+                        try:
+                            v = it.get(k, 0.0)
+                            it[k] = f"{float(read_from_db(int(v))):.2f}"
+                        except Exception:
+                            pass
                 self.nav_list.set_items(items)
             except Exception:
                 logger.exception('Error cargando top clientes en ClientesTopsUI')
@@ -239,13 +246,19 @@ class ClientesTopsUI(ctk.CTkFrame):
             else:
                 items = self.service.get_top_clientes_general()
 
-            # Formatear total_euros
+            # Formatear valores monetarios (céntimos → euros)
             for it in items:
                 try:
                     te = it.get('total_euros', 0.0)
-                    it['total_euros'] = f"{float(te):.2f}"
+                    it['total_euros'] = f"{float(read_from_db(int(te))):.2f}"
                 except Exception:
                     pass
+                for k in ('tesoro_total', 'tesoro_gastado_total', 'tesoro_historico'):
+                    try:
+                        v = it.get(k, 0.0)
+                        it[k] = f"{float(read_from_db(int(v))):.2f}"
+                    except Exception:
+                        pass
 
             # Si no hay resultados, mostrar advertencia y NO limpiar la lista previa
             if not items:
@@ -355,17 +368,17 @@ class ClientesTopsUI(ctk.CTkFrame):
         try:
             items = self.service.get_top_ordenado_por_tesoro(field)
 
-            # Formatear valores numéricos
+            # Formatear valores monetarios (céntimos → euros)
             for it in items:
                 try:
                     te = it.get('total_euros', 0.0)
-                    it['total_euros'] = f"{float(te):.2f}"
+                    it['total_euros'] = f"{float(read_from_db(int(te))):.2f}"
                 except Exception:
                     pass
                 for k in ('tesoro_total', 'tesoro_gastado_total', 'tesoro_historico'):
                     try:
                         v = it.get(k, 0.0)
-                        it[k] = f"{float(v):.2f}"
+                        it[k] = f"{float(read_from_db(int(v))):.2f}"
                     except Exception:
                         pass
 
