@@ -1,0 +1,11 @@
+{
+  "id": "dadb8855-42c9-475e-a0fd-2ee3ff396df3",
+  "fecha": "2026-06-12T09:00:23.160895",
+  "importe_cents": 1695,
+  "cliente_id": null,
+  "cliente_nombre": "",
+  "num_ticket_devolucion": "2026-0323",
+  "usado": false,
+  "num_ticket_venta_uso": null,
+  "timestamp": "2026-06-12T09:00:23.160895"
+}

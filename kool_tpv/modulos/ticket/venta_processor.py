@@ -49,6 +49,8 @@ class VentaProcessor(TicketProcessor):
                     tesoro_gastado_str=kwargs.get('puntos_gastados_cents', 0),
                     ticket_text_snapshot=kwargs.get('ticket_text_snapshot'),
                     iva_desglose_json=kwargs.get('iva_desglose_json', '{}'),
+                    vale_id=kwargs.get('vale_id'),
+                    vale_cents=kwargs.get('vale_cents'),
                     cur=cur,
                 )
 

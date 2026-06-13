@@ -476,11 +476,21 @@ class TicketCarrito(ctk.CTkFrame):
     def _clear_payment_area(self):
         """Limpiar el área de payment controllers."""
         try:
-            if getattr(self, 'active_payment_controller', None):
-                try:
-                    self.active_payment_controller.destroy()
-                except Exception:
-                    pass
+            ctrl = getattr(self, 'active_payment_controller', None)
+            if ctrl:
+                # Los controllers precreados en factory (vale, devolucion) deben
+                # sobrevivir para poder reutilizarse; el resto se destruye.
+                ctrl_cls = type(ctrl).__name__
+                if ctrl_cls in ('PaymentControllerVale', 'PaymentControllerDevolucion'):
+                    try:
+                        ctrl.pack_forget()
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        ctrl.destroy()
+                    except Exception:
+                        pass
                 self.active_payment_controller = None
                 self.active_payment_type = None
 
@@ -705,6 +715,25 @@ class TicketCarrito(ctk.CTkFrame):
                 pass
         except Exception:
             logger.exception("Error en _remove_descuento_visual")
+
+    def _remove_vale_visual(self):
+        """Eliminar visualmente el vale: delegar al servicio y refrescar UI."""
+        try:
+            if self.carrito_service:
+                try:
+                    self.carrito_service.quitar_vale()
+                except Exception:
+                    # Fallback: asignar None directamente
+                    try:
+                        self.carrito_service._vale_aplicado = None
+                    except Exception:
+                        pass
+            try:
+                self.update_carrito()
+            except Exception:
+                pass
+        except Exception:
+            logger.exception("Error en _remove_vale_visual")
 
     def update_totales(self, subtotal: float, total: float, desglose_iva: list = None):
         """Actualizar totales del footer con desglose de IVA.
@@ -969,6 +998,26 @@ class TicketCarrito(ctk.CTkFrame):
                 except Exception:
                     import logging
                     logging.exception("Error añadiendo línea visual de canje")
+
+                # Añadir línea visual de vale de devolución si aplica
+                try:
+                    vale_euros = resumen_tmp.get('vale_euros')
+                    if vale_euros and float(vale_euros) > 0:
+                        vale_negativo = -float(vale_euros)
+                        self.carrito_nav_list.add_item({
+                            "id": "__vale_visual__",
+                            "nombre": ">> Vale usado:",
+                            "cantidad": "",
+                            "pvp": vale_negativo,
+                            "total": vale_negativo,
+                            "line_tipo": "vale_visual",
+                            "visual": True,
+                            "on_remove": self._remove_vale_visual if hasattr(self, '_remove_vale_visual') else (lambda: None)
+                        })
+                        logger.info("TicketCarrito.update_carrito: línea de vale añadida al NavList")
+                except Exception:
+                    import logging
+                    logging.exception("Error insertando línea visual de vale")
 
                 # Restaurar scroll (volver a donde estaba)
                 try:

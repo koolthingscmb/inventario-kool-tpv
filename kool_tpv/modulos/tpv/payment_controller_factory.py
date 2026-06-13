@@ -13,7 +13,8 @@ logger = logging.getLogger(__name__)
 def create_controllers(
     parent: Any,
     carrito_service: Any,
-    on_finalize: Callable
+    on_finalize: Callable,
+    view: Any = None,
 ) -> Dict[str, Any]:
     """Crear todos los payment controllers del TPV.
 
@@ -21,13 +22,15 @@ def create_controllers(
         parent: Widget padre donde se inyectarán los controllers
         carrito_service: Instancia de CarritoService
         on_finalize: Callback unificado para finalizar venta
+        view: Instancia de TpvView (opcional, para callbacks de vale)
 
     Returns:
         Dict con controllers: {
             'cash': PaymentControllerEfectivo,
             'multi': PaymentControllerMulti,
             'tarjeta': PaymentControllerSimple (tarjeta),
-            'web': PaymentControllerSimple (web)
+            'web': PaymentControllerSimple (web),
+            'vale': PaymentControllerVale
         }
     """
     controllers = {}
@@ -188,7 +191,40 @@ def create_controllers(
         logger.exception('Error creando PaymentControllerDevolucion')
         controllers['devolucion'] = None
 
-    logger.info(f'Factory creó {sum(1 for c in controllers.values() if c is not None)}/5 controllers')
+    # Controller vale de devolución
+    try:
+        from kool_tpv.utils.widgets.payment_controllers.payment_controller_vale import PaymentControllerVale
+
+        def _on_usar_vale(vale_data):
+            try:
+                if carrito_service and hasattr(carrito_service, 'aplicar_vale'):
+                    carrito_service.aplicar_vale(vale_data)
+                ctrl = getattr(view, 'controller', None) if view else None
+                if ctrl and hasattr(ctrl, '_after_vale_applied'):
+                    ctrl._after_vale_applied()
+            except Exception:
+                logger.exception('Error aplicando vale desde controller')
+
+        def _on_omitir_vale():
+            try:
+                ctrl = getattr(view, 'controller', None) if view else None
+                if ctrl and hasattr(ctrl, '_after_vale_omitted'):
+                    ctrl._after_vale_omitted()
+            except Exception:
+                logger.exception('Error omitiendo vale')
+
+        controllers['vale'] = PaymentControllerVale(
+            parent=parent,
+            total=total,
+            on_usar_vale=_on_usar_vale,
+            on_omitir=_on_omitir_vale,
+        )
+        logger.debug('PaymentControllerVale creado')
+    except Exception:
+        logger.exception('Error creando PaymentControllerVale')
+        controllers['vale'] = None
+
+    logger.info(f'Factory creó {sum(1 for c in controllers.values() if c is not None)}/6 controllers')
 
     return controllers
 

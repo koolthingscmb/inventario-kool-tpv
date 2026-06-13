@@ -4,6 +4,7 @@ import logging
 
 from kool_tpv.modulos.ticket.venta_processor import VentaProcessor
 from kool_tpv.modulos.ticket.devolucion_repository import DevolucionRepository
+from kool_tpv.modulos.tpv.vale_devolucion_service import ValeDevolucionService
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +129,26 @@ class DevolucionProcessor(VentaProcessor):
                         logger.exception('DevolucionProcessor: error revirtiendo puntos (ticket_id=%s)', ticket_id)
 
             # Transaction committed successfully
+
+            # Generar vale de devolución (fuera de la transacción BD para no bloquear)
+            try:
+                vale_service = ValeDevolucionService()
+                cliente_nombre = None
+                if cliente:
+                    if isinstance(cliente, dict):
+                        cliente_nombre = cliente.get('nombre')
+                    else:
+                        cliente_nombre = str(cliente)
+                vale_service.guardar(
+                    importe_cents=devuelto_cents,
+                    num_ticket_devolucion=num_ticket,
+                    cliente_id=cliente_id,
+                    cliente_nombre=cliente_nombre,
+                )
+                logger.info('Vale generado para devolucion %s: %s cents', num_ticket, devuelto_cents)
+            except Exception:
+                logger.exception('Error generando vale para devolucion %s', num_ticket)
+
             return ticket_id, num_ticket
         except Exception:
             logger.exception('Error procesando devolucion en transacción')

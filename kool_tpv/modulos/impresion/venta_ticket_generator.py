@@ -353,6 +353,19 @@ class VentaTicketGenerator(BaseTicketGenerator):
                 except Exception:
                     continue
 
+        # Vale de devolución usado si aplica
+        try:
+            vale_euros = ticket_data.get('vale_euros')
+            if vale_euros and Decimal(str(vale_euros)) > 0:
+                linea_vale = self._format_line_lr(
+                    '>> Vale devolución:',
+                    f"-{self._format_currency(vale_euros)}"
+                )
+                lines.append(linea_vale)
+                lines.append(self.DIVIDER)
+        except Exception:
+            pass
+
         lines.append(self.DOUBLE_DIVIDER)
         total = ticket_data.get('total', 0)
         lines.append(self._format_line_lr("TOTAL:", self._format_currency(total)))

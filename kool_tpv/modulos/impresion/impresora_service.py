@@ -251,14 +251,16 @@ class ImpresoraService:
                           total, forma_pago, importe_efectivo, importe_tarjeta,
                           tesoro_ganado, tesoro_gastado,
                           subtotal, iva_desglose,
-                          descuento_euros, descuento_tipo, descuento_valor, dto_aplicado_id
+                          descuento_euros, descuento_tipo, descuento_valor, dto_aplicado_id,
+                          vale_id, vale_cents
                    FROM tickets WHERE id = ?""",
                 (ticket_id,)
             )
             # Índices: 0=id,1=num_ticket,2=created_at,3=cajero,4=cliente,5=cliente_id,
             #          6=total,7=forma_pago,8=importe_efectivo,9=importe_tarjeta,
             #          10=tesoro_ganado,11=tesoro_gastado,12=subtotal,13=iva_desglose,
-            #          14=descuento_euros,15=descuento_tipo,16=descuento_valor,17=dto_aplicado_id
+            #          14=descuento_euros,15=descuento_tipo,16=descuento_valor,17=dto_aplicado_id,
+            #          18=vale_id,19=vale_cents
 
             if not ticket_row:
                 return None
@@ -420,20 +422,23 @@ class ImpresoraService:
             # Usar valores almacenados en DB si están disponibles y no hay tesoro
             # (para tesoro usamos la reconstrucción que ya aplica el ajuste proporcional)
             _stored_iva_str = ticket_row[13] if len(ticket_row) > 13 else None
+            _used_stored = False
             if _stored_iva_str and _stored_iva_str != '{}' and (not tesoro_gastado or tesoro_gastado == Decimal('0')):
                 try:
                     import json as _json
                     _raw = _json.loads(_stored_iva_str)
                     iva_desglose = {int(k): read_from_db(int(v)) for k, v in _raw.items()}
                     subtotal_calc = read_from_db(int(ticket_row[12]))
+                    _used_stored = True
                 except Exception:
                     pass  # fallback a valores reconstruidos
 
-            # Redondear IVA y derivar subtotal coherente (total - suma_iva)
-            from decimal import ROUND_HALF_UP as _RHU
-            iva_desglose = {k: Decimal(v).quantize(Decimal('0.01'), rounding=_RHU) for k, v in iva_desglose.items()}
-            total_iva_display = sum(iva_desglose.values(), Decimal('0'))
-            subtotal_calc = (total - total_iva_display).quantize(Decimal('0.01'), rounding=_RHU)
+            if not _used_stored:
+                # Redondear IVA y derivar subtotal coherente (total - suma_iva)
+                from decimal import ROUND_HALF_UP as _RHU
+                iva_desglose = {k: Decimal(v).quantize(Decimal('0.01'), rounding=_RHU) for k, v in iva_desglose.items()}
+                total_iva_display = sum(iva_desglose.values(), Decimal('0'))
+                subtotal_calc = (total - total_iva_display).quantize(Decimal('0.01'), rounding=_RHU)
 
             # Construir ticket_data (usar Decimal para todos los importes)
             ticket_data = {
@@ -469,6 +474,18 @@ class ImpresoraService:
                 ticket_data['descuento_euros'] = None
                 ticket_data['descuento_tipo'] = None
                 ticket_data['descuento_valor'] = None
+
+            # Añadir vale de devolución si existe
+            try:
+                if len(ticket_row) > 19 and ticket_row[19] is not None:
+                    ticket_data['vale_euros'] = read_from_db(int(ticket_row[19]))
+                    ticket_data['vale_id'] = ticket_row[18]
+                else:
+                    ticket_data['vale_euros'] = None
+                    ticket_data['vale_id'] = None
+            except Exception:
+                ticket_data['vale_euros'] = None
+                ticket_data['vale_id'] = None
 
             # Cliente si existe
             cliente_data = None

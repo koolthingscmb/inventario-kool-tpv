@@ -278,7 +278,8 @@ class TpvController:
             self.payment_controllers = create_controllers(
                 parent=ticket_carrito.payment_area,
                 carrito_service=carrito_service,
-                on_finalize=self.finalize_sale
+                on_finalize=self.finalize_sale,
+                view=self.view
             )
 
             # Exponer en view para compatibilidad con button_action_mapper
@@ -287,11 +288,91 @@ class TpvController:
             self.view._tarjeta_controller = self.payment_controllers.get('tarjeta')
             self.view._web_controller = self.payment_controllers.get('web')
             self.view._devolucion_controller = self.payment_controllers.get('devolucion')
+            self.view._vale_controller = self.payment_controllers.get('vale')
 
             logger.info(f'Payment controllers creados: {list(self.payment_controllers.keys())}')
 
         except Exception:
             logger.exception('Error creando payment controllers')
+
+    def _after_vale_applied(self):
+        """Callback tras aplicar un vale: actualiza UI y activa el pago original."""
+        try:
+            # Actualizar display del carrito
+            ticket = getattr(self.view, 'ticket_carrito', None)
+            if ticket and hasattr(ticket, 'update_carrito'):
+                ticket.update_carrito()
+            # Activar el tipo de pago que el usuario había elegido originalmente
+            tc = getattr(self.view, 'ticket_carrito', None)
+            pending = getattr(tc, 'pending_payment_type', 'efectivo') if tc else 'efectivo'
+            try:
+                from kool_tpv.modulos.tpv.button_action_mapper import _activate_payment
+                _activate_payment(self.view, pending)
+            except Exception:
+                # Fallback a efectivo si falla la activación del pago pendiente
+                if tc:
+                    try:
+                        for widget in tc.payment_area.winfo_children():
+                            widget.pack_forget()
+                    except Exception:
+                        pass
+                    cash_ctrl = getattr(self.view, '_cash_controller', None)
+                    if cash_ctrl:
+                        try:
+                            carrito = getattr(self.view, 'carrito_service', None)
+                            resumen = carrito.get_resumen_financiero() if carrito else {}
+                            cash_ctrl.set_total(resumen.get('total', 0.0))
+                            cash_ctrl.pack(in_=tc.payment_area, fill="both", expand=True)
+                            tc.active_payment_controller = cash_ctrl
+                            tc.active_payment_type = 'efectivo'
+                        except Exception:
+                            pass
+            # Limpiar estado pendiente
+            if tc:
+                try:
+                    tc.pending_payment_type = None
+                except Exception:
+                    pass
+            logger.info(f'Vale aplicado, continuando a pago {pending}')
+        except Exception:
+            logger.exception('Error en _after_vale_applied')
+
+    def _after_vale_omitted(self):
+        """Callback tras omitir un vale: activa el pago original."""
+        try:
+            tc = getattr(self.view, 'ticket_carrito', None)
+            pending = getattr(tc, 'pending_payment_type', 'efectivo') if tc else 'efectivo'
+            try:
+                from kool_tpv.modulos.tpv.button_action_mapper import _activate_payment
+                _activate_payment(self.view, pending)
+            except Exception:
+                # Fallback a efectivo
+                if tc:
+                    try:
+                        for widget in tc.payment_area.winfo_children():
+                            widget.pack_forget()
+                    except Exception:
+                        pass
+                    cash_ctrl = getattr(self.view, '_cash_controller', None)
+                    if cash_ctrl:
+                        try:
+                            carrito = getattr(self.view, 'carrito_service', None)
+                            resumen = carrito.get_resumen_financiero() if carrito else {}
+                            cash_ctrl.set_total(resumen.get('total', 0.0))
+                            cash_ctrl.pack(in_=tc.payment_area, fill="both", expand=True)
+                            tc.active_payment_controller = cash_ctrl
+                            tc.active_payment_type = 'efectivo'
+                        except Exception:
+                            pass
+            # Limpiar estado pendiente
+            if tc:
+                try:
+                    tc.pending_payment_type = None
+                except Exception:
+                    pass
+            logger.info(f'Vale omitido, continuando a pago {pending}')
+        except Exception:
+            logger.exception('Error en _after_vale_omitted')
 
     def rebind_buttons(self):
         """Rebind botones grid usando mapper."""
@@ -625,6 +706,15 @@ class TpvController:
             })
         payload['descuentos'] = descuentos_list
 
+        # Añadir datos del vale de devolución si existe
+        vale_aplicado = kwargs.get('vale_aplicado')
+        if vale_aplicado:
+            payload['vale_id'] = vale_aplicado.get('id')
+            payload['vale_cents'] = int(vale_aplicado.get('importe_cents', 0))
+        else:
+            payload['vale_id'] = None
+            payload['vale_cents'] = None
+
         return payload
 
     def finalize_sale(
@@ -768,6 +858,13 @@ class TpvController:
                 num_ticket_val = None
             logger.info(f"num_ticket={num_ticket_val}")
 
+            # Obtener vale aplicado del carrito para pasarlo al payload
+            vale_aplicado = None
+            try:
+                vale_aplicado = carrito_service.get_vale_aplicado()
+            except Exception:
+                pass
+
             payload = self._build_ticket_payload(
                 self.db,
                 carrito_items,
@@ -786,6 +883,7 @@ class TpvController:
                 puntos_restar_cents=puntos_revertir_cents,
                 num_ticket=num_ticket_val,
                 tipo_ticket=tipo_ticket,
+                vale_aplicado=vale_aplicado,
             )
 
             # Seleccionar processor
@@ -830,6 +928,17 @@ class TpvController:
             if result['success']:
                 ticket_id = result['ticket_id']
                 num_ticket = result['num_ticket']
+
+                # Marcar vale como usado si había uno aplicado
+                try:
+                    vale_aplicado = carrito_service.get_vale_aplicado()
+                    if vale_aplicado:
+                        from kool_tpv.modulos.tpv.vale_devolucion_service import ValeDevolucionService
+                        vale_service = ValeDevolucionService()
+                        vale_service.marcar_usado(vale_aplicado['id'], str(num_ticket))
+                        logger.info(f"Vale {vale_aplicado['id']} marcado como usado en ticket {num_ticket}")
+                except Exception:
+                    logger.exception('Error marcando vale como usado')
 
                 # (Snapshot persistence removed by user request)
 

@@ -98,14 +98,22 @@ class TpvKeyboardShortcuts:
                         finalize(efectivo=None, forma_pago='Multi', importe_efectivo=data.get('efectivo', 0.0), importe_tarjeta=data.get('tarjeta', 0.0))
                 return wrapper
 
-            if tipo == 'cash':
-                ticket.activar_pago_efectivo(on_finalizar=_make_wrapper('Efectivo'))
-            elif tipo == 'tarjeta':
-                ticket.activar_pago_tarjeta(on_finalizar=_make_wrapper('Tarjeta'))
-            elif tipo == 'web':
-                ticket.activar_pago_web(on_finalizar=_make_wrapper('Web'))
-            elif tipo == 'multi':
-                ticket.activar_pago_multi(on_finalizar=_make_wrapper('Multi'))
+            # Usar _activate_payment del button_action_mapper para consistencia
+            # (incluye guardia de vales de devolución)
+            try:
+                from kool_tpv.modulos.tpv.button_action_mapper import _activate_payment
+                tipo_str = 'efectivo' if tipo == 'cash' else tipo
+                _activate_payment(view, tipo_str)
+            except Exception:
+                # Fallback a métodos directos del ticket
+                if tipo == 'cash':
+                    ticket.activar_pago_efectivo(on_finalizar=_make_wrapper('Efectivo'))
+                elif tipo == 'tarjeta':
+                    ticket.activar_pago_tarjeta(on_finalizar=_make_wrapper('Tarjeta'))
+                elif tipo == 'web':
+                    ticket.activar_pago_web(on_finalizar=_make_wrapper('Web'))
+                elif tipo == 'multi':
+                    ticket.activar_pago_multi(on_finalizar=_make_wrapper('Multi'))
 
             self._zone = 'payment'
             self._apply_zone_indicator('payment')

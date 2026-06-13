@@ -31,6 +31,8 @@ class CarritoService:
         self._puntos_canjeados = Decimal('0.00')
         # descuento aplicado al carrito: dict {'tipo': str, 'valor': Decimal, 'euros': Decimal}
         self._descuento = None
+        # vale de devolución aplicado al carrito: dict con 'id', 'importe_cents'
+        self._vale_aplicado = None
 
 
     def add_item(self, producto_data: Dict, parent_window=None) -> bool:
@@ -117,9 +119,11 @@ class CarritoService:
                     try:
                         self._descuento = None
                         self._puntos_canjeados = Decimal('0.00')
+                        self._vale_aplicado = None
                     except Exception:
                         self._descuento = None
                         self._puntos_canjeados = Decimal(0)
+                        self._vale_aplicado = None
             except Exception:
                 logging.exception('Error actualizando bandera _devolucion_active tras eliminar item')
             return True
@@ -158,6 +162,11 @@ class CarritoService:
             self._descuento = None
         except Exception:
             self._descuento = None
+        # limpiar vale aplicado
+        try:
+            self._vale_aplicado = None
+        except Exception:
+            self._vale_aplicado = None
         # Al limpiar el carrito también debe desactivarse el modo devolución
         try:
             setattr(self, '_devolucion_active', False)
@@ -436,7 +445,24 @@ class CarritoService:
             logging.exception('Error obteniendo puntos canjeados')
             puntos = Decimal('0.00')
 
-        return calculate_resumen(self._items, puntos_canjeados=puntos, descuento=self._descuento)
+        resumen = calculate_resumen(self._items, puntos_canjeados=puntos, descuento=self._descuento)
+
+        # Aplicar vale de devolución si existe
+        if self._vale_aplicado:
+            try:
+                from kool_tpv.base_datos.money_adapter import read_from_db
+                vale_euros = read_from_db(self._vale_aplicado['importe_cents'])
+                total_actual = Decimal(str(resumen.get('total', '0')))
+                nuevo_total = total_actual - vale_euros
+                if nuevo_total < Decimal('0.00'):
+                    nuevo_total = Decimal('0.00')
+                resumen['total'] = nuevo_total
+                resumen['vale_euros'] = vale_euros
+                resumen['vale_id'] = self._vale_aplicado.get('id')
+            except Exception:
+                logging.exception('Error aplicando vale al resumen financiero')
+
+        return resumen
 
     def get_total(self) -> Decimal:
         """Obtener total del carrito (con descuentos y canje aplicados).
@@ -487,6 +513,34 @@ class CarritoService:
         # Default: venta normal
         return 'venta'
 
+    # ------------------------------------------------------------------
+    # Vale de devolución
+    # ------------------------------------------------------------------
+    def aplicar_vale(self, vale_data: Dict) -> None:
+        """Aplica un vale de devolución al carrito.
+
+        vale_data: dict con al menos 'id' (str) e 'importe_cents' (int).
+        El importe se resta del total del carrito en get_resumen_financiero().
+        """
+        if not vale_data or 'id' not in vale_data or 'importe_cents' not in vale_data:
+            raise ValueError('Datos de vale inválidos: requiere id e importe_cents')
+        self._vale_aplicado = {
+            'id': vale_data['id'],
+            'importe_cents': int(vale_data['importe_cents']),
+        }
+        logging.info(f"Vale aplicado al carrito: {self._vale_aplicado}")
+
+    def get_vale_aplicado(self) -> Optional[Dict]:
+        """Devuelve el vale aplicado o None."""
+        return self._vale_aplicado.copy() if self._vale_aplicado else None
+
+    def quitar_vale(self) -> None:
+        """Elimina el vale aplicado del carrito."""
+        if self._vale_aplicado:
+            logging.info(f"Vale removido del carrito: {self._vale_aplicado['id']}")
+        self._vale_aplicado = None
+
+    # ------------------------------------------------------------------
     def apply_discount_tipo(self, tipo: str, valor=None) -> bool:
         """Convenience wrapper to apply a discount by `tipo`.
 
