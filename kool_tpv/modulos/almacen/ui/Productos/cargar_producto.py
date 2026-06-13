@@ -251,7 +251,7 @@ class CargarProductoUI:
             _set_entry(getattr(ui_instance, 'e_stock_min', None), data.get('stock_minimo') or data.get('stock_min'))
             # Prefer updating a bound StringVar for e_ventas if available (readonly UI)
             try:
-                ventas_val = data.get('ventas_tickets') or data.get('ventas_totales') or 0
+                ventas_val = data.get('ventas_totales') or 0
                 if hasattr(ui_instance, 'e_ventas_var') and getattr(ui_instance, 'e_ventas_var') is not None:
                     try:
                         ui_instance.e_ventas_var.set(str(ventas_val))

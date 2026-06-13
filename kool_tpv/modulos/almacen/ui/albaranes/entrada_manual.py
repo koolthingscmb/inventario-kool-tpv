@@ -14,6 +14,7 @@ from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.custom_dialog import show_success
 from kool_tpv.utils.config_loader import create_action_button
+from kool_tpv.base_datos.money_adapter import prepare_for_db, read_from_db
 
 logger = logging.getLogger(__name__)
 
@@ -620,7 +621,8 @@ class EntradaManualUI:
                 'cantidad': uds,
                 'coste': coste,
                 'tipo_iva': tipo_iva,
-                'pvp': pvp
+                'pvp': pvp,
+                'pvpr_cents': int(prepare_for_db(pvp)),
             }
 
             # Si estamos editando, reemplazar; si no, añadir
@@ -737,14 +739,10 @@ class EntradaManualUI:
             except Exception:
                 pass
 
-            # Líneas: enriquecer con PVP desde ProductoRepository (una sola query)
-            producto_ids = [line.get('producto_id') for line in lines if line.get('producto_id')]
-            if producto_ids:
-                pvps = self.producto_repo.get_pvps_by_ids(producto_ids)
-                for line in lines:
-                    pid = line.get('producto_id')
-                    if pid and pid in pvps:
-                        line['pvp'] = pvps[pid]
+            # Líneas: usar pvpr_cents guardado en BD (precio histórico del albarán)
+            for line in lines:
+                pvpr = line.get('pvpr_cents', 0)
+                line['pvp'] = read_from_db(int(pvpr)) if pvpr else 0.0
             self.lines = lines
             self._render_lines()
             self._update_totals()

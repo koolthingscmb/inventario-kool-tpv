@@ -100,6 +100,7 @@ class AlbaranService:
                     'cantidad': cantidad,
                     'coste': coste_dec,
                     'tipo_iva': tipo_iva,
+                    'pvpr_cents': int(line.get('pvpr_cents', 0)),
                 })
 
             total = total_neto + total_iva_4 + total_iva_10 + total_iva_21
@@ -290,7 +291,7 @@ class AlbaranService:
 
             # Líneas
             query_lines = """
-        SELECT id, producto_id, ean, nombre, cantidad, coste, tipo_iva
+        SELECT id, producto_id, ean, nombre, cantidad, coste, tipo_iva, pvpr_cents
         FROM albaran_lines
         WHERE albaran_id = ?
         ORDER BY id ASC
@@ -305,7 +306,8 @@ class AlbaranService:
                     'nombre': rl[3] or '',
                     'cantidad': int(rl[4] or 0),
                     'coste': read_from_db(int(rl[5] or 0)),
-                    'tipo_iva': int(rl[6] or 21)
+                    'tipo_iva': int(rl[6] or 21),
+                    'pvpr_cents': int(rl[7] or 0),
                 })
 
             return {'albaran': albaran, 'lines': lines}
@@ -381,6 +383,7 @@ class AlbaranService:
                     'cantidad': cantidad,
                     'coste': coste_dec,
                     'tipo_iva': int(line.get('tipo_iva', 21)),
+                    'pvpr_cents': int(line.get('pvpr_cents', 0)),
                 })
 
             # 3. Delegar escritura al repo
