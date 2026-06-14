@@ -19,9 +19,6 @@ class PaymentControllerResumen(ctk.CTkFrame):
         self.ticket_data = ticket_data
         self.on_nueva_venta_callback = on_nueva_venta
         self._create_widgets()
-        self.after_idle(lambda: self.focus_set())
-        self.bind("<Return>", lambda e: self._on_nueva_venta())
-        self.bind("<KP_Enter>", lambda e: self._on_nueva_venta())
         logger.info(f"PaymentControllerResumen ticket={ticket_data.get('num_ticket')}")
 
     def _create_widgets(self):
@@ -58,24 +55,14 @@ class PaymentControllerResumen(ctk.CTkFrame):
         if cambio > 0:
             self._row(main, "CAMBIO:", f"{cambio:.2f} €", label_font, value_font, True, True)
 
-        # Espacio
-        ctk.CTkFrame(main, fg_color="transparent", height=20).pack()
-
-        # Botón
-        color_normal = self.config.get_color("border", context="button")
-        color_foco = self.config.get_color("border_hover") or self.config.get_color("hover", context="button")
-
-        self.btn = ctk.CTkButton(main, text="ENTER → NUEVA VENTA", command=self._on_nueva_venta,
-                                 fg_color=self.config.get_color("bg", context="button"),
-                                 hover_color=self.config.get_color("hover", context="button"),
-                                 text_color=self.config.get_color("text", context="button"),
-                                 font=button_font, width=220, height=50, corner_radius=22,
-                                 border_width=2, border_color=color_normal)
-        self.btn.pack(pady=(10, 0))
-        self.btn.bind("<Return>", lambda e: self._on_nueva_venta())
-        self.btn.bind("<FocusIn>", lambda e: self.btn.configure(border_color=color_foco))
-        self.btn.bind("<FocusOut>", lambda e: self.btn.configure(border_color=color_normal))
-        self.after(100, lambda: self.btn.focus_set())
+        # Info adicional: instrucción para continuar
+        ctk.CTkFrame(main, fg_color="transparent", height=10).pack()
+        ctk.CTkLabel(
+            main,
+            text="→ Escanee producto para nueva venta ←",
+            font=("Helvetica", 12),
+            text_color=self.config.get_color("text_secondary", "#888888")
+        ).pack(pady=(10, 0))
 
     def _row(self, parent, label, value, label_font, value_font, highlight=False, cambio=False):
         row = ctk.CTkFrame(parent, fg_color="transparent")
