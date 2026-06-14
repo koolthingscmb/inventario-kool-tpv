@@ -31,7 +31,14 @@ class InputDialog(BaseDialog):
             pass
 
         try:
-            self.entry.focus_set()
+            self.entry.bind('<Return>', lambda e: self._on_accept())
+            self.entry.bind('<KP_Enter>', lambda e: self._on_accept())
+        except Exception:
+            pass
+
+        # Posponer focus_force para que funcione en Windows después de grab_set/deiconify
+        try:
+            self.after(100, lambda: self.entry.focus_force())
         except Exception:
             pass
 

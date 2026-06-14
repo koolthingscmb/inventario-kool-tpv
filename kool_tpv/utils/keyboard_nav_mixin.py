@@ -151,24 +151,34 @@ class KeyboardNavigableMixin:
         return "break"
 
     def _on_nav_enter(self, event):
-        """Activar el widget que tiene el foco (solo si el foco real está en nuestra lista)."""
-        # Verificar que el foco actual está realmente en un widget de nuestra lista
-        current_focus = self._nav_toplevel.focus_get() if self._nav_toplevel else None
-        if not current_focus:
+        """Activar el widget que tiene el foco navegable."""
+        if not (0 <= self._nav_focused_index < len(self._navigable_buttons)):
             return "break"
 
-        # Buscar si el widget con foco está en nuestra lista navegable
-        focused_in_list = False
-        for widget, _ in self._navigable_buttons:
-            if widget == current_focus:
-                focused_in_list = True
-                break
+        # Verificar que el foco real está dentro del widget navegable activo.
+        # CTkButton es un contenedor compuesto: focus_get() devuelve un widget
+        # hijo interno (canvas/entry), no el CTkButton en sí. Por eso usamos
+        # winfo_containing o comprobamos descendencia en lugar de igualdad directa.
+        current_focus = self._nav_toplevel.focus_get() if self._nav_toplevel else None
+        if current_focus is None:
+            return "break"
 
-        # Solo ejecutar si el foco real está en nuestra lista
-        if focused_in_list and 0 <= self._nav_focused_index < len(self._navigable_buttons):
-            _, callback = self._navigable_buttons[self._nav_focused_index]
-            if callable(callback):
-                callback()
+        widget, callback = self._navigable_buttons[self._nav_focused_index]
+
+        # Comprobar si current_focus ES el widget o un descendiente suyo
+        def _is_descendant(child, ancestor):
+            try:
+                w = child
+                while w is not None:
+                    if w == ancestor:
+                        return True
+                    w = w.master
+            except Exception:
+                pass
+            return False
+
+        if _is_descendant(current_focus, widget) and callable(callback):
+            callback()
         return "break"
 
     def clear_keyboard_navigation(self):
