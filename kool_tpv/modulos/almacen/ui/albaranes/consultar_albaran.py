@@ -17,10 +17,12 @@ from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.widgets.date_picker_entry import DatePickerEntry
 from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.factories.button_factory import ButtonFactory
+from kool_tpv.utils.keyboard_nav_mixin import KeyboardNavigableMixin
 
 
-class ConsultarAlbaranUI:
+class ConsultarAlbaranUI(KeyboardNavigableMixin):
     def __init__(self, parent, db=None, owner=None, keyboard_manager=None, module_name: str = 'almacen'):
+        KeyboardNavigableMixin.__init__(self)
         self.parent = parent
         self.db = db
         self.owner = owner
@@ -108,33 +110,10 @@ class ConsultarAlbaranUI:
         )
         self.btn_aplicar.pack(side='left', padx=(16, 0))
 
-        # Hacer que Tab/Shift-Tab recorran todos los elementos de la fila
-        try:
-            # searchablecombo entry
-            try:
-                self.cb_proveedor.entry.bind('<Tab>', self._focus_next)
-                self.cb_proveedor.entry.bind('<Shift-Tab>', self._focus_prev)
-            except Exception:
-                pass
-
-            # botones: permitir foco via Tab y Enter (solo aplicar)
-            try:
-                for btn in (self.btn_aplicar,):
-                    try:
-                        btn.bind('<Tab>', self._focus_next)
-                        btn.bind('<Shift-Tab>', self._focus_prev)
-                        btn.bind('<Return>', lambda e, b=btn: (b.invoke() if hasattr(b, 'invoke') else None) or 'break')
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-        except Exception:
-            pass
-
         # Crear NavList para mostrar resultados (reemplaza header + data_frame)
         self.columns = [
-            ('ID', 50), ('FECHA', 100), ('PROVEEDOR', 200),
-            ('CANT. PROD.', 100), ('TOTAL NETO', 100), ('TOTAL IVA', 100), ('TOTAL', 100)
+            ('ID', 50), ('FECHA', 100), ('PROVEEDOR', 180),
+            ('TIPO', 80), ('CANT. PROD.', 80), ('TOTAL NETO', 90), ('TOTAL IVA', 90), ('TOTAL', 90)
         ]
 
         self.nav_list = VirtualNavList(
@@ -149,43 +128,34 @@ class ConsultarAlbaranUI:
         # Cargar opciones proveedor
         self._load_proveedores()
 
+        # Registrar widgets navegables para KeyboardNavigableMixin
+        try:
+            self.register_navigable_widget(self.cb_proveedor.entry)
+        except Exception:
+            pass
+        try:
+            self.register_navigable_widget(self.date_desde.entry)
+        except Exception:
+            pass
+        try:
+            self.register_navigable_widget(self.date_hasta.entry)
+        except Exception:
+            pass
+        try:
+            self.register_navigable_widget(self.btn_aplicar, self._aplicar_filtros)
+        except Exception:
+            pass
+        try:
+            self.set_nav_enter_callback(self._aplicar_filtros)
+        except Exception:
+            pass
+
         # Cargar inicial (todos)
         self._aplicar_filtros()
 
     def get_widget(self):
         return self.container
 
-    def _focus_next(self, event):
-        try:
-            nxt = event.widget.tk_focusNext()
-            if nxt:
-                try:
-                    nxt.focus_set()
-                except Exception:
-                    try:
-                        nxt.focus()
-                    except Exception:
-                        pass
-        except Exception:
-            logging.exception('Error moviendo foco al siguiente widget')
-        return 'break'
-
-    def _focus_prev(self, event):
-        try:
-            prev = event.widget.tk_focusPrev()
-            if prev:
-                try:
-                    prev.focus_set()
-                except Exception:
-                    try:
-                        prev.focus()
-                    except Exception:
-                        pass
-        except Exception:
-            logging.exception('Error moviendo foco al widget anterior')
-        return 'break'
-
-    # _button_focus_in and _button_focus_out removed to avoid manual focus color overrides
 
     def _load_proveedores(self):
         """Cargar lista de proveedores en SearchableCombo."""
@@ -268,6 +238,7 @@ class ConsultarAlbaranUI:
                 'ID': str(albaran.get('id', '')),
                 'FECHA': albaran.get('fecha', ''),
                 'PROVEEDOR': albaran.get('proveedor_nombre', ''),
+                'TIPO': albaran.get('tipo', ''),
                 'CANT. PROD.': str(albaran.get('cant_productos', 0)),
                 'TOTAL NETO': f"{albaran.get('total_neto', 0.0):.2f}€",
                 'TOTAL IVA': f"{albaran.get('total_iva', 0.0):.2f}€",

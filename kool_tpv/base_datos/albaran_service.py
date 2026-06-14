@@ -172,7 +172,8 @@ class AlbaranService:
                 'cant_productos': int,
                 'total_neto': float,
                 'total_iva': float,
-                'total': float
+                'total': float,
+                'tipo': str
             }
         """
         try:
@@ -210,7 +211,8 @@ class AlbaranService:
         COALESCE(SUM(al.cantidad), 0) AS cant_productos,
         a.total_neto,
         (a.total_iva_4 + a.total_iva_10 + a.total_iva_21) AS total_iva,
-        a.total
+        a.total,
+        a.tipo
         FROM albaranes a
         LEFT JOIN proveedores p ON a.proveedor_id = p.id
         LEFT JOIN albaran_lines al ON al.albaran_id = a.id
@@ -232,7 +234,7 @@ class AlbaranService:
 
             query += """
         GROUP BY a.id, a.num_albaran, a.fecha, p.nombre, a.total_neto,
-        a.total_iva_4, a.total_iva_10, a.total_iva_21, a.total
+        a.total_iva_4, a.total_iva_10, a.total_iva_21, a.total, a.tipo
         ORDER BY a.fecha DESC, a.num_albaran DESC
         LIMIT ?
         """
@@ -249,7 +251,8 @@ class AlbaranService:
                     'cant_productos': int(r[4] or 0),
                     'total_neto': read_from_db(int(r[5] or 0)),
                     'total_iva': read_from_db(int(r[6] or 0)),
-                    'total': read_from_db(int(r[7] or 0))
+                    'total': read_from_db(int(r[7] or 0)),
+                    'tipo': r[8] or ''
                 })
             return albaranes
         except Exception:
