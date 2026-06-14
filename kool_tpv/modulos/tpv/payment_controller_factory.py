@@ -229,4 +229,30 @@ def create_controllers(
     return controllers
 
 
-__all__ = ['create_controllers']
+def create_resumen_controller(parent, ticket_data: dict, on_nueva_venta: Callable) -> Any:
+    """Crear controller de resumen post-venta (bajo demanda).
+
+    Args:
+        parent: Widget padre (payment_area)
+        ticket_data: Dict con datos del ticket (num_ticket, total, forma_pago, etc.)
+        on_nueva_venta: Callback cuando se pulsa Enter/botón nueva venta
+
+    Returns:
+        PaymentControllerResumen instance o None si falla
+    """
+    try:
+        from kool_tpv.utils.widgets.payment_controllers.payment_controller_resumen import PaymentControllerResumen
+
+        controller = PaymentControllerResumen(
+            parent=parent,
+            ticket_data=ticket_data,
+            on_nueva_venta=on_nueva_venta
+        )
+        logger.info('PaymentControllerResumen creado')
+        return controller
+    except Exception:
+        logger.exception('Error creando PaymentControllerResumen')
+        return None
+
+
+__all__ = ['create_controllers', 'create_resumen_controller']

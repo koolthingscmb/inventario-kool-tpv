@@ -963,6 +963,9 @@ class TpvController:
 
                 # (Snapshot persistence removed by user request)
 
+                # Extraer datos para resumen ANTES de limpiar carrito
+                resumen_data = self._build_resumen_data(ticket_data, num_ticket, forma_pago, efectivo)
+
                 # Limpiar carrito
                 carrito_service.clear()
 
@@ -987,12 +990,8 @@ class TpvController:
                     except Exception:
                         logger.exception('Error imprimiendo ticket (no crítico)')
 
-                # Mostrar éxito
-                show_success(
-                    self.view.container,
-                    'Venta guardada',
-                    f'Ticket #{num_ticket} guardado correctamente'
-                )
+                # Mostrar resumen en payment_area (reemplaza show_success)
+                self._mostrar_resumen_ticket(resumen_data)
 
                 logger.info(f'Venta finalizada exitosamente ticket_id={ticket_id}')
             else:
@@ -1013,6 +1012,94 @@ class TpvController:
                     self.view.container,
                     'Error',
                     'Error interno al finalizar la venta'
+                )
+            except Exception:
+                pass
+
+    def _build_resumen_data(self, ticket_data: dict, num_ticket, forma_pago: str, efectivo) -> dict:
+        """Construir dict con datos para el resumen post-venta."""
+        resumen = ticket_data.get('resumen', {})
+        total = float(resumen.get('total', 0.0))
+
+        # Cliente
+        cliente_data = ticket_data.get('cliente', {})
+        cliente_nombre = cliente_data.get('nombre', '') if isinstance(cliente_data, dict) else str(cliente_data) if cliente_data else ''
+
+        # Calcular efectivo entregado y cambio
+        efectivo_entregado = 0.0
+        cambio = 0.0
+
+        if forma_pago == 'Efectivo' and efectivo is not None:
+            try:
+                efectivo_entregado = float(efectivo)
+                cambio = max(0.0, efectivo_entregado - total)
+            except Exception:
+                pass
+        elif forma_pago == 'Multi':
+            importe_efectivo = ticket_data.get('importe_efectivo', 0.0)
+            try:
+                efectivo_entregado = float(importe_efectivo)
+                cambio = max(0.0, efectivo_entregado - total) if efectivo_entregado > total else 0.0
+            except Exception:
+                pass
+
+        return {
+            'ticket_id': ticket_data.get('ticket_id'),
+            'num_ticket': num_ticket,
+            'total': total,
+            'forma_pago': forma_pago,
+            'efectivo_entregado': efectivo_entregado,
+            'cambio': cambio,
+            'cliente_nombre': cliente_nombre,
+        }
+
+    def _mostrar_resumen_ticket(self, resumen_data: dict):
+        """Mostrar controller de resumen en el payment_area."""
+        try:
+            from kool_tpv.modulos.tpv.payment_controller_factory import create_resumen_controller
+
+            ticket_carrito = getattr(self.view, 'ticket_carrito', None)
+            if not ticket_carrito:
+                return
+
+            # Limpiar payment_area actual
+            ticket_carrito._clear_payment_area()
+
+            # Crear y mostrar controller de resumen
+            def _on_nueva_venta():
+                try:
+                    ticket_carrito._clear_payment_area()
+                    ticket_carrito.activar_pago_efectivo(
+                        on_finalizar=lambda d: self.finalize_sale(
+                            efectivo=d.get('cantidad_entregada', d.get('total', 0.0)),
+                            forma_pago='Efectivo',
+                            importe_efectivo=d.get('cantidad_entregada', d.get('total', 0.0)),
+                            importe_tarjeta=0.0
+                        )
+                    )
+                except Exception:
+                    logger.exception('Error al volver a pago efectivo desde resumen')
+
+            controller = create_resumen_controller(
+                parent=ticket_carrito.payment_area,
+                ticket_data=resumen_data,
+                on_nueva_venta=_on_nueva_venta
+            )
+
+            if controller:
+                controller.pack(fill='both', expand=True)
+                ticket_carrito.active_payment_controller = controller
+                ticket_carrito.active_payment_type = 'resumen'
+                logger.info('PaymentControllerResumen mostrado')
+
+        except Exception:
+            logger.exception('Error mostrando resumen de ticket')
+            try:
+                from kool_tpv.utils.custom_dialog import show_success
+                show_success(
+                    self.view.container,
+                    'Venta guardada',
+                    f'Ticket #{resumen_data.get("num_ticket", "---")} guardado correctamente'
                 )
             except Exception:
                 pass
