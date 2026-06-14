@@ -16,6 +16,7 @@ from reportlab.platypus import (
 from reportlab.lib.utils import ImageReader
 
 from .logica_busqueda import BusquedaService
+from kool_tpv.utils.font_loader import load_font_config
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,10 @@ class ExportadorPDF:
         logo_path = assets_dir / logo_file if logo_file else None
         self.logo_path = logo_path if (logo_path and logo_path.exists()) else None
 
-        self.font_family = 'Courier'
+        # Cargar fuente desde configuración (fallback a 'Courier')
+        font_cfg = load_font_config()
+        default_font = font_cfg.get('default', {})
+        self.font_family = default_font.get('family', 'Courier')
 
     def exportar_individual(
         self,
@@ -328,60 +332,10 @@ class ExportadorPDF:
         except Exception:
             logger.exception("Error añadiendo cabecera de tienda")
 
-    def _add_portada(
-        self,
-        elements,
-        styles,
-        por_proveedor: Dict[str, List[Dict[str, Any]]]
-    ):
-        """Añadir portada al PDF agrupado."""
-        # Título
-        title_style = ParagraphStyle(
-            'PortadaTitle',
-            parent=styles['Title'],
-            fontSize=24,
-            textColor=colors.HexColor(self.color_primary),
-            spaceAfter=30,
-            alignment=1
-        )
-
-        try:
-            nombre_tienda = self.busqueda_service.obtener_config_tienda().get('shop_name', '')
-        except Exception:
-            nombre_tienda = 'Mi Tienda'
-
-        elements.append(Paragraph(nombre_tienda, title_style))
-        elements.append(Spacer(1, 2*cm))
-
-        # Resumen
-        elements.append(Paragraph("<b>RESUMEN DE ALBARANES</b>", styles['Heading2']))
-        elements.append(Spacer(1, 0.5*cm))
-
-        total_albaranes = sum(len(albs) for albs in por_proveedor.values())
-        elements.append(Paragraph(f"Total de albaranes: {total_albaranes}", styles['Normal']))
-        elements.append(Paragraph(f"Número de proveedores: {len(por_proveedor)}", styles['Normal']))
-
-        # Listado por proveedor
-        elements.append(Spacer(1, 1*cm))
-        elements.append(Paragraph("<b>Desglose por proveedor:</b>", styles['Heading3']))
-
-        for proveedor, albaranes in por_proveedor.items():
-            total_prov = sum(a.get('total', 0) for a in albaranes)
-            elements.append(Paragraph(
-                f"• {proveedor}: {len(albaranes)} albaranes - {total_prov:.2f} €",
-                styles['Normal']
-            ))
-
-        elements.append(Spacer(1, 2*cm))
-        elements.append(Paragraph(
-            f"Fecha de generación: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
-            styles['Normal']
-        ))
-
     def _add_tabla_lineas(self, elements, lineas: List[Dict[str, Any]]):
         """Añadir tabla completa de líneas."""
         wrap_style = ParagraphStyle('WrapCell', fontName=self.font_family, fontSize=9, leading=11)
-        headers = ['Producto', 'Cant.', 'P.Coste', 'Dto.', 'IVA%', 'Total']
+        headers = ['Producto', 'Cant.', 'P.Coste', 'IVA%', 'Total']
         data = [headers]
 
         for linea in lineas:
@@ -390,12 +344,11 @@ class ExportadorPDF:
                 Paragraph(nombre, wrap_style),
                 str(linea.get('cantidad', 0)),
                 f"{linea.get('coste', 0):.2f}",
-                f"{linea.get('descuento', 0):.2f}",
                 f"{linea.get('tipo_iva', 0)}",
-                f"{linea.get('importe', 0):.2f}"
+                f"{linea.get('coste', 0):.2f}"
             ])
 
-        table = Table(data, colWidths=[7*cm, 1.5*cm, 2*cm, 1.5*cm, 1.5*cm, 2*cm])
+        table = Table(data, colWidths=[7*cm, 1.5*cm, 2.5*cm, 1.5*cm, 2.5*cm])
         table.setStyle(TableStyle([
             ('FONTNAME', (0, 0), (-1, 0), f'{self.font_family}-Bold'),
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(self.color_primary)),
@@ -409,32 +362,3 @@ class ExportadorPDF:
         ]))
         elements.append(table)
 
-    def _add_tabla_lineas_compacta(self, elements, lineas: List[Dict[str, Any]]):
-        """Añadir tabla compacta de líneas para PDF agrupado."""
-        wrap_style = ParagraphStyle('WrapCellCompact', fontName=self.font_family, fontSize=8, leading=10)
-        headers = ['Producto', 'Cant.', 'Total']
-        data = [headers]
-
-        for linea in lineas[:5]:
-            nombre = linea.get('nombre', '') or ''
-            data.append([
-                Paragraph(nombre, wrap_style),
-                str(linea.get('cantidad', 0)),
-                f"{linea.get('importe', 0):.2f}"
-            ])
-
-        if len(lineas) > 5:
-            data.append([f"... y {len(lineas) - 5} líneas más", '', ''])
-
-        table = Table(data, colWidths=[10*cm, 2*cm, 3*cm])
-        table.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (-1, 0), f'{self.font_family}-Bold'),
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(self.color_secondary)),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
-            ('ALIGN', (0, 1), (0, -1), 'LEFT'),
-            ('FONTNAME', (0, 1), (-1, -1), self.font_family),
-            ('FONTSIZE', (0, 0), (-1, -1), 8),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
-        ]))
-        elements.append(table)
