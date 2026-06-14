@@ -41,10 +41,21 @@ class ExportadorPDF:
         logo_path = assets_dir / logo_file if logo_file else None
         self.logo_path = logo_path if (logo_path and logo_path.exists()) else None
 
-        # Cargar fuente desde configuración (fallback a 'Courier')
+        # Cargar fuente desde configuración (mapear a nombres ReportLab compatibles)
         font_cfg = load_font_config()
         default_font = font_cfg.get('default', {})
-        self.font_family = default_font.get('family', 'Courier')
+        raw_family = default_font.get('family', 'Courier')
+        _reportlab_map = {
+            'Courier New': 'Courier',
+            'Courier': 'Courier',
+            'Helvetica': 'Helvetica',
+            'Arial': 'Helvetica',
+            'Times New Roman': 'Times-Roman',
+        }
+        self.font_family = _reportlab_map.get(raw_family, raw_family)
+        # Si tiene espacio y no está mapeado, fallback a Courier
+        if ' ' in self.font_family:
+            self.font_family = 'Courier'
 
     def exportar_individual(
         self,
