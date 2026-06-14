@@ -346,20 +346,22 @@ class ExportadorPDF:
     def _add_tabla_lineas(self, elements, lineas: List[Dict[str, Any]]):
         """Añadir tabla completa de líneas."""
         wrap_style = ParagraphStyle('WrapCell', fontName=self.font_family, fontSize=9, leading=11)
-        headers = ['Producto', 'Cant.', 'P.Coste', 'IVA%', 'Total']
+        headers = ['Producto', 'Cant.', 'P.Coste', 'Total']
         data = [headers]
 
         for linea in lineas:
             nombre = linea.get('nombre', '') or ''
+            cantidad = linea.get('cantidad', 0)
+            coste = linea.get('coste', 0)
+            total_linea = cantidad * coste
             data.append([
                 Paragraph(nombre, wrap_style),
-                str(linea.get('cantidad', 0)),
-                f"{linea.get('coste', 0):.2f}",
-                f"{linea.get('tipo_iva', 0)}",
-                f"{linea.get('coste', 0):.2f}"
+                str(cantidad),
+                f"{coste:.2f}",
+                f"{total_linea:.2f}"
             ])
 
-        table = Table(data, colWidths=[7*cm, 1.5*cm, 2.5*cm, 1.5*cm, 2.5*cm])
+        table = Table(data, colWidths=[8*cm, 1.5*cm, 2.5*cm, 3*cm])
         table.setStyle(TableStyle([
             ('FONTNAME', (0, 0), (-1, 0), f'{self.font_family}-Bold'),
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(self.color_primary)),

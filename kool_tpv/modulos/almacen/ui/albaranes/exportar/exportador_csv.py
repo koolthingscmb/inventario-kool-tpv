@@ -160,24 +160,19 @@ class ExportadorCSV:
             "Producto",
             "Cantidad",
             "Precio Coste",
-            "Descuento (%)",
-            "Tipo IVA (%)",
-            "Base",
-            "IVA",
             "Total Línea"
         ]
         writer.writerow(headers)
 
         # Datos de líneas
         for linea in lineas:
+            cantidad = linea.get('cantidad', 0)
+            coste = linea.get('coste', 0)
+            total_linea = cantidad * coste
             writer.writerow([
                 linea.get('ean', ''),
                 linea.get('nombre', ''),
-                linea.get('cantidad', 0),
-                f"{linea.get('coste', 0):.4f}",
-                f"{linea.get('descuento', 0):.2f}",
-                f"{linea.get('tipo_iva', 0):.2f}",
-                f"{linea.get('importe', 0):.2f}",
-                '',
-                f"{linea.get('importe', 0):.2f}"
+                cantidad,
+                f"{coste:.4f}",
+                f"{total_linea:.2f}"
             ])
