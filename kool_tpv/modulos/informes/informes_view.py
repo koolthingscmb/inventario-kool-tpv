@@ -209,7 +209,16 @@ class InformesView(BaseModuleView):
                 extra_filters_frame = ctk.CTkFrame(header_frame, fg_color='transparent')
                 extra_filters_frame.pack(fill='x', padx=6, pady=(0, 8))
 
-                self.tag_selector = TagSelector(extra_filters_frame, module_name='informes', placeholder="Selecciona un tipo de informe compatible...")
+                # Label hint dinámico (CTkEntry no refresca placeholder_text dinámicamente)
+                self.lbl_tag_hint = ctk.CTkLabel(
+                    extra_filters_frame,
+                    text="Selecciona un tipo de informe compatible...",
+                    font=get_font('label', module='informes'),
+                    text_color=colors.get('text_secondary', '#888888')
+                )
+                self.lbl_tag_hint.pack(anchor='w', padx=12, pady=(0, 2))
+
+                self.tag_selector = TagSelector(extra_filters_frame, module_name='informes')
                 self.tag_selector.pack(fill='x', padx=12, pady=(0, 8))
                 try:
                     # Altura fija para la zona de tags
@@ -670,21 +679,21 @@ class InformesView(BaseModuleView):
                     self.tag_selector.set_search_function(lambda txt: service.buscar_categorias_dinamico(txt))
                     try:
                         self.tag_selector.search_combo.entry.configure(state='normal')
-                        self.tag_selector.search_combo.entry.configure(placeholder_text="Escribe para buscar categorías...")
+                        self.lbl_tag_hint.configure(text="Escribe para buscar categorías...")
                     except Exception:
                         pass
                 elif 'tipo' in tipo_lower:
                     self.tag_selector.set_search_function(lambda txt: service.buscar_tipos_dinamico(txt))
                     try:
                         self.tag_selector.search_combo.entry.configure(state='normal')
-                        self.tag_selector.search_combo.entry.configure(placeholder_text="Escribe para buscar tipos...")
+                        self.lbl_tag_hint.configure(text="Escribe para buscar tipos...")
                     except Exception:
                         pass
                 else:
                     self.tag_selector.set_search_function(None)
                     try:
                         self.tag_selector.search_combo.entry.configure(state='disabled')
-                        self.tag_selector.search_combo.entry.configure(placeholder_text="Selecciona un tipo de informe compatible...")
+                        self.lbl_tag_hint.configure(text="Selecciona un tipo de informe compatible...")
                     except Exception:
                         pass
             except Exception:
