@@ -77,8 +77,8 @@ class InformesService:
         from datetime import datetime
 
         # Construir items para justified_list
+        # Base y IVA sin tickets (formato simple), Ticket Medio al final
         items = [
-            {"nombre": "Total Tickets", "tickets": resumen.get("total_tickets", 0), "uds": resumen.get("total_tickets", 0), "euros": resumen.get("total_ventas", 0.0)},
             {"nombre": "Base Imponible", "tickets": 0, "uds": 0, "euros": resumen.get("total_base", 0.0)},
             {"nombre": "Total IVA", "tickets": 0, "uds": 0, "euros": resumen.get("total_iva", 0.0)},
             {"nombre": "Ticket Medio", "tickets": 0, "uds": 0, "euros": resumen.get("ticket_medio", 0.0)},

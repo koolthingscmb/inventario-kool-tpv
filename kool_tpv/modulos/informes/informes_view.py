@@ -587,6 +587,7 @@ class InformesView(BaseModuleView):
             total_tickets = 0
             total_uds = 0
             total_euros = 0.0
+            has_tickets_items = False
 
             items = report_data.get('items', [])
             for item in items:
@@ -598,23 +599,28 @@ class InformesView(BaseModuleView):
                 total_tickets += tickets
                 total_uds += uds
                 total_euros += euros
+                if tickets and tickets > 0:
+                    has_tickets_items = True
 
-                # Línea de tipo con conteo de tickets
-                self.result_textbox.insert('end', f"- {tipo_nombre} ({tickets} Tickets):\n")
+                if tickets and tickets > 0:
+                    # Formato con tickets (para informes por tipo/categoría)
+                    self.result_textbox.insert('end', f"- {tipo_nombre} ({tickets} Tickets):\n")
+                    left_text = f"{uds} uds"
+                    right_text = formatter.format_precio(euros)
+                    separator = sep_char * sep_width
+                    line = f"  {left_text:<{left_width}} {separator:^{sep_width}} {right_text:>{right_width}}\n"
+                    self.result_textbox.insert('end', line)
+                else:
+                    # Formato simple sin tickets (para resumen de ventas)
+                    right_text = formatter.format_precio(euros)
+                    line = f"{tipo_nombre:<{total_chars - right_width - 2}} {right_text:>{right_width}}\n"
+                    self.result_textbox.insert('end', line)
 
-                # Línea de datos justificada
-                left_text = f"{uds} uds"
-                right_text = formatter.format_precio(euros)
-                separator = sep_char * sep_width
-
-                line = f"  {left_text:<{left_width}} {separator:^{sep_width}} {right_text:>{right_width}}\n"
-                self.result_textbox.insert('end', line)
-
-            # Total
-            if items:
+            # Total (solo para informes con items que tienen tickets, ej: ventas por tipo)
+            if items and has_tickets_items:
                 self.result_textbox.insert('end', "\n")
                 self.result_textbox.insert('end', "-" * 50 + "\n")
-                self.result_textbox.insert('end', f"TOTAL TIPOS ({total_tickets} Tickets):\n")
+                self.result_textbox.insert('end', f"TOTAL ({total_tickets} Tickets):\n")
 
                 left_text = f"{total_uds} uds"
                 right_text = formatter.format_precio(total_euros)
