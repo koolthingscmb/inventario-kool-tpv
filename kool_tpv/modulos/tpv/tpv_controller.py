@@ -1067,18 +1067,15 @@ class TpvController:
 
             # Crear y mostrar controller de resumen
             def _on_nueva_venta():
+                """Salir del resumen: limpiar payment_area completamente."""
                 try:
                     ticket_carrito._clear_payment_area()
-                    ticket_carrito.activar_pago_efectivo(
-                        on_finalizar=lambda d: self.finalize_sale(
-                            efectivo=d.get('cantidad_entregada', d.get('total', 0.0)),
-                            forma_pago='Efectivo',
-                            importe_efectivo=d.get('cantidad_entregada', d.get('total', 0.0)),
-                            importe_tarjeta=0.0
-                        )
-                    )
+                    # No activar ningún controller - dejar el área vacía/limpia
+                    ticket_carrito.active_payment_controller = None
+                    ticket_carrito.active_payment_type = None
+                    logger.info('PaymentControllerResumen cerrado - payment_area limpio')
                 except Exception:
-                    logger.exception('Error al volver a pago efectivo desde resumen')
+                    logger.exception('Error limpiando payment_area desde resumen')
 
             controller = create_resumen_controller(
                 parent=ticket_carrito.payment_area,

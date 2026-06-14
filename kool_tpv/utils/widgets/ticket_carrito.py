@@ -906,6 +906,14 @@ class TicketCarrito(ctk.CTkFrame):
                 # Obtener items del servicio
                 items = self.carrito_service.get_items() or []
 
+                # Si hay items Y hay un resumen activo → nueva venta iniciada, limpiar resumen
+                if items and self.active_payment_type == 'resumen':
+                    try:
+                        self._clear_payment_area()
+                        logger.info('Auto-limpieza: resumen cerrado por nueva venta iniciada')
+                    except Exception:
+                        pass
+
                 # Si el carrito queda vacío, ocultar el payment controller activo
                 if not items:
                     try:
