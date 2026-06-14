@@ -197,12 +197,19 @@ class InformesView(BaseModuleView):
             self.entry_fecha_fin = DatePickerEntry(filters_frame, module_name='informes', width=140, allow_future=False)
             self.entry_fecha_fin.pack(side='left', padx=(0, 12))
 
+            # Fechas por defecto: primer día del mes actual → hoy
+            from datetime import date
+            today = date.today()
+            first_day = today.replace(day=1)
+            self.entry_fecha_inicio.set(first_day.isoformat())
+            self.entry_fecha_fin.set(today.isoformat())
+
             # Extra filters: tag selector (starts disabled)
             try:
                 extra_filters_frame = ctk.CTkFrame(header_frame, fg_color='transparent')
                 extra_filters_frame.pack(fill='x', padx=6, pady=(0, 8))
 
-                self.tag_selector = TagSelector(extra_filters_frame, module_name='informes', placeholder="Busca categoría, tipo o producto...")
+                self.tag_selector = TagSelector(extra_filters_frame, module_name='informes', placeholder="Selecciona un tipo de informe compatible...")
                 self.tag_selector.pack(fill='x', padx=12, pady=(0, 8))
                 try:
                     # Altura fija para la zona de tags
@@ -248,8 +255,8 @@ class InformesView(BaseModuleView):
             try:
                 # Permitir selección y copia, bloquear edición
                 def block_edit(event):
-                    # Permitir Ctrl+C y Ctrl+A
-                    if event.state & 0x4:  # Ctrl presionado
+                    # Permitir Ctrl+C/A (Windows/Linux) y Command+C/A (Mac)
+                    if event.state & 0x4 or event.state & 0x8:  # Ctrl o Command
                         if event.keysym in ('c', 'a', 'C', 'A'):
                             return
                     # Bloquear solo teclas que modifican contenido
@@ -663,18 +670,21 @@ class InformesView(BaseModuleView):
                     self.tag_selector.set_search_function(lambda txt: service.buscar_categorias_dinamico(txt))
                     try:
                         self.tag_selector.search_combo.entry.configure(state='normal')
+                        self.tag_selector.search_combo.entry.configure(placeholder_text="Escribe para buscar categorías...")
                     except Exception:
                         pass
                 elif 'tipo' in tipo_lower:
                     self.tag_selector.set_search_function(lambda txt: service.buscar_tipos_dinamico(txt))
                     try:
                         self.tag_selector.search_combo.entry.configure(state='normal')
+                        self.tag_selector.search_combo.entry.configure(placeholder_text="Escribe para buscar tipos...")
                     except Exception:
                         pass
                 else:
                     self.tag_selector.set_search_function(None)
                     try:
                         self.tag_selector.search_combo.entry.configure(state='disabled')
+                        self.tag_selector.search_combo.entry.configure(placeholder_text="Selecciona un tipo de informe compatible...")
                     except Exception:
                         pass
             except Exception:
