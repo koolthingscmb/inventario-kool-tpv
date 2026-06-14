@@ -1011,7 +1011,8 @@ class TicketCarrito(ctk.CTkFrame):
                 try:
                     vale_euros = resumen_tmp.get('vale_euros')
                     if vale_euros and float(vale_euros) > 0:
-                        vale_negativo = -float(vale_euros)
+                        from decimal import Decimal
+                        vale_negativo = -Decimal(str(vale_euros))
                         self.carrito_nav_list.add_item({
                             "id": "__vale_visual__",
                             "nombre": ">> Vale usado:",
