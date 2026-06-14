@@ -187,6 +187,10 @@
             "height": 45,
             "corner_radius": 22,
             "border_width": 2
+          },
+          "resumen": {
+            "titulo_bottom": 12,
+            "info_spacing": 8
           }
         }
       },

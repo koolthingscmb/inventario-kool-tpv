@@ -474,6 +474,17 @@
           "text": "#b4ea0a",
           "border": "#b4ea0a"
         }
+      },
+      "resumen": {
+        "bg": "#000000",
+        "border": "#FFD700",
+        "border_hover": "#FFEA70",
+        "text_titulo": "#FFD700",
+        "text_label": "#FFFFFF",
+        "text": "#FFFFFF",
+        "text_cambio": "#2ecc71",
+        "separator": "#555555",
+        "text_secondary": "#888888"
       }
     },
     "buscar_overlay": {
