@@ -590,7 +590,8 @@ class InformesView(BaseModuleView):
             has_tickets_items = False
 
             items = report_data.get('items', [])
-            for item in items:
+            item_count = len(items)
+            for idx, item in enumerate(items):
                 tipo_nombre = item.get('nombre', 'Sin nombre')
                 tickets = item.get('tickets', 0)
                 uds = item.get('uds', 0)
@@ -601,6 +602,11 @@ class InformesView(BaseModuleView):
                 total_euros += euros
                 if tickets and tickets > 0:
                     has_tickets_items = True
+
+                # Detectar marcador de separador especial
+                if tipo_nombre == '---SEPARADOR---':
+                    self.result_textbox.insert('end', "\n\n")  # Doble salto antes de Ticket Medio
+                    continue
 
                 if tickets and tickets > 0:
                     # Formato con tickets (para informes por tipo/categoría)
@@ -613,8 +619,25 @@ class InformesView(BaseModuleView):
                 else:
                     # Formato simple sin tickets (para resumen de ventas)
                     right_text = formatter.format_precio(euros)
-                    line = f"{tipo_nombre:<{total_chars - right_width - 2}} {right_text:>{right_width}}\n"
+
+                    # Línea de separador antes de TOTAL
+                    if tipo_nombre == 'TOTAL':
+                        self.result_textbox.insert('end', "-" * 40 + "\n")
+
+                    if tipo_nombre == 'Total Tickets':
+                        # Mostrar tickets en lugar de euros
+                        line = f"{tipo_nombre:<{total_chars - right_width - 2}} {uds:>{right_width}}\n"
+                    elif tipo_nombre == 'TOTAL':
+                        # TOTAL en negrita con símbolo €
+                        line = f"{tipo_nombre:<{total_chars - right_width - 2}} {right_text:>{right_width}}\n"
+                    else:
+                        line = f"{tipo_nombre:<{total_chars - right_width - 2}} {right_text:>{right_width}}\n"
                     self.result_textbox.insert('end', line)
+
+                    # Línea separadora después (excepto antes del separador especial o último)
+                    is_next_separator = (idx + 1 < item_count and items[idx + 1].get('nombre') == '---SEPARADOR---')
+                    if idx < item_count - 1 and not is_next_separator:
+                        self.result_textbox.insert('end', "-" * 40 + "\n")
 
             # Total (solo para informes con items que tienen tickets, ej: ventas por tipo)
             if items and has_tickets_items:
