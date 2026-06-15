@@ -228,6 +228,64 @@ class InformesService:
             "items": items,
         }
 
+    def get_informe_ventas_por_producto(self, fecha_inicio: str, fecha_fin: str) -> dict:
+        """Informe de ventas por producto desglosado por día."""
+        resultados = self.repo.get_ventas_por_producto_y_dia(fecha_inicio, fecha_fin)
+
+        por_producto = defaultdict(list)
+        for r in resultados:
+            por_producto[r["group_name"]].append(r)
+
+        items = []
+        total_tickets_global = 0
+        total_uds_global = 0
+        total_euros_global = 0.0
+
+        for product_name, filas in por_producto.items():
+            total_tickets_p = 0
+            total_uds_p = 0
+            total_euros_p = 0.0
+            for fila in filas:
+                items.append({
+                    "nombre": product_name,
+                    "fecha": fila["fecha"],
+                    "tickets": fila["num_tickets"],
+                    "uds": fila["total_uds"],
+                    "euros": fila["total"],
+                    "tipo": "linea_grupo",
+                })
+                total_tickets_p += fila["num_tickets"]
+                total_uds_p += fila["total_uds"]
+                total_euros_p += fila["total"]
+            items.append({
+                "nombre": product_name,
+                "tickets": total_tickets_p,
+                "uds": total_uds_p,
+                "euros": total_euros_p,
+                "tipo": "subtotal_grupo",
+            })
+            total_tickets_global += total_tickets_p
+            total_uds_global += total_uds_p
+            total_euros_global += total_euros_p
+
+        items.append({
+            "nombre": "TOTAL PRODUCTOS",
+            "tickets": total_tickets_global,
+            "uds": total_uds_global,
+            "euros": total_euros_global,
+            "tipo": "total_global",
+        })
+
+        from datetime import datetime
+        return {
+            "title": "INFORME DE VENTAS POR PRODUCTO",
+            "display_format": "justified_list",
+            "display_subformat": "producto",
+            "generated_at": datetime.now().isoformat(),
+            "range": {"start": fecha_inicio, "end": fecha_fin},
+            "items": items,
+        }
+
     def get_informe_ventas_por_categoria(self, fecha_inicio: str, fecha_fin: str, categorias: list = None) -> dict:
         """Informe de ventas por categoría desglosado por día."""
         return self._build_ventas_por_grupo(

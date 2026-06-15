@@ -167,6 +167,7 @@ class InformesView(BaseModuleView):
                     "Ventas por cajero",
                     "Ventas por categoría",
                     "Ventas por tipo",
+                    "Ventas por producto",
                     "Stock por categoría",
                     "Stock por tipo"
                 ],
@@ -368,6 +369,8 @@ class InformesView(BaseModuleView):
                 except Exception:
                     tipos = None
                 report_data = service.get_informe_ventas_por_tipo(fecha_inicio, fecha_fin, tipos=tipos)
+            elif tipo_informe == "Ventas por producto":
+                report_data = service.get_informe_ventas_por_producto(fecha_inicio, fecha_fin)
             elif tipo_informe == "Stock por categoría":
                 try:
                     categoria_ids = self.tag_selector.get_selected_ids()
@@ -632,7 +635,7 @@ class InformesView(BaseModuleView):
                     elif item_tipo == 'subtotal_cajero':
                         line = f"  TOTAL {tickets} Tickets - {uds} Uds: {right_text}\n\n"
                         self.result_textbox.insert('end', line)
-                elif display_subformat in ('categoria', 'tipo'):
+                elif display_subformat in ('categoria', 'tipo', 'producto'):
                     item_tipo = item.get('tipo', '')
                     right_text = formatter.format_precio(euros)
                     if item_tipo == 'linea_grupo':
@@ -710,7 +713,7 @@ class InformesView(BaseModuleView):
                             self.result_textbox.insert('end', "-" * 40 + "\n")
 
             # Total (solo para informes con items que tienen tickets, excepto los que tienen sus propios subtotales)
-            if items and has_tickets_items and display_subformat not in ('cajero', 'categoria', 'tipo'):
+            if items and has_tickets_items and display_subformat not in ('cajero', 'categoria', 'tipo', 'producto'):
                 right_text = formatter.format_precio(total_euros)
                 if display_subformat == 'daily':
                     self.result_textbox.insert('end', "\n")

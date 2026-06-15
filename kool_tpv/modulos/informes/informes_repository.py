@@ -94,6 +94,49 @@ class InformesRepository:
             })
         return result
 
+    # ── VENTAS POR PRODUCTO (desglosado por día) ──────────────────────────────
+
+    def get_ventas_por_producto_y_dia(
+        self,
+        fecha_inicio: str,
+        fecha_fin: str,
+        product_ids: Optional[List[int]] = None
+    ) -> list:
+        """Ventas por producto desglosadas por día.
+
+        Returns:
+            Lista de dicts: group_name (nombre producto), fecha, num_tickets, total_uds, total
+        """
+        fecha_inicio_sql = f"{fecha_inicio} 00:00:00"
+        fecha_fin_sql = f"{fecha_fin} 23:59:59"
+        sql = (
+            "SELECT p.nombre, DATE(t.created_at) as fecha, "
+            "COUNT(DISTINCT t.id) as num_tickets, "
+            "COALESCE(SUM(tl.cantidad), 0) as total_uds, "
+            "COALESCE(SUM(tl.cantidad * tl.precio), 0) as total_cents "
+            "FROM ticket_lines tl "
+            "JOIN tickets t ON tl.ticket_id = t.id "
+            "JOIN productos p ON tl.producto_id = p.id "
+            "WHERE t.created_at BETWEEN ? AND ? AND t.total > 0 AND tl.line_tipo = 'venta'"
+        )
+        params: list = [fecha_inicio_sql, fecha_fin_sql]
+        if product_ids:
+            ph = ','.join(['?'] * len(product_ids))
+            sql += f" AND p.id IN ({ph})"
+            params.extend(product_ids)
+        sql += " GROUP BY p.id, p.nombre, DATE(t.created_at) ORDER BY p.nombre ASC, DATE(t.created_at) ASC"
+        rows = self.db.fetch_all(sql, tuple(params))
+        result = []
+        for r in rows or []:
+            result.append({
+                "group_name": str(r[0] or ''),
+                "fecha": str(r[1]) if r[1] is not None else '',
+                "num_tickets": int(r[2] or 0),
+                "total_uds": int(r[3] or 0),
+                "total": float(read_from_db(int(r[4] or 0))),
+            })
+        return result
+
     # ── VENTAS POR CATEGORÍA / TIPO (desglosado por día) ─────────────────────
 
     def get_ventas_por_grupo_y_dia(
