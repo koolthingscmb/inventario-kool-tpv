@@ -286,22 +286,29 @@ class InformesView(BaseModuleView):
             footer_frame = ctk.CTkFrame(content_frame, fg_color='transparent')
             footer_frame.pack(fill='x', padx=12, pady=(0, 12))
 
-            # Export button (use central create_action_button for consistent styling)
+            # Botones de exportación CSV y PDF
             try:
-                btn_export = create_action_button(
+                from kool_tpv.utils.factories.button_factory import ButtonFactory
+                self.btn_export_csv = ButtonFactory.create_button(
                     footer_frame,
-                    'exportar',
-                    self._on_exportar_click
+                    text='Exportar CSV',
+                    command=self._on_exportar_csv_click,
+                    style_key='action_secondary'
                 )
-                btn_export.pack(side='left', padx=8)
-                # Exponer el botón para control de estado y actualizar su estado inicial
-                self.btn_export = btn_export
+                self.btn_export_csv.pack(side='left', padx=8)
+                self.btn_export_pdf = ButtonFactory.create_button(
+                    footer_frame,
+                    text='Exportar PDF',
+                    command=self._on_exportar_pdf_click,
+                    style_key='action_secondary'
+                )
+                self.btn_export_pdf.pack(side='left', padx=8)
                 try:
                     self._update_export_button_state()
                 except Exception:
                     pass
             except Exception:
-                logging.exception('Error creando botón Exportar en InformesView')
+                logging.exception('Error creando botones Exportar en InformesView')
 
             navigated = False
             try:
@@ -817,21 +824,27 @@ class InformesView(BaseModuleView):
 
     def _update_export_button_state(self):
         try:
-            if hasattr(self, 'btn_export'):
-                if self.current_report_data is None:
-                    try:
-                        self.btn_export.configure(state='disabled')
-                    except Exception:
-                        pass
-                else:
-                    try:
-                        self.btn_export.configure(state='normal')
-                    except Exception:
-                        pass
+            state = 'normal' if self.current_report_data else 'disabled'
+            if hasattr(self, 'btn_export_csv'):
+                try:
+                    self.btn_export_csv.configure(state=state)
+                except Exception:
+                    pass
+            if hasattr(self, 'btn_export_pdf'):
+                try:
+                    self.btn_export_pdf.configure(state=state)
+                except Exception:
+                    pass
         except Exception:
             pass
 
-    def _on_exportar_click(self):
+    def _on_exportar_csv_click(self):
+        self._exportar_informe('csv')
+
+    def _on_exportar_pdf_click(self):
+        self._exportar_informe('pdf')
+
+    def _exportar_informe(self, formato: str):
         try:
             # Verificar que hay informe generado
             if not self.current_report_data:
@@ -840,40 +853,19 @@ class InformesView(BaseModuleView):
                              'Genera un informe antes de exportar.')
                 return
 
-            # Diálogo guardar
-            try:
-                from tkinter import filedialog
-                path = filedialog.asksaveasfilename(
-                    defaultextension=".csv",
-                    filetypes=[
-                        ("CSV files", "*.csv"),
-                        ("PDF files", "*.pdf")
-                    ],
-                    title="Guardar informe"
-                )
-            except Exception:
-                path = None
+            if formato == 'csv':
+                from kool_tpv.modulos.informes.exportadores.exportador_csv_informes import ExportadorCSVInformes
+                exportador = ExportadorCSVInformes()
+                resultado = exportador.exportar(self.current_report_data, self)
+            else:
+                from kool_tpv.modulos.informes.exportadores.exportador_pdf_informes import ExportadorPDFInformes
+                exportador = ExportadorPDFInformes(self.db)
+                resultado = exportador.exportar(self.current_report_data, self)
 
-            if not path:
-                return
-
-            # Exportar usando el informe ya generado
-            from kool_tpv.modulos.impresion.export_service import ExportService
-            export_service = ExportService(self.db)
-
-            if path.lower().endswith(".csv"):
-                export_service.export_report_csv(self.current_report_data, path)
-            elif path.lower().endswith(".pdf"):
-                export_service.export_report_pdf(self.current_report_data, path)
-
-            # Restaurar foco después de filedialog
-            try:
-                self.cb_tipo_informe.focus_set()
-            except Exception:
-                try:
-                    self.focus_set()
-                except Exception:
-                    pass
+            if resultado:
+                from kool_tpv.utils.custom_dialog import show_success
+                show_success(self.central_area, 'Exportado',
+                            f'Informe exportado correctamente.\n{resultado}')
 
         except PermissionError:
             from kool_tpv.utils.custom_dialog import show_error
