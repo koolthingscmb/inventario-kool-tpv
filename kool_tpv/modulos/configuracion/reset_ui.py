@@ -5,7 +5,8 @@ from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.modulos.configuracion.reset_service import ResetService
 from kool_tpv.utils.widgets.tag_selector import TagSelector
-from kool_tpv.utils.custom_dialog import show_warning, show_success, show_error
+from kool_tpv.utils.custom_dialog import show_warning, show_error
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
 
 
 class ResetUI:
@@ -329,7 +330,7 @@ class ResetUI:
             ok = self.service.reset_tesoro_clientes(cliente_ids)
             self.tag_selector_clientes.clear()
             if ok:
-                show_success(self.container, 'OK', f'{len(cliente_ids)} cliente(s) reseteado(s)')
+                ToastWidget.show(self.parent, f'{len(cliente_ids)} cliente(s) reseteado(s)', tipo='success')
             else:
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, 'Confirmar', f'¿Resetear {len(cliente_ids)} cliente(s)?', callback=_confirmar)
@@ -338,7 +339,7 @@ class ResetUI:
         def _confirmar():
             ok = self.service.reset_tesoro_clientes(None)
             if ok:
-                show_success(self.container, 'OK', 'Tesoro TODOS reseteado')
+                ToastWidget.show(self.parent, 'Tesoro TODOS reseteado', tipo='success')
             else:
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, '⚠️ PELIGRO', '¿Resetear tesoro TODOS?', callback=_confirmar)
@@ -353,7 +354,7 @@ class ResetUI:
             ok = self.service.borrar_productos(producto_ids)
             self.tag_selector_productos.clear()
             if ok:
-                show_success(self.container, 'OK', f'{len(producto_ids)} producto(s) borrado(s)')
+                ToastWidget.show(self.parent, f'{len(producto_ids)} producto(s) borrado(s)', tipo='success')
             else:
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, 'Confirmar', f'¿Borrar {len(producto_ids)} producto(s)?', callback=_confirmar)
@@ -362,7 +363,7 @@ class ResetUI:
         def _confirmar():
             ok = self.service.borrar_tickets(None)
             if ok:
-                show_success(self.container, 'OK', 'Tickets borrados')
+                ToastWidget.show(self.parent, 'Tickets borrados', tipo='success')
             else:
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, '⚠️ PELIGRO', 'Borrar TODOS los tickets?', callback=_confirmar)
@@ -371,7 +372,7 @@ class ResetUI:
         def _confirmar():
             ok = self.service.borrar_ticket_lines(None)
             if ok:
-                show_success(self.container, 'OK', 'Ticket_lines borradas')
+                ToastWidget.show(self.parent, 'Ticket_lines borradas', tipo='success')
             else:
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, 'Confirmar', 'Borrar TODAS las líneas de tickets?', callback=_confirmar)
@@ -380,7 +381,7 @@ class ResetUI:
         def _confirmar():
             ok = self.service.borrar_cierres()
             if ok:
-                show_success(self.container, 'OK', 'Cierres borrados')
+                ToastWidget.show(self.parent, 'Cierres borrados', tipo='success')
             else:
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, 'Confirmar', 'Borrar TODOS los cierres?', callback=_confirmar)
@@ -389,7 +390,7 @@ class ResetUI:
         def _confirmar():
             ok = self.service.borrar_albaranes(None)
             if ok:
-                show_success(self.container, 'OK', 'Albaranes borrados')
+                ToastWidget.show(self.parent, 'Albaranes borrados', tipo='success')
             else:
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, '⚠️ PELIGRO', 'Borrar TODOS los albaranes?', callback=_confirmar)
@@ -398,7 +399,7 @@ class ResetUI:
         def _confirmar():
             ok = self.service.borrar_facturas(None)
             if ok:
-                show_success(self.container, 'OK', 'Facturas borradas')
+                ToastWidget.show(self.parent, 'Facturas borradas', tipo='success')
             else:
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, '⚠️ PELIGRO', 'Borrar TODAS las facturas?', callback=_confirmar)
@@ -407,7 +408,7 @@ class ResetUI:
         def _confirmar():
             ok = self.service.reset_ticket_counter()
             if ok:
-                show_success(self.container, 'OK', 'Contador reseteado')
+                ToastWidget.show(self.parent, 'Contador tickets reseteado', tipo='success')
             else:
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, 'Confirmar', 'Reset contador tickets?', callback=_confirmar)
@@ -416,7 +417,7 @@ class ResetUI:
         def _confirmar():
             ok = self.service.reset_cierre_counter()
             if ok:
-                show_success(self.container, 'OK', 'Contador reseteado')
+                ToastWidget.show(self.parent, 'Contador cierres reseteado', tipo='success')
             else:
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, 'Confirmar', 'Reset contador cierres?', callback=_confirmar)
@@ -425,7 +426,7 @@ class ResetUI:
         def _confirmar():
             ok = self.service.reset_albaran_counter()
             if ok:
-                show_success(self.container, 'OK', 'Contador reseteado')
+                ToastWidget.show(self.parent, 'Contador albaranes reseteado', tipo='success')
             else:
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, 'Confirmar', 'Reset contador albaranes?', callback=_confirmar)
@@ -434,7 +435,7 @@ class ResetUI:
         def _confirmar():
             ok = self.service.reset_factura_counter()
             if ok:
-                show_success(self.container, 'OK', 'Contador reseteado')
+                ToastWidget.show(self.parent, 'Contador facturas reseteado', tipo='success')
             else:
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, 'Confirmar', 'Reset contador facturas?', callback=_confirmar)
@@ -443,7 +444,7 @@ class ResetUI:
         def _confirmar():
             ok = self.service.borrar_points_movements()
             if ok:
-                show_success(self.container, 'OK', 'Points_movements borrados')
+                ToastWidget.show(self.parent, 'Points_movements borrados', tipo='success')
             else:
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, '⚠️ PELIGRO', 'Borrar TODOS los movimientos de puntos?', callback=_confirmar)
@@ -452,7 +453,7 @@ class ResetUI:
         def _confirmar():
             ok = self.service.reset_stock_productos()
             if ok:
-                show_success(self.container, 'OK', 'Stock y ventas reseteados a 0')
+                ToastWidget.show(self.parent, 'Stock y ventas reseteados a 0', tipo='success')
             else:
                 show_error(self.container, 'Error', 'Fallo')
         show_warning(self.container, 'Confirmar', '¿Poner stock_actual y ventas_totales a 0 en TODOS los productos?', callback=_confirmar)
@@ -462,7 +463,7 @@ class ResetUI:
             def _ejecutar():
                 ok = self.service.reset_completo()
                 if ok:
-                    show_success(self.container, '⚠️ HECHO', 'BD limpiada')
+                    ToastWidget.show(self.parent, 'BD limpiada', tipo='success')
                 else:
                     show_error(self.container, 'Error', 'Fallo')
             show_warning(self.container, '⚠️⚠️ ÚLTIMA CONFIRMACIÓN', 'NO se puede deshacer. ¿CONTINUAR?', callback=_ejecutar)
