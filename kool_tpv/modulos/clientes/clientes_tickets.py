@@ -12,6 +12,7 @@ Características:
 import logging
 from datetime import datetime, timedelta
 from typing import Optional, List, Tuple
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
 
 import customtkinter as ctk
 from kool_tpv.base_datos.money_adapter import read_from_db
@@ -584,8 +585,7 @@ class ClientesTicketsUI(PaginaConVisor):
                 return
 
             logger.info('Acción IMPRIMIR triggered')
-            from kool_tpv.utils.custom_dialog import show_success
-            show_success(self.container, 'Imprimir', 'Funcionalidad en desarrollo')
+            ToastWidget.show(self.container, 'Funcionalidad en desarrollo', tipo='info')
         except Exception:
             logger.exception('Error en _on_imprimir')
 
@@ -604,8 +604,7 @@ class ClientesTicketsUI(PaginaConVisor):
                 return
 
             logger.info('Acción EXPORTAR triggered')
-            from kool_tpv.utils.custom_dialog import show_success
-            show_success(self.container, 'Exportar', 'Funcionalidad en desarrollo')
+            ToastWidget.show(self.container, 'Funcionalidad en desarrollo', tipo='info')
         except Exception:
             logger.exception('Error en _on_exportar')
 

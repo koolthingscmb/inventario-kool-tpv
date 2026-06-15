@@ -9,6 +9,7 @@ except Exception:  # pragma: no cover - optional dependency for image assets
     Image = None
 
 from kool_tpv.base_datos.db_wrapper import Database
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
 try:
     from kool_tpv.modulos.clientes.cliente_service import ClienteService
 except Exception:  # pragma: no cover - optional dependency during early UI dev
@@ -684,9 +685,7 @@ class CrearClienteUI:
                     ciudad, cp, pais, fecha_nac, tags, fidelidad_activa
                 )
                 if ok:
-                    from kool_tpv.utils.custom_dialog import show_success
-                    show_success(self.container, 'Actualizado', 
-                               f'Cliente {nombre} actualizado correctamente')
+                    ToastWidget.show(self.container, f'Cliente {nombre} actualizado', tipo='success')
                     # Recargar datos para actualizar tesoro/nivel
                     try:
                         self._cargar_cliente()
@@ -699,9 +698,7 @@ class CrearClienteUI:
                     fecha_nac, tags, fidelidad_activa
                 )
                 if ok:
-                    from kool_tpv.utils.custom_dialog import show_success
-                    show_success(self.container, 'Guardado', 
-                               f'Cliente {nombre} creado correctamente')
+                    ToastWidget.show(self.container, f'Cliente {nombre} creado', tipo='success')
                     # Limpiar formulario para siguiente alta
                     try:
                         self._limpiar_formulario()
