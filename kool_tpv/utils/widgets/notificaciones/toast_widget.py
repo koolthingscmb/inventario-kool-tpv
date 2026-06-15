@@ -1,6 +1,14 @@
 """Toast widget — notificación flotante con auto-desaparición."""
 import tkinter as tk
+from pathlib import Path
 from typing import Literal, Callable, Optional
+
+try:
+    from PIL import Image, ImageTk
+except Exception:
+    Image = None
+    ImageTk = None
+
 from kool_tpv.config.notificaciones_config import load_notificaciones_config
 
 ToastType = Literal['success', 'info', 'warning', 'error']
@@ -12,6 +20,13 @@ _COLORES_BG = {
     'warning': 'toast_warning_bg',
     'error': 'toast_error_bg',
 }
+_ICONO_PATHS = {
+    'success': 'dialog_success.png',
+    'info': 'dialog_info.png',
+    'warning': 'dialog_warning.png',
+    'error': 'dialog_error.png',
+}
+_ASSETS_DIR = Path(__file__).resolve().parents[3] / 'assets' / 'dialogs'
 
 
 class ToastWidget:
@@ -68,13 +83,27 @@ class ToastWidget:
         canvas.place(x=0, y=0)
         self._draw_rounded(canvas, 0, 0, w, h, radius, bg)
 
-        # Icono + mensaje en una sola línea centrada verticalmente
-        icono = _ICONOS.get(self.tipo, '')
-        texto = f"  {icono}  {self.mensaje}"
-        lbl = tk.Label(self._win, text=texto, bg=bg, fg=fg,
+        # Icono imagen + mensaje
+        icon_size = int(cfg.get('toast_icono_size', 20))
+        icon_pad = int(cfg.get('toast_icono_padding', 8))
+        img = self._cargar_icono(self.tipo, icon_size)
+
+        if img:
+            icon_y = (h - icon_size) // 2
+            lbl_icon = tk.Label(self._win, image=img, bg=bg)
+            lbl_icon.image = img
+            lbl_icon.place(x=px, y=icon_y, width=icon_size, height=icon_size)
+            text_x = px + icon_size + icon_pad
+        else:
+            icono = _ICONOS.get(self.tipo, '')
+            text_x = px
+            self.mensaje = f"{icono}  {self.mensaje}"
+
+        text_w = w - text_x - px
+        lbl = tk.Label(self._win, text=self.mensaje, bg=bg, fg=fg,
                        font=('Helvetica', 11, 'bold'),
-                       anchor='w', padx=px)
-        lbl.place(x=0, y=0, width=w, height=h)
+                       anchor='w')
+        lbl.place(x=text_x, y=0, width=text_w, height=h)
         lbl.bind('<Button-1>', lambda e: self._destruir())
         self._win.bind('<Button-1>', lambda e: self._destruir())
 
@@ -114,6 +143,23 @@ class ToastWidget:
         else:
             x, y = rx + ox, ry + oy
         self._win.geometry(f"{w}x{h}+{x}+{y}")
+
+    def _cargar_icono(self, tipo: str, size: int):
+        """Cargar icono PNG redimensionado. Fallback a None si falla."""
+        if Image is None or ImageTk is None:
+            return None
+        filename = _ICONO_PATHS.get(tipo)
+        if not filename:
+            return None
+        path = _ASSETS_DIR / filename
+        if not path.exists():
+            return None
+        try:
+            pil_img = Image.open(path).convert('RGBA')
+            pil_img = pil_img.resize((size, size), Image.Resampling.LANCZOS)
+            return ImageTk.PhotoImage(pil_img)
+        except Exception:
+            return None
 
     def _destruir(self):
         if self._win is None:
