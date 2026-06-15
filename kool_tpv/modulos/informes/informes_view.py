@@ -614,6 +614,16 @@ class InformesView(BaseModuleView):
                     right_text = formatter.format_precio(euros)
                     line = f"- {tipo_nombre} ({tickets} Tickets - {uds} Uds): {right_text}\n\n"
                     self.result_textbox.insert('end', line)
+                elif display_subformat == 'cajero':
+                    item_tipo = item.get('tipo', '')
+                    right_text = formatter.format_precio(euros)
+                    if item_tipo == 'linea_cajero':
+                        fecha_item = item.get('fecha', '')
+                        line = f"- {tipo_nombre} ({fecha_item} - {tickets} Tickets - {uds} Uds): {right_text}\n"
+                        self.result_textbox.insert('end', line)
+                    elif item_tipo == 'subtotal_cajero':
+                        line = f"  TOTAL {tipo_nombre} ({tickets} Tickets - {uds} Uds): {right_text}\n\n"
+                        self.result_textbox.insert('end', line)
                 elif tickets and tickets > 0:
                     # Formato con tickets (para informes por tipo/categoría)
                     self.result_textbox.insert('end', f"- {tipo_nombre} ({tickets} Tickets):\n")
@@ -669,8 +679,8 @@ class InformesView(BaseModuleView):
                         if idx < item_count - 1 and not is_next_separator:
                             self.result_textbox.insert('end', "-" * 40 + "\n")
 
-            # Total (solo para informes con items que tienen tickets, ej: ventas por tipo)
-            if items and has_tickets_items:
+            # Total (solo para informes con items que tienen tickets, excepto cajero que tiene sus propios subtotales)
+            if items and has_tickets_items and display_subformat != 'cajero':
                 right_text = formatter.format_precio(total_euros)
                 if display_subformat == 'daily':
                     self.result_textbox.insert('end', "\n")
