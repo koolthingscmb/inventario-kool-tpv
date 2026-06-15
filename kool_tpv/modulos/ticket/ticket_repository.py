@@ -261,16 +261,23 @@ class TicketRepository:
         fecha_inicio_sql = f"{fecha_inicio} 00:00:00"
         fecha_fin_sql = f"{fecha_fin} 23:59:59"
         query = (
-            "SELECT DATE(created_at) as fecha, COALESCE(SUM(total), 0) as total_dia "
-            "FROM tickets WHERE created_at BETWEEN ? AND ? AND total > 0 "
-            "GROUP BY DATE(created_at) ORDER BY DATE(created_at) ASC"
+            "SELECT DATE(t.created_at) as fecha, "
+            "COUNT(DISTINCT t.id) as num_tickets, "
+            "COALESCE(SUM(tl.cantidad), 0) as total_uds, "
+            "COALESCE(SUM(t.total), 0) as total_dia "
+            "FROM tickets t "
+            "LEFT JOIN ticket_lines tl ON t.id = tl.ticket_id AND tl.line_tipo = 'venta' "
+            "WHERE t.created_at BETWEEN ? AND ? AND t.total > 0 "
+            "GROUP BY DATE(t.created_at) ORDER BY DATE(t.created_at) ASC"
         )
         rows = self.db.fetch_all(query, (fecha_inicio_sql, fecha_fin_sql))
         result = []
         for r in rows or []:
             fecha = str(r[0]) if r[0] is not None else ''
-            total = float(read_from_db(r[1] or 0))
-            result.append({"fecha": fecha, "total": total})
+            num_tickets = int(r[1] or 0)
+            total_uds = int(r[2] or 0)
+            total = float(read_from_db(r[3] or 0))
+            result.append({"fecha": fecha, "num_tickets": num_tickets, "total_uds": total_uds, "total": total})
         return result
 
     def listar_tickets(self, termino: str = ''):

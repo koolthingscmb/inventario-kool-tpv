@@ -589,6 +589,7 @@ class InformesView(BaseModuleView):
             total_euros = 0.0
             has_tickets_items = False
 
+            display_subformat = report_data.get('display_subformat', '')
             items = report_data.get('items', [])
             item_count = len(items)
             for idx, item in enumerate(items):
@@ -608,7 +609,12 @@ class InformesView(BaseModuleView):
                     self.result_textbox.insert('end', "\n\n")  # Doble salto antes de Ticket Medio
                     continue
 
-                if tickets and tickets > 0:
+                if display_subformat == 'daily':
+                    # Formato compacto para Ventas Diarias: una sola línea por día
+                    right_text = formatter.format_precio(euros)
+                    line = f"- {tipo_nombre} ({tickets} Tickets - {uds} Uds): {right_text}\n\n"
+                    self.result_textbox.insert('end', line)
+                elif tickets and tickets > 0:
                     # Formato con tickets (para informes por tipo/categoría)
                     self.result_textbox.insert('end', f"- {tipo_nombre} ({tickets} Tickets):\n")
                     left_text = f"{uds} uds"
@@ -665,16 +671,19 @@ class InformesView(BaseModuleView):
 
             # Total (solo para informes con items que tienen tickets, ej: ventas por tipo)
             if items and has_tickets_items:
-                self.result_textbox.insert('end', "\n")
-                self.result_textbox.insert('end', "-" * 50 + "\n")
-                self.result_textbox.insert('end', f"TOTAL ({total_tickets} Tickets):\n")
-
-                left_text = f"{total_uds} uds"
                 right_text = formatter.format_precio(total_euros)
-                separator = sep_char * sep_width
+                if display_subformat == 'daily':
+                    self.result_textbox.insert('end', "\n")
+                    self.result_textbox.insert('end', f"TOTAL ({total_tickets} Tickets - {total_uds} Uds): {right_text}\n")
+                else:
+                    self.result_textbox.insert('end', "\n")
+                    self.result_textbox.insert('end', "-" * 50 + "\n")
+                    self.result_textbox.insert('end', f"TOTAL ({total_tickets} Tickets):\n")
 
-                line = f"  {left_text:<{left_width}} {separator:^{sep_width}} {right_text:>{right_width}}\n"
-                self.result_textbox.insert('end', line)
+                    left_text = f"{total_uds} uds"
+                    separator = sep_char * sep_width
+                    line = f"  {left_text:<{left_width}} {separator:^{sep_width}} {right_text:>{right_width}}\n"
+                    self.result_textbox.insert('end', line)
 
         except Exception:
             logging.exception('Error renderizando justified_list')

@@ -108,16 +108,19 @@ class InformesService:
         for item in ventas_diarias or []:
             fecha = item.get("fecha", "")
             total = item.get("total", 0.0)
+            num_tickets = item.get("num_tickets", 0)
+            total_uds = item.get("total_uds", 0)
             items.append({
                 "nombre": fecha,
-                "tickets": 1,
-                "uds": 1,
+                "tickets": num_tickets,
+                "uds": total_uds,
                 "euros": total,
             })
 
         return {
             "title": "INFORME DE VENTAS DIARIAS",
             "display_format": "justified_list",
+            "display_subformat": "daily",
             "generated_at": datetime.now().isoformat(),
             "range": {"start": fecha_inicio, "end": fecha_fin},
             "items": items,
