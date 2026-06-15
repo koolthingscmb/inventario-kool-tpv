@@ -861,11 +861,6 @@ class InformesView(BaseModuleView):
                 exportador = ExportadorPDFInformes(self.db)
                 resultado = exportador.exportar(self.current_report_data, self.parent.winfo_toplevel())
 
-            if resultado:
-                from kool_tpv.utils.custom_dialog import show_success
-                show_success(self.central_area, 'Exportado',
-                            f'Informe exportado correctamente.\n{resultado}')
-
         except PermissionError:
             from kool_tpv.utils.custom_dialog import show_error
             show_error(
