@@ -77,8 +77,7 @@ class InformesService:
             {"nombre": "Base Imponible", "tickets": 0, "uds": 0, "euros": resumen.get("total_base", 0.0)},
             {"nombre": "Total IVA", "tickets": 0, "uds": 0, "euros": resumen.get("total_iva", 0.0)},
             {"nombre": "TOTAL", "tickets": 0, "uds": resumen.get("total_tickets", 0), "euros": resumen.get("total_ventas", 0.0)},
-            {"nombre": "---SEPARADOR---", "tickets": 0, "uds": 0, "euros": 0.0},  # Marcador para saltos
-            {"nombre": "Ticket Medio", "tickets": 0, "uds": 0, "euros": resumen.get("ticket_medio", 0.0)},
+            {"nombre": "Ticket Medio", "tickets": 0, "uds": 0, "euros": resumen.get("ticket_medio", 0.0), "tipo": "destacado"},
         ]
 
         return {
