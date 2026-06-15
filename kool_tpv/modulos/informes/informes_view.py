@@ -855,11 +855,11 @@ class InformesView(BaseModuleView):
             if formato == 'csv':
                 from kool_tpv.modulos.informes.exportadores.exportador_csv_informes import ExportadorCSVInformes
                 exportador = ExportadorCSVInformes()
-                resultado = exportador.exportar(self.current_report_data, self)
+                resultado = exportador.exportar(self.current_report_data, self.winfo_toplevel())
             else:
                 from kool_tpv.modulos.informes.exportadores.exportador_pdf_informes import ExportadorPDFInformes
                 exportador = ExportadorPDFInformes(self.db)
-                resultado = exportador.exportar(self.current_report_data, self)
+                resultado = exportador.exportar(self.current_report_data, self.winfo_toplevel())
 
             if resultado:
                 from kool_tpv.utils.custom_dialog import show_success
