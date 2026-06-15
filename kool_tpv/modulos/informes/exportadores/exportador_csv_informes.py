@@ -2,7 +2,6 @@
 import csv
 import logging
 from datetime import datetime
-from pathlib import Path
 from tkinter import filedialog
 from typing import Dict, Any, Optional
 
@@ -97,25 +96,40 @@ class ExportadorCSVInformes:
                 euros = item.get('euros', 0.0)
 
                 if tipo_item == 'linea_grupo' or tipo_item == 'linea_cajero':
-                    fecha = item.get('fecha', '')
+                    fecha_raw = item.get('fecha', '')
+                    try:
+                        fecha_fmt = datetime.strptime(fecha_raw, '%Y-%m-%d').strftime('%d-%m-%Y')
+                    except Exception:
+                        fecha_fmt = fecha_raw
                     if nombre != grupo_actual:
                         grupo_actual = nombre
-                    writer.writerow([nombre, fecha, tickets, uds, f"{euros:.2f}"])
+                    writer.writerow([nombre, fecha_fmt, tickets, uds, f"{euros:.2f}"])
                 elif tipo_item == 'subtotal_grupo' or tipo_item == 'subtotal_cajero':
-                    writer.writerow([f"TOTAL {nombre}", "", tickets, uds, f"{euros:.2f}"])
+                    writer.writerow(['TOTAL', '', tickets, uds, f"{euros:.2f}"])
                     writer.writerow([])
                 elif tipo_item == 'total_global':
-                    writer.writerow([nombre, "", tickets, uds, f"{euros:.2f}"])
+                    writer.writerow([nombre, '', tickets, uds, f"{euros:.2f}"])
 
         elif display_subformat == 'daily':
             writer.writerow(["Fecha", "Tickets", "Uds", "Total"])
             writer.writerow([])
+            total_tk = total_u = 0
+            total_e = 0.0
             for item in items:
                 nombre = item.get('nombre', '')
+                try:
+                    fecha_fmt = datetime.strptime(nombre, '%Y-%m-%d').strftime('%d-%m-%Y')
+                except Exception:
+                    fecha_fmt = nombre
                 tickets = item.get('tickets', 0)
                 uds = item.get('uds', 0)
                 euros = item.get('euros', 0.0)
-                writer.writerow([nombre, tickets, uds, f"{euros:.2f}"])
+                writer.writerow([fecha_fmt, tickets, uds, f"{euros:.2f}"])
+                total_tk += tickets
+                total_u += uds
+                total_e += euros
+            writer.writerow([])
+            writer.writerow(['TOTAL', total_tk, total_u, f"{total_e:.2f}"])
 
         else:
             # Formato genérico (Resumen de ventas, etc.)
