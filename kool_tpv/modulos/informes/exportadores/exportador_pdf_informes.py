@@ -15,7 +15,7 @@ from kool_tpv.base_datos.configuracion_repository import ConfiguracionRepository
 
 logger = logging.getLogger(__name__)
 
-ASSETS_DIR = Path(__file__).resolve().parents[4] / 'assets'
+ASSETS_DIR = Path(__file__).resolve().parents[3] / 'assets'
 
 CLAVES_PLANTILLA = {
     'informes_pdf_titulo': 'INFORME DE VENTAS',
