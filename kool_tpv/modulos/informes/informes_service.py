@@ -270,7 +270,7 @@ class InformesService:
             total_euros_global += total_euros_p
 
         items.append({
-            "nombre": "TOTAL PRODUCTOS",
+            "nombre": "TOTAL",
             "tickets": total_tickets_global,
             "uds": total_uds_global,
             "euros": total_euros_global,
@@ -294,7 +294,7 @@ class InformesService:
             filter_ids=categorias,
             title='INFORME DE VENTAS POR CATEGORÍA',
             subformat='categoria',
-            total_label='TOTAL CATEGORÍAS',
+            total_label='TOTAL',
         )
 
     def get_informe_ventas_por_tipo(self, fecha_inicio: str, fecha_fin: str, tipos: list = None) -> dict:
@@ -305,7 +305,7 @@ class InformesService:
             filter_ids=tipos,
             title='INFORME DE VENTAS POR TIPO',
             subformat='tipo',
-            total_label='TOTAL TIPOS',
+            total_label='TOTAL',
         )
 
     def buscar_categorias_dinamico(self, texto: str):
