@@ -594,6 +594,18 @@ class TpvController:
         except Exception:
             _cliente_name = None
 
+        # Calcular tesoro_total_ticket (snapshot del tesoro después de esta compra)
+        tesoro_total_ticket_cents = 0
+        try:
+            if _cliente_id:
+                row = db.fetch_one("SELECT COALESCE(tesoro_total, 0) FROM clientes WHERE id = ?", (_cliente_id,))
+                tesoro_actual_cents = int(row[0]) if row and row[0] is not None else 0
+                puntos_otorgar = int(kwargs.get('puntos_otorgar_cents', 0))
+                puntos_gastados = int(kwargs.get('puntos_gastados_cents', 0))
+                tesoro_total_ticket_cents = tesoro_actual_cents + puntos_otorgar - puntos_gastados
+        except Exception:
+            pass
+
         payload = {
             'resumen': resumen,
             'created_at': created_at,
@@ -624,6 +636,7 @@ class TpvController:
             # Evitar pasar decimal.Decimal directamente al repositorio (SQLite no lo admite)
             'descuento_valor': None,
             'forma_pago': kwargs.get('forma_pago', 'Efectivo'),
+            'tesoro_total_ticket_cents': tesoro_total_ticket_cents,
             'ticket_text_snapshot': None,
             'carrito_items': carrito_items,
             'total_unidades': sum(int(item.get('cantidad', 0)) for item in (carrito_items or [])),
