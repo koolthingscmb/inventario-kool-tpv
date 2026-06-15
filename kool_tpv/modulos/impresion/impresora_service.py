@@ -506,7 +506,7 @@ class ImpresoraService:
                     # Usar tesoro_total_ticket (snapshot del tesoro en ese momento) en lugar de c.tesoro_total (valor actual)
                     tesoro_total_ticket = _parse_money_db(ticket_row[20]) if len(ticket_row) > 20 and ticket_row[20] is not None else Decimal('0')
                     tesoro_antes = tesoro_total_ticket - tesoro_ganado + tesoro_gastado
-                    tesoro_acumulado = tesoro_antes - tesoro_gastado
+                    tesoro_acumulado = tesoro_antes
 
                     cliente_data = {
                         'id': cliente_row[0],
