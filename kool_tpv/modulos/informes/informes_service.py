@@ -35,6 +35,11 @@ class InformesService:
         except Exception:
             return 0.0
 
+    def _ahora_formateado(self) -> str:
+        """Fecha y hora actual formateada para mostrar."""
+        from datetime import datetime
+        return datetime.now().strftime('%d/%m/%Y %H:%M')
+
     def get_resumen_ventas_por_rango(self, fecha_inicio: str, fecha_fin: str) -> dict:
         """Resumen agregado de ventas entre fechas."""
         raw = self.repo.get_resumen_ventas(fecha_inicio, fecha_fin)
@@ -83,7 +88,7 @@ class InformesService:
         return {
             "title": "INFORME RESUMEN DE VENTAS",
             "display_format": "justified_list",
-            "generated_at": datetime.now().isoformat(),
+            "generated_at": self._ahora_formateado(),
             "range": {"start": fecha_inicio, "end": fecha_fin},
             "items": items,
         }
@@ -114,7 +119,7 @@ class InformesService:
             "title": "INFORME DE VENTAS DIARIAS",
             "display_format": "justified_list",
             "display_subformat": "daily",
-            "generated_at": datetime.now().isoformat(),
+            "generated_at": self._ahora_formateado(),
             "range": {"start": fecha_inicio, "end": fecha_fin},
             "items": items,
         }
@@ -153,13 +158,11 @@ class InformesService:
                 "tipo": "subtotal_cajero",
             })
 
-        from datetime import datetime
-
         return {
             "title": "INFORME DE VENTAS POR CAJERO",
             "display_format": "justified_list",
             "display_subformat": "cajero",
-            "generated_at": datetime.now().isoformat(),
+            "generated_at": self._ahora_formateado(),
             "range": {"start": fecha_inicio, "end": fecha_fin},
             "items": items,
         }
@@ -217,12 +220,11 @@ class InformesService:
             "tipo": "total_global",
         })
 
-        from datetime import datetime
         return {
             "title": title,
             "display_format": "justified_list",
             "display_subformat": subformat,
-            "generated_at": datetime.now().isoformat(),
+            "generated_at": self._ahora_formateado(),
             "range": {"start": fecha_inicio, "end": fecha_fin},
             "items": items,
         }
@@ -275,12 +277,11 @@ class InformesService:
             "tipo": "total_global",
         })
 
-        from datetime import datetime
         return {
             "title": "INFORME DE VENTAS POR PRODUCTO",
             "display_format": "justified_list",
             "display_subformat": "producto",
-            "generated_at": datetime.now().isoformat(),
+            "generated_at": self._ahora_formateado(),
             "range": {"start": fecha_inicio, "end": fecha_fin},
             "items": items,
         }
@@ -384,10 +385,9 @@ class InformesService:
                 fields.append({"label": label, "value": value, "is_money": False})
             blocks.append({"title": gname, "fields": fields})
 
-        from datetime import datetime
         return {
             "title": title,
-            "generated_at": datetime.now().isoformat(),
+            "generated_at": self._ahora_formateado(),
             "range": None,
             "sections": [
                 {
