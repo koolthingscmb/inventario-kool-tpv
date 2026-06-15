@@ -17,6 +17,6 @@
     "toast_animar_desaparicion": true,
     "toast_fade_step_ms": 20,
     "toast_max_opacity": 0.95,
-    "toast_icono_size": 20,
+    "toast_icono_size": 40,
     "toast_icono_padding": 8
 }

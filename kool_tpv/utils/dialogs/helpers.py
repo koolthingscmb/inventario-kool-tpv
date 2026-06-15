@@ -7,19 +7,6 @@ from .message_dialog import MessageDialog
 from .input_dialog import InputDialog
 
 
-def show_success(parent, titulo, mensaje, callback=None):
-    """Mostrar diálogo de éxito.
-
-    Siempre devuelve True (el usuario confirmó haber visto el mensaje).
-    """
-    dlg = MessageDialog(parent, tipo='success', titulo=titulo, mensaje=mensaje, callback=callback)
-    try:
-        dlg.wait_window()
-    except Exception:
-        pass
-    return True
-
-
 def show_error(parent, titulo, mensaje, callback=None, confirm=False):
     """Mostrar diálogo de error.
 
