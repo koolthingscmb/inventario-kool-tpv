@@ -8,7 +8,7 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, RLImage
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
 from kool_tpv.base_datos.configuracion_repository import ConfiguracionRepository
 from kool_tpv.utils.font_loader import load_font_config
 
@@ -64,7 +64,7 @@ class ExportadorPDFInformes:
         elements = []
         if self.mostrar_logo and self.logo_path:
             try:
-                elements.append(RLImage(str(self.logo_path), width=4*cm, height=2*cm, kind='proportional'))
+                elements.append(Image(str(self.logo_path), width=4*cm, height=2*cm, kind='proportional'))
                 elements.append(Spacer(1, 0.3*cm))
             except:
                 pass
