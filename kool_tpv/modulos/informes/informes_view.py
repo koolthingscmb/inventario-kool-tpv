@@ -861,6 +861,16 @@ class InformesView(BaseModuleView):
                 exportador = ExportadorPDFInformes(self.db)
                 resultado = exportador.exportar(self.current_report_data, self.parent.winfo_toplevel())
 
+            if resultado:
+                from kool_tpv.utils.widgets.notificaciones import ToastWidget
+                ext = formato.upper()
+                ToastWidget.show(
+                    self.parent.winfo_toplevel(),
+                    f'Informe exportado a {ext}',
+                    tipo='success',
+                    duracion_ms=2500,
+                )
+
         except PermissionError:
             from kool_tpv.utils.custom_dialog import show_error
             show_error(
