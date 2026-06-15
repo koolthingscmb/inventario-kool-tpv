@@ -726,12 +726,18 @@ class ImportarAlbaranUI:
         if data['categoria']:
             cat_nombre = next((c[1] for c in self._categorias if c[0] == data['categoria']), '')
             self.combo_categoria._var.set(cat_nombre)
+        elif getattr(self, '_ultima_categoria_id', None):
+            cat_nombre = next((c[1] for c in self._categorias if c[0] == self._ultima_categoria_id), '')
+            self.combo_categoria._var.set(cat_nombre)
         else:
             self.combo_categoria._var.set('')
 
         # Tipo
         if data['tipo']:
             tipo_nombre = next((t[1] for t in self._tipos if t[0] == data['tipo']), '')
+            self.combo_tipo._var.set(tipo_nombre)
+        elif getattr(self, '_ultima_tipo_id', None):
+            tipo_nombre = next((t[1] for t in self._tipos if t[0] == self._ultima_tipo_id), '')
             self.combo_tipo._var.set(tipo_nombre)
         else:
             self.combo_tipo._var.set('')
@@ -818,6 +824,10 @@ class ImportarAlbaranUI:
         if tipo_id is None:
             self._mostrar_error(f'Tipo "{tipo_nombre}" no válido')
             return
+
+        # Recordar últimos valores seleccionados para el siguiente producto
+        self._ultima_categoria_id = categoria_id
+        self._ultima_tipo_id = tipo_id
 
         # Calcular conversión de unidades
         cantidad_original = data.get('cantidad', 1)
