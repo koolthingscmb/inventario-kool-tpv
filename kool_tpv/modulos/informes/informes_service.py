@@ -165,57 +165,90 @@ class InformesService:
             "items": items,
         }
 
-    def get_informe_ventas_por_categoria(self, fecha_inicio: str, fecha_fin: str, categorias: list = None) -> dict:
-        """Informe de ventas agregadas por categoría."""
-        ticket_ids = self.repo.get_ticket_ids_por_rango(fecha_inicio, fecha_fin)
+    def _build_ventas_por_grupo(self, fecha_inicio: str, fecha_fin: str,
+                                group_by: str, filter_ids, title: str,
+                                subformat: str, total_label: str) -> dict:
+        """Helper genérico para informes de ventas por categoría o tipo con desglose por día."""
+        filter_ids_clean = filter_ids if filter_ids and isinstance(filter_ids, (list, tuple)) and len(filter_ids) > 0 else None
+        resultados = self.repo.get_ventas_por_grupo_y_dia(fecha_inicio, fecha_fin, group_by, filter_ids_clean)
 
-        categoria_ids = categorias if categorias and isinstance(categorias, (list, tuple)) and len(categorias) > 0 else None
-        resultados = self.repo.get_ventas_por_categoria(ticket_ids, categoria_ids=categoria_ids)
+        # Agrupar por grupo para insertar subtotales
+        por_grupo = defaultdict(list)
+        for r in resultados:
+            por_grupo[r["group_name"]].append(r)
 
         items = []
-        for nombre, num_tickets, uds, total_euros in resultados:
+        total_tickets_global = 0
+        total_uds_global = 0
+        total_euros_global = 0.0
+
+        for group_name, filas in por_grupo.items():
+            total_tickets_grupo = 0
+            total_uds_grupo = 0
+            total_euros_grupo = 0.0
+            for fila in filas:
+                items.append({
+                    "nombre": group_name,
+                    "fecha": fila["fecha"],
+                    "tickets": fila["num_tickets"],
+                    "uds": fila["total_uds"],
+                    "euros": fila["total"],
+                    "tipo": "linea_grupo",
+                })
+                total_tickets_grupo += fila["num_tickets"]
+                total_uds_grupo += fila["total_uds"]
+                total_euros_grupo += fila["total"]
             items.append({
-                "nombre": nombre,
-                "tickets": num_tickets,
-                "uds": uds,
-                "euros": float(total_euros),
+                "nombre": group_name,
+                "tickets": total_tickets_grupo,
+                "uds": total_uds_grupo,
+                "euros": total_euros_grupo,
+                "tipo": "subtotal_grupo",
             })
+            total_tickets_global += total_tickets_grupo
+            total_uds_global += total_uds_grupo
+            total_euros_global += total_euros_grupo
+
+        # Item de total global
+        items.append({
+            "nombre": total_label,
+            "tickets": total_tickets_global,
+            "uds": total_uds_global,
+            "euros": total_euros_global,
+            "tipo": "total_global",
+        })
 
         from datetime import datetime
-
         return {
-            "title": "INFORME DE VENTAS POR CATEGORÍA",
+            "title": title,
             "display_format": "justified_list",
+            "display_subformat": subformat,
             "generated_at": datetime.now().isoformat(),
             "range": {"start": fecha_inicio, "end": fecha_fin},
             "items": items,
         }
+
+    def get_informe_ventas_por_categoria(self, fecha_inicio: str, fecha_fin: str, categorias: list = None) -> dict:
+        """Informe de ventas por categoría desglosado por día."""
+        return self._build_ventas_por_grupo(
+            fecha_inicio, fecha_fin,
+            group_by='categoria',
+            filter_ids=categorias,
+            title='INFORME DE VENTAS POR CATEGORÍA',
+            subformat='categoria',
+            total_label='TOTAL CATEGORÍAS',
+        )
 
     def get_informe_ventas_por_tipo(self, fecha_inicio: str, fecha_fin: str, tipos: list = None) -> dict:
-        """Informe de ventas agregadas por tipo de producto."""
-        ticket_ids = self.repo.get_ticket_ids_por_rango(fecha_inicio, fecha_fin)
-
-        tipo_ids = tipos if tipos and isinstance(tipos, (list, tuple)) and len(tipos) > 0 else None
-        resultados = self.repo.get_ventas_por_tipo(ticket_ids, tipo_ids=tipo_ids)
-
-        items = []
-        for nombre, num_tickets, uds, total_euros in resultados:
-            items.append({
-                "nombre": nombre,
-                "tickets": num_tickets,
-                "uds": uds,
-                "euros": float(total_euros),
-            })
-
-        from datetime import datetime
-
-        return {
-            "title": "INFORME DE VENTAS POR TIPO",
-            "display_format": "justified_list",
-            "generated_at": datetime.now().isoformat(),
-            "range": {"start": fecha_inicio, "end": fecha_fin},
-            "items": items,
-        }
+        """Informe de ventas por tipo desglosado por día."""
+        return self._build_ventas_por_grupo(
+            fecha_inicio, fecha_fin,
+            group_by='tipo',
+            filter_ids=tipos,
+            title='INFORME DE VENTAS POR TIPO',
+            subformat='tipo',
+            total_label='TOTAL TIPOS',
+        )
 
     def buscar_categorias_dinamico(self, texto: str):
         """Búsqueda dinámica de categorías para widgets de tipo TagSelector.

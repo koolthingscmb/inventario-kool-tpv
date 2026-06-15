@@ -94,6 +94,68 @@ class InformesRepository:
             })
         return result
 
+    # ── VENTAS POR CATEGORÍA / TIPO (desglosado por día) ─────────────────────
+
+    def get_ventas_por_grupo_y_dia(
+        self,
+        fecha_inicio: str,
+        fecha_fin: str,
+        group_by: str,
+        filter_ids: Optional[List[int]] = None
+    ) -> list:
+        """Ventas por categoría o tipo desglosadas por día.
+
+        Args:
+            group_by: 'categoria' o 'tipo'
+            filter_ids: IDs de categoría/tipo a filtrar (None = todos)
+
+        Returns:
+            Lista de dicts: group_name, fecha, num_tickets, total_uds, total
+        """
+        fecha_inicio_sql = f"{fecha_inicio} 00:00:00"
+        fecha_fin_sql = f"{fecha_fin} 23:59:59"
+
+        if group_by == 'categoria':
+            join_table = 'categorias'
+            alias = 'g'
+            id_col = 'p.categoria'
+        else:
+            join_table = 'tipos'
+            alias = 'g'
+            id_col = 'p.tipo'
+
+        sql = (
+            f"SELECT {alias}.nombre, DATE(t.created_at) as fecha, "
+            f"COUNT(DISTINCT t.id) as num_tickets, "
+            f"COALESCE(SUM(tl.cantidad), 0) as total_uds, "
+            f"COALESCE(SUM(tl.cantidad * tl.precio), 0) as total_cents "
+            f"FROM ticket_lines tl "
+            f"JOIN tickets t ON tl.ticket_id = t.id "
+            f"JOIN productos p ON tl.producto_id = p.id "
+            f"JOIN {join_table} {alias} ON {id_col} = {alias}.id "
+            f"WHERE t.created_at BETWEEN ? AND ? AND t.total > 0 AND tl.line_tipo = 'venta'"
+        )
+        params: list = [fecha_inicio_sql, fecha_fin_sql]
+
+        if filter_ids:
+            ph = ','.join(['?'] * len(filter_ids))
+            sql += f" AND {id_col} IN ({ph})"
+            params.extend(filter_ids)
+
+        sql += f" GROUP BY {alias}.id, {alias}.nombre, DATE(t.created_at) ORDER BY {alias}.nombre ASC, DATE(t.created_at) ASC"
+
+        rows = self.db.fetch_all(sql, tuple(params))
+        result = []
+        for r in rows or []:
+            result.append({
+                "group_name": str(r[0] or ''),
+                "fecha": str(r[1]) if r[1] is not None else '',
+                "num_tickets": int(r[2] or 0),
+                "total_uds": int(r[3] or 0),
+                "total": float(read_from_db(int(r[4] or 0))),
+            })
+        return result
+
     # ── VENTAS POR CATEGORÍA ──────────────────────────────────────────────────
 
     def get_ticket_ids_por_rango(self, fecha_inicio: str, fecha_fin: str) -> List[int]:

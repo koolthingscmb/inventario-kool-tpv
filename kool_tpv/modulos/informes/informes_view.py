@@ -618,14 +618,12 @@ class InformesView(BaseModuleView):
                     item_tipo = item.get('tipo', '')
                     right_text = formatter.format_precio(euros)
                     if item_tipo == 'linea_cajero':
-                        # Imprimir cabecera del cajero solo cuando cambia
                         fecha_raw = item.get('fecha', '')
                         try:
                             from datetime import datetime as _dt
                             fecha_fmt = _dt.strptime(fecha_raw, '%Y-%m-%d').strftime('%d-%m-%Y')
                         except Exception:
                             fecha_fmt = fecha_raw
-                        # Detectar si es el primer item de este cajero
                         prev_item = items[idx - 1] if idx > 0 else None
                         if prev_item is None or prev_item.get('nombre') != tipo_nombre or prev_item.get('tipo') == 'subtotal_cajero':
                             self.result_textbox.insert('end', f"{tipo_nombre}:\n")
@@ -633,6 +631,28 @@ class InformesView(BaseModuleView):
                         self.result_textbox.insert('end', line)
                     elif item_tipo == 'subtotal_cajero':
                         line = f"  TOTAL {tickets} Tickets - {uds} Uds: {right_text}\n\n"
+                        self.result_textbox.insert('end', line)
+                elif display_subformat in ('categoria', 'tipo'):
+                    item_tipo = item.get('tipo', '')
+                    right_text = formatter.format_precio(euros)
+                    if item_tipo == 'linea_grupo':
+                        fecha_raw = item.get('fecha', '')
+                        try:
+                            from datetime import datetime as _dt
+                            fecha_fmt = _dt.strptime(fecha_raw, '%Y-%m-%d').strftime('%d-%m-%Y')
+                        except Exception:
+                            fecha_fmt = fecha_raw
+                        prev_item = items[idx - 1] if idx > 0 else None
+                        if prev_item is None or prev_item.get('nombre') != tipo_nombre or prev_item.get('tipo') == 'subtotal_grupo':
+                            self.result_textbox.insert('end', f"{tipo_nombre}:\n")
+                        line = f"  {fecha_fmt} - {tickets} Tickets - {uds} Uds: {right_text}\n"
+                        self.result_textbox.insert('end', line)
+                    elif item_tipo == 'subtotal_grupo':
+                        line = f"  TOTAL {tickets} Tickets - {uds} Uds: {right_text}\n\n"
+                        self.result_textbox.insert('end', line)
+                    elif item_tipo == 'total_global':
+                        self.result_textbox.insert('end', f"{tipo_nombre}:\n")
+                        line = f"  {tickets} Tickets - {uds} Uds: {right_text}\n"
                         self.result_textbox.insert('end', line)
                 elif tickets and tickets > 0:
                     # Formato con tickets (para informes por tipo/categoría)
@@ -689,8 +709,8 @@ class InformesView(BaseModuleView):
                         if idx < item_count - 1 and not is_next_separator:
                             self.result_textbox.insert('end', "-" * 40 + "\n")
 
-            # Total (solo para informes con items que tienen tickets, excepto cajero que tiene sus propios subtotales)
-            if items and has_tickets_items and display_subformat != 'cajero':
+            # Total (solo para informes con items que tienen tickets, excepto los que tienen sus propios subtotales)
+            if items and has_tickets_items and display_subformat not in ('cajero', 'categoria', 'tipo'):
                 right_text = formatter.format_precio(total_euros)
                 if display_subformat == 'daily':
                     self.result_textbox.insert('end', "\n")
