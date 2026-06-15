@@ -5,6 +5,7 @@ from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.widgets.tag_selector import TagSelector
 from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.modulos.fidelizacion.fidelizacion_repository import FidelizacionRepository
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
 
 
 class FidelizacionProductosUI:
@@ -242,13 +243,8 @@ class FidelizacionProductosUI:
             self.entry_valor.delete(0, 'end')
             self._update_navlist()
 
-            from kool_tpv.utils.custom_dialog import show_success
             tipo_display = '%' if tipo == 'porcentaje' else 'puntos fijos'
-            show_success(
-                self.container,
-                'Tesoro actualizado',
-                f'{len(selected_ids)} producto(s) actualizado(s) a {valor} {tipo_display}'
-            )
+            ToastWidget.show(self.parent, f'{len(selected_ids)} producto(s) actualizado(s) a {valor} {tipo_display}', tipo='success')
 
         except Exception:
             logging.exception('Error guardando fidelización en productos')

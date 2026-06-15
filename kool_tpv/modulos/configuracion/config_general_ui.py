@@ -7,6 +7,8 @@ from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL
 from kool_tpv.utils.config_loader import load_colors
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.base_datos.configuracion_repository import ConfiguracionRepository
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
 
 
 class ConfigGeneralUI:
@@ -351,8 +353,7 @@ class ConfigGeneralUI:
 
             self.config_repo.guardar_multiples(cambios)
 
-            from kool_tpv.utils.custom_dialog import show_success
-            show_success(self.container, 'Guardado', 'Configuración guardada correctamente')
+            ToastWidget.show(self.parent, 'Configuración guardada', tipo='success')
 
         except Exception:
             logging.exception('Error guardando configuracion')

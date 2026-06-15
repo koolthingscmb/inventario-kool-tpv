@@ -15,6 +15,7 @@ from kool_tpv.utils.config_loader import load_colors
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.base_datos.configuracion_repository import ConfiguracionRepository
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
 
 ASSETS_DIR = Path(__file__).resolve().parents[3] / 'assets'
 LOGO_PDF_FILENAME = 'logo_pdf.png'
@@ -279,8 +280,7 @@ class PlantillasAlbaranUI:
         }
         try:
             self.config_repo.guardar_multiples(campos)
-            from kool_tpv.utils.custom_dialog import show_success
-            show_success(self.container, 'Guardado', 'Plantilla guardada correctamente')
+            ToastWidget.show(self.parent, 'Plantilla guardada', tipo='success')
         except Exception:
             logging.exception('Error guardando plantilla de albarán')
             from kool_tpv.utils.custom_dialog import show_error
@@ -291,7 +291,6 @@ class PlantillasAlbaranUI:
         try:
             self.config_repo.guardar_multiples(CLAVES_PLANTILLA)
             self._cargar_valores()
-            from kool_tpv.utils.custom_dialog import show_success
-            show_success(self.container, 'Restaurado', 'Valores por defecto restaurados')
+            ToastWidget.show(self.parent, 'Valores por defecto restaurados', tipo='success')
         except Exception:
             logging.exception('Error restaurando plantilla por defecto')

@@ -8,7 +8,8 @@ import customtkinter as ctk
 from kool_tpv.base_datos.usuario_service import UsuarioService
 from kool_tpv.utils.config_loader import create_action_button, load_colors
 from kool_tpv.utils.factories.button_factory import ButtonFactory
-from kool_tpv.utils.custom_dialog import show_success, show_error
+from kool_tpv.utils.custom_dialog import show_error
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL
 
@@ -350,15 +351,9 @@ class UsuariosUI:
                     parent = self.parent
 
                 if id_val:
-                    try:
-                        show_success(parent, 'USUARIO ACTUALIZADO', f'Usuario {nombre} actualizado correctamente')
-                    except Exception:
-                        pass
+                    ToastWidget.show(self.parent, f'Usuario {nombre} actualizado', tipo='success')
                 else:
-                    try:
-                        show_success(parent, 'USUARIO CREADO', f'Usuario {nombre} creado correctamente')
-                    except Exception:
-                        pass
+                    ToastWidget.show(self.parent, f'Usuario {nombre} creado', tipo='success')
 
                 self.clear()
                 self._load_usuarios()
@@ -377,10 +372,7 @@ class UsuariosUI:
                     parent = self.container.winfo_toplevel()
                 except Exception:
                     parent = self.parent
-                try:
-                    show_success(parent, 'USUARIO ELIMINADO', f'Usuario eliminado correctamente')
-                except Exception:
-                    pass
+                ToastWidget.show(self.parent, 'Usuario eliminado', tipo='success')
                 self.clear()
                 self._load_usuarios()
         except Exception:

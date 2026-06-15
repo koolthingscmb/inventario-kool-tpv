@@ -15,6 +15,7 @@ from kool_tpv.utils.font_loader import get_font
 from kool_tpv.modulos.impresion.venta_ticket_generator import VentaTicketGenerator
 from kool_tpv.modulos.impresion.cierre_ticket_generator import CierreTicketGenerator
 from kool_tpv.modulos.impresion.nivel_ticket_generator import NivelTicketGenerator
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
 
 
 class TextosPlantillaUI(PaginaConVisor):
@@ -265,8 +266,7 @@ class TextosPlantillaUI(PaginaConVisor):
                     (footer_key, footer_text)
                 )
 
-            from kool_tpv.utils.custom_dialog import show_success
-            show_success(self.container, 'Guardado', 'Textos guardados correctamente')
+            ToastWidget.show(self.parent, 'Textos guardados', tipo='success')
         except Exception:
             logging.exception('Error guardando textos')
             from kool_tpv.utils.custom_dialog import show_error

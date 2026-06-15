@@ -5,6 +5,7 @@ from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.base_datos.niveles_service import NivelesService
 from kool_tpv.base_datos.money_adapter import prepare_for_db, read_from_db
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
 
 
 class FidelizacionNivelesUI:
@@ -275,8 +276,7 @@ class FidelizacionNivelesUI:
             self._load_niveles()
             self._on_nuevo_nivel()
 
-            from kool_tpv.utils.custom_dialog import show_success
-            show_success(self.container, 'Guardado', f'Nivel {accion} correctamente')
+            ToastWidget.show(self.parent, f'Nivel {accion}', tipo='success')
         else:
             from kool_tpv.utils.custom_dialog import show_error
             show_error(self.container, 'Error', 'No se pudo guardar')
@@ -297,8 +297,7 @@ class FidelizacionNivelesUI:
                 self._load_niveles()
                 self._on_nuevo_nivel()
 
-                from kool_tpv.utils.custom_dialog import show_success
-                show_success(self.container, 'Eliminado', 'Nivel eliminado correctamente')
+                ToastWidget.show(self.parent, 'Nivel eliminado', tipo='success')
             else:
                 from kool_tpv.utils.custom_dialog import show_error
                 show_error(self.container, 'Error', 'No se pudo eliminar')

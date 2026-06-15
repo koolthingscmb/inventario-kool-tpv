@@ -4,6 +4,7 @@ from kool_tpv.utils.config_loader import load_colors, create_action_button
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.modulos.fidelizacion.fidelizacion_repository import FidelizacionRepository
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
 
 
 class FidelizacionCategoriasUI:
@@ -237,12 +238,7 @@ class FidelizacionCategoriasUI:
             # Recargar chips para reflejar cambios
             self._load_categorias()
 
-            from kool_tpv.utils.custom_dialog import show_success
-            show_success(
-                self.container,
-                'Guardado',
-                f'% actualizado a {nuevo_valor} para {self.selected_categoria["nombre"]}'
-            )
+            ToastWidget.show(self.parent, f'% actualizado a {nuevo_valor} para {self.selected_categoria["nombre"]}', tipo='success')
 
         except Exception:
             logging.exception('Error guardando fide_porcentaje en categoría')

@@ -14,6 +14,7 @@ from kool_tpv.utils.config_loader import load_colors, create_action_button
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.base_datos.configuracion_repository import ConfiguracionRepository
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
 
 
 class ImpresoraUI:
@@ -526,8 +527,7 @@ class ImpresoraUI:
 
             self.config_repo.guardar_multiples(cambios)
 
-            from kool_tpv.utils.custom_dialog import show_success
-            show_success(self.container, 'Guardado', 'Configuración de impresora guardada')
+            ToastWidget.show(self.parent, 'Configuración de impresora guardada', tipo='success')
 
         except Exception:
             from kool_tpv.utils.custom_dialog import show_error
@@ -574,8 +574,7 @@ class ImpresoraUI:
                 finally:
                     win32print.ClosePrinter(hprinter)
 
-                from kool_tpv.utils.custom_dialog import show_success
-                show_success(self.container, 'Test', 'Ticket de prueba enviado')
+                ToastWidget.show(self.parent, 'Ticket de prueba enviado', tipo='success')
 
             except Exception:
                 # Fallback: mostrar en consola
@@ -628,8 +627,7 @@ class ImpresoraUI:
             # Mostrar preview
             self._mostrar_preview(dest_path)
 
-            from kool_tpv.utils.custom_dialog import show_success
-            show_success(self.container, 'Logo', 'Logo cargado correctamente')
+            ToastWidget.show(self.parent, 'Logo cargado', tipo='success')
 
         except Exception:
             logging.exception('Error seleccionando logo')

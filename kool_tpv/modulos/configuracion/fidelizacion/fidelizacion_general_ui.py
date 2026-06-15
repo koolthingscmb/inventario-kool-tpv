@@ -3,6 +3,7 @@ import logging
 import customtkinter as ctk
 from kool_tpv.utils.config_loader import load_colors, create_action_button
 from kool_tpv.utils.font_loader import get_font
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
 
 
 class FidelizacionGeneralUI:
@@ -116,8 +117,7 @@ class FidelizacionGeneralUI:
             self.lbl_valor_actual.configure(text=nuevo_valor)
             self.entry_nuevo.delete(0, 'end')
 
-            from kool_tpv.utils.custom_dialog import show_success
-            show_success(self.container, 'Guardado', f'% general actualizado a {nuevo_valor}')
+            ToastWidget.show(self.parent, f'% general actualizado a {nuevo_valor}', tipo='success')
 
         except Exception:
             try:
