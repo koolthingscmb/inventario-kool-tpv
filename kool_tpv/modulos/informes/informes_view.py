@@ -288,7 +288,6 @@ class InformesView(BaseModuleView):
 
             # Botones de exportación CSV y PDF
             try:
-                from kool_tpv.utils.factories.button_factory import ButtonFactory
                 self.btn_export_csv = ButtonFactory.create_button(
                     footer_frame,
                     text='Exportar CSV',
