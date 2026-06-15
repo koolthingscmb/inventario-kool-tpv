@@ -13,7 +13,8 @@ from kool_tpv.utils.font_loader import load_font_config
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
-from kool_tpv.utils.dialogs import show_success, show_error, show_info
+from kool_tpv.utils.dialogs import show_error, show_info
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
 from kool_tpv.modulos.almacen.ui.albaranes.albaran_borrador import AlbaranBorradorService
 
 logger = logging.getLogger(__name__)
@@ -871,7 +872,7 @@ class ImportarAlbaranUI:
         # Habilitar botón crear todos si todos completados
         if completados == total:
             self.btn_crear_todos.configure(state='normal')
-            show_success(self.container, 'Completado', '¡Todos los productos completados! Puedes crearlos ahora.')
+            ToastWidget.show(self, 'Todos los productos completados', tipo='success')
 
         # Pasar al siguiente
         siguiente = self._current_producto_idx + 1
@@ -933,7 +934,7 @@ class ImportarAlbaranUI:
                     logger.error(f'Error creando producto {data["ean"]}: {e}')
 
             if creados == len(completados):
-                show_success(self.container, 'Éxito', f'✓ {creados} productos creados correctamente')
+                ToastWidget.show(self, f'{creados} productos creados', tipo='success')
                 # Ir a vista previa del albarán para guardarlo
                 self._mostrar_ui_vista_previa_albaran()
             else:
@@ -1121,7 +1122,7 @@ class ImportarAlbaranUI:
             self._productos_data = {}
             self._cabecera_data = {}
             self.selected_file_path = None
-            show_success(self.container, 'Éxito', f'Albarán guardado correctamente (ID: {albaran_id})')
+            ToastWidget.show(self, f'Albarán guardado (ID: {albaran_id})', tipo='success')
             self._on_volver_desde_creacion()
 
         except Exception as e:
@@ -1166,7 +1167,7 @@ class ImportarAlbaranUI:
             )
             self._borrador_path = path
             if not silencioso:
-                show_success(self.container, 'Borrador guardado', f'Albarán {cabecera.get("num_albaran", "")} guardado como borrador.')
+                ToastWidget.show(self, f'Albarán {cabecera.get("num_albaran", "")} guardado como borrador', tipo='success')
             return True
         except Exception:
             logger.exception('Error guardando borrador')

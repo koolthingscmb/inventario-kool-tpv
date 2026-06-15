@@ -6,7 +6,8 @@ from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
 from kool_tpv.utils.config_loader import create_action_button, load_colors
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.base_datos.proveedor_service import ProveedorService
-from kool_tpv.utils.custom_dialog import show_error, show_success
+from kool_tpv.utils.custom_dialog import show_error
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
 
 logger = logging.getLogger(__name__)
 
@@ -264,7 +265,7 @@ class MapeoCsvUI:
 
             # Guardar en BD
             if self.proveedor_service.save_mapeo_csv(self.proveedor_id, contenido):
-                show_success(self.container, 'Guardado', 'Mapeo CSV guardado correctamente')
+                ToastWidget.show(self, 'Mapeo CSV guardado', tipo='success')
                 self.mapeo_original = contenido  # Actualizar para has_unsaved_changes
                 logging.info(f'Mapeo CSV guardado para proveedor {self.proveedor_id}')
                 # Volver a vista proveedores con el mismo proveedor

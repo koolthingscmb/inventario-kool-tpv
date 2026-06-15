@@ -28,6 +28,7 @@ from kool_tpv.utils.utils import (
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.config_loader import create_action_button
 from kool_tpv.utils.factories.button_factory import ButtonFactory
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.modulos.almacen.producto_repository import ProductoRepository
 
@@ -736,11 +737,7 @@ class CrearProductoUI:
                 self._refresh_tesoro()
             except Exception:
                 pass
-            try:
-                from kool_tpv.utils.custom_dialog import show_success
-                show_success(self.container, 'Guardado', 'Producto guardado correctamente')
-            except Exception:
-                logging.info('Producto guardado id=%s', prod_id)
+            ToastWidget.show(self, 'Producto guardado correctamente', tipo='success')
             try:
                 self._on_cancel()
             except Exception:
@@ -894,22 +891,14 @@ class CrearProductoUI:
     def _on_sync(self):
         try:
             logging.info('Sincronizar accion triggered')
-            try:
-                from kool_tpv.utils.custom_dialog import show_success
-                show_success(self.container, 'Sincronizar', 'Sincronización iniciada')
-            except Exception:
-                pass
+            ToastWidget.show(self, 'Sincronización iniciada', tipo='info')
         except Exception:
             logging.exception('Error en _on_sync')
 
     def _on_buscar_data(self):
         try:
             logging.info('Buscar data accion triggered')
-            try:
-                from kool_tpv.utils.custom_dialog import show_success
-                show_success(self.container, 'Buscar data', 'Búsqueda iniciada')
-            except Exception:
-                pass
+            ToastWidget.show(self, 'Búsqueda iniciada', tipo='info')
         except Exception:
             logging.exception('Error en _on_buscar_data')
 

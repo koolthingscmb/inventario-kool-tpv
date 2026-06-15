@@ -12,7 +12,7 @@ from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
-from kool_tpv.utils.custom_dialog import show_success
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
 from kool_tpv.utils.config_loader import create_action_button
 from kool_tpv.base_datos.money_adapter import prepare_for_db, read_from_db
 
@@ -764,10 +764,7 @@ class EntradaManualUI:
                 )
                 if success:
                     logging.info(f'Albarán {self.albaran_id} actualizado correctamente')
-                    try:
-                        show_success(self.container, 'Guardado', f'Albarán {self.albaran_id} actualizado correctamente')
-                    except Exception:
-                        pass
+                    ToastWidget.show(self, f'Albarán {self.albaran_id} actualizado', tipo='success')
                     self._load_albaran_existente()
                 else:
                     logging.error(f'Error actualizando albarán {self.albaran_id}')
@@ -789,10 +786,7 @@ class EntradaManualUI:
             albaran_id = self.albaran_service.save_albaran(num, prov_id, fecha, self.lines, tipo=self.tipo)
             if albaran_id:
                 logging.info(f'Albarán guardado: {albaran_id}')
-                try:
-                    show_success(self.container, 'Guardado', f'Albarán {albaran_id} guardado correctamente')
-                except Exception:
-                    pass
+                ToastWidget.show(self, f'Albarán {albaran_id} guardado', tipo='success')
                 self._cancel()
         except Exception:
             logging.exception('Error guardando albarán')
