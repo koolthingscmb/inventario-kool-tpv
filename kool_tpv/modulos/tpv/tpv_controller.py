@@ -12,6 +12,7 @@ from decimal import Decimal
 from datetime import datetime
 
 from kool_tpv.base_datos.money_adapter import prepare_for_db
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
 
 logger = logging.getLogger(__name__)
 
@@ -768,7 +769,7 @@ class TpvController:
             importe_tarjeta: Desglose tarjeta
         """
         try:
-            from kool_tpv.utils.custom_dialog import show_error, show_success
+            from kool_tpv.utils.custom_dialog import show_error
 
             carrito_service = getattr(self.view, 'carrito_service', None)
             if not carrito_service:
@@ -1105,12 +1106,7 @@ class TpvController:
         except Exception:
             logger.exception('Error mostrando resumen de ticket')
             try:
-                from kool_tpv.utils.custom_dialog import show_success
-                show_success(
-                    self.view.container,
-                    'Venta guardada',
-                    f'Ticket #{resumen_data.get("num_ticket", "---")} guardado correctamente'
-                )
+                ToastWidget.show(self.view.container, f'Ticket #{resumen_data.get("num_ticket", "---")} guardado', tipo='success')
             except Exception:
                 pass
 

@@ -1,5 +1,6 @@
 from customtkinter import CTkFrame
 import logging
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
 
 logger = logging.getLogger(__name__)
 
@@ -123,8 +124,7 @@ class ValesListSubView(CTkFrame):
         def _ejecutar():
             ok = self.vale_service.eliminar_por_path(path) if path else self.vale_service.eliminar(vale_id)
             if ok:
-                from kool_tpv.utils.custom_dialog import show_success
-                show_success(self, 'OK', 'Vale eliminado')
+                ToastWidget.show(self, 'Vale eliminado', tipo='success')
                 self.search_list.search('')
             else:
                 from kool_tpv.utils.custom_dialog import show_error

@@ -1,6 +1,7 @@
 from customtkinter import CTkFrame
 import logging
 from datetime import datetime
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
 
 logger = logging.getLogger(__name__)
 
@@ -724,20 +725,14 @@ class TicketsSubView(CTkFrame):
                         except Exception:
                             cierre_id = None
 
-                        try:
-                            from kool_tpv.utils.custom_dialog import show_success, show_error
-                        except Exception:
-                            show_success = None
-                            show_error = None
-
                         # Show success feedback
                         try:
-                            if cierre_id and show_success:
-                                show_success(parent, 'Cierre realizado', f'Cierre #{cierre_id} guardado correctamente')
-                            elif show_success:
-                                show_success(parent, 'Cierre realizado', 'Cierre guardado correctamente')
+                            if cierre_id:
+                                ToastWidget.show(self, f'Cierre #{cierre_id} guardado', tipo='success')
+                            else:
+                                ToastWidget.show(self, 'Cierre guardado', tipo='success')
                         except Exception:
-                            logger.exception('Error mostrando show_success')
+                            logger.exception('Error mostrando Toast de cierre')
 
                         # Hide visor and cleanup cache
                         try:
