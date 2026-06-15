@@ -38,7 +38,7 @@ class ToastWidget:
         self._frame = ctk.CTkToplevel(self.parent)
         self._frame.overrideredirect(True)
         self._frame.attributes('-topmost', True)
-        self._frame.attributes('-alpha', self.cfg['toast_max_opacity'])
+        self._frame.attributes('-alpha', 0.0)  # invisible hasta posicionar
 
         bg = self._color_bg()
         fg = self.cfg['toast_text_color']
@@ -66,8 +66,9 @@ class ToastWidget:
             for child in self._all_children(wgt):
                 child.bind('<Button-1>', lambda e: self._destruir())
 
-        self._posicionar()
-        self._after_id = self._frame.after(self.duracion_ms, self._destruir)
+        # Posicionar tras render para tener dimensiones reales
+        self._frame.after(80, self._posicionar_y_mostrar)
+        self._after_id = self._frame.after(self.duracion_ms + 80, self._destruir)
         ToastWidget._instancias.append(self)
 
     def _all_children(self, widget):
@@ -96,31 +97,38 @@ class ToastWidget:
             except Exception:
                 pass
 
-    def _posicionar(self):
+    def _posicionar_y_mostrar(self):
+        if self._frame is None:
+            return
         self._frame.update_idletasks()
         tw = self.cfg['toast_ancho']
-        th = self._frame.winfo_reqheight()
+        # Usar altura real si ya la tiene, sino altura fija de fallback
+        th = self._frame.winfo_height()
+        if th < 20:
+            th = self.cfg.get('toast_alto', 80)
         try:
-            px = self.parent.winfo_toplevel().winfo_x()
-            py = self.parent.winfo_toplevel().winfo_y()
-            pw = self.parent.winfo_toplevel().winfo_width()
-            ph = self.parent.winfo_toplevel().winfo_height()
+            root = self.parent.winfo_toplevel()
+            rx = root.winfo_x()
+            ry = root.winfo_y()
+            rw = root.winfo_width()
+            rh = root.winfo_height()
         except Exception:
-            px = py = 0
-            pw = self.parent.winfo_screenwidth()
-            ph = self.parent.winfo_screenheight()
+            rx = ry = 0
+            rw = self.parent.winfo_screenwidth()
+            rh = self.parent.winfo_screenheight()
         pos = self.cfg['toast_posicion']
         ox = self.cfg['toast_offset_x']
         oy = self.cfg['toast_offset_y']
         if pos == 'bottom-right':
-            x, y = px + pw - tw - ox, py + ph - th - oy
+            x, y = rx + rw - tw - ox, ry + rh - th - oy
         elif pos == 'bottom-left':
-            x, y = px + ox, py + ph - th - oy
+            x, y = rx + ox, ry + rh - th - oy
         elif pos == 'top-right':
-            x, y = px + pw - tw - ox, py + oy
+            x, y = rx + rw - tw - ox, ry + oy
         else:
-            x, y = px + ox, py + oy
+            x, y = rx + ox, ry + oy
         self._frame.geometry(f"{tw}x{th}+{x}+{y}")
+        self._frame.attributes('-alpha', self.cfg['toast_max_opacity'])
 
     def _color_bg(self):
         return {
