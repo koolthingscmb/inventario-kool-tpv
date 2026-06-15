@@ -979,11 +979,11 @@ class ImportarAlbaranUI:
             justify='left'
         ).pack(pady=10, padx=15)
 
-        # Tabla de líneas con NavList (todas las columnas de BD)
+        # Tabla de líneas con NavList (todas las columnas de BD + ESTADO)
         self.nav_list_albaran = VirtualNavList(
             self.container,
             columns=[
-                ('EAN', 120), ('NOMBRE', 220), ('UDS', 50),
+                ('EAN', 120), ('NOMBRE', 200), ('ESTADO', 80), ('UDS', 50),
                 ('COSTE', 80), ('%IVA', 45), ('IVA', 70), ('PVPR', 80), ('TOTAL', 80)
             ],
             module_name=self.module_name,
@@ -1025,9 +1025,16 @@ class ImportarAlbaranUI:
             total = round(neto + iva, 2)
             pvpr_str = f'{linea.pvpr_cents / 100:.2f}' if getattr(linea, 'pvpr_cents', 0) else '-'
 
+            # Estado del producto
+            if getattr(linea, 'existe_en_bd', False):
+                estado = '✓ Existe'
+            else:
+                estado = '⚠ Nuevo'
+
             row_data = {
                 'EAN': linea.ean,
-                'NOMBRE': linea.nombre[:35],
+                'NOMBRE': linea.nombre[:30],  # Reducido para hacer espacio a ESTADO
+                'ESTADO': estado,
                 'UDS': str(linea.cantidad),
                 'COSTE': f'{coste:.2f}',
                 '%IVA': f'{linea.tipo_iva}%',
