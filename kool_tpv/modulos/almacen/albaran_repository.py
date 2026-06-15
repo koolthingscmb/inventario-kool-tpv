@@ -87,6 +87,26 @@ class AlbaranRepository:
                     except Exception as e:
                         logger.warning('Error actualizando stock producto %s: %s', line['producto_id'], e)
 
+                    # Actualizar precio si el CSV trae PVPR
+                    pvpr_cents = int(line.get('pvpr_cents', 0))
+                    coste_cents = int(prepare_for_db(line.get('coste', 0)))
+                    if pvpr_cents > 0:
+                        try:
+                            cur.execute(
+                                'UPDATE precios SET activo = 0 WHERE producto_id = ?',
+                                (line['producto_id'],)
+                            )
+                            cur.execute(
+                                'INSERT INTO precios (producto_id, pvp, coste, activo) VALUES (?, ?, ?, 1)',
+                                (line['producto_id'], pvpr_cents, coste_cents)
+                            )
+                            logger.info(
+                                'Precio actualizado: producto %s → pvp=%s coste=%s',
+                                line['producto_id'], pvpr_cents, coste_cents
+                            )
+                        except Exception as e:
+                            logger.warning('Error actualizando precio producto %s: %s', line['producto_id'], e)
+
             self.db.connection.commit()
             logger.info('Albarán %s guardado con id=%s', num_albaran, albaran_id)
             return albaran_id
