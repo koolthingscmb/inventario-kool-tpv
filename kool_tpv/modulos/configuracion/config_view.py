@@ -296,7 +296,7 @@ class ConfigView(BaseModuleView):
         except Exception:
             logging.exception('Error en show_impresion')
 
-    def show_usuario(self):
+    def show_usuario(self, _result=None):
         """Mostrar config de usuarios (protegido por password admin)."""
         try:
             parent = self._get_dialog_parent()
