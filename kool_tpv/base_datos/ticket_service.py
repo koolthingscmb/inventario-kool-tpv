@@ -47,7 +47,7 @@ def save_ticket(db, carrito_items, resumen, efectivo=0.0, cajero=None, cliente=N
         if cliente_id:
             row = db.fetch_one("SELECT COALESCE(tesoro_total, 0) FROM clientes WHERE id = ?", (cliente_id,))
             tesoro_actual_cents = int(row[0]) if row and row[0] is not None else 0
-            tesoro_total_ticket_cents = tesoro_actual_cents + int(puntos_otorgar) - int(puntos_gastados)
+            tesoro_total_ticket_cents = tesoro_actual_cents + prepare_for_db(puntos_otorgar) - prepare_for_db(puntos_gastados)
     except Exception:
         logger.exception('Error calculando tesoro_total_ticket en save_ticket shim')
 
