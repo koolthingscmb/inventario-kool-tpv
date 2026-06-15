@@ -265,7 +265,7 @@ class MapeoCsvUI:
 
             # Guardar en BD
             if self.proveedor_service.save_mapeo_csv(self.proveedor_id, contenido):
-                ToastWidget.show(self, 'Mapeo CSV guardado', tipo='success')
+                ToastWidget.show(self.container, 'Mapeo CSV guardado', tipo='success')
                 self.mapeo_original = contenido  # Actualizar para has_unsaved_changes
                 logging.info(f'Mapeo CSV guardado para proveedor {self.proveedor_id}')
                 # Volver a vista proveedores con el mismo proveedor

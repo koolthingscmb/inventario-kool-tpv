@@ -737,7 +737,7 @@ class CrearProductoUI:
                 self._refresh_tesoro()
             except Exception:
                 pass
-            ToastWidget.show(self, 'Producto guardado correctamente', tipo='success')
+            ToastWidget.show(self.container, 'Producto guardado correctamente', tipo='success')
             try:
                 self._on_cancel()
             except Exception:
@@ -891,14 +891,14 @@ class CrearProductoUI:
     def _on_sync(self):
         try:
             logging.info('Sincronizar accion triggered')
-            ToastWidget.show(self, 'Sincronización iniciada', tipo='info')
+            ToastWidget.show(self.container, 'Sincronización iniciada', tipo='info')
         except Exception:
             logging.exception('Error en _on_sync')
 
     def _on_buscar_data(self):
         try:
             logging.info('Buscar data accion triggered')
-            ToastWidget.show(self, 'Búsqueda iniciada', tipo='info')
+            ToastWidget.show(self.container, 'Búsqueda iniciada', tipo='info')
         except Exception:
             logging.exception('Error en _on_buscar_data')
 

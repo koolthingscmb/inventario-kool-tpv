@@ -872,7 +872,7 @@ class ImportarAlbaranUI:
         # Habilitar botón crear todos si todos completados
         if completados == total:
             self.btn_crear_todos.configure(state='normal')
-            ToastWidget.show(self, 'Todos los productos completados', tipo='success')
+            ToastWidget.show(self.container, 'Todos los productos completados', tipo='success')
 
         # Pasar al siguiente
         siguiente = self._current_producto_idx + 1
@@ -934,7 +934,7 @@ class ImportarAlbaranUI:
                     logger.error(f'Error creando producto {data["ean"]}: {e}')
 
             if creados == len(completados):
-                ToastWidget.show(self, f'{creados} productos creados', tipo='success')
+                ToastWidget.show(self.container, f'{creados} productos creados', tipo='success')
                 # Ir a vista previa del albarán para guardarlo
                 self._mostrar_ui_vista_previa_albaran()
             else:
@@ -1122,7 +1122,7 @@ class ImportarAlbaranUI:
             self._productos_data = {}
             self._cabecera_data = {}
             self.selected_file_path = None
-            ToastWidget.show(self, f'Albarán guardado (ID: {albaran_id})', tipo='success')
+            ToastWidget.show(self.container, f'Albarán guardado (ID: {albaran_id})', tipo='success')
             self._on_volver_desde_creacion()
 
         except Exception as e:
@@ -1167,7 +1167,7 @@ class ImportarAlbaranUI:
             )
             self._borrador_path = path
             if not silencioso:
-                ToastWidget.show(self, f'Albarán {cabecera.get("num_albaran", "")} guardado como borrador', tipo='success')
+                ToastWidget.show(self.container, f'Albarán {cabecera.get("num_albaran", "")} guardado como borrador', tipo='success')
             return True
         except Exception:
             logger.exception('Error guardando borrador')

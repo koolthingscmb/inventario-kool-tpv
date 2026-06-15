@@ -764,7 +764,7 @@ class EntradaManualUI:
                 )
                 if success:
                     logging.info(f'Albarán {self.albaran_id} actualizado correctamente')
-                    ToastWidget.show(self, f'Albarán {self.albaran_id} actualizado', tipo='success')
+                    ToastWidget.show(self.container, f'Albarán {self.albaran_id} actualizado', tipo='success')
                     self._load_albaran_existente()
                 else:
                     logging.error(f'Error actualizando albarán {self.albaran_id}')
@@ -786,7 +786,7 @@ class EntradaManualUI:
             albaran_id = self.albaran_service.save_albaran(num, prov_id, fecha, self.lines, tipo=self.tipo)
             if albaran_id:
                 logging.info(f'Albarán guardado: {albaran_id}')
-                ToastWidget.show(self, f'Albarán {albaran_id} guardado', tipo='success')
+                ToastWidget.show(self.container, f'Albarán {albaran_id} guardado', tipo='success')
                 self._cancel()
         except Exception:
             logging.exception('Error guardando albarán')
