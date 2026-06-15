@@ -312,23 +312,22 @@ class ConfigView(BaseModuleView):
             if password is None or password == "":
                 return
 
+            is_valid = False
+            try:
+                if self.auth_service:
+                    res = self.auth_service.validate_admin_password(password)
+                else:
+                    res = (False, None)
+
+                if isinstance(res, tuple):
+                    is_valid = bool(res[0])
+                else:
+                    is_valid = bool(res)
+            except Exception:
                 is_valid = False
-                try:
-                    if self.auth_service:
-                        res = self.auth_service.validate_admin_password(password)
-                    else:
-                        res = (False, None)
 
-                    if isinstance(res, tuple):
-                        is_valid = bool(res[0])
-                    else:
-                        is_valid = bool(res)
-                except Exception:
-                    is_valid = False
-
-                if is_valid:
-                    logging.info('Config: abriendo USUARIO (autenticado)...')
-                # Si autenticado, mostrar UI de usuarios
+            if is_valid:
+                logging.info('Config: abriendo USUARIO (autenticado)...')
                 try:
                     self.show_usuarios()
                 except Exception:
