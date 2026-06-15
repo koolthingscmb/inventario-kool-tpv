@@ -29,8 +29,10 @@ class MessageDialog(BaseDialog):
         try:
             if self.confirm:
                 self.bind('<Escape>', lambda e: self._on_cancel())
+                self.bind('<Return>', lambda e: self._on_accept())
             else:
                 self.bind('<Escape>', lambda e: self._on_close())
+                self.bind('<Return>', lambda e: self._on_close())
         except Exception:
             pass
 
