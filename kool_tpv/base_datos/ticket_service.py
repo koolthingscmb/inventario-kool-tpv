@@ -41,6 +41,16 @@ def save_ticket(db, carrito_items, resumen, efectivo=0.0, cajero=None, cliente=N
     except Exception:
         logger.exception('Error calculando puntos en save_ticket shim')
 
+    # Calcular tesoro_total_ticket (snapshot del tesoro después de esta compra)
+    tesoro_total_ticket_cents = 0
+    try:
+        if cliente_id:
+            row = db.fetch_one("SELECT COALESCE(tesoro_total, 0) FROM clientes WHERE id = ?", (cliente_id,))
+            tesoro_actual_cents = int(row[0]) if row and row[0] is not None else 0
+            tesoro_total_ticket_cents = tesoro_actual_cents + int(puntos_otorgar) - int(puntos_gastados)
+    except Exception:
+        logger.exception('Error calculando tesoro_total_ticket en save_ticket shim')
+
     # Build payload (cents)
     def _dec(v, default='0'):
         try:
@@ -66,6 +76,7 @@ def save_ticket(db, carrito_items, resumen, efectivo=0.0, cajero=None, cliente=N
         'forma_pago': forma_pago,
         'tesoro_ganado_str': str(puntos_otorgar),
         'tesoro_gastado_str': str(puntos_gastados),
+        'tesoro_total_ticket_cents': tesoro_total_ticket_cents,
         'ticket_text_snapshot': None,
         'carrito_items': carrito_items,
         'pagos': [],

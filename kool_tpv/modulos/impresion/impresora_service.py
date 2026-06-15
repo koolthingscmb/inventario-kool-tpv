@@ -252,7 +252,7 @@ class ImpresoraService:
                           tesoro_ganado, tesoro_gastado,
                           subtotal, iva_desglose,
                           descuento_euros, descuento_tipo, descuento_valor, dto_aplicado_id,
-                          vale_id, vale_cents
+                          vale_id, vale_cents, tesoro_total_ticket
                    FROM tickets WHERE id = ?""",
                 (ticket_id,)
             )
@@ -260,7 +260,7 @@ class ImpresoraService:
             #          6=total,7=forma_pago,8=importe_efectivo,9=importe_tarjeta,
             #          10=tesoro_ganado,11=tesoro_gastado,12=subtotal,13=iva_desglose,
             #          14=descuento_euros,15=descuento_tipo,16=descuento_valor,17=dto_aplicado_id,
-            #          18=vale_id,19=vale_cents
+            #          18=vale_id,19=vale_cents,20=tesoro_total_ticket
 
             if not ticket_row:
                 return None
@@ -500,11 +500,12 @@ class ImpresoraService:
                 )
 
                 if cliente_row:
-                    # Reconstruir tesoro_data (usar los parseos ya definidos)
+                    # Reconstruir tesoro_data (usar tesoro_total_ticket guardado en el ticket)
                     tesoro_gastado = _parse_money_db(ticket_row[11]) if ticket_row[11] is not None else Decimal('0')
                     tesoro_ganado = _parse_money_db(ticket_row[10]) if ticket_row[10] is not None else Decimal('0')
-                    tesoro_total_actual = _parse_money_db(cliente_row[2]) if cliente_row[2] is not None else Decimal('0')
-                    tesoro_antes = tesoro_total_actual - tesoro_ganado + tesoro_gastado
+                    # Usar tesoro_total_ticket (snapshot del tesoro en ese momento) en lugar de c.tesoro_total (valor actual)
+                    tesoro_total_ticket = _parse_money_db(ticket_row[20]) if len(ticket_row) > 20 and ticket_row[20] is not None else Decimal('0')
+                    tesoro_antes = tesoro_total_ticket - tesoro_ganado + tesoro_gastado
                     tesoro_acumulado = tesoro_antes - tesoro_gastado
 
                     cliente_data = {
@@ -533,7 +534,7 @@ class ImpresoraService:
                         'antes': tesoro_antes,
                         'acumulado': tesoro_acumulado,  # ✅ key correcta
                         'ganado': tesoro_ganado,  # ✅ key correcta
-                        'total': tesoro_total_actual,  # ✅ key correcta
+                        'total': tesoro_total_ticket,  # snapshot del tesoro en ese momento
                         'motivo': motivo_val,
                     }
 

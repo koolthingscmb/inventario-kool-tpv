@@ -23,7 +23,8 @@ class TicketRepository:
                       subtotal_cents, forma_pago, total_cents, pagado_cents, cambio_cents,
                       importe_efectivo_cents, importe_tarjeta_cents, importe_web_cents=None,
                       descuento_euros_cents, descuento_tipo, descuento_valor,
-                      tesoro_ganado_str, tesoro_gastado_str, ticket_text_snapshot=None,
+                      tesoro_ganado_str, tesoro_gastado_str, tesoro_total_ticket_cents=0,
+                      ticket_text_snapshot=None,
                       iva_desglose_json='{}', vale_id=None, vale_cents=None, cur=None):
         # Ensure `cliente` is a string or None before binding to SQLite
         try:
@@ -49,8 +50,8 @@ class TicketRepository:
         if not use_external_cursor:
             cur = self.db.connection.cursor()
         insert_ticket_q = (
-            "INSERT INTO tickets (created_at, cajero, cliente, cliente_id, num_ticket, subtotal, forma_pago, total, pagado, cambio, importe_efectivo, importe_tarjeta, importe_web, descuento_euros, descuento_tipo, descuento_valor, tesoro_ganado, tesoro_gastado, ticket_text, iva_desglose, vale_id, vale_cents) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO tickets (created_at, cajero, cliente, cliente_id, num_ticket, subtotal, forma_pago, total, pagado, cambio, importe_efectivo, importe_tarjeta, importe_web, descuento_euros, descuento_tipo, descuento_valor, tesoro_ganado, tesoro_gastado, tesoro_total_ticket, ticket_text, iva_desglose, vale_id, vale_cents) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )
         # Prepare values allowing nullable fields (forma_pago and importes pueden ser None)
         importe_efectivo_val = int(importe_efectivo_cents) if importe_efectivo_cents is not None else None
@@ -78,6 +79,7 @@ class TicketRepository:
                 descuento_valor,
                 int(tesoro_ganado_str or 0),
                 int(tesoro_gastado_str or 0),
+                int(tesoro_total_ticket_cents),
                 ticket_text_snapshot,
                 iva_desglose_json,
                 vale_id,
