@@ -618,11 +618,21 @@ class InformesView(BaseModuleView):
                     item_tipo = item.get('tipo', '')
                     right_text = formatter.format_precio(euros)
                     if item_tipo == 'linea_cajero':
-                        fecha_item = item.get('fecha', '')
-                        line = f"- {tipo_nombre} ({fecha_item} - {tickets} Tickets - {uds} Uds): {right_text}\n"
+                        # Imprimir cabecera del cajero solo cuando cambia
+                        fecha_raw = item.get('fecha', '')
+                        try:
+                            from datetime import datetime as _dt
+                            fecha_fmt = _dt.strptime(fecha_raw, '%Y-%m-%d').strftime('%d-%m-%Y')
+                        except Exception:
+                            fecha_fmt = fecha_raw
+                        # Detectar si es el primer item de este cajero
+                        prev_item = items[idx - 1] if idx > 0 else None
+                        if prev_item is None or prev_item.get('nombre') != tipo_nombre or prev_item.get('tipo') == 'subtotal_cajero':
+                            self.result_textbox.insert('end', f"{tipo_nombre}:\n")
+                        line = f"  {fecha_fmt} - {tickets} Tickets - {uds} Uds: {right_text}\n"
                         self.result_textbox.insert('end', line)
                     elif item_tipo == 'subtotal_cajero':
-                        line = f"  TOTAL {tipo_nombre} ({tickets} Tickets - {uds} Uds): {right_text}\n\n"
+                        line = f"  TOTAL {tickets} Tickets - {uds} Uds: {right_text}\n\n"
                         self.result_textbox.insert('end', line)
                 elif tickets and tickets > 0:
                     # Formato con tickets (para informes por tipo/categoría)
