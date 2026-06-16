@@ -116,8 +116,9 @@ class ToastWidget:
                        font=('Helvetica', 11, 'bold'),
                        anchor='w')
         lbl.place(x=text_x, y=0, width=text_w, height=h)
-        lbl.bind('<Button-1>', lambda e: self._destruir())
-        self._win.bind('<Button-1>', lambda e: self._destruir())
+        if not mostrar_ok:
+            lbl.bind('<Button-1>', lambda e: self._destruir())
+            self._win.bind('<Button-1>', lambda e: self._destruir())
 
         if mostrar_ok:
             btn_y = (h - ok_h) // 2
