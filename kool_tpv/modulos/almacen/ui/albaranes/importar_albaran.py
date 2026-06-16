@@ -13,7 +13,7 @@ from kool_tpv.utils.font_loader import load_font_config
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
-from kool_tpv.utils.dialogs import show_error, show_info
+from kool_tpv.utils.dialogs import show_error
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
 from kool_tpv.modulos.almacen.ui.albaranes.albaran_borrador import AlbaranBorradorService
 
@@ -1365,13 +1365,6 @@ class ImportarAlbaranUI:
             show_error(self.container, 'Error', mensaje)
         except Exception:
             logger.error(mensaje)
-
-    def _mostrar_info(self, mensaje):
-        """Mostrar mensaje informativo usando diálogo del proyecto."""
-        try:
-            show_info(self.container, 'Información', mensaje)
-        except Exception:
-            logger.info(mensaje)
 
     def has_unsaved_changes(self):
         """Detectar si hay un albarán en curso sin guardar."""
