@@ -638,20 +638,11 @@ class TicketsSubView(CTkFrame):
             except Exception:
                 pass
 
-            # --- CONFIRMACIÓN FINAL con Toast info ---
-            def _ejecutar_cierre_confirmado(confirmed=None):
-                """Callback ejecutado al pulsar OK en el toast de confirmación."""
-                cierre_id = resultado.get('cierre_id') if resultado else None
+            # --- TOAST INFO: Cierre generado, revisa el visor ---
+            cierre_id = resultado.get('cierre_id') if resultado else None
 
-                # Show success feedback
-                try:
-                    if cierre_id:
-                        ToastWidget.show(root, f'Cierre #{cierre_id} guardado', tipo='success')
-                    else:
-                        ToastWidget.show(root, 'Cierre guardado', tipo='success')
-                except Exception:
-                    logger.exception('Error mostrando Toast de cierre')
-
+            def _cerrar_y_continuar(confirmed=None):
+                """Callback al pulsar OK: oculta visor y muestra success."""
                 # Hide visor and cleanup cache
                 try:
                     ctrl.hide_ticket()
@@ -662,6 +653,15 @@ class TicketsSubView(CTkFrame):
                 except Exception:
                     pass
 
+                # Show success feedback
+                try:
+                    if cierre_id:
+                        ToastWidget.show(root, f'Cierre #{cierre_id} impreso', tipo='success')
+                    else:
+                        ToastWidget.show(root, 'Cierre impreso', tipo='success')
+                except Exception:
+                    logger.exception('Error mostrando Toast de cierre')
+
                 # Refresh ticket list in UI
                 try:
                     self.search_list._on_search()
@@ -671,23 +671,15 @@ class TicketsSubView(CTkFrame):
                     except Exception:
                         pass
 
-                logger.info(f'Cierre ejecutado exitosamente: cierre_id={cierre_id}')
+                logger.info(f'Cierre completado: cierre_id={cierre_id}')
 
-            def _cancelar_cierre(confirmed=None):
-                """Callback ejecutado al cerrar el toast sin confirmar."""
-                try:
-                    if getattr(self.view, 'controller', None):
-                        self.view.controller.hide_ticket()
-                except Exception:
-                    pass
-
-            # Mostrar toast info con OK - al cerrar ejecuta el cierre
+            # Mostrar toast info con OK
             root = self.winfo_toplevel()
             ToastWidget.show(
                 root,
-                '¿Confirmas cierre de estos tickets?',
+                'Cierre generado. Revisa el visor. OK para continuar.',
                 tipo='info',
-                al_cerrar=lambda confirmed: _ejecutar_cierre_confirmado(confirmed) if confirmed else _cancelar_cierre(confirmed)
+                al_cerrar=lambda confirmed: _cerrar_y_continuar() if confirmed else None
             )
 
         except Exception:
