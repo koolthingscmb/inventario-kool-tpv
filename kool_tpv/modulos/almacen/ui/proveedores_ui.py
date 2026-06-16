@@ -398,9 +398,8 @@ class ProveedoresUI:
             # Obtener ID del proveedor actual
             id_text = self.e_id.get().strip()
             if not id_text:
-                from kool_tpv.utils.custom_dialog import show_warning
-                show_warning(self.container, 'Sin proveedor',
-                             'Selecciona un proveedor antes de configurar el mapeo CSV')
+                from kool_tpv.utils.widgets.notificaciones import show_warning
+                show_warning(self.container, 'Selecciona un proveedor antes de configurar el mapeo CSV')
                 return
 
             try:
