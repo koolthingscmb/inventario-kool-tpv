@@ -646,9 +646,9 @@ class TicketsSubView(CTkFrame):
                 # Show success feedback
                 try:
                     if cierre_id:
-                        ToastWidget.show(self, f'Cierre #{cierre_id} guardado', tipo='success')
+                        ToastWidget.show(root, f'Cierre #{cierre_id} guardado', tipo='success')
                     else:
-                        ToastWidget.show(self, 'Cierre guardado', tipo='success')
+                        ToastWidget.show(root, 'Cierre guardado', tipo='success')
                 except Exception:
                     logger.exception('Error mostrando Toast de cierre')
 

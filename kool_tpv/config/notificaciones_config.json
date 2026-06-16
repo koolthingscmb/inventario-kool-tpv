@@ -23,7 +23,7 @@
     "toast_info_duracion_ms": 0,
     "toast_ok_width": 40,
     "toast_ok_height": 26,
-    "toast_ok_bg": "rgba(255,255,255,0.2)",
-    "toast_ok_fg": "#FFFFFF",
-    "toast_ok_hover": "#FFFFFF"
+    "toast_ok_bg": "rgba(255,255,255,0.25)",
+    "toast_ok_fg": "#1F6AA5",
+    "toast_ok_hover": "rgba(255,255,255,0.4)"
 }
