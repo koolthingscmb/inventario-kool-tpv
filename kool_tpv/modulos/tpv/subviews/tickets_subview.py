@@ -484,267 +484,206 @@ class TicketsSubView(CTkFrame):
                     logger.info('No hay tickets para cerrar')
                 return
 
-            # Ya autenticado, continuar con el flujo de cierre
+            # Ya autenticado, continuar directamente con el flujo de cierre
             logger.info("Botón 'X' presionado en TicketsSubView (autenticado)")
+
+            # --- REVALIDAR tickets pendientes justo antes del procesamiento ---
+            rows_now = []
             try:
-                confirmed = False
-                try:
-                    confirmed = bool(show_info(parent, 'AUTENTICADO', '¿Quieres cerrar los tickets mostrados en el Display?', confirm=True))
-                except Exception:
-                    confirmed = False
-
-                if not confirmed:
-                    return
-
-                logger.info(f"Confirmación cierre: {confirmed}")
-
-                # --- REVALIDAR tickets pendientes justo antes del procesamiento ---
-                # Volver a consultar los tickets pendientes y tomar la intersección con los anteriores
-                # Volver a consultar tickets pendientes y aplicar el mismo filtro de fechas
+                if getattr(self, 'repo', None) is not None:
+                    rows_now = self.repo.listar_tickets_pendientes('') or []
+            except Exception:
                 rows_now = []
-                try:
-                    if getattr(self, 'repo', None) is not None:
-                        rows_now = self.repo.listar_tickets_pendientes('') or []
-                except Exception:
-                    rows_now = []
 
-                # aplicar filtro por rango de fechas si los date pickers existen
+            # aplicar filtro por rango de fechas si los date pickers existen
+            date_from = None
+            date_to = None
+            try:
+                if getattr(self, 'date_from', None):
+                    date_from = self.date_from.get() or None
+            except Exception:
                 date_from = None
+            try:
+                if getattr(self, 'date_to', None):
+                    date_to = self.date_to.get() or None
+            except Exception:
                 date_to = None
-                try:
-                    if getattr(self, 'date_from', None):
-                        date_from = self.date_from.get() or None
-                except Exception:
-                    date_from = None
-                try:
-                    if getattr(self, 'date_to', None):
-                        date_to = self.date_to.get() or None
-                except Exception:
-                    date_to = None
 
-                if (date_from or date_to) and rows_now:
-                    filtered_now = []
-                    for r in rows_now:
-                        try:
-                            created = r.get('created_at') if isinstance(r, dict) else (r[2] if len(r) > 2 else None)
-                            if not created:
-                                continue
-                            created_date = str(created).split(' ')[0]
-                            if date_from and created_date < date_from:
-                                continue
-                            if date_to and created_date > date_to:
-                                continue
-                            filtered_now.append(r)
-                        except Exception:
-                            filtered_now.append(r)
-                    rows_now = filtered_now
-
-                ticket_ids = []
-                now_set = set()
-                for r in (rows_now or []):
+            if (date_from or date_to) and rows_now:
+                filtered_now = []
+                for r in rows_now:
                     try:
-                        if isinstance(r, dict):
-                            tid = r.get('id')
-                        else:
-                            tid = r[0] if len(r) > 0 else None
-                        if tid is None:
+                        created = r.get('created_at') if isinstance(r, dict) else (r[2] if len(r) > 2 else None)
+                        if not created:
                             continue
-                        now_set.add(int(tid))
+                        created_date = str(created).split(' ')[0]
+                        if date_from and created_date < date_from:
+                            continue
+                        if date_to and created_date > date_to:
+                            continue
+                        filtered_now.append(r)
                     except Exception:
+                        filtered_now.append(r)
+                rows_now = filtered_now
+
+            now_set = set()
+            for r in (rows_now or []):
+                try:
+                    if isinstance(r, dict):
+                        tid = r.get('id')
+                    else:
+                        tid = r[0] if len(r) > 0 else None
+                    if tid is None:
                         continue
-
-                # Intersección con los ids mostrados en el preview (si preview no existe por alguna razón, usar now_set)
-                try:
-                    intersect_ids = [tid for tid in ticket_ids_preview if int(tid) in now_set]
+                    now_set.add(int(tid))
                 except Exception:
-                    intersect_ids = list(now_set)
+                    continue
 
-                ticket_ids = intersect_ids
+            # Intersección con los ids mostrados en el preview
+            try:
+                ticket_ids = [tid for tid in ticket_ids_preview if int(tid) in now_set]
+            except Exception:
+                ticket_ids = list(now_set)
 
-                logger.info(f"Ticket_ids revalidados: {ticket_ids}")
+            logger.info(f"Ticket_ids revalidados: {ticket_ids}")
 
-                if not ticket_ids:
-                    try:
-                        show_warning(parent, 'Nada que cerrar', 'No hay tickets pendientes para cerrar tras revalidación')
-                    except Exception:
-                        logger.info('No hay tickets a cerrar tras revalidación')
-                    return
-
-                # --- PROCESAR CIERRE (no capturar excepciones aquí según indicación) ---
-                from kool_tpv.modulos.ticket.cierre_caja_processor import CierreCajaProcessor
-
-                processor = CierreCajaProcessor(self.db)
-                # Pass authenticated admin info (usuario_id and cajero nombre) to processor
-                usuario_id = None
-                cajero_nombre = None
+            if not ticket_ids:
                 try:
-                    if admin_user and isinstance(admin_user, dict):
-                        usuario_id = admin_user.get('id')
-                        cajero_nombre = admin_user.get('nombre')
+                    show_warning(parent, 'Nada que cerrar', 'No hay tickets pendientes para cerrar tras revalidación')
+                except Exception:
+                    logger.info('No hay tickets a cerrar tras revalidación')
+                return
+
+            # --- PROCESAR CIERRE ---
+            from kool_tpv.modulos.ticket.cierre_caja_processor import CierreCajaProcessor
+
+            processor = CierreCajaProcessor(self.db)
+            usuario_id = None
+            cajero_nombre = None
+            try:
+                if admin_user and isinstance(admin_user, dict):
+                    usuario_id = admin_user.get('id')
+                    cajero_nombre = admin_user.get('nombre')
+            except Exception:
+                pass
+
+            resultado = processor.process(ticket_ids=ticket_ids, usuario_id=usuario_id, cajero=cajero_nombre)
+
+            logger.info(f"Resultado proceso cierre: success={resultado.get('success')}, cierre_id={resultado.get('cierre_id')}")
+
+            if not resultado or not resultado.get('success'):
+                try:
+                    show_warning(parent, 'Error', f"No se pudo generar el cierre: {resultado.get('error') if resultado else 'unknown'}")
+                except Exception:
+                    logger.error('Fallo generando cierre: %s', resultado)
+                return
+
+            # --- GENERAR TEXTO del cierre ---
+            try:
+                from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
+                imp = ImpresoraService(db=self.db)
+                config = getattr(imp, 'config', {}) or {}
+                cierre_data = resultado.get('cierre', {}) or {}
+                tickets = resultado.get('tickets', []) or []
+                totals = resultado.get('totals', {}) or {}
+                texto = imp.cierre_ticket_generator.generate(config, cierre_data, tickets, totals=totals)
+            except Exception:
+                logger.exception('Error generando texto de cierre')
+                try:
+                    show_warning(parent, 'Error', 'Fallo generando preview del cierre')
+                except Exception:
+                    pass
+                return
+
+            # --- MOSTRAR EN VISOR GLOBAL ---
+            ctrl = getattr(self.view, 'controller', None)
+            if not ctrl:
+                logger.error('Controller no disponible para mostrar preview')
+                return
+
+            # Asegurar que exista el visor
+            try:
+                if not getattr(ctrl, '_ticket_display', None):
+                    ctrl.setup_ticket_display()
+            except Exception:
+                pass
+
+            cache_key = 'cierre_preview'
+            try:
+                ctrl._ticket_display_cache[cache_key] = texto
+            except Exception:
+                try:
+                    ctrl._ticket_display_cache = {cache_key: texto}
                 except Exception:
                     pass
 
-                resultado = processor.process(ticket_ids=ticket_ids, usuario_id=usuario_id, cajero=cajero_nombre)
-
-                logger.info(f"Resultado proceso cierre: success={resultado.get('success')}, cierre_id={resultado.get('cierre_id')}")
-
-                if not resultado or not resultado.get('success'):
-                    try:
-                        show_warning(parent, 'Error', f"No se pudo generar el cierre: {resultado.get('error') if resultado else 'unknown'}")
-                    except Exception:
-                        logger.error('Fallo generando cierre: %s', resultado)
-                    return
-
-                # --- GENERAR TEXTO del cierre usando ImpresoraService / CierreTicketGenerator ---
-                try:
-                    from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
-                    imp = ImpresoraService(db=self.db)
-                    config = getattr(imp, 'config', {}) or {}
-                    cierre_data = resultado.get('cierre', {}) or {}
-                    tickets = resultado.get('tickets', []) or []
-                    totals = resultado.get('totals', {}) or {}
-                    texto = imp.cierre_ticket_generator.generate(config, cierre_data, tickets, totals=totals)
-                except Exception:
-                    logger.exception('Error generando texto de cierre')
-                    try:
-                        show_warning(parent, 'Error', 'Fallo generando preview del cierre')
-                    except Exception:
-                        pass
-                    return
-
-                # --- MOSTRAR EN VISOR GLOBAL (usar cache_key 'cierre_preview') ---
-                try:
-                    ctrl = getattr(self.view, 'controller', None)
-                    if not ctrl:
-                        logger.error('Controller no disponible para mostrar preview')
-                        return
-
-                    # Asegurar que exista el visor
-                    try:
-                        if not getattr(ctrl, '_ticket_display', None):
-                            ctrl.setup_ticket_display()
-                    except Exception:
-                        pass
-
-                    cache_key = 'cierre_preview'
-                    try:
-                        ctrl._ticket_display_cache[cache_key] = texto
-                    except Exception:
-                        try:
-                            ctrl._ticket_display_cache = {cache_key: texto}
-                        except Exception:
-                            pass
-
-                    # Set content and place overlay
-                    try:
-                        td = getattr(ctrl, '_ticket_display', None)
-                        if td is None:
-                            logger.error('No hay _ticket_display en controller')
-                            return
-                        try:
-                            td.set_content(texto)
-                        except Exception:
-                            logger.exception('Error seteando contenido en ticket_display')
-                        try:
-                            td.place(relx=0, rely=0, relwidth=1, relheight=1)
-                        except Exception:
-                            try:
-                                td.pack(fill='both', expand=True)
-                            except Exception:
-                                pass
-                        try:
-                            td.lift()
-                        except Exception:
-                            pass
-                    except Exception:
-                        logger.exception('Error mostrando ticket_display para preview')
-
-                except Exception:
-                    logger.exception('Error preparando visor para preview')
-
-                # --- PEDIR CONFIRMACIÓN FINAL al admin: si cancela, ocultar visor ---
-                try:
-                    confirmed2 = False
-                    try:
-                        confirmed2 = bool(show_info(parent, 'AUTENTICADO', '¿Confirmas cierre de estos tickets?', confirm=True))
-                    except Exception:
-                        confirmed2 = False
-
-                    if not confirmed2:
-                        try:
-                            if getattr(self.view, 'controller', None):
-                                try:
-                                    self.view.controller.hide_ticket()
-                                except Exception:
-                                    pass
-                        except Exception:
-                            pass
-                        return
-
-                    # If confirmed2 is True: show processing info and finalize UI state.
-                    try:
-                        try:
-                            # Inform the user we're finalizing (non-blocking info)
-                            show_info(parent, 'Procesando cierre...', 'Procesando cierre...')
-                        except Exception:
-                            pass
-
-                        cierre_id = None
-                        try:
-                            cierre_id = resultado.get('cierre_id') if resultado else None
-                        except Exception:
-                            cierre_id = None
-
-                        # Show success feedback
-                        try:
-                            if cierre_id:
-                                ToastWidget.show(self, f'Cierre #{cierre_id} guardado', tipo='success')
-                            else:
-                                ToastWidget.show(self, 'Cierre guardado', tipo='success')
-                        except Exception:
-                            logger.exception('Error mostrando Toast de cierre')
-
-                        # Hide visor and cleanup cache
-                        try:
-                            ctrl = getattr(self.view, 'controller', None)
-                            if ctrl:
-                                try:
-                                    ctrl.hide_ticket()
-                                except Exception:
-                                    pass
-                                try:
-                                    ctrl._ticket_display_cache.pop('cierre_preview', None)
-                                except Exception:
-                                    pass
-                        except Exception:
-                            logger.exception('Error limpiando visor tras cierre')
-
-                        # Refresh ticket list in UI
-                        try:
-                            try:
-                                self.search_list._on_search()
-                            except Exception:
-                                # fallback: set_search_text to trigger refresh
-                                try:
-                                    self.search_list.set_search_text(self.search_entry.get())
-                                except Exception:
-                                    pass
-                        except Exception:
-                            logger.exception('Error refrescando lista de tickets tras cierre')
-
-                        logger.info(f'Cierre ejecutado exitosamente: cierre_id={cierre_id}')
-
-                    except Exception:
-                        logger.exception('Error finalizando cierre tras confirmación')
-                        try:
-                            from kool_tpv.utils.custom_dialog import show_error
-                            show_error(parent, 'Error', 'Error finalizando el cierre')
-                        except Exception:
-                            pass
-                except Exception:
-                    logger.exception('Error pidiendo confirmación final para cierre')
+            # Set content and place overlay
+            td = getattr(ctrl, '_ticket_display', None)
+            if td is None:
+                logger.error('No hay _ticket_display en controller')
+                return
+            try:
+                td.set_content(texto)
             except Exception:
-                logger.exception('Error mostrando confirmación tras autenticación')
+                logger.exception('Error seteando contenido en ticket_display')
+            try:
+                td.place(relx=0, rely=0, relwidth=1, relheight=1)
+            except Exception:
+                try:
+                    td.pack(fill='both', expand=True)
+                except Exception:
+                    pass
+            try:
+                td.lift()
+            except Exception:
+                pass
+
+            # --- PEDIR CONFIRMACIÓN FINAL al admin ---
+            try:
+                confirmed2 = bool(show_info(parent, 'AUTENTICADO', '¿Confirmas cierre de estos tickets?', confirm=True))
+            except Exception:
+                confirmed2 = False
+
+            if not confirmed2:
+                try:
+                    if getattr(self.view, 'controller', None):
+                        self.view.controller.hide_ticket()
+                except Exception:
+                    pass
+                return
+
+            # Cierre confirmado: procesar finalización
+            cierre_id = resultado.get('cierre_id') if resultado else None
+
+            # Show success feedback
+            try:
+                if cierre_id:
+                    ToastWidget.show(self, f'Cierre #{cierre_id} guardado', tipo='success')
+                else:
+                    ToastWidget.show(self, 'Cierre guardado', tipo='success')
+            except Exception:
+                logger.exception('Error mostrando Toast de cierre')
+
+            # Hide visor and cleanup cache
+            try:
+                ctrl.hide_ticket()
+            except Exception:
+                pass
+            try:
+                ctrl._ticket_display_cache.pop('cierre_preview', None)
+            except Exception:
+                pass
+
+            # Refresh ticket list in UI
+            try:
+                self.search_list._on_search()
+            except Exception:
+                try:
+                    self.search_list.set_search_text(self.search_entry.get())
+                except Exception:
+                    pass
+
+            logger.info(f'Cierre ejecutado exitosamente: cierre_id={cierre_id}')
 
         except Exception:
             logger.exception('Error en _on_x_clicked')
