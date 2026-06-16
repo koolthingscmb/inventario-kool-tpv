@@ -241,12 +241,8 @@ class TextosPlantillaUI(PaginaConVisor):
         footer_text = self.entry_footer.get('1.0', 'end').rstrip('\n')
 
         if not header_text and not footer_text:
-            from kool_tpv.utils.custom_dialog import show_warning
-            show_warning(
-                self.container,
-                'Guardar',
-                'No hay información para guardar'
-            )
+            from kool_tpv.utils.widgets.notificaciones import show_warning
+            show_warning(self.container, 'No hay información para guardar')
             return
 
         tipo = self.combo_tipo.get()

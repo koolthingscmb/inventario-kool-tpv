@@ -539,8 +539,8 @@ class ImpresoraUI:
             printer_name = self.cb_impresora.get()
 
             if not printer_name or printer_name == 'Sin impresoras detectadas':
-                from kool_tpv.utils.custom_dialog import show_warning
-                show_warning(self.container, 'Test', 'Selecciona una impresora primero')
+                from kool_tpv.utils.widgets.notificaciones import show_warning
+                show_warning(self.container, 'Selecciona una impresora primero')
                 return
 
             # Generar ticket test
@@ -579,8 +579,8 @@ class ImpresoraUI:
             except Exception:
                 # Fallback: mostrar en consola
                 logging.info(f'TEST IMPRESIÓN:\n{ticket_text}')
-                from kool_tpv.utils.custom_dialog import show_warning
-                show_warning(self.container, 'Test', 'Test enviado a logs (win32print no disponible)')
+                from kool_tpv.utils.widgets.notificaciones import show_warning
+                show_warning(self.container, 'Test enviado a logs (win32print no disponible)')
 
         except Exception:
             logging.exception('Error en test de impresión')
