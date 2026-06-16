@@ -209,8 +209,8 @@ class FidelizacionTiposUI:
             return
 
         if not self.selected_tipo:
-            from kool_tpv.utils.custom_dialog import show_warning
-            show_warning(self.container, 'Atención', 'Selecciona un tipo primero')
+            from kool_tpv.utils.widgets.notificaciones import show_warning
+            show_warning(self.container, 'Selecciona un tipo primero')
             return
 
         nuevo_valor = self.entry_nuevo.get().strip()

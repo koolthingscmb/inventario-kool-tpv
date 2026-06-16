@@ -210,8 +210,8 @@ class FidelizacionCategoriasUI:
             return
 
         if not self.selected_categoria:
-            from kool_tpv.utils.custom_dialog import show_warning
-            show_warning(self.container, 'Atención', 'Selecciona una categoría primero')
+            from kool_tpv.utils.widgets.notificaciones import show_warning
+            show_warning(self.container, 'Selecciona una categoría primero')
             return
 
         nuevo_valor = self.entry_nuevo.get().strip()

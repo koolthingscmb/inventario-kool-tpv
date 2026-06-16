@@ -215,8 +215,8 @@ class FidelizacionProductosUI:
         selected_ids = self.tag_selector.get_selected_ids()
 
         if not selected_ids:
-            from kool_tpv.utils.custom_dialog import show_warning
-            show_warning(self.container, 'Atención', 'Selecciona al menos un producto')
+            from kool_tpv.utils.widgets.notificaciones import show_warning
+            show_warning(self.container, 'Selecciona al menos un producto')
             return
 
         tipo = self.tipo_var.get()
