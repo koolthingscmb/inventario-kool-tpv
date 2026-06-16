@@ -639,7 +639,7 @@ class TicketsSubView(CTkFrame):
                 pass
 
             # --- CONFIRMACIÓN FINAL con Toast info ---
-            def _ejecutar_cierre_confirmado():
+            def _ejecutar_cierre_confirmado(confirmed=None):
                 """Callback ejecutado al pulsar OK en el toast de confirmación."""
                 cierre_id = resultado.get('cierre_id') if resultado else None
 
@@ -673,7 +673,7 @@ class TicketsSubView(CTkFrame):
 
                 logger.info(f'Cierre ejecutado exitosamente: cierre_id={cierre_id}')
 
-            def _cancelar_cierre():
+            def _cancelar_cierre(confirmed=None):
                 """Callback ejecutado al cerrar el toast sin confirmar."""
                 try:
                     if getattr(self.view, 'controller', None):
@@ -687,7 +687,7 @@ class TicketsSubView(CTkFrame):
                 root,
                 '¿Confirmas cierre de estos tickets?',
                 tipo='info',
-                al_cerrar=lambda confirmed=None: _ejecutar_cierre_confirmado() if confirmed else _cancelar_cierre()
+                al_cerrar=lambda confirmed: _ejecutar_cierre_confirmado(confirmed) if confirmed else _cancelar_cierre(confirmed)
             )
 
         except Exception:
