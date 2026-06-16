@@ -122,13 +122,17 @@ class ToastWidget:
         if mostrar_ok:
             btn_y = (h - ok_h) // 2
             btn_x = w - px - ok_w
+            def _on_ok_click():
+                import logging
+                logging.getLogger(__name__).info('DEBUG Botón OK pulsado en toast')
+                self._destruir(confirmed=True)
             btn = tk.Button(
                 self._win, text='OK',
                 bg=ok_bg, fg=ok_fg,
                 activebackground=ok_hover, activeforeground=ok_fg,
                 font=('Helvetica', 9, 'bold'),
                 relief='flat', bd=0, highlightthickness=0,
-                cursor='hand2', command=lambda: self._destruir(confirmed=True)
+                cursor='hand2', command=_on_ok_click
             )
             btn.place(x=btn_x, y=btn_y, width=ok_w, height=ok_h)
 
