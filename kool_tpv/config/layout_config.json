@@ -58,7 +58,7 @@
   "components": {
     "dialog": {
       "width": 400,
-      "height": 400,
+      "height": 300,
       "border_width": 10,
       "icon_size": 80,
       "button_width": 50,
@@ -66,17 +66,17 @@
       "corner_radius": 20,
       "wraplength": "auto",
       "focus_border_width": 3,
-      "padding_x": 0,
-      "padding_y": 0,
-      "content_align_x": "center",
-      "content_align_y": "center",
+      "padding_x": 10,
+      "padding_y": 10,
+      "content_align_x": "bottom",
+      "content_align_y": "top",
       "entry_width": 300,
       "entry_height": 35,
       "spacing_icon_top": 10,
       "spacing_icon_bottom": 15,
-      "spacing_title_bottom": 15,
-      "spacing_message_bottom": 20,
-      "spacing_entry_bottom": 25
+      "spacing_title_bottom": 10,
+      "spacing_message_bottom": 10,
+      "spacing_entry_bottom": 10
     },
     "nav_list": {
       "row_height": 35,

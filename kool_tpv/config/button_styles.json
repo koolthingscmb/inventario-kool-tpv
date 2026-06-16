@@ -688,11 +688,11 @@
     "text_token": "gray_light",
     "border_token": "gray_light",
     "hover_token": "gray_medium",
-    "width": 160,
-    "height": 55,
+    "width": 100,
+    "height": 40,
     "corner_radius": 12,
     "border_width": 5,
-    "font_size": 20
+    "font_size": 12
   },
 
   "dialog_password_btn": {
@@ -701,10 +701,10 @@
     "text_token": "black_base",
     "border_token": "purple_special",
     "hover_token": "white_base",
-    "width": 160,
-    "height": 55,
+    "width": 100,
+    "height": 40,
     "corner_radius": 12,
     "border_width": 2,
-    "font_size": 20
+    "font_size": 12
   }
 }
