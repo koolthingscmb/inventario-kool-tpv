@@ -64,7 +64,9 @@ class InputDialog(BaseDialog):
         icon = self._cargar_icono()
         if icon:
             icon_label = ctk.CTkLabel(content_parent, image=icon, text='')
-            icon_label.pack(pady=(10, 15))
+            icon_pad_top = int(self.geometry_cfg.get('spacing_icon_top', 10))
+            icon_pad_bottom = int(self.geometry_cfg.get('spacing_icon_bottom', 15))
+            icon_label.pack(pady=(icon_pad_top, icon_pad_bottom))
 
         # Título
         if titulo:
@@ -75,7 +77,8 @@ class InputDialog(BaseDialog):
                 font=title_font,
                 text_color=title_color
             )
-            titulo_label.pack(pady=(0, 15))
+            title_pad_bottom = int(self.geometry_cfg.get('spacing_title_bottom', 15))
+            titulo_label.pack(pady=(0, title_pad_bottom))
 
         # Mensaje
         if mensaje:
@@ -89,7 +92,8 @@ class InputDialog(BaseDialog):
                 wraplength=wraplength,
                 justify='center'
             )
-            mensaje_label.pack(pady=(0, 20))
+            msg_pad_bottom = int(self.geometry_cfg.get('spacing_message_bottom', 20))
+            mensaje_label.pack(pady=(0, msg_pad_bottom))
 
         # Entry
         entry_width = int(self.geometry_cfg.get('entry_width', self.fallbacks['geometry']['entry_width'])) if isinstance(self.geometry_cfg.get('entry_width', None), int) else int(self.fallbacks['geometry']['entry_width'])
@@ -107,7 +111,8 @@ class InputDialog(BaseDialog):
             entry_params["show"] = "*"
 
         self.entry = ctk.CTkEntry(**entry_params)
-        self.entry.pack(pady=(0, 25))
+        entry_pad_bottom = int(self.geometry_cfg.get('spacing_entry_bottom', 25))
+        self.entry.pack(pady=(0, entry_pad_bottom))
         if valor_defecto:
             self.entry.insert(0, str(valor_defecto))
             self.entry.select_range(0, 'end')

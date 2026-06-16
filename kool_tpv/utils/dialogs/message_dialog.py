@@ -63,7 +63,8 @@ class MessageDialog(BaseDialog):
         icon = self._cargar_icono()
         if icon:
             icon_label = ctk.CTkLabel(content_parent, image=icon, text='')
-            icon_label.pack(pady=(0, 10))
+            icon_pad_bottom = int(self.geometry_cfg.get('spacing_icon_bottom', 10))
+            icon_label.pack(pady=(0, icon_pad_bottom))
 
         # Título
         if titulo:
@@ -74,7 +75,9 @@ class MessageDialog(BaseDialog):
                 font=title_font,
                 text_color=title_color
             )
-            titulo_label.pack(pady=(10, 15))
+            title_pad_top = int(self.geometry_cfg.get('spacing_icon_top', 10))
+            title_pad_bottom = int(self.geometry_cfg.get('spacing_title_bottom', 15))
+            titulo_label.pack(pady=(title_pad_top, title_pad_bottom))
 
         # Mensaje
         if mensaje:
@@ -88,7 +91,8 @@ class MessageDialog(BaseDialog):
                 wraplength=wraplength,
                 justify='center'
             )
-            mensaje_label.pack(pady=(0, 25))
+            msg_pad_bottom = int(self.geometry_cfg.get('spacing_message_bottom', 25))
+            mensaje_label.pack(pady=(0, msg_pad_bottom))
 
         # Botones
         style_key = self._get_button_style_key()

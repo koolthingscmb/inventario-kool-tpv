@@ -65,10 +65,10 @@
   "components": {
     "action_button": { "family": "Courier New", "size": 20, "weight": "bold", "fallback": ["Courier New"] },
     "dialog": {
-      "title": { "family": "Courier New", "size": 40, "weight": "bold", "fallback": ["Courier New"] },
-      "message": { "family": "Courier New", "size": 40, "weight": "bold", "fallback": ["Courier New"] },
-      "button": { "family": "Courier New", "size": 25, "weight": "bold", "fallback": ["Courier New"] },
-      "input": { "family": "Courier New", "size": 16, "weight": "normal", "fallback": ["Courier New", "Arial"] }
+      "title": { "family": "Courier New", "size": 20, "weight": "bold", "fallback": ["Courier New"] },
+      "message": { "family": "Courier New", "size": 14, "weight": "bold", "fallback": ["Courier New"] },
+      "button": { "family": "Courier New", "size": 14, "weight": "bold", "fallback": ["Courier New"] },
+      "input": { "family": "Courier New", "size": 14, "weight": "normal", "fallback": ["Courier New", "Arial"] }
     },
     "nav_list": {
       "header": { "family": "Courier New", "size": 12, "weight": "bold", "fallback": ["Courier New"] },
