@@ -128,7 +128,7 @@ class ToastWidget:
                 activebackground=ok_hover, activeforeground=ok_fg,
                 font=('Helvetica', 9, 'bold'),
                 relief='flat', bd=0, highlightthickness=0,
-                cursor='hand2', command=self._destruir
+                cursor='hand2', command=lambda: self._destruir(confirmed=True)
             )
             btn.place(x=btn_x, y=btn_y, width=ok_w, height=ok_h)
 
@@ -209,7 +209,7 @@ class ToastWidget:
         except Exception:
             return '#FFFFFF'
 
-    def _destruir(self):
+    def _destruir(self, confirmed=False):
         if self._win is None:
             return
         if self._after_id:
@@ -226,6 +226,6 @@ class ToastWidget:
             ToastWidget._instancias.remove(self)
         if self.al_cerrar:
             try:
-                self.al_cerrar()
+                self.al_cerrar(confirmed)
             except Exception:
                 pass
