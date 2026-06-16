@@ -4,7 +4,7 @@ import logging
 from decimal import Decimal, InvalidOperation
 
 from kool_tpv.utils.factories.button_factory import ButtonFactory
-from kool_tpv.utils.custom_dialog import show_warning
+from kool_tpv.utils.widgets.notificaciones import show_warning
 
 logger = logging.getLogger(__name__)
 
@@ -156,7 +156,7 @@ class DescuentoSubView(CTkFrame):
         try:
             txt = (self._input_var.get() or '').strip()
             if not txt:
-                show_warning(self, 'VALOR INVÁLIDO', 'Introduzca un número válido')
+                show_warning(self, 'Introduzca un número válido')
                 try:
                     self._input_entry.focus_set(); self._input_entry.select_range(0,'end')
                 except Exception:
@@ -168,7 +168,7 @@ class DescuentoSubView(CTkFrame):
             try:
                 val = Decimal(txt_norm)
             except (InvalidOperation, ValueError):
-                show_warning(self, 'VALOR INVÁLIDO', 'Introduzca un número válido')
+                show_warning(self, 'Introduzca un número válido')
                 try:
                     self._input_entry.focus_set(); self._input_entry.select_range(0,'end')
                 except Exception:
@@ -177,7 +177,7 @@ class DescuentoSubView(CTkFrame):
 
             # Reglas: >0 y <=100
             if val <= 0 or val > Decimal('100'):
-                show_warning(self, 'VALOR INVÁLIDO', 'El porcentaje debe ser >0 y ≤100')
+                show_warning(self, 'El porcentaje debe ser >0 y ≤100')
                 try:
                     self._input_entry.focus_set(); self._input_entry.select_range(0,'end')
                 except Exception:
