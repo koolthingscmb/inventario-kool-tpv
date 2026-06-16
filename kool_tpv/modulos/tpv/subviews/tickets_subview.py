@@ -332,55 +332,58 @@ class TicketsSubView(CTkFrame):
             except Exception:
                 return
 
-            # Confirmación
-            try:
-                from kool_tpv.utils.custom_dialog import show_info
-                root = self.winfo_toplevel()
-                confirmed = bool(show_info(root, 'Imprimir ticket', f'Se imprimirá el ticket {ticket_id}', confirm=True))
-            except Exception:
-                confirmed = True
-
-            if not confirmed:
-                return
-
-            # Generar e imprimir (usar ImpresoraService)
-            try:
-                from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
-                imp = ImpresoraService(db=self.db, imprimir_en_consola=True)
-                texto = None
-                try:
-                    texto = imp.generar_ticket_desde_id(ticket_id)
-                except Exception:
-                    logger.exception('Error generando ticket desde ImpresoraService')
-
-                if not texto:
-                    try:
-                        row = self.db.fetch_one('SELECT ticket_text FROM tickets WHERE id = ?', (ticket_id,)) if getattr(self, 'db', None) is not None else None
-                        texto = row[0] if row and row[0] else None
-                    except Exception:
-                        logger.exception('Error leyendo ticket_text fallback para imprimir')
-
-                if texto:
-                    try:
-                        # Usar la rutina de impresión común (simulada si no hay ESC/POS)
-                        imp._imprimir_texto_generico(texto, {'num_ticket': ticket_id})
-                    except Exception:
-                        # Fallback: imprimir en consola
-                        try:
-                            print('\n' + '='*50)
-                            print(' SIMULACIÓN IMPRESIÓN TICKET ') 
-                            print('='*50 + '\n')
-                            print(texto)
-                            print('\n' + '='*50 + '\n')
-                        except Exception:
-                            logger.exception('Error simulando impresión en consola')
-                else:
-                    logger.info('No se encontró texto para imprimir del ticket id=%s', ticket_id)
-            except Exception:
-                logger.exception('Error en proceso de impresión (TicketsSubView)')
+            # Toast info con OK: al cerrar se imprime el ticket
+            root = self.winfo_toplevel()
+            ToastWidget.show(
+                root,
+                f'Se imprimirá el ticket {ticket_id}',
+                tipo='info',
+                al_cerrar=lambda: self._ejecutar_impresion_ticket(ticket_id)
+            )
 
         except Exception:
             logger.exception('Error en _on_imprimir')
+
+    def _ejecutar_impresion_ticket(self, ticket_id: int):
+        """Ejecutar impresión del ticket y mostrar toast success."""
+        try:
+            from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
+            imp = ImpresoraService(db=self.db, imprimir_en_consola=True)
+            texto = None
+            try:
+                texto = imp.generar_ticket_desde_id(ticket_id)
+            except Exception:
+                logger.exception('Error generando ticket desde ImpresoraService')
+
+            if not texto:
+                try:
+                    row = self.db.fetch_one('SELECT ticket_text FROM tickets WHERE id = ?', (ticket_id,)) if getattr(self, 'db', None) is not None else None
+                    texto = row[0] if row and row[0] else None
+                except Exception:
+                    logger.exception('Error leyendo ticket_text fallback para imprimir')
+
+            if texto:
+                try:
+                    imp._imprimir_texto_generico(texto, {'num_ticket': ticket_id})
+                except Exception:
+                    try:
+                        print('\n' + '='*50)
+                        print(' SIMULACIÓN IMPRESIÓN TICKET ')
+                        print('='*50 + '\n')
+                        print(texto)
+                        print('\n' + '='*50 + '\n')
+                    except Exception:
+                        logger.exception('Error simulando impresión en consola')
+                # Toast success autocierre
+                try:
+                    root = self.winfo_toplevel()
+                    ToastWidget.show(root, f'Ticket {ticket_id} impreso', tipo='success')
+                except Exception:
+                    pass
+            else:
+                logger.info('No se encontró texto para imprimir del ticket id=%s', ticket_id)
+        except Exception:
+            logger.exception('Error en proceso de impresión (TicketsSubView)')
 
     def _on_x_clicked(self):
         try:
@@ -392,94 +395,7 @@ class TicketsSubView(CTkFrame):
             except Exception:
                 parent = None
 
-            # --- PRIMERA FASE: obtener tickets pendientes según filtro y pedir confirmación previa ---
-            try:
-                # Extraer filas pendientes: siempre partir de tickets pendientes, luego aplicar filtro de fechas
-                rows_preview = []
-                try:
-                    if getattr(self, 'repo', None) is not None:
-                        rows_preview = self.repo.listar_tickets_pendientes('') or []
-                except Exception:
-                    rows_preview = []
-
-                # aplicar filtro por rango de fechas si los date pickers existen
-                date_from = None
-                date_to = None
-                try:
-                    if getattr(self, 'date_from', None):
-                        date_from = self.date_from.get() or None
-                except Exception:
-                    date_from = None
-                try:
-                    if getattr(self, 'date_to', None):
-                        date_to = self.date_to.get() or None
-                except Exception:
-                    date_to = None
-
-                if (date_from or date_to) and rows_preview:
-                    filtered_preview = []
-                    for r in rows_preview:
-                        try:
-                            created = r.get('created_at') if isinstance(r, dict) else (r[2] if len(r) > 2 else None)
-                            if not created:
-                                continue
-                            created_date = str(created).split(' ')[0]
-                            if date_from and created_date < date_from:
-                                continue
-                            if date_to and created_date > date_to:
-                                continue
-                            filtered_preview.append(r)
-                        except Exception:
-                            filtered_preview.append(r)
-                    rows_preview = filtered_preview
-
-                ticket_ids_preview = []
-                for r in (rows_preview or []):
-                    try:
-                        if isinstance(r, dict):
-                            tid = r.get('id')
-                        else:
-                            tid = r[0] if len(r) > 0 else None
-                        if tid is None:
-                            continue
-                        ticket_ids_preview.append(int(tid))
-                    except Exception:
-                        continue
-
-                # Si no hay tickets pendientes: warning y salir
-                if not ticket_ids_preview:
-                    try:
-                        show_warning(parent, 'No hay tickets para cerrar', 'No hay tickets para cerrar')
-                    except Exception:
-                        logger.info('No hay tickets para cerrar')
-                    return
-
-                # Construir texto de preview (limitar longitud si hay muchos ids)
-                try:
-                    MAX_SHOW = 20
-                    total_cnt = len(ticket_ids_preview)
-                    if total_cnt <= MAX_SHOW:
-                        ids_str = ', '.join(str(x) for x in ticket_ids_preview)
-                    else:
-                        first = ', '.join(str(x) for x in ticket_ids_preview[:10])
-                        ids_str = f"{first} y {total_cnt - 10} más"
-                    preview_msg = f"Se van a cerrar los siguientes tickets: {ids_str}"
-                except Exception:
-                    preview_msg = f"Se van a cerrar {len(ticket_ids_preview)} tickets"
-
-                # Mostrar primer diálogo de confirmación con la lista
-                try:
-                    proceed = bool(show_info(parent, 'Confirmar cierres', preview_msg, confirm=True))
-                except Exception:
-                    proceed = False
-
-                if not proceed:
-                    return
-            except Exception:
-                logger.exception('Error preparando preview de tickets a cerrar')
-                return
-
-            # --- A continuación pedir contraseña admin ---
+            # --- PRIMERO: autenticación admin ---
             password = show_password_dialog(
                 parent,
                 titulo="Autenticación Admin",
@@ -489,23 +405,17 @@ class TicketsSubView(CTkFrame):
             if password is None or password == "":
                 return
 
-            # Validate admin password (new API returns (is_valid, user_obj))
             try:
                 is_valid = False
-                admin_user = None
                 if self.auth_service:
                     try:
                         res = self.auth_service.validate_admin_password(password)
                     except Exception:
                         res = (False, None)
-
                     if isinstance(res, tuple):
-                        is_valid, admin_user = res
+                        is_valid, _ = res
                     else:
-                        # backward-compat: if some caller still returns bool
                         is_valid = bool(res)
-                        admin_user = None
-
                 if not is_valid:
                     show_warning(parent, "ACCESO DENEGADO", "Contraseña incorrecta.", callback=self._on_x_clicked)
                     return
@@ -514,7 +424,67 @@ class TicketsSubView(CTkFrame):
                 show_warning(parent, 'Error', 'Fallo validando contraseña admin')
                 return
 
-            # Authenticated: ask for explicit confirmation to close tickets
+            # --- AUTENTICADO: obtener tickets pendientes ---
+            rows_preview = []
+            try:
+                if getattr(self, 'repo', None) is not None:
+                    rows_preview = self.repo.listar_tickets_pendientes('') or []
+            except Exception:
+                rows_preview = []
+
+            # aplicar filtro por rango de fechas si los date pickers existen
+            date_from = None
+            date_to = None
+            try:
+                if getattr(self, 'date_from', None):
+                    date_from = self.date_from.get() or None
+            except Exception:
+                date_from = None
+            try:
+                if getattr(self, 'date_to', None):
+                    date_to = self.date_to.get() or None
+            except Exception:
+                date_to = None
+
+            if (date_from or date_to) and rows_preview:
+                filtered_preview = []
+                for r in rows_preview:
+                    try:
+                        created = r.get('created_at') if isinstance(r, dict) else (r[2] if len(r) > 2 else None)
+                        if not created:
+                            continue
+                        created_date = str(created).split(' ')[0]
+                        if date_from and created_date < date_from:
+                            continue
+                        if date_to and created_date > date_to:
+                            continue
+                        filtered_preview.append(r)
+                    except Exception:
+                        filtered_preview.append(r)
+                rows_preview = filtered_preview
+
+            ticket_ids_preview = []
+            for r in (rows_preview or []):
+                try:
+                    if isinstance(r, dict):
+                        tid = r.get('id')
+                    else:
+                        tid = r[0] if len(r) > 0 else None
+                    if tid is None:
+                        continue
+                    ticket_ids_preview.append(int(tid))
+                except Exception:
+                    continue
+
+            # Si no hay tickets pendientes: warning y salir
+            if not ticket_ids_preview:
+                try:
+                    show_warning(parent, 'No hay tickets para cerrar', 'No hay tickets para cerrar')
+                except Exception:
+                    logger.info('No hay tickets para cerrar')
+                return
+
+            # Ya autenticado, continuar con el flujo de cierre
             logger.info("Botón 'X' presionado en TicketsSubView (autenticado)")
             try:
                 confirmed = False
