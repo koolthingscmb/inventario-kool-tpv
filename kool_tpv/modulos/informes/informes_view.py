@@ -338,11 +338,6 @@ class InformesView(BaseModuleView):
             # Validaciones: solo para informes que NO son de Stock
             try:
                 if 'stock' not in (tipo_informe or '').lower():
-                    if not fecha_inicio or not fecha_fin:
-                        from kool_tpv.utils.widgets.notificaciones import show_warning
-                        show_warning(self.central_area, 'Debes seleccionar ambas fechas')
-                        return
-
                     if fecha_inicio > fecha_fin:
                         from kool_tpv.utils.widgets.notificaciones import show_warning
                         show_warning(self.central_area, 'La fecha inicio no puede ser mayor que la fecha fin')
@@ -842,12 +837,6 @@ class InformesView(BaseModuleView):
 
     def _exportar_informe(self, formato: str):
         try:
-            # Verificar que hay informe generado
-            if not self.current_report_data:
-                from kool_tpv.utils.widgets.notificaciones import show_warning
-                show_warning(self.central_area, 'Genera un informe antes de exportar')
-                return
-
             if formato == 'csv':
                 from kool_tpv.modulos.informes.exportadores.exportador_csv_informes import ExportadorCSVInformes
                 exportador = ExportadorCSVInformes()
