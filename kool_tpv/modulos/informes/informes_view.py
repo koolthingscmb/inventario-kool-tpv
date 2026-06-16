@@ -339,15 +339,13 @@ class InformesView(BaseModuleView):
             try:
                 if 'stock' not in (tipo_informe or '').lower():
                     if not fecha_inicio or not fecha_fin:
-                        from kool_tpv.utils.custom_dialog import show_warning
-                        show_warning(self.central_area, 'Fechas requeridas',
-                                     'Debes seleccionar ambas fechas')
+                        from kool_tpv.utils.widgets.notificaciones import show_warning
+                        show_warning(self.central_area, 'Debes seleccionar ambas fechas')
                         return
 
                     if fecha_inicio > fecha_fin:
-                        from kool_tpv.utils.custom_dialog import show_warning
-                        show_warning(self.central_area, 'Rango inválido',
-                                     'La fecha inicio no puede ser mayor que la fecha fin')
+                        from kool_tpv.utils.widgets.notificaciones import show_warning
+                        show_warning(self.central_area, 'La fecha inicio no puede ser mayor que la fecha fin')
                         return
             except Exception:
                 pass
@@ -390,9 +388,8 @@ class InformesView(BaseModuleView):
                     tipo_ids = None
                 report_data = service.get_informe_stock_por_tipo(tipo_ids if tipo_ids else None)
             else:
-                from kool_tpv.utils.custom_dialog import show_warning
-                show_warning(self.central_area, 'Tipo no soportado',
-                             f'El tipo de informe "{tipo_informe}" no está implementado.')
+                from kool_tpv.utils.widgets.notificaciones import show_warning
+                show_warning(self.central_area, f'Tipo de informe "{tipo_informe}" no implementado')
                 return
 
             # GUARDAR ESTADO
@@ -847,9 +844,8 @@ class InformesView(BaseModuleView):
         try:
             # Verificar que hay informe generado
             if not self.current_report_data:
-                from kool_tpv.utils.custom_dialog import show_warning
-                show_warning(self.central_area, 'No hay informe',
-                             'Genera un informe antes de exportar.')
+                from kool_tpv.utils.widgets.notificaciones import show_warning
+                show_warning(self.central_area, 'Genera un informe antes de exportar')
                 return
 
             if formato == 'csv':

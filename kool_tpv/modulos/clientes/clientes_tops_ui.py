@@ -263,9 +263,10 @@ class ClientesTopsUI(ctk.CTkFrame):
             # Si no hay resultados, mostrar advertencia y NO limpiar la lista previa
             if not items:
                 try:
-                    # Mostrar diálogo modal de advertencia
+                    # Mostrar toast de advertencia
                     try:
-                        show_warning(self, 'Sin resultados', 'No hay ventas para esos filtros')
+                        from kool_tpv.utils.widgets.notificaciones import show_warning
+                        show_warning(self, 'No hay ventas para esos filtros')
                     except Exception:
                         pass
 
@@ -384,7 +385,8 @@ class ClientesTopsUI(ctk.CTkFrame):
 
             if not items:
                 try:
-                    show_warning(self, 'Sin resultados', 'No hay datos de tesoro para ese criterio')
+                    from kool_tpv.utils.widgets.notificaciones import show_warning
+                    show_warning(self, 'No hay datos de tesoro para ese criterio')
                 except Exception:
                     pass
             try:
