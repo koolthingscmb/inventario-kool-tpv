@@ -18,5 +18,12 @@
     "toast_fade_step_ms": 20,
     "toast_max_opacity": 0.95,
     "toast_icono_size": 40,
-    "toast_icono_padding": 8
+    "toast_icono_padding": 8,
+    "toast_info_mostrar_ok": true,
+    "toast_info_duracion_ms": 0,
+    "toast_ok_width": 40,
+    "toast_ok_height": 26,
+    "toast_ok_bg": "rgba(255,255,255,0.2)",
+    "toast_ok_fg": "#FFFFFF",
+    "toast_ok_hover": "#FFFFFF"
 }

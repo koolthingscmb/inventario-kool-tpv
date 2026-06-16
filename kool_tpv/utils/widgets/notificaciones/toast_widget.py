@@ -99,7 +99,19 @@ class ToastWidget:
             text_x = px
             self.mensaje = f"{icono}  {self.mensaje}"
 
-        text_w = w - text_x - px
+        # Botón OK para toast tipo 'info' (persistente hasta clic)
+        mostrar_ok = self.tipo == 'info' and cfg.get('toast_info_mostrar_ok', False)
+        if mostrar_ok:
+            ok_w = int(cfg.get('toast_ok_width', 40))
+            ok_h = int(cfg.get('toast_ok_height', 26))
+            ok_pad = icon_pad
+            ok_bg = self._parse_color(cfg.get('toast_ok_bg', '#FFFFFF'), bg)
+            ok_fg = cfg.get('toast_ok_fg', '#FFFFFF')
+            ok_hover = self._parse_color(cfg.get('toast_ok_hover', '#E0E0E0'), bg)
+            text_w = w - text_x - px - ok_w - ok_pad
+        else:
+            text_w = w - text_x - px
+
         lbl = tk.Label(self._win, text=self.mensaje, bg=bg, fg=fg,
                        font=('Helvetica', 11, 'bold'),
                        anchor='w')
@@ -107,10 +119,24 @@ class ToastWidget:
         lbl.bind('<Button-1>', lambda e: self._destruir())
         self._win.bind('<Button-1>', lambda e: self._destruir())
 
+        if mostrar_ok:
+            btn_y = (h - ok_h) // 2
+            btn_x = w - px - ok_w
+            btn = tk.Button(
+                self._win, text='OK',
+                bg=ok_bg, fg=ok_fg,
+                activebackground=ok_hover, activeforeground=ok_fg,
+                font=('Helvetica', 9, 'bold'),
+                relief='flat', bd=0, highlightthickness=0,
+                cursor='hand2', command=self._destruir
+            )
+            btn.place(x=btn_x, y=btn_y, width=ok_w, height=ok_h)
+
         # Posición
         self._posicionar(w, h)
 
-        self._after_id = self._win.after(self.duracion_ms, self._destruir)
+        if not mostrar_ok and self.duracion_ms > 0:
+            self._after_id = self._win.after(self.duracion_ms, self._destruir)
         ToastWidget._instancias.append(self)
 
     def _draw_rounded(self, canvas, x1, y1, x2, y2, r, color):
@@ -160,6 +186,28 @@ class ToastWidget:
             return ImageTk.PhotoImage(pil_img)
         except Exception:
             return None
+
+    def _parse_color(self, color_str: str, bg_color: str) -> str:
+        """Convertir rgba(r,g,b,a) a #RRGGBB mezclado con bg_color. Fallback a hex directo."""
+        color_str = color_str.strip()
+        if not color_str.lower().startswith('rgba('):
+            return color_str
+        try:
+            inner = color_str[5:-1]
+            parts = [float(x.strip()) for x in inner.split(',')]
+            if len(parts) != 4:
+                return color_str
+            r, g, b, a = parts
+            bg = bg_color.lstrip('#')
+            bg_r = int(bg[0:2], 16)
+            bg_g = int(bg[2:4], 16)
+            bg_b = int(bg[4:6], 16)
+            nr = min(255, int(r * a + bg_r * (1 - a)))
+            ng = min(255, int(g * a + bg_g * (1 - a)))
+            nb = min(255, int(b * a + bg_b * (1 - a)))
+            return f'#{nr:02x}{ng:02x}{nb:02x}'
+        except Exception:
+            return '#FFFFFF'
 
     def _destruir(self):
         if self._win is None:
