@@ -445,14 +445,6 @@ class TicketsUI(TicketsBaseUI):
 			sel = list(tree.selection() or [])
 			if not sel:
 				return
-			if len(sel) > 1:
-				try:
-					from kool_tpv.utils.custom_dialog import show_warning
-					root = self.overlay.winfo_toplevel() if getattr(self, 'overlay', None) is not None else None
-					show_warning(root, 'Selecciona únicamente un ticket', 'Selecciona únicamente un ticket')
-				except Exception:
-					logging.exception('Error mostrando warning seleccion multiple (TicketsUI)')
-				return
 			# single selection
 			tid = None
 			try:
@@ -833,14 +825,6 @@ class TicketsUI(TicketsBaseUI):
 			return
 		sel = list(tree.selection() or [])
 		if not sel:
-			return
-		if len(sel) > 1:
-			try:
-				from kool_tpv.utils.custom_dialog import show_warning
-				root = self.overlay.winfo_toplevel() if getattr(self, 'overlay', None) is not None else None
-				show_warning(root, 'Selecciona únicamente un ticket', 'Selecciona únicamente un ticket')
-			except Exception:
-				logging.exception('Error mostrando warning seleccion multiple (Imprimir)')
 			return
 		# single selection
 		try:

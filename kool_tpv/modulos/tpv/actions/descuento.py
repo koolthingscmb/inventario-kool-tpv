@@ -79,7 +79,6 @@ class DescuentoAction:
                         if callable(getattr(carrito, 'get_ticket_type', None)):
                             ticket_type = carrito.get_ticket_type()
                         if ticket_type == 'devolucion':
-                            show_warning(parent, 'Devolución en curso', 'Devolución en curso')
                             return
                     except Exception:
                         # No bloquear si falla la comprobación
@@ -122,11 +121,11 @@ class DescuentoAction:
                         is_valid = bool(res)
 
                 if not is_valid:
-                    show_warning(parent, 'ACCESO DENEGADO', 'Contraseña incorrecta.')
+                    show_warning(parent, 'ACCESO DENEGADO', 'Contraseña incorrecta')
                     return
             except Exception:
                 self.logger.exception('Error validando contraseña admin')
-                show_warning(parent, 'ERROR', 'Fallo validando contraseña admin')
+                show_warning(parent, 'ACCESO DENEGADO', 'Error validando contraseña')
                 return
 
             # Autenticado: abrir DescuentoSubView
