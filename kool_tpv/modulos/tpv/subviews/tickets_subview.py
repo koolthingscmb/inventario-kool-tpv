@@ -319,9 +319,9 @@ class TicketsSubView(CTkFrame):
 
             if not sel:
                 try:
-                    from kool_tpv.utils.custom_dialog import show_warning
+                    from kool_tpv.utils.widgets.notificaciones import show_warning
                     root = self.winfo_toplevel()
-                    show_warning(root, 'No hay selección', 'Selecciona un ticket para imprimir')
+                    show_warning(root, 'Selecciona un ticket para imprimir')
                 except Exception:
                     logger.info('No hay selección para imprimir')
                 return
@@ -479,7 +479,8 @@ class TicketsSubView(CTkFrame):
             # Si no hay tickets pendientes: warning y salir
             if not ticket_ids_preview:
                 try:
-                    show_warning(parent, 'No hay tickets para cerrar', 'No hay tickets para cerrar')
+                    from kool_tpv.utils.widgets.notificaciones import show_warning
+                    show_warning(parent, 'No hay tickets para cerrar')
                 except Exception:
                     logger.info('No hay tickets para cerrar')
                 return
@@ -549,7 +550,8 @@ class TicketsSubView(CTkFrame):
 
             if not ticket_ids:
                 try:
-                    show_warning(parent, 'Nada que cerrar', 'No hay tickets pendientes para cerrar tras revalidación')
+                    from kool_tpv.utils.widgets.notificaciones import show_warning
+                    show_warning(parent, 'No hay tickets pendientes para cerrar tras revalidación')
                 except Exception:
                     logger.info('No hay tickets a cerrar tras revalidación')
                 return
@@ -573,7 +575,8 @@ class TicketsSubView(CTkFrame):
 
             if not resultado or not resultado.get('success'):
                 try:
-                    show_warning(parent, 'Error', f"No se pudo generar el cierre: {resultado.get('error') if resultado else 'unknown'}")
+                    from kool_tpv.utils.widgets.notificaciones import show_warning
+                    show_warning(parent, f"No se pudo generar el cierre: {resultado.get('error') if resultado else 'unknown'}")
                 except Exception:
                     logger.error('Fallo generando cierre: %s', resultado)
                 return
@@ -590,7 +593,8 @@ class TicketsSubView(CTkFrame):
             except Exception:
                 logger.exception('Error generando texto de cierre')
                 try:
-                    show_warning(parent, 'Error', 'Fallo generando preview del cierre')
+                    from kool_tpv.utils.widgets.notificaciones import show_warning
+                    show_warning(parent, 'Fallo generando preview del cierre')
                 except Exception:
                     pass
                 return
