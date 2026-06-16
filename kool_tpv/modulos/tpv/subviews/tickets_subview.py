@@ -675,11 +675,17 @@ class TicketsSubView(CTkFrame):
 
             # Mostrar toast info con OK
             root = self.winfo_toplevel()
+            def _toast_callback(confirmed):
+                logger.info(f'DEBUG Toast callback ejecutado: confirmed={confirmed}')
+                if confirmed:
+                    _cerrar_y_continuar()
+                else:
+                    logger.info('DEBUG Toast cerrado sin confirmar (OK no pulsado)')
             ToastWidget.show(
                 root,
                 'Cierre generado. Revisa el visor. OK para continuar.',
                 tipo='info',
-                al_cerrar=lambda confirmed: _cerrar_y_continuar() if confirmed else None
+                al_cerrar=_toast_callback
             )
 
         except Exception:
