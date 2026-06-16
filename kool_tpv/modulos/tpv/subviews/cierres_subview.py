@@ -220,9 +220,9 @@ class CierresSubView(CTkFrame):
 
             if not res or not res.get('success'):
                 try:
-                    from kool_tpv.utils.custom_dialog import show_warning
+                    from kool_tpv.utils.widgets.notificaciones import show_warning
                     root = self.winfo_toplevel()
-                    show_warning(root, 'Error', 'No se pudo crear el cierre')
+                    show_warning(root, 'No se pudo crear el cierre')
                 except Exception:
                     logger.info('No se pudo crear el cierre')
                 return
@@ -308,9 +308,9 @@ class CierresSubView(CTkFrame):
 
             if not sel:
                 try:
-                    from kool_tpv.utils.custom_dialog import show_warning
+                    from kool_tpv.utils.widgets.notificaciones import show_warning
                     root = self.winfo_toplevel()
-                    show_warning(root, 'No hay selección', 'Selecciona un ticket para imprimir')
+                    show_warning(root, 'Selecciona un ticket para imprimir')
                 except Exception:
                     logger.info('No hay selección para imprimir')
                 return
