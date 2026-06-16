@@ -124,8 +124,6 @@ class ToastWidget:
             btn_y = (h - ok_h) // 2
             btn_x = w - px - ok_w
             def _on_ok_click():
-                import logging
-                logging.getLogger(__name__).info('DEBUG Botón OK pulsado en toast')
                 self._destruir(confirmed=True)
             btn = tk.Button(
                 self._win, text='OK',
