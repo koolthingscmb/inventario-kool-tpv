@@ -387,7 +387,7 @@ class TicketsSubView(CTkFrame):
 
     def _on_x_clicked(self):
         try:
-            from kool_tpv.utils.custom_dialog import show_password_dialog, show_warning, show_info
+            from kool_tpv.utils.custom_dialog import show_password_dialog, show_warning
 
             parent = None
             try:
