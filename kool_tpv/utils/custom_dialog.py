@@ -12,7 +12,6 @@ from kool_tpv.utils.dialogs import (
     MessageDialog as CustomDialog,
     InputDialog as CustomInputDialog,
     # Funciones helper
-    show_success,
     show_error,
     show_warning,
     show_info,
@@ -30,7 +29,6 @@ __all__ = [
     "BaseDialog",
     "CustomDialog",
     "CustomInputDialog",
-    "show_success",
     "show_error",
     "show_warning",
     "show_info",

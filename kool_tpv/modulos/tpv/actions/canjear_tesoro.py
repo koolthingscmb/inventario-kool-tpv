@@ -7,7 +7,7 @@ indicar cuánto canjear.
 from decimal import Decimal, InvalidOperation
 import logging
 
-from kool_tpv.utils.custom_dialog import show_success, show_warning, show_error, show_info, show_input_dialog
+from kool_tpv.utils.custom_dialog import show_warning, show_error, show_info, show_input_dialog
 from kool_tpv.utils.formatter_service import FormatterService
 
 
