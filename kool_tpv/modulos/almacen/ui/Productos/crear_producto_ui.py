@@ -31,6 +31,9 @@ from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.modulos.almacen.producto_repository import ProductoRepository
+from kool_tpv.utils import barcode_gen_utils
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -208,7 +211,21 @@ class CrearProductoUI:
         self.lbl_tesoro.grid(row=6, column=7, sticky='w', padx=6, pady=6)
 
         # Fila 8: CÓDIGOS_DE_BARRAS (CSV separado por comas)
-        ctk.CTkLabel(self.general_frame, text="CÓDIGOS_DE_BARRAS (CSV separado por comas):", text_color=self.colors['text'], font=lbl_font).grid(row=7, column=0, sticky='w', padx=6, pady=6, columnspan=8)
+        lbl_barras = ctk.CTkLabel(self.general_frame, text="CÓDIGOS_DE_BARRAS (CSV):", text_color=self.colors['text'], font=lbl_font)
+        lbl_barras.grid(row=7, column=0, sticky='w', padx=6, pady=6, columnspan=4)
+        
+        # Botón para generar código interno ⭐
+        try:
+            self.btn_gen_barcode = ButtonFactory.create_button(
+                parent=self.general_frame,
+                text='BARRAS',
+                command=self._on_gen_barcode_interno,
+                style_key="mini_action"
+            )
+            self.btn_gen_barcode.grid(row=7, column=4, columnspan=4, sticky='e', padx=6, pady=6)
+        except Exception:
+            logger.exception('Error creando botón BARRAS')
+
         try:
             self.e_codigos = ctk.CTkEntry(self.general_frame, placeholder_text='ean1,ean2,ean3', **entry_kwargs)
         except Exception:
@@ -510,6 +527,38 @@ class CrearProductoUI:
             combo.entry.configure(border_color=self.colors.get('border', self.colors.get('primary', COLOR_MATRIX)))
         except Exception:
             pass
+
+    def _on_gen_barcode_interno(self):
+        """Generar código de barras interno e imagen JPG/PNG."""
+        try:
+            sku = self.e_sku.get().strip()
+            if not sku:
+                ToastWidget.show(self.container, "Introduce el SKU primero", tipo='warning')
+                return
+
+            # Generar número interno
+            nuevo_codigo = barcode_gen_utils.generate_internal_number()
+            
+            # Generar imagen
+            path = barcode_gen_utils.generate_barcode_image(nuevo_codigo, sku)
+            
+            if path:
+                # Añadir al campo de códigos (si ya hay otros, añadir con coma)
+                actual = self.e_codigos.get().strip()
+                if actual:
+                    if nuevo_codigo not in actual:
+                        self.e_codigos.delete(0, 'end')
+                        self.e_codigos.insert(0, f"{actual},{nuevo_codigo}")
+                else:
+                    self.e_codigos.insert(0, nuevo_codigo)
+                
+                ToastWidget.show(self.container, f"Código {nuevo_codigo} generado", tipo='success')
+                logger.info(f"Código interno generado para SKU {sku}: {nuevo_codigo} en {path}")
+            else:
+                ToastWidget.show(self.container, "Error generando imagen de código", tipo='error')
+        except Exception:
+            logger.exception("Error en _on_gen_barcode_interno")
+            ToastWidget.show(self.container, "Error al generar código interno", tipo='error')
 
     def _open_shop_link(self):
         link = (self.e_nombre.get() or '').strip()
