@@ -95,15 +95,20 @@ class PaymentControllerVale(ctk.CTkFrame):
             vale = vales[0]
             self._vale_seleccionado = vale
             imp = read_from_db(vale.get("importe_cents", 0))
-            fecha = vale.get("fecha", "").split("T")[0]
-            # Mostrar nombre de archivo legible si existe, sino fallback a ticket
+            # Extraer nombre corto del vale (solo el ID numérico o prefijo)
             path_str = vale.get("path", "")
             nombre_vale = path_str.split("/")[-1].replace(".json", "") if path_str else None
             if not nombre_vale:
                 nombre_vale = vale.get("num_ticket_devolucion", "?")
-            txt = f"{nombre_vale} - {imp:.2f} E ({fecha})"
+            # Extraer solo el ID numérico si existe formato Vale1_2420_1706
+            if "_" in nombre_vale:
+                # Quitar todo después del primer guion bajo (fecha y otros datos)
+                nombre_corto = nombre_vale.split("_")[0]
+            else:
+                nombre_corto = nombre_vale
+            txt = f"{nombre_corto} {imp:.2f}€"
             if len(vales) > 1:
-                txt += f"\n(+{len(vales)-1} mas)"
+                txt += f"\n(+{len(vales)-1} más)"
             self._info_label.configure(text=txt)
             self._btn_usar.configure(state="normal")
         except Exception:

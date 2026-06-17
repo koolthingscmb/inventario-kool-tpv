@@ -332,13 +332,14 @@ class TicketsSubView(CTkFrame):
             except Exception:
                 return
 
-            # Toast info con OK: al cerrar se imprime el ticket
+            # Modal info: OK para imprimir
+            from kool_tpv.utils.custom_dialog import show_info
             root = self.winfo_toplevel()
-            ToastWidget.show(
+            show_info(
                 root,
-                f'Se imprimirá el ticket {ticket_id}',
-                tipo='info',
-                al_cerrar=lambda: self._ejecutar_impresion_ticket(ticket_id)
+                'Imprimir ticket',
+                f'Se imprimirá el ticket {ticket_id}. Pulsa OK para continuar.',
+                callback=lambda _: self._ejecutar_impresion_ticket(ticket_id)
             )
 
         except Exception:
