@@ -552,6 +552,8 @@ class ImportarAlbaranUI:
         ctk.CTkLabel(row2, text='Nombre:', font=(label_font['family'], label_font['size']), width=80, anchor='e').pack(side='left')
         self.entry_nombre = ctk.CTkEntry(row2, font=(entry_font['family'], entry_font['size']), width=400)
         self.entry_nombre.pack(side='left', padx=5, fill='x', expand=True)
+        self.entry_nombre.bind('<Return>', self._on_guardar_producto)
+        self.entry_nombre.bind('<KP_Enter>', self._on_guardar_producto)
 
         # SKU
         row_sku = ctk.CTkFrame(panel_frame, fg_color='transparent')
@@ -559,6 +561,8 @@ class ImportarAlbaranUI:
         ctk.CTkLabel(row_sku, text='SKU:', font=(label_font['family'], label_font['size']), width=80, anchor='e').pack(side='left')
         self.entry_sku = ctk.CTkEntry(row_sku, font=(entry_font['family'], entry_font['size']), width=150, placeholder_text='Obligatorio')
         self.entry_sku.pack(side='left', padx=5)
+        self.entry_sku.bind('<Return>', self._on_guardar_producto)
+        self.entry_sku.bind('<KP_Enter>', self._on_guardar_producto)
 
         # Categoría
         row3 = ctk.CTkFrame(panel_frame, fg_color='transparent')
@@ -572,6 +576,11 @@ class ImportarAlbaranUI:
             module_name=self.module_name
         )
         self.combo_categoria.pack(side='left', padx=5)
+        try:
+            self.combo_categoria.entry.bind('<Return>', self._on_guardar_producto)
+            self.combo_categoria.entry.bind('<KP_Enter>', self._on_guardar_producto)
+        except Exception:
+            pass
 
         # Tipo
         row4 = ctk.CTkFrame(panel_frame, fg_color='transparent')
@@ -585,6 +594,11 @@ class ImportarAlbaranUI:
             module_name=self.module_name
         )
         self.combo_tipo.pack(side='left', padx=5)
+        try:
+            self.combo_tipo.entry.bind('<Return>', self._on_guardar_producto)
+            self.combo_tipo.entry.bind('<KP_Enter>', self._on_guardar_producto)
+        except Exception:
+            pass
 
         # PVP
         row5 = ctk.CTkFrame(panel_frame, fg_color='transparent')
@@ -592,6 +606,8 @@ class ImportarAlbaranUI:
         ctk.CTkLabel(row5, text='PVP:', font=(label_font['family'], label_font['size']), width=80, anchor='e').pack(side='left')
         self.entry_pvp = ctk.CTkEntry(row5, font=(entry_font['family'], entry_font['size']), width=100, placeholder_text='0.00')
         self.entry_pvp.pack(side='left', padx=5)
+        self.entry_pvp.bind('<Return>', self._on_guardar_producto)
+        self.entry_pvp.bind('<KP_Enter>', self._on_guardar_producto)
         ctk.CTkLabel(row5, text='€', font=(label_font['family'], label_font['size'])).pack(side='left')
 
         # Conversión de unidades (para casos como Magic: 1 caja = 36 sobres)
@@ -613,6 +629,8 @@ class ImportarAlbaranUI:
         self.entry_factor.pack(side='left', padx=5)
         self.entry_factor.configure(state='disabled')
         self.entry_factor.bind('<KeyRelease>', self._on_calcular_stock)
+        self.entry_factor.bind('<Return>', self._on_guardar_producto)
+        self.entry_factor.bind('<KP_Enter>', self._on_guardar_producto)
 
         ctk.CTkLabel(row_conv, text='uds/caja → Stock:', font=(small_font['family'], small_font['size'])).pack(side='left')
         self.lbl_stock_calc = ctk.CTkLabel(row_conv, text='0', font=(entry_font['family'], entry_font['size'], 'bold'), text_color='#00aa00')
@@ -784,7 +802,7 @@ class ImportarAlbaranUI:
         # Seleccionar en tabla visualmente
         self.nav_list_crear._select(index)
 
-    def _on_guardar_producto(self):
+    def _on_guardar_producto(self, event=None):
         """Guardar datos del producto actual y pasar al siguiente."""
         items = list(self._productos_data.items())
         if self._current_producto_idx >= len(items):
