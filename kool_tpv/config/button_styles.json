@@ -259,6 +259,18 @@
     "corner_radius": 8,
     "border_width": 2,
     "font_size": 24
+  },
+
+  "module_presencia": {
+    "type": "outline",
+    "bg_token": "black_base",
+    "text_token": "blue_matrix",
+    "border_token": "blue_matrix",
+    "hover_token": "blue_action",
+    "height": 56,
+    "corner_radius": 8,
+    "border_width": 2,
+    "font_size": 24
   }
 ,
   "action_primary": {
