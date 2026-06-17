@@ -339,7 +339,7 @@ class TicketsSubView(CTkFrame):
                 root,
                 'Imprimir ticket',
                 f'Se imprimirá el ticket {ticket_id}. Pulsa OK para continuar.',
-                callback=lambda _: self._ejecutar_impresion_ticket(ticket_id)
+                callback=lambda: self._ejecutar_impresion_ticket(ticket_id)
             )
 
         except Exception:
