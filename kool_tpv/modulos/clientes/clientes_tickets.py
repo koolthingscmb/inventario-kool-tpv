@@ -585,9 +585,110 @@ class ClientesTicketsUI(PaginaConVisor):
                 return
 
             logger.info('Acción IMPRIMIR triggered')
-            ToastWidget.show(self.container, 'Funcionalidad en desarrollo', tipo='info')
+            
+            # Obtener ticket_id del NavList
+            nav = getattr(self, 'nav_list', None)
+            if nav is None:
+                return
+
+            sel = None
+            try:
+                sel = nav.get_selected_data()
+            except Exception:
+                sel = None
+
+            if not sel:
+                from kool_tpv.utils.custom_dialog import show_error
+                show_error(self.container, 'Imprimir', 'Selecciona un ticket primero')
+                return
+
+            ticket_id = sel.get('ticket_id') or sel.get('id')
+            try:
+                ticket_id = int(ticket_id)
+            except Exception:
+                return
+
+            # Modal info: OK para imprimir
+            from kool_tpv.utils.custom_dialog import show_info
+            root = self.winfo_toplevel()
+            show_info(
+                root,
+                'Imprimir ticket',
+                f'Se imprimirá el ticket {ticket_id}. Pulsa OK para continuar.',
+                callback=lambda: self._ejecutar_impresion_ticket(ticket_id)
+            )
         except Exception:
             logger.exception('Error en _on_imprimir')
+
+    def _ejecutar_impresion_ticket(self, ticket_id: int):
+        """Ejecutar impresión del ticket y mostrar toast success."""
+        try:
+            from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
+            
+            # Configuración por defecto
+            modo_impresion = 'texto'
+            printer_name = None
+            codepage = 'cp858'
+            
+            # Intentar leer configuración de la BD
+            try:
+                if self.db is not None:
+                    row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'modo_impresion'")
+                    if row and row[0]:
+                        modo_impresion = row[0]
+                    row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'printer_name'")
+                    if row and row[0]:
+                        printer_name = row[0]
+                    row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'printer_codepage'")
+                    if row and row[0]:
+                        codepage = row[0]
+            except Exception:
+                logger.exception('Error leyendo configuración de impresión desde BD')
+
+            imp = ImpresoraService(
+                db=self.db, 
+                imprimir_en_consola=True,
+                modo_impresion=modo_impresion,
+                codepage=codepage
+            )
+            texto = None
+            try:
+                texto = imp.generar_ticket_desde_id(ticket_id)
+            except Exception:
+                logger.exception('Error generando ticket desde ImpresoraService')
+
+            if not texto:
+                try:
+                    row = self.db.fetch_one('SELECT ticket_text FROM tickets WHERE id = ?', (ticket_id,)) if getattr(self, 'db', None) is not None else None
+                    texto = row[0] if row and row[0] else None
+                except Exception:
+                    logger.exception('Error leyendo ticket_text fallback para imprimir')
+
+            if texto:
+                try:
+                    if modo_impresion == 'escpos':
+                        logger.info(" ENVIANDO A IMPRESORA: %s ", printer_name or 'NO CONFIGURADA')
+                    imp._imprimir_texto_generico(texto, {'num_ticket': ticket_id}, printer_name)
+                except Exception:
+                    try:
+                        print('\n' + '='*50)
+                        print(' SIMULACIÓN IMPRESIÓN TICKET ')
+                        print('='*50 + '\n')
+                        print(texto)
+                        print('\n' + '='*50 + '\n')
+                    except Exception:
+                        logger.exception('Error simulando impresión en consola')
+                
+                # Toast success autocierre
+                try:
+                    root = self.winfo_toplevel()
+                    ToastWidget.show(root, f'Ticket {ticket_id} impreso', tipo='success')
+                except Exception:
+                    pass
+            else:
+                logger.info('No se encontró texto para imprimir del ticket id=%s', ticket_id)
+        except Exception:
+            logger.exception('Error en proceso de impresión (ClientesTicketsUI)')
 
     def _on_exportar(self):
         """Exportar ticket seleccionado a PDF (placeholder)."""
