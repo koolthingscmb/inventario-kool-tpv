@@ -77,6 +77,19 @@
     "font_size": 20
   },
 
+  "menu_presencia": {
+    "type": "outline",
+    "bg_token": "black_base",
+    "text_token": "blue_matrix",
+    "border_token": "blue_matrix",
+    "hover_token": "blue_action",
+    "width": 220,
+    "height": 56,
+    "corner_radius": 12,
+    "border_width": 2,
+    "font_size": 20
+  },
+
   "almacen_outline": {
     "type": "outline",
     "bg_token": "black_base",
