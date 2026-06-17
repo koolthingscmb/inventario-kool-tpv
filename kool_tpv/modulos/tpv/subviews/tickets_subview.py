@@ -677,13 +677,14 @@ class TicketsSubView(CTkFrame):
 
                 logger.info(f'Cierre completado: cierre_id={cierre_id}')
 
-            # Mostrar toast info con OK
+            # Modal info: OK para continuar
+            from kool_tpv.utils.custom_dialog import show_info
             root = self.winfo_toplevel()
-            ToastWidget.show(
+            show_info(
                 root,
-                'Cierre generado. Revisa el visor. OK para continuar.',
-                tipo='info',
-                al_cerrar=lambda confirmed: _cerrar_y_continuar() if confirmed else None
+                'Cierre generado',
+                'Revisa el visor y pulsa OK para continuar.',
+                callback=lambda _: _cerrar_y_continuar()
             )
 
         except Exception:
