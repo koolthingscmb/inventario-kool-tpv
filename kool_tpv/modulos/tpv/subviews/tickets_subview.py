@@ -349,7 +349,33 @@ class TicketsSubView(CTkFrame):
         """Ejecutar impresión del ticket y mostrar toast success."""
         try:
             from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
-            imp = ImpresoraService(db=self.db, imprimir_en_consola=True)
+            
+            # Configuración por defecto
+            modo_impresion = 'texto'
+            printer_name = None
+            codepage = 'cp858'
+            
+            # Intentar leer configuración de la BD
+            try:
+                if self.db is not None:
+                    row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'modo_impresion'")
+                    if row and row[0]:
+                        modo_impresion = row[0]
+                    row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'printer_name'")
+                    if row and row[0]:
+                        printer_name = row[0]
+                    row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'printer_codepage'")
+                    if row and row[0]:
+                        codepage = row[0]
+            except Exception:
+                logger.exception('Error leyendo configuración de impresión desde BD')
+
+            imp = ImpresoraService(
+                db=self.db, 
+                imprimir_en_consola=True,
+                modo_impresion=modo_impresion,
+                codepage=codepage
+            )
             texto = None
             try:
                 texto = imp.generar_ticket_desde_id(ticket_id)
@@ -365,7 +391,9 @@ class TicketsSubView(CTkFrame):
 
             if texto:
                 try:
-                    imp._imprimir_texto_generico(texto, {'num_ticket': ticket_id})
+                    if modo_impresion == 'escpos':
+                        logger.info(" ENVIANDO A IMPRESORA: %s ", printer_name or 'NO CONFIGURADA')
+                    imp._imprimir_texto_generico(texto, {'num_ticket': ticket_id}, printer_name)
                 except Exception:
                     try:
                         print('\n' + '='*50)
