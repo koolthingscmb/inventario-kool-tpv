@@ -610,7 +610,7 @@ class ClientesTicketsUI(PaginaConVisor):
 
             # Modal info: OK para imprimir
             from kool_tpv.utils.custom_dialog import show_info
-            root = self.winfo_toplevel()
+            root = self.container.winfo_toplevel()
             show_info(
                 root,
                 'Imprimir ticket',
@@ -681,7 +681,7 @@ class ClientesTicketsUI(PaginaConVisor):
                 
                 # Toast success autocierre
                 try:
-                    root = self.winfo_toplevel()
+                    root = self.container.winfo_toplevel()
                     ToastWidget.show(root, f'Ticket {ticket_id} impreso', tipo='success')
                 except Exception:
                     pass
