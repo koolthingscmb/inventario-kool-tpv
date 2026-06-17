@@ -1,0 +1,338 @@
+{
+  "dialogs": {
+    "info": {
+      "window": {
+        "width": 400,
+        "height": 300,
+        "border_width": 10,
+        "corner_radius": 20,
+        "icon_size": 80,
+        "padding_x": 10,
+        "padding_y": 10
+      },
+      "colors": {
+        "bg": "#000000",
+        "border": "#3498db",
+        "border_hover": "#2980b9",
+        "title_text": "#00FF00",
+        "message_text": "#3498db",
+        "button_bg": "#3498db",
+        "button_hover": "#2980b9",
+        "button_text": "#000000",
+        "cancel_bg": "#2980b9",
+        "cancel_hover": "#3498db",
+        "button_focus_border": "#5DADE2"
+      },
+      "fonts": {
+        "title": {"family": "Courier New", "size": 20, "weight": "bold"},
+        "message": {"family": "Courier New", "size": 14, "weight": "bold"},
+        "button": {"family": "Courier New", "size": 14, "weight": "bold"},
+        "input": {"family": "Courier New", "size": 14, "weight": "normal"}
+      },
+      "spacing": {
+        "icon_top": 10,
+        "icon_bottom": 15,
+        "title_bottom": 10,
+        "message_bottom": 10,
+        "entry_bottom": 10
+      },
+      "buttons": {
+        "accept": {
+          "style_key": "dialog_info_btn",
+          "width": 160,
+          "height": 55,
+          "corner_radius": 12,
+          "border_width": 10,
+          "font_size": 20
+        },
+        "cancel": {
+          "style_key": "dialog_cancel_btn",
+          "width": 100,
+          "height": 40,
+          "corner_radius": 12,
+          "border_width": 5,
+          "font_size": 12
+        }
+      }
+    },
+    "warning": {
+      "window": {
+        "width": 400,
+        "height": 300,
+        "border_width": 10,
+        "corner_radius": 20,
+        "icon_size": 80,
+        "padding_x": 10,
+        "padding_y": 10
+      },
+      "colors": {
+        "bg": "#000000",
+        "border": "#f39c12",
+        "border_hover": "#d68910",
+        "title_text": "#00FF00",
+        "message_text": "#f39c12",
+        "button_bg": "#f39c12",
+        "button_hover": "#d68910",
+        "button_text": "#000000",
+        "cancel_bg": "#d68910",
+        "cancel_hover": "#f39c12",
+        "button_focus_border": "#FFD700"
+      },
+      "fonts": {
+        "title": {"family": "Courier New", "size": 20, "weight": "bold"},
+        "message": {"family": "Courier New", "size": 14, "weight": "bold"},
+        "button": {"family": "Courier New", "size": 14, "weight": "bold"},
+        "input": {"family": "Courier New", "size": 14, "weight": "normal"}
+      },
+      "spacing": {
+        "icon_top": 10,
+        "icon_bottom": 15,
+        "title_bottom": 10,
+        "message_bottom": 10,
+        "entry_bottom": 10
+      },
+      "buttons": {
+        "accept": {
+          "style_key": "dialog_warning_btn",
+          "width": 160,
+          "height": 55,
+          "corner_radius": 12,
+          "border_width": 10,
+          "font_size": 20
+        },
+        "cancel": {
+          "style_key": "dialog_cancel_btn",
+          "width": 100,
+          "height": 40,
+          "corner_radius": 12,
+          "border_width": 5,
+          "font_size": 12
+        }
+      }
+    },
+    "error": {
+      "window": {
+        "width": 400,
+        "height": 300,
+        "border_width": 10,
+        "corner_radius": 20,
+        "icon_size": 80,
+        "padding_x": 10,
+        "padding_y": 10
+      },
+      "colors": {
+        "bg": "#000000",
+        "border": "#e74c3c",
+        "border_hover": "#c0392b",
+        "title_text": "#FFD000",
+        "message_text": "#e74c3c",
+        "button_bg": "#e74c3c",
+        "button_hover": "#c0392b",
+        "button_text": "#000000",
+        "cancel_bg": "#c0392b",
+        "cancel_hover": "#e74c3c",
+        "button_focus_border": "#FF6B6B"
+      },
+      "fonts": {
+        "title": {"family": "Courier New", "size": 20, "weight": "bold"},
+        "message": {"family": "Courier New", "size": 14, "weight": "bold"},
+        "button": {"family": "Courier New", "size": 14, "weight": "bold"},
+        "input": {"family": "Courier New", "size": 14, "weight": "normal"}
+      },
+      "spacing": {
+        "icon_top": 10,
+        "icon_bottom": 15,
+        "title_bottom": 10,
+        "message_bottom": 10,
+        "entry_bottom": 10
+      },
+      "buttons": {
+        "accept": {
+          "style_key": "dialog_error_btn",
+          "width": 160,
+          "height": 55,
+          "corner_radius": 12,
+          "border_width": 10,
+          "font_size": 20
+        },
+        "cancel": {
+          "style_key": "dialog_cancel_btn",
+          "width": 100,
+          "height": 40,
+          "corner_radius": 12,
+          "border_width": 5,
+          "font_size": 12
+        }
+      }
+    },
+    "success": {
+      "window": {
+        "width": 400,
+        "height": 300,
+        "border_width": 10,
+        "corner_radius": 20,
+        "icon_size": 80,
+        "padding_x": 10,
+        "padding_y": 10
+      },
+      "colors": {
+        "bg": "#000000",
+        "border": "#2ecc71",
+        "border_hover": "#27ae60",
+        "title_text": "#00FF00",
+        "message_text": "#2ecc71",
+        "button_bg": "#2ecc71",
+        "button_hover": "#27ae60",
+        "button_text": "#000000",
+        "cancel_bg": "#27ae60",
+        "cancel_hover": "#2ecc71",
+        "button_focus_border": "#00FF00"
+      },
+      "fonts": {
+        "title": {"family": "Courier New", "size": 20, "weight": "bold"},
+        "message": {"family": "Courier New", "size": 14, "weight": "bold"},
+        "button": {"family": "Courier New", "size": 14, "weight": "bold"},
+        "input": {"family": "Courier New", "size": 14, "weight": "normal"}
+      },
+      "spacing": {
+        "icon_top": 10,
+        "icon_bottom": 15,
+        "title_bottom": 10,
+        "message_bottom": 10,
+        "entry_bottom": 10
+      },
+      "buttons": {
+        "accept": {
+          "style_key": "dialog_success_btn",
+          "width": 160,
+          "height": 55,
+          "corner_radius": 12,
+          "border_width": 10,
+          "font_size": 20
+        },
+        "cancel": {
+          "style_key": "dialog_cancel_btn",
+          "width": 100,
+          "height": 40,
+          "corner_radius": 12,
+          "border_width": 5,
+          "font_size": 12
+        }
+      }
+    },
+    "password": {
+      "window": {
+        "width": 400,
+        "height": 300,
+        "border_width": 10,
+        "corner_radius": 20,
+        "icon_size": 80,
+        "padding_x": 10,
+        "padding_y": 10,
+        "entry_width": 300,
+        "entry_height": 35
+      },
+      "colors": {
+        "bg": "#000000",
+        "border": "#9b59b6",
+        "border_hover": "#8e44ad",
+        "title_text": "#00FF00",
+        "message_text": "#9b59b6",
+        "button_bg": "#9b59b6",
+        "button_hover": "#8e44ad",
+        "button_text": "#FFFFFF",
+        "cancel_bg": "#8e44ad",
+        "cancel_hover": "#9b59b6",
+        "button_focus_border": "#C39BD3"
+      },
+      "fonts": {
+        "title": {"family": "Courier New", "size": 20, "weight": "bold"},
+        "message": {"family": "Courier New", "size": 14, "weight": "bold"},
+        "button": {"family": "Courier New", "size": 14, "weight": "bold"},
+        "input": {"family": "Courier New", "size": 14, "weight": "normal"}
+      },
+      "spacing": {
+        "icon_top": 10,
+        "icon_bottom": 15,
+        "title_bottom": 10,
+        "message_bottom": 10,
+        "entry_bottom": 10
+      },
+      "buttons": {
+        "accept": {
+          "style_key": "dialog_password_btn",
+          "width": 100,
+          "height": 40,
+          "corner_radius": 12,
+          "border_width": 2,
+          "font_size": 12
+        },
+        "cancel": {
+          "style_key": "dialog_cancel_btn",
+          "width": 100,
+          "height": 40,
+          "corner_radius": 12,
+          "border_width": 5,
+          "font_size": 12
+        }
+      }
+    },
+    "input": {
+      "window": {
+        "width": 400,
+        "height": 300,
+        "border_width": 10,
+        "corner_radius": 20,
+        "icon_size": 80,
+        "padding_x": 10,
+        "padding_y": 10,
+        "entry_width": 300,
+        "entry_height": 35
+      },
+      "colors": {
+        "bg": "#000000",
+        "border": "#2ecc71",
+        "border_hover": "#27ae60",
+        "title_text": "#00FF00",
+        "message_text": "#2ecc71",
+        "button_bg": "#2ecc71",
+        "button_hover": "#27ae60",
+        "button_text": "#000000",
+        "cancel_bg": "#27ae60",
+        "cancel_hover": "#2ecc71",
+        "button_focus_border": "#00FF00"
+      },
+      "fonts": {
+        "title": {"family": "Courier New", "size": 20, "weight": "bold"},
+        "message": {"family": "Courier New", "size": 14, "weight": "bold"},
+        "button": {"family": "Courier New", "size": 14, "weight": "bold"},
+        "input": {"family": "Courier New", "size": 14, "weight": "normal"}
+      },
+      "spacing": {
+        "icon_top": 10,
+        "icon_bottom": 15,
+        "title_bottom": 10,
+        "message_bottom": 10,
+        "entry_bottom": 10
+      },
+      "buttons": {
+        "accept": {
+          "style_key": "dialog_success_btn",
+          "width": 160,
+          "height": 55,
+          "corner_radius": 12,
+          "border_width": 10,
+          "font_size": 20
+        },
+        "cancel": {
+          "style_key": "dialog_cancel_btn",
+          "width": 100,
+          "height": 40,
+          "corner_radius": 12,
+          "border_width": 5,
+          "font_size": 12
+        }
+      }
+    }
+  }
+}
