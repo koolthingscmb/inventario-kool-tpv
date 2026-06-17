@@ -24,6 +24,7 @@
     {"text": "CLIENTES", "style_key": "menu_clientes", "command": "open_clientes"},
     {"text": "INFORMES", "style_key": "menu_informes", "command": "open_informes"},
     {"text": "SHOPIFY", "style_key": "menu_shopify", "command": "open_shopify"},
+    {"text": "PRESENCIA", "style_key": "menu_presencia", "command": "open_presencia"},
     {"text": "CONFIG", "style_key": "menu_config", "command": "open_config"}
   ],
   "global_buttons": [

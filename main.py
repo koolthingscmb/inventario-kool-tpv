@@ -390,6 +390,13 @@ class App(ctk.CTk):
         from kool_tpv.modulos.configuracion.config_view import ConfigView
         self.config_view = ConfigView(self, db=self.db, keyboard_manager=self.keyboard_mgr)
 
+    def open_presencia(self):
+        self.nav_frame.pack_forget()
+        self.main_frame.pack_forget()
+
+        from kool_tpv.modulos.presencia.presencia_view import PresenciaView
+        self.presencia_view = PresenciaView(self, db=self.db, keyboard_manager=self.keyboard_mgr)
+
     def close_app(self):
         # 1. Si estamos en TPV, salir al menú principal
         if self.current_view == "tpv":
@@ -422,7 +429,7 @@ class App(ctk.CTk):
             return
 
         # 2. Si hay otros módulos abiertos Y VISIBLES, preguntarles si gestionan el Power
-        modules = ['almacen_view', 'clientes_view', 'informes_view', 'config_view']
+        modules = ['almacen_view', 'clientes_view', 'informes_view', 'config_view', 'presencia_view']
 
         for mod_name in modules:
             if hasattr(self, mod_name):
@@ -487,7 +494,7 @@ class App(ctk.CTk):
         Usado por acciones internas de módulos (ej: 'Ir a TPV' desde Albarán).
         """
         try:
-            modules = ['almacen_view', 'clientes_view', 'informes_view', 'config_view']
+            modules = ['almacen_view', 'clientes_view', 'informes_view', 'config_view', 'presencia_view']
             for mod_name in modules:
                 if hasattr(self, mod_name):
                     view = getattr(self, mod_name)

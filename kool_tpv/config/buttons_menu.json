@@ -30,6 +30,12 @@
       {"id": "sincro", "text": "SINCRO", "action": "shopify_sincro"}
     ]
   },
+  "presencia": {
+    "title": "PRESENCIA",
+    "buttons": [
+      {"id": "fichajes", "text": "FICHAJES", "action": "show_fichajes"}
+    ]
+  },
   "config": {
     "title": "CONFIG",
     "buttons": [

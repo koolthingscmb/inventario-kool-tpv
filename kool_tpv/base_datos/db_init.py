@@ -109,6 +109,20 @@ def initialize_database(db_path: str) -> None:
 		except Exception:
 			logging.exception('Error aplicando migración 003')
 
+		# Migration 004: Control de Presencia
+		try:
+			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table' AND name='presencia'")
+			if not rows:
+				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '004_presencia.sql'
+				if mig_path.exists():
+					logging.info('Aplicando migración 004: control de presencia')
+					cur = db.connection.cursor()
+					cur.executescript(mig_path.read_text(encoding='utf-8'))
+					db.connection.commit()
+					logging.info('Migración 004 aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 004')
+
 		# Validate again
 		try:
 			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table'")
