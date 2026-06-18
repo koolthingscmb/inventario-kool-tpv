@@ -50,56 +50,108 @@ class CategoriasUI:
 
         lbl_font = get_font('label', module=self.module_name)
 
-        # Fila 1: ID (2 col) | NOMBRE (6 col)
+        # Fila 1: ID | NOMBRE | COLOR | % TESORO | TAXONOMY
         ctk.CTkLabel(self.grid_frame, text='ID:', text_color=self.colors['text'], font=lbl_font).grid(row=0, column=0, sticky='w', padx=6, pady=6)
         e_id_kw = default_entry_kw.copy()
-        e_id_kw.update({'state': 'disabled', 'text_color': self.colors.get('light', '#666666')})
+        e_id_kw.update({'state': 'disabled', 'text_color': self.colors.get('light', '#666666'), 'width': 60})
         self.e_id = ctk.CTkEntry(self.grid_frame, placeholder_text='ID', **e_id_kw)
-        self.e_id.grid(row=0, column=1, columnspan=1, sticky='ew', padx=6, pady=6)
+        self.e_id.grid(row=0, column=1, sticky='ew', padx=6, pady=6)
 
         ctk.CTkLabel(self.grid_frame, text='NOMBRE:', text_color=self.colors['text'], font=lbl_font).grid(row=0, column=2, sticky='w', padx=6, pady=6)
         nome_kw = default_entry_kw.copy()
         nome_kw.update({'border_width': 2})
         self.e_nombre = ctk.CTkEntry(self.grid_frame, placeholder_text='Nombre de la categoría', **nome_kw)
-        self.e_nombre.grid(row=0, column=3, columnspan=5, sticky='ew', padx=6, pady=6)
+        self.e_nombre.grid(row=0, column=3, columnspan=1, sticky='ew', padx=6, pady=6)
 
-        # Fila 2: DESCRIPCION label
-        ctk.CTkLabel(self.grid_frame, text='DESCRIPCIÓN:', text_color=self.colors['text'], font=lbl_font).grid(row=1, column=0, columnspan=8, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.grid_frame, text='COLOR:', text_color=self.colors['text'], font=lbl_font).grid(row=0, column=4, sticky='w', padx=6, pady=6)
+        color_frame = ctk.CTkFrame(self.grid_frame, fg_color='transparent')
+        color_frame.grid(row=0, column=5, sticky='ew', padx=6, pady=6)
+        
+        color_kw = default_entry_kw.copy()
+        color_kw.update({'placeholder_text': '#RRGGBB', 'border_width': 2, 'width': 80})
+        self.e_color = ctk.CTkEntry(color_frame, **color_kw)
+        self.e_color.pack(side='left', fill='x', expand=True)
+        self.e_color.bind('<KeyRelease>', lambda e: self._update_color_preview())
 
-        # Fila 3: descripcion textbox (8 col)
+        self.btn_pick_color = ctk.CTkButton(
+            color_frame,
+            text="🎨",
+            width=32,
+            height=32,
+            fg_color="transparent",
+            border_width=1,
+            border_color=self.colors.get('border', self.colors.get('primary')),
+            command=self._open_color_picker
+        )
+        self.btn_pick_color.pack(side='right', padx=(4, 0))
+
+        ctk.CTkLabel(self.grid_frame, text='% TESORO:', text_color=self.colors['text'], font=lbl_font).grid(row=0, column=6, sticky='w', padx=6, pady=6)
+        fide_kw = default_entry_kw.copy()
+        fide_kw.update({'placeholder_text': '0.0', 'border_width': 2, 'width': 60})
+        self.e_fide = ctk.CTkEntry(self.grid_frame, **fide_kw)
+        self.e_fide.grid(row=0, column=7, sticky='ew', padx=6, pady=6)
+
+        # Fila 2: ICONO | TAXONOMY
+        ctk.CTkLabel(self.grid_frame, text='ICONO:', text_color=self.colors['text'], font=lbl_font).grid(row=1, column=0, sticky='w', padx=6, pady=6)
+        icono_frame = ctk.CTkFrame(self.grid_frame, fg_color='transparent')
+        icono_frame.grid(row=1, column=1, columnspan=4, sticky='ew', padx=6, pady=6)
+
+        self.e_icono = ctk.CTkEntry(icono_frame, placeholder_text='Archivo icono', **default_entry_kw)
+        self.e_icono.pack(side='left', fill='x', expand=True)
+        self.e_icono.configure(state='disabled')
+
+        self.btn_subir_icono = ctk.CTkButton(
+            icono_frame,
+            text="📁 SUBIR",
+            width=80,
+            height=32,
+            fg_color="transparent",
+            border_width=1,
+            border_color=self.colors.get('border', self.colors.get('primary')),
+            command=self._subir_icono
+        )
+        self.btn_subir_icono.pack(side='right', padx=(4, 0))
+
+        self.btn_limpiar_icono = ctk.CTkButton(
+            icono_frame,
+            text="🗑️",
+            width=32,
+            height=32,
+            fg_color="transparent",
+            border_width=1,
+            border_color=self.colors.get('error', '#FF0000'),
+            command=self._limpiar_icono
+        )
+        self.btn_limpiar_icono.pack(side='right', padx=(4, 0))
+
+        ctk.CTkLabel(self.grid_frame, text='SHOPIFY:', text_color=self.colors['text'], font=lbl_font).grid(row=1, column=5, sticky='w', padx=6, pady=6)
+        tax_kw = default_entry_kw.copy()
+        tax_kw.update({'placeholder_text': 'Taxonomy', 'border_width': 2})
+        self.e_taxonomy = ctk.CTkEntry(self.grid_frame, **tax_kw)
+        self.e_taxonomy.grid(row=1, column=6, columnspan=2, sticky='ew', padx=6, pady=6)
+
+        # Fila 3: DESCRIPCION
+        ctk.CTkLabel(self.grid_frame, text='DESCRIPCIÓN:', text_color=self.colors['text'], font=lbl_font).grid(row=2, column=0, sticky='nw', padx=6, pady=6)
         try:
             self.txt_descripcion = ctk.CTkTextbox(
                 self.grid_frame,
-                width=900,
-                height=120,
+                height=80,
                 fg_color=self.colors.get('background', '#000000'),
                 text_color=self.colors.get('text', COLOR_MATRIX),
                 border_width=2,
                 border_color=self.colors.get('border', self.colors.get('primary'))
             )
-            self.txt_descripcion.grid(row=2, column=0, columnspan=8, sticky='nsew', padx=6, pady=6)
+            self.txt_descripcion.grid(row=2, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
         except Exception:
             frame = ctk.CTkFrame(self.grid_frame, fg_color=self.colors.get('background', '#000000'), border_width=2, border_color=self.colors.get('border', self.colors.get('primary')))
-            self.txt_descripcion = tk.Text(frame, bg=self.colors.get('background', '#000000'), fg=self.colors.get('text', COLOR_MATRIX))
+            self.txt_descripcion = tk.Text(frame, bg=self.colors.get('background', '#000000'), fg=self.colors.get('text', COLOR_MATRIX), height=4)
             self.txt_descripcion.pack(fill='both', expand=True)
-            frame.grid(row=2, column=0, columnspan=8, sticky='nsew', padx=6, pady=6)
+            frame.grid(row=2, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
 
-        # Fila 4: SHOPIFY_TAXONOMY (5 col) | % TESORO (3 col)
-        ctk.CTkLabel(self.grid_frame, text='SHOPIFY_TAXONOMY:', text_color=self.colors['text'], font=lbl_font).grid(row=3, column=0, sticky='w', padx=6, pady=6)
-        tax_kw = default_entry_kw.copy()
-        tax_kw.update({'placeholder_text': 'shopify_taxonomy', 'border_width': 2})
-        self.e_taxonomy = ctk.CTkEntry(self.grid_frame, **tax_kw)
-        self.e_taxonomy.grid(row=3, column=1, columnspan=5, sticky='ew', padx=6, pady=6)
-
-        ctk.CTkLabel(self.grid_frame, text='% TESORO:', text_color=self.colors['text'], font=lbl_font).grid(row=3, column=6, sticky='w', padx=6, pady=6)
-        fide_kw = default_entry_kw.copy()
-        fide_kw.update({'placeholder_text': '0.0', 'border_width': 2})
-        self.e_fide = ctk.CTkEntry(self.grid_frame, **fide_kw)
-        self.e_fide.grid(row=3, column=7, columnspan=1, sticky='ew', padx=6, pady=6)
-
-        # Chips area inside a scrollable frame so many items can be browsed
+        # Chips area
         self.chips_frame = ctk.CTkScrollableFrame(self.grid_frame, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
-        self.chips_frame.grid(row=4, column=0, columnspan=8, sticky='nsew', padx=6, pady=6)
+        self.chips_frame.grid(row=3, column=0, columnspan=8, sticky='nsew', padx=6, pady=6)
+        self.grid_frame.grid_rowconfigure(3, weight=1)
 
         # Footer buttons (desde config)
         self.footer = ctk.CTkFrame(self.container, fg_color='transparent')
@@ -144,8 +196,16 @@ class CategoriasUI:
 
     def _select_chip(self, btn):
         try:
+            # Validar que el botón aún existe
+            if not btn.winfo_exists():
+                return
+
             if self.selected_chip is not None:
-                ButtonFactory.apply_style(self.selected_chip, "chip_default")
+                try:
+                    if self.selected_chip.winfo_exists():
+                        ButtonFactory.apply_style(self.selected_chip, "chip_default")
+                except Exception:
+                    pass
 
             self.selected_chip = btn
             ButtonFactory.apply_style(btn, "chip_selected")
@@ -161,6 +221,15 @@ class CategoriasUI:
             self.e_id.configure(state='disabled')
             self.e_nombre.delete(0, 'end')
             self.e_nombre.insert(0, cat.get('nombre') or '')
+            
+            self.e_icono.configure(state='normal')
+            self.e_icono.delete(0, 'end')
+            self.e_icono.insert(0, cat.get('icono') or '')
+            self.e_icono.configure(state='disabled')
+
+            self.e_color.delete(0, 'end')
+            self.e_color.insert(0, cat.get('color') or '')
+            self._update_color_preview()
             try:
                 self.txt_descripcion.delete('1.0', 'end')
                 self.txt_descripcion.insert('1.0', cat.get('descripcion') or '')
@@ -197,6 +266,11 @@ class CategoriasUI:
             self.e_id.delete(0, 'end')
             self.e_id.configure(state='disabled')
             self.e_nombre.delete(0, 'end')
+            self.e_icono.configure(state='normal')
+            self.e_icono.delete(0, 'end')
+            self.e_icono.configure(state='disabled')
+            self.e_color.delete(0, 'end')
+            self._update_color_preview()
             try:
                 self.txt_descripcion.delete('1.0', 'end')
             except Exception:
@@ -218,6 +292,8 @@ class CategoriasUI:
             nombre = (self.e_nombre.get() or '').strip()
             if not nombre:
                 return
+            color = (self.e_color.get() or '').strip()
+            icono = (self.e_icono.get() or '').strip()
             descripcion = ''
             try:
                 descripcion = self.txt_descripcion.get('1.0', 'end-1c').strip()
@@ -239,17 +315,93 @@ class CategoriasUI:
             except Exception:
                 id_val = None
             if id_val:
-                ok = self.service.update(id_val, nombre, descripcion, taxonomy, fide)
+                ok = self.service.update(id_val, nombre, descripcion, taxonomy, fide, color, icono)
                 if ok:
                     self.clear()
                     self._load_categorias()
             else:
-                new_id = self.service.save(nombre, descripcion, taxonomy, fide)
+                new_id = self.service.save(nombre, descripcion, taxonomy, fide, color, icono)
                 if new_id:
                     self.clear()
                     self._load_categorias()
         except Exception:
             logging.exception('Error guardando categoría')
+
+    def _update_color_preview(self):
+        """Actualizar el color del borde del entry para previsualizar el color."""
+        try:
+            color = self.e_color.get().strip()
+            if color and (color.startswith('#') and len(color) in (4, 7)):
+                self.e_color.configure(border_color=color)
+                self.btn_pick_color.configure(border_color=color)
+            else:
+                self.e_color.configure(border_color=self.colors.get('border', self.colors.get('primary')))
+                self.btn_pick_color.configure(border_color=self.colors.get('border', self.colors.get('primary')))
+        except Exception:
+            pass
+
+    def _open_color_picker(self):
+        """Abrir el diálogo de selección de color."""
+        from kool_tpv.utils.dialogs.color_picker import ColorPickerDialog
+        
+        current = self.e_color.get().strip() or "#333333"
+        
+        def on_color_selected(color):
+            if color:
+                self.e_color.delete(0, 'end')
+                self.e_color.insert(0, color)
+                self._update_color_preview()
+
+        ColorPickerDialog(self.container, initial_color=current, callback=on_color_selected)
+
+    def _subir_icono(self):
+        """Abrir diálogo para subir un icono y copiarlo a assets."""
+        from tkinter import filedialog
+        import os
+        import shutil
+        from pathlib import Path
+
+        file_types = [('Imágenes', '*.png *.jpg *.jpeg *.svg')]
+        file_path = filedialog.askopenfilename(title="Seleccionar icono", filetypes=file_types)
+        
+        if not file_path:
+            return
+
+        try:
+            # Asegurar que la carpeta existe
+            dest_dir = Path("/Volumes/ALMACEN/KOOL_THINGS/KOOL_TPV_V2/kool_tpv/assets/iconos")
+            dest_dir.mkdir(parents=True, exist_ok=True)
+
+            # Nombre destino: id_nombre.ext o solo nombre.ext si es nuevo
+            ext = os.path.splitext(file_path)[1].lower()
+            nombre_limpio = (self.e_nombre.get() or "nuevo").strip().lower().replace(" ", "_")
+            id_val = self.e_id.get() or "temp"
+            
+            dest_filename = f"cat_{id_val}_{nombre_limpio}{ext}"
+            dest_path = dest_dir / dest_filename
+
+            # Copiar archivo
+            shutil.copy2(file_path, dest_path)
+
+            # Actualizar entry
+            self.e_icono.configure(state='normal')
+            self.e_icono.delete(0, 'end')
+            self.e_icono.insert(0, dest_filename)
+            self.e_icono.configure(state='disabled')
+
+            from kool_tpv.utils.custom_dialog import show_info
+            show_info(self.container, "ÉXITO", f"Icono guardado como: {dest_filename}")
+
+        except Exception:
+            logging.exception("Error subiendo icono")
+            from kool_tpv.utils.custom_dialog import show_error
+            show_error(self.container, "ERROR", "No se pudo subir el icono")
+
+    def _limpiar_icono(self):
+        """Limpiar el icono seleccionado."""
+        self.e_icono.configure(state='normal')
+        self.e_icono.delete(0, 'end')
+        self.e_icono.configure(state='disabled')
 
     def delete(self):
         try:

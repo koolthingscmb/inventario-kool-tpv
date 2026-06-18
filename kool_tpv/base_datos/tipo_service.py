@@ -24,16 +24,16 @@ class TipoService:
             logging.exception('Error listando tipos')
             return []
 
-    def save_tipo(self, nombre: str, descripcion: str = '', fide_porcentaje: float = 0.0, shopify_taxonomy: str = '') -> int:
+    def save_tipo(self, nombre: str, descripcion: str = '', fide_porcentaje: float = 0.0, shopify_taxonomy: str = '', color: str = None, icono: str = None) -> int:
         try:
-            return self.repo.insert(nombre, descripcion, shopify_taxonomy, fide_porcentaje)
+            return self.repo.insert(nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono)
         except Exception:
             logging.exception('Error guardando tipo')
             raise
 
-    def update_tipo(self, id: int, nombre: str, descripcion: str = '', fide_porcentaje: float = 0.0, shopify_taxonomy: str = '') -> bool:
+    def update_tipo(self, id: int, nombre: str, descripcion: str = '', fide_porcentaje: float = 0.0, shopify_taxonomy: str = '', color: str = None, icono: str = None) -> bool:
         try:
-            self.repo.update(id, nombre, descripcion, shopify_taxonomy, fide_porcentaje)
+            self.repo.update(id, nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono)
             return True
         except Exception:
             logging.exception('Error actualizando tipo %s', id)

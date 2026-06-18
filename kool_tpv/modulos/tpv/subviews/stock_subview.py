@@ -6,13 +6,14 @@ logger = logging.getLogger(__name__)
 
 class StockSubView(CTkFrame):
 
-    def __init__(self, parent, db, carrito_service, view=None, module_name='tpv'):
+    def __init__(self, parent, db, carrito_service, view=None, module_name='tpv', on_select_callback=None):
         super().__init__(parent)
 
         self.db = db
         self.carrito_service = carrito_service
         self.view = view
         self.module_name = module_name
+        self.on_select_callback = on_select_callback
 
         # Header
         self.header_frame = CTkFrame(self)
@@ -93,6 +94,14 @@ class StockSubView(CTkFrame):
             except Exception:
                 producto = data
 
+            # MODO SELECCIÓN: Si hay callback, devolver el producto y cerrar
+            if self.on_select_callback:
+                if callable(self.on_select_callback):
+                    self.on_select_callback(producto)
+                self.view.pop_subview()
+                return
+
+            # MODO VENTA: Comportamiento normal
             try:
                 producto_data = self.producto_service.get_producto_para_carrito(producto)
             except Exception:

@@ -197,7 +197,7 @@ class BusquedaUI:
                 categoria_id=cat_id,
                 tipo_id=tipo_id,
                 estados=estados if estados else None,
-                limit=50,
+                limit=5000,
                 offset=0
             )
         except Exception:

@@ -24,16 +24,16 @@ class CategoriaService:
             logging.exception('Error listando categorías')
             return []
 
-    def save(self, nombre: str, descripcion: str = '', shopify_taxonomy: str = '', fide_porcentaje: float = 0.0) -> int:
+    def save(self, nombre: str, descripcion: str = '', shopify_taxonomy: str = '', fide_porcentaje: float = 0.0, color: str = None, icono: str = None) -> int:
         try:
-            return self.repo.insert(nombre, descripcion, shopify_taxonomy, fide_porcentaje)
+            return self.repo.insert(nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono)
         except Exception:
             logging.exception('Error guardando categoría')
             raise
 
-    def update(self, id: int, nombre: str, descripcion: str = '', shopify_taxonomy: str = '', fide_porcentaje: float = 0.0) -> bool:
+    def update(self, id: int, nombre: str, descripcion: str = '', shopify_taxonomy: str = '', fide_porcentaje: float = 0.0, color: str = None, icono: str = None) -> bool:
         try:
-            self.repo.update(id, nombre, descripcion, shopify_taxonomy, fide_porcentaje)
+            self.repo.update(id, nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono)
             return True
         except Exception:
             logging.exception('Error actualizando categoría %s', id)

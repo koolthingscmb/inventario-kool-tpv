@@ -18,3 +18,7 @@ kool_tpv/borradores/
 
 # Base de datos de trabajo (se genera automáticamente al arrancar)
 kool_tpv/base_datos/kool_bd.db
+kool_tpv/base_datos/kool_tpv.db
+
+# Scripts de test/utilidad locales
+stress_test_data.py

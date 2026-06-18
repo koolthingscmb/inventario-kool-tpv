@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS categorias (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	nombre TEXT UNIQUE,
 	descripcion TEXT,
+	color TEXT,
+	icono TEXT,
 	created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 	updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 	shopify_taxonomy TEXT,
@@ -31,6 +33,8 @@ CREATE TABLE IF NOT EXISTS tipos (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	nombre TEXT UNIQUE,
 	descripcion TEXT,
+	color TEXT,
+	icono TEXT,
 	created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 	updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 	shopify_taxonomy TEXT,
@@ -330,4 +334,14 @@ CREATE TABLE IF NOT EXISTS codigos_barras (
 );
 
 CREATE INDEX IF NOT EXISTS idx_codigos_producto ON codigos_barras(producto_id);
+
+-- favoritos
+CREATE TABLE IF NOT EXISTS favoritos (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	producto_id INTEGER NOT NULL,
+	nombre TEXT,
+	posicion INTEGER,
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+	FOREIGN KEY(producto_id) REFERENCES productos(id) ON DELETE CASCADE
+);
 

@@ -84,6 +84,7 @@
     "tpv": {
       "search_button": { "family": "Courier New", "size": 24, "weight": "bold", "fallback": ["Courier New"] },
       "grid_button": { "family": "Courier New", "size": 36, "weight": "bold", "fallback": ["Courier New"] },
+      "favorite_chip": { "family": "Courier New", "size": 18, "weight": "bold" },
       "ticket_carrito": {
         "header_info": { "family": "Courier New", "size": 14, "weight": "normal" },
         "header_cliente": { "family": "Courier New", "size": 16, "weight": "bold" },

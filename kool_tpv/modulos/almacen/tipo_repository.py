@@ -33,7 +33,7 @@ class TipoRepository:
     def get_all(self) -> List[Dict[str, Any]]:
         """Todos los tipos ordenados por nombre."""
         rows = self.db.fetch_all(
-            'SELECT id, nombre, descripcion, shopify_taxonomy, fide_porcentaje '
+            'SELECT id, nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono '
             'FROM tipos ORDER BY nombre'
         )
         return [
@@ -43,6 +43,8 @@ class TipoRepository:
                 'descripcion': r[2],
                 'shopify_taxonomy': r[3],
                 'fide_porcentaje': r[4],
+                'color': r[5],
+                'icono': r[6],
             }
             for r in rows
         ] if rows else []
@@ -50,7 +52,7 @@ class TipoRepository:
     def get_by_id(self, id: int) -> Optional[Dict[str, Any]]:
         """Tipo por id. Devuelve None si no existe."""
         row = self.db.fetch_one(
-            'SELECT id, nombre, descripcion, shopify_taxonomy, fide_porcentaje '
+            'SELECT id, nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono '
             'FROM tipos WHERE id = ?',
             (id,),
         )
@@ -62,6 +64,8 @@ class TipoRepository:
             'descripcion': row[2],
             'shopify_taxonomy': row[3],
             'fide_porcentaje': row[4],
+            'color': row[5],
+            'icono': row[6],
         }
 
     def get_ventas_por_tipo(self, ticket_ids: List[int], line_tipo: str = None, tipo_ids: List[int] = None):
@@ -130,12 +134,14 @@ class TipoRepository:
         descripcion: str,
         shopify_taxonomy: str,
         fide_porcentaje: float,
+        color: str = None,
+        icono: str = None,
     ) -> int:
         """Inserta un nuevo tipo. Devuelve el id generado."""
         cur = self.db.execute_query(
-            'INSERT INTO tipos (nombre, descripcion, shopify_taxonomy, fide_porcentaje) '
-            'VALUES (?, ?, ?, ?)',
-            (nombre, descripcion, shopify_taxonomy, float(fide_porcentaje)),
+            'INSERT INTO tipos (nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono) '
+            'VALUES (?, ?, ?, ?, ?, ?)',
+            (nombre, descripcion, shopify_taxonomy, float(fide_porcentaje), color, icono),
         )
         return cur.lastrowid
 
@@ -146,12 +152,14 @@ class TipoRepository:
         descripcion: str,
         shopify_taxonomy: str,
         fide_porcentaje: float,
+        color: str = None,
+        icono: str = None,
     ) -> None:
         """Actualiza un tipo existente."""
         self.db.execute_query(
             'UPDATE tipos SET nombre = ?, descripcion = ?, '
-            'shopify_taxonomy = ?, fide_porcentaje = ? WHERE id = ?',
-            (nombre, descripcion, shopify_taxonomy, float(fide_porcentaje), id),
+            'shopify_taxonomy = ?, fide_porcentaje = ?, color = ?, icono = ? WHERE id = ?',
+            (nombre, descripcion, shopify_taxonomy, float(fide_porcentaje), color, icono, id),
         )
 
     def delete(self, id: int) -> None:

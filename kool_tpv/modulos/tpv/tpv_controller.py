@@ -187,19 +187,50 @@ class TpvController:
             logger.exception('Error creando DevolucionAction')
             self._devolucion_action = None
 
-        # StockSubView (replace StockUI with subview push)
+        # StockSubView: provide a proxy so it's created only on demand
         try:
-            from kool_tpv.modulos.tpv.subviews.stock_subview import StockSubView
+            class _StockUIProxy:
+                def __init__(self, view, db, carrito_service):
+                    self.view = view
+                    self.db = db
+                    self.carrito_service = carrito_service
 
-            self._stock_ui = StockSubView(
-                parent=self.view.center_area,
-                db=self.db,
-                carrito_service=carrito_service,
-                view=self.view
-            )
-            logger.debug('StockSubView creado')
+                def show(self):
+                    try:
+                        sub = getattr(self.view, '_stock_subview', None)
+                        exists = False
+                        try:
+                            if sub and getattr(sub, 'winfo_exists', None):
+                                exists = bool(sub.winfo_exists())
+                        except Exception:
+                            exists = False
+
+                        if not sub or not exists:
+                            try:
+                                from kool_tpv.modulos.tpv.subviews.stock_subview import StockSubView
+                                parent = getattr(self.view, 'center_area', self.view)
+                                sub = StockSubView(
+                                    parent=parent,
+                                    db=self.db,
+                                    carrito_service=self.carrito_service,
+                                    view=self.view
+                                )
+                                self.view._stock_subview = sub
+                            except Exception:
+                                logger.exception('Error creando StockSubView dinámicamente')
+                                return
+
+                        try:
+                            self.view.push_subview(sub, "STOCK")
+                        except Exception:
+                            logger.exception('Error mostrando StockSubView')
+                    except Exception:
+                        logger.exception('Error en StockUIProxy.show')
+
+            self._stock_ui = _StockUIProxy(self.view, self.db, carrito_service)
+            logger.debug('StockSubView proxy creado')
         except Exception:
-            logger.exception('Error creando StockSubView')
+            logger.exception('Error creando StockSubView proxy')
             self._stock_ui = None
 
         # CierreUI: provide a small adapter with `.show()` so button mapper can

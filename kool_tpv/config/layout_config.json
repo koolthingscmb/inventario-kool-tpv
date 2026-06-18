@@ -103,7 +103,7 @@
           "min_button_size": 120,
           "max_button_size": 400,
           "buttons": [
-            {"label": "BUSCAR ARTÍCULO", "command": "buscar_articulo", "row": 0, "col": 0, "colspan": 2, "style_key": "menu_almacen"},
+            {"label": "FAVORITOS", "command": "buscar_articulo", "row": 0, "col": 0, "colspan": 2, "style_key": "menu_almacen"},
             {"label": "CASH", "shortcut": "Alt+1", "command": "Pagar en Efectivo", "row": 0, "col": 2, "colspan": 2, "style_key": "menu_almacen"},
             {"label": "STOCK", "command": "stock", "row": 1, "col": 0, "style_key": "menu_almacen"},
             {"label": "MULTI $", "shortcut": "Alt+4", "command": "Multicobro", "row": 1, "col": 1, "style_key": "menu_almacen"},
@@ -217,6 +217,12 @@
         "category_button_height": 48,
         "article_button_height": 50,
         "grid_spacing": 5
+      },
+      "favorites": {
+        "columns": 8,
+        "chip_height": 80,
+        "grid_spacing": 8,
+        "max_chars_line": 12
       }
     },
     "almacen": {},

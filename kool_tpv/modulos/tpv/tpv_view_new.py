@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 from kool_tpv.modulos.tpv.carrito.carrito_service import CarritoService
 
 # 2. IMPORTACIÓN EXACTA (SOLUCIÓN)
-from kool_tpv.modulos.tpv.subviews.buscar_subview import BuscarSubView
+from kool_tpv.modulos.tpv.actions.Favoritos.favoritos_subview import FavoritosSubView
 
 # --- RUTA CONFIG ---
 BASE_DIR = Path(__file__).resolve().parents[2] 
@@ -161,7 +161,7 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
 
             # preserve command mapping for buscar_articulo
             cmd_name = btn_data.get("command")
-            cmd = self._mostrar_buscar if cmd_name == "buscar_articulo" else None
+            cmd = self._mostrar_favoritos if cmd_name == "buscar_articulo" else None
             label = btn_data.get("label", "???")
             shortcut = btn_data.get("shortcut", "")
             display_text = f"{label}\n({shortcut})" if shortcut else label
@@ -282,8 +282,8 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
             except Exception:
                 pass
 
-    def _mostrar_buscar(self):
-        """Mostrar subvista de búsqueda (reemplaza el grid)."""
+    def _mostrar_favoritos(self):
+        """Mostrar subvista de favoritos (reemplaza el grid)."""
         def refresh_ticket():
             try:
                 ticket = getattr(self, 'ticket_widget', None) or getattr(self, 'ticket_carrito', None) or getattr(self, 'ticket', None)
@@ -292,14 +292,33 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
             except Exception:
                 pass
         
-        buscar_view = BuscarSubView(
+        def show_config():
+            from kool_tpv.modulos.tpv.actions.Favoritos.favoritos_config_subview import FavoritosConfigSubView
+            
+            def on_config_closed():
+                self.pop_subview()
+                # Refrescar los botones de favoritos al volver
+                current_view = self._subview_stack[-1]["view"]
+                if hasattr(current_view, 'cargar_favoritos'):
+                    current_view.cargar_favoritos()
+
+            config_view = FavoritosConfigSubView(
+                self.center_area,
+                db=self.db,
+                view=self,
+                on_close_callback=on_config_closed
+            )
+            self.push_subview(config_view, "Configuración Favoritos")
+
+        fav_view = FavoritosSubView(
             self.center_area,
             db=self.db,
             carrito_service=self.carrito_service,
             on_add_callback=refresh_ticket,
-            on_close_callback=self.pop_subview
+            on_close_callback=self.pop_subview,
+            on_edit_callback=show_config
         )
-        self.push_subview(buscar_view, "Buscar")
+        self.push_subview(fav_view, "Favoritos")
 
     def pop_subview(self):
         """Cerrar la sub-vista actual y mostrar la anterior (o el grid base)."""

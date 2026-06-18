@@ -123,6 +123,37 @@ def initialize_database(db_path: str) -> None:
 		except Exception:
 			logging.exception('Error aplicando migración 004')
 
+		# Migration 005: Sistema de Favoritos (Colores e Iconos + tabla favoritos)
+		try:
+			# 1. Columnas color e icono en categorias y tipos
+			for table in ['categorias', 'tipos']:
+				cols = [r[1] for r in (db.fetch_all(f"PRAGMA table_info('{table}')") or [])]
+				if 'color' not in cols:
+					logging.info(f'Añadiendo columna color a {table}')
+					db.connection.execute(f'ALTER TABLE {table} ADD COLUMN color TEXT')
+				if 'icono' not in cols:
+					logging.info(f'Añadiendo columna icono a {table}')
+					db.connection.execute(f'ALTER TABLE {table} ADD COLUMN icono TEXT')
+			
+			# 2. Tabla favoritos
+			db.connection.execute('''CREATE TABLE IF NOT EXISTS favoritos (
+				id          INTEGER PRIMARY KEY AUTOINCREMENT,
+				producto_id INTEGER NOT NULL,
+				nombre      TEXT,
+				posicion    INTEGER,
+				created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+				FOREIGN KEY(producto_id) REFERENCES productos(id) ON DELETE CASCADE
+			)''')
+			
+			db.connection.commit()
+			logging.info('Migración 005 (Favoritos) aplicada correctamente o ya existente')
+		except Exception:
+			logging.exception('Error aplicando migración 005')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Validate again
 		try:
 			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table'")
