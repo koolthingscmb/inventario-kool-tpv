@@ -13,7 +13,7 @@ from typing import Callable
 
 logger = logging.getLogger(__name__)
 
-THRESHOLD_MS = 80       # ms máximo entre teclas para considerarlas del mismo escáner
+THRESHOLD_MS = 150       # ms máximo entre teclas para considerarlas del mismo escáner (aumentado de 80)
 MIN_CODE_LENGTH = 3
 EAN_LENGTH = 13         # longitud estándar EAN-13
 

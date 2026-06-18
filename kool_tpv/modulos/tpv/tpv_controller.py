@@ -94,6 +94,7 @@ class TpvController:
 
     def _on_barcode_scanned(self, code: str):
         """Callback cuando el escáner detecta un código de barras."""
+        logger.info(f"TpvController: Procesando código escaneado: '{code}'")
         try:
             from kool_tpv.base_datos.producto_service import ProductoService
             from kool_tpv.utils.custom_dialog import show_error
