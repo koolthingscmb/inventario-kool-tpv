@@ -25,15 +25,33 @@ def ensure_barcodes_dir():
         except Exception:
             logger.exception(f"No se pudo crear el directorio: {BARCODES_DIR}")
 
+def calculate_ean13_checksum(code12: str) -> str:
+    """Calcula el dígito de control para un código EAN-13 de 12 dígitos."""
+    if len(code12) != 12 or not code12.isdigit():
+        raise ValueError("El código base debe tener 12 dígitos numéricos")
+    
+    # Pesos: 1 para posiciones impares, 3 para pares
+    suma = 0
+    for i, digit in enumerate(code12):
+        weight = 3 if i % 2 != 0 else 1
+        suma += int(digit) * weight
+    
+    check_digit = (10 - (suma % 10)) % 10
+    return str(check_digit)
+
 def generate_internal_number() -> str:
-    """Genera un número único de 13 dígitos para uso interno.
-    Formato: 99 + timestamp (YYMMDD) + 5 dígitos aleatorios.
+    """Genera un número EAN-13 válido (13 dígitos) para uso interno.
+    Formato: 99 + timestamp (YYMMDD) + 4 dígitos aleatorios + dígito control.
     """
     prefix = "99"
     now = datetime.datetime.now()
     timestamp = now.strftime("%y%m%d") # 6 dígitos
-    random_part = "".join([str(random.randint(0, 9)) for _ in range(5)]) # 5 dígitos
-    return f"{prefix}{timestamp}{random_part}"
+    random_part = "".join([str(random.randint(0, 9)) for _ in range(4)]) # 4 dígitos
+    
+    code12 = f"{prefix}{timestamp}{random_part}"
+    checksum = calculate_ean13_checksum(code12)
+    
+    return f"{code12}{checksum}"
 
 def generate_barcode_image(code: str, sku: str) -> Optional[str]:
     """Generar imagen del código de barras usando python-barcode."""
@@ -46,27 +64,28 @@ def generate_barcode_image(code: str, sku: str) -> Optional[str]:
     output_base = os.path.join(BARCODES_DIR, safe_sku)
     
     try:
-        # Usar Code128
-        CODE128 = barcode.get_barcode_class('code128')
+        # Usar EAN13 en lugar de Code128
+        EAN13 = barcode.get_barcode_class('ean13')
         # ImageWriter usa Pillow internamente para generar PNG/JPG
         writer = ImageWriter()
         # Ajustar opciones para mejor legibilidad
         options = {
             'module_height': 15.0,
-            'module_width': 0.2,
+            'module_width': 0.3, # Un poco más ancho para EAN13
             'font_size': 10,
             'text_distance': 5.0,
-            'quiet_zone': 2.0
+            'quiet_zone': 6.0 # EAN13 necesita más zona de silencio
         }
         
-        my_barcode = CODE128(code, writer=writer)
+        # El código debe tener 13 dígitos
+        my_barcode = EAN13(code, writer=writer)
         # save() añade la extensión automáticamente si no se indica en el path
         full_path = my_barcode.save(output_base, options=options)
         
-        logger.info(f"Código de barras generado: {full_path} (Code: {code})")
+        logger.info(f"Código de barras EAN-13 generado: {full_path} (Code: {code})")
         return full_path
     except Exception:
-        logger.exception(f"Error generando imagen de código de barras para SKU {sku}")
+        logger.exception(f"Error generando imagen de código de barras EAN-13 para SKU {sku}")
         return None
 
 def get_barcode_path(sku: str) -> str:
