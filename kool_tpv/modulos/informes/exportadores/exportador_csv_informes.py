@@ -71,6 +71,12 @@ class ExportadorCSVInformes:
                 end = rng.get('end', '')
                 writer.writerow(["Rango:", f"{start} → {end}"])
 
+            # Metadatos extra de Presencia
+            if report_data.get('display_subformat') == 'presencia':
+                writer.writerow(["Usuario:", report_data.get('usuario_header', 'TODOS')])
+                writer.writerow(["Total Registros:", report_data.get('total_registros', 0)])
+                writer.writerow(["Tiempo Total:", report_data.get('total_tiempo', '0h 0m')])
+
             writer.writerow([])
 
             # Items del informe
@@ -109,6 +115,20 @@ class ExportadorCSVInformes:
                     writer.writerow([])
                 elif tipo_item == 'total_global':
                     writer.writerow([nombre, '', tickets, uds, f"{euros:.2f}"])
+
+        elif display_subformat == 'presencia':
+            writer.writerow(["Usuario", "Fecha", "Entrada", "Salida", "Duracion", "Estado", "Notas"])
+            writer.writerow([])
+            for item in items:
+                writer.writerow([
+                    item.get('usuario', ''),
+                    item.get('fecha', ''),
+                    item.get('entrada', ''),
+                    item.get('salida', ''),
+                    item.get('duracion', ''),
+                    item.get('estado', ''),
+                    item.get('notas', '')
+                ])
 
         elif display_subformat == 'daily':
             writer.writerow(["Fecha", "Tickets", "Uds", "Total"])

@@ -1,13 +1,17 @@
 """PresenciaUI: Interfaz para control de fichajes (entrada/salida)."""
 import logging
+from datetime import datetime
 import customtkinter as ctk
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.custom_dialog import show_password_dialog, show_warning
+from kool_tpv.utils.dialogs.input_dialog import InputDialog
 from kool_tpv.utils.auth_service import AuthService
 from kool_tpv.base_datos.usuario_service import UsuarioService
 from kool_tpv.modulos.presencia.presencia_service import PresenciaService
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
 from kool_tpv.utils.font_loader import get_font
+from kool_tpv.utils.time_utils import format_ddmmyyyy
+from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +30,19 @@ class PresenciaUI(ctk.CTkFrame):
         self.selected_user = None
         
         self._setup_ui()
+
+    def _format_duracion(self, minutos: int | None) -> str:
+        """Convierte minutos a formato legible (Xh Ym o X min)."""
+        if minutos is None:
+            return "..."
+        if minutos < 0: return "0 min"
+        if minutos < 60:
+            return f"{minutos} min"
+        h = minutos // 60
+        m = minutos % 60
+        if m == 0:
+            return f"{h}h"
+        return f"{h}h {m}m"
 
     def _setup_ui(self):
         # Título
@@ -61,38 +78,65 @@ class PresenciaUI(ctk.CTkFrame):
         self.lbl_placeholder = ctk.CTkLabel(
             self.detail_container, 
             text="SELECCIONA UN USUARIO\nPARA FICHAR",
-            font=get_font("label"),
+            font=get_font("placeholder", module="presencia"),
             text_color="#666666"
         )
         self.lbl_placeholder.pack(expand=True)
 
     def _create_user_chips(self):
-        """Crea los chips de usuarios al estilo CajeroSubView."""
-        usuarios = self.usuario_service.get_all_usuarios()
-        
-        for i, user in enumerate(usuarios or []):
+        """Crea los chips de usuarios con indicador visual de estado (●/○).
+        El punto tiene color propio (verde=trabajando, rojo=no trabajando).
+        El nombre usa el color definido por el estilo 'cajero_chip'.
+        """
+        for w in self.chips_scroll.winfo_children():
+            w.destroy()
+
+        usuarios = self.usuario_service.get_all_usuarios() or []
+
+        for i, user in enumerate(usuarios):
             row = i // 2
             col = i % 2
             user_id = user.get("id")
             nombre = user.get("nombre")
 
+            estado = self.presencia_service.get_estado_usuario(user_id)
+            trabajando = estado.get("trabajando", False)
+
+            # Contenedor de celda para combinar dot + botón
+            cell = ctk.CTkFrame(self.chips_scroll, fg_color="transparent")
+            cell.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
+
+            # Indicador de estado con color diferenciado
+            dot_color = "#00FF00" if trabajando else "#FF0000"
+            dot = ctk.CTkLabel(
+                cell,
+                text="●" if trabajando else "○",
+                text_color=dot_color,
+                font=("Segoe UI Emoji", 42)
+            )
+            dot.pack(side="left", padx=(0, 10), anchor="center")
+
+            # Botón con solo el nombre (color del estilo)
             btn = ButtonFactory.create_button(
-                parent=self.chips_scroll,
+                parent=cell,
                 text=nombre,
                 style_key="cajero_chip",
                 command=lambda uid=user_id, n=nombre: self._on_user_click(uid, n)
             )
-            btn.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
+            btn.pack(side="left", fill="both", expand=True)
 
         for c in range(2):
             self.chips_scroll.grid_columnconfigure(c, weight=1)
 
-    def _on_user_click(self, user_id, nombre):
-        """Al pulsar un usuario, pedir contraseña y mostrar su ficha."""
-        # Limpiar panel derecho si había algo
-        for w in self.detail_container.winfo_children():
-            w.destroy()
+    def _refresh_user_chips(self):
+        """Recarga los chips para reflejar cambios de estado en tiempo real."""
+        self._create_user_chips()
 
+    def _on_user_click(self, user_id, nombre):
+        """Al pulsar un usuario, pedir contraseña. Si es válida, dispara automáticamente
+        el fichaje (entrada o salida según estado actual) y muestra toda la información.
+        No se requiere pulsar ningún botón adicional de 'Fichar'.
+        """
         password = show_password_dialog(
             self.winfo_toplevel(),
             titulo="Autenticar",
@@ -105,10 +149,77 @@ class PresenciaUI(ctk.CTkFrame):
 
         if self.auth_service.validate_user_password(user_id, password):
             self.selected_user = {"id": user_id, "nombre": nombre}
-            self._show_user_detail()
+            
+            # Chequeo de seguridad: ¿Es un olvido de ayer o antes?
+            estado = self.presencia_service.get_estado_usuario(user_id)
+            es_olvido = False
+            if estado["trabajando"] and estado["desde"]:
+                try:
+                    fecha_entrada = estado["desde"].split()[0]
+                    hoy = datetime.now().strftime("%Y-%m-%d")
+                    if fecha_entrada < hoy:
+                        es_olvido = True
+                except Exception:
+                    pass
+
+            if not es_olvido:
+                # Password dispara la acción directamente (comportamiento normal)
+                res = self.presencia_service.fichar(user_id)
+                self._refresh_user_chips()
+                if res.get("success"):
+                    tipo = "ENTRADA" if res.get("tipo") == "entrada" else "SALIDA"
+                    ToastWidget.show(self.winfo_toplevel(), f"{tipo} REGISTRADA CORRECTAMENTE", tipo="success")
+                else:
+                    ToastWidget.show(self.winfo_toplevel(), f"ERROR AL FICHAR: {res.get('error')}", tipo="error")
+                self._show_user_detail(last_action=res if res.get("success") else None)
+            else:
+                # Si es un olvido, NO fichamos. Mostramos el detalle para que use el botón CORREGIR.
+                self._refresh_user_chips()
+                self._show_user_detail()
         else:
             show_warning(self.winfo_toplevel(), "ERROR", "Contraseña incorrecta")
             self._show_placeholder()
+
+    def _on_corregir_click(self, sesion_id):
+        """Maneja el clic en corregir olvido. Pide hora de salida y nota."""
+        # 1. Pedir Hora
+        dialog_hora = InputDialog(
+            self.winfo_toplevel(),
+            titulo="CORREGIR OLVIDO",
+            mensaje="¿A qué hora saliste ayer? (HH:MM)",
+            valor_defecto="18:00"
+        )
+        hora = dialog_hora.get_input()
+        if not hora: return
+
+        # Validar formato básico HH:MM
+        if ":" not in hora or len(hora.split(":")[0]) > 2:
+            show_warning(self.winfo_toplevel(), "ERROR", "Formato de hora inválido (usa HH:MM)")
+            return
+
+        # 2. Pedir Nota
+        dialog_nota = InputDialog(
+            self.winfo_toplevel(),
+            titulo="MOTIVO",
+            mensaje="Escribe una breve nota del olvido:",
+            valor_defecto="Olvido de fichaje"
+        )
+        nota = dialog_nota.get_input() or "Corrección manual"
+
+        # 3. Procesar
+        # Obtenemos la fecha de la sesión activa para reconstruir el timestamp completo
+        estado = self.presencia_service.get_estado_usuario(self.selected_user["id"])
+        fecha_solo = estado["desde"].split()[0] # YYYY-MM-DD
+        timestamp_salida = f"{fecha_solo} {hora}:00"
+
+        res = self.presencia_service.corregir_fichaje(sesion_id, timestamp_salida, nota)
+        
+        if res.get("success"):
+            ToastWidget.show(self.winfo_toplevel(), "SESIÓN CORREGIDA. YA PUEDES FICHAR HOY.", tipo="success")
+            self._refresh_user_chips()
+            self._show_user_detail() # Refrescar detalle para que salga el botón de entrada normal
+        else:
+            show_warning(self.winfo_toplevel(), "ERROR", f"No se pudo corregir: {res.get('error')}")
 
     def _show_placeholder(self):
         for w in self.detail_container.winfo_children():
@@ -116,72 +227,124 @@ class PresenciaUI(ctk.CTkFrame):
         self.lbl_placeholder = ctk.CTkLabel(
             self.detail_container, 
             text="SELECCIONA UN USUARIO\nPARA FICHAR",
-            font=get_font("label"),
+            font=get_font("placeholder", module="presencia"),
             text_color="#666666"
         )
         self.lbl_placeholder.pack(expand=True)
 
-    def _show_user_detail(self):
-        """Muestra el estado actual y el botón de fichar para el usuario seleccionado."""
+    def _show_user_detail(self, last_action: dict | None = None):
+        """Muestra toda la información tras el fichaje automático disparado por password.
+        No hay botón de fichar: el password ya ejecutó la acción.
+        """
+        # Limpiar panel antes de mostrar nuevo contenido
+        for w in self.detail_container.winfo_children():
+            w.destroy()
+
         uid = self.selected_user["id"]
         nombre = self.selected_user["nombre"]
-        
+
         estado = self.presencia_service.get_estado_usuario(uid)
-        
+
         # Nombre Usuario
-        ctk.CTkLabel(self.detail_container, text=nombre, font=get_font("title")).pack(pady=(0, 10))
-        
+        ctk.CTkLabel(self.detail_container, text=nombre, font=get_font("nombre", module="presencia")).pack(pady=(0, 10))
+
+        # Confirmación de la acción que acaba de ocurrir (si viene de password)
+        if last_action and last_action.get("success"):
+            tipo = "ENTRADA" if last_action.get("tipo") == "entrada" else "SALIDA"
+            ctk.CTkLabel(
+                self.detail_container,
+                text=f"ACCIÓN: {tipo} REGISTRADA",
+                font=get_font("accion", module="presencia"),
+                text_color="#00FF00"
+            ).pack(pady=(0, 8))
+
         # Estado Actual
         color_estado = "#00FF00" if estado["trabajando"] else "#FF0000"
         ctk.CTkLabel(
-            self.detail_container, 
-            text=f"ESTADO: {estado['texto']}", 
-            font=get_font("label"),
+            self.detail_container,
+            text=f"ESTADO: {estado['texto']}",
+            font=get_font("estado", module="presencia"),
             text_color=color_estado
         ).pack(pady=5)
-        
+
         if estado["desde"]:
+            # Detectar si la sesión es de un día anterior (olvido)
+            es_antigua = False
+            try:
+                fecha_entrada = estado["desde"].split()[0]
+                hoy = datetime.now().strftime("%Y-%m-%d")
+                if fecha_entrada < hoy:
+                    es_antigua = True
+            except Exception:
+                pass
+
             ctk.CTkLabel(
-                self.detail_container, 
-                text=f"Desde: {estado['desde']}", 
-                font=get_font("default"),
+                self.detail_container,
+                text=f"Desde: {format_ddmmyyyy(estado['desde'], include_time=True)}",
+                font=get_font("desde", module="presencia"),
                 text_color="#AAAAAA"
             ).pack(pady=2)
 
-        # Botón Fichar
-        texto_boton = "FICHAR SALIDA" if estado["trabajando"] else "FICHAR ENTRADA"
-        estilo_boton = "action_error" if estado["trabajando"] else "action_success"
-        
-        btn_fichar = ButtonFactory.create_button(
-            parent=self.detail_container,
-            text=texto_boton,
-            style_key=estilo_boton,
-            command=self._on_fichar_click
-        )
-        btn_fichar.pack(pady=30, padx=20, fill="x")
-        
-        # Historial Reciente
-        ctk.CTkLabel(self.detail_container, text="ÚLTIMOS MOVIMIENTOS", font=get_font("default"), text_color="#666666").pack(pady=(20, 5))
-        historial = self.presencia_service.get_historial(uid)
-        
-        for h in historial:
-            entrada = h['entrada']
-            salida = h['salida'] or "..."
-            txt = f"{entrada} -> {salida}"
-            ctk.CTkLabel(self.detail_container, text=txt, font=("Courier New", 10), text_color="#888888").pack()
+            if es_antigua:
+                ctk.CTkLabel(
+                    self.detail_container,
+                    text="¡SESIÓN OLVIDADA DE AYER!",
+                    font=get_font("estado", module="presencia"),
+                    text_color="#FF0000"
+                ).pack(pady=(10, 0))
 
-    def _on_fichar_click(self):
-        """Ejecuta la acción de fichar."""
-        if not self.selected_user:
-            return
-            
-        uid = self.selected_user["id"]
-        res = self.presencia_service.fichar(uid)
+                btn_corregir = ButtonFactory.create_button(
+                    parent=self.detail_container,
+                    text="CORREGIR OLVIDO",
+                    style_key="action_warning",
+                    command=lambda sid=estado["sesion_id"]: self._on_corregir_click(sid)
+                )
+                btn_corregir.pack(pady=10, padx=40, fill="x")
+
+        # Historial Reciente (Tabla)
+        ctk.CTkLabel(self.detail_container, text="ÚLTIMOS MOVIMIENTOS", font=get_font("historial_header", module="presencia"), text_color="#666666").pack(pady=(20, 5))
         
-        if res["success"]:
-            tipo = "ENTRADA" if res["tipo"] == "entrada" else "SALIDA"
-            ToastWidget.show(self.winfo_toplevel(), f"{tipo} REGISTRADA CORRECTAMENTE", tipo="success")
-            # Recargar detalle
-            self._show_user_detail()
-        else:
-            ToastWidget.show(self.winfo_toplevel(), f"ERROR AL FICHAR: {res.get('error')}", tipo="error")
+        hist_list = VirtualNavList(
+            self.detail_container,
+            columns=[
+                ('fecha', 90, 'FECHA'),
+                ('entrada', 65, 'ENT.'),
+                ('salida', 65, 'SAL.'),
+                ('duracion', 75, 'TIEMPO'),
+                ('estado', 85, 'ESTADO'),
+                ('notas', 150, 'NOTAS')
+            ],
+            module_name="presencia",
+            height=200
+        )
+        hist_list.pack(fill="both", expand=True, padx=5)
+        
+        historial = self.presencia_service.get_historial(uid)
+        mapped = []
+        for h in historial:
+            raw_in = h.get('entrada', '')
+            raw_out = h.get('salida', '')
+            status = h.get('estado', '').upper()
+            notas = h.get('notas', '') or ''
+            
+            # Fecha (DD-MM-YYYY)
+            fecha = format_ddmmyyyy(raw_in, include_time=False)
+            
+            # Horas (HH:MM)
+            t_in = raw_in.split()[1][:5] if ' ' in raw_in else raw_in
+            t_out = "..."
+            if raw_out and ' ' in raw_out:
+                t_out = raw_out.split()[1][:5]
+            elif status != 'ACTIVA':
+                t_out = "??:??"
+
+            mapped.append({
+                'fecha': fecha,
+                'entrada': t_in,
+                'salida': t_out,
+                'duracion': self._format_duracion(h.get('duracion_minutos')),
+                'estado': status,
+                'notas': notas
+            })
+        
+        hist_list.set_items(mapped)

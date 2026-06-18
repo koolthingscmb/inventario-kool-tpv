@@ -168,8 +168,7 @@ class InformesView(BaseModuleView):
                     "Ventas por categoría",
                     "Ventas por tipo",
                     "Ventas por producto",
-                    "Stock por categoría",
-                    "Stock por tipo"
+                    "Control de presencia"
                 ],
                 state='readonly',
                 width=220,
@@ -370,18 +369,13 @@ class InformesView(BaseModuleView):
                 report_data = service.get_informe_ventas_por_tipo(fecha_inicio, fecha_fin, tipos=tipos)
             elif tipo_informe == "Ventas por producto":
                 report_data = service.get_informe_ventas_por_producto(fecha_inicio, fecha_fin)
-            elif tipo_informe == "Stock por categoría":
+            elif tipo_informe == "Control de presencia":
+                usuario_ids = None
                 try:
-                    categoria_ids = self.tag_selector.get_selected_ids()
+                    usuario_ids = self.tag_selector.get_selected_ids()
                 except Exception:
-                    categoria_ids = None
-                report_data = service.get_informe_stock_por_categoria(categoria_ids if categoria_ids else None)
-            elif tipo_informe == "Stock por tipo":
-                try:
-                    tipo_ids = self.tag_selector.get_selected_ids()
-                except Exception:
-                    tipo_ids = None
-                report_data = service.get_informe_stock_por_tipo(tipo_ids if tipo_ids else None)
+                    usuario_ids = None
+                report_data = service.get_informe_presencia(fecha_inicio, fecha_fin, usuario_ids=usuario_ids)
             else:
                 from kool_tpv.utils.widgets.notificaciones import show_warning
                 show_warning(self.central_area, f'Tipo de informe "{tipo_informe}" no implementado')
@@ -554,6 +548,8 @@ class InformesView(BaseModuleView):
             except Exception:
                 pass
 
+            display_subformat = report_data.get('display_subformat', '')
+
             # Title
             title = report_data.get('title', '')
             self.result_textbox.insert('end', f"{title}\n")
@@ -573,6 +569,16 @@ class InformesView(BaseModuleView):
                 start = rng.get('start', '')
                 end = rng.get('end', '')
                 self.result_textbox.insert('end', f"Rango: {start} → {end}\n")
+
+            # Metadatos específicos de Presencia
+            if display_subformat == 'presencia':
+                usuario = report_data.get('usuario_header', 'TODOS')
+                regs = report_data.get('total_registros', 0)
+                tiempo = report_data.get('total_tiempo', '0h 0m')
+                self.result_textbox.insert('end', f"USUARIO: {usuario}\n")
+                self.result_textbox.insert('end', f"Total Registros: {regs}\n")
+                self.result_textbox.insert('end', f"Tiempo Total Acumulado: {tiempo}\n")
+                self.result_textbox.insert('end', "\n\n")
 
             self.result_textbox.insert('end', "\n")
 
@@ -614,6 +620,19 @@ class InformesView(BaseModuleView):
                     # Formato compacto para Ventas Diarias: una sola línea por día
                     right_text = formatter.format_precio(euros)
                     line = f"- {tipo_nombre} ({tickets} Tickets - {uds} Uds): {right_text}\n\n"
+                    self.result_textbox.insert('end', line)
+                elif display_subformat == 'presencia':
+                    fecha = item.get('fecha', '')
+                    t_in = item.get('entrada', '')
+                    t_out = item.get('salida', '')
+                    dur = item.get('duracion', '')
+                    est = item.get('estado', '')
+                    nota = item.get('notas', '')
+                    
+                    line = f"{fecha}=> IN: {t_in} OUT: {t_out} TIME: {dur} = {est}\n"
+                    if nota:
+                        line += f"NOTA: {nota}\n"
+                    line += "\n"
                     self.result_textbox.insert('end', line)
                 elif display_subformat == 'cajero':
                     item_tipo = item.get('tipo', '')
@@ -790,6 +809,13 @@ class InformesView(BaseModuleView):
                     try:
                         self.tag_selector.search_combo.entry.configure(state='normal')
                         self.lbl_tag_hint.configure(text="Escribe para buscar tipos...")
+                    except Exception:
+                        pass
+                elif 'presencia' in tipo_lower:
+                    self.tag_selector.set_search_function(lambda txt: service.buscar_usuarios_dinamico(txt))
+                    try:
+                        self.tag_selector.search_combo.entry.configure(state='normal')
+                        self.lbl_tag_hint.configure(text="Escribe para buscar usuarios...")
                     except Exception:
                         pass
                 else:

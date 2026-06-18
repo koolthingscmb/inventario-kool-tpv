@@ -137,6 +137,16 @@ class ExportadorPDFInformes:
             elements.append(Paragraph(
                 f"<b>Rango:</b> {rng.get('start', '')} → {rng.get('end', '')}", style_meta
             ))
+        
+        # Metadatos extra de Presencia
+        if report_data.get('display_subformat') == 'presencia':
+            u = report_data.get('usuario_header', 'TODOS')
+            regs = report_data.get('total_registros', 0)
+            tiempo = report_data.get('total_tiempo', '0h 0m')
+            elements.append(Paragraph(f"<b>USUARIO:</b> {u}", style_meta))
+            elements.append(Paragraph(f"<b>Total Registros:</b> {regs}", style_meta))
+            elements.append(Paragraph(f"<b>Tiempo Total Acumulado:</b> {tiempo}", style_meta))
+
         elements.append(Spacer(1, 0.4*cm))
 
         # Cuerpo según subformato
@@ -147,6 +157,8 @@ class ExportadorPDFInformes:
             self._add_items_grupo(elements, items, style_grupo, style_normal, style_destacado, c_primario, c_secundario)
         elif subformat == 'daily':
             self._add_items_daily(elements, items, style_normal, style_destacado, c_primario)
+        elif subformat == 'presencia':
+            self._add_items_presencia(elements, items, style_normal, style_destacado, c_primario)
         else:
             self._add_items_resumen(elements, items, style_normal, style_destacado, c_primario)
 
@@ -338,3 +350,24 @@ class ExportadorPDFInformes:
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
             ]))
             elements.append(dest)
+
+    def _add_items_presencia(self, elements, items, style_normal, style_destacado, c_primario):
+        """Informe de Presencia: lista de líneas con formato custom."""
+        if not items:
+            return
+
+        for item in items:
+            fecha = item.get('fecha', '')
+            t_in = item.get('entrada', '')
+            t_out = item.get('salida', '')
+            dur = item.get('duracion', '')
+            est = item.get('estado', '')
+            nota = item.get('notas', '')
+            
+            line = f"<b>{fecha}</b>=> IN: {t_in} OUT: {t_out} TIME: {dur} = {est}"
+            elements.append(Paragraph(line, style_normal))
+            
+            if nota:
+                elements.append(Paragraph(f"&nbsp;&nbsp;&nbsp;&nbsp;<i>NOTA: {nota}</i>", style_normal))
+            
+            elements.append(Spacer(1, 0.15*cm))

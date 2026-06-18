@@ -50,28 +50,29 @@ class ButtonFactory:
         if style_key is not None:
             style_params = ButtonFactory._build_style_params(style_key)
             params.update(style_params)
-        else:
-            # Comportamiento legacy: respetar parámetros manuales
-            if color is not None:
-                params["fg_color"] = color
-            if hover_color is not None:
-                params["hover_color"] = hover_color
-            if text_color is not None:
-                params["text_color"] = text_color
-            if font is not None:
-                params["font"] = font
-            if corner_radius is not None:
-                params["corner_radius"] = corner_radius
-            if border_color is not None:
-                params["border_color"] = border_color
-            if border_width is not None:
-                params["border_width"] = border_width
 
-            # Añadir width/height sólo si se pasan explícitamente
-            if width is not None:
-                params["width"] = width
-            if height is not None:
-                params["height"] = height
+        # Parámetros manuales (actúan como overrides si hay style_key, 
+        # o como configuración base si no lo hay).
+        if color is not None:
+            params["fg_color"] = color
+        if hover_color is not None:
+            params["hover_color"] = hover_color
+        if text_color is not None:
+            params["text_color"] = text_color
+        if font is not None:
+            params["font"] = font
+        if corner_radius is not None:
+            params["corner_radius"] = corner_radius
+        if border_color is not None:
+            params["border_color"] = border_color
+        if border_width is not None:
+            params["border_width"] = border_width
+
+        # Añadir width/height sólo si se pasan explícitamente
+        if width is not None:
+            params["width"] = width
+        if height is not None:
+            params["height"] = height
 
         # Permitir extensibilidad a través de kwargs (por ejemplo cursor, anchor, etc.)
         params.update(kwargs)

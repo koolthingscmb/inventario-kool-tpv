@@ -42,6 +42,19 @@ class PresenciaRepository:
         self.db.execute_query(query_update, (sesion_id,))
         return True
 
+    def registrar_salida_manual(self, sesion_id: int, fecha_salida: str, notas: str = "") -> bool:
+        """Cierra una sesión con una fecha/hora de salida manual y notas."""
+        query_update = """
+            UPDATE presencia 
+            SET salida = ?, 
+                estado = 'completada',
+                notas = CASE WHEN notas IS NULL OR notas = '' THEN ? ELSE notas || ' | ' || ? END,
+                duracion_minutos = (strftime('%s', ?) - strftime('%s', entrada)) / 60
+            WHERE id = ?
+        """
+        self.db.execute_query(query_update, (fecha_salida, notas, notas, fecha_salida, sesion_id))
+        return True
+
     def get_ultimos_fichajes(self, usuario_id: int, limite: int = 5) -> List[Dict[str, Any]]:
         """Obtiene los últimos N fichajes de un usuario."""
         query = "SELECT * FROM presencia WHERE usuario_id = ? ORDER BY entrada DESC LIMIT ?"

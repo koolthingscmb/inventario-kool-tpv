@@ -105,6 +105,15 @@
         "category_buttons": { "family": "Arial", "size": 18, "weight": "bold", "fallback": ["Arial"] },
         "article_buttons": { "family": "Arial", "size": 18, "weight": "bold", "fallback": ["Arial"] }
       }
+    },
+    "presencia": {
+      "nombre": { "family": "Courier New", "size": 44, "weight": "bold" },
+      "accion": { "family": "Courier New", "size": 34, "weight": "bold" },
+      "estado": { "family": "Courier New", "size": 34, "weight": "bold" },
+      "desde": { "family": "Courier New", "size": 26, "weight": "normal" },
+      "historial_header": { "family": "Courier New", "size": 26, "weight": "bold" },
+      "historial_row": { "family": "Courier New", "size": 20, "weight": "normal" },
+      "placeholder": { "family": "Courier New", "size": 18, "weight": "normal" }
     }
   },
 

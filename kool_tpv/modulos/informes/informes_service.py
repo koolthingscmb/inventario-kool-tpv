@@ -424,3 +424,69 @@ class InformesService:
             fallback_name='Sin tipo',
             export_headers=['Tipo', 'SKU', 'Nombre', 'Stock actual', 'Stock mínimo', 'Precio coste'],
         )
+
+    # ── PRESENCIA ─────────────────────────────────────────────────────────────
+
+    def buscar_usuarios_dinamico(self, texto: str):
+        """Búsqueda dinámica de usuarios para el TagSelector."""
+        try:
+            pattern = f"%{texto}%"
+            query = "SELECT id, nombre as nombre_display FROM usuarios WHERE nombre LIKE ? ORDER BY nombre ASC"
+            rows = self.db.fetch_all(query, (pattern,))
+            return [{"id": r[0], "nombre_display": r[1]} for r in (rows or [])]
+        except Exception:
+            logging.exception('Error buscando usuarios para informes')
+            return []
+
+    def get_informe_presencia(self, fecha_inicio: str, fecha_fin: str, usuario_ids: List[int] = None) -> dict:
+        """Genera el informe de presencia en formato de lista justificada."""
+        rows = self.repo.get_presencia_informe(fecha_inicio, fecha_fin, usuario_ids)
+        
+        items = []
+        total_minutos = 0
+        
+        for r in rows:
+            dur = r['duracion_minutos'] or 0
+            total_minutos += dur
+            
+            # Formatear duración
+            if dur < 60: dur_str = f"{dur} min"
+            else: dur_str = f"{dur // 60}h {dur % 60}m"
+            
+            # Limpiar timestamps
+            t_in = r['entrada'].split()[1][:5] if ' ' in r['entrada'] else r['entrada']
+            t_out = r['salida'].split()[1][:5] if r['salida'] and ' ' in r['salida'] else '...'
+            
+            items.append({
+                "usuario": r['usuario'],
+                "fecha": r['entrada'].split()[0],
+                "entrada": t_in,
+                "salida": t_out,
+                "duracion": dur_str,
+                "estado": r['estado'].upper(),
+                "notas": r['notas']
+            })
+            
+        # Resumen final
+        h = total_minutos // 60
+        m = total_minutos % 60
+        total_str = f"{h}h {m}m"
+
+        # Nombre del usuario si hay filtro de uno solo
+        usuario_header = "TODOS"
+        if usuario_ids and len(usuario_ids) == 1 and items:
+            usuario_header = items[0]['usuario']
+        elif usuario_ids and len(usuario_ids) > 1:
+            usuario_header = "VARIOS"
+
+        return {
+            "title": "INFORME DE CONTROL DE PRESENCIA",
+            "display_format": "justified_list",
+            "display_subformat": "presencia",
+            "generated_at": self._ahora_formateado(),
+            "range": {"start": fecha_inicio, "end": fecha_fin},
+            "usuario_header": usuario_header,
+            "total_registros": len(rows),
+            "total_tiempo": total_str,
+            "items": items
+        }

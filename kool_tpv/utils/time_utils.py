@@ -34,3 +34,35 @@ def utc_str_to_local_str(ts: str, out_fmt: str = '%Y-%m-%d %H:%M:%S') -> str:
             return ts
         except Exception:
             return ''
+
+
+def format_ddmmyyyy(ts: str, include_time: bool = True) -> str:
+    """Format a SQLite-like timestamp to DD-MM-YYYY [HH:MM] using dashes.
+
+    - Accepts 'YYYY-MM-DD HH:MM:SS', 'YYYY-MM-DD HH:MM', ISO with T, or date only.
+    - Strips fractional seconds and 'Z'.
+    - If include_time=False or no time part, returns only date.
+    - Returns original string on failure (safe fallback).
+    """
+    if not ts:
+        return ""
+    s = str(ts).strip()
+    if not s:
+        return ""
+    # Normalize: drop micros and Z
+    s = s.split('.')[0].rstrip('Z').replace('T', ' ')
+    candidates = [
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+        "%Y-%m-%d",
+    ]
+    for fmt_in in candidates:
+        try:
+            dt = datetime.strptime(s, fmt_in)
+            if include_time and "%H" in fmt_in:
+                return dt.strftime("%d-%m-%Y %H:%M")
+            return dt.strftime("%d-%m-%Y")
+        except ValueError:
+            continue
+    # fallback: return as-is (won't crash UI)
+    return str(ts)

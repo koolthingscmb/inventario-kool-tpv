@@ -41,6 +41,15 @@ class PresenciaService:
             logging.exception(f"Error al fichar para usuario {usuario_id}")
             return {"success": False, "error": str(e)}
 
+    def corregir_fichaje(self, sesion_id: int, fecha_salida: str, notas: str = "") -> dict:
+        """Cierra manualmente una sesión antigua."""
+        try:
+            success = self.repo.registrar_salida_manual(sesion_id, fecha_salida, notas)
+            return {"success": success}
+        except Exception as e:
+            logging.exception(f"Error al corregir fichaje {sesion_id}")
+            return {"success": False, "error": str(e)}
+
     def get_historial(self, usuario_id: int, limite: int = 5):
         """Historial reciente de fichajes."""
         return self.repo.get_ultimos_fichajes(usuario_id, limite)

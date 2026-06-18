@@ -27,7 +27,7 @@ class InformesRepository:
             "SELECT COUNT(*) as total_tickets, "
             "COALESCE(SUM(total), 0) as total_ventas, "
             "COALESCE(SUM(subtotal), 0) as total_base "
-            "FROM tickets WHERE created_at BETWEEN ? AND ? AND total > 0"
+            "FROM tickets WHERE created_at BETWEEN ? AND ? AND total != 0"
         )
         row = self.db.fetch_one(query, (fecha_inicio_sql, fecha_fin_sql))
         if not row:
@@ -51,7 +51,7 @@ class InformesRepository:
             "COALESCE(SUM(t.total), 0) as total_dia "
             "FROM tickets t "
             "LEFT JOIN ticket_lines tl ON t.id = tl.ticket_id AND tl.line_tipo = 'venta' "
-            "WHERE t.created_at BETWEEN ? AND ? AND t.total > 0 "
+            "WHERE t.created_at BETWEEN ? AND ? AND t.total != 0 "
             "GROUP BY DATE(t.created_at) ORDER BY DATE(t.created_at) ASC"
         )
         rows = self.db.fetch_all(query, (fecha_inicio_sql, fecha_fin_sql))
@@ -78,7 +78,7 @@ class InformesRepository:
             "COALESCE(SUM(t.total), 0) as total_dia "
             "FROM tickets t "
             "LEFT JOIN ticket_lines tl ON t.id = tl.ticket_id AND tl.line_tipo = 'venta' "
-            "WHERE t.created_at BETWEEN ? AND ? AND t.total > 0 "
+            "WHERE t.created_at BETWEEN ? AND ? AND t.total != 0 "
             "GROUP BY t.cajero, DATE(t.created_at) "
             "ORDER BY t.cajero ASC, DATE(t.created_at) ASC"
         )
@@ -117,7 +117,7 @@ class InformesRepository:
             "FROM ticket_lines tl "
             "JOIN tickets t ON tl.ticket_id = t.id "
             "JOIN productos p ON tl.producto_id = p.id "
-            "WHERE t.created_at BETWEEN ? AND ? AND t.total > 0 AND tl.line_tipo = 'venta'"
+            "WHERE t.created_at BETWEEN ? AND ? AND t.total != 0 AND tl.line_tipo = 'venta'"
         )
         params: list = [fecha_inicio_sql, fecha_fin_sql]
         if product_ids:
@@ -176,7 +176,7 @@ class InformesRepository:
             f"JOIN tickets t ON tl.ticket_id = t.id "
             f"JOIN productos p ON tl.producto_id = p.id "
             f"JOIN {join_table} {alias} ON {id_col} = {alias}.id "
-            f"WHERE t.created_at BETWEEN ? AND ? AND t.total > 0 AND tl.line_tipo = 'venta'"
+            f"WHERE t.created_at BETWEEN ? AND ? AND t.total != 0 AND tl.line_tipo = 'venta'"
         )
         params: list = [fecha_inicio_sql, fecha_fin_sql]
 
@@ -207,7 +207,7 @@ class InformesRepository:
         fecha_fin_sql = f"{fecha_fin} 23:59:59"
         query = (
             "SELECT id FROM tickets "
-            "WHERE created_at BETWEEN ? AND ? AND total > 0"
+            "WHERE created_at BETWEEN ? AND ? AND total != 0"
         )
         rows = self.db.fetch_all(query, (fecha_inicio_sql, fecha_fin_sql))
         return [int(r[0]) for r in (rows or [])]
@@ -330,5 +330,40 @@ class InformesRepository:
                 "stock_actual": r[3],
                 "stock_minimo": r[4],
                 "coste": float(read_from_db(r[5] or 0)),
+            })
+        return result
+
+    # ── PRESENCIA ─────────────────────────────────────────────────────────────
+
+    def get_presencia_informe(self, fecha_inicio: str, fecha_fin: str, usuario_ids: Optional[List[int]] = None) -> list:
+        """Obtiene fichajes de usuarios en el rango de fechas."""
+        fecha_inicio_sql = f"{fecha_inicio} 00:00:00"
+        fecha_fin_sql = f"{fecha_fin} 23:59:59"
+        
+        query = """
+            SELECT u.nombre as usuario, p.entrada, p.salida, p.duracion_minutos, p.estado, p.notas
+            FROM presencia p
+            JOIN usuarios u ON p.usuario_id = u.id
+            WHERE p.entrada BETWEEN ? AND ?
+        """
+        params = [fecha_inicio_sql, fecha_fin_sql]
+        
+        if usuario_ids:
+            ph = ','.join(['?'] * len(usuario_ids))
+            query += f" AND p.usuario_id IN ({ph})"
+            params.extend(usuario_ids)
+            
+        query += " ORDER BY u.nombre ASC, p.entrada DESC"
+        
+        rows = self.db.fetch_all(query, tuple(params))
+        result = []
+        for r in rows or []:
+            result.append({
+                "usuario": r[0],
+                "entrada": r[1],
+                "salida": r[2],
+                "duracion_minutos": r[3],
+                "estado": r[4],
+                "notas": r[5]
             })
         return result
