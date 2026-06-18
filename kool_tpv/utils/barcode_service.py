@@ -90,9 +90,11 @@ class BarcodeService:
                     # Consumir el Enter del escáner para que no llegue al CarritoNavList
                     self._just_dispatched = False
                     return 'break'
-                elapsed = now - self._last_key_time
-                if self._buffer and elapsed < THRESHOLD_MS * 10:
+                
+                # Si hay algo en el buffer, disparamos sea cual sea la longitud (min 3)
+                if len(self._buffer) >= MIN_CODE_LENGTH:
                     self._dispatch('terminator')
+                    return 'break'
                 else:
                     self._buffer.clear()
                 return
