@@ -116,7 +116,21 @@ class CierreService:
             row = self.db.fetch_one(sql, (cierre_id,))
             if not row:
                 return None
-            return self._row_to_dict(row)
+            data = self._row_to_dict(row)
+            
+            # Cargar lista de clientes con puntos para este cierre si existen líneas
+            try:
+                lineas = self.db.fetch_all('SELECT ticket_id FROM cierres_lineas WHERE cierre_id = ?', (cierre_id,))
+                if lineas:
+                    ticket_ids = [r[0] for r in lineas]
+                    puntos_resumen = self.get_puntos_resumen_cierre(ticket_ids)
+                    if puntos_resumen and puntos_resumen.get('clientes_puntos'):
+                        # Guardar temporalmente en una clave que el procesador pueda usar
+                        data['_clientes_puntos'] = puntos_resumen.get('clientes_puntos')
+            except Exception:
+                pass
+                
+            return data
         except Exception:
             logging.exception('Error obteniendo cierre por id')
             return None
@@ -461,13 +475,13 @@ class CierreService:
             
         if fecha_from and fecha_to:
             where_parts.append("fecha_hora BETWEEN ? AND ?")
-            params.extend([fecha_from, fecha_to])
+            params.extend([fecha_from + " 00:00:00", fecha_to + " 23:59:59"])
         elif fecha_from:
             where_parts.append("fecha_hora >= ?")
-            params.append(fecha_from)
+            params.append(fecha_from + " 00:00:00")
         elif fecha_to:
             where_parts.append("fecha_hora <= ?")
-            params.append(fecha_to)
+            params.append(fecha_to + " 23:59:59")
 
         where = "WHERE " + " AND ".join(where_parts) if where_parts else ""
         
@@ -594,6 +608,34 @@ class CierreService:
         except Exception:
             logging.exception('Error obteniendo ventas por forma de pago')
             return {}
+
+    def get_ventas_por_cajero_para_tickets(self, ticket_ids: List[int]) -> List[tuple]:
+        """Devuelve lista de (cajero, numero_ventas, total_euros) para una lista de IDs de tickets.
+        
+        Usado durante la creación del cierre (antes de que los tickets tengan asignado cierre_id).
+        """
+        if not ticket_ids:
+            return []
+        try:
+            placeholders = ','.join(['?'] * len(ticket_ids))
+            sql = f'SELECT cajero, COUNT(*), SUM(total) FROM tickets WHERE id IN ({placeholders}) GROUP BY cajero'
+            self.db.connect()
+            rows = self.db.fetch_all(sql, tuple(ticket_ids))
+            result: List[tuple] = []
+            from kool_tpv.base_datos.money_adapter import read_from_db
+            for r in rows or []:
+                try:
+                    cajero = r[0] or 'N/A'
+                    cnt = int(r[1] or 0)
+                    total_cents = int(r[2] or 0)
+                    total_euros = float(read_from_db(total_cents))
+                    result.append((cajero, cnt, total_euros))
+                except Exception:
+                    continue
+            return result
+        except Exception:
+            logging.exception('Error obteniendo ventas por cajero para tickets')
+            return []
 
     def get_ventas_por_cajero(self, cierre_id: int) -> List[tuple]:
         """Devuelve lista de (cajero, numero_ventas, total_euros) para un cierre.

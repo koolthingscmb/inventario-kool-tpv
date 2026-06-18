@@ -557,48 +557,36 @@ class ImpresoraService:
             logging.exception(f'Error generando ticket desde ID {ticket_id}')
             return None
 
-    def generar_cierre_desde_id(self, cierre_id: int) -> Optional[str]:
-        """Generar ticket de cierre desde ID (similar a generar_ticket_desde_id).
+    def generar_cierre_desde_id(self, cierre_id: int, print_options: Optional[dict] = None) -> Optional[str]:
+        """Generar ticket de cierre desde ID (reconstruyendo datos desde BD).
 
         Devuelve: texto formateado del cierre, o None si error.
         """
-
         try:
             from kool_tpv.base_datos.cierre_service import CierreService
             from kool_tpv.base_datos.money_adapter import read_from_db
 
             cierre_svc = CierreService(self.db)
 
-            # 1. Obtener cierre
+            # 1. Obtener datos básicos del cierre
             cierre_data = cierre_svc.obtener_cierre_por_id(cierre_id)
             if not cierre_data:
                 return None
 
-            # 2. Obtener líneas
+            # 2. Obtener líneas de tickets del cierre
             tickets_rows = cierre_svc.get_cierre_lineas(cierre_id)
 
-            # 3. Splitear fecha_hora (convertir UTC -> hora local para visualización)
-            try:
-                from kool_tpv.utils.time_utils import utc_str_to_local_str
-                fecha_hora_raw = cierre_data.get('fecha_hora') or ''
-                fecha_hora_local = utc_str_to_local_str(fecha_hora_raw)
-                fecha, hora = ('', '')
-                if ' ' in fecha_hora_local:
-                    fecha, hora = fecha_hora_local.split(' ', 1)
-                else:
-                    fecha = fecha_hora_local
-            except Exception:
-                fecha_hora = cierre_data.get('fecha_hora') or ''
-                fecha, hora = ('', '')
-                try:
-                    if ' ' in fecha_hora:
-                        fecha, hora = fecha_hora.split(' ', 1)
-                    else:
-                        fecha = fecha_hora
-                except Exception:
-                    fecha = str(fecha_hora)
+            # 3. Formatear fecha/hora (UTC -> Local)
+            from kool_tpv.utils.time_utils import utc_str_to_local_str
+            fecha_hora_raw = cierre_data.get('fecha_hora') or ''
+            fecha_hora_local = utc_str_to_local_str(fecha_hora_raw)
+            fecha, hora = ('', '')
+            if ' ' in fecha_hora_local:
+                fecha, hora = fecha_hora_local.split(' ', 1)
+            else:
+                fecha = fecha_hora_local
 
-            # 4. Preparar cierre_context
+            # 4. Preparar contexto
             cierre_context = {
                 'cierre_id': cierre_data.get('cierre_num'),
                 'fecha': fecha,
@@ -607,198 +595,77 @@ class ImpresoraService:
                 'cierre_text': cierre_data.get('cierre_text'),
             }
 
-            # 5. Convertir tickets: céntimos → euros
+            # 5. Convertir lista de tickets
             tickets = []
             for r in (tickets_rows or []):
                 try:
                     ticket_total_cents = int(r.get('ticket_total') or 0)
-                    ticket_total_euros = read_from_db(ticket_total_cents)
-                    # Use the num_lineas / num_ventas passed by get_cierre_lineas
-                    num_ventas = int(r.get('num_ventas') or r.get('num_lineas') or 0)
                     tickets.append({
                         'id': r.get('ticket_id'),
-                        'num_ventas': num_ventas,
-                        'total': ticket_total_euros
+                        'num_ventas': int(r.get('num_ventas') or r.get('num_lineas') or 0),
+                        'total': read_from_db(ticket_total_cents)
                     })
                 except Exception:
                     continue
 
-            # 6. Preparar totals (convertir de céntimos DB -> Decimal euros)
-            try:
-                # Recuperar clientes_puntos si está serializado en la BD (opcional, según implementación)
-                clientes_puntos = []
-                if 'clientes_puntos' in cierre_data and cierre_data['clientes_puntos']:
-                    try:
-                        import json
-                        if isinstance(cierre_data['clientes_puntos'], str):
-                            clientes_puntos = json.loads(cierre_data['clientes_puntos'])
-                        elif isinstance(cierre_data['clientes_puntos'], list):
-                            clientes_puntos = cierre_data['clientes_puntos']
-                    except Exception:
-                        clientes_puntos = []
-                totals = {
-                    'total_efectivo': read_from_db(int(cierre_data.get('total_efectivo') or 0)),
-                    'total_tarjeta': read_from_db(int(cierre_data.get('total_tarjeta') or 0)),
-                    'total_web': read_from_db(int(cierre_data.get('total_web') or 0)),
-                    'total_descuentos': read_from_db(int(cierre_data.get('total_descuentos') or 0)),
-                    'base_21': read_from_db(int(cierre_data.get('base_21') or 0)),
-                    'iva_21': read_from_db(int(cierre_data.get('iva_21') or 0)),
-                    'base_4': read_from_db(int(cierre_data.get('base_4') or 0)),
-                    'iva_4': read_from_db(int(cierre_data.get('iva_4') or 0)),
-                    'total_base_imponible': read_from_db(int(cierre_data.get('total_base_imponible') or 0)),
-                    'total_iva': read_from_db(int(cierre_data.get('total_iva') or 0)),
-                    # Añadir los campos de tesoro
-                    'tesoro_otorgado': int(cierre_data.get('tesoro_ganado') or 0),
-                    'tesoro_gastado': int(cierre_data.get('tesoro_gastado') or 0),
-                    'clientes_puntos': clientes_puntos,
-                }
-            except Exception:
-                # Fallback conservador: usar valores tal cual si la conversión falla
-                totals = {
-                    'total_efectivo': cierre_data.get('total_efectivo', 0),
-                    'total_tarjeta': cierre_data.get('total_tarjeta', 0),
-                    'total_web': cierre_data.get('total_web', 0),
-                    'total_descuentos': cierre_data.get('total_descuentos', 0),
-                    'base_21': cierre_data.get('base_21', 0),
-                    'iva_21': cierre_data.get('iva_21', 0),
-                    'base_4': cierre_data.get('base_4', 0),
-                    'iva_4': cierre_data.get('iva_4', 0),
-                    'total_base_imponible': cierre_data.get('total_base_imponible', 0),
-                    'total_iva': cierre_data.get('total_iva', 0),
-                    # Añadir los campos de tesoro también en fallback
-                    'tesoro_otorgado': int(cierre_data.get('tesoro_ganado') or 0),
-                    'tesoro_gastado': int(cierre_data.get('tesoro_gastado') or 0),
-                }
+            # 6. Reconstruir Totales (de céntimos DB -> Decimal euros)
+            import json
+            from decimal import Decimal as _D
+            clientes_puntos = cierre_data.get('_clientes_puntos', [])
+            if not clientes_puntos and 'clientes_puntos' in cierre_data and cierre_data['clientes_puntos']:
+                try:
+                    if isinstance(cierre_data['clientes_puntos'], str):
+                        clientes_puntos = json.loads(cierre_data['clientes_puntos'])
+                    else:
+                        clientes_puntos = cierre_data['clientes_puntos']
+                except Exception:
+                    pass
 
-            # 6b. Recuperar desglose adicional (ventas x forma pago, x cajero, x categoría)
-            try:
-                ventas_por_forma_pago = cierre_svc.get_ventas_por_forma_pago(cierre_id)
-            except Exception:
-                ventas_por_forma_pago = {}
-            try:
-                ventas_por_cajero = cierre_svc.get_ventas_por_cajero(cierre_id)
-            except Exception:
-                ventas_por_cajero = []
-            # Agregar estos datos a totals (ventas_por_categoria ya calculado por el processor cuando procede)
-            totals['ventas_por_forma_pago'] = ventas_por_forma_pago
-            totals['ventas_por_cajero'] = ventas_por_cajero
+            totals = {
+                'total_efectivo': read_from_db(int(cierre_data.get('total_efectivo') or 0)),
+                'total_tarjeta': read_from_db(int(cierre_data.get('total_tarjeta') or 0)),
+                'total_web': read_from_db(int(cierre_data.get('total_web') or 0)),
+                'total_descuentos': read_from_db(int(cierre_data.get('total_descuentos') or 0)),
+                'base_21': read_from_db(int(cierre_data.get('base_21') or 0)),
+                'iva_21': read_from_db(int(cierre_data.get('iva_21') or 0)),
+                'base_4': read_from_db(int(cierre_data.get('base_4') or 0)),
+                'iva_4': read_from_db(int(cierre_data.get('iva_4') or 0)),
+                'total_base_imponible': read_from_db(int(cierre_data.get('total_base_imponible') or 0)),
+                'total_iva': read_from_db(int(cierre_data.get('total_iva') or 0)),
+                'tesoro_otorgado': _D(str(cierre_data.get('tesoro_ganado') or 0)),
+                'tesoro_gastado': _D(str(cierre_data.get('tesoro_gastado') or 0)),
+                'clientes_puntos': clientes_puntos,
+                'ventas_por_cajero': cierre_svc.get_ventas_por_cajero(cierre_id) or []
+            }
 
-            # 6c. Intentar recuperar desglose por categoría y por tipo reconstruyendo
-            # a partir de los ticket_ids incluidos en el cierre. Esto cubre el caso
-            # en que se está generando el cierre desde la BD sin disponer de los
-            # `totals` en memoria (reconstrucción); así mostramos las mismas secciones
-            # que el `CierreCajaProcessor` cuando proceda.
-
+            # 6b. Reconstruir desgloses detallados (Categorías, Tipos, Productos)
             try:
-                ticket_ids = [r.get('ticket_id') for r in (tickets_rows or []) if r and r.get('ticket_id') is not None]
+                ticket_ids = [r.get('ticket_id') for r in (tickets_rows or []) if r.get('ticket_id')]
                 if ticket_ids:
-                    # Categorías (ventas y devoluciones por separado)
-                    try:
-                        from kool_tpv.base_datos.categoria_service import CategoriaService
-                        cat_svc = CategoriaService(self.db)
-                        ventas_cat = cat_svc.get_ventas_por_categoria(ticket_ids, line_tipo='venta', as_dict=True) or []
-                        ventas_cat_simple = []
-                        for entry in ventas_cat:
-                            try:
-                                if isinstance(entry, dict):
-                                    nombre = entry.get('nombre')
-                                    uds = int(entry.get('uds', 0) or 0)
-                                    total_euros = entry.get('total')
-                                else:
-                                    nombre = entry[0]
-                                    uds = int(entry[2] or 0) if len(entry) > 2 else int(entry[1] or 0)
-                                    total_euros = entry[3] if len(entry) > 3 else entry[2]
-                                ventas_cat_simple.append((nombre, uds, total_euros))
-                            except Exception:
-                                continue
-                        if ventas_cat_simple:
-                            totals['ventas_por_categoria'] = ventas_cat_simple
-
-                        devol_cat = cat_svc.get_ventas_por_categoria(ticket_ids, line_tipo='devolucion', as_dict=True) or []
-                        devol_cat_simple = []
-                        for entry in devol_cat:
-                            try:
-                                if isinstance(entry, dict):
-                                    nombre = entry.get('nombre')
-                                    uds = int(entry.get('uds', 0) or 0)
-                                    total_euros = entry.get('total')
-                                else:
-                                    nombre = entry[0]
-                                    uds = int(entry[2] or 0) if len(entry) > 2 else int(entry[1] or 0)
-                                    total_euros = entry[3] if len(entry) > 3 else entry[2]
-                                devol_cat_simple.append((nombre, uds, total_euros))
-                            except Exception:
-                                continue
-                        if devol_cat_simple:
-                            totals['devoluciones_por_categoria'] = devol_cat_simple
-                    except Exception:
-                        pass
-
-                    # Tipos (ventas y devoluciones por separado)
-                    try:
-                        from kool_tpv.base_datos.tipo_service import TipoService
-                        tipo_svc = TipoService(self.db)
-                        tipos_ventas = tipo_svc.get_ventas_por_tipo(ticket_ids, line_tipo='venta', as_dict=True) or []
-                        tipos_simple = []
-                        for entry in tipos_ventas:
-                            try:
-                                if isinstance(entry, dict):
-                                    nombre = entry.get('nombre')
-                                    uds = int(entry.get('uds', 0) or 0)
-                                    total_euros = entry.get('total')
-                                else:
-                                    nombre = entry[0]
-                                    uds = int(entry[2] or 0) if len(entry) > 2 else int(entry[1] or 0)
-                                    total_euros = entry[3] if len(entry) > 3 else entry[2]
-                                tipos_simple.append((nombre, uds, total_euros))
-                            except Exception:
-                                continue
-                        if tipos_simple:
-                            totals['ventas_por_tipo'] = tipos_simple
-
-                        tipos_devol = tipo_svc.get_ventas_por_tipo(ticket_ids, line_tipo='devolucion', as_dict=True) or []
-                        tipos_devol_simple = []
-                        for entry in tipos_devol:
-                            try:
-                                if isinstance(entry, dict):
-                                    nombre = entry.get('nombre')
-                                    uds = int(entry.get('uds', 0) or 0)
-                                    total_euros = entry.get('total')
-                                else:
-                                    nombre = entry[0]
-                                    uds = int(entry[2] or 0) if len(entry) > 2 else int(entry[1] or 0)
-                                    total_euros = entry[3] if len(entry) > 3 else entry[2]
-                                tipos_devol_simple.append((nombre, uds, total_euros))
-                            except Exception:
-                                continue
-                        if tipos_devol_simple:
-                            totals['devoluciones_por_tipo'] = tipos_devol_simple
-                    except Exception:
-                        pass
-
-                    # Productos (ventas por producto)
-                    try:
-                        from kool_tpv.base_datos.producto_service import ProductoService
-                        prod_svc = ProductoService(self.db)
-                        productos = prod_svc.get_ventas_por_producto(ticket_ids) or []
-                        if productos:
-                            totals['productos'] = productos
-                    except Exception:
-                        pass
+                    from kool_tpv.base_datos.categoria_service import CategoriaService
+                    from kool_tpv.base_datos.tipo_service import TipoService
+                    from kool_tpv.base_datos.producto_service import ProductoService
+                    
+                    cat_svc = CategoriaService(self.db)
+                    totals['ventas_por_categoria'] = cat_svc.get_ventas_por_categoria(ticket_ids, line_tipo='venta')
+                    totals['devoluciones_por_categoria'] = cat_svc.get_ventas_por_categoria(ticket_ids, line_tipo='devolucion')
+                    
+                    tipo_svc = TipoService(self.db)
+                    totals['ventas_por_tipo'] = tipo_svc.get_ventas_por_tipo(ticket_ids, line_tipo='venta')
+                    totals['devoluciones_por_tipo'] = tipo_svc.get_ventas_por_tipo(ticket_ids, line_tipo='devolucion')
+                    
+                    prod_svc = ProductoService(self.db)
+                    totals['productos'] = prod_svc.get_ventas_por_producto(ticket_ids)
             except Exception:
-                pass
+                self.logger.warning("No se pudieron reconstruir desgloses detallados para el cierre %s", cierre_id)
 
-            # 7. Generar
-            config = self.config
-            texto = self.cierre_ticket_generator.generate(config, cierre_context, tickets, totals=totals)
-
-            return texto
+            # 7. Generar texto final
+            return self.cierre_ticket_generator.generate(
+                self.config, cierre_context, tickets, totals=totals, print_options=print_options
+            )
 
         except Exception:
-            try:
-                self.logger.exception(f'Error generando cierre desde ID {cierre_id}')
-            except Exception:
-                logging.exception(f'Error generando cierre desde ID {cierre_id}')
+            self.logger.exception('Error generando cierre desde ID %s', cierre_id)
             return None
 
     def _imprimir_texto_generico(self, texto: str, meta: dict, printer_name: Optional[str] = None):
@@ -920,7 +787,7 @@ class ImpresoraService:
         meta = {'num_ticket': nivel_data.get('cliente', '')}
         return self._imprimir_texto_generico(texto, meta, printer_name)
 
-    def imprimir(self, ticket_type: 'TicketType', data: dict, items: Optional[list] = None, cliente_data: Optional[dict] = None, printer_name: Optional[str] = None):
+    def imprimir(self, ticket_type: 'TicketType', data: dict, items: Optional[list] = None, cliente_data: Optional[dict] = None, printer_name: Optional[str] = None, print_options: Optional[dict] = None):
         """API unificada para imprimir distintos tipos de tickets.
 
         Args:
@@ -929,6 +796,7 @@ class ImpresoraService:
             items: lista de items o tickets (opcional, usada por venta/cierre).
             cliente_data: datos de cliente opcionales (usados por venta).
             printer_name: nombre de impresora opcional.
+            print_options: opciones de impresión opcionales (usadas por cierre).
         """
         # Ensure latest configuration is loaded before generating any ticket
         try:
@@ -953,7 +821,7 @@ class ImpresoraService:
             cierre_data = data or {}
             tickets = items or []
             totals = cierre_data.get('totals') if isinstance(cierre_data, dict) else None
-            texto = self.cierre_ticket_generator.generate(self.config, cierre_data, tickets, totals=totals)
+            texto = self.cierre_ticket_generator.generate(self.config, cierre_data, tickets, totals=totals, print_options=print_options)
             meta = {'num_ticket': cierre_data.get('cierre_id', '')}
             logging.info(f"DEBUG IMPRESORA CIERRE: texto retornado length={len(texto)}")
             logging.info(f"DEBUG IMPRESORA CIERRE: ¿Contiene 'TESORO'? {'TESORO' in texto}")

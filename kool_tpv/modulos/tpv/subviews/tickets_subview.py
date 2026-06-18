@@ -446,13 +446,14 @@ class TicketsSubView(CTkFrame):
 
             try:
                 is_valid = False
+                admin_user = None
                 if self.auth_service:
                     try:
                         res = self.auth_service.validate_admin_password(password)
                     except Exception:
                         res = (False, None)
                     if isinstance(res, tuple):
-                        is_valid, _ = res
+                        is_valid, admin_user = res
                     else:
                         is_valid = bool(res)
                 if not is_valid:
@@ -524,10 +525,22 @@ class TicketsSubView(CTkFrame):
                     logger.info('No hay tickets para cerrar')
                 return
 
-            # Ya autenticado, continuar directamente con el flujo de cierre
+            # --- AUTENTICADO ---
+            logger.info("Autenticación admin exitosa para: %s", admin_user.get('nombre') if admin_user else 'admin')
             logger.info("Botón 'X' presionado en TicketsSubView (autenticado)")
 
-            # --- REVALIDAR tickets pendientes justo antes del procesamiento ---
+            # --- SEGUNDO: Preguntar opciones de impresión ---
+            try:
+                from kool_tpv.utils.dialogs.cierre_options_dialog import show_cierre_options_dialog
+                print_options = show_cierre_options_dialog(parent)
+                if print_options is None:
+                    logger.info("Cierre cancelado en el diálogo de opciones")
+                    return
+            except Exception:
+                logger.exception("Error mostrando diálogo de opciones de cierre, usando por defecto")
+                print_options = None
+
+            # --- OBTENER tickets pendientes ---
             rows_now = []
             try:
                 if getattr(self, 'repo', None) is not None:
@@ -608,7 +621,12 @@ class TicketsSubView(CTkFrame):
             except Exception:
                 pass
 
-            resultado = processor.process(ticket_ids=ticket_ids, usuario_id=usuario_id, cajero=cajero_nombre)
+            resultado = processor.process(
+                ticket_ids=ticket_ids, 
+                usuario_id=usuario_id, 
+                cajero=cajero_nombre,
+                print_options=print_options
+            )
 
             logger.info(f"Resultado proceso cierre: success={resultado.get('success')}, cierre_id={resultado.get('cierre_id')}")
 
@@ -620,7 +638,7 @@ class TicketsSubView(CTkFrame):
                     logger.error('Fallo generando cierre: %s', resultado)
                 return
 
-            # --- GENERAR TEXTO del cierre ---
+            # --- GENERAR TEXTO del cierre para el visor ---
             try:
                 from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
                 imp = ImpresoraService(db=self.db)
@@ -628,7 +646,11 @@ class TicketsSubView(CTkFrame):
                 cierre_data = resultado.get('cierre', {}) or {}
                 tickets = resultado.get('tickets', []) or []
                 totals = resultado.get('totals', {}) or {}
-                texto = imp.cierre_ticket_generator.generate(config, cierre_data, tickets, totals=totals)
+                
+                # Pasar las mismas opciones elegidas al generador del visor
+                texto = imp.cierre_ticket_generator.generate(
+                    config, cierre_data, tickets, totals=totals, print_options=print_options
+                )
             except Exception:
                 logger.exception('Error generando texto de cierre')
                 try:
@@ -723,7 +745,7 @@ class TicketsSubView(CTkFrame):
                 root,
                 'Cierre generado',
                 'Revisa el visor y pulsa OK para continuar.',
-                callback=lambda _: _cerrar_y_continuar()
+                callback=lambda: _cerrar_y_continuar()
             )
 
         except Exception:

@@ -13,7 +13,7 @@ from kool_tpv.base_datos.tipo_service import TipoService
 
 
 class CierreCajaProcessor(TicketProcessor):
-    def process(self, ticket_ids: Optional[List[int]] = None, usuario_id: Optional[int] = None, cajero: Optional[str] = None, cierre_text: Optional[str] = None, imprimir: bool = True, printer_name: Optional[str] = None):
+    def process(self, ticket_ids: Optional[List[int]] = None, usuario_id: Optional[int] = None, cajero: Optional[str] = None, cierre_text: Optional[str] = None, imprimir: bool = True, printer_name: Optional[str] = None, print_options: Optional[dict] = None):
         """Crear un cierre a partir de `ticket_ids`.
 
         Pasos:
@@ -161,6 +161,15 @@ class CierreCajaProcessor(TicketProcessor):
         except Exception:
             pass
 
+        # Calcular ventas por cajero y productos (NECESARIO PARA EL GENERADOR)
+        try:
+            totals['ventas_por_cajero'] = cierre_svc.get_ventas_por_cajero_para_tickets(ticket_ids)
+            from kool_tpv.base_datos.producto_service import ProductoService
+            prod_svc = ProductoService(self.db)
+            totals['productos'] = prod_svc.get_ventas_por_producto(ticket_ids)
+        except Exception:
+            logging.exception('Error calculando desgloses de cajero/productos en processor')
+
         # devoluciones por tipo: sólo líneas 'devolucion'
         try:
             tipo_svc = TipoService(self.db)
@@ -264,6 +273,10 @@ class CierreCajaProcessor(TicketProcessor):
         # Devolver datos del cierre; además, imprimir desde aquí si se solicitó.
         cierre_data = cierre_svc.obtener_cierre_por_id(cierre_id) or {}
         cierre_data['totals'] = totals
+        cierre_data['print_options'] = print_options
+        # El generador espera 'usuario', pero en la BD es 'cajero'
+        if 'cajero' in cierre_data and 'usuario' not in cierre_data:
+            cierre_data['usuario'] = cierre_data['cajero']
 
         printed = False
         if imprimir:
@@ -283,11 +296,11 @@ class CierreCajaProcessor(TicketProcessor):
 
                 imp = ImpresoraService(db=self.db, imprimir_en_consola=True, modo_impresion=modo_impresion, codepage=codepage)
                 try:
-                    printed = bool(imp.imprimir(TicketType.CIERRE, cierre_data, items=tickets_for_print, printer_name=printer_name))
+                    printed = bool(imp.imprimir(TicketType.CIERRE, cierre_data, items=tickets_for_print, printer_name=printer_name, print_options=print_options))
                 except Exception:
                     # fallback: try to generate text and print via generic
                     try:
-                        texto = imp.generar_cierre_desde_id(cierre_id)
+                        texto = imp.generar_cierre_desde_id(cierre_id, print_options=print_options)
                         if texto:
                             imp._imprimir_texto_generico(texto, {'num_ticket': cierre_data.get('cierre_num', '')}, printer_name)
                             printed = True

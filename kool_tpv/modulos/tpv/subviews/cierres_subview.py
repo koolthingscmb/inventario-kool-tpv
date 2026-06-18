@@ -126,7 +126,7 @@ class CierresSubView(CTkFrame):
             columns=columns,
             search_function=self._buscar_cierres,
             map_function=self._map_cierre,
-            module_name="cierres",
+            module_name="tpv",
             page_limit=50,
             on_double_click=None,
             keyboard_manager=self.keyboard_manager,
