@@ -449,23 +449,28 @@ class CierreService:
             logging.exception('Error en create_cierre_atomic')
             return None
 
-    def listar_cierres(self, fecha_from: Optional[str] = None, fecha_to: Optional[str] = None, limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
-        """Listar cierres, opcionalmente filtrando por rango de fecha (fecha_hora).
-
-        Las fechas deben interpretarse por SQLite (ej: 'YYYY-MM-DD' o ISO).
-        """
+    def listar_cierres(self, termino: str = '', fecha_from: Optional[str] = None, fecha_to: Optional[str] = None, limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
+        """Listar cierres, filtrando por término (cajero o nº cierre) y rango de fechas."""
         params = []
-        where = ''
+        where_parts = []
+        
+        if termino:
+            like = f"%{termino}%"
+            where_parts.append("(cajero LIKE ? OR CAST(cierre_num AS TEXT) LIKE ?)")
+            params.extend([like, like])
+            
         if fecha_from and fecha_to:
-            where = 'WHERE fecha_hora BETWEEN ? AND ?'
+            where_parts.append("fecha_hora BETWEEN ? AND ?")
             params.extend([fecha_from, fecha_to])
         elif fecha_from:
-            where = 'WHERE fecha_hora >= ?'
+            where_parts.append("fecha_hora >= ?")
             params.append(fecha_from)
         elif fecha_to:
-            where = 'WHERE fecha_hora <= ?'
+            where_parts.append("fecha_hora <= ?")
             params.append(fecha_to)
 
+        where = "WHERE " + " AND ".join(where_parts) if where_parts else ""
+        
         sql = f'SELECT * FROM cierres {where} ORDER BY fecha_hora DESC LIMIT ? OFFSET ?'
         params.extend([limit, offset])
         try:

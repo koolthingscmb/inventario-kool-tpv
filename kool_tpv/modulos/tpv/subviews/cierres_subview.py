@@ -22,15 +22,53 @@ class CierresSubView(CTkFrame):
 
         from kool_tpv.utils.factories.button_factory import ButtonFactory
 
-        # Button to trigger cierre workflow (label per spec)
+        # 1. Botón para generar cierre (Cierre X)
+        self.btn_generar_cierre = ButtonFactory.create_button(
+            parent=self.header_frame,
+            text="CIERRE Z",
+            style_key="mini_action",
+            command=self._show_pending_tickets,
+            width=100
+        )
+        self.btn_generar_cierre.pack(side="left", padx=10)
+
+        # 2. Date pickers para filtrar rango (desde / hasta)
+        try:
+            from kool_tpv.utils.widgets.date_picker_entry import DatePickerEntry
+            self.date_from = DatePickerEntry(self.header_frame, module_name='cierres', width=90, allow_future=False, default_mode='first_day_of_month', command=lambda d=None: self._on_date_change())
+            self.date_from.pack(side="left", padx=(10, 4))
+            
+            from customtkinter import CTkLabel
+            self._date_range_label = CTkLabel(self.header_frame, text='a')
+            self._date_range_label.pack(side='left')
+            
+            self.date_to = DatePickerEntry(self.header_frame, module_name='cierres', width=90, allow_future=False, default_mode='today', command=lambda d=None: self._on_date_change())
+            self.date_to.pack(side="left", padx=(4, 6))
+        except Exception:
+            logger.exception("Error creando DatePickers en cierres")
+            self.date_from = None
+            self.date_to = None
+
+        # 3. Buscador (espera Enter)
+        from customtkinter import CTkEntry
+        self.search_entry = CTkEntry(
+            self.header_frame,
+            placeholder_text="Introduce cajero o nº para filtrar cierres",
+            width=350,
+        )
+        self.search_entry.pack(side="left", padx=10)
+        
+        # Bind Enter on search entry
+        self.search_entry.bind("<Return>", lambda e: self.search_list.set_search_text(self.search_entry.get()))
+        self.search_entry.bind("<KP_Enter>", lambda e: self.search_list.set_search_text(self.search_entry.get()))
+
+        # 4. Botón Imprimir (a la derecha)
         self.btn_imprimir = ButtonFactory.create_button(
             parent=self.header_frame,
-            text="Cierre (X)",
+            text="IMPRIMIR",
             style_key="mini_outline_clientes",
-            command=self._show_pending_tickets
+            command=self._on_imprimir_cierre
         )
-
-        # No search entry for cierres (historical list)
         self.btn_imprimir.pack(side="right", padx=10)
 
         # Content area: left = list, right = ticket display
@@ -117,19 +155,72 @@ class CierresSubView(CTkFrame):
         try:
             if not self.service:
                 return []
-            rows = self.service.listar_cierres(limit=1000, offset=0)
-            if texto:
-                txt = texto.lower()
-                def match(r):
-                    try:
-                        return txt in str(r.get('cierre_num', '')).lower() or txt in str(r.get('cajero', '')).lower() or txt in str(r.get('cierre_text', '')).lower()
-                    except Exception:
-                        return False
-                return [r for r in rows if match(r)]
-            return rows
+            
+            # Obtener fechas desde los pickers
+            fecha_from = self.date_from.get() if self.date_from else None
+            fecha_to = self.date_to.get() if self.date_to else None
+            
+            # Llamar al servicio profesional con los filtros
+            return self.service.listar_cierres(
+                termino=texto or '',
+                fecha_from=fecha_from,
+                fecha_to=fecha_to,
+                limit=1000, 
+                offset=0
+            )
         except Exception:
             logger.exception('Error buscando cierres')
             return []
+
+    def _on_date_change(self):
+        """Refrescar lista al cambiar fechas."""
+        try:
+            self.search_list.set_search_text(self.search_entry.get())
+        except Exception:
+            pass
+
+    def _on_imprimir_cierre(self):
+        """Imprimir el cierre seleccionado."""
+        try:
+            nav = getattr(self.search_list, 'nav_list', None)
+            if nav is None: return
+            
+            sel = nav.get_selected_data()
+            if not sel:
+                from kool_tpv.utils.widgets.notificaciones import show_warning
+                show_warning(self.winfo_toplevel(), 'Selecciona un cierre para imprimir')
+                return
+            
+            cierre_id = sel.get('cierre_id') or sel.get('id')
+            if not cierre_id: return
+
+            from kool_tpv.utils.custom_dialog import show_info
+            show_info(
+                self.winfo_toplevel(),
+                'Imprimir cierre',
+                f'Se imprimirá el cierre nº {sel.get("cierre_num")}. Continuar?',
+                confirm=True,
+                callback=lambda: self._ejecutar_impresion_cierre(cierre_id)
+            )
+        except Exception:
+            logger.exception('Error en _on_imprimir_cierre')
+
+    def _ejecutar_impresion_cierre(self, cierre_id):
+        try:
+            if not self.view or not self.view.controller: return
+            
+            # Usar el controller para generar el texto del cierre
+            from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
+            imp = ImpresoraService(db=self.db)
+            texto = imp.generar_cierre_desde_id(cierre_id)
+            
+            if texto:
+                # Usar la rutina de impresión común
+                imp._imprimir_texto_generico(texto, {'num_ticket': f"CIERRE_{cierre_id}"})
+                from kool_tpv.utils.widgets.notificaciones import ToastWidget
+                ToastWidget.show(self.winfo_toplevel(), f'Cierre {cierre_id} enviado a imprimir', tipo='success')
+        except Exception:
+            logger.exception('Error imprimiendo cierre')
 
     def _map_cierre(self, detalle):
         try:
