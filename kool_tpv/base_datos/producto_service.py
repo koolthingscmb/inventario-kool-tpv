@@ -334,14 +334,18 @@ class ProductoService:
             o None si no existe
         """
         try:
+            # Limpiar espacios y caracteres de control que el escáner pueda enviar
+            ean_limpio = ean.strip() if ean else ''
+            if not ean_limpio:
+                return None
             query = """
             SELECT p.id
             FROM productos p
             INNER JOIN codigos_barras cb ON cb.producto_id = p.id
-            WHERE cb.ean = ?
+            WHERE cb.ean LIKE ?
             LIMIT 1
             """
-            row = self.db.fetch_one(query, (ean,))
+            row = self.db.fetch_one(query, (ean_limpio,))
             if not row:
                 return None
             producto_id = row[0]
