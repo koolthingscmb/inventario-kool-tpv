@@ -338,16 +338,20 @@ class ProductoService:
             ean_limpio = ean.strip() if ean else ''
             if not ean_limpio:
                 return None
+            
+            # Usar comodines como en Almacén para máxima compatibilidad con el lector
+            termino_like = f'%{ean_limpio}%'
+            
             query = """
-            SELECT p.id
-            FROM productos p
-            INNER JOIN codigos_barras cb ON cb.producto_id = p.id
-            WHERE cb.ean LIKE ?
+            SELECT producto_id
+            FROM codigos_barras
+            WHERE ean LIKE ?
             LIMIT 1
             """
-            row = self.db.fetch_one(query, (ean_limpio,))
+            row = self.db.fetch_one(query, (termino_like,))
             if not row:
                 return None
+            
             producto_id = row[0]
             return self.get_producto_para_carrito(producto_id)
         except Exception:
