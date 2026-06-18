@@ -93,6 +93,7 @@ class App(ctk.CTk):
         self.nav_buttons = {}
         self.current_view = None
         self._power_stack = []  # Stack de handlers (LIFO - último registrado tiene prioridad) 
+        self._presencia_from_tpv = False
 
         # 5. UI - Estructura Principal
         self._init_ui_structure()
@@ -361,6 +362,7 @@ class App(ctk.CTk):
         self.current_view = "tpv"
 
     def open_almacen(self):
+        self.current_view = "almacen"
         # Ocultar menú principal
         self.nav_frame.pack_forget() 
         self.main_frame.pack_forget()
@@ -370,6 +372,7 @@ class App(ctk.CTk):
         self.almacen_view = AlmacenView(self, db=self.db, keyboard_manager=self.keyboard_mgr)
 
     def open_clientes(self):
+        self.current_view = "clientes"
         self.nav_frame.pack_forget()
         self.main_frame.pack_forget()
 
@@ -377,6 +380,7 @@ class App(ctk.CTk):
         self.clientes_view = ClientesView(self, db=self.db, keyboard_manager=self.keyboard_mgr)
 
     def open_informes(self):
+        self.current_view = "informes"
         self.nav_frame.pack_forget()
         self.main_frame.pack_forget()
 
@@ -384,18 +388,49 @@ class App(ctk.CTk):
         self.informes_view = InformesView(self, db=self.db, keyboard_manager=self.keyboard_mgr)
 
     def open_config(self):
+        self.current_view = "config"
         self.nav_frame.pack_forget()
         self.main_frame.pack_forget()
 
         from kool_tpv.modulos.configuracion.config_view import ConfigView
         self.config_view = ConfigView(self, db=self.db, keyboard_manager=self.keyboard_mgr)
 
-    def open_presencia(self):
+    def open_presencia(self, from_tpv: bool = False):
+        self._presencia_from_tpv = from_tpv
+        self.current_view = "presencia"
         self.nav_frame.pack_forget()
         self.main_frame.pack_forget()
 
         from kool_tpv.modulos.presencia.presencia_view import PresenciaView
         self.presencia_view = PresenciaView(self, db=self.db, keyboard_manager=self.keyboard_mgr)
+
+    def toggle_print(self):
+        """Alternar el estado de impresión de tickets."""
+        try:
+            # 1. Leer estado actual
+            from kool_tpv.base_datos.configuracion_repository import ConfiguracionRepository
+            repo = ConfiguracionRepository(self.db)
+            config = repo.obtener_multiples(['modo_impresion'])
+            current_modo = config.get('modo_impresion', 'escpos')
+            
+            # 2. Alternar (si es escpos -> texto, si es texto -> escpos)
+            # Nota: 'texto' significa que no se envía a la impresora física (solo consola/simulación)
+            new_modo = 'escpos' if current_modo != 'escpos' else 'texto'
+            repo.guardar_multiples({'modo_impresion': new_modo})
+            
+            # 3. Notificar a la vista TPV si está activa para que actualice el botón
+            if self.current_view == "tpv" and hasattr(self, 'tpv_view'):
+                if hasattr(self.tpv_view, 'controller') and self.tpv_view.controller:
+                    self.tpv_view.controller.rebind_buttons()
+            
+            # 4. Mostrar feedback
+            from kool_tpv.utils.widgets.notificaciones import ToastWidget
+            estado_txt = "ACTIVADA" if new_modo == 'escpos' else "DESACTIVADA"
+            ToastWidget.show(self, f"Impresión física {estado_txt}", tipo='success')
+            
+            logging.info(f"Modo impresión cambiado a: {new_modo}")
+        except Exception:
+            logger.exception("Error en toggle_print")
 
     def close_app(self):
         # 1. Si estamos en TPV, salir al menú principal
@@ -460,6 +495,21 @@ class App(ctk.CTk):
 
                 # Si _on_power devolvió False (o no existe), ocultar el módulo (igual que TPV)
                 if view:
+                    # Caso especial: si venimos de Presencia y veníamos del TPV, volver al TPV
+                    if mod_name == 'presencia_view' and getattr(self, '_presencia_from_tpv', False):
+                        self._presencia_from_tpv = False
+                        # Ocultar Presencia
+                        try:
+                            if hasattr(view, 'sidebar'): view.sidebar.pack_forget()
+                            if hasattr(view, 'main_frame'): view.main_frame.pack_forget()
+                        except Exception: pass
+                        
+                        # Volver al TPV
+                        self.nav_frame.pack(side="left", fill="y")
+                        self.main_frame.pack(side="right", fill="both", expand=True)
+                        self.load_tpv()
+                        return
+
                     # Ocultar frames del módulo (NO destruir - handler permanece en stack)
                     try:
                         if hasattr(view, 'sidebar'):

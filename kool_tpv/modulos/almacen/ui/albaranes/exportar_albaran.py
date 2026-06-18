@@ -113,12 +113,13 @@ class ExportarAlbaranUI:
         except Exception as e:
             logger.exception("Error buscando albaranes")
 
-    def _on_exportar_csv(self, selected_ids, incluir_cabecera):
+    def _on_exportar_csv(self, selected_ids, incluir_cabecera, agrupar):
         """Exportar seleccionados a CSV."""
         try:
             resultado = self.exportador_csv.exportar(
                 albaran_ids=selected_ids,
                 incluir_cabecera_tienda=incluir_cabecera,
+                agrupar=agrupar,
                 parent_widget=self.parent
             )
             if resultado:

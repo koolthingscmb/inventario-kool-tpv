@@ -988,7 +988,8 @@ class TicketCarrito(ctk.CTkFrame):
                                 texto_descuento = '>> Descuento:'
 
                             # Insert visual discount row
-                            descuento_negativo = -float(descuento_euros)
+                            from decimal import Decimal
+                            descuento_negativo = -Decimal(str(descuento_euros))
                             self.carrito_nav_list.add_item({
                                 "id": "__descuento_visual__",
                                 "nombre": texto_descuento,

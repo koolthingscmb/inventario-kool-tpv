@@ -34,7 +34,9 @@ BUTTON_ACTIONS: Dict[str, Callable[[Any], None]] = {
     'CARD': lambda view: _activate_payment(view, 'tarjeta'),
     'WEB': lambda view: _activate_payment(view, 'web'),
     'CONFIG': lambda view: _open_config(view),
+    'PRESENCIA': lambda view: _open_presencia(view),
     'PRINT ON': lambda view: _toggle_print(view),
+    'PRINT OFF': lambda view: _toggle_print(view),
 }
 
 
@@ -258,40 +260,30 @@ def _open_tickets_guarded(view):
         logger.exception('Error abriendo TicketsUI')
 
 
-def _open_config(view):
-    """Intentar invocar `open_config` en la vista o en su contenedor/principal."""
+def _open_presencia(view):
+    """Intentar invocar `open_presencia` en la aplicación principal."""
     try:
-        # Preferir método directo en la view
-        if getattr(view, 'open_config', None) and callable(view.open_config):
-            view.open_config()
+        app = view.winfo_toplevel()
+        if hasattr(app, 'open_presencia') and callable(app.open_presencia):
+            # Indicar que venimos desde el TPV
+            app.open_presencia(from_tpv=True)
             return
 
-        # Probar en container o parent (main app)
-        parent = getattr(view, 'container', None) or getattr(view, 'parent', None)
-        if parent and getattr(parent, 'open_config', None) and callable(parent.open_config):
-            parent.open_config()
-            return
-
-        logger.warning('open_config no disponible en view ni en su contenedor')
+        logger.warning('open_presencia no disponible en la aplicación principal')
     except Exception:
-        logger.exception('Error invocando open_config')
+        logger.exception('Error invocando open_presencia')
 
 
 def _toggle_print(view):
-    """Intentar activar/desactivar impresión mediante `toggle_print` disponible en main/app."""
+    """Alternar impresión mediante `toggle_print` disponible en main/app."""
     try:
-        # Preferir método en la view
-        if getattr(view, 'toggle_print', None) and callable(view.toggle_print):
-            view.toggle_print()
+        # Obtener la app principal para llamar a toggle_print
+        app = view.winfo_toplevel()
+        if hasattr(app, 'toggle_print') and callable(app.toggle_print):
+            app.toggle_print()
             return
 
-        # Probar en container o parent (main app)
-        parent = getattr(view, 'container', None) or getattr(view, 'parent', None)
-        if parent and getattr(parent, 'toggle_print', None) and callable(parent.toggle_print):
-            parent.toggle_print()
-            return
-
-        logger.warning('toggle_print no disponible en view ni en su contenedor')
+        logger.warning('toggle_print no disponible en la aplicación principal')
     except Exception:
         logger.exception('Error invocando toggle_print')
 
@@ -479,6 +471,21 @@ def rebind_buttons(view):
                     return s_norm.strip().upper()
 
                 text_norm = _normalize(text)
+
+                # --- LÓGICA ESPECIAL PARA PRINT ON/OFF ---
+                if text_norm in ('PRINT ON', 'PRINT OFF'):
+                    try:
+                        from kool_tpv.base_datos.configuracion_repository import ConfiguracionRepository
+                        repo = ConfiguracionRepository(view.db)
+                        config = repo.obtener_multiples(['modo_impresion'])
+                        is_on = config.get('modo_impresion', 'escpos') == 'escpos'
+                        
+                        if is_on:
+                            btn.configure(text="PRINT ON", text_color="#00FF00") # Verde si imprime
+                        else:
+                            btn.configure(text="PRINT OFF", text_color="#FF0000") # Rojo si no imprime
+                    except Exception:
+                        pass
 
                 action = BUTTON_ACTIONS.get(text.upper()) or BUTTON_ACTIONS.get(text_norm)
                 if action:

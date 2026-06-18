@@ -81,65 +81,62 @@ class DescuentoSubView(CTkFrame):
 
     def _on_tipo_seleccion(self, tipo):
         """Callback cuando se selecciona tipo '%' o '€'.
-
-        Delegar al servicio de carrito para abrir diálogo de entrada
-        y aplicar descuento correspondiente.
+        
+        Muestra un área de entrada para introducir el valor del descuento.
         """
         try:
-            # If percentage type selected, show input entry + OK button
-            if tipo == '%':
-                self._show_percentage_input()
-                return
-
-            # Delegar a carrito_service para otros tipos (ej: '€')
-            if getattr(self.carrito_service, 'apply_discount_tipo', None):
-                try:
-                    self.carrito_service.apply_discount_tipo(tipo)
-                except Exception:
-                    logger.exception('Error aplicando descuento por tipo desde carrito_service')
-            else:
-                # Si no existe, intentar usar DescuentoService.apply_discount_simple (fallback)
-                try:
-                    from kool_tpv.modulos.descuento.descuento_service import DescuentoService
-                    svc = DescuentoService(self.db)
-                    svc.apply_discount_by_type(tipo)
-                except Exception:
-                    logger.exception('No hay servicio de descuentos o carrito_service para manejar tipo')
+            self._show_input_area(tipo)
         except Exception:
             logger.exception('Error en _on_tipo_seleccion')
 
-    def _show_percentage_input(self):
-        """Mostrar entrada grande y botón OK para introducir porcentaje."""
+    def _show_input_area(self, tipo):
+        """Mostrar entrada gigante y botón OK para introducir el valor (porcentaje o importe)."""
         try:
-            # Si ya existe, enfocarla
+            # Si ya existe, destruirla para recrearla con el tipo correcto (placeholder/validación)
             if self._input_area is not None:
                 try:
-                    self._input_entry.focus_set()
+                    self._input_area.destroy()
                 except Exception:
                     pass
-                return
-
+            
             # Crear frame dentro de chips_frame en la fila 2
             self._input_area = ctk.CTkFrame(self.chips_frame)
             self._input_area.grid(row=2, column=0, columnspan=3, sticky='ew', padx=8, pady=(6, 12))
 
-            # Entry grande
+            # Entry GIGANTE
             self._input_var = ctk.StringVar(value='')
-            self._input_entry = ctk.CTkEntry(self._input_area, textvariable=self._input_var, width=300, height=50, font=('Roboto', 20), justify='center')
+            placeholder = "Introduzca %" if tipo == '%' else "Introduzca €"
+            
+            # Font mucho más grande (tamaño 50) y altura mayor
+            self._input_entry = ctk.CTkEntry(
+                self._input_area, 
+                textvariable=self._input_var, 
+                width=350, 
+                height=80, 
+                font=('Roboto', 50, 'bold'), 
+                justify='center',
+                placeholder_text=placeholder
+            )
             self._input_entry.pack(side='left', padx=(0, 12), expand=True, fill='x')
 
             # Botón Ok usando ButtonFactory
             try:
-                ok_btn = ButtonFactory.create_button(parent=self._input_area, text='Ok', style_key='chip_default', command=self._on_submit_percentage)
+                ok_btn = ButtonFactory.create_button(
+                    parent=self._input_area, 
+                    text='Aplicar', 
+                    style_key='chip_default', 
+                    command=lambda: self._on_submit_amount(tipo),
+                    height=80 # Acompañar la altura del entry
+                )
             except Exception:
                 # Fallback simple
-                ok_btn = ctk.CTkButton(self._input_area, text='Ok', command=self._on_submit_percentage)
+                ok_btn = ctk.CTkButton(self._input_area, text='Aplicar', command=lambda: self._on_submit_amount(tipo), height=80)
             ok_btn.pack(side='left')
 
             # Bind Enter on entry to submit
             try:
-                self._input_entry.bind('<Return>', lambda e: self._on_submit_percentage())
-                self._input_entry.bind('<KP_Enter>', lambda e: self._on_submit_percentage())
+                self._input_entry.bind('<Return>', lambda e: self._on_submit_amount(tipo))
+                self._input_entry.bind('<KP_Enter>', lambda e: self._on_submit_amount(tipo))
             except Exception:
                 pass
 
@@ -149,18 +146,15 @@ class DescuentoSubView(CTkFrame):
             except Exception:
                 pass
         except Exception:
-            logger.exception('Error mostrando input porcentaje')
+            logger.exception(f'Error mostrando input para tipo {tipo}')
 
-    def _on_submit_percentage(self):
-        """Validar valor del entry y delegar la aplicación (lógica aplicada después)."""
+    def _on_submit_amount(self, tipo):
+        """Validar valor del entry y aplicar el descuento según tipo."""
         try:
             txt = (self._input_var.get() or '').strip()
             if not txt:
                 show_warning(self, 'Introduzca un número válido')
-                try:
-                    self._input_entry.focus_set(); self._input_entry.select_range(0,'end')
-                except Exception:
-                    pass
+                self._input_entry.focus_set()
                 return
 
             # Normalizar coma a punto
@@ -169,95 +163,64 @@ class DescuentoSubView(CTkFrame):
                 val = Decimal(txt_norm)
             except (InvalidOperation, ValueError):
                 show_warning(self, 'Introduzca un número válido')
-                try:
-                    self._input_entry.focus_set(); self._input_entry.select_range(0,'end')
-                except Exception:
-                    pass
+                self._input_entry.focus_set()
+                self._input_entry.select_range(0, 'end')
                 return
 
-            # Reglas: >0 y <=100
-            if val <= 0 or val > Decimal('100'):
-                show_warning(self, 'El porcentaje debe ser >0 y ≤100')
-                try:
-                    self._input_entry.focus_set(); self._input_entry.select_range(0,'end')
-                except Exception:
-                    pass
+            # Reglas básicas: >0
+            if val <= 0:
+                show_warning(self, 'El valor debe ser mayor que 0')
+                self._input_entry.focus_set()
                 return
 
-            # Valor válido: delegar (lógica real se implementará después)
+            # Regla específica para %: <=100
+            if tipo == '%' and val > Decimal('100'):
+                show_warning(self, 'El porcentaje no puede ser mayor que 100')
+                self._input_entry.focus_set()
+                return
+
+            # Intentar aplicar el descuento
             try:
                 if getattr(self.carrito_service, 'apply_discount_tipo', None):
+                    self.carrito_service.apply_discount_tipo(tipo, val)
+                    logger.info(f'Descuento {val}{tipo} aplicado correctamente')
+                    
+                    # Refrescar la vista del ticket
                     try:
-                        # Intentar pasar porcentaje al servicio si soporta dos args
-                        try:
-                            self.carrito_service.apply_discount_tipo('%', val)
-                        except TypeError:
-                            # Fallback pasar solo tipo
-                            try:
-                                self.carrito_service.apply_discount_tipo('%')
-                            except Exception:
-                                logger.exception('Error aplicando descuento (fallback)')
-                        except Exception:
-                            logger.exception('Error aplicando descuento')
-                        else:
-                            logger.info('DescuentoSubView: descuento aplicado, refrescando UI')
-                            # Intentar refrescar el UI por varias rutas conocidas
-                            tried = []
-                            try:
-                                if getattr(self.view, 'carrito_ui', None) is not None:
-                                    tried.append('view.carrito_ui')
-                                    try:
-                                        self.view.carrito_ui.update_display()
-                                    except Exception:
-                                        logger.exception('Error refrescando view.carrito_ui')
-                            except Exception:
-                                pass
-
-                            try:
-                                if getattr(self.view, 'ticket_carrito', None) is not None:
-                                    tried.append('view.ticket_carrito')
-                                    try:
-                                        self.view.ticket_carrito.update_display()
-                                    except Exception:
-                                        logger.exception('Error refrescando view.ticket_carrito')
-                            except Exception:
-                                pass
-
-                            try:
-                                top = None
-                                try:
-                                    top = self.winfo_toplevel()
-                                except Exception:
-                                    try:
-                                        top = self.view and getattr(self.view, 'winfo_toplevel', lambda: None)()
-                                    except Exception:
-                                        top = None
-                                if top is not None and getattr(top, 'carrito_ui', None) is not None:
-                                    tried.append('toplevel.carrito_ui')
-                                    try:
-                                        top.carrito_ui.update_display()
-                                    except Exception:
-                                        logger.exception('Error refrescando toplevel.carrito_ui')
-                            except Exception:
-                                pass
-
-                            logger.info('DescuentoSubView: refresh attempts: %s', tried)
+                        if self.view and hasattr(self.view, 'ticket_carrito'):
+                            self.view.ticket_carrito.update_carrito()
                     except Exception:
-                        logger.exception('Error llamando carrito_service.apply_discount_tipo con porcentaje')
+                        pass
                 else:
-                    logger.info('Porcentaje validado: %s (aún no aplicado)', str(val))
-            except Exception:
-                logger.exception('Error delegando aplicación de porcentaje')
+                    logger.error('carrito_service no tiene el método apply_discount_tipo')
+                    show_warning(self, 'Error interno: no se puede aplicar el descuento')
 
-            # Cerrar/ocultar input area
+            except ValueError as ve:
+                # El servicio lanza ValueError si el descuento supera el total, etc.
+                show_warning(self, str(ve))
+                self._input_entry.focus_set()
+                return
+            except Exception:
+                logger.exception('Error aplicando descuento')
+                show_warning(self, 'Error al aplicar el descuento')
+                return
+
+            # Si todo ha ido bien, cerrar/ocultar input area y tal vez cerrar la subview
             try:
                 self._input_area.destroy()
+                self._input_area = None
             except Exception:
                 pass
-            self._input_area = None
+            
+            # Volver al grid del TPV (cerrar esta subview)
+            try:
+                if self.view and hasattr(self.view, 'pop_subview'):
+                    self.view.pop_subview()
+            except Exception:
+                pass
 
         except Exception:
-            logger.exception('Error en _on_submit_percentage')
+            logger.exception('Error en _on_submit_amount')
 
     def _on_apply_template(self, dto_id):
         try:

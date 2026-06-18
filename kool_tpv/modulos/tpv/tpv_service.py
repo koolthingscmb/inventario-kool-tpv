@@ -171,7 +171,7 @@ class TpvService:
         """
         try:
             # Leer configuración de impresión desde BD
-            modo_impresion = 'texto'
+            modo_impresion = 'escpos'
             printer_name = None
             codepage = 'cp858'
             try:

@@ -23,6 +23,7 @@ class ExportadorCSV:
         self,
         albaran_ids: List[int],
         incluir_cabecera_tienda: bool = False,
+        agrupar: bool = True,
         parent_widget=None
     ) -> Optional[str]:
         """Exportar albaranes a CSV.
@@ -30,44 +31,68 @@ class ExportadorCSV:
         Args:
             albaran_ids: Lista de IDs de albaranes a exportar
             incluir_cabecera_tienda: Si True, incluye datos de la tienda al inicio
+            agrupar: Si True, exporta todos en un único archivo. Si False, uno por cada albarán.
             parent_widget: Widget padre para el diálogo de guardar
 
         Returns:
-            Ruta del archivo generado o None si se canceló
+            Ruta del archivo o carpeta generada o None si se canceló
         """
         if not albaran_ids:
             logger.warning("No hay albaranes para exportar")
             return None
 
-        # Diálogo para guardar archivo
-        fecha_hora = datetime.now().strftime('%Y%m%d_%H%M%S')
-        default_filename = f"albaranes_{fecha_hora}.csv"
+        # Si agrupamos o solo hay uno, pedir nombre de archivo
+        if agrupar or len(albaran_ids) == 1:
+            fecha_hora = datetime.now().strftime('%Y%m%d_%H%M%S')
+            default_filename = f"albaranes_{fecha_hora}.csv"
 
-        file_path = filedialog.asksaveasfilename(
-            parent=parent_widget,
-            defaultextension=".csv",
-            filetypes=[("Archivos CSV", "*.csv"), ("Todos los archivos", "*.*")],
-            initialfile=default_filename,
-            title="Guardar CSV"
-        )
+            file_path = filedialog.asksaveasfilename(
+                parent=parent_widget,
+                defaultextension=".csv",
+                filetypes=[("Archivos CSV", "*.csv"), ("Todos los archivos", "*.*")],
+                initialfile=default_filename,
+                title="Guardar CSV"
+            )
 
-        if not file_path:
-            logger.info("Exportación CSV cancelada por el usuario")
-            return None
+            if not file_path:
+                logger.info("Exportación CSV cancelada")
+                return None
 
-        try:
-            # Obtener datos de los albaranes y sus líneas
-            albaranes_completos = self._obtener_datos_completos(albaran_ids)
+            try:
+                albaranes_completos = self._obtener_datos_completos(albaran_ids)
+                self._escribir_csv(file_path, albaranes_completos, incluir_cabecera_tienda)
+                return file_path
+            except Exception:
+                logger.exception("Error exportando CSV agrupado")
+                return None
+        else:
+            # Exportar individualmente: pedir carpeta
+            folder = filedialog.askdirectory(
+                parent=parent_widget,
+                title="Seleccionar carpeta para guardar archivos CSV"
+            )
+            if not folder:
+                logger.info("Exportación CSV cancelada")
+                return None
 
-            # Generar CSV
-            self._escribir_csv(file_path, albaranes_completos, incluir_cabecera_tienda)
-
-            logger.info(f"CSV exportado correctamente: {file_path}")
-            return file_path
-
-        except Exception:
-            logger.exception("Error exportando CSV")
-            return None
+            try:
+                fecha_hora = datetime.now().strftime('%Y%m%d_%H%M%S')
+                for alb_id in albaran_ids:
+                    albaran = self.busqueda_service.obtener_albaran_completo(alb_id)
+                    if not albaran:
+                        continue
+                    
+                    num_alb = albaran.get('num_albaran', alb_id)
+                    filename = f"albaran_{num_alb}_{fecha_hora}.csv"
+                    file_path = os.path.join(folder, filename)
+                    
+                    self._escribir_csv(file_path, [albaran], incluir_cabecera_tienda)
+                
+                logger.info(f"CSVs exportados en: {folder}")
+                return folder
+            except Exception:
+                logger.exception("Error exportando CSVs individuales")
+                return None
 
     def _obtener_datos_completos(
         self,

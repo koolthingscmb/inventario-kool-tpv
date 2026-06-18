@@ -27,6 +27,7 @@ class DatePickerEntry(ctk.CTkFrame):
         width: int = 140,
         allow_future: bool = False,
         command: Optional[Callable[[str], None]] = None,
+        default_mode: Optional[str] = None, # 'today' or 'first_day_of_month'
         **kwargs,
     ):
         super().__init__(master, **kwargs)
@@ -53,8 +54,16 @@ class DatePickerEntry(ctk.CTkFrame):
 
             # Internal state for calendar window
             self._cal_win: Optional[tk.Toplevel] = None
-            self._year = datetime.date.today().year
-            self._month = datetime.date.today().month
+            today = datetime.date.today()
+            self._year = today.year
+            self._month = today.month
+
+            # Aplicar valor por defecto si se solicita
+            if default_mode == 'today':
+                self.set(today.isoformat())
+            elif default_mode == 'first_day_of_month':
+                first_day = today.replace(day=1)
+                self.set(first_day.isoformat())
 
         except Exception:
             logger.exception('Error initializing DatePickerEntry')

@@ -281,7 +281,7 @@ class TicketRepository:
         return result
 
     def listar_tickets(self, termino: str = ''):
-        """Listar tickets para vistas / búsquedas.
+        """Listar tickets filtrando por cliente o nombre de producto en líneas.
 
         Devuelve una lista de dicts con claves:
         `id`, `num_ticket`, `created_at`, `total`, `cajero`, `cliente`, `forma_pago`, `ticket_text`.
@@ -292,12 +292,13 @@ class TicketRepository:
             if termino:
                 like = f"%{termino}%"
                 query = (
-                    "SELECT id, num_ticket, created_at, total, cajero, cliente, forma_pago, cierre_id, ticket_text, descuento_euros, descuento_tipo, descuento_valor, dto_aplicado_id "
-                    "FROM tickets "
-                    "WHERE cliente LIKE ? OR cajero LIKE ? OR CAST(num_ticket AS TEXT) LIKE ? "
-                    "ORDER BY created_at DESC"
+                    "SELECT DISTINCT t.id, t.num_ticket, t.created_at, t.total, t.cajero, t.cliente, t.forma_pago, t.cierre_id, t.ticket_text, t.descuento_euros, t.descuento_tipo, t.descuento_valor, t.dto_aplicado_id "
+                    "FROM tickets t "
+                    "LEFT JOIN ticket_lines tl ON t.id = tl.ticket_id "
+                    "WHERE t.cliente LIKE ? OR tl.nombre LIKE ? "
+                    "ORDER BY t.created_at DESC"
                 )
-                rows = self.db.fetch_all(query, (like, like, like))
+                rows = self.db.fetch_all(query, (like, like))
             else:
                 query = (
                     "SELECT id, num_ticket, created_at, total, cajero, cliente, forma_pago, cierre_id, ticket_text, descuento_euros, descuento_tipo, descuento_valor, dto_aplicado_id "
@@ -348,21 +349,19 @@ class TicketRepository:
             return []
 
     def listar_tickets_pendientes(self, termino: str = ''):
-        """Listar tickets pendientes de cierre (where cierre_id IS NULL).
-
-        Mantiene la misma firma y formato de retorno que `listar_tickets`.
-        """
+        """Listar tickets pendientes de cierre filtrando por cliente o nombre de producto."""
         try:
             params = None
             if termino:
                 like = f"%{termino}%"
                 query = (
-                    "SELECT id, num_ticket, created_at, total, cajero, cliente, forma_pago, cierre_id, ticket_text, descuento_euros, descuento_tipo, descuento_valor, dto_aplicado_id "
-                    "FROM tickets "
-                    "WHERE (cliente LIKE ? OR cajero LIKE ? OR CAST(num_ticket AS TEXT) LIKE ?) AND (cierre_id IS NULL) "
-                    "ORDER BY created_at DESC"
+                    "SELECT DISTINCT t.id, t.num_ticket, t.created_at, t.total, t.cajero, t.cliente, t.forma_pago, t.cierre_id, t.ticket_text, t.descuento_euros, t.descuento_tipo, t.descuento_valor, t.dto_aplicado_id "
+                    "FROM tickets t "
+                    "LEFT JOIN ticket_lines tl ON t.id = tl.ticket_id "
+                    "WHERE (t.cliente LIKE ? OR tl.nombre LIKE ?) AND (t.cierre_id IS NULL) "
+                    "ORDER BY t.created_at DESC"
                 )
-                params = (like, like, like)
+                params = (like, like)
             else:
                 query = (
                     "SELECT id, num_ticket, created_at, total, cajero, cliente, forma_pago, cierre_id, ticket_text, descuento_euros, descuento_tipo, descuento_valor, dto_aplicado_id "

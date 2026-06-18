@@ -35,7 +35,7 @@ class TicketsSubView(CTkFrame):
         # Date pickers for filtering range (desde / hasta)
         try:
             from kool_tpv.utils.widgets.date_picker_entry import DatePickerEntry
-            self.date_from = DatePickerEntry(self.header_frame, module_name='tickets', width=90, allow_future=False, command=lambda d=None: self._on_date_change())
+            self.date_from = DatePickerEntry(self.header_frame, module_name='tickets', width=90, allow_future=False, default_mode='first_day_of_month', command=lambda d=None: self._on_date_change())
             self.date_from.pack(side="left", padx=(0, 4))
             # small separator label
             try:
@@ -44,17 +44,23 @@ class TicketsSubView(CTkFrame):
                 self._date_range_label.pack(side='left')
             except Exception:
                 self._date_range_label = None
-            self.date_to = DatePickerEntry(self.header_frame, module_name='tickets', width=90, allow_future=False, command=lambda d=None: self._on_date_change())
+            self.date_to = DatePickerEntry(self.header_frame, module_name='tickets', width=90, allow_future=False, default_mode='today', command=lambda d=None: self._on_date_change())
             self.date_to.pack(side="left", padx=(4, 6))
-            # Botón 'X' pequeño junto a los date pickers (config-driven, con fallback)
+            # Botón 'CIERRE Z' (antes botón X)
             try:
-                from kool_tpv.utils.config_loader import create_action_button
-                self.btn_x = create_action_button(parent=self.header_frame, button_key='x', command=lambda: self._on_x_clicked(), width=40)
+                from kool_tpv.utils.factories.button_factory import ButtonFactory
+                self.btn_x = ButtonFactory.create_button(
+                    parent=self.header_frame,
+                    text="CIERRE Z",
+                    command=lambda: self._on_x_clicked(),
+                    width=100,
+                    style_key="mini_action"
+                )
                 self.btn_x.pack(side='left', padx=6)
             except Exception:
                 try:
                     from customtkinter import CTkButton
-                    self.btn_x = CTkButton(self.header_frame, text='X', command=lambda: self._on_x_clicked(), width=40)
+                    self.btn_x = CTkButton(self.header_frame, text='CIERRE Z', command=lambda: self._on_x_clicked(), width=100)
                     self.btn_x.pack(side='left', padx=6)
                 except Exception:
                     self.btn_x = None
@@ -64,8 +70,8 @@ class TicketsSubView(CTkFrame):
 
         self.search_entry = CTkEntry(
             self.header_frame,
-            placeholder_text="Buscar ticket...",
-            width=250,
+            placeholder_text="Introduce cliente o producto para filtrar tickets",
+            width=350,
         )
         self.search_entry.pack(side="left", padx=10)
 
@@ -170,9 +176,13 @@ class TicketsSubView(CTkFrame):
         except Exception:
             logger.exception('Error conectando on_select del nav_list')
 
-        # Bind search entry to widget
+        # Bind search entry to widget (on Enter only)
         self.search_entry.bind(
-            "<KeyRelease>",
+            "<Return>",
+            lambda e: self.search_list.set_search_text(self.search_entry.get())
+        )
+        self.search_entry.bind(
+            "<KP_Enter>",
             lambda e: self.search_list.set_search_text(self.search_entry.get())
         )
 

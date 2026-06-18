@@ -237,10 +237,11 @@ class VistaSeleccion(ctk.CTkFrame, KeyboardNavigableMixin):
             return
 
         incluir_cabecera = self.var_cabecera.get()
-        logger.info(f"Exportando {len(seleccionados)} albaranes a CSV (cabecera={incluir_cabecera})")
+        agrupar = self.var_agrupar.get()
+        logger.info(f"Exportando {len(seleccionados)} albaranes a CSV (cabecera={incluir_cabecera}, agrupar={agrupar})")
 
         if self.on_exportar_csv_callback:
-            self.on_exportar_csv_callback(seleccionados, incluir_cabecera)
+            self.on_exportar_csv_callback(seleccionados, incluir_cabecera, agrupar)
 
     def _on_exportar_pdf(self):
         """Exportar seleccionados a PDF."""

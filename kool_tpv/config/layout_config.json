@@ -113,7 +113,7 @@
             {"label": "DEVOLUCIÓN", "command": "Realizar Devolución", "row": 2, "col": 1, "style_key": "rosa_descuentos"},
             {"label": "CLIENTE", "command": "Asignar Cliente", "row": 2, "col": 2, "style_key": "menu_clientes"},
             {"label": "CAJERO", "command": "Asignar Cajero", "row": 2, "col": 3, "style_key": "menu_clientes"},
-            {"label": "CONFIG", "command": "pagar", "row": 3, "col": 0, "style_key": "menu_config"},
+            {"label": "PRESENCIA", "command": "presencia", "row": 3, "col": 0, "style_key": "menu_config"},
             {"label": "PRINT ON", "command": "toggle_print", "row": 3, "col": 1, "style_key": "blanco"},
             {"label": "CIERRE", "command": "Cierres de caja", "row": 3, "col": 2, "style_key": "rojo_tickets"},
             {"label": "TICKETS", "command": "Abrir Tickets", "row": 3, "col": 3, "style_key": "rojo_tickets"}
