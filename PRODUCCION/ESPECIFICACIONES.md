@@ -34,30 +34,36 @@ Ventajas:
 ### Tablas:
 
 ```sql
-CREATE TABLE disenos (
+CREATE TABLE produccion_disenos (
     codigo TEXT PRIMARY KEY,      -- ej: op_wanted_4B
     coleccion TEXT NOT NULL,      -- ej: OP, DB, SW
     nombre TEXT NOT NULL,         -- ej: Wanted
     variante TEXT,                -- parseado del sufijo
     tipo_producto TEXT,           -- camiseta, taza, gorra...
-    imagen_path TEXT,
+    coste_camiseta REAL,          -- coste si es camiseta
+    coste_taza REAL,              -- coste si es taza
+    coste_gorra REAL,             -- coste si es gorra
+    coste_calcetin REAL,          -- coste si es calcetín
+    coste_libreta REAL,           -- coste si es libreta
+    coste_poster REAL,            -- coste si es poster
+    coste_cartera REAL,           -- coste si es cartera
     activo INTEGER DEFAULT 1
 );
 
-CREATE TABLE colores (
+CREATE TABLE produccion_colores (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nombre TEXT NOT NULL UNIQUE,  -- ej: Negro, Blanco, Rojo
     codigo_hex TEXT               -- opcional para UI
 );
 
-CREATE TABLE stock_colores (
+CREATE TABLE produccion_stock_colores (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    diseno_codigo TEXT NOT NULL,
+    producto_id INTEGER NOT NULL,  -- ID del producto TPV
     color_id INTEGER NOT NULL,
     cantidad INTEGER DEFAULT 0,
-    FOREIGN KEY (diseno_codigo) REFERENCES disenos(codigo),
-    FOREIGN KEY (color_id) REFERENCES colores(id),
-    UNIQUE(diseno_codigo, color_id)
+    FOREIGN KEY (producto_id) REFERENCES productos(id),
+    FOREIGN KEY (color_id) REFERENCES produccion_colores(id),
+    UNIQUE(producto_id, color_id)
 );
 
 CREATE TABLE produccion_estados (
@@ -93,9 +99,12 @@ CREATE TABLE produccion_lineas (
     color_id INTEGER,
     cantidad INTEGER DEFAULT 1,
     produccion_mixta INTEGER DEFAULT 0,  -- 0 = normal, 1 = delante y detrás
+    usuario_produccion_id INTEGER,      -- usuario que produjo esta línea
+    coste_unitario REAL,                -- coste por unidad
+    coste_total REAL,                   -- coste total (cantidad * coste_unitario)
     FOREIGN KEY (orden_id) REFERENCES produccion_ordenes(id) ON DELETE CASCADE,
-    FOREIGN KEY (diseno_codigo) REFERENCES disenos(codigo),
-    FOREIGN KEY (color_id) REFERENCES colores(id)
+    FOREIGN KEY (diseno_codigo) REFERENCES produccion_disenos(codigo),
+    FOREIGN KEY (color_id) REFERENCES produccion_colores(id)
 );
 ```
 
@@ -151,6 +160,8 @@ tiempo_total = tiempo_base_estado + (ordenes_anteriores * tiempo_por_unidad) + m
 
 **Escenario:** Cliente pide camiseta, se prepara en 30 min, viene a recogerla.
 
+**Nota:** Los pedidos personalizados NO se guardan en BD. Se gestionan como archivos JSON en carpeta `kool_tpv/pedidos/` (similar a borradores de albarán). Al recoger el pedido, el JSON se elimina.
+
 ### Estados:
 ```
 PENDIENTE → EN_PRODUCCION → LISTO_PARA_RECOGER → ENTREGADO
@@ -158,32 +169,25 @@ PENDIENTE → EN_PRODUCCION → LISTO_PARA_RECOGER → ENTREGADO
 CANCELADO   PAUSADO
 ```
 
-### Tabla:
-
-```sql
-CREATE TABLE pedidos_personalizados (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    cliente_nombre TEXT,
-    cliente_telefono TEXT,
-    fecha_pedido DATETIME DEFAULT CURRENT_TIMESTAMP,
-    fecha_entrega_estimada DATETIME,
-    
-    diseno_codigo TEXT,
-    tipo_producto TEXT,
-    talla TEXT,
-    cantidad INTEGER DEFAULT 1,
-    notas TEXT,
-    
-    estado TEXT DEFAULT 'PENDIENTE',
-    pago_estado TEXT DEFAULT 'PENDIENTE',
-    
-    produccion_orden_id INTEGER,  -- Vincula a Módulo A
-    ticket_id INTEGER,            -- Vincula a TPV cuando se entrega
-    
-    FOREIGN KEY (diseno_codigo) REFERENCES disenos(codigo),
-    FOREIGN KEY (produccion_orden_id) REFERENCES produccion_ordenes(id),
-    FOREIGN KEY (ticket_id) REFERENCES tickets(id)
-);
+### Estructura del JSON:
+```json
+{
+  "id": "pedido_20250619_001",
+  "cliente_nombre": "Juan Pérez",
+  "cliente_telefono": "600123456",
+  "fecha_pedido": "2025-06-19T10:30:00",
+  "fecha_entrega_estimada": "2025-06-19T11:00:00",
+  "diseno_codigo": "op_wanted_4B",
+  "tipo_producto": "camiseta",
+  "talla": "L",
+  "color_id": 1,
+  "cantidad": 1,
+  "notas": "Urgente",
+  "estado": "PENDIENTE",
+  "pago_estado": "PENDIENTE",
+  "produccion_orden_id": 123,
+  "ticket_id": null
+}
 ```
 
 ### Alertas:
@@ -228,14 +232,14 @@ Al finalizar la introducción de datos del pedido personalizado:
 
 **Nueva tabla:**
 ```sql
-CREATE TABLE disenos_ventas (
+CREATE TABLE produccion_disenos_ventas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     diseno_codigo TEXT NOT NULL,
     producto_id INTEGER NOT NULL,  -- ID del producto TPV vendido
     ticket_id INTEGER NOT NULL,
     fecha_venta DATETIME DEFAULT CURRENT_TIMESTAMP,
     cantidad INTEGER DEFAULT 1,
-    FOREIGN KEY (diseno_codigo) REFERENCES disenos(codigo),
+    FOREIGN KEY (diseno_codigo) REFERENCES produccion_disenos(codigo),
     FOREIGN KEY (producto_id) REFERENCES productos(id),
     FOREIGN KEY (ticket_id) REFERENCES tickets(id)
 );
@@ -256,7 +260,8 @@ Desde `produccion_lineas`:
 - Producción por día
 - Producción por diseño (¿qué diseños más populares?)
 - Producción por tipo de producto
-- Costes de materiales (si se implementa tabla materiales)
+- Producción por usuario (control de productividad)
+- Costes de producción por orden
 
 Desde `disenos_ventas`:
 - Ventas por diseño (diseños más vendidos)
@@ -267,17 +272,20 @@ Desde `disenos_ventas`:
 
 ## 7. PRÓXIMOS PASOS (Para futura sesión)
 
-1. Crear migración SQL con nuevas tablas (colores, stock_colores, produccion_estados, produccion_config, disenos_ventas)
-2. Desarrollar UI de Producción Rápida (con selección de color y producción mixta)
-3. Implementar sistema de cálculo de tiempo de entrega (cola de producción)
-4. Desarrollar UI de configuración de estado de producción
-5. Desarrollar UI de Pedidos Personalizados
-6. Implementar impresión de tickets para pedidos personalizados
-7. Integrar con stock TPV existente
-8. Desarrollar sistema de Toasts/Notificaciones para asignación de diseños vendidos
-9. Desarrollar subvista de asignación de diseño post-venta
-10. Añadir alertas y notificaciones (tardanza, no recogido)
-11. Implementar informes de ventas por diseño
+1. Crear migración SQL con nuevas tablas (colores, stock_colores, produccion_estados, produccion_config, disenos, produccion_ordenes, produccion_lineas, disenos_ventas)
+2. Crear migración para añadir campo 'fabricado_por_nosotros' a tabla productos
+3. Desarrollar UI de Producción Rápida (con selección de color y producción mixta)
+4. Implementar sistema de cálculo de tiempo de entrega (cola de producción)
+5. Desarrollar UI de configuración de estado de producción
+6. Desarrollar sistema JSON para Pedidos Personalizados (gestión de archivos)
+7. Desarrollar UI de Pedidos Personalizados
+8. Implementar impresión de tickets para pedidos personalizados
+9. Integrar con stock TPV existente
+10. Desarrollar sistema de Toasts/Notificaciones para asignación de diseños vendidos
+11. Desarrollar subvista de asignación de diseño post-venta
+12. Añadir alertas y notificaciones (tardanza, no recogido)
+13. Implementar informes de ventas por diseño
+14. Implementar UI de costes de productos (proveedor, coste, stock)
 
 ---
 

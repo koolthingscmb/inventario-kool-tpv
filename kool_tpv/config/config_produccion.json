@@ -1,0 +1,126 @@
+{
+  "fonts": {
+    "title": { "family": "Courier New", "size": 22, "weight": "bold" },
+    "subtitle": { "family": "Courier New", "size": 20, "weight": "bold" },
+    "button": { "family": "Courier New", "size": 16, "weight": "bold" },
+    "label": { "family": "Courier New", "size": 16, "weight": "normal" },
+    "entry": { "family": "Courier New", "size": 14, "weight": "normal" }
+  },
+  "colors": {
+    "background": "#2c3e50",
+    "text": "#ecf0f1",
+    "text_secondary": "#95a5a6",
+    "buttons": {
+      "nuevo": {
+        "bg": "#3498db",
+        "hover": "#2980b9",
+        "text": "#FFFFFF",
+        "border": "#3498db"
+      },
+      "costes": {
+        "bg": "#f39c12",
+        "hover": "#d68910",
+        "text": "#FFFFFF",
+        "border": "#f39c12"
+      },
+      "colores": {
+        "bg": "#9b59b6",
+        "hover": "#8e44ad",
+        "text": "#FFFFFF",
+        "border": "#9b59b6"
+      },
+      "stock": {
+        "bg": "#1abc9c",
+        "hover": "#16a085",
+        "text": "#FFFFFF",
+        "border": "#1abc9c"
+      },
+      "volver": {
+        "bg": "#e74c3c",
+        "hover": "#c0392b",
+        "text": "#FFFFFF",
+        "border": "#e74c3c"
+      },
+      "siguiente": {
+        "bg": "#27ae60",
+        "hover": "#2ecc71",
+        "text": "#FFFFFF",
+        "border": "#27ae60"
+      },
+      "anadir": {
+        "bg": "#27ae60",
+        "hover": "#2ecc71",
+        "text": "#FFFFFF",
+        "border": "#27ae60"
+      },
+      "confirmar": {
+        "bg": "#27ae60",
+        "hover": "#2ecc71",
+        "text": "#FFFFFF",
+        "border": "#27ae60"
+      },
+      "cancelar": {
+        "bg": "#e74c3c",
+        "hover": "#c0392b",
+        "text": "#FFFFFF",
+        "border": "#e74c3c"
+      },
+      "eliminar": {
+        "bg": "#e74c3c",
+        "hover": "#c0392b",
+        "text": "#FFFFFF",
+        "border": "#e74c3c"
+      }
+    }
+  },
+  "main_menu": [
+    {
+      "label": "NUEVO",
+      "key": "nuevo",
+      "command": "abrir_nueva_produccion"
+    },
+    {
+      "label": "COSTES",
+      "key": "costes",
+      "command": "abrir_costes"
+    },
+    {
+      "label": "COLORES",
+      "key": "colores",
+      "command": "abrir_colores"
+    },
+    {
+      "label": "STOCK",
+      "key": "stock",
+      "command": "abrir_stock"
+    }
+  ],
+  "subvista_buttons": {
+    "navegacion": [
+      {
+        "label": "VOLVER",
+        "key": "volver",
+        "style": "volver",
+        "command": "volver_atras"
+      },
+      {
+        "label": "SIGUIENTE",
+        "key": "siguiente",
+        "style": "siguiente",
+        "command": "siguiente_paso"
+      },
+      {
+        "label": "AÑADIR",
+        "key": "anadir",
+        "style": "anadir",
+        "command": "anadir_item"
+      },
+      {
+        "label": "CONFIRMAR",
+        "key": "confirmar",
+        "style": "confirmar",
+        "command": "confirmar_orden"
+      }
+    ]
+  }
+}
