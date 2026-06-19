@@ -213,3 +213,21 @@ class ClienteService:
 			logging.exception(f'Error actualizando cliente {cliente_id}')
 			return False
 
+	def sumar_tesoro(self, cliente_id: int, cantidad_decimal: Any) -> bool:
+		"""Sumar una cantidad al tesoro del cliente.
+
+		Args:
+			cliente_id: ID del cliente
+			cantidad_decimal: Cantidad en euros (Decimal)
+
+		Returns:
+			bool: True si OK, False si error
+		"""
+		from decimal import Decimal
+		try:
+			val = Decimal(str(cantidad_decimal))
+			return self._clientes_db.sumar_tesoro(cliente_id, val)
+		except Exception:
+			logging.exception(f'Error en sumar_tesoro (servicio) para cliente {cliente_id}')
+			return False
+

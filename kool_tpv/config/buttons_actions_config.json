@@ -9,7 +9,7 @@
   "actualizar": {"text": "ACTUALIZAR", "style": "primary"},
   "consultar_albaranes": {"text": "CONSULTAR ALBARANES", "style": "info"},
   "mapeo_csv": {"text": "MAPEO CSV", "style": "special"},
-  "sumar_puntos": {"text": "SUMAR PUNTOS", "style": "warning", "state": "disabled"},
+  "sumar_puntos": {"text": "SUMAR TESORO", "style": "warning", "state": "disabled"},
   "tickets": {"text": "TICKETS", "style": "info"},
   "comunicacion": {"text": "COMUNICACIÓN", "style": "special"},
   "entrada_manual": {"text": "ENTRADA MANUAL", "style": "primary"},

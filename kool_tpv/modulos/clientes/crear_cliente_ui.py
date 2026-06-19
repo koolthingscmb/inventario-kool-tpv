@@ -20,6 +20,8 @@ from kool_tpv.utils.utils import (
 )
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.config_loader import create_action_button, load_colors
+from kool_tpv.utils.custom_dialog import show_error, show_info, show_input_dialog, show_password_dialog
+from kool_tpv.utils.auth_service import AuthService
 from kool_tpv.modulos.clientes.clientes_tickets import ClientesTicketsUI
 
 logger = logging.getLogger(__name__)
@@ -43,6 +45,7 @@ class CrearClienteUI:
             }
 
         self.cliente_service = ClienteService(db) if db else None
+        self.auth_service = AuthService(db) if db else None
 
         self.container = ctk.CTkFrame(parent, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
 
@@ -715,14 +718,69 @@ class CrearClienteUI:
             show_error(self.container, 'Error', 'Error inesperado al guardar')
 
     def _on_sumar_puntos(self):
-        """Sumar puntos tesoro (requiere password admin)."""
+        """Sumar puntos tesoro (requiere password admin y diálogo de entrada)."""
         try:
-            # TODO: Validar password admin + diálogo sumar puntos
-            logger.info('TODO: Implementar sumar puntos con pw admin')
-            from kool_tpv.utils.custom_dialog import show_info
-            show_info(self.container, 'En desarrollo', 'Función SUMAR PUNTOS próximamente')
+            if not self.cliente_id:
+                show_error(self.container, 'Sumar Tesoro', 'Debes guardar el cliente primero')
+                return
+
+            if not self.cliente_service or not self.auth_service:
+                show_error(self.container, 'Error', 'Servicios no disponibles')
+                return
+
+            # Obtener ventana padre para los diálogos
+            try:
+                parent_window = self.container.winfo_toplevel()
+            except Exception:
+                parent_window = self.container
+
+            # 1. PEDIR PASSWORD ADMIN
+            pwd = show_password_dialog(parent_window, "Seguridad", "Introduzca contraseña de Administrador:")
+            if not pwd:
+                return # Cancelado
+            
+            is_valid, _ = self.auth_service.validate_admin_password(pwd)
+            if not is_valid:
+                show_error(parent_window, "Acceso denegado", "Contraseña de administrador incorrecta.")
+                return
+
+            # 2. MOSTRAR DIÁLOGO DE ENTRADA PARA LA CANTIDAD
+            nombre_cliente = (self.e_nombre.get() or '').strip()
+            prompt = f"Cliente: {nombre_cliente}\n¿Cuánto Tesoro deseas SUMAR?"
+            
+            valor_str = show_input_dialog(parent_window, "SUMAR TESORO", prompt, tipo='success')
+
+            # Si se canceló o no se introdujo nada, salir
+            if valor_str is None or str(valor_str).strip() == "":
+                return
+
+            # Normalizar separador decimal y validar como Decimal
+            from decimal import Decimal, InvalidOperation
+            valor_normalizado = str(valor_str).strip().replace(',', '.')
+            try:
+                valor_decimal = Decimal(valor_normalizado)
+            except (InvalidOperation, ValueError):
+                show_error(parent_window, "Valor inválido", "Introduzca un número válido para sumar.")
+                return
+
+            # No permitir negativos ni cero
+            if valor_decimal <= Decimal('0'):
+                show_error(parent_window, "Valor inválido", "La cantidad a sumar debe ser mayor que 0.")
+                return
+
+            # Ejecutar persistencia en BD
+            ok = self.cliente_service.sumar_tesoro(self.cliente_id, valor_decimal)
+
+            if ok:
+                ToastWidget.show(self.container, f'Tesoro sumado: +{valor_decimal:.2f}€', tipo='success')
+                # Recargar ficha para ver nuevos valores
+                self._cargar_cliente()
+            else:
+                show_error(parent_window, "Error", "No se pudo actualizar el Tesoro en la base de datos.")
+
         except Exception:
-            logger.exception('Error en sumar puntos')
+            logger.exception('Error en _on_sumar_puntos')
+            show_error(self.container, 'Error', 'Ocurrió un error inesperado al sumar tesoro')
 
     def _on_tickets(self):
         """Abrir vista de tickets del cliente actual."""

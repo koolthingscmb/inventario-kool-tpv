@@ -83,31 +83,47 @@ def create_action_button(parent, button_key: str, command, **overrides) -> ctk.C
     """Crear botón de acción delegando a `ButtonFactory` usando un `style_key` map.
 
     - Mantiene la firma y compatibilidad con `button_key` existentes.
-    - Mapea `button_key` a `style_key` y delega la creación a la fábrica.
+    - Busca configuración en `buttons_actions_config.json` para el texto y estilo.
+    - Delega la creación a la fábrica.
     """
     try:
-        mapping = {
-            'guardar': 'action_primary',
-            'nuevo_limpiar': 'action_secondary',
-            'cancelar': 'action_secondary',
-            'eliminar': 'action_danger',
-            'sincronizar': 'action_success',
-            'buscar_data': 'action_secondary',
-            'consultar_albaranes': 'action_secondary',
-            'mapeo_csv': 'action_warning',
-            'exportar': 'action_warning',
-            'imprimir': 'action_secondary',
+        # 1. Cargar config desde JSON
+        global _buttons_cache
+        if _buttons_cache is None:
+            _buttons_cache = _load_json(_BUTTONS_ACTIONS_CONFIG)
+        
+        config = _buttons_cache.get(button_key, {})
+        
+        # 2. Determinar texto (prioridad: overrides > config > button_key upper)
+        text = overrides.pop('text', config.get('text'))
+        if not text:
+            text = (button_key or '').upper().replace('_', ' ')
+
+        # 3. Determinar estilo
+        # Mapeo de estilos del JSON a style_keys de la fábrica
+        style_mapping = {
+            'primary': 'action_primary',
+            'secondary': 'action_secondary',
+            'warning': 'action_warning',
+            'danger': 'action_danger',
+            'info': 'action_secondary',
+            'special': 'action_warning',
+            'success': 'action_success'
         }
+        
+        json_style = config.get('style', 'primary')
+        style_key = style_mapping.get(json_style, 'action_primary')
 
-        style_key = mapping.get(button_key, 'action_primary')
-        text = (button_key or '').upper()
+        # 4. Estado inicial
+        state = overrides.pop('state', config.get('state', 'normal'))
 
-        # Delegate to ButtonFactory and pass-through any overrides
+        # Delegate to ButtonFactory
         return ButtonFactory.create_button(
             parent=parent,
             text=text,
             command=command,
             style_key=style_key,
+            state=state,
             **overrides,
         )
 

@@ -5,9 +5,10 @@ información de clientes desde la base de datos usando el wrapper
 `kool_tpv.base_datos.db_wrapper.Database`.
 """
 from typing import List, Dict, Any
+from decimal import Decimal
 
 from kool_tpv.base_datos.db_wrapper import Database
-from kool_tpv.base_datos.money_adapter import read_from_db
+from kool_tpv.base_datos.money_adapter import read_from_db, prepare_for_db
 
 
 class ClientesDB:
@@ -68,3 +69,30 @@ class ClientesDB:
 			})
 
 		return clientes
+
+	def sumar_tesoro(self, cliente_id: int, cantidad_decimal: Decimal) -> bool:
+		"""Sumar una cantidad al tesoro total e histórico del cliente.
+
+		Args:
+			cliente_id: ID del cliente
+			cantidad_decimal: Cantidad en euros (Decimal) a sumar
+
+		Returns:
+			bool: True si OK, False si error
+		"""
+		try:
+			# Convertir a céntimos para la base de datos
+			cantidad_cents = prepare_for_db(cantidad_decimal)
+			
+			query = """
+				UPDATE clientes 
+				SET tesoro_total = COALESCE(tesoro_total, 0) + ?,
+				    tesoro_historico = COALESCE(tesoro_historico, 0) + ?
+				WHERE id = ?
+			"""
+			self.db.execute_query(query, (cantidad_cents, cantidad_cents, cliente_id))
+			return True
+		except Exception:
+			import logging
+			logging.exception(f"Error sumando tesoro al cliente {cliente_id}")
+			return False

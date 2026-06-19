@@ -17,6 +17,9 @@ class ClientesView(BaseModuleView):
         except Exception:
             self.keyboard_mgr = None
 
+        # Stack de navegación para historial de vistas
+        self._nav_stack = []  # Lista de funciones para navegar hacia atrás
+
         # Actualizar breadcrumb
         try:
             self.actualizar_ruta('CLIENTES')
@@ -31,6 +34,32 @@ class ClientesView(BaseModuleView):
 
         logging.info('ClientesView inicializado')
 
+    def _on_power(self):
+        """Gestionar botón Power: navegar hacia atrás en el stack de navegación."""
+        try:
+            # 1. Verificar cambios sin guardar
+            if not self._check_unsaved_changes():
+                return True  # Usuario canceló, NO cerrar nada
+
+            # 2. Si hay vistas en el stack, navegar hacia atrás
+            if self._nav_stack:
+                # Obtener y ejecutar la función anterior
+                previous_view = self._nav_stack.pop()
+                if callable(previous_view):
+                    previous_view()
+                    return True  # Gestioné la navegación hacia atrás
+                else:
+                    # Si no es callable, limpiar el stack y dejar que el base cierre
+                    self._nav_stack.clear()
+                    return super()._on_power()
+
+            # 3. Stack vacío → delegar al comportamiento base (cerrar módulo)
+            return super()._on_power()
+
+        except Exception:
+            logging.exception('Error en _on_power de ClientesView')
+            return super()._on_power()
+
     # Placeholders para botones (se implementarán después)
     def show_busqueda(self):
         """Mostrar búsqueda de clientes."""
@@ -38,6 +67,9 @@ class ClientesView(BaseModuleView):
             from kool_tpv.modulos.clientes.busqueda_clientes_ui import BusquedaClientesUI
 
             try:
+                # Limpiar stack al iniciar desde el módulo
+                self._nav_stack.clear()
+                
                 busqueda_ui = BusquedaClientesUI(
                     self.central_area,
                     db=self.db,
@@ -61,6 +93,9 @@ class ClientesView(BaseModuleView):
             cliente_nombre: Nombre del cliente para breadcrumb
         """
         try:
+            # Añadir vista actual al stack antes de navegar
+            self._nav_stack.append(lambda: self.show_busqueda())
+            
             tickets_ui = ClientesTicketsUI(
                 parent=self.central_area,
                 db=self.db,
@@ -109,6 +144,10 @@ class ClientesView(BaseModuleView):
         try:
             from kool_tpv.modulos.clientes.clientes_tops_ui import ClientesTopsUI
 
+            # Añadir vista actual al stack solo si hay algo en el stack (viene de otra vista)
+            if self._nav_stack:
+                self._nav_stack.append(lambda: self.show_busqueda())
+            
             ui = ClientesTopsUI(
                 parent=self.central_area,
                 db=self.db,
@@ -132,6 +171,10 @@ class ClientesView(BaseModuleView):
         try:
             from kool_tpv.modulos.clientes.clientes_comunicacion import ClientesComunicacionView
 
+            # Añadir vista actual al stack solo si hay algo en el stack (viene de otra vista)
+            if self._nav_stack:
+                self._nav_stack.append(lambda: self.show_busqueda())
+            
             ui = ClientesComunicacionView(
                 parent=self.central_area,
                 db=self.db,
@@ -160,6 +203,9 @@ class ClientesView(BaseModuleView):
             from kool_tpv.modulos.clientes.crear_cliente_ui import CrearClienteUI
 
             try:
+                # Añadir vista actual al stack antes de navegar
+                self._nav_stack.append(lambda: self.show_busqueda())
+                
                 crear_ui = CrearClienteUI(self.central_area, db=self.db, cliente_id=None, module_name='clientes')
                 if self.set_central_content(crear_ui):
                     self.actualizar_ruta('CLIENTES / NUEVO', callbacks=self.breadcrumb_callbacks)
@@ -179,6 +225,9 @@ class ClientesView(BaseModuleView):
             from kool_tpv.modulos.clientes.crear_cliente_ui import CrearClienteUI
 
             try:
+                # Añadir vista actual al stack antes de navegar
+                self._nav_stack.append(lambda: self.show_busqueda())
+                
                 editar_ui = CrearClienteUI(self.central_area, db=self.db, cliente_id=cliente_id, module_name='clientes')
                 if self.set_central_content(editar_ui):
                     self.actualizar_ruta('CLIENTES / EDITAR', callbacks=self.breadcrumb_callbacks)
