@@ -19,6 +19,10 @@ class FavoritosRepository:
             p.sku,
             pr.pvp,
             p.tipo_iva,
+            p.tipo as tipo_id,
+            t.nombre as tipo_nombre,
+            p.categoria as categoria_id,
+            c.nombre as categoria_nombre,
             COALESCE(t.color, c.color, '#333333') as color,
             COALESCE(t.icono, c.icono) as icono
         FROM favoritos f
