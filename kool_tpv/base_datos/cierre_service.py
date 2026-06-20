@@ -200,12 +200,17 @@ class CierreService:
                 except Exception:
                     pass
                 try:
-                    importe_ef_cents = int(tr[5] or 0)
-                    cambio_cents = int(tr[6] or 0)
-                    importe_ef = read_from_db(importe_ef_cents)
-                    cambio = read_from_db(cambio_cents)
-                    net_ef = importe_ef - cambio
-                    result['total_efectivo'] += net_ef
+                    if total_cents < 0 and (tr[4] is None):
+                        # Devolución sin forma de pago registrada: el dinero
+                        # devuelto al cliente resta del efectivo de caja.
+                        result['total_efectivo'] -= read_from_db(abs(total_cents))
+                    else:
+                        importe_ef_cents = int(tr[5] or 0)
+                        cambio_cents = int(tr[6] or 0)
+                        importe_ef = read_from_db(importe_ef_cents)
+                        cambio = read_from_db(cambio_cents)
+                        net_ef = importe_ef - cambio
+                        result['total_efectivo'] += net_ef
                 except Exception:
                     pass
                 try:
@@ -610,7 +615,8 @@ class CierreService:
             return {}
 
     def get_ventas_por_cajero_para_tickets(self, ticket_ids: List[int]) -> List[tuple]:
-        """Devuelve lista de (cajero, numero_ventas, total_euros) para una lista de IDs de tickets.
+        """Devuelve lista de (cajero, ventas_count, total_ventas, devoluciones_count, total_devoluciones)
+        para una lista de IDs de tickets.
         
         Usado durante la creación del cierre (antes de que los tickets tengan asignado cierre_id).
         """
@@ -618,7 +624,14 @@ class CierreService:
             return []
         try:
             placeholders = ','.join(['?'] * len(ticket_ids))
-            sql = f'SELECT cajero, COUNT(*), SUM(total) FROM tickets WHERE id IN ({placeholders}) GROUP BY cajero'
+            sql = (
+                f'SELECT cajero, '
+                f'SUM(CASE WHEN total >= 0 THEN 1 ELSE 0 END) AS ventas_count, '
+                f'SUM(CASE WHEN total >= 0 THEN total ELSE 0 END) AS total_ventas_cents, '
+                f'SUM(CASE WHEN total < 0 THEN 1 ELSE 0 END) AS devoluciones_count, '
+                f'SUM(CASE WHEN total < 0 THEN total ELSE 0 END) AS total_devol_cents '
+                f'FROM tickets WHERE id IN ({placeholders}) GROUP BY cajero'
+            )
             self.db.connect()
             rows = self.db.fetch_all(sql, tuple(ticket_ids))
             result: List[tuple] = []
@@ -626,10 +639,11 @@ class CierreService:
             for r in rows or []:
                 try:
                     cajero = r[0] or 'N/A'
-                    cnt = int(r[1] or 0)
-                    total_cents = int(r[2] or 0)
-                    total_euros = float(read_from_db(total_cents))
-                    result.append((cajero, cnt, total_euros))
+                    v_cnt = int(r[1] or 0)
+                    v_total = float(read_from_db(int(r[2] or 0)))
+                    d_cnt = int(r[3] or 0)
+                    d_total = float(read_from_db(abs(int(r[4] or 0))))
+                    result.append((cajero, v_cnt, v_total, d_cnt, d_total))
                 except Exception:
                     continue
             return result
@@ -638,12 +652,20 @@ class CierreService:
             return []
 
     def get_ventas_por_cajero(self, cierre_id: int) -> List[tuple]:
-        """Devuelve lista de (cajero, numero_ventas, total_euros) para un cierre.
+        """Devuelve lista de (cajero, ventas_count, total_ventas, devoluciones_count, total_devoluciones)
+        para un cierre.
 
         Query sobre `tickets` y conversión de totales (céntimos -> euros) con `read_from_db`.
         """
         try:
-            sql = 'SELECT cajero, COUNT(*), SUM(total) FROM tickets WHERE cierre_id = ? GROUP BY cajero'
+            sql = (
+                'SELECT cajero, '
+                'SUM(CASE WHEN total >= 0 THEN 1 ELSE 0 END) AS ventas_count, '
+                'SUM(CASE WHEN total >= 0 THEN total ELSE 0 END) AS total_ventas_cents, '
+                'SUM(CASE WHEN total < 0 THEN 1 ELSE 0 END) AS devoluciones_count, '
+                'SUM(CASE WHEN total < 0 THEN total ELSE 0 END) AS total_devol_cents '
+                'FROM tickets WHERE cierre_id = ? GROUP BY cajero'
+            )
             self.db.connect()
             rows = self.db.fetch_all(sql, (cierre_id,))
             result: List[tuple] = []
@@ -651,10 +673,11 @@ class CierreService:
             for r in rows or []:
                 try:
                     cajero = r[0] or ''
-                    cnt = int(r[1] or 0)
-                    total_cents = int(r[2] or 0)
-                    total_euros = float(read_from_db(total_cents))
-                    result.append((cajero, cnt, total_euros))
+                    v_cnt = int(r[1] or 0)
+                    v_total = float(read_from_db(int(r[2] or 0)))
+                    d_cnt = int(r[3] or 0)
+                    d_total = float(read_from_db(abs(int(r[4] or 0))))
+                    result.append((cajero, v_cnt, v_total, d_cnt, d_total))
                 except Exception:
                     continue
             return result

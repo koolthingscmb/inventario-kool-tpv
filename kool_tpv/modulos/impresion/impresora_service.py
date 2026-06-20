@@ -645,17 +645,23 @@ class ImpresoraService:
                     from kool_tpv.base_datos.categoria_service import CategoriaService
                     from kool_tpv.base_datos.tipo_service import TipoService
                     from kool_tpv.base_datos.producto_service import ProductoService
-                    
+
                     cat_svc = CategoriaService(self.db)
                     totals['ventas_por_categoria'] = cat_svc.get_ventas_por_categoria(ticket_ids, line_tipo='venta')
                     totals['devoluciones_por_categoria'] = cat_svc.get_ventas_por_categoria(ticket_ids, line_tipo='devolucion')
-                    
+
                     tipo_svc = TipoService(self.db)
                     totals['ventas_por_tipo'] = tipo_svc.get_ventas_por_tipo(ticket_ids, line_tipo='venta')
                     totals['devoluciones_por_tipo'] = tipo_svc.get_ventas_por_tipo(ticket_ids, line_tipo='devolucion')
-                    
+
                     prod_svc = ProductoService(self.db)
-                    totals['productos'] = prod_svc.get_ventas_por_producto(ticket_ids)
+                    totals['productos'] = prod_svc.get_ventas_por_producto(ticket_ids, line_tipo='venta')
+                    totals['devoluciones_por_producto'] = prod_svc.get_ventas_por_producto(ticket_ids, line_tipo='devolucion')
+
+                    if not clientes_puntos:
+                        puntos_resumen = cierre_svc.get_puntos_resumen_cierre(ticket_ids)
+                        if puntos_resumen and puntos_resumen.get('clientes_puntos'):
+                            totals['clientes_puntos'] = puntos_resumen['clientes_puntos']
             except Exception:
                 self.logger.warning("No se pudieron reconstruir desgloses detallados para el cierre %s", cierre_id)
 

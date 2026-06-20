@@ -36,6 +36,15 @@
       {"id": "fichajes", "text": "FICHAJES", "action": "show_fichajes"}
     ]
   },
+  "produccion": {
+    "title": "PRODUCCIÓN",
+    "buttons": [
+      {"id": "nuevo", "text": "NUEVO", "action": "show_nuevo"},
+      {"id": "costes", "text": "COSTES", "action": "show_costes"},
+      {"id": "colores", "text": "COLORES", "action": "show_colores"},
+      {"id": "stock", "text": "STOCK", "action": "show_stock"}
+    ]
+  },
   "config": {
     "title": "CONFIG",
     "buttons": [

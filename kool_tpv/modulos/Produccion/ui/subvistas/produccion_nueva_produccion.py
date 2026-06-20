@@ -3,23 +3,13 @@
 Contiene la clase `NuevaProduccionView` que muestra el widget de selección
 de producto y botones de navegación (SIGUIENTE / VOLVER).
 """
-import json
-import os
 import tkinter as tk
 from typing import Callable, Optional
 
+from kool_tpv.base_datos.db_wrapper import Database
+from kool_tpv.modulos.produccion.models.produccion_tipos_model import ProduccionTipo
 from kool_tpv.modulos.produccion.ui.produccion_producto_selector import ProductoSelectorWidget
-
-_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "config", "config_produccion.json")
-
-
-def _cargar_config() -> dict:
-	"""Cargar la configuración de producción desde JSON."""
-	try:
-		with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
-			return json.load(f)
-	except (FileNotFoundError, json.JSONDecodeError):
-		return {}
+from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font, get_nav_button_config, get_nav_button_style
 
 
 class NuevaProduccionView:
@@ -31,20 +21,20 @@ class NuevaProduccionView:
 		on_volver: Callback cuando se pulsa VOLVER.
 	"""
 
-	def __init__(self, parent, on_siguiente: Optional[Callable[[str], None]] = None,
+	def __init__(self, parent, db: Database,
+	             on_siguiente: Optional[Callable[[ProduccionTipo], None]] = None,
 	             on_volver: Optional[Callable] = None):
 		self.parent = parent
+		self.db = db
 		self.on_siguiente = on_siguiente
 		self.on_volver = on_volver
-		self.producto_seleccionado: Optional[str] = None
+		self.tipo_seleccionado: Optional[ProduccionTipo] = None
 
 		# Cargar configuración
-		self.config = _cargar_config()
-		self._fonts = self.config.get("fonts", {})
+		self.config = cargar_config_produccion()
 		self._colors = self.config.get("colors", {})
 		self._bg = self._colors.get("background", "#2c3e50")
 		self._text = self._colors.get("text", "#ecf0f1")
-		self._btn_styles = self._colors.get("buttons", {})
 
 		# Frame principal
 		self.frame = tk.Frame(parent, bg=self._bg)
@@ -58,12 +48,7 @@ class NuevaProduccionView:
 
 	def _get_font(self, key: str) -> tuple:
 		"""Obtener una fuente desde la configuración."""
-		f = self._fonts.get(key, {})
-		return (f.get("family", "Courier New"), f.get("size", 16), f.get("weight", "normal"))
-
-	def _get_btn_style(self, key: str) -> dict:
-		"""Obtener el estilo de un botón desde la configuración."""
-		return self._btn_styles.get(key, {})
+		return get_font(self.config, key)
 
 	def _crear_selector(self):
 		"""Crear el widget selector de producto."""
@@ -72,6 +57,7 @@ class NuevaProduccionView:
 
 		self.selector = ProductoSelectorWidget(
 			frame_selector,
+			db=self.db,
 			on_seleccion=self._on_producto_seleccionado,
 			titulo="SELECCIONA PRODUCTO"
 		)
@@ -82,62 +68,64 @@ class NuevaProduccionView:
 		frame_nav.pack(fill=tk.X, padx=40, pady=20)
 
 		# Botón VOLVER
-		style_volver = self._get_btn_style("volver")
+		nav_volver = get_nav_button_config(self.config, "volver")
+		style_volver = get_nav_button_style(self.config, nav_volver.get("style_key", "volver"))
 		btn_volver = tk.Button(
 			frame_nav,
-			text="VOLVER",
-			font=self._get_font("button"),
+			text=nav_volver.get("text", "VOLVER"),
+			font=self._get_font(nav_volver.get("font_key", "button")),
 			bg=style_volver.get("bg", "#e74c3c"),
 			fg=style_volver.get("text", "#FFFFFF"),
 			activebackground=style_volver.get("hover", "#c0392b"),
 			activeforeground=style_volver.get("text", "#FFFFFF"),
 			takefocus=True,
-			bd=0,
-			width=15,
-			height=2,
+			bd=nav_volver.get("bd", 0),
+			width=nav_volver.get("width", 15),
+			height=nav_volver.get("height", 2),
 			command=self._on_volver
 		)
 		btn_volver.pack(side=tk.LEFT, padx=10)
 
 		# Botón SIGUIENTE
-		style_siguiente = self._get_btn_style("siguiente")
+		nav_sig = get_nav_button_config(self.config, "siguiente")
+		style_siguiente = get_nav_button_style(self.config, nav_sig.get("style_key", "siguiente"))
 		self.btn_siguiente = tk.Button(
 			frame_nav,
-			text="SIGUIENTE",
-			font=self._get_font("button"),
+			text=nav_sig.get("text", "SIGUIENTE"),
+			font=self._get_font(nav_sig.get("font_key", "button")),
 			bg=style_siguiente.get("bg", "#27ae60"),
 			fg=style_siguiente.get("text", "#FFFFFF"),
 			activebackground=style_siguiente.get("hover", "#2ecc71"),
 			activeforeground=style_siguiente.get("text", "#FFFFFF"),
 			takefocus=True,
-			bd=0,
-			width=15,
-			height=2,
+			bd=nav_sig.get("bd", 0),
+			width=nav_sig.get("width", 15),
+			height=nav_sig.get("height", 2),
 			command=self._on_siguiente
 		)
 		self.btn_siguiente.pack(side=tk.RIGHT, padx=10)
 
-	def _on_producto_seleccionado(self, codigo: str):
-		"""Manejador cuando se selecciona un producto."""
-		self.producto_seleccionado = codigo
+	def _on_producto_seleccionado(self, tipo: ProduccionTipo):
+		"""Manejador cuando se selecciona un tipo de producto."""
+		self.tipo_seleccionado = tipo
 
 	def _on_siguiente(self):
 		"""Manejador del botón SIGUIENTE."""
-		if self.producto_seleccionado and self.on_siguiente:
-			self.on_siguiente(self.producto_seleccionado)
+		if self.tipo_seleccionado and self.on_siguiente:
+			self.on_siguiente(self.tipo_seleccionado)
 
 	def _on_volver(self):
 		"""Manejador del botón VOLVER."""
 		if self.on_volver:
 			self.on_volver()
 
-	def obtener_seleccion(self) -> Optional[str]:
-		"""Obtener el producto seleccionado.
+	def obtener_seleccion(self) -> Optional[ProduccionTipo]:
+		"""Obtener el tipo de producto seleccionado.
 
 		Returns:
-			Código del producto seleccionado o None.
+			Objeto ProduccionTipo o None.
 		"""
-		return self.producto_seleccionado
+		return self.tipo_seleccionado
 
 	def destruir(self):
 		"""Destruir la subvista y limpiar recursos."""

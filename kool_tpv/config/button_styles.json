@@ -90,6 +90,19 @@
     "font_size": 20
   },
 
+  "menu_produccion": {
+    "type": "outline",
+    "bg_token": "black_base",
+    "text_token": "purple_special",
+    "border_token": "purple_special",
+    "hover_token": "purple_hover_strong",
+    "width": 220,
+    "height": 56,
+    "corner_radius": 12,
+    "border_width": 2,
+    "font_size": 20
+  },
+
   "almacen_outline": {
     "type": "outline",
     "bg_token": "black_base",
@@ -207,6 +220,18 @@
     "text_token": "green_matrix",
     "border_token": "green_matrix",
     "hover_token": "green_success",
+    "height": 56,
+    "corner_radius": 8,
+    "border_width": 2,
+    "font_size": 24
+  },
+
+  "module_produccion": {
+    "type": "outline",
+    "bg_token": "black_base",
+    "text_token": "purple_special",
+    "border_token": "purple_special",
+    "hover_token": "purple_hover_strong",
     "height": 56,
     "corner_radius": 8,
     "border_width": 2,

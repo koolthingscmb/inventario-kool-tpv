@@ -404,8 +404,45 @@ class App(ctk.CTk):
         from kool_tpv.modulos.presencia.presencia_view import PresenciaView
         self.presencia_view = PresenciaView(self, db=self.db, keyboard_manager=self.keyboard_mgr)
 
+    def open_produccion(self):
+        self.current_view = "produccion"
+        self.nav_frame.pack_forget()
+        self.main_frame.pack_forget()
+
+        from kool_tpv.modulos.produccion.ui.produccion_view import ProduccionView
+        self.produccion_view = ProduccionView(self, db=self.db, keyboard_manager=self.keyboard_mgr)
+
+    def _volver_menu_principal(self):
+        """Restaurar el menú principal tras cerrar un módulo sin sidebar."""
+        self.current_view = None
+        if hasattr(self, 'produccion_view'):
+            try:
+                self.produccion_view.destruir()
+            except Exception:
+                pass
+            del self.produccion_view
+        self.nav_frame.pack(side="left", fill="y")
+        self.main_frame.pack(side="right", fill="both", expand=True)
+        self._clear_main()
+        try:
+            mm_layout = self.layout_cfg.get("global", {}).get("main_menu_layout", {})
+            placement = mm_layout.get("placement", "pack")
+            if placement == "place":
+                offset_x = mm_layout.get("offset_x", 0)
+                offset_y = mm_layout.get("offset_y", 100)
+                relwidth = mm_layout.get("relwidth", 1.0)
+                self.menu_container.place(x=offset_x, y=offset_y, relwidth=relwidth)
+            else:
+                side = mm_layout.get("side", "top")
+                fill = mm_layout.get("fill", "both")
+                pady = mm_layout.get("pady", 20)
+                self.menu_container.pack(side=side, fill=fill, expand=True, pady=pady)
+        except Exception:
+            pass
+
     def toggle_print(self):
         """Alternar el estado de impresión de tickets."""
+
         try:
             # 1. Leer estado actual
             from kool_tpv.base_datos.configuracion_repository import ConfiguracionRepository
@@ -464,16 +501,18 @@ class App(ctk.CTk):
             return
 
         # 2. Si hay otros módulos abiertos Y VISIBLES, preguntarles si gestionan el Power
-        modules = ['almacen_view', 'clientes_view', 'informes_view', 'config_view', 'presencia_view']
+        modules = ['almacen_view', 'clientes_view', 'informes_view', 'config_view', 'presencia_view', 'produccion_view']
 
         for mod_name in modules:
             if hasattr(self, mod_name):
                 view = getattr(self, mod_name)
                 
-                # Verificar si el módulo está visible (sidebar mapeado)
+                # Verificar si el módulo está visible (sidebar mapeada)
                 is_visible = False
                 try:
                     if view and hasattr(view, 'sidebar') and view.sidebar.winfo_ismapped():
+                        is_visible = True
+                    elif view and hasattr(view, 'frame') and view.frame.winfo_ismapped():
                         is_visible = True
                 except Exception:
                     pass
@@ -544,7 +583,7 @@ class App(ctk.CTk):
         Usado por acciones internas de módulos (ej: 'Ir a TPV' desde Albarán).
         """
         try:
-            modules = ['almacen_view', 'clientes_view', 'informes_view', 'config_view', 'presencia_view']
+            modules = ['almacen_view', 'clientes_view', 'informes_view', 'config_view', 'presencia_view', 'produccion_view']
             for mod_name in modules:
                 if hasattr(self, mod_name):
                     view = getattr(self, mod_name)

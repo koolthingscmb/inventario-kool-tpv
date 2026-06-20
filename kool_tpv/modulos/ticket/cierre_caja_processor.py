@@ -166,7 +166,8 @@ class CierreCajaProcessor(TicketProcessor):
             totals['ventas_por_cajero'] = cierre_svc.get_ventas_por_cajero_para_tickets(ticket_ids)
             from kool_tpv.base_datos.producto_service import ProductoService
             prod_svc = ProductoService(self.db)
-            totals['productos'] = prod_svc.get_ventas_por_producto(ticket_ids)
+            totals['productos'] = prod_svc.get_ventas_por_producto(ticket_ids, line_tipo='venta')
+            totals['devoluciones_por_producto'] = prod_svc.get_ventas_por_producto(ticket_ids, line_tipo='devolucion')
         except Exception:
             logging.exception('Error calculando desgloses de cajero/productos en processor')
 

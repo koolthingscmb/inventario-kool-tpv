@@ -157,12 +157,13 @@ class ProductoRepository:
             return []
         return [dict(row) for row in rows]
 
-    def get_ventas_por_producto(self, ticket_ids: List[int], limit: int = 100):
+    def get_ventas_por_producto(self, ticket_ids: List[int], limit: int = 100, line_tipo: str = None):
         """Obtiene ventas agrupadas por producto para un rango de tickets.
 
         Args:
             ticket_ids: Lista de IDs de tickets
             limit: Máximo de productos a retornar
+            line_tipo: Opcional, filtrar por tipo de línea ('venta', 'devolucion')
 
         Returns:
             List[(nombre_producto, tickets_count, unidades_sum, total_euros)]
@@ -180,13 +181,16 @@ class ProductoRepository:
             FROM ticket_lines tl
             JOIN productos p ON tl.producto_id = p.id
             WHERE tl.ticket_id IN ({placeholders})
-            GROUP BY p.id, p.nombre
-            ORDER BY total_cents DESC
-            LIMIT ?
             """
+            params = list(ticket_ids)
+            if line_tipo:
+                sql += " AND tl.line_tipo = ?"
+                params.append(line_tipo)
 
-            params = tuple(ticket_ids) + (limit,)
-            rows = self.db.fetch_all(sql, params)
+            sql += " GROUP BY p.id, p.nombre ORDER BY total_cents DESC LIMIT ?"
+            params.append(limit)
+
+            rows = self.db.fetch_all(sql, tuple(params))
 
             # Convertir céntimos a euros
             from kool_tpv.base_datos.money_adapter import read_from_db

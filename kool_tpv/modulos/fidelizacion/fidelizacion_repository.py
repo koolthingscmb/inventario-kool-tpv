@@ -30,6 +30,7 @@ class FidelizacionRepository:
                     SELECT 
                         pm.cliente_id,
                         c.nombre as cliente_nombre,
+                        COALESCE(nf.level, 0) as nivel_level,
                         COALESCE(nf.nombre_nivel, '') as nivel_nombre,
                         COALESCE(SUM(CASE WHEN pm.puntos > 0 THEN pm.puntos ELSE 0 END), 0) as puntos_ganados,
                         COALESCE(SUM(CASE WHEN pm.puntos < 0 THEN -pm.puntos ELSE 0 END), 0) as puntos_gastados
@@ -37,7 +38,7 @@ class FidelizacionRepository:
                     JOIN clientes c ON pm.cliente_id = c.id
                     LEFT JOIN niveles_fidelidad nf ON c.id_nivel = nf.id
                     WHERE pm.ticket_id IN ({placeholders})
-                    GROUP BY pm.cliente_id, c.nombre, nf.nombre_nivel
+                    GROUP BY pm.cliente_id, c.nombre, nf.level, nf.nombre_nivel
                     ORDER BY c.nombre ASC
                 """
 
@@ -50,9 +51,10 @@ class FidelizacionRepository:
                         result.append({
                             'cliente_id': int(row[0]),
                             'cliente_nombre': str(row[1] or ''),
-                            'nivel_nombre': str(row[2] or ''),
-                            'puntos_ganados': int(row[3] or 0),
-                            'puntos_gastados': int(row[4] or 0),
+                            'nivel_level': int(row[2] or 0),
+                            'nivel_nombre': str(row[3] or ''),
+                            'puntos_ganados': int(row[4] or 0),
+                            'puntos_gastados': int(row[5] or 0),
                         })
                     except Exception:
                         continue

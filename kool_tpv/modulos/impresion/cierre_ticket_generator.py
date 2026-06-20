@@ -26,6 +26,25 @@ class CierreTicketGenerator(BaseTicketGenerator):
     Devuelve el texto completo del ticket de cierre.
     """
 
+    def _format_entry(self, left: str, right: str) -> str:
+        """Formatear línea de desglose: left truncado + right alineado a la derecha.
+
+        Si left + right no caben en WIDTH, se trunca left con '…' para que right
+        siempre quede visible y alineado.
+        """
+        right = right.rjust(len(right))
+        space = self.WIDTH - len(right)
+        if space <= 0:
+            return right[-self.WIDTH:]
+        if len(left) > space:
+            # Truncar left para que quepa, dejando 1 espacio mínimo
+            max_left = space - 1
+            if max_left > 0:
+                left = left[:max_left - 1] + '…' if max_left > 1 else left[:1]
+            else:
+                left = ''
+        return f"{left:<{space}}{right}"
+
     def generate(self, config, cierre_data, tickets, totals: dict = None, print_options: dict = None):
         """Generador de tickets de cierre.
 
@@ -208,12 +227,15 @@ class CierreTicketGenerator(BaseTicketGenerator):
                 te = _to_decimal(totals.get('total_efectivo', _D('0')))
                 tt = _to_decimal(totals.get('total_tarjeta', _D('0')))
                 tw = _to_decimal(totals.get('total_web', _D('0')))
+                td = _to_decimal(totals.get('total_devoluciones', _D('0')))
                 if te != _D('0'):
                     lines.append(self._format_line_lr('Total Efectivo:', self._format_currency(te)))
                 if tt != _D('0'):
                     lines.append(self._format_line_lr('Total Tarjeta:', self._format_currency(tt)))
                 if tw != _D('0'):
                     lines.append(self._format_line_lr('Total Web:', self._format_currency(tw)))
+                if td > _D('0'):
+                    lines.append(self._format_line_lr('Devoluciones:', f"-{self._format_currency(td)}"))
                 lines.append(self.DIVIDER)
         except Exception:
             pass
@@ -231,11 +253,18 @@ class CierreTicketGenerator(BaseTicketGenerator):
                 for entry in vpc:
                     try:
                         nombre = str(entry[0] or '')
-                        cnt = int(entry[1] or 0)
-                        total_val = entry[2] or 0
-                        total_str = self._format_currency(_to_decimal(total_val))
-                        line = f"{nombre} - {cnt} - {total_str}"
-                        lines.append(line[: self.WIDTH])
+                        v_cnt = int(entry[1] or 0)
+                        v_total = entry[2] or 0
+                        d_cnt = int(entry[3] or 0) if len(entry) > 3 else 0
+                        d_total = entry[4] if len(entry) > 4 else 0
+                        v_str = self._format_currency(_to_decimal(v_total))
+                        lines.append(self._format_entry(f"{nombre}: {v_cnt}", v_str))
+                        if d_cnt > 0:
+                            d_str = f"-{self._format_currency(_to_decimal(d_total))}"
+                            lines.append(self._format_entry(f"{nombre} Devoluciones: {d_cnt}", d_str))
+                            neto = _to_decimal(v_total) - _to_decimal(d_total)
+                            neto_str = self._format_currency(neto)
+                            lines.append(self._format_entry(f"{nombre} Total:", neto_str))
                     except Exception:
                         continue
                 lines.append(self.DOUBLE_DIVIDER)
@@ -256,8 +285,8 @@ class CierreTicketGenerator(BaseTicketGenerator):
                             cnt = int(entry[1] or 0)
                             total_val = entry[2] or 0
                             total_str = self._format_currency(_to_decimal(total_val))
-                            line = f"{nombre} - {cnt} - {total_str}"
-                            lines.append(line[: self.WIDTH])
+                            left = f"{nombre}: {cnt}"
+                            lines.append(self._format_entry(left, total_str))
                         except Exception:
                             continue
                     lines.append(self.DOUBLE_DIVIDER)
@@ -278,8 +307,8 @@ class CierreTicketGenerator(BaseTicketGenerator):
                             cnt = int(entry[1] or 0)
                             total_val = entry[2] or 0
                             total_str = f"-{self._format_currency(_to_decimal(total_val))}"
-                            line = f"{nombre} - {cnt} - {total_str}"
-                            lines.append(line[: self.WIDTH])
+                            left = f"{nombre}: {cnt}"
+                            lines.append(self._format_entry(left, total_str))
                         except Exception:
                             continue
                     lines.append(self.DOUBLE_DIVIDER)
@@ -300,8 +329,8 @@ class CierreTicketGenerator(BaseTicketGenerator):
                             cnt = int(entry[1] or 0)
                             total_val = entry[2] or 0
                             total_str = self._format_currency(_to_decimal(total_val))
-                            line = f"{nombre} - {cnt} - {total_str}"
-                            lines.append(line[: self.WIDTH])
+                            left = f"{nombre}: {cnt}"
+                            lines.append(self._format_entry(left, total_str))
                         except Exception:
                             continue
                     lines.append(self.DOUBLE_DIVIDER)
@@ -322,8 +351,8 @@ class CierreTicketGenerator(BaseTicketGenerator):
                             cnt = int(entry[1] or 0)
                             total_val = entry[2] or 0
                             total_str = f"-{self._format_currency(_to_decimal(total_val))}"
-                            line = f"{nombre} - {cnt} - {total_str}"
-                            lines.append(line[: self.WIDTH])
+                            left = f"{nombre}: {cnt}"
+                            lines.append(self._format_entry(left, total_str))
                         except Exception:
                             continue
                     lines.append(self.DOUBLE_DIVIDER)
@@ -344,12 +373,30 @@ class CierreTicketGenerator(BaseTicketGenerator):
                             uds = int(p[2] or 0)
                             total_p = self._format_currency(_to_decimal(p[3] or 0))
                             left = f"{nombre}: {tickets_cnt} ({uds}uds)"
-                            space = self.WIDTH - len(left) - len(total_p)
-                            if space < 1:
-                                line = (left + ' ' + total_p)[: self.WIDTH]
-                            else:
-                                line = left + (' ' * space) + total_p
-                            lines.append(line)
+                            lines.append(self._format_entry(left, total_p))
+                        except Exception:
+                            try:
+                                lines.append(f"{p[0]} - {p[1]} - {p[2]} - {p[3]}")
+                            except Exception:
+                                pass
+                    lines.append(self.DOUBLE_DIVIDER)
+            except Exception:
+                pass
+
+        # --- BLOQUE 11b: DEVOLUCIONES POR PRODUCTO ---
+        if show_block_11:
+            try:
+                devol_productos = totals.get('devoluciones_por_producto') if totals else None
+                if devol_productos:
+                    lines.append('DEVOLUCIONES POR PRODUCTO'.center(self.WIDTH))
+                    for p in devol_productos:
+                        try:
+                            nombre = str(p[0] or '')
+                            tickets_cnt = int(p[1] or 0)
+                            uds = int(p[2] or 0)
+                            total_p = f"-{self._format_currency(_to_decimal(p[3] or 0))}"
+                            left = f"{nombre}: {tickets_cnt} ({uds}uds)"
+                            lines.append(self._format_entry(left, total_p))
                         except Exception:
                             try:
                                 lines.append(f"{p[0]} - {p[1]} - {p[2]} - {p[3]}")
@@ -370,24 +417,26 @@ class CierreTicketGenerator(BaseTicketGenerator):
                     lines.append('=' * self.WIDTH)
                     lines.append('PUNTOS DE TESORO'.center(self.WIDTH))
                     if tesoro_otorgado > _D('0') or tesoro_gastado > _D('0'):
-                        # Convertir puntos (entero) a euros (Decimal / 100) para mostrar
                         val_ganados = self._format_currency(tesoro_otorgado / _D('100'))
-                        val_gastados = self._format_currency(tesoro_gastado / _D('100'))
-                        lines.append(self._format_line_lr('Puntos ganados:', val_ganados))
-                        lines.append(self._format_line_lr('Puntos gastados:', val_gastados))
+                        val_gastados = f"-{self._format_currency(tesoro_gastado / _D('100'))}"
+                        lines.append(self._format_line_lr('Tesoro ganado:', val_ganados))
+                        lines.append(self._format_line_lr('Tesoro gastado:', val_gastados))
                     if clientes_puntos:
                         lines.append('-' * self.WIDTH)
                         for cliente in clientes_puntos:
                             try:
                                 nombre = cliente.get('cliente_nombre', '')
+                                nivel_level = cliente.get('nivel_level', 0)
                                 nivel = cliente.get('nivel_nombre', '')
-                                # Formatear puntos individuales como moneda también
                                 g_pts = _to_decimal(cliente.get('puntos_ganados', 0)) / _D('100')
                                 s_pts = _to_decimal(cliente.get('puntos_gastados', 0)) / _D('100')
                                 g_str = self._format_currency(g_pts)
-                                s_str = self._format_currency(s_pts)
-                                linea = f"{nombre} ({nivel}): {g_str} / {s_str}"
-                                lines.append(linea[:self.WIDTH])
+                                s_str = f"-{self._format_currency(s_pts)}"
+                                header = f"{nombre} (Lv {nivel_level} - {nivel}):"
+                                lines.append(header[:self.WIDTH])
+                                lines.append(self._format_line_lr('  Tesoro ganado:', g_str))
+                                if s_pts > _D('0'):
+                                    lines.append(self._format_line_lr('  Tesoro gastado:', s_str))
                             except Exception:
                                 continue
                     lines.append('=' * self.WIDTH)

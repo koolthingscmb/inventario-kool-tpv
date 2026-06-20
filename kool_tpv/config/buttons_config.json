@@ -25,7 +25,8 @@
     {"text": "INFORMES", "style_key": "menu_informes", "command": "open_informes"},
     {"text": "SHOPIFY", "style_key": "menu_shopify", "command": "open_shopify"},
     {"text": "PRESENCIA", "style_key": "menu_presencia", "command": "open_presencia"},
-    {"text": "CONFIG", "style_key": "menu_config", "command": "open_config"}
+    {"text": "CONFIG", "style_key": "menu_config", "command": "open_config"},
+    {"text": "PRODUCCIÓN", "style_key": "menu_produccion", "command": "open_produccion"}
   ],
   "global_buttons": [
     {"id": "power", "shortcut": "Esc", "style_key": "power_btn", "command": "close_app", "image": "assets/power.png", "width": 140, "height": 140, "reserved_width": null, "reserved_height": null},

@@ -125,12 +125,13 @@ class ProductoService:
             logging.exception('Error obteniendo ventas de producto %s', producto_id)
             return []
 
-    def get_ventas_por_producto(self, ticket_ids: List[int], limit: int = 100):
+    def get_ventas_por_producto(self, ticket_ids: List[int], limit: int = 100, line_tipo: str = None):
         """Obtiene ventas agrupadas por producto para un rango de tickets.
 
         Args:
             ticket_ids: Lista de IDs de tickets
             limit: Máximo de productos a retornar (default: 100)
+            line_tipo: Opcional, filtrar por tipo de línea ('venta', 'devolucion')
 
         Returns:
             List[(nombre_producto, tickets_count, unidades_sum, total_euros)]
@@ -138,7 +139,7 @@ class ProductoService:
         try:
             if getattr(self, 'repo', None) is None:
                 return []
-            return self.repo.get_ventas_por_producto(ticket_ids, limit=limit)
+            return self.repo.get_ventas_por_producto(ticket_ids, limit=limit, line_tipo=line_tipo)
         except Exception:
             logging.exception('Error obteniendo ventas por producto')
             return []
