@@ -208,7 +208,21 @@ class CierresSubView(CTkFrame):
     def _ejecutar_impresion_cierre(self, cierre_id):
         try:
             from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
-            imp = ImpresoraService(db=self.db)
+
+            modo_impresion = 'texto'
+            codepage = 'cp858'
+            try:
+                if self.db is not None:
+                    row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'modo_impresion'")
+                    if row and row[0]:
+                        modo_impresion = row[0]
+                    row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'printer_codepage'")
+                    if row and row[0]:
+                        codepage = row[0]
+            except Exception:
+                logger.exception('Error leyendo configuración de impresión desde BD')
+
+            imp = ImpresoraService(db=self.db, imprimir_en_consola=True, modo_impresion=modo_impresion, codepage=codepage)
             texto = imp.generar_cierre_desde_id(cierre_id)
             
             if texto:
