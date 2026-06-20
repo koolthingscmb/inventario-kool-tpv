@@ -187,8 +187,8 @@ class CierresSubView(CTkFrame):
             
             sel = nav.get_selected_data()
             if not sel:
-                from kool_tpv.utils.widgets.notificaciones import show_warning
-                show_warning(self.winfo_toplevel(), 'Selecciona un cierre para imprimir')
+                from kool_tpv.utils.custom_dialog import show_warning
+                show_warning(self.winfo_toplevel(), 'Selecciona un cierre', 'Selecciona un cierre para imprimir')
                 return
             
             cierre_id = sel.get('cierre_id') or sel.get('id')
@@ -200,16 +200,13 @@ class CierresSubView(CTkFrame):
                 'Imprimir cierre',
                 f'Se imprimirá el cierre nº {sel.get("cierre_num")}. Continuar?',
                 confirm=True,
-                callback=lambda: self._ejecutar_impresion_cierre(cierre_id)
+                callback=lambda r=True: self._ejecutar_impresion_cierre(cierre_id)
             )
         except Exception:
             logger.exception('Error en _on_imprimir_cierre')
 
     def _ejecutar_impresion_cierre(self, cierre_id):
         try:
-            if not self.view or not self.view.controller: return
-            
-            # Usar el controller para generar el texto del cierre
             from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
             imp = ImpresoraService(db=self.db)
             texto = imp.generar_cierre_desde_id(cierre_id)
