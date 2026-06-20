@@ -82,15 +82,23 @@ class InformesService:
         from datetime import datetime
 
         # Construir items para justified_list
-        # Estructura: Total Tickets, Base, IVA, Devoluciones, TOTAL, Ticket Medio (separado al final)
+        # Estructura: Total Tickets, Base, IVA, TOTAL, Ticket Medio, Devoluciones (info)
         items = [
             {"nombre": "Total Tickets", "tickets": 0, "uds": resumen.get("total_tickets", 0), "euros": 0.0},
             {"nombre": "Base Imponible", "tickets": 0, "uds": 0, "euros": resumen.get("total_base", 0.0)},
             {"nombre": "Total IVA", "tickets": 0, "uds": 0, "euros": resumen.get("total_iva", 0.0)},
-            {"nombre": f"Devoluciones ({resumen.get('num_devoluciones', 0)})", "tickets": 0, "uds": 0, "euros": resumen.get("total_devoluciones", 0.0)},
             {"nombre": "TOTAL", "tickets": 0, "uds": resumen.get("total_tickets", 0), "euros": resumen.get("total_ventas", 0.0)},
             {"nombre": "Ticket Medio", "tickets": 0, "uds": 0, "euros": resumen.get("ticket_medio", 0.0), "tipo": "destacado"},
         ]
+        # Devoluciones como información al final (no afecta a totales)
+        num_dev = resumen.get("num_devoluciones", 0)
+        if num_dev and num_dev > 0:
+            items.append({
+                "nombre": f"Devoluciones ({num_dev})",
+                "tickets": 0, "uds": 0,
+                "euros": resumen.get("total_devoluciones", 0.0),
+                "tipo": "info",
+            })
 
         return {
             "title": "INFORME RESUMEN DE VENTAS",

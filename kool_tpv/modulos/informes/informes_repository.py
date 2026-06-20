@@ -24,9 +24,10 @@ class InformesRepository:
         fecha_inicio_sql = f"{fecha_inicio} 00:00:00"
         fecha_fin_sql = f"{fecha_fin} 23:59:59"
         query = (
-            "SELECT COUNT(*) as total_tickets, "
-            "COALESCE(SUM(total), 0) as total_ventas, "
-            "COALESCE(SUM(subtotal), 0) as total_base, "
+            "SELECT "
+            "SUM(CASE WHEN total >= 0 THEN 1 ELSE 0 END) as total_tickets, "
+            "COALESCE(SUM(CASE WHEN total >= 0 THEN total ELSE 0 END), 0) as total_ventas, "
+            "COALESCE(SUM(CASE WHEN total >= 0 THEN subtotal ELSE 0 END), 0) as total_base, "
             "SUM(CASE WHEN total < 0 THEN 1 ELSE 0 END) as num_devoluciones, "
             "COALESCE(SUM(CASE WHEN total < 0 THEN total ELSE 0 END), 0) as total_devoluciones "
             "FROM tickets WHERE created_at BETWEEN ? AND ? AND total != 0"
