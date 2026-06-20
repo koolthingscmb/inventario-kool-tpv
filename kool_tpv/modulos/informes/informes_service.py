@@ -118,16 +118,45 @@ class InformesService:
         from datetime import datetime
 
         items = []
+        total_tickets = 0
+        total_uds = 0
+        total_euros = 0.0
         for item in ventas_diarias or []:
             fecha = item.get("fecha", "")
             total = item.get("total", 0.0)
             num_tickets = item.get("num_tickets", 0)
-            total_uds = item.get("total_uds", 0)
+            total_uds_dia = item.get("total_uds", 0)
             items.append({
                 "nombre": fecha,
                 "tickets": num_tickets,
-                "uds": total_uds,
+                "uds": total_uds_dia,
                 "euros": total,
+            })
+            total_tickets += num_tickets
+            total_uds += total_uds_dia
+            total_euros += total
+
+        # Línea TOTAL TICKETS
+        items.append({
+            "nombre": f"TOTAL TICKETS ({total_tickets})",
+            "tickets": total_tickets,
+            "uds": total_uds,
+            "euros": total_euros,
+            "tipo": "total_global",
+        })
+
+        # Línea TOTAL DEVOLUCIONES (informativa, no afecta a totales)
+        try:
+            devol = self.repo.get_devoluciones_resumen(fecha_inicio, fecha_fin)
+        except Exception:
+            devol = {"num_tickets": 0, "total_uds": 0, "total": 0.0}
+        if devol["num_tickets"] > 0:
+            items.append({
+                "nombre": f"TOTAL DEVOLUCIONES ({devol['num_tickets']})",
+                "tickets": devol["num_tickets"],
+                "uds": devol["total_uds"],
+                "euros": devol["total"],
+                "tipo": "info",
             })
 
         return {

@@ -51,16 +51,23 @@ class InformesRepository:
         fecha_inicio_sql = f"{fecha_inicio} 00:00:00"
         fecha_fin_sql = f"{fecha_fin} 23:59:59"
         query = (
+            "WITH daily_totals AS ("
+            "SELECT DATE(created_at) as fecha, "
+            "COALESCE(SUM(total), 0) as total_dia "
+            "FROM tickets WHERE created_at BETWEEN ? AND ? AND total > 0 "
+            "GROUP BY DATE(created_at)"
+            ") "
             "SELECT DATE(t.created_at) as fecha, "
             "COUNT(DISTINCT t.id) as num_tickets, "
-            "COALESCE(SUM(CASE WHEN tl.line_tipo = 'devolucion' THEN -tl.cantidad ELSE tl.cantidad END), 0) as total_uds, "
-            "COALESCE(SUM(t.total), 0) as total_dia "
+            "COALESCE(SUM(tl.cantidad), 0) as total_uds, "
+            "COALESCE(dt.total_dia, 0) as total_dia "
             "FROM tickets t "
-            "LEFT JOIN ticket_lines tl ON t.id = tl.ticket_id AND tl.line_tipo IN ('venta', 'devolucion') "
-            "WHERE t.created_at BETWEEN ? AND ? AND t.total != 0 "
+            "LEFT JOIN ticket_lines tl ON t.id = tl.ticket_id AND tl.line_tipo = 'venta' "
+            "LEFT JOIN daily_totals dt ON DATE(t.created_at) = dt.fecha "
+            "WHERE t.created_at BETWEEN ? AND ? AND t.total > 0 "
             "GROUP BY DATE(t.created_at) ORDER BY DATE(t.created_at) ASC"
         )
-        rows = self.db.fetch_all(query, (fecha_inicio_sql, fecha_fin_sql))
+        rows = self.db.fetch_all(query, (fecha_inicio_sql, fecha_fin_sql, fecha_inicio_sql, fecha_fin_sql))
         result = []
         for r in rows or []:
             result.append({
@@ -71,6 +78,29 @@ class InformesRepository:
             })
         return result
 
+    # ── DEVOLUCIONES RESUMEN ──────────────────────────────────────────────────
+
+    def get_devoluciones_resumen(self, fecha_inicio: str, fecha_fin: str) -> dict:
+        """Resumen de devoluciones: num_tickets, total_uds, total (negativo)."""
+        fecha_inicio_sql = f"{fecha_inicio} 00:00:00"
+        fecha_fin_sql = f"{fecha_fin} 23:59:59"
+        query = (
+            "SELECT COUNT(DISTINCT t.id) as num_tickets, "
+            "COALESCE(SUM(tl.cantidad), 0) as total_uds, "
+            "COALESCE(SUM(t.total), 0) as total_devol "
+            "FROM tickets t "
+            "LEFT JOIN ticket_lines tl ON t.id = tl.ticket_id AND tl.line_tipo = 'devolucion' "
+            "WHERE t.created_at BETWEEN ? AND ? AND t.total < 0"
+        )
+        row = self.db.fetch_one(query, (fecha_inicio_sql, fecha_fin_sql))
+        if not row:
+            return {"num_tickets": 0, "total_uds": 0, "total": 0.0}
+        return {
+            "num_tickets": int(row[0] or 0),
+            "total_uds": int(row[1] or 0),
+            "total": float(read_from_db(row[2] or 0)),
+        }
+
     # ── VENTAS POR CAJERO ─────────────────────────────────────────────────────
 
     def get_ventas_por_cajero_y_dia(self, fecha_inicio: str, fecha_fin: str) -> list:
@@ -78,17 +108,24 @@ class InformesRepository:
         fecha_inicio_sql = f"{fecha_inicio} 00:00:00"
         fecha_fin_sql = f"{fecha_fin} 23:59:59"
         query = (
+            "WITH cajero_totals AS ("
+            "SELECT cajero, DATE(created_at) as fecha, "
+            "COALESCE(SUM(CASE WHEN total >= 0 THEN total ELSE 0 END), 0) as total_dia "
+            "FROM tickets WHERE created_at BETWEEN ? AND ? AND total != 0 "
+            "GROUP BY cajero, DATE(created_at)"
+            ") "
             "SELECT t.cajero, DATE(t.created_at) as fecha, "
             "COUNT(DISTINCT t.id) as num_tickets, "
             "COALESCE(SUM(CASE WHEN tl.line_tipo = 'devolucion' THEN -tl.cantidad ELSE tl.cantidad END), 0) as total_uds, "
-            "COALESCE(SUM(t.total), 0) as total_dia "
+            "COALESCE(ct.total_dia, 0) as total_dia "
             "FROM tickets t "
             "LEFT JOIN ticket_lines tl ON t.id = tl.ticket_id AND tl.line_tipo IN ('venta', 'devolucion') "
+            "LEFT JOIN cajero_totals ct ON t.cajero IS ct.cajero AND DATE(t.created_at) = ct.fecha "
             "WHERE t.created_at BETWEEN ? AND ? AND t.total != 0 "
             "GROUP BY t.cajero, DATE(t.created_at) "
             "ORDER BY t.cajero ASC, DATE(t.created_at) ASC"
         )
-        rows = self.db.fetch_all(query, (fecha_inicio_sql, fecha_fin_sql))
+        rows = self.db.fetch_all(query, (fecha_inicio_sql, fecha_fin_sql, fecha_inicio_sql, fecha_fin_sql))
         result = []
         for r in rows or []:
             result.append({
