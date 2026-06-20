@@ -26,16 +26,30 @@ class FavoritosService:
                 item['pvp'] = Decimal('0.00')
         return items
 
-    def agregar_a_favoritos(self, producto_id: int, nombre: Optional[str] = None) -> bool:
-        """Agrega un producto a favoritos."""
+    def agregar_a_favoritos(self, producto_id: int, nombre: Optional[str] = None) -> dict:
+        """Agrega un producto a favoritos.
+
+        Returns:
+            dict con 'success' (bool) y 'duplicado' (bool).
+        """
+        # Verificar si ya existe
+        query_check = "SELECT id FROM favoritos WHERE producto_id = ?"
+        try:
+            existe = self.db.fetch_one(query_check, (producto_id,))
+            if existe:
+                return {"success": False, "duplicado": True}
+        except Exception:
+            logger.exception("Error verificando duplicado en favoritos")
+            return {"success": False, "duplicado": False}
+
         if not nombre:
-            # Si no hay nombre, buscar el nombre del producto
             query = "SELECT nombre FROM productos WHERE id = ?"
             res = self.db.fetch_one(query, (producto_id,))
             nombre = res[0] if res else "Producto"
         
         pos = self.repo.get_next_posicion()
-        return self.repo.add(producto_id, nombre, pos)
+        ok = self.repo.add(producto_id, nombre, pos)
+        return {"success": ok, "duplicado": False}
 
     def eliminar_de_favoritos(self, favorito_id: int) -> bool:
         """Elimina un favorito."""

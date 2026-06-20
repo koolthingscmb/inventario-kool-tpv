@@ -163,12 +163,15 @@ class FavoritosConfigSubView(ctk.CTkFrame):
         
         def on_selected(producto):
             if producto:
-                # Al seleccionar, guardamos en favoritos con el nombre original por defecto
-                self.favoritos_service.agregar_a_favoritos(
+                res = self.favoritos_service.agregar_a_favoritos(
                     producto_id=producto.get('id'),
                     nombre=producto.get('nombre')
                 )
-                self.refrescar_lista()
+                if res.get('duplicado'):
+                    from kool_tpv.utils.widgets.notificaciones import ToastWidget
+                    ToastWidget.show(self.winfo_toplevel(), "EL PRODUCTO YA ES UN FAVORITO", tipo="warning")
+                else:
+                    self.refrescar_lista()
 
         stock_view = StockSubView(
             parent=self.view.center_area,

@@ -10,7 +10,7 @@ from kool_tpv.base_datos.usuario_service import UsuarioService
 from kool_tpv.modulos.presencia.presencia_service import PresenciaService
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
 from kool_tpv.utils.font_loader import get_font
-from kool_tpv.utils.time_utils import format_ddmmyyyy
+from kool_tpv.utils.time_utils import format_ddmmyyyy, utc_str_to_local_str
 from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 
 logger = logging.getLogger(__name__)
@@ -155,7 +155,8 @@ class PresenciaUI(ctk.CTkFrame):
             es_olvido = False
             if estado["trabajando"] and estado["desde"]:
                 try:
-                    fecha_entrada = estado["desde"].split()[0]
+                    local_desde_chk = utc_str_to_local_str(estado["desde"]) if estado["desde"] else ''
+                    fecha_entrada = local_desde_chk.split()[0]
                     hoy = datetime.now().strftime("%Y-%m-%d")
                     if fecha_entrada < hoy:
                         es_olvido = True
@@ -209,7 +210,8 @@ class PresenciaUI(ctk.CTkFrame):
         # 3. Procesar
         # Obtenemos la fecha de la sesión activa para reconstruir el timestamp completo
         estado = self.presencia_service.get_estado_usuario(self.selected_user["id"])
-        fecha_solo = estado["desde"].split()[0] # YYYY-MM-DD
+        local_desde_corr = utc_str_to_local_str(estado["desde"]) if estado["desde"] else ''
+        fecha_solo = local_desde_corr.split()[0] # YYYY-MM-DD
         timestamp_salida = f"{fecha_solo} {hora}:00"
 
         res = self.presencia_service.corregir_fichaje(sesion_id, timestamp_salida, nota)
@@ -271,16 +273,18 @@ class PresenciaUI(ctk.CTkFrame):
             # Detectar si la sesión es de un día anterior (olvido)
             es_antigua = False
             try:
-                fecha_entrada = estado["desde"].split()[0]
+                local_desde_ant = utc_str_to_local_str(estado["desde"]) if estado["desde"] else ''
+                fecha_entrada = local_desde_ant.split()[0]
                 hoy = datetime.now().strftime("%Y-%m-%d")
                 if fecha_entrada < hoy:
                     es_antigua = True
             except Exception:
                 pass
 
+            local_desde = utc_str_to_local_str(estado['desde']) if estado['desde'] else ''
             ctk.CTkLabel(
                 self.detail_container,
-                text=f"Desde: {format_ddmmyyyy(estado['desde'], include_time=True)}",
+                text=f"Desde: {format_ddmmyyyy(local_desde, include_time=True)}",
                 font=get_font("desde", module="presencia"),
                 text_color="#AAAAAA"
             ).pack(pady=2)
@@ -308,8 +312,8 @@ class PresenciaUI(ctk.CTkFrame):
             self.detail_container,
             columns=[
                 ('fecha', 90, 'FECHA'),
-                ('entrada', 65, 'ENT.'),
-                ('salida', 65, 'SAL.'),
+                ('entrada', 80, 'ENTRADA'),
+                ('salida', 80, 'SALIDA'),
                 ('duracion', 75, 'TIEMPO'),
                 ('estado', 85, 'ESTADO'),
                 ('notas', 150, 'NOTAS')
@@ -327,14 +331,18 @@ class PresenciaUI(ctk.CTkFrame):
             status = h.get('estado', '').upper()
             notas = h.get('notas', '') or ''
             
+            # Convertir UTC -> local
+            local_in = utc_str_to_local_str(raw_in) if raw_in else ''
+            local_out = utc_str_to_local_str(raw_out) if raw_out else ''
+            
             # Fecha (DD-MM-YYYY)
-            fecha = format_ddmmyyyy(raw_in, include_time=False)
+            fecha = format_ddmmyyyy(local_in, include_time=False)
             
             # Horas (HH:MM)
-            t_in = raw_in.split()[1][:5] if ' ' in raw_in else raw_in
+            t_in = local_in.split()[1][:5] if ' ' in local_in else local_in
             t_out = "..."
-            if raw_out and ' ' in raw_out:
-                t_out = raw_out.split()[1][:5]
+            if local_out and ' ' in local_out:
+                t_out = local_out.split()[1][:5]
             elif status != 'ACTIVA':
                 t_out = "??:??"
 
