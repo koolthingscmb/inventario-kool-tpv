@@ -26,16 +26,21 @@ class InformesRepository:
         query = (
             "SELECT COUNT(*) as total_tickets, "
             "COALESCE(SUM(total), 0) as total_ventas, "
-            "COALESCE(SUM(subtotal), 0) as total_base "
+            "COALESCE(SUM(subtotal), 0) as total_base, "
+            "SUM(CASE WHEN total < 0 THEN 1 ELSE 0 END) as num_devoluciones, "
+            "COALESCE(SUM(CASE WHEN total < 0 THEN total ELSE 0 END), 0) as total_devoluciones "
             "FROM tickets WHERE created_at BETWEEN ? AND ? AND total != 0"
         )
         row = self.db.fetch_one(query, (fecha_inicio_sql, fecha_fin_sql))
         if not row:
-            return {"total_tickets": 0, "total_ventas": 0.0, "total_base": 0.0}
+            return {"total_tickets": 0, "total_ventas": 0.0, "total_base": 0.0,
+                    "num_devoluciones": 0, "total_devoluciones": 0.0}
         return {
             "total_tickets": int(row[0] or 0),
             "total_ventas": float(read_from_db(row[1] or 0)),
             "total_base": float(read_from_db(row[2] or 0)),
+            "num_devoluciones": int(row[3] or 0),
+            "total_devoluciones": float(read_from_db(row[4] or 0)),
         }
 
     # ── VENTAS DIARIAS ────────────────────────────────────────────────────────
@@ -47,10 +52,10 @@ class InformesRepository:
         query = (
             "SELECT DATE(t.created_at) as fecha, "
             "COUNT(DISTINCT t.id) as num_tickets, "
-            "COALESCE(SUM(tl.cantidad), 0) as total_uds, "
+            "COALESCE(SUM(CASE WHEN tl.line_tipo = 'devolucion' THEN -tl.cantidad ELSE tl.cantidad END), 0) as total_uds, "
             "COALESCE(SUM(t.total), 0) as total_dia "
             "FROM tickets t "
-            "LEFT JOIN ticket_lines tl ON t.id = tl.ticket_id AND tl.line_tipo = 'venta' "
+            "LEFT JOIN ticket_lines tl ON t.id = tl.ticket_id AND tl.line_tipo IN ('venta', 'devolucion') "
             "WHERE t.created_at BETWEEN ? AND ? AND t.total != 0 "
             "GROUP BY DATE(t.created_at) ORDER BY DATE(t.created_at) ASC"
         )
@@ -74,10 +79,10 @@ class InformesRepository:
         query = (
             "SELECT t.cajero, DATE(t.created_at) as fecha, "
             "COUNT(DISTINCT t.id) as num_tickets, "
-            "COALESCE(SUM(tl.cantidad), 0) as total_uds, "
+            "COALESCE(SUM(CASE WHEN tl.line_tipo = 'devolucion' THEN -tl.cantidad ELSE tl.cantidad END), 0) as total_uds, "
             "COALESCE(SUM(t.total), 0) as total_dia "
             "FROM tickets t "
-            "LEFT JOIN ticket_lines tl ON t.id = tl.ticket_id AND tl.line_tipo = 'venta' "
+            "LEFT JOIN ticket_lines tl ON t.id = tl.ticket_id AND tl.line_tipo IN ('venta', 'devolucion') "
             "WHERE t.created_at BETWEEN ? AND ? AND t.total != 0 "
             "GROUP BY t.cajero, DATE(t.created_at) "
             "ORDER BY t.cajero ASC, DATE(t.created_at) ASC"
@@ -112,12 +117,12 @@ class InformesRepository:
         sql = (
             "SELECT p.nombre, DATE(t.created_at) as fecha, "
             "COUNT(DISTINCT t.id) as num_tickets, "
-            "COALESCE(SUM(tl.cantidad), 0) as total_uds, "
-            "COALESCE(SUM(tl.cantidad * tl.precio), 0) as total_cents "
+            "COALESCE(SUM(CASE WHEN tl.line_tipo = 'devolucion' THEN -tl.cantidad ELSE tl.cantidad END), 0) as total_uds, "
+            "COALESCE(SUM(CASE WHEN tl.line_tipo = 'devolucion' THEN -(tl.cantidad * tl.precio) ELSE (tl.cantidad * tl.precio) END), 0) as total_cents "
             "FROM ticket_lines tl "
             "JOIN tickets t ON tl.ticket_id = t.id "
             "JOIN productos p ON tl.producto_id = p.id "
-            "WHERE t.created_at BETWEEN ? AND ? AND t.total != 0 AND tl.line_tipo = 'venta'"
+            "WHERE t.created_at BETWEEN ? AND ? AND t.total != 0 AND tl.line_tipo IN ('venta', 'devolucion')"
         )
         params: list = [fecha_inicio_sql, fecha_fin_sql]
         if product_ids:
@@ -170,13 +175,13 @@ class InformesRepository:
         sql = (
             f"SELECT {alias}.nombre, DATE(t.created_at) as fecha, "
             f"COUNT(DISTINCT t.id) as num_tickets, "
-            f"COALESCE(SUM(tl.cantidad), 0) as total_uds, "
-            f"COALESCE(SUM(tl.cantidad * tl.precio), 0) as total_cents "
+            f"COALESCE(SUM(CASE WHEN tl.line_tipo = 'devolucion' THEN -tl.cantidad ELSE tl.cantidad END), 0) as total_uds, "
+            f"COALESCE(SUM(CASE WHEN tl.line_tipo = 'devolucion' THEN -(tl.cantidad * tl.precio) ELSE (tl.cantidad * tl.precio) END), 0) as total_cents "
             f"FROM ticket_lines tl "
             f"JOIN tickets t ON tl.ticket_id = t.id "
             f"JOIN productos p ON tl.producto_id = p.id "
             f"JOIN {join_table} {alias} ON {id_col} = {alias}.id "
-            f"WHERE t.created_at BETWEEN ? AND ? AND t.total != 0 AND tl.line_tipo = 'venta'"
+            f"WHERE t.created_at BETWEEN ? AND ? AND t.total != 0 AND tl.line_tipo IN ('venta', 'devolucion')"
         )
         params: list = [fecha_inicio_sql, fecha_fin_sql]
 
@@ -198,6 +203,43 @@ class InformesRepository:
                 "total": float(read_from_db(int(r[4] or 0))),
             })
         return result
+
+    # ── COUNT DISTINCT TICKETS ────────────────────────────────────────────────
+
+    def count_distinct_tickets_ventas(
+        self,
+        fecha_inicio: str,
+        fecha_fin: str,
+        group_by: str = None,
+        filter_ids: Optional[List[int]] = None
+    ) -> int:
+        """Contar tickets distintos con líneas de venta en el rango.
+
+        A diferencia de sumar COUNT(DISTINCT t.id) por grupo, esto devuelve
+        el número real de tickets únicos, sin duplicar tickets que tienen
+        varios productos/categorías/tipos.
+
+        Args:
+            group_by: 'categoria' o 'tipo' (para aplicar filter_ids)
+            filter_ids: IDs de categoría/tipo a filtrar (None = todos)
+        """
+        fecha_inicio_sql = f"{fecha_inicio} 00:00:00"
+        fecha_fin_sql = f"{fecha_fin} 23:59:59"
+        sql = (
+            "SELECT COUNT(DISTINCT t.id) "
+            "FROM ticket_lines tl "
+            "JOIN tickets t ON tl.ticket_id = t.id "
+            "JOIN productos p ON tl.producto_id = p.id "
+            "WHERE t.created_at BETWEEN ? AND ? AND t.total != 0 AND tl.line_tipo IN ('venta', 'devolucion')"
+        )
+        params: list = [fecha_inicio_sql, fecha_fin_sql]
+        if group_by and filter_ids:
+            id_col = 'p.categoria' if group_by == 'categoria' else 'p.tipo'
+            ph = ','.join(['?'] * len(filter_ids))
+            sql += f" AND {id_col} IN ({ph})"
+            params.extend(filter_ids)
+        row = self.db.fetch_one(sql, tuple(params))
+        return int(row[0] or 0) if row else 0
 
     # ── VENTAS POR CATEGORÍA ──────────────────────────────────────────────────
 
@@ -224,12 +266,12 @@ class InformesRepository:
         sql = (
             f"SELECT c.nombre, "
             f"COUNT(DISTINCT tl.ticket_id) AS tickets_cnt, "
-            f"COALESCE(SUM(tl.cantidad), 0) AS uds, "
-            f"COALESCE(SUM(tl.cantidad * tl.precio), 0) AS total_cents "
+            f"COALESCE(SUM(CASE WHEN tl.line_tipo = 'devolucion' THEN -tl.cantidad ELSE tl.cantidad END), 0) AS uds, "
+            f"COALESCE(SUM(CASE WHEN tl.line_tipo = 'devolucion' THEN -(tl.cantidad * tl.precio) ELSE (tl.cantidad * tl.precio) END), 0) AS total_cents "
             f"FROM ticket_lines tl "
             f"JOIN productos p ON tl.producto_id = p.id "
             f"JOIN categorias c ON p.categoria = c.id "
-            f"WHERE tl.ticket_id IN ({placeholders}) AND tl.line_tipo = 'venta'"
+            f"WHERE tl.ticket_id IN ({placeholders}) AND tl.line_tipo IN ('venta', 'devolucion')"
         )
         params = list(ticket_ids)
         if categoria_ids:
@@ -262,12 +304,12 @@ class InformesRepository:
         sql = (
             f"SELECT t.nombre, "
             f"COUNT(DISTINCT tl.ticket_id) AS tickets_cnt, "
-            f"COALESCE(SUM(tl.cantidad), 0) AS uds, "
-            f"COALESCE(SUM(tl.cantidad * tl.precio), 0) AS total_cents "
+            f"COALESCE(SUM(CASE WHEN tl.line_tipo = 'devolucion' THEN -tl.cantidad ELSE tl.cantidad END), 0) AS uds, "
+            f"COALESCE(SUM(CASE WHEN tl.line_tipo = 'devolucion' THEN -(tl.cantidad * tl.precio) ELSE (tl.cantidad * tl.precio) END), 0) AS total_cents "
             f"FROM ticket_lines tl "
             f"JOIN productos p ON tl.producto_id = p.id "
             f"JOIN tipos t ON p.tipo = t.id "
-            f"WHERE tl.ticket_id IN ({placeholders}) AND tl.line_tipo = 'venta'"
+            f"WHERE tl.ticket_id IN ({placeholders}) AND tl.line_tipo IN ('venta', 'devolucion')"
         )
         params = list(ticket_ids)
         if tipo_ids:

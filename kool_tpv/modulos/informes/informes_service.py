@@ -48,12 +48,16 @@ class InformesService:
         total_base = raw["total_base"]
         total_iva = total_ventas - total_base
         ticket_medio = total_ventas / total_tickets if total_tickets > 0 else 0.0
+        num_devoluciones = raw.get("num_devoluciones", 0)
+        total_devoluciones = raw.get("total_devoluciones", 0.0)
         return {
             "total_tickets": total_tickets,
             "total_ventas": total_ventas,
             "total_base": total_base,
             "total_iva": total_iva,
             "ticket_medio": ticket_medio,
+            "num_devoluciones": num_devoluciones,
+            "total_devoluciones": total_devoluciones,
         }
 
     def get_ventas_diarias_por_rango(self, fecha_inicio: str, fecha_fin: str) -> list:
@@ -71,16 +75,19 @@ class InformesService:
                 "total_base": 0.0,
                 "total_iva": 0.0,
                 "ticket_medio": 0.0,
+                "num_devoluciones": 0,
+                "total_devoluciones": 0.0,
             }
 
         from datetime import datetime
 
         # Construir items para justified_list
-        # Estructura: Total Tickets, Base, IVA, TOTAL, Ticket Medio (separado al final)
+        # Estructura: Total Tickets, Base, IVA, Devoluciones, TOTAL, Ticket Medio (separado al final)
         items = [
             {"nombre": "Total Tickets", "tickets": 0, "uds": resumen.get("total_tickets", 0), "euros": 0.0},
             {"nombre": "Base Imponible", "tickets": 0, "uds": 0, "euros": resumen.get("total_base", 0.0)},
             {"nombre": "Total IVA", "tickets": 0, "uds": 0, "euros": resumen.get("total_iva", 0.0)},
+            {"nombre": f"Devoluciones ({resumen.get('num_devoluciones', 0)})", "tickets": 0, "uds": 0, "euros": resumen.get("total_devoluciones", 0.0)},
             {"nombre": "TOTAL", "tickets": 0, "uds": resumen.get("total_tickets", 0), "euros": resumen.get("total_ventas", 0.0)},
             {"nombre": "Ticket Medio", "tickets": 0, "uds": 0, "euros": resumen.get("ticket_medio", 0.0), "tipo": "destacado"},
         ]
@@ -180,7 +187,6 @@ class InformesService:
             por_grupo[r["group_name"]].append(r)
 
         items = []
-        total_tickets_global = 0
         total_uds_global = 0
         total_euros_global = 0.0
 
@@ -207,9 +213,13 @@ class InformesService:
                 "euros": total_euros_grupo,
                 "tipo": "subtotal_grupo",
             })
-            total_tickets_global += total_tickets_grupo
             total_uds_global += total_uds_grupo
             total_euros_global += total_euros_grupo
+
+        # Total global de tickets: COUNT(DISTINCT) real, no suma de subtotales
+        total_tickets_global = self.repo.count_distinct_tickets_ventas(
+            fecha_inicio, fecha_fin, group_by=group_by, filter_ids=filter_ids_clean
+        )
 
         # Item de total global
         items.append({
@@ -238,7 +248,6 @@ class InformesService:
             por_producto[r["group_name"]].append(r)
 
         items = []
-        total_tickets_global = 0
         total_uds_global = 0
         total_euros_global = 0.0
 
@@ -265,9 +274,13 @@ class InformesService:
                 "euros": total_euros_p,
                 "tipo": "subtotal_grupo",
             })
-            total_tickets_global += total_tickets_p
             total_uds_global += total_uds_p
             total_euros_global += total_euros_p
+
+        # Total global de tickets: COUNT(DISTINCT) real, no suma de subtotales
+        total_tickets_global = self.repo.count_distinct_tickets_ventas(
+            fecha_inicio, fecha_fin
+        )
 
         items.append({
             "nombre": "TOTAL",

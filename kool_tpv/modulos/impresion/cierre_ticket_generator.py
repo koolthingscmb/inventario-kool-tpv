@@ -7,6 +7,7 @@ con número de ventas por ticket, totales parciales y el total del cierre.
 
 from decimal import Decimal
 import logging
+import textwrap
 from kool_tpv.modulos.impresion.base_ticket_generator import BaseTicketGenerator
 
 
@@ -27,23 +28,37 @@ class CierreTicketGenerator(BaseTicketGenerator):
     """
 
     def _format_entry(self, left: str, right: str) -> str:
-        """Formatear línea de desglose: left truncado + right alineado a la derecha.
+        """Formatear línea de desglose: left con wrap + right alineado a la derecha.
 
-        Si left + right no caben en WIDTH, se trunca left con '…' para que right
-        siempre quede visible y alineado.
+        Si left + right no caben en WIDTH, se hace word-wrap de left a líneas
+        adicionales. El importe (right) queda alineado a la derecha en la
+        última línea.
         """
         right = right.rjust(len(right))
         space = self.WIDTH - len(right)
         if space <= 0:
             return right[-self.WIDTH:]
-        if len(left) > space:
-            # Truncar left para que quepa, dejando 1 espacio mínimo
-            max_left = space - 1
-            if max_left > 0:
-                left = left[:max_left - 1] + '…' if max_left > 1 else left[:1]
-            else:
-                left = ''
-        return f"{left:<{space}}{right}"
+        if len(left) <= space:
+            return f"{left:<{space}}{right}"
+
+        # Wrap de left: las líneas no-finales usan WIDTH completo,
+        # la última línea usa 'space' para dejar sitio a right.
+        wrapped = textwrap.wrap(left, width=self.WIDTH)
+        if not wrapped:
+            return f"{'':<{space}}{right}"
+
+        if len(wrapped[-1]) <= space:
+            result = wrapped[:-1] + [f"{wrapped[-1]:<{space}}{right}"]
+            return "\n".join(result)
+
+        # La última línea no cabe en 'space': re-wrap para que quepa
+        last = wrapped.pop()
+        sub = textwrap.wrap(last, width=space)
+        if sub:
+            result = wrapped + sub[:-1] + [f"{sub[-1]:<{space}}{right}"]
+        else:
+            result = wrapped + [f"{'':<{space}}{right}"]
+        return "\n".join(result)
 
     def generate(self, config, cierre_data, tickets, totals: dict = None, print_options: dict = None):
         """Generador de tickets de cierre.
