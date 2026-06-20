@@ -201,9 +201,10 @@ class CierreService:
                     pass
                 try:
                     if total_cents < 0 and (tr[4] is None):
-                        # Devolución sin forma de pago registrada: el dinero
-                        # devuelto al cliente resta del efectivo de caja.
-                        result['total_efectivo'] -= read_from_db(abs(total_cents))
+                        # Devolución con vale: no sale dinero de caja.
+                        # El vale se usa en una venta futura (que ya tiene el
+                        # descuento aplicado en su total). No restar de efectivo.
+                        pass
                     else:
                         importe_ef_cents = int(tr[5] or 0)
                         cambio_cents = int(tr[6] or 0)
@@ -295,14 +296,12 @@ class CierreService:
             result['total_descuentos'] = total_descuentos
             result['total_devoluciones'] = total_devoluciones
 
-            # Persist facturas and set total_ingresos to net ventas (facturas - devoluciones)
+            # Persist facturas and set total_ingresos = total_facturas
+            # Las devoluciones NO se restan aquí: los tickets positivos ya tienen
+            # el vale aplicado (ej: 35€ en vez de 51,95€), y los tickets negativos
+            # no están en total_facturas. Restar devoluciones sería doble conteo.
             result['total_facturas'] = total_facturas
-            try:
-                # Los descuentos YA están incluidos en total_facturas (viene del ticket total final)
-                # Solo restar devoluciones, no restar descuentos de nuevo
-                result['total_ingresos'] = total_facturas - total_devoluciones
-            except Exception:
-                result['total_ingresos'] = Decimal('0')
+            result['total_ingresos'] = total_facturas
 
             # Construir desglose IVA por tipo para uso en snapshot/BD (mantener Decimal)
             iva_desglose = {}

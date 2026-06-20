@@ -87,7 +87,7 @@ class CierreCajaProcessor(TicketProcessor):
             totals['devoluciones_count'] = devoluciones_count
             totals['total_facturas'] = total_facturas
             totals['total_devoluciones'] = total_devoluciones
-            totals['total_ventas_net'] = (total_facturas - total_devoluciones)
+            totals['total_ventas_net'] = total_facturas
         except Exception:
             # No interrumpir el proceso si falla el cálculo, dejar totals como estaban
             pass

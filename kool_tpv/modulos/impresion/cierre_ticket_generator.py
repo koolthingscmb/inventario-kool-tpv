@@ -174,12 +174,10 @@ class CierreTicketGenerator(BaseTicketGenerator):
                 except Exception:
                     total_devoluciones_amt = Decimal('0')
             if total_ventas_net is None:
-                try:
-                    # Los descuentos YA están incluidos en total_facturas_amt
-                    # Solo restar devoluciones, no restar descuentos de nuevo
-                    total_ventas_net = total_facturas_amt - total_devoluciones_amt
-                except Exception:
-                    total_ventas_net = Decimal('0')
+                total_ventas_net = total_facturas_amt
+            else:
+                # Override: no restar devoluciones (doble conteo)
+                total_ventas_net = total_facturas_amt
 
             lines.append('VENTAS:'.center(self.WIDTH))
 
@@ -192,12 +190,6 @@ class CierreTicketGenerator(BaseTicketGenerator):
             else:
                 lines.append(fs_left + (' ' * space) + fs_right)
 
-            # Devoluciones: mostrar recuento sin signo y total negativo a la derecha
-            if devoluciones_count:
-                left = f"Devoluciones: {devoluciones_count}"
-                right = f"-{self._format_currency(total_devoluciones_amt)}"
-                lines.append(self._format_line_lr(left, right))
-
             # Total Descuentos (si existe)
             if totals and isinstance(totals, dict):
                 td = totals.get('total_descuentos')
@@ -207,6 +199,14 @@ class CierreTicketGenerator(BaseTicketGenerator):
             # Separador y total neto de ventas
             lines.append(self.DIVIDER)
             lines.append(self._format_line_lr('TOTAL VENTAS:', self._format_currency(total_ventas_net)))
+
+            # Sección informativa de devoluciones (no afecta a totales)
+            if devoluciones_count:
+                lines.append(self.DIVIDER)
+                lines.append('DEVOLUCIONES (INFORMATIVO)'.center(self.WIDTH))
+                left = f"Devoluciones: {devoluciones_count}"
+                right = f"-{self._format_currency(total_devoluciones_amt)}"
+                lines.append(self._format_line_lr(left, right))
         except Exception:
             pass
 
@@ -249,8 +249,6 @@ class CierreTicketGenerator(BaseTicketGenerator):
                     lines.append(self._format_line_lr('Total Tarjeta:', self._format_currency(tt)))
                 if tw != _D('0'):
                     lines.append(self._format_line_lr('Total Web:', self._format_currency(tw)))
-                if td > _D('0'):
-                    lines.append(self._format_line_lr('Devoluciones:', f"-{self._format_currency(td)}"))
                 lines.append(self.DIVIDER)
         except Exception:
             pass
