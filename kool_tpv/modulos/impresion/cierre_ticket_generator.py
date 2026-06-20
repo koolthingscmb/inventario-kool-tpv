@@ -268,16 +268,8 @@ class CierreTicketGenerator(BaseTicketGenerator):
                         nombre = str(entry[0] or '')
                         v_cnt = int(entry[1] or 0)
                         v_total = entry[2] or 0
-                        d_cnt = int(entry[3] or 0) if len(entry) > 3 else 0
-                        d_total = entry[4] if len(entry) > 4 else 0
                         v_str = self._format_currency(_to_decimal(v_total))
                         lines.append(self._format_entry(f"{nombre}: {v_cnt}", v_str))
-                        if d_cnt > 0:
-                            d_str = f"-{self._format_currency(_to_decimal(d_total))}"
-                            lines.append(self._format_entry(f"{nombre} Devoluciones: {d_cnt}", d_str))
-                            neto = _to_decimal(v_total) - _to_decimal(d_total)
-                            neto_str = self._format_currency(neto)
-                            lines.append(self._format_entry(f"{nombre} Total:", neto_str))
                     except Exception:
                         continue
                 lines.append(self.DOUBLE_DIVIDER)
