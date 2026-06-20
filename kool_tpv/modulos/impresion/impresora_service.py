@@ -626,6 +626,7 @@ class ImpresoraService:
                 'total_tarjeta': read_from_db(int(cierre_data.get('total_tarjeta') or 0)),
                 'total_web': read_from_db(int(cierre_data.get('total_web') or 0)),
                 'total_descuentos': read_from_db(int(cierre_data.get('total_descuentos') or 0)),
+                'total_devoluciones': read_from_db(int(cierre_data.get('total_devoluciones') or 0)),
                 'base_21': read_from_db(int(cierre_data.get('base_21') or 0)),
                 'iva_21': read_from_db(int(cierre_data.get('iva_21') or 0)),
                 'base_4': read_from_db(int(cierre_data.get('base_4') or 0)),
@@ -647,12 +648,34 @@ class ImpresoraService:
                     from kool_tpv.base_datos.producto_service import ProductoService
 
                     cat_svc = CategoriaService(self.db)
-                    totals['ventas_por_categoria'] = cat_svc.get_ventas_por_categoria(ticket_ids, line_tipo='venta')
-                    totals['devoluciones_por_categoria'] = cat_svc.get_ventas_por_categoria(ticket_ids, line_tipo='devolucion')
+                    for _key, _tipo in [
+                        ('ventas_por_categoria', 'venta'),
+                        ('devoluciones_por_categoria', 'devolucion'),
+                    ]:
+                        _rows = cat_svc.get_ventas_por_categoria(ticket_ids, line_tipo=_tipo, as_dict=True) or []
+                        _simple = []
+                        for _e in _rows:
+                            if isinstance(_e, dict):
+                                _simple.append((_e.get('nombre'), int(_e.get('uds', 0) or 0), _e.get('total')))
+                            else:
+                                _simple.append((_e[0], int(_e[2] or 0), _e[3] if len(_e) > 3 else _e[2]))
+                        if _simple:
+                            totals[_key] = _simple
 
                     tipo_svc = TipoService(self.db)
-                    totals['ventas_por_tipo'] = tipo_svc.get_ventas_por_tipo(ticket_ids, line_tipo='venta')
-                    totals['devoluciones_por_tipo'] = tipo_svc.get_ventas_por_tipo(ticket_ids, line_tipo='devolucion')
+                    for _key, _tipo in [
+                        ('ventas_por_tipo', 'venta'),
+                        ('devoluciones_por_tipo', 'devolucion'),
+                    ]:
+                        _rows = tipo_svc.get_ventas_por_tipo(ticket_ids, line_tipo=_tipo, as_dict=True) or []
+                        _simple = []
+                        for _e in _rows:
+                            if isinstance(_e, dict):
+                                _simple.append((_e.get('nombre'), int(_e.get('uds', 0) or 0), _e.get('total')))
+                            else:
+                                _simple.append((_e[0], int(_e[2] or 0), _e[3] if len(_e) > 3 else _e[2]))
+                        if _simple:
+                            totals[_key] = _simple
 
                     prod_svc = ProductoService(self.db)
                     totals['productos'] = prod_svc.get_ventas_por_producto(ticket_ids, line_tipo='venta')
