@@ -77,8 +77,10 @@ class EscPosRenderer:
         try:
             parts.append(normalized.encode(self.encoding))
         except Exception:
-            # Fallback a UTF-8 si el encoding específico falla
-            parts.append(normalized.encode("utf-8", errors="replace"))
+            # Fallback: seguir usando el encoding configurado pero reemplazando
+            # los caracteres no soportados con '?' en vez de pasar a UTF-8
+            # (UTF-8 haría que € pase de 1 byte a 3 bytes, rompiendo la impresión)
+            parts.append(normalized.encode(self.encoding, errors="replace"))
 
         # 4) Añadir una línea extra de separación (antes del corte)
 
@@ -201,6 +203,8 @@ class EscPosRenderer:
             '\u2003': ' ',        # (em space) -> espacio normal
             '\u2009': ' ',        # (thin space) -> espacio normal
             '\u00A0': ' ',        # (nbsp) -> espacio normal
+            '\u00D1': 'N',         # Ñ (mayúscula) -> N (cp858 no tiene Ñ, su posición la ocupa €)
+            '\u00F1': 'n',         # ñ (minúscula) -> n (cp858 sí tiene ñ, pero por consistencia)
         }
         for unicode_char, ascii_char in replacements.items():
             text = text.replace(unicode_char, ascii_char)
