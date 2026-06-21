@@ -110,18 +110,18 @@ class InformesRepository:
         query = (
             "WITH cajero_totals AS ("
             "SELECT cajero, DATE(created_at) as fecha, "
-            "COALESCE(SUM(CASE WHEN total >= 0 THEN total ELSE 0 END), 0) as total_dia "
-            "FROM tickets WHERE created_at BETWEEN ? AND ? AND total != 0 "
+            "COALESCE(SUM(total), 0) as total_dia "
+            "FROM tickets WHERE created_at BETWEEN ? AND ? AND total > 0 "
             "GROUP BY cajero, DATE(created_at)"
             ") "
             "SELECT t.cajero, DATE(t.created_at) as fecha, "
             "COUNT(DISTINCT t.id) as num_tickets, "
-            "COALESCE(SUM(CASE WHEN tl.line_tipo = 'devolucion' THEN -tl.cantidad ELSE tl.cantidad END), 0) as total_uds, "
+            "COALESCE(SUM(tl.cantidad), 0) as total_uds, "
             "COALESCE(ct.total_dia, 0) as total_dia "
             "FROM tickets t "
-            "LEFT JOIN ticket_lines tl ON t.id = tl.ticket_id AND tl.line_tipo IN ('venta', 'devolucion') "
+            "LEFT JOIN ticket_lines tl ON t.id = tl.ticket_id AND tl.line_tipo = 'venta' "
             "LEFT JOIN cajero_totals ct ON t.cajero IS ct.cajero AND DATE(t.created_at) = ct.fecha "
-            "WHERE t.created_at BETWEEN ? AND ? AND t.total != 0 "
+            "WHERE t.created_at BETWEEN ? AND ? AND t.total > 0 "
             "GROUP BY t.cajero, DATE(t.created_at) "
             "ORDER BY t.cajero ASC, DATE(t.created_at) ASC"
         )
@@ -155,12 +155,12 @@ class InformesRepository:
         sql = (
             "SELECT p.nombre, DATE(t.created_at) as fecha, "
             "COUNT(DISTINCT t.id) as num_tickets, "
-            "COALESCE(SUM(CASE WHEN tl.line_tipo = 'devolucion' THEN -tl.cantidad ELSE tl.cantidad END), 0) as total_uds, "
-            "COALESCE(SUM(CASE WHEN tl.line_tipo = 'devolucion' THEN -(tl.cantidad * tl.precio) ELSE (tl.cantidad * tl.precio) END), 0) as total_cents "
+            "COALESCE(SUM(tl.cantidad), 0) as total_uds, "
+            "COALESCE(SUM(tl.cantidad * tl.precio), 0) as total_cents "
             "FROM ticket_lines tl "
             "JOIN tickets t ON tl.ticket_id = t.id "
             "JOIN productos p ON tl.producto_id = p.id "
-            "WHERE t.created_at BETWEEN ? AND ? AND t.total != 0 AND tl.line_tipo IN ('venta', 'devolucion')"
+            "WHERE t.created_at BETWEEN ? AND ? AND t.total > 0 AND tl.line_tipo = 'venta'"
         )
         params: list = [fecha_inicio_sql, fecha_fin_sql]
         if product_ids:
@@ -213,13 +213,13 @@ class InformesRepository:
         sql = (
             f"SELECT {alias}.nombre, DATE(t.created_at) as fecha, "
             f"COUNT(DISTINCT t.id) as num_tickets, "
-            f"COALESCE(SUM(CASE WHEN tl.line_tipo = 'devolucion' THEN -tl.cantidad ELSE tl.cantidad END), 0) as total_uds, "
-            f"COALESCE(SUM(CASE WHEN tl.line_tipo = 'devolucion' THEN -(tl.cantidad * tl.precio) ELSE (tl.cantidad * tl.precio) END), 0) as total_cents "
+            f"COALESCE(SUM(tl.cantidad), 0) as total_uds, "
+            f"COALESCE(SUM(tl.cantidad * tl.precio), 0) as total_cents "
             f"FROM ticket_lines tl "
             f"JOIN tickets t ON tl.ticket_id = t.id "
             f"JOIN productos p ON tl.producto_id = p.id "
             f"JOIN {join_table} {alias} ON {id_col} = {alias}.id "
-            f"WHERE t.created_at BETWEEN ? AND ? AND t.total != 0 AND tl.line_tipo IN ('venta', 'devolucion')"
+            f"WHERE t.created_at BETWEEN ? AND ? AND t.total > 0 AND tl.line_tipo = 'venta'"
         )
         params: list = [fecha_inicio_sql, fecha_fin_sql]
 
@@ -268,7 +268,7 @@ class InformesRepository:
             "FROM ticket_lines tl "
             "JOIN tickets t ON tl.ticket_id = t.id "
             "JOIN productos p ON tl.producto_id = p.id "
-            "WHERE t.created_at BETWEEN ? AND ? AND t.total != 0 AND tl.line_tipo IN ('venta', 'devolucion')"
+            "WHERE t.created_at BETWEEN ? AND ? AND t.total > 0 AND tl.line_tipo = 'venta'"
         )
         params: list = [fecha_inicio_sql, fecha_fin_sql]
         if group_by and filter_ids:

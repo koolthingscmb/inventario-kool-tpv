@@ -202,6 +202,20 @@ class InformesService:
                 "tipo": "subtotal_cajero",
             })
 
+        # Devoluciones como información al final (no afecta a totales)
+        try:
+            devol = self.repo.get_devoluciones_resumen(fecha_inicio, fecha_fin)
+        except Exception:
+            devol = {"num_tickets": 0, "total_uds": 0, "total": 0.0}
+        if devol["num_tickets"] > 0:
+            items.append({
+                "nombre": f"TOTAL DEVOLUCIONES ({devol['num_tickets']})",
+                "tickets": devol["num_tickets"],
+                "uds": devol["total_uds"],
+                "euros": devol["total"],
+                "tipo": "info",
+            })
+
         return {
             "title": "INFORME DE VENTAS POR CAJERO",
             "display_format": "justified_list",
@@ -267,6 +281,20 @@ class InformesService:
             "tipo": "total_global",
         })
 
+        # Devoluciones como información al final (no afecta a totales)
+        try:
+            devol = self.repo.get_devoluciones_resumen(fecha_inicio, fecha_fin)
+        except Exception:
+            devol = {"num_tickets": 0, "total_uds": 0, "total": 0.0}
+        if devol["num_tickets"] > 0:
+            items.append({
+                "nombre": f"TOTAL DEVOLUCIONES ({devol['num_tickets']})",
+                "tickets": devol["num_tickets"],
+                "uds": devol["total_uds"],
+                "euros": devol["total"],
+                "tipo": "info",
+            })
+
         return {
             "title": title,
             "display_format": "justified_list",
@@ -326,6 +354,20 @@ class InformesService:
             "euros": total_euros_global,
             "tipo": "total_global",
         })
+
+        # Devoluciones como información al final (no afecta a totales)
+        try:
+            devol = self.repo.get_devoluciones_resumen(fecha_inicio, fecha_fin)
+        except Exception:
+            devol = {"num_tickets": 0, "total_uds": 0, "total": 0.0}
+        if devol["num_tickets"] > 0:
+            items.append({
+                "nombre": f"TOTAL DEVOLUCIONES ({devol['num_tickets']})",
+                "tickets": devol["num_tickets"],
+                "uds": devol["total_uds"],
+                "euros": devol["total"],
+                "tipo": "info",
+            })
 
         return {
             "title": "INFORME DE VENTAS POR PRODUCTO",

@@ -660,6 +660,10 @@ class InformesView(BaseModuleView):
                     elif item_tipo == 'subtotal_cajero':
                         line = f"  TOTAL {tickets} Tickets - {uds} Uds: {right_text}\n\n"
                         self.result_textbox.insert('end', line)
+                    elif item_tipo == 'info':
+                        self.result_textbox.insert('end', "\n")
+                        line = f"{tipo_nombre} - {uds} Uds: {right_text}\n"
+                        self.result_textbox.insert('end', line)
                 elif display_subformat in ('categoria', 'tipo', 'producto'):
                     item_tipo = item.get('tipo', '')
                     right_text = formatter.format_precio(euros)
@@ -681,6 +685,10 @@ class InformesView(BaseModuleView):
                     elif item_tipo == 'total_global':
                         self.result_textbox.insert('end', f"{tipo_nombre}:\n")
                         line = f"  {tickets} Tickets - {uds} Uds: {right_text}\n"
+                        self.result_textbox.insert('end', line)
+                    elif item_tipo == 'info':
+                        self.result_textbox.insert('end', "\n")
+                        line = f"{tipo_nombre} - {uds} Uds: {right_text}\n"
                         self.result_textbox.insert('end', line)
                 elif tickets and tickets > 0:
                     # Formato con tickets (para informes por tipo/categoría)
