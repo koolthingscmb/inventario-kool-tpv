@@ -23,7 +23,7 @@ class ProduccionTiposRepository:
 	def _row_to_tipo(self, row) -> ProduccionTipo:
 		"""Mapear una fila de BD a objeto ProduccionTipo."""
 		(id_, nombre, descripcion, color, icono,
-		 coste_base, requiere_talla, requiere_color, activo, orden) = row
+		 coste_base, requiere_talla, requiere_color, requiere_genero, activo, orden) = row
 		return ProduccionTipo(
 			id=id_,
 			nombre=nombre,
@@ -33,13 +33,14 @@ class ProduccionTiposRepository:
 			coste_base=coste_base or 0.0,
 			requiere_talla=requiere_talla or 0,
 			requiere_color=requiere_color or 0,
+			requiere_genero=requiere_genero or 0,
 			activo=activo if activo is not None else 1,
 			orden=orden or 0
 		)
 
 	_QUERY_SELECT = """
 		SELECT id, nombre, descripcion, color, icono,
-		       coste_base, requiere_talla, requiere_color, activo, orden
+		       coste_base, requiere_talla, requiere_color, requiere_genero, activo, orden
 		FROM produccion_tipos
 	"""
 
@@ -92,13 +93,13 @@ class ProduccionTiposRepository:
 			query = """
 				INSERT INTO produccion_tipos
 				(nombre, descripcion, color, icono, coste_base,
-				 requiere_talla, requiere_color, activo, orden)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+				 requiere_talla, requiere_color, requiere_genero, activo, orden)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			"""
 			self.db.execute_query(query, (
 				tipo.nombre, tipo.descripcion, tipo.color, tipo.icono,
 				tipo.coste_base, tipo.requiere_talla, tipo.requiere_color,
-				tipo.activo, tipo.orden
+				tipo.requiere_genero, tipo.activo, tipo.orden
 			))
 			result = self.db.fetch_all("SELECT last_insert_rowid()")
 			if result:
@@ -126,13 +127,13 @@ class ProduccionTiposRepository:
 				UPDATE produccion_tipos
 				SET nombre = ?, descripcion = ?, color = ?, icono = ?,
 				    coste_base = ?, requiere_talla = ?, requiere_color = ?,
-				    activo = ?, orden = ?
+				    requiere_genero = ?, activo = ?, orden = ?
 				WHERE id = ?
 			"""
 			self.db.execute_query(query, (
 				tipo.nombre, tipo.descripcion, tipo.color, tipo.icono,
 				tipo.coste_base, tipo.requiere_talla, tipo.requiere_color,
-				tipo.activo, tipo.orden, tipo.id
+				tipo.requiere_genero, tipo.activo, tipo.orden, tipo.id
 			))
 			return True
 		except Exception:

@@ -97,7 +97,8 @@ class PaymentControllerVale(ctk.CTkFrame):
             imp = read_from_db(vale.get("importe_cents", 0))
             # Extraer nombre corto del vale (solo el ID numérico o prefijo)
             path_str = vale.get("path", "")
-            nombre_vale = path_str.split("/")[-1].replace(".json", "") if path_str else None
+            from pathlib import Path as _Path
+            nombre_vale = _Path(path_str).stem if path_str else None
             if not nombre_vale:
                 nombre_vale = vale.get("num_ticket_devolucion", "?")
             # Extraer solo el ID numérico si existe formato Vale1_2420_1706

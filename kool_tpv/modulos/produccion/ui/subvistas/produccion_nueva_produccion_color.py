@@ -14,9 +14,10 @@ from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.produccion.models.produccion_color_model import ProduccionColor
 from kool_tpv.modulos.produccion.services.produccion_colores_service import ProduccionColoresService
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font, get_chip_config, get_chip_style, get_nav_button_config, get_nav_button_style
+from kool_tpv.utils.keyboard_nav_mixin import KeyboardNavigableMixin
 
 
-class NuevaProduccionColorView:
+class NuevaProduccionColorView(KeyboardNavigableMixin):
 	"""Subvista para seleccionar el color.
 
 	Args:
@@ -29,6 +30,7 @@ class NuevaProduccionColorView:
 	def __init__(self, parent, db: Database,
 	             on_siguiente: Optional[Callable[[ProduccionColor], None]] = None,
 	             on_volver: Optional[Callable] = None):
+		KeyboardNavigableMixin.__init_keyboard_mixin__(self)
 		self.parent = parent
 		self.db = db
 		self.on_siguiente = on_siguiente
@@ -36,7 +38,6 @@ class NuevaProduccionColorView:
 		self.color_seleccionado: Optional[ProduccionColor] = None
 		self._chip_buttons: List[ctk.CTkButton] = []
 		self._selected_chip: Optional[ctk.CTkButton] = None
-		self._focused_index: int = -1
 
 		# Servicio para cargar colores desde BD
 		self._service = ProduccionColoresService(db)
@@ -51,8 +52,8 @@ class NuevaProduccionColorView:
 		self._chip_cfg = get_chip_config(self.config, "color")
 
 		# Frame principal
-		self.frame = tk.Frame(parent, bg=self._bg)
-		self.frame.pack(fill=tk.BOTH, expand=True)
+		self.frame = ctk.CTkFrame(parent, fg_color=self._bg)
+		self.frame.pack(fill="both", expand=True)
 
 		# Título + chips
 		self._crear_titulo()
@@ -61,8 +62,24 @@ class NuevaProduccionColorView:
 		# Botones de navegación
 		self._crear_botones_navegacion()
 
-		# Navegación por teclado
-		self._setup_keyboard_nav()
+		# Configurar navegación con KeyboardNavigableMixin
+		self._navigable_buttons = [
+			(btn, lambda b=btn, c=getattr(btn, '_color_data', None): self._on_nav_enter_callback(b, c))
+			for btn in self._chip_buttons
+		]
+		if self._navigable_buttons:
+			try:
+				self._nav_toplevel = self.frame.winfo_toplevel()
+			except Exception:
+				self._nav_toplevel = self.frame
+			self._nav_toplevel.bind("<Tab>", self._on_nav_tab_next)
+			self._nav_toplevel.bind("<Shift-Tab>", self._on_nav_tab_prev)
+			self._nav_toplevel.bind("<Return>", self._on_nav_enter)
+			self._nav_toplevel.bind("<KP_Enter>", self._on_nav_enter)
+			self.frame.bind("<Destroy>", self._on_nav_destroy)
+
+		if self._chip_buttons:
+			self.frame.after(100, lambda: self._focus_nav_widget(0))
 
 	def _get_font(self, key: str) -> tuple:
 		"""Obtener una fuente desde la configuración."""
@@ -208,24 +225,24 @@ class NuevaProduccionColorView:
 
 	def _crear_botones_navegacion(self):
 		"""Crear los botones de navegación inferior."""
-		frame_nav = tk.Frame(self.frame, bg=self._bg)
-		frame_nav.pack(fill=tk.X, padx=40, pady=20)
+		frame_nav = ctk.CTkFrame(self.frame, fg_color=self._bg)
+		frame_nav.pack(fill="x", padx=40, pady=20)
 
 		# Botón VOLVER
 		nav_volver = get_nav_button_config(self.config, "volver")
 		style_volver = get_nav_button_style(self.config, nav_volver.get("style_key", "volver"))
-		btn_volver = tk.Button(
+		btn_volver = ctk.CTkButton(
 			frame_nav,
 			text=nav_volver.get("text", "VOLVER"),
 			font=self._get_font(nav_volver.get("font_key", "button")),
-			bg=style_volver.get("bg", "#e74c3c"),
-			fg=style_volver.get("text", "#FFFFFF"),
-			activebackground=style_volver.get("hover", "#c0392b"),
-			activeforeground=style_volver.get("text", "#FFFFFF"),
-			takefocus=True,
-			bd=nav_volver.get("bd", 0),
-			width=nav_volver.get("width", 15),
-			height=nav_volver.get("height", 2),
+			fg_color=style_volver.get("bg", "#e74c3c"),
+			text_color=style_volver.get("text", "#FFFFFF"),
+			hover_color=style_volver.get("hover", "#c0392b"),
+			border_color=style_volver.get("border", "#e74c3c"),
+			border_width=style_volver.get("focus_thickness", 0),
+			width=nav_volver.get("width", 15) * 10,
+			height=nav_volver.get("height", 2) * 20,
+			cursor="hand2",
 			command=self._on_volver
 		)
 		btn_volver.pack(side=tk.LEFT, padx=10)
@@ -233,103 +250,31 @@ class NuevaProduccionColorView:
 		# Botón SIGUIENTE
 		nav_sig = get_nav_button_config(self.config, "siguiente")
 		style_siguiente = get_nav_button_style(self.config, nav_sig.get("style_key", "siguiente"))
-		self.btn_siguiente = tk.Button(
+		self.btn_siguiente = ctk.CTkButton(
 			frame_nav,
 			text=nav_sig.get("text", "SIGUIENTE"),
 			font=self._get_font(nav_sig.get("font_key", "button")),
-			bg=style_siguiente.get("bg", "#27ae60"),
-			fg=style_siguiente.get("text", "#FFFFFF"),
-			activebackground=style_siguiente.get("hover", "#2ecc71"),
-			activeforeground=style_siguiente.get("text", "#FFFFFF"),
-			takefocus=True,
-			bd=nav_sig.get("bd", 0),
-			width=nav_sig.get("width", 15),
-			height=nav_sig.get("height", 2),
+			fg_color=style_siguiente.get("bg", "#27ae60"),
+			text_color=style_siguiente.get("text", "#FFFFFF"),
+			hover_color=style_siguiente.get("hover", "#2ecc71"),
+			border_color=style_siguiente.get("border", "#1C0629"),
+			border_width=style_siguiente.get("focus_thickness", 0),
+			width=nav_sig.get("width", 15) * 10,
+			height=nav_sig.get("height", 2) * 20,
+			cursor="hand2",
 			command=self._on_siguiente
 		)
 		self.btn_siguiente.pack(side=tk.RIGHT, padx=10)
 
-	# --- Navegación por teclado ---
+	# --- Callback para Enter desde KeyboardNavigableMixin ---
 
-	def _setup_keyboard_nav(self):
-		"""Configurar bindings de navegación por teclado."""
-		toplevel = self.frame.winfo_toplevel()
-		toplevel.bind("<Tab>", self._on_tab_next)
-		toplevel.bind("<Shift-Tab>", self._on_tab_prev)
-		toplevel.bind("<Return>", self._on_enter)
-		toplevel.bind("<KP_Enter>", self._on_enter)
-		toplevel.bind("<Left>", self._on_arrow_left)
-		toplevel.bind("<Right>", self._on_arrow_right)
-		toplevel.bind("<Up>", self._on_arrow_up)
-		toplevel.bind("<Down>", self._on_arrow_down)
-
-		self.frame.bind("<Destroy>", self._on_destroy)
-
-	def _on_destroy(self, event=None):
-		"""Limpiar bindings al destruir."""
-		try:
-			toplevel = self.frame.winfo_toplevel()
-			for key in ("<Tab>", "<Shift-Tab>", "<Return>", "<KP_Enter>",
-			            "<Left>", "<Right>", "<Up>", "<Down>"):
-				toplevel.unbind(key)
-		except Exception:
-			pass
-
-	def _focus_chip(self, index: int):
-		"""Aplicar foco visual a un chip por índice."""
-		if not self._chip_buttons:
-			return
-		if index < 0:
-			index = len(self._chip_buttons) - 1
-		elif index >= len(self._chip_buttons):
-			index = 0
-
-		self._focused_index = index
-		self._chip_buttons[index].focus_set()
-
-	def _on_tab_next(self, event):
-		if not self._chip_buttons:
-			return "break"
-		next_idx = self._focused_index + 1 if self._focused_index >= 0 else 0
-		self._focus_chip(next_idx)
-		return "break"
-
-	def _on_tab_prev(self, event):
-		if not self._chip_buttons:
-			return "break"
-		prev_idx = self._focused_index - 1 if self._focused_index >= 0 else len(self._chip_buttons) - 1
-		self._focus_chip(prev_idx)
-		return "break"
-
-	def _on_enter(self, event):
-		if 0 <= self._focused_index < len(self._chip_buttons):
-			btn = self._chip_buttons[self._focused_index]
-			color = getattr(btn, "_color_data", None)
-			if color is not None:
-				self._select_chip(btn, color)
-		return "break"
-
-	def _on_arrow_left(self, event):
-		if self._chip_buttons:
-			self._focus_chip(self._focused_index - 1 if self._focused_index >= 0 else 0)
-		return "break"
-
-	def _on_arrow_right(self, event):
-		if self._chip_buttons:
-			self._focus_chip(self._focused_index + 1 if self._focused_index >= 0 else 0)
-		return "break"
-
-	def _on_arrow_up(self, event):
-		if self._chip_buttons:
-			cols = self._chip_cfg.get("columns", 4)
-			self._focus_chip(self._focused_index - cols if self._focused_index >= 0 else 0)
-		return "break"
-
-	def _on_arrow_down(self, event):
-		if self._chip_buttons:
-			cols = self._chip_cfg.get("columns", 4)
-			self._focus_chip(self._focused_index + cols if self._focused_index >= 0 else 0)
-		return "break"
+	def _on_nav_enter_callback(self, btn: ctk.CTkButton, color: Optional[ProduccionColor]):
+		"""Manejar Enter desde el mixin: seleccionar o avanzar."""
+		if self._selected_chip is not None and self._selected_chip == btn:
+			if self.color_seleccionado and self.on_siguiente:
+				self.on_siguiente(self.color_seleccionado)
+		elif color is not None:
+			self._select_chip(btn, color)
 
 	# --- Callbacks de navegación ---
 
@@ -353,5 +298,5 @@ class NuevaProduccionColorView:
 
 	def destruir(self):
 		"""Destruir la subvista y limpiar recursos."""
-		self._on_destroy()
+		self.clear_keyboard_navigation()
 		self.frame.destroy()

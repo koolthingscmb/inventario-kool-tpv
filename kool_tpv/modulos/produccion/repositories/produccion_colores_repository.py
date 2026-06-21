@@ -26,16 +26,16 @@ class ProduccionColoresRepository:
 		Returns:
 			Lista de objetos ProduccionColor.
 		"""
-		query = "SELECT id, nombre, hex_value, activo FROM produccion_colores ORDER BY nombre"
+		query = "SELECT id, nombre, codigo_hex FROM produccion_colores ORDER BY nombre"
 		rows = self.db.fetch_all(query)
 
 		colores: List[ProduccionColor] = []
 		for row in rows:
-			id_, nombre, hex_value, activo = row
+			id_, nombre, codigo_hex = row
 			colores.append(ProduccionColor(
 				id=id_,
 				nombre=nombre,
-				codigo_hex=hex_value
+				codigo_hex=codigo_hex
 			))
 		return colores
 
@@ -45,16 +45,16 @@ class ProduccionColoresRepository:
 		Returns:
 			Lista de objetos ProduccionColor con activo=1.
 		"""
-		query = "SELECT id, nombre, hex_value, activo FROM produccion_colores WHERE activo = 1 ORDER BY nombre"
+		query = "SELECT id, nombre, codigo_hex FROM produccion_colores ORDER BY nombre"
 		rows = self.db.fetch_all(query)
 
 		colores: List[ProduccionColor] = []
 		for row in rows:
-			id_, nombre, hex_value, activo = row
+			id_, nombre, codigo_hex = row
 			colores.append(ProduccionColor(
 				id=id_,
 				nombre=nombre,
-				codigo_hex=hex_value
+				codigo_hex=codigo_hex
 			))
 		return colores
 
@@ -67,17 +67,17 @@ class ProduccionColoresRepository:
 		Returns:
 			Objeto ProduccionColor o None si no existe.
 		"""
-		query = "SELECT id, nombre, hex_value, activo FROM produccion_colores WHERE id = ?"
+		query = "SELECT id, nombre, codigo_hex FROM produccion_colores WHERE id = ?"
 		rows = self.db.fetch_all(query, (color_id,))
 
 		if not rows:
 			return None
 
-		id_, nombre, hex_value, activo = rows[0]
+		id_, nombre, codigo_hex = rows[0]
 		return ProduccionColor(
 			id=id_,
 			nombre=nombre,
-			codigo_hex=hex_value
+			codigo_hex=codigo_hex
 		)
 
 	def crear(self, color: ProduccionColor) -> bool:
@@ -91,10 +91,10 @@ class ProduccionColoresRepository:
 		"""
 		try:
 			query = """
-				INSERT INTO produccion_colores (nombre, hex_value, activo)
-				VALUES (?, ?, ?)
+				INSERT INTO produccion_colores (nombre, codigo_hex)
+				VALUES (?, ?)
 			"""
-			self.db.execute_query(query, (color.nombre, color.codigo_hex, 1))
+			self.db.execute_query(query, (color.nombre, color.codigo_hex))
 			return True
 		except Exception:
 			import logging
@@ -116,10 +116,10 @@ class ProduccionColoresRepository:
 		try:
 			query = """
 				UPDATE produccion_colores
-				SET nombre = ?, hex_value = ?, activo = ?
+				SET nombre = ?, codigo_hex = ?
 				WHERE id = ?
 			"""
-			self.db.execute_query(query, (color.nombre, color.codigo_hex, 1, color.id))
+			self.db.execute_query(query, (color.nombre, color.codigo_hex, color.id))
 			return True
 		except Exception:
 			import logging
@@ -136,7 +136,7 @@ class ProduccionColoresRepository:
 			True si OK, False si error.
 		"""
 		try:
-			query = "UPDATE produccion_colores SET activo = 0 WHERE id = ?"
+			query = "DELETE FROM produccion_colores WHERE id = ?"
 			self.db.execute_query(query, (color_id,))
 			return True
 		except Exception:

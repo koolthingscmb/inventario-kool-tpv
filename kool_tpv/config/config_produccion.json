@@ -40,37 +40,49 @@
         "bg": "#e74c3c",
         "hover": "#c0392b",
         "text": "#FFFFFF",
-        "border": "#e74c3c"
+        "border": "#e74c3c",
+        "focus_border": "#FFD700",
+        "focus_thickness": 3
       },
       "siguiente": {
         "bg": "#DA9CFF",
         "hover": "#2ecc71",
         "text": "#000000",
-        "border": "#1C0629"
+        "border": "#1C0629",
+        "focus_border": "#FFD700",
+        "focus_thickness": 3
       },
       "anadir": {
         "bg": "#27ae60",
-        "hover": "#2ecc71",
+        "hover": "#C4FF00",
         "text": "#FFFFFF",
-        "border": "#27ae60"
+        "border": "#B5FFD4",
+        "focus_border": "#FFD700",
+        "focus_thickness": 3
       },
       "confirmar": {
         "bg": "#27ae60",
         "hover": "#2ecc71",
         "text": "#FFFFFF",
-        "border": "#27ae60"
+        "border": "#27ae60",
+        "focus_border": "#FFD700",
+        "focus_thickness": 3
       },
       "cancelar": {
         "bg": "#e74c3c",
         "hover": "#c0392b",
         "text": "#FFFFFF",
-        "border": "#e74c3c"
+        "border": "#e74c3c",
+        "focus_border": "#FFD700",
+        "focus_thickness": 3
       },
       "eliminar": {
         "bg": "#e74c3c",
         "hover": "#c0392b",
         "text": "#FFFFFF",
-        "border": "#e74c3c"
+        "border": "#e74c3c",
+        "focus_border": "#FFD700",
+        "focus_thickness": 3
       }
     }
   },
@@ -161,23 +173,23 @@
         "text": "#e0e0e0",
         "border": "#552583",
         "hover": "#C77BFF",
-        "border_width": 1,
-        "font_size": 14
+        "border_width": 2,
+        "font_size": 84
       },
       "selected": {
         "bg": "#552583",
         "text": "#ffffff",
         "border": "#C77BFF",
         "hover": "#8e44ad",
-        "border_width": 2,
-        "font_size": 14
+        "border_width": 4,
+        "font_size": 90
       }
     },
     "color": {
       "columns": 4,
       "padx": 8,
       "pady": 8,
-      "height": 48,
+      "height": 80,
       "corner_radius": 8,
       "font_key": "label",
       "default": {
@@ -186,7 +198,7 @@
         "border": "#552583",
         "hover": "#C77BFF",
         "border_width": 1,
-        "font_size": 14
+        "font_size": 24
       },
       "selected": {
         "bg": "#552583",
@@ -194,7 +206,7 @@
         "border": "#C77BFF",
         "hover": "#8e44ad",
         "border_width": 2,
-        "font_size": 14
+        "font_size": 26
       }
     },
     "diseno": {

@@ -6,6 +6,8 @@ de producto y botones de navegación (SIGUIENTE / VOLVER).
 import tkinter as tk
 from typing import Callable, Optional
 
+import customtkinter as ctk
+
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.produccion.models.produccion_tipos_model import ProduccionTipo
 from kool_tpv.modulos.produccion.ui.produccion_producto_selector import ProductoSelectorWidget
@@ -23,11 +25,13 @@ class NuevaProduccionView:
 
 	def __init__(self, parent, db: Database,
 	             on_siguiente: Optional[Callable[[ProduccionTipo], None]] = None,
-	             on_volver: Optional[Callable] = None):
+	             on_volver: Optional[Callable] = None,
+	             keyboard_mgr=None):
 		self.parent = parent
 		self.db = db
 		self.on_siguiente = on_siguiente
 		self.on_volver = on_volver
+		self.keyboard_mgr = keyboard_mgr
 		self.tipo_seleccionado: Optional[ProduccionTipo] = None
 
 		# Cargar configuración
@@ -59,29 +63,31 @@ class NuevaProduccionView:
 			frame_selector,
 			db=self.db,
 			on_seleccion=self._on_producto_seleccionado,
+			on_advance=self._on_siguiente,
+			keyboard_mgr=self.keyboard_mgr,
 			titulo="SELECCIONA PRODUCTO"
 		)
 
 	def _crear_botones_navegacion(self):
 		"""Crear los botones de navegación inferior."""
-		frame_nav = tk.Frame(self.frame, bg=self._bg)
-		frame_nav.pack(fill=tk.X, padx=40, pady=20)
+		frame_nav = ctk.CTkFrame(self.frame, fg_color=self._bg)
+		frame_nav.pack(fill="x", padx=40, pady=20)
 
 		# Botón VOLVER
 		nav_volver = get_nav_button_config(self.config, "volver")
 		style_volver = get_nav_button_style(self.config, nav_volver.get("style_key", "volver"))
-		btn_volver = tk.Button(
+		btn_volver = ctk.CTkButton(
 			frame_nav,
 			text=nav_volver.get("text", "VOLVER"),
 			font=self._get_font(nav_volver.get("font_key", "button")),
-			bg=style_volver.get("bg", "#e74c3c"),
-			fg=style_volver.get("text", "#FFFFFF"),
-			activebackground=style_volver.get("hover", "#c0392b"),
-			activeforeground=style_volver.get("text", "#FFFFFF"),
-			takefocus=True,
-			bd=nav_volver.get("bd", 0),
-			width=nav_volver.get("width", 15),
-			height=nav_volver.get("height", 2),
+			fg_color=style_volver.get("bg", "#e74c3c"),
+			text_color=style_volver.get("text", "#FFFFFF"),
+			hover_color=style_volver.get("hover", "#c0392b"),
+			border_color=style_volver.get("border", "#e74c3c"),
+			border_width=style_volver.get("focus_thickness", 0),
+			width=nav_volver.get("width", 15) * 10,
+			height=nav_volver.get("height", 2) * 20,
+			cursor="hand2",
 			command=self._on_volver
 		)
 		btn_volver.pack(side=tk.LEFT, padx=10)
@@ -89,18 +95,18 @@ class NuevaProduccionView:
 		# Botón SIGUIENTE
 		nav_sig = get_nav_button_config(self.config, "siguiente")
 		style_siguiente = get_nav_button_style(self.config, nav_sig.get("style_key", "siguiente"))
-		self.btn_siguiente = tk.Button(
+		self.btn_siguiente = ctk.CTkButton(
 			frame_nav,
 			text=nav_sig.get("text", "SIGUIENTE"),
 			font=self._get_font(nav_sig.get("font_key", "button")),
-			bg=style_siguiente.get("bg", "#27ae60"),
-			fg=style_siguiente.get("text", "#FFFFFF"),
-			activebackground=style_siguiente.get("hover", "#2ecc71"),
-			activeforeground=style_siguiente.get("text", "#FFFFFF"),
-			takefocus=True,
-			bd=nav_sig.get("bd", 0),
-			width=nav_sig.get("width", 15),
-			height=nav_sig.get("height", 2),
+			fg_color=style_siguiente.get("bg", "#27ae60"),
+			text_color=style_siguiente.get("text", "#FFFFFF"),
+			hover_color=style_siguiente.get("hover", "#2ecc71"),
+			border_color=style_siguiente.get("border", "#1C0629"),
+			border_width=style_siguiente.get("focus_thickness", 0),
+			width=nav_sig.get("width", 15) * 10,
+			height=nav_sig.get("height", 2) * 20,
+			cursor="hand2",
 			command=self._on_siguiente
 		)
 		self.btn_siguiente.pack(side=tk.RIGHT, padx=10)
@@ -129,4 +135,6 @@ class NuevaProduccionView:
 
 	def destruir(self):
 		"""Destruir la subvista y limpiar recursos."""
+		if hasattr(self.selector, 'destruir'):
+			self.selector.destruir()
 		self.frame.destroy()

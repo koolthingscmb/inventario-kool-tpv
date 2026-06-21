@@ -109,38 +109,30 @@ class KeyboardManager:
     def _on_arrow_down(self, event: tk.Event):
         """Manejar flecha abajo global."""
         try:
-            # Ignorar si usuario está escribiendo
             if self._should_ignore_key():
                 return
-
-            # Delegar a lista activa si existe
             if self.active_list and hasattr(self.active_list, 'select_next'):
                 try:
                     moved = self.active_list.select_next()
                     if moved:
-                        return 'break'  # Evitar propagación
+                        return 'break'
                 except Exception:
                     logger.exception('Error delegando Down a lista activa')
-
         except Exception:
             logger.exception('Error manejando flecha abajo')
 
     def _on_arrow_up(self, event: tk.Event):
         """Manejar flecha arriba global."""
         try:
-            # Ignorar si usuario está escribiendo
             if self._should_ignore_key():
                 return
-
-            # Delegar a lista activa si existe
             if self.active_list and hasattr(self.active_list, 'select_previous'):
                 try:
                     moved = self.active_list.select_previous()
                     if moved:
-                        return 'break'  # Evitar propagación
+                        return 'break'
                 except Exception:
                     logger.exception('Error delegando Up a lista activa')
-
         except Exception:
             logger.exception('Error manejando flecha arriba')
 

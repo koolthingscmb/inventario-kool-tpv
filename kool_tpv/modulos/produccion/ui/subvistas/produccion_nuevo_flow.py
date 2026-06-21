@@ -17,9 +17,12 @@ from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.produccion.models.produccion_tipos_model import ProduccionTipo
 from kool_tpv.modulos.produccion.models.produccion_color_model import ProduccionColor
 from kool_tpv.modulos.produccion.models.produccion_diseno_model import ProduccionDiseno
+from kool_tpv.modulos.produccion.models.produccion_genero_model import ProduccionGenero
 from kool_tpv.modulos.produccion.services.produccion_disenos_service import ProduccionDisenosService
 from kool_tpv.modulos.produccion.services.produccion_tipos_service import ProduccionTiposService
+from kool_tpv.modulos.produccion.services.produccion_generos_tallas_service import ProduccionTallasService
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion import NuevaProduccionView
+from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_genero import NuevaProduccionGeneroView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_talla import NuevaProduccionTallaView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_color import NuevaProduccionColorView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_diseno import NuevaProduccionDisenoView
@@ -28,11 +31,12 @@ from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_resume
 
 # Pasos del flujo
 PASO_PRODUCTO = 0
-PASO_TALLA = 1
-PASO_COLOR = 2
-PASO_DISENO = 3
-PASO_CANTIDAD = 4
-PASO_RESUMEN = 5
+PASO_GENERO = 1
+PASO_TALLA = 2
+PASO_COLOR = 3
+PASO_DISENO = 4
+PASO_CANTIDAD = 5
+PASO_RESUMEN = 6
 
 
 class NuevoProduccionFlow:
@@ -44,19 +48,22 @@ class NuevoProduccionFlow:
 		on_cerrar: Callback cuando se cierra el flujo (al confirmar o cancelar).
 	"""
 
-	def __init__(self, parent, db: Database, on_cerrar: Optional[Callable] = None):
+	def __init__(self, parent, db: Database, keyboard_mgr=None, on_cerrar: Optional[Callable] = None):
 		self.parent = parent
 		self.db = db
+		self.keyboard_mgr = keyboard_mgr
 		self.on_cerrar = on_cerrar
 
 		# Servicios
 		self._tipos_service = ProduccionTiposService(db)
 		self._disenos_service = ProduccionDisenosService(db)
+		self._tallas_service = ProduccionTallasService(db)
 
 		# Estado del flujo
 		self._paso_actual = PASO_PRODUCTO
 		self._paso_anterior = PASO_PRODUCTO
 		self._tipo: Optional[ProduccionTipo] = None
+		self._genero: Optional[ProduccionGenero] = None
 		self._talla: Optional[str] = None
 		self._color: Optional[ProduccionColor] = None
 		self._diseno: Optional[ProduccionDiseno] = None
@@ -92,15 +99,32 @@ class NuevoProduccionFlow:
 			self._vista_actual = NuevaProduccionView(
 				self.frame,
 				db=self.db,
+				keyboard_mgr=self.keyboard_mgr,
 				on_siguiente=self._on_producto_siguiente,
 				on_volver=self._on_volver_flow
 			)
 
+		elif paso == PASO_GENERO:
+			self._vista_actual = NuevaProduccionGeneroView(
+				self.frame,
+				db=self.db,
+				tipo_id=self._tipo.id if self._tipo else 0,
+				on_siguiente=self._on_genero_siguiente,
+				on_volver=lambda: self._mostrar_paso(PASO_PRODUCTO)
+			)
+
 		elif paso == PASO_TALLA:
+			tallas = []
+			if self._genero:
+				tallas = self._tallas_service.obtener_por_genero(self._genero.id)
+			tallas_data = [{"codigo": t.nombre, "nombre": t.nombre} for t in tallas]
+			genero_nombre = self._genero.nombre if self._genero else None
 			self._vista_actual = NuevaProduccionTallaView(
 				self.frame,
 				on_siguiente=self._on_talla_siguiente,
-				on_volver=lambda: self._mostrar_paso(PASO_PRODUCTO)
+				on_volver=self._on_talla_volver,
+				tallas_disponibles=tallas_data,
+				genero_nombre=genero_nombre
 			)
 
 		elif paso == PASO_COLOR:
@@ -115,6 +139,7 @@ class NuevoProduccionFlow:
 			self._vista_actual = NuevaProduccionDisenoView(
 				self.frame,
 				db=self.db,
+				keyboard_mgr=self.keyboard_mgr,
 				on_siguiente=self._on_diseno_siguiente,
 				on_volver=self._on_diseno_volver
 			)
@@ -125,6 +150,7 @@ class NuevoProduccionFlow:
 				self.frame,
 				on_siguiente=self._on_cantidad_siguiente,
 				on_volver=self._on_cantidad_volver,
+				on_anadir=self._on_cantidad_anadir,
 				mostrar_mixta=mostrar_mixta
 			)
 
@@ -144,12 +170,31 @@ class NuevoProduccionFlow:
 	def _on_producto_siguiente(self, tipo: ProduccionTipo):
 		"""Producto seleccionado → decidir siguiente paso."""
 		self._tipo = tipo
-		if tipo.requiere_talla == 1:
+		if tipo.requiere_genero == 1:
+			self._mostrar_paso(PASO_GENERO)
+		elif tipo.requiere_talla == 1:
 			self._mostrar_paso(PASO_TALLA)
 		elif tipo.requiere_color == 1:
 			self._mostrar_paso(PASO_COLOR)
 		else:
 			self._mostrar_paso(PASO_DISENO)
+
+	def _on_genero_siguiente(self, genero: ProduccionGenero):
+		"""Género seleccionado → ir a talla."""
+		self._genero = genero
+		if self._tipo and self._tipo.requiere_talla == 1:
+			self._mostrar_paso(PASO_TALLA)
+		elif self._tipo and self._tipo.requiere_color == 1:
+			self._mostrar_paso(PASO_COLOR)
+		else:
+			self._mostrar_paso(PASO_DISENO)
+
+	def _on_talla_volver(self):
+		"""Volver desde talla → ir a género si existe, si no a producto."""
+		if self._tipo and self._tipo.requiere_genero == 1:
+			self._mostrar_paso(PASO_GENERO)
+		else:
+			self._mostrar_paso(PASO_PRODUCTO)
 
 	def _on_talla_siguiente(self, talla: str):
 		"""Talla seleccionada → decidir siguiente paso."""
@@ -160,9 +205,11 @@ class NuevoProduccionFlow:
 			self._mostrar_paso(PASO_DISENO)
 
 	def _on_color_volver(self):
-		"""Volver desde color → ir a talla si existe, si no a producto."""
+		"""Volver desde color → ir a talla si existe, si no a género, si no a producto."""
 		if self._tipo and self._tipo.requiere_talla == 1:
 			self._mostrar_paso(PASO_TALLA)
+		elif self._tipo and self._tipo.requiere_genero == 1:
+			self._mostrar_paso(PASO_GENERO)
 		else:
 			self._mostrar_paso(PASO_PRODUCTO)
 
@@ -172,11 +219,13 @@ class NuevoProduccionFlow:
 		self._mostrar_paso(PASO_DISENO)
 
 	def _on_diseno_volver(self):
-		"""Volver desde diseño → ir a color si existe, si no a talla, si no a producto."""
+		"""Volver desde diseño → color si existe, si no talla, si no género, si no producto."""
 		if self._tipo and self._tipo.requiere_color == 1:
 			self._mostrar_paso(PASO_COLOR)
 		elif self._tipo and self._tipo.requiere_talla == 1:
 			self._mostrar_paso(PASO_TALLA)
+		elif self._tipo and self._tipo.requiere_genero == 1:
+			self._mostrar_paso(PASO_GENERO)
 		else:
 			self._mostrar_paso(PASO_PRODUCTO)
 
@@ -189,6 +238,18 @@ class NuevoProduccionFlow:
 		"""Volver desde cantidad → ir a diseño."""
 		self._mostrar_paso(PASO_DISENO)
 
+	def _on_cantidad_anadir(self, cantidad: CantidadSeleccion):
+		"""AÑADIR desde cantidad → crear ítem, resetear selección y volver al paso 1."""
+		self._cantidad = cantidad
+		self._crear_item()
+		self._tipo = None
+		self._genero = None
+		self._talla = None
+		self._color = None
+		self._diseno = None
+		self._cantidad = None
+		self._mostrar_paso(PASO_PRODUCTO)
+
 	def _on_cantidad_siguiente(self, cantidad: CantidadSeleccion):
 		"""Cantidad seleccionada → crear ítem y ir a resumen."""
 		self._cantidad = cantidad
@@ -198,6 +259,7 @@ class NuevoProduccionFlow:
 	def _on_resumen_anadir(self):
 		"""AÑADIR desde resumen → resetear selección y volver al paso 1."""
 		self._tipo = None
+		self._genero = None
 		self._talla = None
 		self._color = None
 		self._diseno = None
@@ -240,6 +302,8 @@ class NuevoProduccionFlow:
 		item = ItemProduccion(
 			tipo_nombre=self._tipo.nombre,
 			tipo_id=self._tipo.id,
+			genero=self._genero.nombre if self._genero else None,
+			genero_id=self._genero.id if self._genero else None,
 			talla=self._talla,
 			color_nombre=self._color.nombre if self._color else None,
 			color_id=self._color.id if self._color else None,

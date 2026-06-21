@@ -17,6 +17,8 @@ class ItemProduccion:
 	"""Ítem de producción añadido a la orden."""
 	tipo_nombre: str = ""
 	tipo_id: Optional[int] = None
+	genero: Optional[str] = None
+	genero_id: Optional[int] = None
 	talla: Optional[str] = None
 	color_nombre: Optional[str] = None
 	color_id: Optional[int] = None
@@ -27,22 +29,6 @@ class ItemProduccion:
 	coste_unitario: float = 0.0
 	coste_total: float = 0.0
 
-	def texto_resumen(self) -> str:
-		"""Texto de una línea para mostrar en la lista."""
-		partes = [f"{self.cantidad}x {self.tipo_nombre}"]
-		if self.diseno_nombre:
-			partes.append(self.diseno_nombre)
-		if self.talla:
-			partes.append(f"T:{self.talla}")
-		if self.color_nombre:
-			partes.append(f"C:{self.color_nombre}")
-		if self.produccion_mixta:
-			partes.append("[MIXTA]")
-		return "  |  ".join(partes)
-
-	def texto_coste(self) -> str:
-		"""Texto del coste para mostrar en la lista."""
-		return f"{self.coste_total:.2f}€"
 
 
 class NuevaProduccionResumenView:
@@ -76,10 +62,10 @@ class NuevaProduccionResumenView:
 		self.frame = tk.Frame(parent, bg=self._bg)
 		self.frame.pack(fill=tk.BOTH, expand=True)
 
-		# Título + lista + total
+		# Título + tabla + total unidades
 		self._crear_titulo()
-		self._crear_lista()
-		self._crear_total()
+		self._crear_tabla()
+		self._crear_total_unidades()
 
 		# Botones de navegación
 		self._crear_botones_navegacion()
@@ -102,20 +88,43 @@ class NuevaProduccionResumenView:
 		)
 		titulo.pack(pady=(20, 10))
 
-	def _crear_lista(self):
-		"""Crear el frame scrollable para la lista de ítems."""
-		self.lista_frame = ctk.CTkScrollableFrame(
-			self.frame,
+	def _crear_tabla(self):
+		"""Crear la tabla con cabeceras y filas de ítems."""
+		self.tabla_frame = ctk.CTkFrame(self.frame, fg_color=self._bg)
+		self.tabla_frame.pack(expand=True, fill="both", padx=40, pady=(0, 10))
+
+		# Cabeceras
+		self._headers = ["Cant", "Tipo", "Diseño", "Género", "Talla", "Color", "Mixta"]
+		self._col_widths = [50, 100, 180, 100, 60, 100, 50]
+
+		header_frame = ctk.CTkFrame(self.tabla_frame, fg_color=self._colors.get("bg_dark", "#0d0d0d"), height=36)
+		header_frame.pack(fill="x", pady=(0, 4))
+		header_frame.pack_propagate(False)
+
+		for i, h in enumerate(self._headers):
+			lbl = ctk.CTkLabel(
+				header_frame,
+				text=h,
+				font=self._get_font("label"),
+				text_color=self._text_sec,
+				width=self._col_widths[i],
+				anchor="w"
+			)
+			lbl.pack(side="left", padx=(6, 0))
+
+		# Frame scrollable para las filas
+		self.filas_frame = ctk.CTkScrollableFrame(
+			self.tabla_frame,
 			fg_color=self._bg,
 			label_text=""
 		)
-		self.lista_frame.pack(expand=True, fill="both", padx=40, pady=(0, 10))
+		self.filas_frame.pack(expand=True, fill="both")
 
-	def _crear_total(self):
-		"""Crear el label del coste total."""
+	def _crear_total_unidades(self):
+		"""Crear el label del total de unidades."""
 		self.lbl_total = ctk.CTkLabel(
 			self.frame,
-			text="TOTAL: 0.00€",
+			text="TOTAL UNIDADES: 0",
 			font=self._get_font("subtitle"),
 			text_color=self._text,
 			fg_color=self._bg
@@ -124,24 +133,24 @@ class NuevaProduccionResumenView:
 
 	def _crear_botones_navegacion(self):
 		"""Crear los botones de navegación inferior."""
-		frame_nav = tk.Frame(self.frame, bg=self._bg)
-		frame_nav.pack(fill=tk.X, padx=40, pady=20)
+		frame_nav = ctk.CTkFrame(self.frame, fg_color=self._bg)
+		frame_nav.pack(fill="x", padx=40, pady=20)
 
 		# Botón VOLVER
 		nav_volver = get_nav_button_config(self.config, "volver")
 		style_volver = get_nav_button_style(self.config, nav_volver.get("style_key", "volver"))
-		btn_volver = tk.Button(
+		btn_volver = ctk.CTkButton(
 			frame_nav,
 			text=nav_volver.get("text", "VOLVER"),
 			font=self._get_font(nav_volver.get("font_key", "button")),
-			bg=style_volver.get("bg", "#e74c3c"),
-			fg=style_volver.get("text", "#FFFFFF"),
-			activebackground=style_volver.get("hover", "#c0392b"),
-			activeforeground=style_volver.get("text", "#FFFFFF"),
-			takefocus=True,
-			bd=nav_volver.get("bd", 0),
-			width=nav_volver.get("width", 15),
-			height=nav_volver.get("height", 2),
+			fg_color=style_volver.get("bg", "#e74c3c"),
+			text_color=style_volver.get("text", "#FFFFFF"),
+			hover_color=style_volver.get("hover", "#c0392b"),
+			border_color=style_volver.get("border", "#e74c3c"),
+			border_width=style_volver.get("focus_thickness", 0),
+			width=nav_volver.get("width", 15) * 10,
+			height=nav_volver.get("height", 2) * 20,
+			cursor="hand2",
 			command=self._on_volver
 		)
 		btn_volver.pack(side=tk.LEFT, padx=10)
@@ -149,18 +158,18 @@ class NuevaProduccionResumenView:
 		# Botón AÑADIR
 		nav_anadir = get_nav_button_config(self.config, "anadir")
 		style_anadir = get_nav_button_style(self.config, nav_anadir.get("style_key", "anadir"))
-		btn_anadir = tk.Button(
+		btn_anadir = ctk.CTkButton(
 			frame_nav,
 			text=nav_anadir.get("text", "AÑADIR"),
 			font=self._get_font(nav_anadir.get("font_key", "button")),
-			bg=style_anadir.get("bg", "#27ae60"),
-			fg=style_anadir.get("text", "#FFFFFF"),
-			activebackground=style_anadir.get("hover", "#2ecc71"),
-			activeforeground=style_anadir.get("text", "#FFFFFF"),
-			takefocus=True,
-			bd=nav_anadir.get("bd", 0),
-			width=nav_anadir.get("width", 15),
-			height=nav_anadir.get("height", 2),
+			fg_color=style_anadir.get("bg", "#27ae60"),
+			text_color=style_anadir.get("text", "#FFFFFF"),
+			hover_color=style_anadir.get("hover", "#2ecc71"),
+			border_color=style_anadir.get("border", "#27ae60"),
+			border_width=style_anadir.get("focus_thickness", 0),
+			width=nav_anadir.get("width", 15) * 10,
+			height=nav_anadir.get("height", 2) * 20,
+			cursor="hand2",
 			command=self._on_anadir
 		)
 		btn_anadir.pack(side=tk.LEFT, padx=(10, 0))
@@ -168,18 +177,18 @@ class NuevaProduccionResumenView:
 		# Botón CONFIRMAR
 		nav_conf = get_nav_button_config(self.config, "confirmar")
 		style_confirmar = get_nav_button_style(self.config, nav_conf.get("style_key", "confirmar"))
-		self.btn_confirmar = tk.Button(
+		self.btn_confirmar = ctk.CTkButton(
 			frame_nav,
 			text=nav_conf.get("text", "CONFIRMAR"),
 			font=self._get_font(nav_conf.get("font_key", "button")),
-			bg=style_confirmar.get("bg", "#27ae60"),
-			fg=style_confirmar.get("text", "#FFFFFF"),
-			activebackground=style_confirmar.get("hover", "#2ecc71"),
-			activeforeground=style_confirmar.get("text", "#FFFFFF"),
-			takefocus=True,
-			bd=nav_conf.get("bd", 0),
-			width=nav_conf.get("width", 15),
-			height=nav_conf.get("height", 2),
+			fg_color=style_confirmar.get("bg", "#27ae60"),
+			text_color=style_confirmar.get("text", "#FFFFFF"),
+			hover_color=style_confirmar.get("hover", "#2ecc71"),
+			border_color=style_confirmar.get("border", "#27ae60"),
+			border_width=style_confirmar.get("focus_thickness", 0),
+			width=nav_conf.get("width", 15) * 10,
+			height=nav_conf.get("height", 2) * 20,
+			cursor="hand2",
 			command=self._on_confirmar
 		)
 		self.btn_confirmar.pack(side=tk.RIGHT, padx=10)
@@ -198,14 +207,14 @@ class NuevaProduccionResumenView:
 			self._refrescar_lista()
 
 	def _refrescar_lista(self):
-		"""Refrescar la lista visual de ítems."""
-		# Limpiar lista
-		for w in list(self.lista_frame.winfo_children()):
+		"""Refrescar la tabla visual de ítems."""
+		# Limpiar filas
+		for w in list(self.filas_frame.winfo_children()):
 			w.destroy()
 
 		if not self.items:
 			lbl_vacio = ctk.CTkLabel(
-				self.lista_frame,
+				self.filas_frame,
 				text="No hay ítems añadidos",
 				font=self._get_font("label"),
 				text_color=self._text_sec
@@ -216,30 +225,29 @@ class NuevaProduccionResumenView:
 
 		# Crear una fila por ítem
 		for idx, item in enumerate(self.items):
-			fila = ctk.CTkFrame(self.lista_frame, fg_color=self._bg)
-			fila.pack(fill="x", padx=4, pady=4)
+			fila = ctk.CTkFrame(self.filas_frame, fg_color=self._bg, corner_radius=6)
+			fila.pack(fill="x", padx=4, pady=3)
 
-			# Texto del ítem
-			lbl = ctk.CTkLabel(
-				fila,
-				text=item.texto_resumen(),
-				font=self._get_font("label"),
-				text_color=self._text,
-				fg_color=self._bg,
-				anchor="w"
-			)
-			lbl.pack(side="left", expand=True, fill="x", padx=(4, 8))
+			valores = [
+				str(item.cantidad),
+				item.tipo_nombre or "",
+				item.diseno_nombre or "",
+				item.genero or "",
+				item.talla or "",
+				item.color_nombre or "",
+				"Sí" if item.produccion_mixta else "No",
+			]
 
-			# Coste
-			lbl_coste = ctk.CTkLabel(
-				fila,
-				text=item.texto_coste(),
-				font=self._get_font("label"),
-				text_color=self._text_sec,
-				fg_color=self._bg,
-				width=80
-			)
-			lbl_coste.pack(side="right", padx=(8, 4))
+			for i, val in enumerate(valores):
+				lbl = ctk.CTkLabel(
+					fila,
+					text=val,
+					font=self._get_font("label"),
+					text_color=self._text,
+					width=self._col_widths[i],
+					anchor="w"
+				)
+				lbl.pack(side="left", padx=(6, 0))
 
 			# Botón eliminar
 			btn_eliminar = ctk.CTkButton(
@@ -258,9 +266,9 @@ class NuevaProduccionResumenView:
 		self._actualizar_total()
 
 	def _actualizar_total(self):
-		"""Actualizar el label del coste total."""
-		total = sum(item.coste_total for item in self.items)
-		self.lbl_total.configure(text=f"TOTAL: {total:.2f}€")
+		"""Actualizar el label del total de unidades."""
+		total = sum(item.cantidad for item in self.items)
+		self.lbl_total.configure(text=f"TOTAL UNIDADES: {total}")
 
 	# --- Navegación por teclado ---
 

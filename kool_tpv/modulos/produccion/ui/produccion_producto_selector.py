@@ -5,8 +5,8 @@ como chips cargados desde la base de datos (tabla `produccion_tipos`).
 
 Soporta:
 - Clic táctil (dedo) en cada chip.
-- Navegación con Tab/Shift+Tab y Enter.
-- Navegación con flechas direccionales.
+- Navegación con Tab/Shift+Tab y Enter via KeyboardNavigableMixin.
+- Navegación con flechas Up/Down via KeyboardManager.
 """
 from typing import Callable, List, Optional
 
@@ -16,29 +16,38 @@ from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.produccion.models.produccion_tipos_model import ProduccionTipo
 from kool_tpv.modulos.produccion.services.produccion_tipos_service import ProduccionTiposService
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font, get_chip_config, get_chip_style
+from kool_tpv.utils.keyboard_nav_mixin import KeyboardNavigableMixin
 
 
-class ProductoSelectorWidget:
+class ProductoSelectorWidget(KeyboardNavigableMixin):
 	"""Widget para seleccionar el tipo de producto fabricable.
+
+	Usa KeyboardNavigableMixin para Tab/Shift+Tab/Enter (mismo patrón que el TPV).
 
 	Args:
 		parent: Widget padre donde se mostrará el selector.
 		db: Instancia de `Database` ya conectada.
 		on_seleccion: Callback cuando se selecciona un tipo (recibe ProduccionTipo).
+		on_advance: Callback cuando se pulsa Enter con un chip ya seleccionado.
+		keyboard_mgr: Instancia de KeyboardManager para flechas.
 		titulo: Título opcional del widget.
 	"""
 
 	def __init__(self, parent, db: Database,
 	             on_seleccion: Optional[Callable[[ProduccionTipo], None]] = None,
+	             on_advance: Optional[Callable] = None,
+	             keyboard_mgr=None,
 	             titulo: str = "SELECCIONA PRODUCTO"):
+		KeyboardNavigableMixin.__init_keyboard_mixin__(self)
 		self.parent = parent
 		self.db = db
 		self.on_seleccion = on_seleccion
+		self.on_advance = on_advance
+		self.keyboard_mgr = keyboard_mgr
 		self.titulo = titulo
 		self.tipo_seleccionado: Optional[ProduccionTipo] = None
 		self._chip_buttons: List[ctk.CTkButton] = []
 		self._selected_chip: Optional[ctk.CTkButton] = None
-		self._focused_index: int = -1
 
 		# Servicio para cargar tipos desde BD
 		self._service = ProduccionTiposService(db)
@@ -51,7 +60,7 @@ class ProductoSelectorWidget:
 		self._text_sec = self._colors.get("text_secondary", "#95a5a6")
 		self._chip_cfg = get_chip_config(self.config, "producto")
 
-		# Frame principal
+		# Frame principal (debe ser CTkFrame para que winfo_toplevel() funcione)
 		self.frame = ctk.CTkFrame(parent, fg_color=self._bg)
 		self.frame.pack(fill="both", expand=True)
 
@@ -61,8 +70,30 @@ class ProductoSelectorWidget:
 		# Chips de tipos
 		self._crear_chips_tipos()
 
-		# Configurar navegación por teclado
-		self._setup_keyboard_nav()
+		# Configurar navegación con KeyboardNavigableMixin (Tab/Shift+Tab/Enter)
+		self._navigable_buttons = [
+			(btn, lambda b=btn, t=getattr(btn, '_tipo_data', None): self._on_nav_enter_callback(b, t))
+			for btn in self._chip_buttons
+		]
+		# Usar self.frame como widget para toplevel (ProductoSelectorWidget no es widget)
+		if self._navigable_buttons:
+			try:
+				self._nav_toplevel = self.frame.winfo_toplevel()
+			except Exception:
+				self._nav_toplevel = self.frame
+			self._nav_toplevel.bind("<Tab>", self._on_nav_tab_next)
+			self._nav_toplevel.bind("<Shift-Tab>", self._on_nav_tab_prev)
+			self._nav_toplevel.bind("<Return>", self._on_nav_enter)
+			self._nav_toplevel.bind("<KP_Enter>", self._on_nav_enter)
+			self.frame.bind("<Destroy>", self._on_nav_destroy)
+
+		# Auto-focus primer chip
+		if self._chip_buttons:
+			self.frame.after(100, lambda: self._focus_nav_widget(0))
+
+		# Registrarse en KeyboardManager (para flechas Up/Down)
+		if self.keyboard_mgr:
+			self.keyboard_mgr.set_active_list(self)
 
 	def _crear_titulo(self):
 		"""Crear el título del widget."""
@@ -175,99 +206,47 @@ class ProductoSelectorWidget:
 			font=(font_family[0], style.get("font_size", 14), font_family[2])
 		)
 
-	# --- Navegación por teclado ---
+	# --- Callback para Enter desde KeyboardNavigableMixin ---
 
-	def _setup_keyboard_nav(self):
-		"""Configurar bindings de navegación por teclado."""
-		toplevel = self.frame.winfo_toplevel()
-		toplevel.bind("<Tab>", self._on_tab_next)
-		toplevel.bind("<Shift-Tab>", self._on_tab_prev)
-		toplevel.bind("<Return>", self._on_enter)
-		toplevel.bind("<KP_Enter>", self._on_enter)
-		toplevel.bind("<Left>", self._on_arrow_left)
-		toplevel.bind("<Right>", self._on_arrow_right)
-		toplevel.bind("<Up>", self._on_arrow_up)
-		toplevel.bind("<Down>", self._on_arrow_down)
+	def _on_nav_enter_callback(self, btn: ctk.CTkButton, tipo: Optional[ProduccionTipo]):
+		"""Manejar Enter desde el mixin: seleccionar o avanzar."""
+		if self._selected_chip is not None and self._selected_chip == btn:
+			# Ya estaba seleccionado → avanzar
+			if self.on_advance:
+				self.on_advance()
+		elif tipo is not None:
+			# Seleccionar chip
+			self._select_chip(btn, tipo)
 
-		self.frame.bind("<Destroy>", self._on_destroy)
+	# --- Protocolo Navigable para KeyboardManager (flechas) ---
 
-	def _on_destroy(self, event=None):
-		"""Limpiar bindings al destruir."""
-		try:
-			toplevel = self.frame.winfo_toplevel()
-			for key in ("<Tab>", "<Shift-Tab>", "<Return>", "<KP_Enter>",
-			            "<Left>", "<Right>", "<Up>", "<Down>"):
-				toplevel.unbind(key)
-		except Exception:
-			pass
-
-	def _focus_chip(self, index: int):
-		"""Aplicar foco visual a un chip por índice."""
+	def select_next(self) -> bool:
+		"""Flecha abajo → siguiente chip."""
 		if not self._chip_buttons:
-			return
-		# Índice circular
-		if index < 0:
-			index = len(self._chip_buttons) - 1
-		elif index >= len(self._chip_buttons):
-			index = 0
+			return False
+		next_idx = self._nav_focused_index + 1 if self._nav_focused_index >= 0 else 0
+		if next_idx >= len(self._chip_buttons):
+			next_idx = 0
+		self._focus_nav_widget(next_idx)
+		return True
 
-		self._focused_index = index
-		btn = self._chip_buttons[index]
-		btn.focus_set()
-
-	def _on_tab_next(self, event):
+	def select_previous(self) -> bool:
+		"""Flecha arriba → chip anterior."""
 		if not self._chip_buttons:
-			return "break"
-		next_idx = self._focused_index + 1 if self._focused_index >= 0 else 0
-		self._focus_chip(next_idx)
-		return "break"
-
-	def _on_tab_prev(self, event):
-		if not self._chip_buttons:
-			return "break"
-		prev_idx = self._focused_index - 1 if self._focused_index >= 0 else len(self._chip_buttons) - 1
-		self._focus_chip(prev_idx)
-		return "break"
-
-	def _on_enter(self, event):
-		if 0 <= self._focused_index < len(self._chip_buttons):
-			btn = self._chip_buttons[self._focused_index]
-			tipo = getattr(btn, "_tipo_data", None)
-			if tipo is not None:
-				self._select_chip(btn, tipo)
-		return "break"
-
-	def _on_arrow_left(self, event):
-		if self._chip_buttons:
-			self._focus_chip(self._focused_index - 1 if self._focused_index >= 0 else 0)
-		return "break"
-
-	def _on_arrow_right(self, event):
-		if self._chip_buttons:
-			self._focus_chip(self._focused_index + 1 if self._focused_index >= 0 else 0)
-		return "break"
-
-	def _on_arrow_up(self, event):
-		if self._chip_buttons:
-			cols = self._chip_cfg.get("columns", 4)
-			self._focus_chip(self._focused_index - cols if self._focused_index >= 0 else 0)
-		return "break"
-
-	def _on_arrow_down(self, event):
-		if self._chip_buttons:
-			cols = self._chip_cfg.get("columns", 4)
-			self._focus_chip(self._focused_index + cols if self._focused_index >= 0 else 0)
-		return "break"
+			return False
+		prev_idx = self._nav_focused_index - 1 if self._nav_focused_index >= 0 else len(self._chip_buttons) - 1
+		if prev_idx < 0:
+			prev_idx = len(self._chip_buttons) - 1
+		self._focus_nav_widget(prev_idx)
+		return True
 
 	def obtener_seleccion(self) -> Optional[ProduccionTipo]:
-		"""Obtener el tipo seleccionado.
-
-		Returns:
-			Objeto ProduccionTipo o None si no hay selección.
-		"""
+		"""Obtener el tipo seleccionado."""
 		return self.tipo_seleccionado
 
 	def destruir(self):
 		"""Destruir el widget y limpiar recursos."""
-		self._on_destroy()
+		self.clear_keyboard_navigation()
+		if self.keyboard_mgr:
+			self.keyboard_mgr.clear_active_list()
 		self.frame.destroy()

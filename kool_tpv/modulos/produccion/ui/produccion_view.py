@@ -129,7 +129,7 @@ class ProduccionView(BaseModuleView):
 				flow = NuevoProduccionFlow(
 					self.central_area,
 					db=self.db,
-					on_cerrar=self._on_flow_cerrar
+				keyboard_mgr=self.keyboard_mgr,
 				)
 				try:
 					self.actualizar_ruta('PRODUCCIÓN / NUEVO')
