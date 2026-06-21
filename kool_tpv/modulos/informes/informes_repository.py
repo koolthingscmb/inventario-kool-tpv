@@ -85,14 +85,18 @@ class InformesRepository:
         fecha_inicio_sql = f"{fecha_inicio} 00:00:00"
         fecha_fin_sql = f"{fecha_fin} 23:59:59"
         query = (
-            "SELECT COUNT(DISTINCT t.id) as num_tickets, "
-            "COALESCE(SUM(tl.cantidad), 0) as total_uds, "
-            "COALESCE(SUM(t.total), 0) as total_devol "
-            "FROM tickets t "
-            "LEFT JOIN ticket_lines tl ON t.id = tl.ticket_id AND tl.line_tipo = 'devolucion' "
-            "WHERE t.created_at BETWEEN ? AND ? AND t.total < 0"
+            "SELECT "
+            "(SELECT COUNT(DISTINCT t.id) FROM tickets t "
+            " WHERE t.created_at BETWEEN ? AND ? AND t.total < 0) as num_tickets, "
+            "(SELECT COALESCE(SUM(tl.cantidad), 0) FROM ticket_lines tl "
+            " JOIN tickets t ON tl.ticket_id = t.id "
+            " WHERE t.created_at BETWEEN ? AND ? AND t.total < 0 AND tl.line_tipo = 'devolucion') as total_uds, "
+            "(SELECT COALESCE(SUM(t.total), 0) FROM tickets t "
+            " WHERE t.created_at BETWEEN ? AND ? AND t.total < 0) as total_devol"
         )
-        row = self.db.fetch_one(query, (fecha_inicio_sql, fecha_fin_sql))
+        row = self.db.fetch_one(query, (fecha_inicio_sql, fecha_fin_sql,
+                                        fecha_inicio_sql, fecha_fin_sql,
+                                        fecha_inicio_sql, fecha_fin_sql))
         if not row:
             return {"num_tickets": 0, "total_uds": 0, "total": 0.0}
         return {
