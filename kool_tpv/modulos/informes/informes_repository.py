@@ -157,16 +157,24 @@ class InformesRepository:
         fecha_inicio_sql = f"{fecha_inicio} 00:00:00"
         fecha_fin_sql = f"{fecha_fin} 23:59:59"
         sql = (
+            "WITH ticket_line_totals AS ("
+            "SELECT tl.ticket_id, SUM(tl.cantidad * tl.precio) as ticket_lineas_total "
+            "FROM ticket_lines tl "
+            "JOIN tickets t ON tl.ticket_id = t.id "
+            "WHERE t.created_at BETWEEN ? AND ? AND t.total > 0 AND tl.line_tipo = 'venta' "
+            "GROUP BY tl.ticket_id"
+            ") "
             "SELECT p.nombre, DATE(t.created_at) as fecha, "
             "COUNT(DISTINCT t.id) as num_tickets, "
             "COALESCE(SUM(tl.cantidad), 0) as total_uds, "
-            "COALESCE(SUM(tl.cantidad * tl.precio), 0) as total_cents "
+            "COALESCE(ROUND(SUM(tl.cantidad * tl.precio * 1.0 / NULLIF(tlt.ticket_lineas_total, 0) * t.total)), 0) as total_cents "
             "FROM ticket_lines tl "
             "JOIN tickets t ON tl.ticket_id = t.id "
             "JOIN productos p ON tl.producto_id = p.id "
+            "JOIN ticket_line_totals tlt ON tl.ticket_id = tlt.ticket_id "
             "WHERE t.created_at BETWEEN ? AND ? AND t.total > 0 AND tl.line_tipo = 'venta'"
         )
-        params: list = [fecha_inicio_sql, fecha_fin_sql]
+        params: list = [fecha_inicio_sql, fecha_fin_sql, fecha_inicio_sql, fecha_fin_sql]
         if product_ids:
             ph = ','.join(['?'] * len(product_ids))
             sql += f" AND p.id IN ({ph})"
@@ -215,17 +223,25 @@ class InformesRepository:
             id_col = 'p.tipo'
 
         sql = (
+            f"WITH ticket_line_totals AS ("
+            f"SELECT tl.ticket_id, SUM(tl.cantidad * tl.precio) as ticket_lineas_total "
+            f"FROM ticket_lines tl "
+            f"JOIN tickets t ON tl.ticket_id = t.id "
+            f"WHERE t.created_at BETWEEN ? AND ? AND t.total > 0 AND tl.line_tipo = 'venta' "
+            f"GROUP BY tl.ticket_id"
+            f") "
             f"SELECT {alias}.nombre, DATE(t.created_at) as fecha, "
             f"COUNT(DISTINCT t.id) as num_tickets, "
             f"COALESCE(SUM(tl.cantidad), 0) as total_uds, "
-            f"COALESCE(SUM(tl.cantidad * tl.precio), 0) as total_cents "
+            f"COALESCE(ROUND(SUM(tl.cantidad * tl.precio * 1.0 / NULLIF(tlt.ticket_lineas_total, 0) * t.total)), 0) as total_cents "
             f"FROM ticket_lines tl "
             f"JOIN tickets t ON tl.ticket_id = t.id "
             f"JOIN productos p ON tl.producto_id = p.id "
             f"JOIN {join_table} {alias} ON {id_col} = {alias}.id "
+            f"JOIN ticket_line_totals tlt ON tl.ticket_id = tlt.ticket_id "
             f"WHERE t.created_at BETWEEN ? AND ? AND t.total > 0 AND tl.line_tipo = 'venta'"
         )
-        params: list = [fecha_inicio_sql, fecha_fin_sql]
+        params: list = [fecha_inicio_sql, fecha_fin_sql, fecha_inicio_sql, fecha_fin_sql]
 
         if filter_ids:
             ph = ','.join(['?'] * len(filter_ids))
