@@ -66,12 +66,7 @@ class NuevaProduccionCantidadView:
 		self._setup_keyboard_nav()
 
 		# Foco automático en el entry de cantidad
-		def _focus_cantidad():
-			try:
-				self.entry_cantidad._entry.focus_set()
-			except Exception:
-				self.entry_cantidad.focus_set()
-		self.frame.after(100, _focus_cantidad)
+		self.frame.after(100, self.entry_cantidad.focus_set)
 
 	def _get_font(self, key: str) -> tuple:
 		"""Obtener una fuente desde la configuración."""
@@ -111,9 +106,9 @@ class NuevaProduccionCantidadView:
 		)
 		self.entry_cantidad.pack()
 		self.entry_cantidad.insert(0, "1")
-		_entry = self.entry_cantidad._entry if hasattr(self.entry_cantidad, '_entry') else self.entry_cantidad
-		_entry.bind("<Return>", self._on_cantidad_enter)
-		_entry.bind("<KP_Enter>", self._on_cantidad_enter)
+		self.entry_cantidad.bind("<Return>", self._on_cantidad_enter)
+		self.entry_cantidad.bind("<KP_Enter>", self._on_cantidad_enter)
+		self.entry_cantidad.bind("<Tab>", self._on_cantidad_tab)
 
 	def _crear_botones_mixta(self):
 		"""Crear botones SÍ/NO para producción mixta."""
@@ -231,7 +226,19 @@ class NuevaProduccionCantidadView:
 	# --- Lógica de cantidad ---
 
 	def _on_cantidad_enter(self, event):
-		"""Enter en el entry de cantidad: pasar al siguiente widget (Tab natural)."""
+		"""Enter en el entry de cantidad: saltar al primer botón mixta o AÑADIR."""
+		if self.mostrar_mixta and hasattr(self, 'btn_mixta_no'):
+			self.btn_mixta_no.focus_set()
+		else:
+			self.btn_anadir.focus_set()
+		return "break"
+
+	def _on_cantidad_tab(self, event):
+		"""Tab en cantidad: saltar al primer botón mixta o AÑADIR."""
+		if self.mostrar_mixta and hasattr(self, 'btn_mixta_no'):
+			self.btn_mixta_no.focus_set()
+		else:
+			self.btn_anadir.focus_set()
 		return "break"
 
 	def _on_mixta_si(self):
@@ -259,30 +266,12 @@ class NuevaProduccionCantidadView:
 	# --- Navegación por teclado ---
 
 	def _setup_keyboard_nav(self):
-		"""Configurar bindings de teclado."""
-		toplevel = self.frame.winfo_toplevel()
-		toplevel.bind("<Return>", self._on_enter_nav)
-		toplevel.bind("<KP_Enter>", self._on_enter_nav)
-
+		"""Sin bindings globales — Tab es nativo entre botones."""
 		self.frame.bind("<Destroy>", self._on_destroy)
 
 	def _on_destroy(self, event=None):
-		"""Limpiar bindings al destruir."""
-		try:
-			toplevel = self.frame.winfo_toplevel()
-			for key in ("<Return>", "<KP_Enter>"):
-				toplevel.unbind(key)
-		except Exception:
-			pass
-
-	def _on_enter_nav(self, event):
-		"""Enter: si está en el entry de cantidad, pasar foco al siguiente widget."""
-		focus = self.frame.focus_get()
-		is_cantidad = focus is self.entry_cantidad or (hasattr(self.entry_cantidad, '_entry') and focus is self.entry_cantidad._entry)
-		if is_cantidad:
-			self.frame.focus_set()
-			self.frame.event_generate("<Tab>")
-		return "break"
+		"""Limpiar al destruir."""
+		pass
 
 	# --- Callbacks de navegación ---
 
