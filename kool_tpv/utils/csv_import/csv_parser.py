@@ -126,14 +126,19 @@ class CsvParser:
 
     def _detect_encoding(self, path: Path) -> str:
         """Detecta el encoding del archivo probando los más comunes."""
-        encodings = ['utf-8', 'utf-8-sig', 'latin-1', 'iso-8859-1', 'windows-1252']
+        # Leer archivo completo para detección (no solo primeros bytes)
+        try:
+            raw_bytes = path.read_bytes()
+        except Exception:
+            return 'utf-8'
 
-        for enc in encodings:
+        # Orden: utf-8 primero (más común), luego windows-1252 (Windows español),
+        # latin-1 como último recurso (nunca falla, por eso va al final)
+        for enc in ['utf-8-sig', 'utf-8', 'windows-1252', 'iso-8859-1', 'latin-1']:
             try:
-                with open(path, 'r', encoding=enc) as f:
-                    f.read(1024)
-                    logger.debug(f"Encoding detectado: {enc}")
-                    return enc
+                raw_bytes.decode(enc)
+                logger.info(f"Encoding detectado: {enc}")
+                return enc
             except (UnicodeDecodeError, UnicodeError):
                 continue
 
