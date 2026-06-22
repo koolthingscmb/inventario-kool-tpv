@@ -80,6 +80,26 @@ class ProduccionTallasRepository:
 		rows = self.db.fetch_all(query, (genero_id,))
 		return [ProduccionTalla(id=r[0], nombre=r[1], orden=r[2], activo=r[3]) for r in rows]
 
+	def get_por_genero_color_3d(self, genero_id: int, color_id: int) -> List[ProduccionTalla]:
+		"""Obtener tallas disponibles para una combinación género+color (tabla 3D).
+
+		Args:
+			genero_id: ID del género.
+			color_id: ID del color.
+
+		Returns:
+			Lista de objetos ProduccionTalla disponibles para esa combinación.
+		"""
+		query = """
+			SELECT t.id, t.nombre, t.orden, t.activo
+			FROM produccion_tallas t
+			JOIN produccion_genero_color_tallas gct ON t.id = gct.talla_id
+			WHERE gct.genero_id = ? AND gct.color_id = ? AND t.activo = 1
+			ORDER BY t.orden
+		"""
+		rows = self.db.fetch_all(query, (genero_id, color_id))
+		return [ProduccionTalla(id=r[0], nombre=r[1], orden=r[2], activo=r[3]) for r in rows]
+
 	def crear(self, talla: ProduccionTalla) -> Optional[int]:
 		"""Crear una nueva talla."""
 		query = "INSERT INTO produccion_tallas (nombre, orden, activo) VALUES (?, ?, ?)"

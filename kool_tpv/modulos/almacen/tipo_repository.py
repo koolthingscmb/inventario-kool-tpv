@@ -33,7 +33,8 @@ class TipoRepository:
     def get_all(self) -> List[Dict[str, Any]]:
         """Todos los tipos ordenados por nombre."""
         rows = self.db.fetch_all(
-            'SELECT id, nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono '
+            'SELECT id, nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, '
+            'coste_base, requiere_talla, requiere_color, requiere_genero, activo, orden '
             'FROM tipos ORDER BY nombre'
         )
         return [
@@ -45,6 +46,12 @@ class TipoRepository:
                 'fide_porcentaje': r[4],
                 'color': r[5],
                 'icono': r[6],
+                'coste_base': r[7],
+                'requiere_talla': r[8],
+                'requiere_color': r[9],
+                'requiere_genero': r[10],
+                'activo': r[11],
+                'orden': r[12],
             }
             for r in rows
         ] if rows else []
@@ -52,7 +59,8 @@ class TipoRepository:
     def get_by_id(self, id: int) -> Optional[Dict[str, Any]]:
         """Tipo por id. Devuelve None si no existe."""
         row = self.db.fetch_one(
-            'SELECT id, nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono '
+            'SELECT id, nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, '
+            'coste_base, requiere_talla, requiere_color, requiere_genero, activo, orden '
             'FROM tipos WHERE id = ?',
             (id,),
         )
@@ -66,6 +74,12 @@ class TipoRepository:
             'fide_porcentaje': row[4],
             'color': row[5],
             'icono': row[6],
+            'coste_base': row[7],
+            'requiere_talla': row[8],
+            'requiere_color': row[9],
+            'requiere_genero': row[10],
+            'activo': row[11],
+            'orden': row[12],
         }
 
     def get_ventas_por_tipo(self, ticket_ids: List[int], line_tipo: str = None, tipo_ids: List[int] = None):
@@ -136,12 +150,20 @@ class TipoRepository:
         fide_porcentaje: float,
         color: str = None,
         icono: str = None,
+        coste_base: float = 0.0,
+        requiere_talla: int = 0,
+        requiere_color: int = 0,
+        requiere_genero: int = 0,
+        activo: int = 1,
+        orden: int = 0,
     ) -> int:
         """Inserta un nuevo tipo. Devuelve el id generado."""
         cur = self.db.execute_query(
-            'INSERT INTO tipos (nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono) '
-            'VALUES (?, ?, ?, ?, ?, ?)',
-            (nombre, descripcion, shopify_taxonomy, float(fide_porcentaje), color, icono),
+            'INSERT INTO tipos (nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, '
+            'coste_base, requiere_talla, requiere_color, requiere_genero, activo, orden) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (nombre, descripcion, shopify_taxonomy, float(fide_porcentaje), color, icono,
+             float(coste_base), int(requiere_talla), int(requiere_color), int(requiere_genero), int(activo), int(orden)),
         )
         return cur.lastrowid
 
@@ -154,12 +176,21 @@ class TipoRepository:
         fide_porcentaje: float,
         color: str = None,
         icono: str = None,
+        coste_base: float = 0.0,
+        requiere_talla: int = 0,
+        requiere_color: int = 0,
+        requiere_genero: int = 0,
+        activo: int = 1,
+        orden: int = 0,
     ) -> None:
         """Actualiza un tipo existente."""
         self.db.execute_query(
             'UPDATE tipos SET nombre = ?, descripcion = ?, '
-            'shopify_taxonomy = ?, fide_porcentaje = ?, color = ?, icono = ? WHERE id = ?',
-            (nombre, descripcion, shopify_taxonomy, float(fide_porcentaje), color, icono, id),
+            'shopify_taxonomy = ?, fide_porcentaje = ?, color = ?, icono = ?, '
+            'coste_base = ?, requiere_talla = ?, requiere_color = ?, requiere_genero = ?, activo = ?, orden = ? '
+            'WHERE id = ?',
+            (nombre, descripcion, shopify_taxonomy, float(fide_porcentaje), color, icono,
+             float(coste_base), int(requiere_talla), int(requiere_color), int(requiere_genero), int(activo), int(orden), id),
         )
 
     def delete(self, id: int) -> None:

@@ -126,6 +126,28 @@ class ProduccionColoresRepository:
 			logging.exception(f"Error actualizando color {color.id}")
 			return False
 
+	def get_por_genero_3d(self, genero_id: int) -> List[ProduccionColor]:
+		"""Obtener colores asignados a un género (tabla 3D).
+
+		Args:
+			genero_id: ID del género.
+
+		Returns:
+			Lista de objetos ProduccionColor asignados a ese género.
+		"""
+		query = """
+			SELECT DISTINCT c.id, c.nombre, c.codigo_hex
+			FROM produccion_colores c
+			JOIN produccion_genero_color_tallas gct ON c.id = gct.color_id
+			WHERE gct.genero_id = ?
+			ORDER BY c.nombre
+		"""
+		rows = self.db.fetch_all(query, (genero_id,))
+		return [
+			ProduccionColor(id=r[0], nombre=r[1], codigo_hex=r[2])
+			for r in rows
+		]
+
 	def eliminar(self, color_id: int) -> bool:
 		"""Eliminar un color (soft delete: marcar como inactivo).
 

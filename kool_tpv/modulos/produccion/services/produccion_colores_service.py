@@ -101,6 +101,17 @@ class ProduccionColoresService:
 		"""
 		return self.repository.eliminar(color_id)
 
+	def obtener_por_genero_3d(self, genero_id: int) -> List[ProduccionColor]:
+		"""Obtener colores asignados a un género (tabla 3D).
+
+		Args:
+			genero_id: ID del género.
+
+		Returns:
+			Lista de objetos ProduccionColor asignados a ese género.
+		"""
+		return self.repository.get_por_genero_3d(genero_id)
+
 	def obtener_como_dict(self, solo_activos: bool = True) -> List[dict]:
 		"""Obtener colores como diccionarios (útil para UI con comboboxes).
 

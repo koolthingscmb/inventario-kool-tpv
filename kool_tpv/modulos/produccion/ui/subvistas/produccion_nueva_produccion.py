@@ -10,6 +10,7 @@ import customtkinter as ctk
 
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.produccion.models.produccion_tipos_model import ProduccionTipo
+from kool_tpv.modulos.produccion.models.produccion_menu_model import ProduccionMenuItem
 from kool_tpv.modulos.produccion.ui.produccion_producto_selector import ProductoSelectorWidget
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font, get_nav_button_config, get_nav_button_style
 
@@ -24,7 +25,7 @@ class NuevaProduccionView:
 	"""
 
 	def __init__(self, parent, db: Database,
-	             on_siguiente: Optional[Callable[[ProduccionTipo], None]] = None,
+	             on_siguiente: Optional[Callable[[ProduccionMenuItem], None]] = None,
 	             on_volver: Optional[Callable] = None,
 	             keyboard_mgr=None):
 		self.parent = parent
@@ -32,7 +33,7 @@ class NuevaProduccionView:
 		self.on_siguiente = on_siguiente
 		self.on_volver = on_volver
 		self.keyboard_mgr = keyboard_mgr
-		self.tipo_seleccionado: Optional[ProduccionTipo] = None
+		self.menu_seleccionado: Optional[ProduccionMenuItem] = None
 
 		# Cargar configuración
 		self.config = cargar_config_produccion()
@@ -111,27 +112,27 @@ class NuevaProduccionView:
 		)
 		self.btn_siguiente.pack(side=tk.RIGHT, padx=10)
 
-	def _on_producto_seleccionado(self, tipo: ProduccionTipo):
-		"""Manejador cuando se selecciona un tipo de producto."""
-		self.tipo_seleccionado = tipo
+	def _on_producto_seleccionado(self, menu_item: ProduccionMenuItem):
+		"""Manejador cuando se selecciona un menú de producto."""
+		self.menu_seleccionado = menu_item
 
 	def _on_siguiente(self):
 		"""Manejador del botón SIGUIENTE."""
-		if self.tipo_seleccionado and self.on_siguiente:
-			self.on_siguiente(self.tipo_seleccionado)
+		if self.menu_seleccionado and self.on_siguiente:
+			self.on_siguiente(self.menu_seleccionado)
 
 	def _on_volver(self):
 		"""Manejador del botón VOLVER."""
 		if self.on_volver:
 			self.on_volver()
 
-	def obtener_seleccion(self) -> Optional[ProduccionTipo]:
-		"""Obtener el tipo de producto seleccionado.
+	def obtener_seleccion(self) -> Optional[ProduccionMenuItem]:
+		"""Obtener el menú de producto seleccionado.
 
 		Returns:
-			Objeto ProduccionTipo o None.
+			Objeto ProduccionMenuItem o None.
 		"""
-		return self.tipo_seleccionado
+		return self.menu_seleccionado
 
 	def destruir(self):
 		"""Destruir la subvista y limpiar recursos."""

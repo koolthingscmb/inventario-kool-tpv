@@ -41,15 +41,10 @@ class TiposUI:
 
         # Grid area
         self.grid_frame = ctk.CTkFrame(self.container, fg_color='transparent')
-        self.grid_frame.pack(fill='both', expand=True, padx=12, pady=6)
+        self.grid_frame.pack(fill='x', padx=12, pady=6)
 
         for c in range(8):
             self.grid_frame.grid_columnconfigure(c, weight=1)
-        # Ensure the row that holds the chips expands to fill remaining vertical space
-        try:
-            self.grid_frame.grid_rowconfigure(4, weight=1)
-        except Exception:
-            pass
 
         lbl_font = get_font('label', module=self.module_name)
 
@@ -127,28 +122,53 @@ class TiposUI:
         )
         self.btn_limpiar_icono.pack(side='right', padx=(4, 0))
 
+        # Fila 2b: COSTE BASE | ORDEN | ACTIVO | GÉNERO | COLOR | TALLA (TODO EN UNA FILA)
+        ctk.CTkLabel(self.grid_frame, text='COSTE:', text_color=self.colors['text'], font=lbl_font).grid(row=2, column=0, sticky='w', padx=6, pady=6)
+        coste_kw = default_entry_kw.copy()
+        coste_kw.update({'placeholder_text': '0.00', 'border_width': 2, 'width': 60})
+        self.e_coste = ctk.CTkEntry(self.grid_frame, **coste_kw)
+        self.e_coste.grid(row=2, column=1, sticky='ew', padx=6, pady=6)
+
+        ctk.CTkLabel(self.grid_frame, text='ORDEN:', text_color=self.colors['text'], font=lbl_font).grid(row=2, column=2, sticky='w', padx=6, pady=6)
+        orden_kw = default_entry_kw.copy()
+        orden_kw.update({'placeholder_text': '0', 'border_width': 2, 'width': 40})
+        self.e_orden = ctk.CTkEntry(self.grid_frame, **orden_kw)
+        self.e_orden.grid(row=2, column=3, sticky='ew', padx=6, pady=6)
+
+        # Checkboxes en los huecos restantes
+        self.chk_activo = ctk.CTkCheckBox(self.grid_frame, text='ACTIVO', text_color=self.colors['text'], font=lbl_font, width=20)
+        self.chk_activo.grid(row=2, column=4, sticky='w', padx=6, pady=6)
+
+        self.chk_genero = ctk.CTkCheckBox(self.grid_frame, text='GÉNERO', text_color=self.colors['text'], font=lbl_font, width=20)
+        self.chk_genero.grid(row=2, column=5, sticky='w', padx=6, pady=6)
+
+        self.chk_color = ctk.CTkCheckBox(self.grid_frame, text='COLOR', text_color=self.colors['text'], font=lbl_font, width=20)
+        self.chk_color.grid(row=2, column=6, sticky='w', padx=6, pady=6)
+
+        self.chk_talla = ctk.CTkCheckBox(self.grid_frame, text='TALLA', text_color=self.colors['text'], font=lbl_font, width=20)
+        self.chk_talla.grid(row=2, column=7, sticky='w', padx=6, pady=6)
+
         # Fila 3: DESCRIPCION
-        ctk.CTkLabel(self.grid_frame, text='DESCRIPCIÓN:', text_color=self.colors['text'], font=lbl_font).grid(row=2, column=0, sticky='nw', padx=6, pady=6)
+        ctk.CTkLabel(self.grid_frame, text='DESCRIPCIÓN:', text_color=self.colors['text'], font=lbl_font).grid(row=3, column=0, sticky='nw', padx=6, pady=6)
         try:
             self.txt_descripcion = ctk.CTkTextbox(
                 self.grid_frame,
-                height=80,
+                height=40,
                 fg_color=self.colors.get('background', '#000000'),
                 text_color=self.colors.get('text', COLOR_MATRIX),
                 border_width=2,
                 border_color=self.colors.get('border', self.colors.get('primary'))
             )
-            self.txt_descripcion.grid(row=2, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
+            self.txt_descripcion.grid(row=3, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
         except Exception:
             frame = ctk.CTkFrame(self.grid_frame, fg_color=self.colors.get('background', '#000000'), border_width=2, border_color=self.colors.get('border', self.colors.get('primary')))
             self.txt_descripcion = tk.Text(frame, bg=self.colors.get('background', '#000000'), fg=self.colors.get('text', COLOR_MATRIX), height=4)
             self.txt_descripcion.pack(fill='both', expand=True)
-            frame.grid(row=2, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
+            frame.grid(row=3, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
 
-        # Chips area
-        self.chips_frame = ctk.CTkScrollableFrame(self.grid_frame, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
-        self.chips_frame.grid(row=3, column=0, columnspan=8, sticky='nsew', padx=6, pady=6)
-        self.grid_frame.grid_rowconfigure(3, weight=1)
+        # Chips area — fuera del grid, frame independiente con pack
+        self.chips_frame = ctk.CTkScrollableFrame(self.container, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
+        self.chips_frame.pack(fill='both', expand=True, padx=12, pady=6)
 
         # Footer buttons (desde config)
         self.footer = ctk.CTkFrame(self.container, fg_color='transparent')
@@ -176,10 +196,13 @@ class TiposUI:
                 except Exception:
                     pass
             tipos = self.service.get_all_tipos()
-            # layout in a 6-column grid to allow wrapping without empty columns
+            # layout in a 8-column grid to match form
+            for c in range(8):
+                self.chips_frame.grid_columnconfigure(c, weight=1)
+
             for i, t in enumerate(tipos):
-                row = i // 6
-                col = i % 6
+                row = i // 8
+                col = i % 8
                 name = t.get('nombre') or ''
                 btn = ButtonFactory.create_button(
                     parent=self.chips_frame,
@@ -187,7 +210,7 @@ class TiposUI:
                     command=None,
                     style_key="chip_default"
                 )
-                btn.grid(row=row, column=col, padx=5, pady=5, sticky='w')
+                btn.grid(row=row, column=col, padx=5, pady=5, sticky='nsew')
                 # bind single and double click
                 btn.bind('<Button-1>', lambda e, btn=btn: self._select_chip(btn))
                 btn.bind('<Double-Button-1>', lambda e, tipo=t: self._load_tipo_into_form(tipo))
@@ -253,6 +276,23 @@ class TiposUI:
                 self.e_fide.insert(0, str(tipo.get('fide_porcentaje') or 0))
             except Exception:
                 pass
+            # coste_base
+            try:
+                self.e_coste.delete(0, 'end')
+                self.e_coste.insert(0, str(tipo.get('coste_base') or 0))
+            except Exception:
+                pass
+            # orden
+            try:
+                self.e_orden.delete(0, 'end')
+                self.e_orden.insert(0, str(tipo.get('orden') or 0))
+            except Exception:
+                pass
+            # checkboxes
+            self.chk_activo.select() if tipo.get('activo', 1) == 1 else self.chk_activo.deselect()
+            self.chk_genero.select() if tipo.get('requiere_genero', 0) == 1 else self.chk_genero.deselect()
+            self.chk_color.select() if tipo.get('requiere_color', 0) == 1 else self.chk_color.deselect()
+            self.chk_talla.select() if tipo.get('requiere_talla', 0) == 1 else self.chk_talla.deselect()
             # focus name
             try:
                 self.e_nombre.focus_set()
@@ -285,6 +325,12 @@ class TiposUI:
                 except Exception:
                     pass
             self.e_fide.delete(0, 'end')
+            self.e_coste.delete(0, 'end')
+            self.e_orden.delete(0, 'end')
+            self.chk_activo.select()
+            self.chk_genero.deselect()
+            self.chk_color.deselect()
+            self.chk_talla.deselect()
             try:
                 self.btn_guardar.configure(text='GUARDAR')
             except Exception:
@@ -313,6 +359,23 @@ class TiposUI:
             except Exception:
                 fide = 0.0
 
+            coste_raw = (self.e_coste.get() or '').strip()
+            try:
+                coste_base = float(coste_raw.replace(',', '.')) if coste_raw else 0.0
+            except Exception:
+                coste_base = 0.0
+
+            orden_raw = (self.e_orden.get() or '').strip()
+            try:
+                orden = int(orden_raw) if orden_raw else 0
+            except Exception:
+                orden = 0
+
+            requiere_genero = 1 if self.chk_genero.get() else 0
+            requiere_color = 1 if self.chk_color.get() else 0
+            requiere_talla = 1 if self.chk_talla.get() else 0
+            activo = 1 if self.chk_activo.get() else 0
+
             id_val = None
             try:
                 id_text = self.e_id.get()
@@ -321,12 +384,12 @@ class TiposUI:
                 id_val = None
 
             if id_val:
-                ok = self.service.update_tipo(id_val, nombre, descripcion, fide, color=color, icono=icono)
+                ok = self.service.update_tipo(id_val, nombre, descripcion, fide, color=color, icono=icono, coste_base=coste_base, requiere_talla=requiere_talla, requiere_color=requiere_color, requiere_genero=requiere_genero, activo=activo, orden=orden)
                 if ok:
                     self.clear()
                     self._load_tipos()
             else:
-                new_id = self.service.save_tipo(nombre, descripcion, fide, color=color, icono=icono)
+                new_id = self.service.save_tipo(nombre, descripcion, fide, color=color, icono=icono, coste_base=coste_base, requiere_talla=requiere_talla, requiere_color=requiere_color, requiere_genero=requiere_genero, activo=activo, orden=orden)
                 if new_id:
                     self.clear()
                     self._load_tipos()

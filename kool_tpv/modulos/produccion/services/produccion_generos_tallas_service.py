@@ -30,3 +30,7 @@ class ProduccionTallasService:
 	def obtener_por_genero(self, genero_id: int) -> List[ProduccionTalla]:
 		"""Obtener tallas activas asociadas a un género."""
 		return self.repository.get_por_genero(genero_id)
+
+	def obtener_por_genero_color_3d(self, genero_id: int, color_id: int) -> List[ProduccionTalla]:
+		"""Obtener tallas disponibles para una combinación género+color (tabla 3D)."""
+		return self.repository.get_por_genero_color_3d(genero_id, color_id)

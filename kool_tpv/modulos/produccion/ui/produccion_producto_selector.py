@@ -14,6 +14,7 @@ import customtkinter as ctk
 
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.produccion.models.produccion_tipos_model import ProduccionTipo
+from kool_tpv.modulos.produccion.models.produccion_menu_model import ProduccionMenuItem
 from kool_tpv.modulos.produccion.services.produccion_tipos_service import ProduccionTiposService
 from kool_tpv.modulos.produccion.services.produccion_menu_service import ProduccionMenuService
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font, get_chip_config, get_chip_style
@@ -46,7 +47,7 @@ class ProductoSelectorWidget(KeyboardNavigableMixin):
 		self.on_advance = on_advance
 		self.keyboard_mgr = keyboard_mgr
 		self.titulo = titulo
-		self.tipo_seleccionado: Optional[ProduccionTipo] = None
+		self.menu_seleccionado: Optional[ProduccionMenuItem] = None
 		self._chip_buttons: List[ctk.CTkButton] = []
 		self._selected_chip: Optional[ctk.CTkButton] = None
 
@@ -142,9 +143,6 @@ class ProductoSelectorWidget(KeyboardNavigableMixin):
 		chip_font = (font_family[0], default_style.get("font_size", 14), font_family[2])
 		
 		for idx, item in enumerate(menu_items):
-			# Por ahora, mapeamos el item del menú a un ProduccionTipo para mantener la compatibilidad del flujo
-			tipo = self._menu_service.obtener_tipo_asociado(item)
-			
 			btn = ctk.CTkButton(
 				master=self.chips_frame,
 				text=item.nombre,
@@ -162,8 +160,8 @@ class ProductoSelectorWidget(KeyboardNavigableMixin):
 			row = idx // cols
 			col = idx % cols
 			btn.grid(row=row, column=col, padx=padx, pady=pady, sticky="nsew")
-			btn.bind("<Button-1>", lambda e, b=btn, t=tipo: self._on_chip_click(b, t))
-			setattr(btn, "_tipo_data", tipo)
+			btn.bind("<Button-1>", lambda e, b=btn, m=item: self._on_chip_click(b, m))
+			setattr(btn, "_menu_data", item)
 			self._chip_buttons.append(btn)
 
 		# Configurar pesos del grid
@@ -173,11 +171,11 @@ class ProductoSelectorWidget(KeyboardNavigableMixin):
 		for i in range(n_rows):
 			self.chips_frame.rowconfigure(i, weight=1)
 
-	def _on_chip_click(self, btn: ctk.CTkButton, tipo: ProduccionTipo):
-		"""Manejador del clic en un chip de tipo."""
-		self._select_chip(btn, tipo)
+	def _on_chip_click(self, btn: ctk.CTkButton, menu_item: ProduccionMenuItem):
+		"""Manejador del clic en un chip de menú."""
+		self._select_chip(btn, menu_item)
 
-	def _select_chip(self, btn: ctk.CTkButton, tipo: ProduccionTipo):
+	def _select_chip(self, btn: ctk.CTkButton, menu_item: ProduccionMenuItem):
 		"""Seleccionar un chip visualmente y guardar la selección."""
 		# Deseleccionar el anterior
 		if self._selected_chip is not None:
@@ -188,7 +186,7 @@ class ProductoSelectorWidget(KeyboardNavigableMixin):
 
 		# Seleccionar el nuevo
 		self._selected_chip = btn
-		self.tipo_seleccionado = tipo
+		self.menu_seleccionado = menu_item
 		try:
 			self._apply_chip_style(btn, "selected")
 		except Exception:
@@ -196,7 +194,7 @@ class ProductoSelectorWidget(KeyboardNavigableMixin):
 
 		# Notificar selección
 		if self.on_seleccion:
-			self.on_seleccion(tipo)
+			self.on_seleccion(menu_item)
 
 	def _apply_chip_style(self, btn: ctk.CTkButton, state: str):
 		"""Aplicar estilo de color directo desde config al chip."""
@@ -214,15 +212,15 @@ class ProductoSelectorWidget(KeyboardNavigableMixin):
 
 	# --- Callback para Enter desde KeyboardNavigableMixin ---
 
-	def _on_nav_enter_callback(self, btn: ctk.CTkButton, tipo: Optional[ProduccionTipo]):
+	def _on_nav_enter_callback(self, btn: ctk.CTkButton, menu_item: Optional[ProduccionMenuItem]):
 		"""Manejar Enter desde el mixin: seleccionar o avanzar."""
 		if self._selected_chip is not None and self._selected_chip == btn:
 			# Ya estaba seleccionado → avanzar
 			if self.on_advance:
 				self.on_advance()
-		elif tipo is not None:
+		elif menu_item is not None:
 			# Seleccionar chip
-			self._select_chip(btn, tipo)
+			self._select_chip(btn, menu_item)
 
 	# --- Protocolo Navigable para KeyboardManager (flechas) ---
 
@@ -246,9 +244,9 @@ class ProductoSelectorWidget(KeyboardNavigableMixin):
 		self._focus_nav_widget(prev_idx)
 		return True
 
-	def obtener_seleccion(self) -> Optional[ProduccionTipo]:
-		"""Obtener el tipo seleccionado."""
-		return self.tipo_seleccionado
+	def obtener_seleccion(self) -> Optional[ProduccionMenuItem]:
+		"""Obtener el menú seleccionado."""
+		return self.menu_seleccionado
 
 	def destruir(self):
 		"""Destruir el widget y limpiar recursos."""
