@@ -74,7 +74,7 @@ class ProductoSelectorWidget(KeyboardNavigableMixin):
 
 		# Configurar navegación con KeyboardNavigableMixin (Tab/Shift+Tab/Enter)
 		self._navigable_buttons = [
-			(btn, lambda b=btn, t=getattr(btn, '_tipo_data', None): self._on_nav_enter_callback(b, t))
+			(btn, lambda b=btn, t=getattr(btn, '_menu_data', None): self._on_nav_enter_callback(b, t))
 			for btn in self._chip_buttons
 		]
 		# Usar self.frame como widget para toplevel (ProductoSelectorWidget no es widget)

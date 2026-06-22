@@ -43,7 +43,7 @@
       {"id": "diseno_nuevo", "text": "DISEÑO +", "action": "show_diseno_nuevo"},
       {"id": "config", "text": "CONFIG", "action": "show_config"},
       {"id": "colores", "text": "COLORES", "action": "show_colores"},
-      {"id": "stock", "text": "STOCK", "action": "show_stock"}
+      {"id": "stock", "text": "STOCK BASES", "action": "show_stock"}
     ]
   },
   "config": {

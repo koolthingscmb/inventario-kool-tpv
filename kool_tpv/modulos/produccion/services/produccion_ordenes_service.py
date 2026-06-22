@@ -53,8 +53,9 @@ class ProduccionOrdenesService:
                 query_linea = """
                     INSERT INTO produccion_lineas 
                     (orden_id, diseno_codigo, tipo_producto, talla, color_id, 
-                     cantidad, produccion_mixta, coste_unitario, coste_total)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     cantidad, produccion_mixta, usuario_produccion_id,
+                     coste_unitario, coste_total)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """
                 # Convertir costes a céntimos para la BD
                 coste_u_cent = int(item.coste_unitario * 100)
@@ -64,6 +65,7 @@ class ProduccionOrdenesService:
                     orden_id, item.diseno_codigo, item.tipo_nombre, 
                     item.talla, item.color_id, item.cantidad,
                     1 if item.produccion_mixta else 0,
+                    usuario_id,
                     coste_u_cent, coste_t_cent
                 ))
 

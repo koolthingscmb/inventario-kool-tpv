@@ -467,4 +467,13 @@ class DisenoNuevoView:
 
 	def destruir(self):
 		"""Destruir la subvista."""
+		try:
+			from kool_tpv.utils.keyboard_manager import KeyboardManager
+			KeyboardManager.get_instance().set_capture_enabled(True)
+		except Exception:
+			pass
+		try:
+			self.frame.winfo_toplevel().grab_release()
+		except Exception:
+			pass
 		self.frame.destroy()

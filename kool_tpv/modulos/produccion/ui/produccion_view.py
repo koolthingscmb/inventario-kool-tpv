@@ -42,6 +42,10 @@ class ProduccionView(BaseModuleView):
 		self.db = db
 		self.service = ProduccionMainService(db)
 
+		# Cajero autenticado (persiste mientras el módulo esté activo)
+		self._cajero_id = None
+		self._cajero_nombre = ''
+
 		# Rebind menu buttons to local handlers
 		try:
 			base = Path(__file__).resolve().parents[3]
@@ -115,32 +119,77 @@ class ProduccionView(BaseModuleView):
 				except Exception:
 					pass
 				return True
+			# No hay subvista → cerrar módulo → resetear cajero
+			self._cajero_id = None
+			self._cajero_nombre = ''
 			return False
 		except Exception:
 			logging.exception('Error en _on_power de ProduccionView')
 			return False
 
 	def show_nuevo(self):
-		"""Abrir flujo de nueva producción en la zona central."""
+		"""Abrir flujo de nueva producción: autenticar cajero si no hay, luego flow."""
 		try:
-			from kool_tpv.modulos.produccion.ui.subvistas.produccion_nuevo_flow import NuevoProduccionFlow
-			try:
-				for w in list(self.central_area.winfo_children()):
-					w.destroy()
-				flow = NuevoProduccionFlow(
-					self.central_area,
-					db=self.db,
-				keyboard_mgr=self.keyboard_mgr,
-				)
-				try:
-					self.actualizar_ruta('PRODUCCIÓN / NUEVO')
-				except Exception:
-					pass
-				logging.info('Abriendo flujo de nueva producción...')
-			except Exception:
-				logging.exception('Error instanciando NuevoProduccionFlow en show_nuevo')
+			for w in list(self.central_area.winfo_children()):
+				w.destroy()
+			if self._cajero_id is not None:
+				self._iniciar_flow()
+			else:
+				self._mostrar_auth_cajero()
 		except Exception:
 			logging.exception('Error abriendo show_nuevo en ProduccionView')
+
+	def _mostrar_auth_cajero(self):
+		"""Mostrar vista de autenticación de cajero."""
+		try:
+			from kool_tpv.modulos.produccion.ui.subvistas.produccion_cajero_auth import CajeroAuthView
+			self._cajero_auth = CajeroAuthView(
+				self.central_area,
+				db=self.db,
+				on_success=self._on_cajero_auth_ok,
+				on_cancel=self._on_flow_cerrar,
+			)
+			try:
+				self.actualizar_ruta('PRODUCCIÓN / CAJERO')
+			except Exception:
+				pass
+			logging.info('Autenticando cajero para producción...')
+		except Exception:
+			logging.exception('Error instanciando CajeroAuthView en show_nuevo')
+
+	def _on_cajero_auth_ok(self, usuario_id: int, usuario_nombre: str):
+		"""Cajero autenticado → guardar y crear flow."""
+		self._cajero_id = usuario_id
+		self._cajero_nombre = usuario_nombre
+		try:
+			if hasattr(self, '_cajero_auth') and self._cajero_auth:
+				self._cajero_auth.destruir()
+				self._cajero_auth = None
+		except Exception:
+			pass
+		self._iniciar_flow()
+
+	def _iniciar_flow(self):
+		"""Crear el flujo de producción con el cajero ya autenticado."""
+		try:
+			from kool_tpv.modulos.produccion.ui.subvistas.produccion_nuevo_flow import NuevoProduccionFlow
+			for w in list(self.central_area.winfo_children()):
+				w.destroy()
+			self._flow = NuevoProduccionFlow(
+				self.central_area,
+				db=self.db,
+				keyboard_mgr=self.keyboard_mgr,
+				on_cerrar=self._on_flow_cerrar,
+				usuario_id=self._cajero_id,
+				usuario_nombre=self._cajero_nombre,
+			)
+			try:
+				self.actualizar_ruta('PRODUCCIÓN / NUEVO')
+			except Exception:
+				pass
+			logging.info(f'Flujo de producción iniciado por cajero: {self._cajero_nombre}')
+		except Exception:
+			logging.exception('Error creando NuevoProduccionFlow tras auth')
 
 	def _on_flow_cerrar(self):
 		"""Callback cuando se cierra el flujo de nueva producción."""
@@ -200,5 +249,18 @@ class ProduccionView(BaseModuleView):
 		logging.info('COLORES - Gestión de colores')
 
 	def show_stock(self):
-		"""Mostrar vista de stock (placeholder)."""
-		logging.info('STOCK - Gestión de stock')
+		"""Mostrar vista de gestión de stock base (material en blanco)."""
+		try:
+			from kool_tpv.modulos.produccion.ui.subvistas.produccion_stock_base_view import ProduccionStockBaseView
+			for w in list(self.central_area.winfo_children()):
+				w.destroy()
+			
+			view = ProduccionStockBaseView(
+				self.central_area,
+				db=self.db,
+				on_cerrar=self._on_flow_cerrar
+			)
+			self.actualizar_ruta('PRODUCCIÓN / STOCK BASES')
+			logging.info('Abriendo gestión de stock de bases...')
+		except Exception:
+			logging.exception('Error abriendo show_stock en ProduccionView')

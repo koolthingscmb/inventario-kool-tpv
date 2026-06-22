@@ -55,11 +55,14 @@ class NuevoProduccionFlow:
         on_cerrar: Callback cuando se cierra el flujo (al confirmar o cancelar).
     """
 
-    def __init__(self, parent, db: Database, keyboard_mgr=None, on_cerrar: Optional[Callable] = None):
+    def __init__(self, parent, db: Database, keyboard_mgr=None, on_cerrar: Optional[Callable] = None,
+                 usuario_id: Optional[int] = None, usuario_nombre: str = ''):
         self.parent = parent
         self.db = db
         self.keyboard_mgr = keyboard_mgr
         self.on_cerrar = on_cerrar
+        self._usuario_id = usuario_id
+        self._usuario_nombre = usuario_nombre
 
         # Servicios
         self._tipos_service = ProduccionTiposService(db)
@@ -87,6 +90,18 @@ class NuevoProduccionFlow:
         # Frame contenedor
         self.frame = tk.Frame(parent, bg="#2c3e50")
         self.frame.pack(fill=tk.BOTH, expand=True)
+
+        # Label de cajero arriba del todo
+        if usuario_nombre:
+            import customtkinter as ctk
+            self._lbl_cajero = ctk.CTkLabel(
+                self.frame,
+                text=f"Cajero: {usuario_nombre}",
+                font=("Courier New", 14, "bold"),
+                text_color="#C77BFF",
+                anchor="e"
+            )
+            self._lbl_cajero.pack(fill="x", padx=20, pady=(4, 0))
 
         # Iniciar en el primer paso
         self._mostrar_paso(PASO_MENU)
@@ -349,7 +364,7 @@ class NuevoProduccionFlow:
         self._items = items
 
         # Guardar la orden en BD
-        ok = self._ordenes_service.guardar_orden(items)
+        ok = self._ordenes_service.guardar_orden(items, usuario_id=self._usuario_id)
 
         if ok:
             # Mostrar mensaje de éxito
