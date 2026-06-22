@@ -45,6 +45,39 @@ class ProduccionRelacionesRepository:
                 (genero_id, c_id)
             )
 
+    # --- Matriz 3D: Género <-> Color <-> Talla ---
+
+    def get_colores_id_por_genero_3d(self, genero_id: int) -> Set[int]:
+        """Obtener IDs de colores asignados a un género (DISTINCT desde la tabla 3D)."""
+        query = "SELECT DISTINCT color_id FROM produccion_genero_color_tallas WHERE genero_id = ?"
+        rows = self.db.fetch_all(query, (genero_id,))
+        return {row[0] for row in rows}
+
+    def get_tallas_id_por_genero_color_3d(self, genero_id: int, color_id: int) -> Set[int]:
+        """Obtener IDs de tallas disponibles para una combinación género+color."""
+        query = "SELECT talla_id FROM produccion_genero_color_tallas WHERE genero_id = ? AND color_id = ?"
+        rows = self.db.fetch_all(query, (genero_id, color_id))
+        return {row[0] for row in rows}
+
+    def actualizar_tallas_genero_color_3d(self, genero_id: int, color_id: int, tallas_ids: List[int]):
+        """Sincronizar tallas para una combinación género+color (borrar y re-insertar)."""
+        self.db.execute_query(
+            "DELETE FROM produccion_genero_color_tallas WHERE genero_id = ? AND color_id = ?",
+            (genero_id, color_id)
+        )
+        for t_id in tallas_ids:
+            self.db.execute_query(
+                "INSERT INTO produccion_genero_color_tallas (genero_id, color_id, talla_id) VALUES (?, ?, ?)",
+                (genero_id, color_id, t_id)
+            )
+
+    def remove_color_de_genero_3d(self, genero_id: int, color_id: int):
+        """Eliminar un color y todas sus tallas de un género."""
+        self.db.execute_query(
+            "DELETE FROM produccion_genero_color_tallas WHERE genero_id = ? AND color_id = ?",
+            (genero_id, color_id)
+        )
+
     # --- Relaciones Tipo <-> Género ---
     def get_generos_id_por_tipo(self, tipo_id: int) -> Set[int]:
         """Obtener IDs de géneros asociados a un tipo de producto."""

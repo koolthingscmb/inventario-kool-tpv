@@ -73,3 +73,23 @@ class ProduccionConfigService:
 
     def actualizar_generos_tipo(self, tipo_id: int, generos_ids: List[int]):
         return self.relaciones_repo.actualizar_generos_tipo(tipo_id, generos_ids)
+
+    # --- Matriz 3D: Género <-> Color <-> Talla ---
+
+    def obtener_colores_genero_3d(self, genero_id: int) -> Set[int]:
+        """IDs de colores asignados a un género (tabla 3D)."""
+        return self.relaciones_repo.get_colores_id_por_genero_3d(genero_id)
+
+    def obtener_tallas_genero_color_3d(self, genero_id: int, color_id: int) -> Set[int]:
+        """IDs de tallas disponibles para una combinación género+color."""
+        return self.relaciones_repo.get_tallas_id_por_genero_color_3d(genero_id, color_id)
+
+    def guardar_tallas_genero_color_3d(self, genero_id: int, color_id: int, tallas_ids: List[int]):
+        """Sincronizar tallas para una combinación género+color."""
+        self.relaciones_repo.actualizar_tallas_genero_color_3d(genero_id, color_id, tallas_ids)
+        return True
+
+    def eliminar_color_genero_3d(self, genero_id: int, color_id: int):
+        """Eliminar un color y todas sus tallas de un género."""
+        self.relaciones_repo.remove_color_de_genero_3d(genero_id, color_id)
+        return True
