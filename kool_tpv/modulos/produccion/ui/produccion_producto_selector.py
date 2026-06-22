@@ -15,6 +15,7 @@ import customtkinter as ctk
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.produccion.models.produccion_tipos_model import ProduccionTipo
 from kool_tpv.modulos.produccion.services.produccion_tipos_service import ProduccionTiposService
+from kool_tpv.modulos.produccion.services.produccion_menu_service import ProduccionMenuService
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font, get_chip_config, get_chip_style
 from kool_tpv.utils.keyboard_nav_mixin import KeyboardNavigableMixin
 
@@ -49,8 +50,8 @@ class ProductoSelectorWidget(KeyboardNavigableMixin):
 		self._chip_buttons: List[ctk.CTkButton] = []
 		self._selected_chip: Optional[ctk.CTkButton] = None
 
-		# Servicio para cargar tipos desde BD
-		self._service = ProduccionTiposService(db)
+		# Servicio para cargar menú desde BD
+		self._menu_service = ProduccionMenuService(db)
 
 		# Cargar configuración
 		self.config = cargar_config_produccion()
@@ -107,7 +108,7 @@ class ProductoSelectorWidget(KeyboardNavigableMixin):
 		titulo.pack(pady=20)
 
 	def _crear_chips_tipos(self):
-		"""Crear los chips de tipos de producto cargados desde BD."""
+		"""Crear los chips de tipos de producto cargados desde el menú de producción."""
 		# Frame scrollable para los chips
 		self.chips_frame = ctk.CTkScrollableFrame(
 			self.frame,
@@ -116,13 +117,13 @@ class ProductoSelectorWidget(KeyboardNavigableMixin):
 		)
 		self.chips_frame.pack(expand=True, fill="both", padx=40, pady=20)
 
-		# Cargar tipos activos desde BD
-		tipos = self._service.obtener_activos()
+		# Cargar elementos del menú desde BD
+		menu_items = self._menu_service.obtener_menu_activos()
 
-		if not tipos:
+		if not menu_items:
 			lbl_vacio = ctk.CTkLabel(
 				self.chips_frame,
-				text="No hay tipos de producto configurados",
+				text="No hay opciones de producción configuradas",
 				font=get_font(self.config, "label"),
 				text_color=self._text_sec
 			)
@@ -139,10 +140,14 @@ class ProductoSelectorWidget(KeyboardNavigableMixin):
 		default_style = get_chip_style(self._chip_cfg, "default")
 		font_family = get_font(self.config, font_key)
 		chip_font = (font_family[0], default_style.get("font_size", 14), font_family[2])
-		for idx, tipo in enumerate(tipos):
+		
+		for idx, item in enumerate(menu_items):
+			# Por ahora, mapeamos el item del menú a un ProduccionTipo para mantener la compatibilidad del flujo
+			tipo = self._menu_service.obtener_tipo_asociado(item)
+			
 			btn = ctk.CTkButton(
 				master=self.chips_frame,
-				text=tipo.nombre,
+				text=item.nombre,
 				fg_color=default_style.get("bg", "#1a1a2e"),
 				text_color=default_style.get("text", "#e0e0e0"),
 				border_color=default_style.get("border", "#552583"),
@@ -153,6 +158,7 @@ class ProductoSelectorWidget(KeyboardNavigableMixin):
 				font=chip_font,
 				cursor="hand2"
 			)
+
 			row = idx // cols
 			col = idx % cols
 			btn.grid(row=row, column=col, padx=padx, pady=pady, sticky="nsew")
@@ -163,7 +169,7 @@ class ProductoSelectorWidget(KeyboardNavigableMixin):
 		# Configurar pesos del grid
 		for i in range(cols):
 			self.chips_frame.columnconfigure(i, weight=1)
-		n_rows = (len(tipos) + cols - 1) // cols
+		n_rows = (len(menu_items) + cols - 1) // cols
 		for i in range(n_rows):
 			self.chips_frame.rowconfigure(i, weight=1)
 

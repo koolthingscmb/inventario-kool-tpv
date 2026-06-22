@@ -21,13 +21,14 @@ from kool_tpv.modulos.produccion.models.produccion_genero_model import Produccio
 from kool_tpv.modulos.produccion.services.produccion_disenos_service import ProduccionDisenosService
 from kool_tpv.modulos.produccion.services.produccion_tipos_service import ProduccionTiposService
 from kool_tpv.modulos.produccion.services.produccion_generos_tallas_service import ProduccionTallasService
+from kool_tpv.modulos.produccion.services.produccion_ordenes_service import ProduccionOrdenesService, ItemProduccion
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion import NuevaProduccionView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_genero import NuevaProduccionGeneroView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_talla import NuevaProduccionTallaView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_color import NuevaProduccionColorView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_diseno import NuevaProduccionDisenoView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_cantidad import NuevaProduccionCantidadView, CantidadSeleccion
-from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_resumen import NuevaProduccionResumenView, ItemProduccion
+from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_resumen import NuevaProduccionResumenView
 
 # Pasos del flujo
 PASO_PRODUCTO = 0
@@ -58,6 +59,7 @@ class NuevoProduccionFlow:
 		self._tipos_service = ProduccionTiposService(db)
 		self._disenos_service = ProduccionDisenosService(db)
 		self._tallas_service = ProduccionTallasService(db)
+		self._ordenes_service = ProduccionOrdenesService(db)
 
 		# Estado del flujo
 		self._paso_actual = PASO_PRODUCTO
@@ -146,12 +148,24 @@ class NuevoProduccionFlow:
 
 		elif paso == PASO_CANTIDAD:
 			mostrar_mixta = self._es_tipo_camiseta()
+			
+			# Construir frase resumen: Producto + Género + Talla + Color + Diseño
+			partes = []
+			if self._tipo: partes.append(self._tipo.nombre)
+			if self._genero: partes.append(self._genero.nombre)
+			if self._talla: partes.append(self._talla)
+			if self._color: partes.append(self._color.nombre)
+			if self._diseno: partes.append(f"'{self._diseno.nombre}'")
+			
+			resumen_completo = " ".join(partes)
+			
 			self._vista_actual = NuevaProduccionCantidadView(
 				self.frame,
 				on_siguiente=self._on_cantidad_siguiente,
 				on_volver=self._on_cantidad_volver,
 				on_anadir=self._on_cantidad_anadir,
-				mostrar_mixta=mostrar_mixta
+				mostrar_mixta=mostrar_mixta,
+				diseno_nombre=resumen_completo
 			)
 
 		elif paso == PASO_RESUMEN:
@@ -269,9 +283,22 @@ class NuevoProduccionFlow:
 	def _on_resumen_confirmar(self, items: List[ItemProduccion]):
 		"""CONFIRMAR desde resumen → guardar orden y cerrar flujo."""
 		self._items = items
-		# TODO: Guardar la orden en BD via ProduccionOrdenesService
-		# Por ahora solo cerramos el flujo
-		self._cerrar_flow()
+		
+		# Guardar la orden en BD
+		ok = self._ordenes_service.guardar_orden(items)
+		
+		if ok:
+			# Mostrar mensaje de éxito
+			total_uds = sum(item.cantidad for item in items)
+			from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
+			ToastWidget.show(self.parent, f"Guardada Producción de {total_uds} artículos", tipo="info")
+			
+			# Cerramos el flujo
+			self._cerrar_flow()
+		else:
+			# Mostrar error (el servicio ya lo loguea)
+			from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
+			ToastWidget.show(self.frame, "Error al guardar la producción", tipo="error")
 
 	def _on_volver_flow(self):
 		"""VOLVER desde el paso 1 → cerrar flujo."""

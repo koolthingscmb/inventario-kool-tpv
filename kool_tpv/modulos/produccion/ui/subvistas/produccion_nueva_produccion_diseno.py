@@ -95,15 +95,17 @@ class NuevaProduccionDisenoView:
 		self.entry_busqueda.bind("<Return>", self._on_buscar_enter)
 		self.entry_busqueda.bind("<KP_Enter>", self._on_buscar_enter)
 
-		btn_limpiar = ctk.CTkButton(
+		btn_nuevo = ctk.CTkButton(
 			master=frame_search,
-			text="LIMPIAR",
-			command=self._limpiar_busqueda,
+			text="NUEVO",
+			command=self._on_nuevo_diseno,
 			width=80,
 			height=40,
+			fg_color="#552583",
+			hover_color="#8e44ad",
 			cursor="hand2"
 		)
-		btn_limpiar.pack(side="right", padx=(10, 0))
+		btn_nuevo.pack(side="right", padx=(10, 0))
 
 	def _crear_lista_disenos(self):
 		"""Crear la lista de diseños usando SearchablePaginatedNavList."""
@@ -166,6 +168,34 @@ class NuevaProduccionDisenoView:
 		self.entry_busqueda.delete(0, "end")
 		self.search_list.search("")
 		self.entry_busqueda.focus_set()
+
+	def _on_nuevo_diseno(self):
+		"""Abrir la vista de creación de diseño."""
+		from kool_tpv.modulos.produccion.ui.subvistas.produccion_diseno_nuevo import DisenoNuevoView
+		
+		# Ocultar temporalmente el contenido de esta subvista
+		self.frame.pack_forget()
+		
+		# Crear la vista de nuevo diseño en el mismo parent
+		self._vista_nuevo = DisenoNuevoView(
+			self.parent,
+			db=self.db,
+			on_cerrar=self._on_nuevo_diseno_cerrar
+		)
+
+	def _on_nuevo_diseno_cerrar(self, diseno: Optional[ProduccionDiseno] = None):
+		"""Callback al cerrar la vista de nuevo diseño."""
+		if self._vista_nuevo:
+			self._vista_nuevo.destruir()
+			self._vista_nuevo = None
+		
+		# Mostrar de nuevo esta subvista si no hay diseño, o saltar si lo hay
+		if diseno:
+			if self.on_siguiente:
+				self.on_siguiente(diseno)
+		else:
+			self.frame.pack(fill="both", expand=True)
+			self.entry_busqueda.focus_set()
 
 	def _on_diseno_doble_clic(self, data: dict):
 		"""Doble clic en un diseño de la lista."""

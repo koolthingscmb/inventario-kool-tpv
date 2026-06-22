@@ -137,6 +137,30 @@
     ]
   },
   "chips": {
+    "cantidad": {
+      "columns": 3,
+      "padx": 12,
+      "pady": 12,
+      "height": 140,
+      "corner_radius": 8,
+      "font_key": "label",
+      "default": {
+        "bg": "#1a1a2e",
+        "text": "#e0e0e0",
+        "border": "#552583",
+        "hover": "#C77BFF",
+        "border_width": 2,
+        "font_size": 64
+      },
+      "selected": {
+        "bg": "#552583",
+        "text": "#ffffff",
+        "border": "#C77BFF",
+        "hover": "#8e44ad",
+        "border_width": 4,
+        "font_size": 70
+      }
+    },
     "producto": {
       "columns": 5,
       "padx": 12,

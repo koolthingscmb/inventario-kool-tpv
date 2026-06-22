@@ -58,7 +58,8 @@ class ProduccionView(BaseModuleView):
 
 		action_map = {
 			'show_nuevo': self.show_nuevo,
-			'show_costes': self.show_costes,
+			'show_diseno_nuevo': self.show_diseno_nuevo,
+			'show_config': self.show_config,
 			'show_colores': self.show_colores,
 			'show_stock': self.show_stock,
 		}
@@ -150,9 +151,49 @@ class ProduccionView(BaseModuleView):
 		except Exception:
 			logging.exception('Error en _on_flow_cerrar de ProduccionView')
 
-	def show_costes(self):
-		"""Mostrar vista de costes (placeholder)."""
-		logging.info('COSTES - Gestión de costes de productos')
+	def show_diseno_nuevo(self):
+		"""Abrir vista de nuevo diseño en la zona central."""
+		try:
+			from kool_tpv.modulos.produccion.ui.subvistas.produccion_diseno_nuevo import DisenoNuevoView
+			try:
+				for w in list(self.central_area.winfo_children()):
+					w.destroy()
+				view = DisenoNuevoView(
+						self.central_area,
+						db=self.db,
+						on_cerrar=self._on_flow_cerrar,
+					)
+				try:
+					self.actualizar_ruta('PRODUCCIÓN / NUEVO DISEÑO')
+				except Exception:
+					pass
+				logging.info('Abriendo nuevo diseño...')
+			except Exception:
+				logging.exception('Error instanciando DisenoNuevoView en show_diseno_nuevo')
+		except Exception:
+			logging.exception('Error abriendo show_diseno_nuevo en ProduccionView')
+
+	def show_config(self):
+		"""Abrir vista de configuración del taller (Backoffice)."""
+		try:
+			from kool_tpv.modulos.produccion.ui.subvistas.produccion_config import ProduccionConfigView
+			for w in list(self.central_area.winfo_children()):
+				w.destroy()
+			
+			view = ProduccionConfigView(
+				self.central_area,
+				db=self.db,
+				on_cerrar=self._on_flow_cerrar
+			)
+			self.actualizar_ruta('PRODUCCIÓN / CONFIG')
+			logging.info('Abriendo panel de configuración de producción...')
+		except ImportError:
+			# Si aún no existe el archivo, mostramos un aviso
+			from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
+			ToastWidget.show(self.parent, "Módulo de configuración en desarrollo", tipo="info")
+			logging.info('CONFIG - Gestión de configuración (Próximamente)')
+		except Exception:
+			logging.exception('Error abriendo show_config en ProduccionView')
 
 	def show_colores(self):
 		"""Mostrar vista de colores (placeholder)."""

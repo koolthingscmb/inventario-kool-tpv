@@ -35,13 +35,15 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 	             on_siguiente: Optional[Callable[[CantidadSeleccion], None]] = None,
 	             on_volver: Optional[Callable] = None,
 	             on_anadir: Optional[Callable[[CantidadSeleccion], None]] = None,
-	             mostrar_mixta: bool = False):
+	             mostrar_mixta: bool = False,
+	             diseno_nombre: str = ""):
 		KeyboardNavigableMixin.__init_keyboard_mixin__(self)
 		self.parent = parent
 		self.on_siguiente = on_siguiente
 		self.on_volver = on_volver
 		self.on_anadir = on_anadir
 		self.mostrar_mixta = mostrar_mixta
+		self.diseno_nombre = diseno_nombre
 		self.cantidad: int = 0
 		self.produccion_mixta: bool = False
 		self._mixta_seleccionada: bool = False
@@ -52,7 +54,7 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 		self._bg = self._colors.get("background", "#2c3e50")
 		self._text = self._colors.get("text", "#ecf0f1")
 		self._text_sec = self._colors.get("text_secondary", "#95a5a6")
-		self._chip_cfg = get_chip_config(self.config, "talla")
+		self._chip_cfg = get_chip_config(self.config, "cantidad")
 
 		# Frame principal
 		self.frame = ctk.CTkFrame(parent, fg_color=self._bg)
@@ -96,9 +98,10 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 
 	def _crear_titulo(self):
 		"""Crear el título de la subvista."""
+		txt = f"CANTIDAD para {self.diseno_nombre}" if self.diseno_nombre else "CANTIDAD"
 		titulo = ctk.CTkLabel(
 			self.frame,
-			text="CANTIDAD",
+			text=txt,
 			font=self._get_font("title"),
 			text_color=self._text,
 			fg_color=self._bg

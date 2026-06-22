@@ -288,10 +288,22 @@ class VirtualNavList(ctk.CTkFrame):
     def set_items(self, items: List[dict]):
         self._all_data = list(items)
         self.selected_index = -1
+        # Asegurar que el canvas tenga sus dimensiones reales antes de refrescar
+        self.update_idletasks()
+        canvas_h = self._canvas.winfo_height()
+        if canvas_h <= 1:
+            # El canvas aún no ha sido configurado (tab oculto, etc.)
+            # Crear filas con un fallback de altura y refrescar
+            fallback_h = 400
+            needed = (fallback_h // self.row_height) + 2
+            if needed > self._row_widgets_count:
+                for i in range(self._row_widgets_count, needed):
+                    self._create_row_widget()
+                self._row_widgets_count = needed
         # Volver al inicio del scroll
         self._canvas.yview_moveto(0)
         self._refresh_ui()
-        
+
         if self.keyboard_manager:
             try: self.keyboard_manager.set_active_list(self)
             except: pass

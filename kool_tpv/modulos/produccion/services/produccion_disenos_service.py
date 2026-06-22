@@ -85,31 +85,53 @@ class ProduccionDisenosService:
 		}
 		return coste_map.get(tipo_producto.lower(), 0)
 
-	def crear(self, codigo: str, coleccion: str, nombre: str, variante: Optional[str] = None,
-	          tipo_producto: Optional[str] = None, costes: Optional[dict] = None) -> bool:
+	def generar_codigo(self, coleccion: str) -> str:
+		"""Generar código único para un nuevo diseño.
+
+		Formato: COLECCION + número secuencial de 2 dígitos (ANIME01, ANIME02, GAME01...).
+
+		Args:
+			coleccion: Nombre de la colección.
+
+		Returns:
+			Código generado.
+		"""
+		prefijo = coleccion.strip().upper()[:10]
+		max_num = self.repository.obtener_max_numero_coleccion(prefijo)
+		return f"{prefijo}{max_num + 1:02d}"
+
+	def crear(self, coleccion: str, nombre: str, variante: Optional[str] = None,
+	          tipos: Optional[List[int]] = None, costes: Optional[dict] = None) -> Optional[str]:
 		"""Crear un nuevo diseño.
 
 		Args:
-			codigo: Código único del diseño.
 			coleccion: Colección del diseño.
 			nombre: Nombre del diseño.
 			variante: Variante opcional.
-			tipo_producto: Tipo de producto principal.
+			tipos: Lista de IDs de tipos de producto (FK a tipos.id).
 			costes: Diccionario con costes por tipo (camiseta, taza, etc) en céntimos.
 
 		Returns:
-			True si OK, False si error.
+			None si OK, o string con el error.
 		"""
-		if not codigo or not coleccion or not nombre:
-			return False
+		if not coleccion or not nombre:
+			return "Colección y nombre son obligatorios"
 
+		coleccion_norm = coleccion.strip()
+		nombre_norm = nombre.strip()
+		variante_norm = variante.strip() if variante else None
+
+		if self.repository.existe_diseno(coleccion_norm, nombre_norm, variante_norm):
+			return "Ya existe un diseño con esa colección, nombre y variante"
+
+		codigo = self.generar_codigo(coleccion_norm)
 		costes = costes or {}
 		diseno = ProduccionDiseno(
-			codigo=codigo.strip(),
+			codigo=codigo,
 			coleccion=coleccion.strip(),
 			nombre=nombre.strip(),
 			variante=variante,
-			tipo_producto=tipo_producto,
+			tipos=tipos or [],
 			coste_camiseta=costes.get("camiseta", 0),
 			coste_taza=costes.get("taza", 0),
 			coste_gorra=costes.get("gorra", 0),
@@ -119,10 +141,11 @@ class ProduccionDisenosService:
 			coste_cartera=costes.get("cartera", 0),
 			activo=1
 		)
-		return self.repository.crear(diseno)
+		ok = self.repository.crear(diseno)
+		return None if ok else "Error guardando el diseño en la base de datos"
 
 	def actualizar(self, codigo: str, coleccion: str, nombre: str, variante: Optional[str] = None,
-	              tipo_producto: Optional[str] = None, costes: Optional[dict] = None) -> bool:
+	              tipos: Optional[List[int]] = None, costes: Optional[dict] = None) -> bool:
 		"""Actualizar un diseño existente.
 
 		Args:
@@ -130,7 +153,7 @@ class ProduccionDisenosService:
 			coleccion: Nueva colección.
 			nombre: Nuevo nombre.
 			variante: Nueva variante.
-			tipo_producto: Nuevo tipo de producto.
+			tipos: Lista de IDs de tipos de producto (FK a tipos.id).
 			costes: Nuevos costes por tipo en céntimos.
 
 		Returns:
@@ -145,7 +168,7 @@ class ProduccionDisenosService:
 			coleccion=coleccion.strip(),
 			nombre=nombre.strip(),
 			variante=variante,
-			tipo_producto=tipo_producto,
+			tipos=tipos or [],
 			coste_camiseta=costes.get("camiseta", 0),
 			coste_taza=costes.get("taza", 0),
 			coste_gorra=costes.get("gorra", 0),

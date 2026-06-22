@@ -1,4 +1,4 @@
-"""Acceso a datos para la tabla `produccion_tipos`.
+"""Acceso a datos para la tabla `tipos`.
 
 Contiene la clase `ProduccionTiposRepository` que expone métodos para consultar
 y gestionar tipos de producto fabricable desde la base de datos usando el wrapper
@@ -11,7 +11,7 @@ from kool_tpv.modulos.produccion.models.produccion_tipos_model import Produccion
 
 
 class ProduccionTiposRepository:
-	"""Data access object (DAO) para `produccion_tipos`.
+	"""Data access object (DAO) para `tipos`.
 
 	Args:
 		db: instancia de `Database` ya conectada.
@@ -41,7 +41,7 @@ class ProduccionTiposRepository:
 	_QUERY_SELECT = """
 		SELECT id, nombre, descripcion, color, icono,
 		       coste_base, requiere_talla, requiere_color, requiere_genero, activo, orden
-		FROM produccion_tipos
+		FROM tipos
 	"""
 
 	def get_todos(self) -> List[ProduccionTipo]:
@@ -91,7 +91,7 @@ class ProduccionTiposRepository:
 		"""
 		try:
 			query = """
-				INSERT INTO produccion_tipos
+				INSERT INTO tipos
 				(nombre, descripcion, color, icono, coste_base,
 				 requiere_talla, requiere_color, requiere_genero, activo, orden)
 				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -124,7 +124,7 @@ class ProduccionTiposRepository:
 
 		try:
 			query = """
-				UPDATE produccion_tipos
+				UPDATE tipos
 				SET nombre = ?, descripcion = ?, color = ?, icono = ?,
 				    coste_base = ?, requiere_talla = ?, requiere_color = ?,
 				    requiere_genero = ?, activo = ?, orden = ?
@@ -151,7 +151,7 @@ class ProduccionTiposRepository:
 			True si OK, False si error.
 		"""
 		try:
-			query = "UPDATE produccion_tipos SET activo = 0 WHERE id = ?"
+			query = "UPDATE tipos SET activo = 0 WHERE id = ?"
 			self.db.execute_query(query, (tipo_id,))
 			return True
 		except Exception:
