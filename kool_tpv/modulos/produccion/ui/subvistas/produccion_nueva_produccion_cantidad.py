@@ -1,7 +1,7 @@
 """Subvista de selección de cantidad.
 
-Contiene la clase `NuevaProduccionCantidadView` que muestra un entry grande
-para la cantidad y botones SÍ/NO para indicar producción mixta.
+Contiene la clase `NuevaProduccionCantidadView` que muestra botones
+para seleccionar cantidad (+1, +5, +10), producción mixta y navegación.
 """
 import tkinter as tk
 from dataclasses import dataclass
@@ -9,7 +9,8 @@ from typing import Callable, Optional
 
 import customtkinter as ctk
 
-from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font, get_nav_button_config, get_nav_button_style
+from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font, get_chip_config, get_chip_style, get_nav_button_config, get_nav_button_style
+from kool_tpv.utils.keyboard_nav_mixin import KeyboardNavigableMixin
 
 
 @dataclass
@@ -19,14 +20,15 @@ class CantidadSeleccion:
 	produccion_mixta: bool = False
 
 
-class NuevaProduccionCantidadView:
-	"""Subvista para introducir la cantidad y producción mixta.
+class NuevaProduccionCantidadView(KeyboardNavigableMixin):
+	"""Subvista para seleccionar la cantidad mediante botones.
 
 	Args:
 		parent: Widget padre donde se mostrará la subvista.
 		on_siguiente: Callback cuando se pulsa SIGUIENTE (recibe CantidadSeleccion).
 		on_volver: Callback cuando se pulsa VOLVER.
-		mostrar_mixta: Si True, muestra el entry de producción mixta.
+		on_anadir: Callback cuando se pulsa OTRO PRODUCTO (recibe CantidadSeleccion).
+		mostrar_mixta: Si True, muestra el botón MIXTA.
 	"""
 
 	def __init__(self, parent,
@@ -34,13 +36,15 @@ class NuevaProduccionCantidadView:
 	             on_volver: Optional[Callable] = None,
 	             on_anadir: Optional[Callable[[CantidadSeleccion], None]] = None,
 	             mostrar_mixta: bool = False):
+		KeyboardNavigableMixin.__init_keyboard_mixin__(self)
 		self.parent = parent
 		self.on_siguiente = on_siguiente
 		self.on_volver = on_volver
 		self.on_anadir = on_anadir
 		self.mostrar_mixta = mostrar_mixta
-		self.cantidad: int = 1
+		self.cantidad: int = 0
 		self.produccion_mixta: bool = False
+		self._mixta_seleccionada: bool = False
 
 		# Cargar configuración
 		self.config = cargar_config_produccion()
@@ -48,25 +52,43 @@ class NuevaProduccionCantidadView:
 		self._bg = self._colors.get("background", "#2c3e50")
 		self._text = self._colors.get("text", "#ecf0f1")
 		self._text_sec = self._colors.get("text_secondary", "#95a5a6")
+		self._chip_cfg = get_chip_config(self.config, "talla")
 
 		# Frame principal
-		self.frame = tk.Frame(parent, bg=self._bg)
-		self.frame.pack(fill=tk.BOTH, expand=True)
+		self.frame = ctk.CTkFrame(parent, fg_color=self._bg)
+		self.frame.pack(fill="both", expand=True)
 
-		# Título + entry + botones mixta
+		# Título + botones
 		self._crear_titulo()
-		self._crear_campo_cantidad()
+		self._crear_botones_cantidad()
 		if self.mostrar_mixta:
-			self._crear_botones_mixta()
-
-		# Botones de navegación
+			self._crear_boton_mixta()
+		self._crear_boton_otro_producto()
 		self._crear_botones_navegacion()
 
-		# Navegación por teclado
-		self._setup_keyboard_nav()
+		# Configurar navegación con KeyboardNavigableMixin
+		self._navigable_buttons = []
+		for btn in self._btns_cantidad:
+			self._navigable_buttons.append((btn, lambda b=btn: self._on_cantidad_btn(b)))
+		if self.mostrar_mixta:
+			self._navigable_buttons.append((self.btn_mixta, self._on_mixta_toggle))
+		self._navigable_buttons.append((self.btn_otro, self._on_anadir))
+		self._navigable_buttons.append((self.btn_volver, self._on_volver))
+		self._navigable_buttons.append((self.btn_siguiente, self._on_siguiente))
 
-		# Foco automático en el entry de cantidad
-		self.frame.after(100, self.entry_cantidad.focus_set)
+		if self._navigable_buttons:
+			try:
+				self._nav_toplevel = self.frame.winfo_toplevel()
+			except Exception:
+				self._nav_toplevel = self.frame
+			self._nav_toplevel.bind("<Tab>", self._on_nav_tab_next)
+			self._nav_toplevel.bind("<Shift-Tab>", self._on_nav_tab_prev)
+			self._nav_toplevel.bind("<Return>", self._on_nav_enter)
+			self._nav_toplevel.bind("<KP_Enter>", self._on_nav_enter)
+			self.frame.bind("<Destroy>", self._on_nav_destroy)
+
+		if self._navigable_buttons:
+			self.frame.after(100, lambda: self._focus_nav_widget(0))
 
 	def _get_font(self, key: str) -> tuple:
 		"""Obtener una fuente desde la configuración."""
@@ -81,85 +103,107 @@ class NuevaProduccionCantidadView:
 			text_color=self._text,
 			fg_color=self._bg
 		)
-		titulo.pack(pady=(20, 10))
+		titulo.pack(pady=(20, 5))
 
-	def _crear_campo_cantidad(self):
-		"""Crear el entry gigante de cantidad."""
-		frame_cantidad = ctk.CTkFrame(self.frame, fg_color=self._bg)
-		frame_cantidad.pack(pady=(30, 10))
-
-		lbl = ctk.CTkLabel(
-			frame_cantidad,
-			text="UNIDADES",
+		self.lbl_total = ctk.CTkLabel(
+			self.frame,
+			text="TOTAL: 0",
 			font=self._get_font("subtitle"),
 			text_color=self._text_sec,
 			fg_color=self._bg
 		)
-		lbl.pack(pady=(0, 5))
+		self.lbl_total.pack(pady=(0, 10))
 
-		self.entry_cantidad = ctk.CTkEntry(
-			frame_cantidad,
-			font=self._get_font("title"),
-			width=300,
-			height=120,
-			justify="center"
-		)
-		self.entry_cantidad.pack()
-		self.entry_cantidad.insert(0, "1")
-		self.entry_cantidad.bind("<Return>", self._on_cantidad_enter)
-		self.entry_cantidad.bind("<KP_Enter>", self._on_cantidad_enter)
-		self.entry_cantidad.bind("<Tab>", self._on_cantidad_tab)
+	def _crear_botones_cantidad(self):
+		"""Crear los botones +1, +5, +10."""
+		frame_cant = ctk.CTkFrame(self.frame, fg_color=self._bg)
+		frame_cant.pack(pady=(10, 10))
 
-	def _crear_botones_mixta(self):
-		"""Crear botones SÍ/NO para producción mixta."""
+		style = get_chip_style(self._chip_cfg, "default")
+		font_key = self._chip_cfg.get("font_key", "label")
+		font_family = get_font(self.config, font_key)
+		chip_font = (font_family[0], style.get("font_size", 14), font_family[2])
+		corner_radius = self._chip_cfg.get("corner_radius", 8)
+		chip_height = self._chip_cfg.get("height", 48)
+
+		self._btns_cantidad = []
+		for label in ("+1", "+5", "+10"):
+			btn = ctk.CTkButton(
+				master=frame_cant,
+				text=label,
+				fg_color=style.get("bg", "#1a1a2e"),
+				text_color=style.get("text", "#e0e0e0"),
+				border_color=style.get("border", "#552583"),
+				hover_color=style.get("hover", "#C77BFF"),
+				border_width=style.get("border_width", 2),
+				corner_radius=corner_radius,
+				height=chip_height,
+				width=120,
+				font=chip_font,
+				cursor="hand2"
+			)
+			btn.pack(side=tk.LEFT, padx=12)
+			btn.bind("<Button-1>", lambda e, b=btn: self._on_cantidad_btn(b))
+			setattr(btn, "_incremento", int(label[1:]))
+			self._btns_cantidad.append(btn)
+
+	def _crear_boton_mixta(self):
+		"""Crear el botón MIXTA."""
 		frame_mixta = ctk.CTkFrame(self.frame, fg_color=self._bg)
-		frame_mixta.pack(pady=(20, 10))
+		frame_mixta.pack(pady=(10, 10))
 
-		lbl = ctk.CTkLabel(
-			frame_mixta,
-			text="¿ES MIXTA?",
-			font=self._get_font("subtitle"),
-			text_color=self._text_sec,
-			fg_color=self._bg
+		style = get_chip_style(self._chip_cfg, "default")
+		font_key = self._chip_cfg.get("font_key", "label")
+		font_family = get_font(self.config, font_key)
+		chip_font = (font_family[0], style.get("font_size", 14), font_family[2])
+		corner_radius = self._chip_cfg.get("corner_radius", 8)
+		chip_height = self._chip_cfg.get("height", 48)
+
+		self.btn_mixta = ctk.CTkButton(
+			master=frame_mixta,
+			text="MIXTA",
+			fg_color=style.get("bg", "#1a1a2e"),
+			text_color=style.get("text", "#e0e0e0"),
+			border_color=style.get("border", "#552583"),
+			hover_color=style.get("hover", "#C77BFF"),
+			border_width=style.get("border_width", 2),
+			corner_radius=corner_radius,
+			height=chip_height,
+			width=300,
+			font=chip_font,
+			cursor="hand2"
 		)
-		lbl.pack(pady=(0, 10))
+		self.btn_mixta.pack()
+		self.btn_mixta.bind("<Button-1>", lambda e: self._on_mixta_toggle())
 
-		frame_btns_mixta = ctk.CTkFrame(frame_mixta, fg_color=self._bg)
-		frame_btns_mixta.pack()
+	def _crear_boton_otro_producto(self):
+		"""Crear el botón OTRO PRODUCTO."""
+		frame_otro = ctk.CTkFrame(self.frame, fg_color=self._bg)
+		frame_otro.pack(pady=(10, 10))
 
-		self.btn_mixta_no = ctk.CTkButton(
-			frame_btns_mixta,
-			text="NO",
-			font=self._get_font("button"),
-			fg_color="#1a1a2e",
-			hover_color="#333333",
-			text_color="#e0e0e0",
-			border_color="#555555",
-			border_width=2,
-			width=120,
-			height=50,
-			cursor="hand2",
-			command=self._on_mixta_no
+		style = get_chip_style(self._chip_cfg, "default")
+		font_key = self._chip_cfg.get("font_key", "label")
+		font_family = get_font(self.config, font_key)
+		chip_font = (font_family[0], style.get("font_size", 14), font_family[2])
+		corner_radius = self._chip_cfg.get("corner_radius", 8)
+		chip_height = self._chip_cfg.get("height", 48)
+
+		self.btn_otro = ctk.CTkButton(
+			master=frame_otro,
+			text="OTRO PRODUCTO",
+			fg_color=style.get("bg", "#1a1a2e"),
+			text_color=style.get("text", "#e0e0e0"),
+			border_color=style.get("border", "#552583"),
+			hover_color=style.get("hover", "#C77BFF"),
+			border_width=style.get("border_width", 2),
+			corner_radius=corner_radius,
+			height=chip_height,
+			width=300,
+			font=chip_font,
+			cursor="hand2"
 		)
-		self.btn_mixta_no.pack(side=tk.LEFT, padx=10)
-
-		self.btn_mixta_si = ctk.CTkButton(
-			frame_btns_mixta,
-			text="SÍ",
-			font=self._get_font("button"),
-			fg_color="#1a1a2e",
-			hover_color="#333333",
-			text_color="#e0e0e0",
-			border_color="#555555",
-			border_width=2,
-			width=120,
-			height=50,
-			cursor="hand2",
-			command=self._on_mixta_si
-		)
-		self.btn_mixta_si.pack(side=tk.LEFT, padx=10)
-
-		self.produccion_mixta = False
+		self.btn_otro.pack()
+		self.btn_otro.bind("<Button-1>", lambda e: self._on_anadir())
 
 	def _crear_botones_navegacion(self):
 		"""Crear los botones de navegación inferior."""
@@ -169,7 +213,7 @@ class NuevaProduccionCantidadView:
 		# Botón VOLVER
 		nav_volver = get_nav_button_config(self.config, "volver")
 		style_volver = get_nav_button_style(self.config, nav_volver.get("style_key", "volver"))
-		btn_volver = ctk.CTkButton(
+		self.btn_volver = ctk.CTkButton(
 			frame_nav,
 			text=nav_volver.get("text", "VOLVER"),
 			font=self._get_font(nav_volver.get("font_key", "button")),
@@ -183,7 +227,7 @@ class NuevaProduccionCantidadView:
 			cursor="hand2",
 			command=self._on_volver
 		)
-		btn_volver.pack(side=tk.LEFT, padx=10)
+		self.btn_volver.pack(side=tk.LEFT, padx=10)
 
 		# Botón SIGUIENTE
 		nav_sig = get_nav_button_config(self.config, "siguiente")
@@ -204,80 +248,43 @@ class NuevaProduccionCantidadView:
 		)
 		self.btn_siguiente.pack(side=tk.RIGHT, padx=10)
 
-		# Botón AÑADIR (al lado de SIGUIENTE)
-		nav_anadir = get_nav_button_config(self.config, "anadir")
-		style_anadir = get_nav_button_style(self.config, nav_anadir.get("style_key", "anadir"))
-		self.btn_anadir = ctk.CTkButton(
-			frame_nav,
-			text=nav_anadir.get("text", "AÑADIR"),
-			font=self._get_font(nav_anadir.get("font_key", "button")),
-			fg_color=style_anadir.get("bg", "#27ae60"),
-			text_color=style_anadir.get("text", "#FFFFFF"),
-			hover_color=style_anadir.get("hover", "#2ecc71"),
-			border_color=style_anadir.get("border", "#27ae60"),
-			border_width=style_anadir.get("focus_thickness", 0),
-			width=nav_anadir.get("width", 15) * 10,
-			height=nav_anadir.get("height", 2) * 20,
-			cursor="hand2",
-			command=self._on_anadir
-		)
-		self.btn_anadir.pack(side=tk.RIGHT, padx=(0, 10))
+	# --- Lógica ---
 
-	# --- Lógica de cantidad ---
+	def _on_cantidad_btn(self, btn):
+		"""Incrementar la cantidad según el botón pulsado."""
+		incremento = getattr(btn, "_incremento", 0)
+		self.cantidad += incremento
+		self.lbl_total.configure(text=f"TOTAL: {self.cantidad}")
 
-	def _on_cantidad_enter(self, event):
-		"""Enter en el entry de cantidad: saltar al primer botón mixta o AÑADIR."""
-		if self.mostrar_mixta and hasattr(self, 'btn_mixta_no'):
-			self.btn_mixta_no.focus_set()
+	def _on_mixta_toggle(self):
+		"""Alternar selección de producción mixta."""
+		self._mixta_seleccionada = not self._mixta_seleccionada
+		self.produccion_mixta = self._mixta_seleccionada
+		selected_style = get_chip_style(self._chip_cfg, "selected")
+		default_style = get_chip_style(self._chip_cfg, "default")
+		font_key = self._chip_cfg.get("font_key", "label")
+		font_family = get_font(self.config, font_key)
+		if self._mixta_seleccionada:
+			self.btn_mixta.configure(
+				fg_color=selected_style.get("bg", "#552583"),
+				text_color=selected_style.get("text", "#ffffff"),
+				border_color=selected_style.get("border", "#C77BFF"),
+				hover_color=selected_style.get("hover", "#8e44ad"),
+				border_width=selected_style.get("border_width", 4),
+				font=(font_family[0], selected_style.get("font_size", 14), font_family[2])
+			)
 		else:
-			self.btn_anadir.focus_set()
-		return "break"
-
-	def _on_cantidad_tab(self, event):
-		"""Tab en cantidad: saltar al primer botón mixta o AÑADIR."""
-		if self.mostrar_mixta and hasattr(self, 'btn_mixta_no'):
-			self.btn_mixta_no.focus_set()
-		else:
-			self.btn_anadir.focus_set()
-		return "break"
-
-	def _on_mixta_si(self):
-		"""Seleccionar producción mixta SÍ."""
-		self.produccion_mixta = True
-		self.btn_mixta_si.configure(fg_color="#27ae60", text_color="#FFFFFF")
-		self.btn_mixta_no.configure(fg_color="#1a1a2e", text_color="#e0e0e0")
-
-	def _on_mixta_no(self):
-		"""Seleccionar producción mixta NO."""
-		self.produccion_mixta = False
-		self.btn_mixta_no.configure(fg_color="#e74c3c", text_color="#FFFFFF")
-		self.btn_mixta_si.configure(fg_color="#1a1a2e", text_color="#e0e0e0")
-
-	def _validar_cantidad(self):
-		"""Validar que el entry contenga un número entero positivo."""
-		valor = self.entry_cantidad.get().strip()
-		try:
-			self.cantidad = int(valor)
-			if self.cantidad < 1:
-				self.cantidad = 0
-		except ValueError:
-			self.cantidad = 0
-
-	# --- Navegación por teclado ---
-
-	def _setup_keyboard_nav(self):
-		"""Sin bindings globales — Tab es nativo entre botones."""
-		self.frame.bind("<Destroy>", self._on_destroy)
-
-	def _on_destroy(self, event=None):
-		"""Limpiar al destruir."""
-		pass
-
-	# --- Callbacks de navegación ---
+			self.btn_mixta.configure(
+				fg_color=default_style.get("bg", "#1a1a2e"),
+				text_color=default_style.get("text", "#e0e0e0"),
+				border_color=default_style.get("border", "#552583"),
+				hover_color=default_style.get("hover", "#C77BFF"),
+				border_width=default_style.get("border_width", 2),
+				font=(font_family[0], default_style.get("font_size", 14), font_family[2])
+			)
 
 	def _on_siguiente(self):
 		"""Manejador del botón SIGUIENTE."""
-		self._validar_cantidad()
 		if self.cantidad < 1:
 			return
 		if self.on_siguiente:
@@ -288,8 +295,7 @@ class NuevaProduccionCantidadView:
 			self.on_siguiente(result)
 
 	def _on_anadir(self):
-		"""Manejador del botón AÑADIR."""
-		self._validar_cantidad()
+		"""Manejador del botón OTRO PRODUCTO."""
 		if self.cantidad < 1:
 			return
 		if self.on_anadir:
@@ -310,7 +316,6 @@ class NuevaProduccionCantidadView:
 		Returns:
 			Objeto CantidadSeleccion con cantidad y produccion_mixta.
 		"""
-		self._validar_cantidad()
 		return CantidadSeleccion(
 			cantidad=self.cantidad,
 			produccion_mixta=self.produccion_mixta
@@ -318,5 +323,5 @@ class NuevaProduccionCantidadView:
 
 	def destruir(self):
 		"""Destruir la subvista y limpiar recursos."""
-		self._on_destroy()
+		self.clear_keyboard_navigation()
 		self.frame.destroy()

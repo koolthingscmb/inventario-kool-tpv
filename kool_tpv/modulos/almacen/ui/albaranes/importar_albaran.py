@@ -324,7 +324,7 @@ class ImportarAlbaranUI:
 
     def _cargar_preview_tabla(self):
         """Cargar las líneas del CSV en la tabla NavList."""
-        self.nav_list.clear_items()
+        rows = []
 
         for linea in self.parse_result.lineas:
             coste = linea.coste_cents / 100
@@ -350,7 +350,9 @@ class ImportarAlbaranUI:
                 'TOTAL': f'{total:.2f}'
             }
 
-            self.nav_list.add_item(row_data)
+            rows.append(row_data)
+
+        self.nav_list.set_items(rows)
 
     def _on_continuar_click(self):
         """Continuar a crear productos o guardar directamente (cabecera ya está en la primera vista)."""

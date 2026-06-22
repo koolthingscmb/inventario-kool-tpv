@@ -653,19 +653,14 @@ class EntradaManualUI:
 
     def _render_lines(self):
         try:
-            # Limpiar NavList
-            try:
-                self.nav_list.clear_items()
-            except Exception:
-                pass
-
-            # Añadir cada línea al NavList
+            mapped_lines = []
             for idx, line in enumerate(self.lines):
                 try:
                     mapped = self._map_line_to_row(line)
-                    self.nav_list.add_item(mapped)
+                    mapped_lines.append(mapped)
                 except Exception:
-                    logging.exception('Error añadiendo línea al NavList')
+                    logging.exception('Error mapeando línea a row')
+            self.nav_list.set_items(mapped_lines)
         except Exception:
             logging.exception('Error renderizando líneas')
 
