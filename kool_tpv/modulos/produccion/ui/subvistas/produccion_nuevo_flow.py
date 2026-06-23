@@ -370,7 +370,7 @@ class NuevoProduccionFlow:
             # Mostrar mensaje de éxito
             total_uds = sum(item.cantidad for item in items)
             from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
-            ToastWidget.show(self.parent, f"Guardada Producción de {total_uds} artículos", tipo="info")
+            ToastWidget.show(self.parent, f"Guardada Producción de {total_uds} artículos", tipo="success")
 
             # Cerramos el flujo
             self._cerrar_flow()

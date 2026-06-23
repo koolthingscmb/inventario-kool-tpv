@@ -139,7 +139,7 @@ class NuevaProduccionResumenView:
 		# Botón VOLVER
 		nav_volver = get_nav_button_config(self.config, "volver")
 		style_volver = get_nav_button_style(self.config, nav_volver.get("style_key", "volver"))
-		btn_volver = ctk.CTkButton(
+		self.btn_volver = ctk.CTkButton(
 			frame_nav,
 			text=nav_volver.get("text", "VOLVER"),
 			font=self._get_font(nav_volver.get("font_key", "button")),
@@ -153,12 +153,12 @@ class NuevaProduccionResumenView:
 			cursor="hand2",
 			command=self._on_volver
 		)
-		btn_volver.pack(side=tk.LEFT, padx=10)
+		self.btn_volver.pack(side=tk.LEFT, padx=10)
 
 		# Botón AÑADIR
 		nav_anadir = get_nav_button_config(self.config, "anadir")
 		style_anadir = get_nav_button_style(self.config, nav_anadir.get("style_key", "anadir"))
-		btn_anadir = ctk.CTkButton(
+		self.btn_anadir = ctk.CTkButton(
 			frame_nav,
 			text=nav_anadir.get("text", "AÑADIR"),
 			font=self._get_font(nav_anadir.get("font_key", "button")),
@@ -172,7 +172,7 @@ class NuevaProduccionResumenView:
 			cursor="hand2",
 			command=self._on_anadir
 		)
-		btn_anadir.pack(side=tk.LEFT, padx=(10, 0))
+		self.btn_anadir.pack(side=tk.LEFT, padx=(10, 0))
 
 		# Botón CONFIRMAR
 		nav_conf = get_nav_button_config(self.config, "confirmar")
@@ -274,6 +274,10 @@ class NuevaProduccionResumenView:
 
 	def _setup_keyboard_nav(self):
 		"""Configurar bindings de navegación por teclado."""
+		self._nav_buttons = [self.btn_volver, self.btn_anadir, self.btn_confirmar]
+		self._nav_callbacks = [self._on_volver, self._on_anadir, self._on_confirmar]
+		self._nav_index = -1
+
 		toplevel = self.frame.winfo_toplevel()
 		toplevel.bind("<Tab>", self._on_tab_next)
 		toplevel.bind("<Shift-Tab>", self._on_tab_prev)
@@ -291,24 +295,38 @@ class NuevaProduccionResumenView:
 		except Exception:
 			pass
 
+	def _focus_nav_button(self, index):
+		"""Aplicar foco visual a un botón por índice."""
+		if not self._nav_buttons:
+			return
+		index = index % len(self._nav_buttons)
+		# Restaurar borde anterior
+		if 0 <= self._nav_index < len(self._nav_buttons):
+			prev = self._nav_buttons[self._nav_index]
+			try:
+				prev.configure(border_width=0)
+			except Exception:
+				pass
+		self._nav_index = index
+		btn = self._nav_buttons[index]
+		try:
+			btn.configure(border_width=3, border_color="#FFD700")
+		except Exception:
+			pass
+		btn.focus_set()
+
 	def _on_tab_next(self, event):
-		focus = self.frame.focus_get()
-		if focus is None:
-			self.btn_confirmar.focus_set()
-		elif focus is self.btn_confirmar:
-			self._on_volver()
+		self._focus_nav_button(self._nav_index + 1)
 		return "break"
 
 	def _on_tab_prev(self, event):
-		focus = self.frame.focus_get()
-		if focus is None:
-			self.btn_confirmar.focus_set()
+		self._focus_nav_button(self._nav_index - 1)
 		return "break"
 
 	def _on_enter_nav(self, event):
-		"""Enter activa CONFIRMAR si hay ítems."""
-		if self.items:
-			self._on_confirmar()
+		"""Enter activa el botón que tiene el foco."""
+		if 0 <= self._nav_index < len(self._nav_callbacks):
+			self._nav_callbacks[self._nav_index]()
 		return "break"
 
 	# --- Callbacks ---
