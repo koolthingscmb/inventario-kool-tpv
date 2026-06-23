@@ -15,16 +15,17 @@ logger = logging.getLogger(__name__)
 class ProduccionProveedoresConfigurador:
     """Configurador unificado con sistema de pestañas para mapeos."""
 
-    def __init__(self, parent, db=None, proveedor_id=None, proveedor_nombre='', owner=None, tab_inicial='CSV'):
+    def __init__(self, parent, db=None, proveedor_id=None, proveedor_nombre='', owner=None, tab_inicial='CSV', module_name='produccion'):
         self.parent = parent
         self.db = db
         self.proveedor_id = proveedor_id
         self.proveedor_nombre = proveedor_nombre
         self.owner = owner
+        self.module_name = module_name
         self.proveedor_service = ProveedorService(db)
         
         try:
-            self.colors = load_colors('produccion')
+            self.colors = load_colors(module_name)
         except Exception:
             self.colors = {'text': COLOR_MATRIX, 'background': COLOR_BG_TERMINAL}
 
@@ -72,7 +73,7 @@ class ProduccionProveedoresConfigurador:
         self.tab_buttons = {}
         for tab in self.tabs:
             btn = ctk.CTkButton(menu_frame, text=tab, width=100, height=32,
-                                font=('Courier New', 13, 'bold'), fg_color='#333333',
+                                font=('Courier New', 13, 'bold'), fg_color='#333333', text_color='black',
                                 command=lambda t=tab: self.show_tab(t))
             btn.pack(side='left', padx=4)
             self.tab_buttons[tab] = btn
@@ -90,7 +91,7 @@ class ProduccionProveedoresConfigurador:
 
         # Actualizar botones
         for name, btn in self.tab_buttons.items():
-            btn.configure(fg_color='#9b59b6' if name == tab_name else '#333333')
+            btn.configure(fg_color=self.colors.get('primary', '#9b59b6') if name == tab_name else '#333333')
         
         for child in self.content_area.winfo_children(): child.destroy()
         self.current_tab = tab_name
@@ -169,7 +170,7 @@ class ProduccionProveedoresConfigurador:
             
             sel_frame = ctk.CTkFrame(container, fg_color='#1a1a1a')
             sel_frame.pack(fill='x', pady=(0, 5))
-            ctk.CTkLabel(sel_frame, text="TIPOS ACTIVOS PARA ESTE PROVEEDOR:", font=('Courier New', 11, 'bold'), text_color='#9b59b6').pack(pady=5)
+            ctk.CTkLabel(sel_frame, text="TIPOS ACTIVOS PARA ESTE PROVEEDOR:", font=('Courier New', 11, 'bold'), text_color=self.colors.get('primary', '#9b59b6')).pack(pady=5)
             chips_f = ctk.CTkFrame(sel_frame, fg_color='transparent')
             chips_f.pack(fill='x', padx=10, pady=5)
             for i in range(6): chips_f.grid_columnconfigure(i, weight=1)
@@ -205,7 +206,7 @@ class ProduccionProveedoresConfigurador:
         self.show_tab('TIPOS')
 
     def _add_section_header(self, parent, text):
-        ctk.CTkLabel(parent, text=text, font=('Courier New', 14, 'bold'), text_color='#9b59b6').pack(anchor='w', padx=10, pady=(10, 2))
+        ctk.CTkLabel(parent, text=text, font=('Courier New', 14, 'bold'), text_color=self.colors.get('primary', '#9b59b6')).pack(anchor='w', padx=10, pady=(10, 2))
         ctk.CTkFrame(parent, height=2, fg_color='#333333').pack(fill='x', padx=10, pady=(0, 10))
 
     def _add_form_row(self, parent, label, key, value, storage):

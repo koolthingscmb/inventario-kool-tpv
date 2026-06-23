@@ -154,7 +154,7 @@ class ProveedoresUI:
         self.btn_albaranes = create_action_button(self.footer, 'consultar_albaranes', self._mostrar_albaranes)
         self.btn_albaranes.pack(side='left', padx=8)
 
-        self.btn_mapeo = create_action_button(self.footer, 'mapeo_csv', self._editar_mapeo_csv)
+        self.btn_mapeo = create_action_button(self.footer, 'configurar_mapeos', self._editar_mapeo_csv)
         self.btn_mapeo.pack(side='left', padx=8)
 
         # Load proveedores
@@ -412,17 +412,17 @@ class ProveedoresUI:
             nombre_prov = self.e_nombre.get().strip() or 'Proveedor'
 
             # Delegar a owner (AlmacenView)
-            if getattr(self, 'owner', None) and hasattr(self.owner, 'show_mapeo_csv'):
+            if getattr(self, 'owner', None) and hasattr(self.owner, 'show_configurar_mapeos'):
                 try:
-                    self.owner.show_mapeo_csv(prov_id, nombre_prov)
+                    self.owner.show_configurar_mapeos(prov_id, nombre_prov)
                 except Exception:
-                    logging.exception(f'Error llamando owner.show_mapeo_csv para {prov_id}')
+                    logging.exception(f'Error llamando owner.show_configurar_mapeos para {prov_id}')
                     from kool_tpv.utils.custom_dialog import show_error
-                    show_error(self.container, 'Error', 'No se puede abrir editor de mapeo')
+                    show_error(self.container, 'Error', 'No se puede abrir configurador de mapeos')
             else:
-                logging.warning('ProveedoresUI: owner no disponible para show_mapeo_csv')
+                logging.warning('ProveedoresUI: owner no disponible para show_configurar_mapeos')
                 from kool_tpv.utils.custom_dialog import show_error
-                show_error(self.container, 'Error', 'No se puede abrir editor de mapeo')
+                show_error(self.container, 'Error', 'No se puede abrir configurador de mapeos')
 
         except Exception:
             logging.exception('Error en _editar_mapeo_csv')

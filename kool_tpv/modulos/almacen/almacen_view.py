@@ -396,36 +396,36 @@ class AlmacenView(BaseModuleView):
             logging.exception('Error abriendo proveedores en AlmacenView')
 
     def show_mapeo_csv(self, proveedor_id, proveedor_nombre=''):
-        """Mostrar UI de configuración de mapeo CSV para un proveedor.
+        """Mostrar configurador de mapeos para un proveedor (pestaña CSV)."""
+        self.show_configurar_mapeos(proveedor_id, proveedor_nombre, tab_inicial='CSV')
 
-        Args:
-            proveedor_id: ID del proveedor
-            proveedor_nombre: Nombre del proveedor (para mostrar en UI)
-        """
+    def show_configurar_mapeos(self, proveedor_id, proveedor_nombre='', tab_inicial='CSV'):
+        """Mostrar configurador unificado de mapeos para un proveedor."""
         try:
-            # Guardar en memoria para breadcrumb
             try:
                 self._last_proveedor_id = proveedor_id
             except Exception:
                 pass
 
-            from .ui.mapeo_csv_ui import MapeoCsvUI
+            from kool_tpv.modulos.produccion.ui.subvistas.proveedores.produccion_proveedores_configurador import ProduccionProveedoresConfigurador
 
             try:
-                mapeo_ui = MapeoCsvUI(
+                config_ui = ProduccionProveedoresConfigurador(
                     self.central_area,
                     db=self.db,
                     proveedor_id=proveedor_id,
                     proveedor_nombre=proveedor_nombre,
-                    owner=self
+                    owner=self,
+                    tab_inicial=tab_inicial,
+                    module_name='almacen'
                 )
-                if self.set_central_content(mapeo_ui):
-                    self.actualizar_ruta('PROVEEDORES / MAPEO CSV', callbacks=self.breadcrumb_callbacks)
-                logging.info(f'Abriendo mapeo CSV para proveedor {proveedor_id}...')
+                if self.set_central_content(config_ui):
+                    self.actualizar_ruta(f'PROVEEDORES / CONFIGURAR MAPEOS ({tab_inicial})', callbacks=self.breadcrumb_callbacks)
+                logging.info(f'Abriendo configurador de mapeos para proveedor {proveedor_id}...')
             except Exception:
-                logging.exception('Error instanciando MapeoCsvUI en show_mapeo_csv')
+                logging.exception('Error instanciando ProduccionProveedoresConfigurador en show_configurar_mapeos')
         except Exception:
-            logging.exception('Error abriendo mapeo CSV en AlmacenView')
+            logging.exception('Error abriendo configurador de mapeos en AlmacenView')
 
     def show_entrada_manual(self, albaran_id=None):
         """Mostrar UI de entrada manual de albaranes."""
