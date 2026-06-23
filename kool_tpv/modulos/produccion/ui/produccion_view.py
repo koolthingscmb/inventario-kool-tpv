@@ -264,65 +264,42 @@ class ProduccionView(BaseModuleView):
 		except Exception:
 			logging.exception('Error abriendo show_proveedores en ProduccionView')
 
-	def show_mapeo_csv(self, proveedor_id, proveedor_nombre=''):
-		"""Mostrar editor de mapeo CSV para un proveedor."""
+	def show_configurar_mapeos(self, proveedor_id, proveedor_nombre='', tab_inicial='CSV'):
+		"""Mostrar configurador unificado de mapeos para un proveedor."""
 		try:
-			from kool_tpv.modulos.produccion.ui.subvistas.proveedores.produccion_proveedores_mapeocsv import ProduccionProveedoresMapeoCsv
+			from kool_tpv.modulos.produccion.ui.subvistas.proveedores.produccion_proveedores_configurador import ProduccionProveedoresConfigurador
 			for w in list(self.central_area.winfo_children()):
 				w.destroy()
 			
-			mapeo_ui = ProduccionProveedoresMapeoCsv(
+			config_ui = ProduccionProveedoresConfigurador(
 				self.central_area,
 				db=self.db,
 				proveedor_id=proveedor_id,
 				proveedor_nombre=proveedor_nombre,
-				owner=self
+				owner=self,
+				tab_inicial=tab_inicial
 			)
-			mapeo_ui.get_widget().pack(fill='both', expand=True)
-			self.actualizar_ruta('PRODUCCIÓN / PROVEEDORES / MAPEO CSV')
-			logging.info(f'Abriendo mapeo CSV para proveedor {proveedor_id}...')
+			config_ui.get_widget().pack(fill='both', expand=True)
+			self.actualizar_ruta(f'PRODUCCIÓN / PROVEEDORES / CONFIGURAR MAPEOS ({tab_inicial})')
+			logging.info(f'Abriendo configurador de mapeos para proveedor {proveedor_id}...')
 		except Exception:
-			logging.exception('Error abriendo mapeo CSV en ProduccionView')
+			logging.exception('Error abriendo configurador de mapeos en ProduccionView')
+
+	def show_mapeo_csv(self, proveedor_id, proveedor_nombre=''):
+		"""Mostrar configurador unificado en la pestaña CSV."""
+		self.show_configurar_mapeos(proveedor_id, proveedor_nombre, tab_inicial='CSV')
 
 	def show_mapeo_colores(self, proveedor_id, proveedor_nombre=''):
-		"""Mostrar editor de mapeo de colores para un proveedor."""
-		try:
-			from kool_tpv.modulos.produccion.ui.subvistas.proveedores.produccion_proveedores_mapeocolores import ProduccionProveedoresMapeoColores
-			for w in list(self.central_area.winfo_children()):
-				w.destroy()
-			
-			mapeo_ui = ProduccionProveedoresMapeoColores(
-				self.central_area,
-				db=self.db,
-				proveedor_id=proveedor_id,
-				proveedor_nombre=proveedor_nombre,
-				owner=self
-			)
-			mapeo_ui.get_widget().pack(fill='both', expand=True)
-			self.actualizar_ruta('PRODUCCIÓN / PROVEEDORES / MAPEO COLORES')
-			logging.info(f'Abriendo mapeo de colores para proveedor {proveedor_id}...')
-		except Exception:
-			logging.exception('Error abriendo mapeo de colores en ProduccionView')
+		"""Mostrar configurador unificado en la pestaña COLORES."""
+		self.show_configurar_mapeos(proveedor_id, proveedor_nombre, tab_inicial='COLORES')
 
 	def show_mapeo_tipos(self, proveedor_id, proveedor_nombre=''):
-		"""Mostrar editor de mapeo de tipos para un proveedor."""
-		try:
-			from kool_tpv.modulos.produccion.ui.subvistas.proveedores.produccion_proveedores_mapeotipos import ProduccionProveedoresMapeoTipos
-			for w in list(self.central_area.winfo_children()):
-				w.destroy()
-			
-			mapeo_ui = ProduccionProveedoresMapeoTipos(
-				self.central_area,
-				db=self.db,
-				proveedor_id=proveedor_id,
-				proveedor_nombre=proveedor_nombre,
-				owner=self
-			)
-			mapeo_ui.get_widget().pack(fill='both', expand=True)
-			self.actualizar_ruta('PRODUCCIÓN / PROVEEDORES / MAPEO TIPOS')
-			logging.info(f'Abriendo mapeo de tipos para proveedor {proveedor_id}...')
-		except Exception:
-			logging.exception('Error abriendo mapeo de tipos en ProduccionView')
+		"""Mostrar configurador unificado en la pestaña TIPOS."""
+		self.show_configurar_mapeos(proveedor_id, proveedor_nombre, tab_inicial='TIPOS')
+
+	def show_mapeo_generos(self, proveedor_id, proveedor_nombre=''):
+		"""Mostrar configurador unificado en la pestaña GÉNEROS."""
+		self.show_configurar_mapeos(proveedor_id, proveedor_nombre, tab_inicial='GÉNEROS')
 
 	def show_importar_albaran(self, proveedor_id=None, proveedor_nombre=''):
 		"""Mostrar importador de albarán para producción."""

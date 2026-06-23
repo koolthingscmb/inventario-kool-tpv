@@ -207,3 +207,49 @@ class ProveedorService:
         except Exception:
             logging.exception(f'Error guardando mapeo_tipos proveedor {proveedor_id}')
             return False
+
+    def get_mapeo_generos(self, proveedor_id):
+        """Obtener configuración de mapeo de géneros del proveedor."""
+        try:
+            query = "SELECT mapeo_generos FROM proveedores WHERE id = ?"
+            row = self.db.fetch_one(query, (proveedor_id,))
+            if row and row[0]:
+                return row[0]
+            return None
+        except Exception:
+            logging.exception(f'Error obteniendo mapeo_generos proveedor {proveedor_id}')
+            return None
+
+    def save_mapeo_generos(self, proveedor_id, mapeo_json):
+        """Guardar configuración de mapeo de géneros del proveedor."""
+        try:
+            query = "UPDATE proveedores SET mapeo_generos = ? WHERE id = ?"
+            self.db.execute_query(query, (mapeo_json, proveedor_id))
+            logging.info(f'Mapeo géneros actualizado para proveedor {proveedor_id}')
+            return True
+        except Exception:
+            logging.exception(f'Error guardando mapeo_generos proveedor {proveedor_id}')
+            return False
+
+    def get_mapeo_tallas(self, proveedor_id):
+        """Obtener configuración de mapeo de tallas del proveedor."""
+        try:
+            query = "SELECT mapeo_tallas FROM proveedores WHERE id = ?"
+            row = self.db.fetch_one(query, (proveedor_id,))
+            if row and row[0]:
+                return row[0]
+            return None
+        except Exception:
+            logging.exception(f'Error obteniendo mapeo_tallas proveedor {proveedor_id}')
+            return None
+
+    def save_mapeo_tallas(self, proveedor_id, mapeo_json):
+        """Guardar configuración de mapeo de tallas del proveedor."""
+        try:
+            query = "UPDATE proveedores SET mapeo_tallas = ? WHERE id = ?"
+            self.db.execute_query(query, (mapeo_json, proveedor_id))
+            logging.info(f'Mapeo tallas actualizado para proveedor {proveedor_id}')
+            return True
+        except Exception:
+            logging.exception(f'Error guardando mapeo_tallas proveedor {proveedor_id}')
+            return False

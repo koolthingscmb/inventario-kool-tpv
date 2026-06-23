@@ -21,6 +21,8 @@
   "importar_csv": {"text": "IMPORTAR CSV", "style": "info"},
   "imprimir": {"text": "IMPRIMIR", "style": "secondary"},
   "exportar": {"text": "EXPORTAR", "style": "info"},
-  "nuevo_nivel": {"text": "NUEVO NIVEL", "style": "warning"}
+  "nuevo_nivel": {"text": "NUEVO NIVEL", "style": "warning"},
+  "configurar_mapeos": {"text": "CONFIGURAR MAPEOS", "style": "special"},
+  "mapeo_generos": {"text": "MAPEO GÉNEROS", "style": "special"}
   ,"x": {"text": "X", "style": "header_neutral_small", "min_width": 40}
 }

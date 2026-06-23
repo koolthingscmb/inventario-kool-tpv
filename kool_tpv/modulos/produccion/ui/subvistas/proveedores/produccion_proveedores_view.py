@@ -113,16 +113,28 @@ class ProduccionProveedoresView:
         self.btn_eliminar.pack(side='left', padx=8)
         self.btn_albaranes = create_action_button(self.footer, 'consultar_albaranes', self._mostrar_albaranes)
         self.btn_albaranes.pack(side='left', padx=8)
-        self.btn_mapeo = create_action_button(self.footer, 'mapeo_csv', self._editar_mapeo_csv)
-        self.btn_mapeo.pack(side='left', padx=8)
-        self.btn_mapeo_colores = create_action_button(self.footer, 'mapeo_colores', self._editar_mapeo_colores)
-        self.btn_mapeo_colores.pack(side='left', padx=8)
-
-        self.btn_mapeo_tipos = create_action_button(self.footer, 'mapeo_tipos', self._editar_mapeo_tipos)
-        self.btn_mapeo_tipos.pack(side='left', padx=8)
+        self.btn_config_mapeos = create_action_button(self.footer, 'configurar_mapeos', self._abrir_configurador_mapeos)
+        self.btn_config_mapeos.pack(side='left', padx=8)
 
         self.btn_importar = create_action_button(self.footer, 'importar_albaran', self._importar_albaran)
-        self.btn_importar.pack(side='left', padx=8)
+        self.btn_importar.pack(side='right', padx=8)
+
+    def _abrir_configurador_mapeos(self):
+        try:
+            id_text = self.e_id.get().strip()
+            if not id_text:
+                from kool_tpv.utils.widgets.notificaciones import show_warning
+                show_warning(self.container, 'Selecciona un proveedor antes de configurar los mapeos')
+                return
+            prov_id = int(id_text)
+            nombre_prov = self.e_nombre.get().strip() or 'Proveedor'
+            if getattr(self, 'owner', None) and hasattr(self.owner, 'show_configurar_mapeos'):
+                self.owner.show_configurar_mapeos(prov_id, nombre_prov)
+            else:
+                from kool_tpv.utils.custom_dialog import show_error
+                show_error(self.container, 'Error', 'No se puede abrir el configurador de mapeos')
+        except Exception:
+            logging.exception('Error en _abrir_configurador_mapeos')
 
     def get_widget(self):
         return self.container
@@ -265,57 +277,6 @@ class ProduccionProveedoresView:
 
     def _mostrar_albaranes(self):
         logging.info('CONSULTAR ALBARANES - pendiente implementar')
-
-    def _editar_mapeo_csv(self):
-        try:
-            id_text = self.e_id.get().strip()
-            if not id_text:
-                from kool_tpv.utils.widgets.notificaciones import show_warning
-                show_warning(self.container, 'Selecciona un proveedor antes de configurar el mapeo CSV')
-                return
-            prov_id = int(id_text)
-            nombre_prov = self.e_nombre.get().strip() or 'Proveedor'
-            if getattr(self, 'owner', None) and hasattr(self.owner, 'show_mapeo_csv'):
-                self.owner.show_mapeo_csv(prov_id, nombre_prov)
-            else:
-                from kool_tpv.utils.custom_dialog import show_error
-                show_error(self.container, 'Error', 'No se puede abrir editor de mapeo CSV')
-        except Exception:
-            logging.exception('Error en _editar_mapeo_csv')
-
-    def _editar_mapeo_colores(self):
-        try:
-            id_text = self.e_id.get().strip()
-            if not id_text:
-                from kool_tpv.utils.widgets.notificaciones import show_warning
-                show_warning(self.container, 'Selecciona un proveedor antes de configurar el mapeo de colores')
-                return
-            prov_id = int(id_text)
-            nombre_prov = self.e_nombre.get().strip() or 'Proveedor'
-            if getattr(self, 'owner', None) and hasattr(self.owner, 'show_mapeo_colores'):
-                self.owner.show_mapeo_colores(prov_id, nombre_prov)
-            else:
-                from kool_tpv.utils.custom_dialog import show_error
-                show_error(self.container, 'Error', 'No se puede abrir editor de mapeo de colores')
-        except Exception:
-            logging.exception('Error en _editar_mapeo_colores')
-
-    def _editar_mapeo_tipos(self):
-        try:
-            id_text = self.e_id.get().strip()
-            if not id_text:
-                from kool_tpv.utils.widgets.notificaciones import show_warning
-                show_warning(self.container, 'Selecciona un proveedor antes de configurar el mapeo de tipos')
-                return
-            prov_id = int(id_text)
-            nombre_prov = self.e_nombre.get().strip() or 'Proveedor'
-            if getattr(self, 'owner', None) and hasattr(self.owner, 'show_mapeo_tipos'):
-                self.owner.show_mapeo_tipos(prov_id, nombre_prov)
-            else:
-                from kool_tpv.utils.custom_dialog import show_error
-                show_error(self.container, 'Error', 'No se puede abrir editor de mapeo de tipos')
-        except Exception:
-            logging.exception('Error en _editar_mapeo_tipos')
 
     def _importar_albaran(self):
         try:
