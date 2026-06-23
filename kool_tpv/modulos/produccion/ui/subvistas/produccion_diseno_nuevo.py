@@ -44,6 +44,7 @@ class DisenoNuevoView:
 
 		# Estado de edición
 		self._diseno_cargado: Optional[ProduccionDiseno] = None
+		self._cache_tipos = {t.id: t.nombre for t in self.tipos_service.obtener_activos()}
 
 		# Cargar configuración
 		self.config = cargar_config_produccion()
@@ -346,7 +347,9 @@ class DisenoNuevoView:
 
 	def _buscar_disenos_paginado(self, filtro: str) -> List[ProduccionDiseno]:
 		"""Función de búsqueda para SearchablePaginatedNavList."""
-		return self.service.buscar(filtro)
+		if filtro.strip():
+			return self.service.buscar(filtro.strip())
+		return self.service.obtener_activos()
 
 	def _map_diseno_para_lista(self, r: ProduccionDiseno) -> dict:
 		"""Función de mapeo para SearchablePaginatedNavList."""
