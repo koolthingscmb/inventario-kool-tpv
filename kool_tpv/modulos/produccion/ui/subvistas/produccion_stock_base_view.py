@@ -38,10 +38,17 @@ class ProduccionStockBaseView:
 		
 		self.show_lista()
 
+	def _destruir_current(self):
+		"""Destruir el contenido actual (lista frame o flow)."""
+		if self._current_content:
+			try:
+				self._current_content.destroy()
+			except AttributeError:
+				self._current_content.destruir()
+
 	def show_lista(self):
 		"""Mostrar la tabla de stock."""
-		if self._current_content:
-			self._current_content.destroy()
+		self._destruir_current()
 		
 		self._view_state = 'lista'
 		
@@ -73,14 +80,6 @@ class ProduccionStockBaseView:
 			style_key="action_success"
 		)
 		self.btn_nuevo.pack(side="left", padx=5)
-		
-		self.btn_volver = ButtonFactory.create_button(
-			btn_frame, 
-			text="VOLVER", 
-			command=self.destruir,
-			style_key="action_secondary"
-		)
-		self.btn_volver.pack(side="left", padx=5)
 
 		# Tabla de stock
 		columnas = [
@@ -103,20 +102,23 @@ class ProduccionStockBaseView:
 		self._cargar_datos()
 
 	def show_formulario(self, item_data=None):
-		"""Mostrar el formulario de alta o edición."""
-		if self._current_content:
-			self._current_content.destroy()
-		
-		self._view_state = 'formulario'
-		
-		from .produccion_stock_base_form import ProduccionStockBaseFormView
-		self._current_content = ProduccionStockBaseFormView(
-			self.container, 
+		"""Mostrar el flow de entrada de stock con chips."""
+		self._destruir_current()
+
+		self._view_state = 'flow'
+
+		from .stock_base.stock_base_flow import StockBaseFlow
+		self._current_content = StockBaseFlow(
+			self.container,
 			db=self.db,
-			on_guardar_success=self.show_lista,
-			on_cancelar=self.show_lista,
+			on_cerrar=self.show_lista,
+			on_guardado=self._on_guardado_flow,
 			item_data=item_data
 		)
+
+	def _on_guardado_flow(self):
+		"""Refrescar la lista tras guardar una variante desde el flow."""
+		self.show_lista()
 
 	def _cargar_datos(self):
 		"""Cargar los datos del servicio en la tabla."""
@@ -125,7 +127,7 @@ class ProduccionStockBaseView:
 			rows = []
 			for it in items:
 				rows.append({
-					"ARTÍCULO": it["producto"],
+					"ARTÍCULO": it["tipo"],
 					"GÉNERO": it["genero"],
 					"COLOR": it["color"],
 					"TALLA": it["talla"],

@@ -1,0 +1,426 @@
+"""UI de Importar Albarán para Producción - Gestión de Bases Textiles."""
+import logging
+import json
+import tkinter as tk
+from tkinter import filedialog
+from pathlib import Path
+from decimal import Decimal
+import customtkinter as ctk
+
+from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
+from kool_tpv.utils.config_loader import load_colors
+from kool_tpv.utils.font_loader import load_font_config
+from kool_tpv.utils.factories.button_factory import ButtonFactory
+from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
+from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
+from kool_tpv.utils.dialogs import show_error
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
+from kool_tpv.utils.csv_import import CsvParser
+from kool_tpv.base_datos.proveedor_service import ProveedorService
+from kool_tpv.base_datos.albaran_service import AlbaranService
+from kool_tpv.modulos.almacen.albaran_repository import AlbaranRepository
+from kool_tpv.modulos.produccion.repositories.produccion_stock_base_repository import ProduccionStockBaseRepository
+from kool_tpv.base_datos.money_adapter import prepare_for_db
+
+logger = logging.getLogger(__name__)
+
+class ProduccionImportarAlbaran:
+    """UI para importar albaranes de bases textiles en el taller."""
+
+    def __init__(self, parent, db=None, proveedor_id=None, proveedor_nombre='', owner=None):
+        self.parent = parent
+        self.db = db
+        self.proveedor_id = proveedor_id
+        self.proveedor_nombre = proveedor_nombre
+        self.owner = owner
+        
+        self.selected_file_path = None
+        self.parse_result = [] # Datos brutos del CSV
+        self.lineas_procesadas = [] # Datos con color mapeado y validaciones
+        self.mapeo_colores = {} # color_prov -> color_interno (nombre)
+        self.mapeo_tipos = {} # palabra -> tipo_id
+        self.colores_internos = {} # nombre -> id
+        self.tipos_disponibles = {} # id -> nombre
+        
+        try:
+            self.colors = load_colors('produccion')
+        except Exception:
+            self.colors = {'text': COLOR_MATRIX, 'background': COLOR_BG_TERMINAL}
+
+        self.container = ctk.CTkFrame(parent, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
+        
+        self._cargar_mapeos()
+        self._setup_ui()
+
+    def _cargar_mapeos(self):
+        """Cargar configuración de colores y tipos."""
+        if not self.db: return
+        
+        prov_service = ProveedorService(self.db)
+        # 1. Mapeos del proveedor
+        if self.proveedor_id:
+            # Colores
+            mapeo_colores_json = prov_service.get_mapeo_colores(self.proveedor_id)
+            if mapeo_colores_json:
+                try:
+                    self.mapeo_colores = json.loads(mapeo_colores_json)
+                except Exception:
+                    logger.error("Error parseando mapeo_colores JSON")
+            
+            # Tipos
+            mapeo_tipos_json = prov_service.get_mapeo_tipos(self.proveedor_id)
+            if mapeo_tipos_json:
+                try:
+                    self.mapeo_tipos = json.loads(mapeo_tipos_json)
+                except Exception:
+                    logger.error("Error parseando mapeo_tipos JSON")
+        
+        # 2. Colores internos (Canonical)
+        try:
+            rows = self.db.fetch_all("SELECT id, nombre FROM produccion_colores")
+            self.colores_internos = {r[1]: r[0] for r in rows}
+        except Exception:
+            logger.exception("Error cargando colores internos")
+            
+        # 3. Tipos de productos (Bases)
+        try:
+            rows = self.db.fetch_all("SELECT id, nombre FROM tipos WHERE activo = 1 ORDER BY nombre")
+            self.tipos_disponibles = {r[0]: r[1] for r in rows}
+        except Exception:
+            logger.exception("Error cargando tipos")
+
+    def _setup_ui(self):
+        font_config = load_font_config()
+        title_font = font_config.get('title', {'family': 'Courier New', 'size': 22, 'weight': 'bold'})
+        label_font = font_config.get('label', {'family': 'Courier New', 'size': 16})
+        entry_font = font_config.get('entry', {'family': 'Courier New', 'size': 14})
+
+        # Título
+        lbl_titulo = ctk.CTkLabel(
+            self.container, 
+            text=f'IMPORTAR ALBARÁN DE BASES: {self.proveedor_nombre.upper()}',
+            text_color=self.colors.get('text', COLOR_MATRIX),
+            font=(title_font['family'], title_font['size'], title_font.get('weight', 'normal'))
+        )
+        lbl_titulo.pack(pady=(15, 10))
+
+        # TOP PANEL: Archivo y Cabecera
+        top_panel = ctk.CTkFrame(self.container, fg_color='#1a1a1a')
+        top_panel.pack(fill='x', padx=20, pady=5)
+
+        # Fila 1: Selección de archivo
+        file_row = ctk.CTkFrame(top_panel, fg_color='transparent')
+        file_row.pack(fill='x', padx=10, pady=10)
+        
+        self.btn_seleccionar = ButtonFactory.create_button(
+            file_row, 'SELECCIONAR CSV', self._on_seleccionar_click, style_key='action_confirm'
+        )
+        self.btn_seleccionar.pack(side='left', padx=(0, 10))
+        
+        self.lbl_archivo = ctk.CTkLabel(
+            file_row, 
+            text='Ningún archivo seleccionado', 
+            text_color='#888888',
+            font=(entry_font['family'], entry_font['size'])
+        )
+        self.lbl_archivo.pack(side='left')
+
+        # Fila 2: Cabecera
+        cab_row = ctk.CTkFrame(top_panel, fg_color='transparent')
+        cab_row.pack(fill='x', padx=10, pady=(0, 10))
+        
+        ctk.CTkLabel(cab_row, text='Nº Albarán:', font=(label_font['family'], label_font['size'])).pack(side='left', padx=5)
+        self.entry_num = ctk.CTkEntry(cab_row, width=120, font=(entry_font['family'], entry_font['size']))
+        self.entry_num.pack(side='left', padx=5)
+        
+        # Pre-rellenar número
+        try:
+            albaran_service = AlbaranService(self.db)
+            self.entry_num.insert(0, str(albaran_service.get_next_num_albaran()))
+        except: pass
+
+        # TABLA PREVIEW
+        self.columns = [
+            ('PRODUCTO CSV', 200), ('TIPO DETECTADO', 120), ('COLOR PROV', 150), 
+            ('COLOR INT', 120), ('TALLA', 60), ('UDS', 50), 
+            ('COSTE', 70), ('ESTADO', 120)
+        ]
+        self.nav_list = VirtualNavList(self.container, columns=self.columns, module_name='produccion')
+        self.nav_list.pack(fill='both', expand=True, padx=20, pady=10)
+
+        # RESUMEN PANEL
+        self.resumen_frame = ctk.CTkFrame(self.container, fg_color='#1a1a1a')
+        self.resumen_frame.pack(fill='x', padx=20, pady=5)
+        self.lbl_resumen = ctk.CTkLabel(self.resumen_frame, text='', font=(label_font['family'], label_font['size']))
+        self.lbl_resumen.pack(pady=10)
+
+        # BOTONES FOOTER
+        footer = ctk.CTkFrame(self.container, fg_color='transparent')
+        footer.pack(fill='x', padx=20, pady=15)
+        
+        self.btn_importar = ButtonFactory.create_button(
+            footer, 'CONFIRMAR Y SUBIR STOCK', self._on_importar_click, style_key='action_success'
+        )
+        self.btn_importar.pack(side='right')
+        self.btn_importar.configure(state='disabled')
+        
+        self.btn_volver = ButtonFactory.create_button(
+            footer, 'VOLVER', self._on_volver_click, style_key='action_secondary'
+        )
+        self.btn_volver.pack(side='left')
+
+    def _on_seleccionar_click(self):
+        path = filedialog.askopenfilename(
+            title='Seleccionar archivo CSV',
+            filetypes=[('Archivos CSV', '*.csv'), ('Todos los archivos', '*.*')]
+        )
+        if path:
+            self.selected_file_path = path
+            self.lbl_archivo.configure(text=Path(path).name, text_color=COLOR_MATRIX)
+            self._analizar_csv()
+
+    def _analizar_csv(self):
+        if not self.selected_file_path: return
+        
+        try:
+            parser = CsvParser()
+            prov_service = ProveedorService(self.db)
+            mapeo_csv = prov_service.get_mapeo_csv(self.proveedor_id)
+            if mapeo_csv:
+                parser.set_provider_mapping(json.loads(mapeo_csv))
+                
+            datos, errores = parser.parse_file(self.selected_file_path)
+            if errores and not datos:
+                show_error(self.container, 'Error', f'Error parseando CSV:\n{errores[0]}')
+                return
+                
+            self.parse_result = datos
+            self._procesar_lineas()
+            
+        except Exception:
+            logger.exception("Error analizando CSV")
+            show_error(self.container, 'Error', 'No se pudo analizar el CSV')
+
+    def _procesar_lineas(self):
+        """Aplicar mapeos y validaciones a los datos brutos."""
+        self.lineas_procesadas = []
+        
+        for fila in self.parse_result:
+            nombre_csv = fila.get('nombre', '').strip()
+            col_prov = fila.get('color', '').strip()
+            talla = fila.get('talla', '').strip().upper()
+            uds = fila.get('cantidad', 0)
+            coste = fila.get('coste', 0.0)
+            
+            # 1. Mapeo de TIPO (por palabras clave en nombre)
+            tipo_id = None
+            tipo_nombre = '???'
+            nombre_lower = nombre_csv.lower()
+            
+            # Prioridad al mapeo del usuario
+            if isinstance(self.mapeo_tipos, list):
+                for item in self.mapeo_tipos:
+                    keyword = item.get('keyword', '')
+                    t_id = item.get('tipo_id')
+                    if keyword and keyword.lower() in nombre_lower:
+                        try:
+                            tipo_id = int(t_id)
+                            tipo_nombre = self.tipos_disponibles.get(tipo_id, f"ID:{tipo_id}")
+                            break
+                        except (ValueError, TypeError):
+                            continue
+            elif isinstance(self.mapeo_tipos, dict):
+                # Fallback por si acaso es un dict plano
+                for keyword, t_id in self.mapeo_tipos.items():
+                    if keyword.lower() in nombre_lower:
+                        try:
+                            tipo_id = int(t_id)
+                            tipo_nombre = self.tipos_disponibles.get(tipo_id, f"ID:{tipo_id}")
+                            break
+                        except (ValueError, TypeError):
+                            continue
+            
+            # 2. Mapeo de COLOR
+            # Buscamos el color del proveedor en el mapeo
+            # (Limpieza básica para aumentar coincidencia)
+            color_mapeado = self.mapeo_colores.get(col_prov)
+            color_id = self.colores_internos.get(color_mapeado) if color_mapeado else None
+            
+            estado = '✓ OK'
+            if not tipo_id: estado = '⚠ Falta Tipo'
+            elif not color_id: estado = '⚠ Color desconocido'
+            elif uds <= 0: estado = '⚠ Cantidad 0'
+            
+            self.lineas_procesadas.append({
+                'nombre_csv': nombre_csv,
+                'tipo_id': tipo_id,
+                'tipo_nombre': tipo_nombre,
+                'color_id': color_id,
+                'color_prov': col_prov,
+                'color_interno': color_mapeado or '???',
+                'talla': talla,
+                'uds': uds,
+                'coste': coste,
+                'total': uds * coste,
+                'estado': estado,
+                'valida': estado == '✓ OK'
+            })
+            
+        self._mostrar_preview()
+
+    def _mostrar_preview(self):
+        rows = []
+        tot_uds = 0
+        tot_importe = 0.0
+        todas_validas = True
+        
+        for p in self.lineas_procesadas:
+            rows.append({
+                'PRODUCTO CSV': p['nombre_csv'],
+                'TIPO DETECTADO': p['tipo_nombre'],
+                'COLOR PROV': p['color_prov'],
+                'COLOR INT': p['color_interno'],
+                'TALLA': p['talla'],
+                'UDS': str(p['uds']),
+                'COSTE': f"{p['coste']:.2f}€",
+                'ESTADO': p['estado']
+            })
+            if p['valida']:
+                tot_uds += p['uds']
+                tot_importe += p['total']
+            else:
+                todas_validas = False
+                
+        self.nav_list.set_items(rows)
+        self.lbl_resumen.configure(text=f"Total válido: {tot_uds} unidades | {tot_importe:.2f}€")
+        
+        if todas_validas and rows:
+            self.btn_importar.configure(state='normal')
+        else:
+            self.btn_importar.configure(state='disabled')
+
+    def _on_importar_click(self):
+        """Guardar albarán y actualizar stock con coste medio."""
+        if not self.lineas_procesadas: return
+        
+        num_albaran = self.entry_num.get().strip()
+        if not num_albaran:
+            show_error(self.container, 'Error', 'Introduce un número de albarán')
+            return
+            
+        try:
+            repo_stock = ProduccionStockBaseRepository(self.db)
+            repo_albaran = AlbaranRepository(self.db)
+            
+            # 1. Preparar líneas para AlbaranRepository (registro histórico)
+            lineas_albaran = []
+            for p in self.lineas_procesadas:
+                lineas_albaran.append({
+                    'producto_id': None, # No es un producto de la tabla 'productos'
+                    'ean': '',
+                    'nombre': f"{p['tipo_nombre']} - {p['color_interno']} ({p['talla']})",
+                    'cantidad': p['uds'],
+                    'coste': p['coste'],
+                    'tipo_iva': 21,
+                    'es_producto_nuevo': False
+                })
+            
+            # 2. Guardar albarán
+            totales = {
+                'total_neto': sum(p['total'] for p in self.lineas_procesadas),
+                'total_iva_4': 0, 'total_iva_10': 0, 'total_iva_21': 0,
+                'total': sum(p['total'] for p in self.lineas_procesadas) * 1.21
+            }
+            # Simplificamos IVAs para este módulo
+            totales['total_iva_21'] = totales['total_neto'] * 0.21
+            
+            from datetime import date
+            repo_albaran.guardar_albaran_completo(
+                num_albaran=num_albaran,
+                proveedor_id=self.proveedor_id,
+                fecha=date.today().strftime('%Y-%m-%d'),
+                tipo='ENTRADA',
+                lineas=lineas_albaran,
+                totales=totales
+            )
+            
+            # 3. Actualizar Stock y Coste Medio
+            for p in self.lineas_procesadas:
+                self._actualizar_stock_y_coste(p, repo_stock)
+                
+            ToastWidget.show(self.container, "Albarán procesado y stock actualizado", tipo='success')
+            self._on_volver_click()
+            
+        except Exception:
+            logger.exception("Error procesando importación")
+            show_error(self.container, 'Error', 'Error al procesar la importación')
+
+    def _actualizar_stock_y_coste(self, p, repo):
+        """Calcula coste medio y actualiza stock base."""
+        tipo_id = p['tipo_id']
+        color_id = p['color_id']
+        talla = p['talla']
+        cantidad_nueva = p['uds']
+        coste_nuevo_eur = p['coste']
+        
+        # Obtener stock actual para calcular el medio
+        query = "SELECT cantidad, coste_medio, sku FROM produccion_stock_colores_tallas WHERE tipo_id=? AND color_id=? AND talla=?"
+        row = self.db.fetch_one(query, (tipo_id, color_id, talla))
+        
+        cant_actual = 0
+        coste_actual_cents = 0
+        sku = ""
+        
+        if row:
+            cant_actual = row[0] or 0
+            coste_actual_cents = row[1] or 0
+            sku = row[2] or ""
+            
+        # Nuevo stock
+        cant_total = cant_actual + cantidad_nueva
+        
+        # Coste medio ponderado (en céntimos)
+        coste_nuevo_cents = int(coste_nuevo_eur * 100)
+        if cant_total > 0:
+            numerador = (cant_actual * coste_actual_cents) + (cantidad_nueva * coste_nuevo_cents)
+            nuevo_coste_medio = int(numerador / cant_total)
+        else:
+            nuevo_coste_medio = coste_nuevo_cents
+            
+        # Generar SKU si no existe
+        if not sku:
+            sku = self._generar_sku_pattern(tipo_id, color_id, talla)
+            
+        # Upsert
+        repo.crear_o_actualizar(
+            tipo_id=tipo_id,
+            genero_id=None,
+            color_id=color_id,
+            talla=talla,
+            sku=sku,
+            cantidad=cant_total,
+            coste_medio=nuevo_coste_medio
+        )
+
+    def _generar_sku_pattern(self, tipo_id, color_id, talla):
+        """Genera un SKU tipo TYPE-COLOR-SIZE."""
+        try:
+            tipo_nom = self.db.fetch_one("SELECT nombre FROM tipos WHERE id=?", (tipo_id,))[0]
+            color_nom = self.db.fetch_one("SELECT nombre FROM produccion_colores WHERE id=?", (color_id,))[0]
+            
+            def clean(s): return s.upper().replace(' ', '').replace('Á', 'A').replace('É', 'E').replace('Í', 'I').replace('Ó', 'O').replace('Ú', 'U')
+            
+            t = clean(tipo_nom)[:3]
+            c = clean(color_nom)[:3]
+            s = clean(talla)
+            
+            return f"{t}-{c}-{s}"
+        except:
+            return ""
+
+    def _on_volver_click(self):
+        if self.owner and hasattr(self.owner, 'show_proveedores'):
+            self.owner.show_proveedores(proveedor_id=self.proveedor_id)
+
+    def get_widget(self):
+        return self.container

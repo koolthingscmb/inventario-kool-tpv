@@ -42,7 +42,7 @@
       {"id": "nuevo", "text": "PRODUCCIÓN +", "action": "show_nuevo"},
       {"id": "diseno_nuevo", "text": "DISEÑO +", "action": "show_diseno_nuevo"},
       {"id": "config", "text": "CONFIG", "action": "show_config"},
-      {"id": "colores", "text": "COLORES", "action": "show_colores"},
+      {"id": "proveedores", "text": "PROVEEDORES", "action": "show_colores"},
       {"id": "stock", "text": "STOCK BASES", "action": "show_stock"}
     ]
   },

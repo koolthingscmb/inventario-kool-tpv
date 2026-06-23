@@ -154,6 +154,51 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migration 010: Columna mapeo_colores en proveedores
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('proveedores')") or [])]
+			if 'mapeo_colores' not in cols:
+				logging.info('Aplicando migración 010: mapeo_colores en proveedores')
+				db.connection.execute('ALTER TABLE proveedores ADD COLUMN mapeo_colores TEXT')
+				db.connection.commit()
+				logging.info('Migración 010 (mapeo_colores) aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 010')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
+		# Migration 011: Columna coste_medio en produccion_stock_colores_tallas
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('produccion_stock_colores_tallas')") or [])]
+			if 'coste_medio' not in cols:
+				logging.info('Aplicando migración 011: coste_medio en produccion_stock_colores_tallas')
+				db.connection.execute('ALTER TABLE produccion_stock_colores_tallas ADD COLUMN coste_medio INTEGER DEFAULT 0')
+				db.connection.commit()
+				logging.info('Migración 011 (coste_medio) aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 011')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
+		# Migration 012: Columna mapeo_tipos en proveedores
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('proveedores')") or [])]
+			if 'mapeo_tipos' not in cols:
+				logging.info('Aplicando migración 012: mapeo_tipos en proveedores')
+				db.connection.execute('ALTER TABLE proveedores ADD COLUMN mapeo_tipos TEXT')
+				db.connection.commit()
+				logging.info('Migración 012 (mapeo_tipos) aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 012')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Validate again
 		try:
 			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table'")

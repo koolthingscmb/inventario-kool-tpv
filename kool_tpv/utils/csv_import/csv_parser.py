@@ -101,9 +101,18 @@ class CsvParser:
             logger.info(f'Mapeo autodetectado: {self.mapped_headers}')
 
         # Validar columnas mínimas requeridas
-        required = ['ean', 'cantidad']
+        # En producción puede no haber EAN, pero sí color y talla. 
+        # En almacén el EAN es obligatorio. 
+        # Mantenemos el check pero permitimos color+talla como alternativa.
+        required = ['cantidad']
         missing = [r for r in required if r not in self.mapped_headers]
-        if missing:
+        
+        # Debe tener EAN o (Color y Talla)
+        has_id_cols = 'ean' in self.mapped_headers or ('color' in self.mapped_headers and 'talla' in self.mapped_headers)
+        
+        if missing or not has_id_cols:
+            if not has_id_cols:
+                missing.append('ean o (color y talla)')
             errors.append(f"Columnas requeridas no encontradas: {missing}. Headers detectados: {self.headers}")
             return [], errors
 
@@ -186,6 +195,8 @@ class CsvParser:
             'columna_ean': 'ean',
             'columna_nombre': 'nombre',
             'columna_cantidad': 'cantidad',
+            'columna_color': 'color',
+            'columna_talla': 'talla',
             'columna_precio_base': 'precio_base',  # Precio bruto sin dto (para calcular coste y pvpr)
             'columna_precio': 'precio_base',        # Legacy: mismo significado
             'columna_coste': 'coste',               # Coste neto directo (si el CSV ya lo trae)
@@ -271,7 +282,15 @@ class CsvParser:
         except (ValueError, TypeError):
             result['pvpr'] = 0.0
 
-        return result if result['ean'] else None
+        # Campos de producción (color, talla)
+        result['color'] = str(result.get('color', '')).strip()
+        result['talla'] = str(result.get('talla', '')).strip()
+
+        # Retornar si tiene EAN O (color y talla) para soportar albaranes de producción
+        tiene_ean = bool(result.get('ean'))
+        tiene_color_talla = bool(result.get('color')) and bool(result.get('talla'))
+        
+        return result if (tiene_ean or tiene_color_talla) else None
 
     def get_column_info(self) -> Dict[str, Any]:
         """Retorna información sobre las columnas detectadas."""

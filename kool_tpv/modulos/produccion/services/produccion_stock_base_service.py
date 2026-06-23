@@ -26,57 +26,53 @@ class ProduccionStockBaseService:
 		"""Obtener la lista completa de stock base."""
 		return self.repo.get_todos()
 
-	def guardar_variante(self, producto_id: int, genero_id: Optional[int], 
-	                     color_id: int, talla: str, sku: str, cantidad: int) -> bool:
+	def guardar_variante(self, tipo_id: int, genero_id: Optional[int], 
+	                     color_id: Optional[int], talla: str, sku: str, cantidad: int) -> bool:
 		"""Guardar o actualizar una variante de stock.
 		
 		Valida que los datos mínimos estén presentes.
 		"""
-		if not producto_id or not color_id:
-			logger.error("Faltan datos obligatorios (producto o color) para guardar stock base")
+		if not tipo_id:
+			logger.error("Falta dato obligatorio (tipo) para guardar stock base")
 			return False
 		
 		# Limpiar strings
 		talla = (talla or "").strip().upper()
 		sku = (sku or "").strip().upper()
 		
-		return self.repo.crear_o_actualizar(producto_id, genero_id, color_id, talla, sku, cantidad)
+		return self.repo.crear_o_actualizar(tipo_id, genero_id, color_id, talla, sku, cantidad)
 
 	def eliminar_variante(self, id_stock: int) -> bool:
 		"""Eliminar un registro de stock."""
 		return self.repo.eliminar(id_stock)
 
-	def comprobar_disponibilidad(self, producto_id: int, genero_id: Optional[int], 
+	def comprobar_disponibilidad(self, tipo_id: int, genero_id: Optional[int], 
 	                           color_id: int, talla: str, cantidad_requerida: int = 1) -> bool:
 		"""Verifica si hay stock suficiente para producir."""
-		stock_actual = self.repo.obtener_cantidad(producto_id, genero_id, color_id, (talla or "").strip().upper())
+		stock_actual = self.repo.obtener_cantidad(tipo_id, genero_id, color_id, (talla or "").strip().upper())
 		return stock_actual >= cantidad_requerida
 
-	def consumir_stock(self, producto_id: int, genero_id: Optional[int], 
+	def consumir_stock(self, tipo_id: int, genero_id: Optional[int], 
 	                  color_id: int, talla: str, cantidad: int) -> bool:
 		"""Descontar stock del almacén de bases."""
 		if cantidad <= 0:
 			return True
-		return self.repo.actualizar_cantidad(producto_id, genero_id, color_id, (talla or "").strip().upper(), -cantidad)
+		return self.repo.actualizar_cantidad(tipo_id, genero_id, color_id, (talla or "").strip().upper(), -cantidad)
 
-	def reponer_stock(self, producto_id: int, genero_id: Optional[int], 
+	def reponer_stock(self, tipo_id: int, genero_id: Optional[int], 
 	                 color_id: int, talla: str, cantidad: int) -> bool:
 		"""Añadir stock al almacén de bases."""
 		if cantidad <= 0:
 			return True
-		return self.repo.actualizar_cantidad(producto_id, genero_id, color_id, (talla or "").strip().upper(), cantidad)
+		return self.repo.actualizar_cantidad(tipo_id, genero_id, color_id, (talla or "").strip().upper(), cantidad)
 
 	def obtener_opciones_formulario(self) -> Dict[str, List[Dict[str, Any]]]:
-		"""Obtener listas de productos, géneros y colores para los selectores."""
-		# 1. Productos que son 'bases' (tipo activo en taller)
-		query_prod = """
-			SELECT p.id, p.nombre 
-			FROM productos p
-			JOIN tipos t ON p.tipo = t.id
-			WHERE t.activo = 1
-			ORDER BY p.nombre
+		"""Obtener listas de tipos, géneros y colores para los selectores."""
+		# 1. Tipos activos del taller
+		query_tipos = """
+			SELECT id, nombre FROM tipos WHERE activo = 1 ORDER BY nombre
 		"""
-		productos = [{"id": r[0], "nombre": r[1]} for r in self.db.fetch_all(query_prod)]
+		tipos = [{"id": r[0], "nombre": r[1]} for r in self.db.fetch_all(query_tipos)]
 
 		# 2. Géneros
 		query_gen = "SELECT id, nombre FROM produccion_generos ORDER BY id"
@@ -87,7 +83,7 @@ class ProduccionStockBaseService:
 		colores = [{"id": r[0], "nombre": r[1]} for r in self.db.fetch_all(query_col)]
 
 		return {
-			"productos": productos,
+			"tipos": tipos,
 			"generos": generos,
 			"colores": colores
 		}

@@ -161,3 +161,49 @@ class ProveedorService:
         except Exception:
             logging.exception(f'Error guardando mapeo_csv proveedor {proveedor_id}')
             return False
+
+    def get_mapeo_colores(self, proveedor_id):
+        """Obtener configuración de mapeo de colores del proveedor."""
+        try:
+            query = "SELECT mapeo_colores FROM proveedores WHERE id = ?"
+            row = self.db.fetch_one(query, (proveedor_id,))
+            if row and row[0]:
+                return row[0]
+            return None
+        except Exception:
+            logging.exception(f'Error obteniendo mapeo_colores proveedor {proveedor_id}')
+            return None
+
+    def save_mapeo_colores(self, proveedor_id, mapeo_json):
+        """Guardar configuración de mapeo de colores del proveedor."""
+        try:
+            query = "UPDATE proveedores SET mapeo_colores = ? WHERE id = ?"
+            self.db.execute_query(query, (mapeo_json, proveedor_id))
+            logging.info(f'Mapeo colores actualizado para proveedor {proveedor_id}')
+            return True
+        except Exception:
+            logging.exception(f'Error guardando mapeo_colores proveedor {proveedor_id}')
+            return False
+
+    def get_mapeo_tipos(self, proveedor_id):
+        """Obtener configuración de mapeo de tipos del proveedor."""
+        try:
+            query = "SELECT mapeo_tipos FROM proveedores WHERE id = ?"
+            row = self.db.fetch_one(query, (proveedor_id,))
+            if row and row[0]:
+                return row[0]
+            return None
+        except Exception:
+            logging.exception(f'Error obteniendo mapeo_tipos proveedor {proveedor_id}')
+            return None
+
+    def save_mapeo_tipos(self, proveedor_id, mapeo_json):
+        """Guardar configuración de mapeo de tipos del proveedor."""
+        try:
+            query = "UPDATE proveedores SET mapeo_tipos = ? WHERE id = ?"
+            self.db.execute_query(query, (mapeo_json, proveedor_id))
+            logging.info(f'Mapeo tipos actualizado para proveedor {proveedor_id}')
+            return True
+        except Exception:
+            logging.exception(f'Error guardando mapeo_tipos proveedor {proveedor_id}')
+            return False

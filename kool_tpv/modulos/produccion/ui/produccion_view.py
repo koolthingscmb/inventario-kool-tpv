@@ -64,7 +64,7 @@ class ProduccionView(BaseModuleView):
 			'show_nuevo': self.show_nuevo,
 			'show_diseno_nuevo': self.show_diseno_nuevo,
 			'show_config': self.show_config,
-			'show_colores': self.show_colores,
+			'show_colores': self.show_proveedores,
 			'show_stock': self.show_stock,
 		}
 
@@ -244,9 +244,124 @@ class ProduccionView(BaseModuleView):
 		except Exception:
 			logging.exception('Error abriendo show_config en ProduccionView')
 
-	def show_colores(self):
-		"""Mostrar vista de colores (placeholder)."""
-		logging.info('COLORES - Gestión de colores')
+	def show_proveedores(self, proveedor_id=None):
+		"""Mostrar vista de proveedores del módulo de producción."""
+		try:
+			from kool_tpv.modulos.produccion.ui.subvistas.proveedores.produccion_proveedores_view import ProduccionProveedoresView
+			for w in list(self.central_area.winfo_children()):
+				w.destroy()
+			
+			view = ProduccionProveedoresView(
+				self.central_area,
+				db=self.db,
+				owner=self
+			)
+			view.get_widget().pack(fill='both', expand=True)
+			if proveedor_id:
+				view.cargar_proveedor(proveedor_id)
+			self.actualizar_ruta('PRODUCCIÓN / PROVEEDORES')
+			logging.info('Abriendo gestión de proveedores...')
+		except Exception:
+			logging.exception('Error abriendo show_proveedores en ProduccionView')
+
+	def show_mapeo_csv(self, proveedor_id, proveedor_nombre=''):
+		"""Mostrar editor de mapeo CSV para un proveedor."""
+		try:
+			from kool_tpv.modulos.produccion.ui.subvistas.proveedores.produccion_proveedores_mapeocsv import ProduccionProveedoresMapeoCsv
+			for w in list(self.central_area.winfo_children()):
+				w.destroy()
+			
+			mapeo_ui = ProduccionProveedoresMapeoCsv(
+				self.central_area,
+				db=self.db,
+				proveedor_id=proveedor_id,
+				proveedor_nombre=proveedor_nombre,
+				owner=self
+			)
+			mapeo_ui.get_widget().pack(fill='both', expand=True)
+			self.actualizar_ruta('PRODUCCIÓN / PROVEEDORES / MAPEO CSV')
+			logging.info(f'Abriendo mapeo CSV para proveedor {proveedor_id}...')
+		except Exception:
+			logging.exception('Error abriendo mapeo CSV en ProduccionView')
+
+	def show_mapeo_colores(self, proveedor_id, proveedor_nombre=''):
+		"""Mostrar editor de mapeo de colores para un proveedor."""
+		try:
+			from kool_tpv.modulos.produccion.ui.subvistas.proveedores.produccion_proveedores_mapeocolores import ProduccionProveedoresMapeoColores
+			for w in list(self.central_area.winfo_children()):
+				w.destroy()
+			
+			mapeo_ui = ProduccionProveedoresMapeoColores(
+				self.central_area,
+				db=self.db,
+				proveedor_id=proveedor_id,
+				proveedor_nombre=proveedor_nombre,
+				owner=self
+			)
+			mapeo_ui.get_widget().pack(fill='both', expand=True)
+			self.actualizar_ruta('PRODUCCIÓN / PROVEEDORES / MAPEO COLORES')
+			logging.info(f'Abriendo mapeo de colores para proveedor {proveedor_id}...')
+		except Exception:
+			logging.exception('Error abriendo mapeo de colores en ProduccionView')
+
+	def show_mapeo_tipos(self, proveedor_id, proveedor_nombre=''):
+		"""Mostrar editor de mapeo de tipos para un proveedor."""
+		try:
+			from kool_tpv.modulos.produccion.ui.subvistas.proveedores.produccion_proveedores_mapeotipos import ProduccionProveedoresMapeoTipos
+			for w in list(self.central_area.winfo_children()):
+				w.destroy()
+			
+			mapeo_ui = ProduccionProveedoresMapeoTipos(
+				self.central_area,
+				db=self.db,
+				proveedor_id=proveedor_id,
+				proveedor_nombre=proveedor_nombre,
+				owner=self
+			)
+			mapeo_ui.get_widget().pack(fill='both', expand=True)
+			self.actualizar_ruta('PRODUCCIÓN / PROVEEDORES / MAPEO TIPOS')
+			logging.info(f'Abriendo mapeo de tipos para proveedor {proveedor_id}...')
+		except Exception:
+			logging.exception('Error abriendo mapeo de tipos en ProduccionView')
+
+	def show_importar_albaran(self, proveedor_id=None, proveedor_nombre=''):
+		"""Mostrar importador de albarán para producción."""
+		try:
+			from kool_tpv.modulos.produccion.ui.subvistas.proveedores.produccion_importar_albaran import ProduccionImportarAlbaran
+			for w in list(self.central_area.winfo_children()):
+				w.destroy()
+			
+			importar_ui = ProduccionImportarAlbaran(
+				self.central_area,
+				db=self.db,
+				proveedor_id=proveedor_id,
+				proveedor_nombre=proveedor_nombre,
+				owner=self
+			)
+			importar_ui.get_widget().pack(fill='both', expand=True)
+			self.actualizar_ruta('PRODUCCIÓN / PROVEEDORES / IMPORTAR ALBARÁN')
+			logging.info(f'Abriendo importador de albarán (proveedor {proveedor_id})...')
+		except Exception:
+			logging.exception('Error abriendo importador de albarán en ProduccionView')
+
+	def show_proveedores_with_id(self, proveedor_id=None):
+		"""Volver a la vista de proveedores seleccionando uno concreto."""
+		try:
+			from kool_tpv.modulos.produccion.ui.subvistas.proveedores.produccion_proveedores_view import ProduccionProveedoresView
+			for w in list(self.central_area.winfo_children()):
+				w.destroy()
+			
+			view = ProduccionProveedoresView(
+				self.central_area,
+				db=self.db,
+				owner=self
+			)
+			view.get_widget().pack(fill='both', expand=True)
+			if proveedor_id:
+				view.cargar_proveedor(proveedor_id)
+			self.actualizar_ruta('PRODUCCIÓN / PROVEEDORES')
+		except Exception:
+			logging.exception('Error volviendo a proveedores')
 
 	def show_stock(self):
 		"""Mostrar vista de gestión de stock base (material en blanco)."""
