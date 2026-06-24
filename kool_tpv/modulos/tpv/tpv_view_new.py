@@ -113,6 +113,17 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
         self.breadcrumb.pack(side="top", fill="x", padx=20, pady=10)
         self.breadcrumb.update_parts([("INICIO", None), ("VENTAS", None), ("TPV", None)])
 
+        self.btn_cajon = ButtonFactory.create_button(
+            parent=self.breadcrumb,
+            text="CAJÓN",
+            command=self._abrir_cajon,
+            style_key="almacen_outline",
+            width=100,
+            height=36,
+            font=(bread_cfg.get("family", "Courier New"), 14, "bold")
+        )
+        self.btn_cajon.pack(side="right", padx=4)
+
         self.grid_frame = ctk.CTkFrame(self.center_area, fg_color="transparent")
         self.grid_frame.pack(side="top", fill="both", expand=True, padx=20, pady=20)
 
@@ -281,6 +292,14 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
                 logging.exception('Error en push_subview')
             except Exception:
                 pass
+
+    def _abrir_cajon(self):
+        """Abrir el cajón del dinero vía comando ESC/POS."""
+        try:
+            from kool_tpv.modulos.tpv.actions.cajon import abrir_cajon
+            abrir_cajon(db=self.db)
+        except Exception:
+            logging.exception("Error al abrir cajón")
 
     def _mostrar_favoritos(self):
         """Mostrar subvista de favoritos (reemplaza el grid)."""

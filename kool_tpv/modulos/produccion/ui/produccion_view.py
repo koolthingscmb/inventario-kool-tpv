@@ -66,6 +66,7 @@ class ProduccionView(BaseModuleView):
 			'show_config': self.show_config,
 			'show_colores': self.show_proveedores,
 			'show_stock': self.show_stock,
+			'show_informes': self.show_informes,
 		}
 
 		try:
@@ -356,3 +357,20 @@ class ProduccionView(BaseModuleView):
 			logging.info('Abriendo gestión de stock de bases...')
 		except Exception:
 			logging.exception('Error abriendo show_stock en ProduccionView')
+
+	def show_informes(self):
+		"""Mostrar vista de informes del módulo de producción."""
+		try:
+			from kool_tpv.modulos.produccion.ui.subvistas.produccion_informes_view import ProduccionInformesView
+			for w in list(self.central_area.winfo_children()):
+				w.destroy()
+			
+			view = ProduccionInformesView(
+				self.central_area,
+				db=self.db,
+				km=self.keyboard_mgr
+			)
+			self.actualizar_ruta('PRODUCCIÓN / INFORMES')
+			logging.info('Abriendo informes de producción...')
+		except Exception:
+			logging.exception('Error abriendo show_informes en ProduccionView')

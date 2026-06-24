@@ -149,11 +149,14 @@ class ExportadorPDFInformes:
 
         elements.append(Spacer(1, 0.4*cm))
 
-        # Cuerpo según subformato
+        # Cuerpo según secciones (nuevo formato pro) o subformato (formato antiguo)
+        sections = report_data.get('sections')
         subformat = report_data.get('display_subformat', '')
         items = report_data.get('items', [])
 
-        if subformat in ('cajero', 'categoria', 'tipo', 'producto'):
+        if sections:
+            self._add_sections(elements, sections, style_normal, style_destacado, c_primario, c_secundario)
+        elif subformat in ('cajero', 'categoria', 'tipo', 'producto'):
             self._add_items_grupo(elements, items, style_grupo, style_normal, style_destacado, c_primario, c_secundario)
         elif subformat == 'daily':
             self._add_items_daily(elements, items, style_normal, style_destacado, c_primario)
@@ -164,7 +167,88 @@ class ExportadorPDFInformes:
 
         return elements
 
-    # ── SUBFORMATOS ───────────────────────────────────────────────────────────
+    # ── NUEVO FORMATO POR SECCIONES ──────────────────────────────────────────
+
+    def _add_sections(self, elements, sections, style_normal, style_destacado, c_primario, c_secundario):
+        """Renderiza una lista de secciones genéricas (summary, table, blocks)."""
+        for section in sections:
+            sec_type = section.get('type')
+            
+            if sec_type == 'summary':
+                self._add_section_summary(elements, section, c_primario)
+            elif sec_type == 'table':
+                self._add_section_table(elements, section, c_primario)
+            elif sec_type == 'blocks':
+                self._add_section_blocks(elements, section, c_primario, c_secundario)
+            
+            elements.append(Spacer(1, 0.5*cm))
+
+    def _add_section_summary(self, elements, section, c_primario):
+        headers = section.get('headers', [])
+        rows = section.get('rows', [])
+        if not rows: return
+        
+        vals = rows[0]
+        filas = []
+        for i, h in enumerate(headers):
+            val = vals[i] if i < len(vals) else ''
+            filas.append([Paragraph(f"<b>{h}:</b>", style=ParagraphStyle('summary_lbl', fontSize=10)), str(val)])
+            
+        t = Table(filas, colWidths=[6*cm, 8*cm])
+        t.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(t)
+
+    def _add_section_table(self, elements, section, c_primario):
+        title = section.get('title')
+        if title:
+            elements.append(Paragraph(title, ParagraphStyle('table_title', fontSize=11, fontName='Helvetica-Bold', spaceAfter=6)))
+            
+        headers = section.get('headers', [])
+        rows = section.get('rows', [])
+        
+        # Preparar datos de la tabla
+        data = [headers] + rows
+        
+        # Calcular anchos automáticos simples (o proporcionales)
+        num_cols = len(headers)
+        if num_cols == 0: return
+        col_width = (A4[0] - 4*cm) / num_cols
+        
+        t = Table(data, colWidths=[col_width]*num_cols, repeatRows=1)
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), c_primario),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F9F9F9')]),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(t)
+
+    def _add_section_blocks(self, elements, section, c_primario, c_secundario):
+        title = section.get('title')
+        if title:
+            elements.append(Paragraph(title, ParagraphStyle('block_title', fontSize=12, fontName='Helvetica-Bold', textColor=c_primario, spaceAfter=8)))
+            
+        for block in section.get('blocks', []):
+            b_title = block.get('title')
+            if b_title:
+                elements.append(Paragraph(b_title, ParagraphStyle('b_title', fontSize=10, fontName='Helvetica-Bold', textColor=c_secundario)))
+            
+            for field in block.get('fields', []):
+                lbl = field.get('label', '')
+                val = field.get('value', '')
+                elements.append(Paragraph(f"<b>{lbl}:</b> {val}", style=ParagraphStyle('f_val', fontSize=9, leftIndent=10)))
+            elements.append(Spacer(1, 0.2*cm))
+
+    # ── SUBFORMATOS ANTIGUOS ──────────────────────────────────────────────────
 
     def _add_items_grupo(self, elements, items, style_grupo, style_normal, style_destacado,
                           c_primario, c_secundario):

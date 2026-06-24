@@ -43,6 +43,7 @@
       {"id": "diseno_nuevo", "text": "DISEÑO +", "action": "show_diseno_nuevo"},
       {"id": "proveedores", "text": "PROVEEDOR", "action": "show_colores"},
       {"id": "stock", "text": "SKU", "action": "show_stock"},
+      {"id": "informes", "text": "INFORMES", "action": "show_informes"},
       {"id": "config", "text": "CONFIGURAR", "action": "show_config"}
     ]
   },
