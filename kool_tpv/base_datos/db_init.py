@@ -255,6 +255,24 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migration 017: requerimientos en tipos_variantes
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('tipos_variantes')") or [])]
+			if 'requiere_talla' not in cols:
+				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '017_tipos_variantes_requerimientos.sql'
+				if mig_path.exists():
+					logging.info('Aplicando migración 017: requiere_talla/color en tipos_variantes')
+					cur = db.connection.cursor()
+					cur.executescript(mig_path.read_text(encoding='utf-8'))
+					db.connection.commit()
+					logging.info('Migración 017 aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 017')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Validate again
 		try:
 			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table'")

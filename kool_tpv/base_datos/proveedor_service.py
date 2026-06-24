@@ -35,6 +35,40 @@ class ProveedorService:
             logging.exception('Error obteniendo proveedores')
             return []
 
+    def get_proveedores_con_mapeos(self):
+        """Obtener solo proveedores que tienen algún mapeo configurado."""
+        try:
+            query = """SELECT * FROM proveedores
+                       WHERE (mapeo_colores IS NOT NULL AND mapeo_colores != '' AND mapeo_colores != '{}')
+                          OR (mapeo_tipos IS NOT NULL AND mapeo_tipos != '' AND mapeo_tipos != '{}')
+                          OR (mapeo_generos IS NOT NULL AND mapeo_generos != '' AND mapeo_generos != '{}')
+                          OR (mapeo_tallas IS NOT NULL AND mapeo_tallas != '' AND mapeo_tallas != '{}')
+                       ORDER BY nombre ASC"""
+            rows = self.db.fetch_all(query)
+            proveedores = []
+            for r in rows or []:
+                proveedores.append({
+                    'id': r[0],
+                    'nombre': r[1] or '',
+                    'que_vende': r[2] or '',
+                    'nif_cif': r[3] or '',
+                    'iva_intracom': r[4] or '',
+                    'dir_fiscal': r[5] or '',
+                    'dir_envio': r[6] or '',
+                    'email': r[7] or '',
+                    'telefono': r[8] or '',
+                    'forma_pago': r[9] or '',
+                    'persona_comercial': r[10] or '',
+                    'telefono_comercial': r[11] or '',
+                    'email_comercial': r[12] or '',
+                    'web': r[13] or '',
+                    'notas': r[14] or ''
+                })
+            return proveedores
+        except Exception:
+            logging.exception('Error obteniendo proveedores con mapeos')
+            return []
+
     def get_proveedor(self, proveedor_id):
         """Obtener un proveedor por ID.
 

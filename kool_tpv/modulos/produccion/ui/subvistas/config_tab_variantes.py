@@ -114,10 +114,21 @@ class ConfigTabVariantes:
         self._entry_shopify = ctk.CTkEntry(form, placeholder_text="ID de variante en Shopify...", width=300)
         self._entry_shopify.pack(fill="x", pady=(0, 15))
 
-        # Activo
+        # Activo y Requerimientos
+        row_checks = tk.Frame(form, bg="#34495e")
+        row_checks.pack(fill="x", pady=(0, 20))
+
         self._var_activo = ctk.IntVar(value=1)
-        ctk.CTkCheckBox(form, text="Variante Activa", variable=self._var_activo,
-                        fg_color="#27ae60", text_color=self._text).pack(anchor="w", pady=(0, 20))
+        ctk.CTkCheckBox(row_checks, text="Variante Activa", variable=self._var_activo,
+                        fg_color="#27ae60", text_color=self._text).pack(side=tk.LEFT, padx=(0, 15))
+
+        self._var_requiere_talla = ctk.IntVar(value=0)
+        ctk.CTkCheckBox(row_checks, text="Requiere Talla", variable=self._var_requiere_talla,
+                        fg_color="#3498db", text_color=self._text).pack(side=tk.LEFT, padx=(0, 15))
+
+        self._var_requiere_color = ctk.IntVar(value=0)
+        ctk.CTkCheckBox(row_checks, text="Requiere Color", variable=self._var_requiere_color,
+                        fg_color="#9b59b6", text_color=self._text).pack(side=tk.LEFT)
 
         # Botón Guardar
         ctk.CTkButton(form, text="GUARDAR VARIANTE", fg_color="#27ae60", hover_color="#2ecc71",
@@ -165,6 +176,8 @@ class ConfigTabVariantes:
         self._entry_shopify.insert(0, v.shopify_variant_id or "")
         
         self._var_activo.set(v.activo)
+        self._var_requiere_talla.set(v.requiere_talla)
+        self._var_requiere_color.set(v.requiere_color)
 
     def _guardar(self):
         tipo_nombre = self._combo_tipo.get()
@@ -192,14 +205,17 @@ class ConfigTabVariantes:
 
         shopify_id = self._entry_shopify.get().strip() or None
         activo = self._var_activo.get()
+        req_talla = self._var_requiere_talla.get()
+        req_color = self._var_requiere_color.get()
 
         if self._variante_id_edit:
             ok = self.service.actualizar(
                 self._variante_id_edit, tipo_id, nombre, 
-                coste_cents, precio_cents, activo, shopify_id
+                coste_cents, precio_cents, activo, shopify_id,
+                req_talla, req_color
             )
         else:
-            res = self.service.crear(tipo_id, nombre, coste_cents, precio_cents, shopify_id)
+            res = self.service.crear(tipo_id, nombre, coste_cents, precio_cents, shopify_id, req_talla, req_color)
             ok = res is not None
 
         if ok:
@@ -216,6 +232,8 @@ class ConfigTabVariantes:
         self._entry_precio.delete(0, tk.END)
         self._entry_shopify.delete(0, tk.END)
         self._var_activo.set(1)
+        self._var_requiere_talla.set(0)
+        self._var_requiere_color.set(0)
         self._combo_tipo.set("")
 
     def _eliminar(self):

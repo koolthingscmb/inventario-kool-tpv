@@ -10,6 +10,8 @@ class ProduccionTipoVariante:
     coste_base: int = 0
     precio_recomendado: int = 0
     activo: int = 1
+    requiere_talla: int = 0
+    requiere_color: int = 0
     shopify_variant_id: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

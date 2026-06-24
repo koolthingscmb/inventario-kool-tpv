@@ -292,11 +292,17 @@ class NuevoProduccionFlow:
         """Variante seleccionada → seguir con filtros (Género, Color...)."""
         self._variante = variante
         tipo = self._tipo
-        if tipo.requiere_genero == 1:
+        
+        # Un paso se muestra si el Tipo lo requiere O si la Variante lo requiere
+        req_genero = tipo.requiere_genero == 1
+        req_color = (tipo.requiere_color == 1) or (variante.requiere_color == 1)
+        req_talla = (tipo.requiere_talla == 1) or (variante.requiere_talla == 1)
+
+        if req_genero:
             self._mostrar_paso(PASO_GENERO)
-        elif tipo.requiere_color == 1:
+        elif req_color:
             self._mostrar_paso(PASO_COLOR)
-        elif tipo.requiere_talla == 1:
+        elif req_talla:
             self._mostrar_paso(PASO_TALLA)
         else:
             self._mostrar_paso(PASO_DISENO)
@@ -311,16 +317,23 @@ class NuevoProduccionFlow:
     def _on_genero_siguiente(self, genero: ProduccionGenero):
         """Género seleccionado → ir a color."""
         self._genero = genero
-        if self._tipo and self._tipo.requiere_color == 1:
+        tipo = self._tipo
+        variante = self._variante
+        
+        req_color = (tipo.requiere_color == 1) or (variante and variante.requiere_color == 1)
+        req_talla = (tipo.requiere_talla == 1) or (variante and variante.requiere_talla == 1)
+
+        if req_color:
             self._mostrar_paso(PASO_COLOR)
-        elif self._tipo and self._tipo.requiere_talla == 1:
+        elif req_talla:
             self._mostrar_paso(PASO_TALLA)
         else:
             self._mostrar_paso(PASO_DISENO)
 
     def _on_color_volver(self):
         """Volver desde color → ir a género o variante o tipos/menú."""
-        if self._tipo and self._tipo.requiere_genero == 1:
+        tipo = self._tipo
+        if tipo and tipo.requiere_genero == 1:
             self._mostrar_paso(PASO_GENERO)
         elif self._variante:
             self._mostrar_paso(PASO_VARIANTE)
@@ -332,16 +345,27 @@ class NuevoProduccionFlow:
     def _on_color_siguiente(self, color: ProduccionColor):
         """Color seleccionado → decidir siguiente paso."""
         self._color = color
-        if self._tipo and self._tipo.requiere_talla == 1:
+        tipo = self._tipo
+        variante = self._variante
+        
+        req_talla = (tipo.requiere_talla == 1) or (variante and variante.requiere_talla == 1)
+
+        if req_talla:
             self._mostrar_paso(PASO_TALLA)
         else:
             self._mostrar_paso(PASO_DISENO)
 
     def _on_talla_volver(self):
         """Volver desde talla → ir a color o género o variante o tipos/menú."""
-        if self._tipo and self._tipo.requiere_color == 1:
+        tipo = self._tipo
+        variante = self._variante
+        
+        req_color = (tipo.requiere_color == 1) or (variante and variante.requiere_color == 1)
+        req_genero = (tipo.requiere_genero == 1)
+
+        if req_color:
             self._mostrar_paso(PASO_COLOR)
-        elif self._tipo and self._tipo.requiere_genero == 1:
+        elif req_genero:
             self._mostrar_paso(PASO_GENERO)
         elif self._variante:
             self._mostrar_paso(PASO_VARIANTE)
@@ -357,11 +381,18 @@ class NuevoProduccionFlow:
 
     def _on_diseno_volver(self):
         """Volver desde diseño → talla, color, género, variante o tipos/menú."""
-        if self._tipo and self._tipo.requiere_talla == 1:
+        tipo = self._tipo
+        variante = self._variante
+        
+        req_talla = (tipo.requiere_talla == 1) or (variante and variante.requiere_talla == 1)
+        req_color = (tipo.requiere_color == 1) or (variante and variante.requiere_color == 1)
+        req_genero = (tipo.requiere_genero == 1)
+
+        if req_talla:
             self._mostrar_paso(PASO_TALLA)
-        elif self._tipo and self._tipo.requiere_color == 1:
+        elif req_color:
             self._mostrar_paso(PASO_COLOR)
-        elif self._tipo and self._tipo.requiere_genero == 1:
+        elif req_genero:
             self._mostrar_paso(PASO_GENERO)
         elif self._variante:
             self._mostrar_paso(PASO_VARIANTE)
@@ -472,6 +503,7 @@ class NuevoProduccionFlow:
             color_id=self._color.id if self._color else None,
             diseno_codigo=self._diseno.codigo if self._diseno else None,
             diseno_nombre=self._diseno.nombre if self._diseno else None,
+            diseno_coleccion=self._diseno.coleccion if self._diseno else None,
             cantidad=cantidad,
             produccion_mixta=self._cantidad.produccion_mixta if self._cantidad else False,
             coste_unitario=coste_unitario,

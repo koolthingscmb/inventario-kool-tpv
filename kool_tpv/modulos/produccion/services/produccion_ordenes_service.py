@@ -26,6 +26,7 @@ class ItemProduccion:
     coste_total: float
     variante_nombre: Optional[str] = None
     variante_id: Optional[int] = None
+    diseno_coleccion: Optional[str] = None
 
 class ProduccionOrdenesService:
     def __init__(self, db: Database):

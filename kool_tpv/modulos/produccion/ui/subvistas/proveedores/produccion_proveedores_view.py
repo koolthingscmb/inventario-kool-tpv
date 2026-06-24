@@ -158,7 +158,7 @@ class ProduccionProveedoresView:
         try:
             for w in list(self.chips_frame.winfo_children()):
                 w.destroy()
-            provs = self.service.get_all_proveedores()
+            provs = self.service.get_proveedores_con_mapeos()
             if not provs:
                 ctk.CTkLabel(self.chips_frame, text='No hay proveedores', text_color=self.colors.get('text'), fg_color='transparent').grid(row=0, column=0, padx=6, pady=6)
                 return

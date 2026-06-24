@@ -39,11 +39,11 @@
   "produccion": {
     "title": "PRODUCCIÓN",
     "buttons": [
-      {"id": "nuevo", "text": "PRODUCCIÓN +", "action": "show_nuevo"},
+      {"id": "nuevo", "text": "PROD +", "action": "show_nuevo"},
       {"id": "diseno_nuevo", "text": "DISEÑO +", "action": "show_diseno_nuevo"},
-      {"id": "config", "text": "CONFIG", "action": "show_config"},
-      {"id": "proveedores", "text": "PROVEEDORES", "action": "show_colores"},
-      {"id": "stock", "text": "STOCK BASES", "action": "show_stock"}
+      {"id": "proveedores", "text": "PROVEEDOR", "action": "show_colores"},
+      {"id": "stock", "text": "SKU", "action": "show_stock"},
+      {"id": "config", "text": "CONFIGURAR", "action": "show_config"}
     ]
   },
   "config": {

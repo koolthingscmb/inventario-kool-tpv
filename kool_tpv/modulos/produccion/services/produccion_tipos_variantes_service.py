@@ -34,7 +34,8 @@ class ProduccionTiposVariantesService:
         return self.repository.get_por_id(variante_id)
 
     def crear(self, tipo_id: int, nombre: str, coste_base: int = 0,
-              precio_recomendado: int = 0, shopify_variant_id: Optional[str] = None) -> Optional[int]:
+              precio_recomendado: int = 0, shopify_variant_id: Optional[str] = None,
+              requiere_talla: int = 0, requiere_color: int = 0) -> Optional[int]:
         """Crear una nueva variante.
 
         Args:
@@ -43,6 +44,8 @@ class ProduccionTiposVariantesService:
             coste_base: Coste de fabricación.
             precio_recomendado: Precio de venta sugerido.
             shopify_variant_id: ID externo opcional.
+            requiere_talla: 1 si requiere talla.
+            requiere_color: 1 si requiere color.
 
         Returns:
             ID de la variante creada o None si error.
@@ -56,13 +59,16 @@ class ProduccionTiposVariantesService:
             coste_base=coste_base,
             precio_recomendado=precio_recomendado,
             activo=1,
-            shopify_variant_id=shopify_variant_id
+            shopify_variant_id=shopify_variant_id,
+            requiere_talla=requiere_talla,
+            requiere_color=requiere_color
         )
         return self.repository.crear(variante)
 
     def actualizar(self, variante_id: int, tipo_id: int, nombre: str,
                    coste_base: int = 0, precio_recomendado: int = 0,
-                   activo: int = 1, shopify_variant_id: Optional[str] = None) -> bool:
+                   activo: int = 1, shopify_variant_id: Optional[str] = None,
+                   requiere_talla: int = 0, requiere_color: int = 0) -> bool:
         """Actualizar una variante existente."""
         if not variante_id or not tipo_id or not nombre or not nombre.strip():
             return False
@@ -74,7 +80,9 @@ class ProduccionTiposVariantesService:
             coste_base=coste_base,
             precio_recomendado=precio_recomendado,
             activo=activo,
-            shopify_variant_id=shopify_variant_id
+            shopify_variant_id=shopify_variant_id,
+            requiere_talla=requiere_talla,
+            requiere_color=requiere_color
         )
         return self.repository.actualizar(variante)
 
