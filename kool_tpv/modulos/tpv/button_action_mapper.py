@@ -202,23 +202,16 @@ def _activate_payment(view, tipo: str):
 
 
 def _open_tickets_guarded(view):
-    """Abrir TicketsUI con check de permisos (placeholder)."""
+    """Abrir TicketsUI con check de permisos."""
     try:
-        allowed = True
+        from kool_tpv.modulos.tpv.actions.permisos import check_permiso
+        parent = None
         try:
-            checker = getattr(view, '_check_tickets_permission', None)
-            if callable(checker):
-                allowed = bool(checker())
+            parent = view.winfo_toplevel()
         except Exception:
-            allowed = True
-
-        if not allowed:
-            try:
-                from kool_tpv.utils.custom_dialog import show_error
-                parent = getattr(view, 'container', None) or view.parent
-                show_error(parent, 'Sin permiso', 'Acceso no autorizado a TICKETS')
-            except Exception:
-                logger.exception('Error mostrando diálogo acceso denegado')
+            parent = view
+        carrito_service = getattr(view, 'carrito_service', None)
+        if not check_permiso(carrito_service, 'permiso_tickets', parent):
             return
 
         # Crear o reutilizar la subview de tickets de forma dinámica
@@ -338,6 +331,17 @@ def _open_devolucion_subview(view):
     """
     try:
         from kool_tpv.utils.custom_dialog import show_error
+
+        # Comprobar permiso del cajero logueado
+        from kool_tpv.modulos.tpv.actions.permisos import check_permiso
+        parent = None
+        try:
+            parent = view.winfo_toplevel()
+        except Exception:
+            parent = view
+        carrito_service = getattr(view, 'carrito_service', None)
+        if not check_permiso(carrito_service, 'permiso_devolucion', parent):
+            return
 
         # Validación: impedir devoluciones si hay venta en curso
         sale_active = False

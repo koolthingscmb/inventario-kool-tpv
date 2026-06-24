@@ -311,6 +311,16 @@ class DevolucionAction:
 
     def ejecutar(self) -> None:
         try:
+            # Comprobar permiso del cajero logueado
+            from kool_tpv.modulos.tpv.actions.permisos import check_permiso
+            parent = None
+            try:
+                parent = self.view.winfo_toplevel()
+            except Exception:
+                parent = self.view
+            if not check_permiso(self.carrito_service, 'permiso_devolucion', parent):
+                return
+
             if self._panel is None:
                 self._panel = DevolucionesPanel(self.view, self.db, on_selection_callback=self._on_producto_selected)
                 # attach devoluciones service to panel and start devolucion mode

@@ -56,6 +56,11 @@ class DescuentoAction:
                 except Exception:
                     parent = self.view
 
+            # Comprobar permiso del cajero logueado
+            from kool_tpv.modulos.tpv.actions.permisos import check_permiso
+            if not check_permiso(self.carrito_service, 'permiso_descuento', parent):
+                return
+
             # Validar carrito no vacío: evitar pedir contraseña si no hay artículos
             try:
                 carrito = self.carrito_service or getattr(self.view, 'carrito_service', None)
@@ -99,34 +104,6 @@ class DescuentoAction:
                         pass
             except Exception:
                 pass
-
-            # Pedir contraseña admin
-            password = show_password_dialog(parent, titulo="Autenticación Admin", mensaje="Introduce contraseña de administrador:")
-            if password is None or password == "":
-                return
-
-            # Validar contraseña admin
-            try:
-                is_valid = False
-                admin_user = None
-                if self.auth_service:
-                    try:
-                        res = self.auth_service.validate_admin_password(password)
-                    except Exception:
-                        res = (False, None)
-
-                    if isinstance(res, tuple):
-                        is_valid, admin_user = res
-                    else:
-                        is_valid = bool(res)
-
-                if not is_valid:
-                    show_warning(parent, 'ACCESO DENEGADO', 'Contraseña incorrecta')
-                    return
-            except Exception:
-                self.logger.exception('Error validando contraseña admin')
-                show_warning(parent, 'ACCESO DENEGADO', 'Error validando contraseña')
-                return
 
             # Autenticado: abrir DescuentoSubView
             try:

@@ -98,13 +98,6 @@ class TicketsSubView(CTkFrame):
         except Exception:
             self.repo = None
 
-        # Auth service (used to protect dangerous actions)
-        try:
-            from kool_tpv.utils.auth_service import AuthService
-            self.auth_service = AuthService(self.db)
-        except Exception:
-            self.auth_service = None
-
         # Mode: if pending_only, list only tickets with cierre_id IS NULL
         self.pending_only = bool(pending_only)
 
@@ -426,45 +419,24 @@ class TicketsSubView(CTkFrame):
 
     def _on_x_clicked(self):
         try:
-            from kool_tpv.utils.custom_dialog import show_password_dialog, show_warning
-
             parent = None
             try:
                 parent = self.winfo_toplevel()
             except Exception:
                 parent = None
 
-            # --- PRIMERO: autenticación admin ---
-            password = show_password_dialog(
-                parent,
-                titulo="Autenticación Admin",
-                mensaje="Introduce contraseña de administrador:"
-            )
-
-            if password is None or password == "":
+            # --- Comprobar permiso del cajero logueado ---
+            from kool_tpv.modulos.tpv.actions.permisos import check_permiso
+            carrito_service = getattr(self.view, 'carrito_service', None) if self.view else None
+            if not check_permiso(carrito_service, 'permiso_cierre', parent):
                 return
 
-            try:
-                is_valid = False
-                admin_user = None
-                if self.auth_service:
-                    try:
-                        res = self.auth_service.validate_admin_password(password)
-                    except Exception:
-                        res = (False, None)
-                    if isinstance(res, tuple):
-                        is_valid, admin_user = res
-                    else:
-                        is_valid = bool(res)
-                if not is_valid:
-                    show_warning(parent, "ACCESO DENEGADO", "Contraseña incorrecta.", callback=self._on_x_clicked)
-                    return
-            except Exception:
-                logger.exception('Error validando contraseña admin')
-                show_warning(parent, 'Error', 'Fallo validando contraseña admin')
-                return
+            # --- AUTORIZADO: obtener datos del cajero logueado ---
+            cajero = carrito_service.get_cajero() if carrito_service else {}
+            usuario_id = cajero.get('id') if cajero else None
+            cajero_nombre = cajero.get('nombre') if cajero else None
 
-            # --- AUTENTICADO: obtener tickets pendientes ---
+            # --- AUTORIZADO: obtener tickets pendientes ---
             rows_preview = []
             try:
                 if getattr(self, 'repo', None) is not None:
@@ -525,9 +497,8 @@ class TicketsSubView(CTkFrame):
                     logger.info('No hay tickets para cerrar')
                 return
 
-            # --- AUTENTICADO ---
-            logger.info("Autenticación admin exitosa para: %s", admin_user.get('nombre') if admin_user else 'admin')
-            logger.info("Botón 'X' presionado en TicketsSubView (autenticado)")
+            # --- AUTORIZADO ---
+            logger.info("Cierre Z autorizado para cajero: %s", cajero_nombre or 'desconocido')
 
             # --- SEGUNDO: Preguntar opciones de impresión ---
             try:
@@ -612,14 +583,6 @@ class TicketsSubView(CTkFrame):
             from kool_tpv.modulos.ticket.cierre_caja_processor import CierreCajaProcessor
 
             processor = CierreCajaProcessor(self.db)
-            usuario_id = None
-            cajero_nombre = None
-            try:
-                if admin_user and isinstance(admin_user, dict):
-                    usuario_id = admin_user.get('id')
-                    cajero_nombre = admin_user.get('nombre')
-            except Exception:
-                pass
 
             resultado = processor.process(
                 ticket_ids=ticket_ids, 

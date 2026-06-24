@@ -40,7 +40,10 @@ class ClickableBreadcrumb(ctk.CTkFrame):
         self.text_color = text_color
 
     def update_parts(self, parts: list):
-        for widget in self.winfo_children(): widget.destroy()
+        for widget in self.winfo_children():
+            if widget is getattr(self, '_btn_cajon_ref', None):
+                continue
+            widget.destroy()
         for i, (text, callback) in enumerate(parts):
             if i > 0:
                 ctk.CTkLabel(self, text='/', text_color=self.text_color, font=self.custom_font).pack(side='left', padx=4)
@@ -123,6 +126,7 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
             font=(bread_cfg.get("family", "Courier New"), 14, "bold")
         )
         self.btn_cajon.pack(side="right", padx=4)
+        self.breadcrumb._btn_cajon_ref = self.btn_cajon
 
         self.grid_frame = ctk.CTkFrame(self.center_area, fg_color="transparent")
         self.grid_frame.pack(side="top", fill="both", expand=True, padx=20, pady=20)
@@ -273,7 +277,7 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
 
             # Mostrar nueva vista
             try:
-                view_instance.pack(fill="both", expand=True)
+                view_instance.pack(side="top", fill="both", expand=True)
                 try:
                     pass
                 except Exception:
@@ -296,6 +300,15 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
     def _abrir_cajon(self):
         """Abrir el cajón del dinero vía comando ESC/POS."""
         try:
+            from kool_tpv.modulos.tpv.actions.permisos import check_permiso
+            parent = None
+            try:
+                parent = self.winfo_toplevel()
+            except Exception:
+                parent = self
+            if not check_permiso(self.carrito_service, 'permiso_cajon', parent):
+                return
+
             from kool_tpv.modulos.tpv.actions.cajon import abrir_cajon
             abrir_cajon(db=self.db)
         except Exception:

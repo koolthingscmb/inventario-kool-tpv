@@ -273,6 +273,21 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migration 018: permiso_cajon en usuarios
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('usuarios')") or [])]
+			if 'permiso_cajon' not in cols:
+				logging.info('Aplicando migración 018: permiso_cajon en usuarios')
+				db.connection.execute('ALTER TABLE usuarios ADD COLUMN permiso_cajon INTEGER DEFAULT 0')
+				db.connection.commit()
+				logging.info('Migración 018 (permiso_cajon) aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 018')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Validate again
 		try:
 			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table'")

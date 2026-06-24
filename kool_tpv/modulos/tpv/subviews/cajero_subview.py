@@ -78,7 +78,19 @@ class CajeroSubView(CTkFrame, KeyboardNavigableMixin):
         valid = self.auth_service.validate_user_password(user_id, password) if self.auth_service else False
 
         if valid:
-            self.carrito_service.set_cajero({"id": user_id, "nombre": nombre})
+            cajero_data = {"id": user_id, "nombre": nombre}
+            try:
+                usr = self.usuario_service.get_usuario(user_id) if self.usuario_service else None
+                if usr:
+                    cajero_data['rol'] = usr.get('rol', 'Cajero')
+                    cajero_data['permiso_cierre'] = usr.get('permiso_cierre', 0)
+                    cajero_data['permiso_descuento'] = usr.get('permiso_descuento', 0)
+                    cajero_data['permiso_devolucion'] = usr.get('permiso_devolucion', 0)
+                    cajero_data['permiso_tickets'] = usr.get('permiso_tickets', 0)
+                    cajero_data['permiso_cajon'] = usr.get('permiso_cajon', 0)
+            except Exception:
+                pass
+            self.carrito_service.set_cajero(cajero_data)
 
             ticket_widget = getattr(self.view, "ticket_widget", None)
             if ticket_widget is not None:

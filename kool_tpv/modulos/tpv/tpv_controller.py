@@ -244,6 +244,16 @@ class TpvController:
 
                 def show(self):
                     try:
+                        from kool_tpv.modulos.tpv.actions.permisos import check_permiso
+                        parent = None
+                        try:
+                            parent = self.view.winfo_toplevel()
+                        except Exception:
+                            parent = self.view
+                        carrito_service = getattr(self.view, 'carrito_service', None)
+                        if not check_permiso(carrito_service, 'permiso_cierre', parent):
+                            return
+
                         sub = getattr(self.view, '_cierres_subview', None)
                         exists = False
                         try:

@@ -14,7 +14,7 @@ class UsuarioService:
             # id, nombre, password, rol, permiso_cierre, permiso_descuento, permiso_devolucion, permiso_tickets
             query = """
                 SELECT id, nombre, rol, permiso_cierre, permiso_descuento, permiso_devolucion, permiso_tickets,
-                       created_at, telefono, email
+                       created_at, telefono, email, permiso_cajon
                 FROM usuarios
                 ORDER BY nombre
             """
@@ -32,6 +32,7 @@ class UsuarioService:
                     'created_at': r[7] or None,
                     'telefono': r[8] or '',
                     'email': r[9] or '',
+                    'permiso_cajon': int(r[10] or 0),
                 })
             return usuarios
         except Exception:
@@ -57,13 +58,15 @@ class UsuarioService:
                 'created_at': row[8] if len(row) > 8 else None,
                 'telefono': row[9] if len(row) > 9 else '',
                 'email': row[10] if len(row) > 10 else '',
+                'permiso_cajon': int(row[11]) if len(row) > 11 and row[11] is not None else 0,
             }
         except Exception:
             logging.exception(f'Error obteniendo usuario {user_id}')
             return None
 
     def save_usuario(self, nombre, email='', telefono='', password='', rol='Cajero',
-                     permiso_cierre=0, permiso_descuento=0, permiso_devolucion=0, permiso_tickets=0) -> bool:
+                     permiso_cierre=0, permiso_descuento=0, permiso_devolucion=0, permiso_tickets=0,
+                     permiso_cajon=0) -> bool:
         try:
             if not nombre:
                 logging.warning('UsuarioService.save_usuario: nombre vacío')
@@ -77,10 +80,10 @@ class UsuarioService:
                 created_at = datetime.now().isoformat(sep=' ', timespec='seconds')
             query = """
                 INSERT INTO usuarios
-                (nombre, password, rol, permiso_cierre, permiso_descuento, permiso_devolucion, permiso_tickets, created_at, telefono, email)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (nombre, password, rol, permiso_cierre, permiso_descuento, permiso_devolucion, permiso_tickets, created_at, telefono, email, permiso_cajon)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
-            self.db.execute_query(query, (nombre, password_hash, rol, int(permiso_cierre), int(permiso_descuento), int(permiso_devolucion), int(permiso_tickets), created_at, telefono, email))
+            self.db.execute_query(query, (nombre, password_hash, rol, int(permiso_cierre), int(permiso_descuento), int(permiso_devolucion), int(permiso_tickets), created_at, telefono, email, int(permiso_cajon)))
             return True
         except Exception:
             logging.exception('Error guardando usuario')
@@ -93,7 +96,8 @@ class UsuarioService:
 
             # Prepare allowed fields
             allowed = ['nombre', 'email', 'telefono', 'password', 'rol',
-                       'permiso_cierre', 'permiso_descuento', 'permiso_devolucion', 'permiso_tickets']
+                       'permiso_cierre', 'permiso_descuento', 'permiso_devolucion', 'permiso_tickets',
+                       'permiso_cajon']
 
             updates = []
             params = []

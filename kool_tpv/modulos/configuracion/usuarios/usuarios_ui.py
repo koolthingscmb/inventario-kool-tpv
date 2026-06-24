@@ -82,7 +82,7 @@ class UsuariosUI:
         # Row3: Label PERMISOS:
         ctk.CTkLabel(self.grid_frame, text='PERMISOS:', text_color=self.colors.get('text'), font=get_font('label', module='config')).grid(row=3, column=0, sticky='w', padx=6, pady=6)
 
-        # Row4: Switches
+        # Row4: Switches (5 permisos en una fila)
         self.sw_cierre = ctk.CTkSwitch(self.grid_frame, text='Cierre caja')
         self.sw_cierre.grid(row=4, column=0, columnspan=2, padx=6, pady=6, sticky='w')
         self.sw_descuento = ctk.CTkSwitch(self.grid_frame, text='Descuento')
@@ -90,7 +90,9 @@ class UsuariosUI:
         self.sw_devolucion = ctk.CTkSwitch(self.grid_frame, text='Devolución')
         self.sw_devolucion.grid(row=4, column=4, columnspan=2, padx=6, pady=6, sticky='w')
         self.sw_tickets = ctk.CTkSwitch(self.grid_frame, text='Ver Tickets')
-        self.sw_tickets.grid(row=4, column=6, columnspan=2, padx=6, pady=6, sticky='w')
+        self.sw_tickets.grid(row=4, column=6, columnspan=1, padx=6, pady=6, sticky='w')
+        self.sw_cajon = ctk.CTkSwitch(self.grid_frame, text='Cajón')
+        self.sw_cajon.grid(row=4, column=7, columnspan=1, padx=6, pady=6, sticky='w')
 
         # Row5: Chips area
         self.grid_frame.grid_rowconfigure(5, weight=1)
@@ -232,6 +234,7 @@ class UsuariosUI:
             _set_switch(self.sw_descuento, usr.get('permiso_descuento'))
             _set_switch(self.sw_devolucion, usr.get('permiso_devolucion'))
             _set_switch(self.sw_tickets, usr.get('permiso_tickets'))
+            _set_switch(self.sw_cajon, usr.get('permiso_cajon'))
 
             self.btn_guardar.configure(text='ACTUALIZAR')
         except Exception:
@@ -271,6 +274,10 @@ class UsuariosUI:
                 self.sw_tickets.deselect()
             except Exception:
                 pass
+            try:
+                self.sw_cajon.deselect()
+            except Exception:
+                pass
 
             self.btn_guardar.configure(text='GUARDAR')
         except Exception:
@@ -302,6 +309,7 @@ class UsuariosUI:
             permiso_descuento = 1 if self.sw_descuento.get() else 0
             permiso_devolucion = 1 if self.sw_devolucion.get() else 0
             permiso_tickets = 1 if self.sw_tickets.get() else 0
+            permiso_cajon = 1 if self.sw_cajon.get() else 0
 
             id_val = None
             try:
@@ -321,6 +329,7 @@ class UsuariosUI:
                     'permiso_descuento': permiso_descuento,
                     'permiso_devolucion': permiso_devolucion,
                     'permiso_tickets': permiso_tickets,
+                    'permiso_cajon': permiso_cajon,
                 }
                 if password:
                     data['password'] = password
@@ -340,7 +349,8 @@ class UsuariosUI:
                     return
                 ok = self.service.save_usuario(nombre, email=email, telefono=telefono, password=password, rol=rol,
                                                permiso_cierre=permiso_cierre, permiso_descuento=permiso_descuento,
-                                               permiso_devolucion=permiso_devolucion, permiso_tickets=permiso_tickets)
+                                               permiso_devolucion=permiso_devolucion, permiso_tickets=permiso_tickets,
+                                               permiso_cajon=permiso_cajon)
 
             if ok:
                 # Mostrar diálogo de éxito según operación

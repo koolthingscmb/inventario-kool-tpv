@@ -33,7 +33,7 @@ class AuthService:
             query = """
                 SELECT id, nombre, password
                 FROM usuarios
-                WHERE rol = 'admin'
+                WHERE LOWER(rol) = 'admin'
             """
 
             admins = self.db.fetch_all(query) or []
@@ -75,7 +75,7 @@ class AuthService:
             query = """
                 SELECT id, nombre
                 FROM usuarios
-                WHERE rol = 'admin'
+                WHERE LOWER(rol) = 'admin'
             """
             rows = self.db.fetch_all(query) or []
             # Normalizar salida: solo id y nombre
