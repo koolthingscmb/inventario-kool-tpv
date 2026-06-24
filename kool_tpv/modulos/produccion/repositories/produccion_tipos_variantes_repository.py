@@ -1,0 +1,125 @@
+"""Acceso a datos para la tabla `tipos_variantes`.
+
+Contiene la clase `ProduccionTiposVariantesRepository` que expone métodos para consultar
+y gestionar variantes de tipos de producto desde la base de datos.
+"""
+from typing import List, Optional
+from datetime import datetime
+
+from kool_tpv.base_datos.db_wrapper import Database
+from kool_tpv.modulos.produccion.models.produccion_tipo_variante_model import ProduccionTipoVariante
+
+
+class ProduccionTiposVariantesRepository:
+    """Data access object (DAO) para `tipos_variantes`.
+
+    Args:
+        db: instancia de `Database` ya conectada.
+    """
+
+    def __init__(self, db: Database):
+        self.db = db
+
+    def _row_to_variante(self, row) -> ProduccionTipoVariante:
+        """Mapear una fila de BD a objeto ProduccionTipoVariante."""
+        (id_, tipo_id, nombre, coste_base, precio_recomendado, 
+         activo, shopify_variant_id, created_at, updated_at) = row
+        
+        return ProduccionTipoVariante(
+            id=id_,
+            tipo_id=tipo_id,
+            nombre=nombre,
+            coste_base=coste_base or 0,
+            precio_recomendado=precio_recomendado or 0,
+            activo=activo if activo is not None else 1,
+            shopify_variant_id=shopify_variant_id,
+            created_at=datetime.fromisoformat(created_at) if created_at else None,
+            updated_at=datetime.fromisoformat(updated_at) if updated_at else None
+        )
+
+    _QUERY_SELECT = """
+        SELECT id, tipo_id, nombre, coste_base, precio_recomendado, 
+               activo, shopify_variant_id, created_at, updated_at
+        FROM tipos_variantes
+    """
+
+    def get_todos(self) -> List[ProduccionTipoVariante]:
+        """Obtener todas las variantes."""
+        query = self._QUERY_SELECT + " ORDER BY tipo_id, nombre"
+        rows = self.db.fetch_all(query)
+        return [self._row_to_variante(row) for row in rows]
+
+    def get_por_tipo(self, tipo_id: int, solo_activos: bool = True) -> List[ProduccionTipoVariante]:
+        """Obtener todas las variantes de un tipo específico."""
+        query = self._QUERY_SELECT + " WHERE tipo_id = ?"
+        if solo_activos:
+            query += " AND activo = 1"
+        query += " ORDER BY nombre"
+        
+        rows = self.db.fetch_all(query, (tipo_id,))
+        return [self._row_to_variante(row) for row in rows]
+
+    def get_por_id(self, variante_id: int) -> Optional[ProduccionTipoVariante]:
+        """Obtener una variante por su ID."""
+        query = self._QUERY_SELECT + " WHERE id = ?"
+        rows = self.db.fetch_all(query, (variante_id,))
+
+        if not rows:
+            return None
+        return self._row_to_variante(rows[0])
+
+    def crear(self, variante: ProduccionTipoVariante) -> Optional[int]:
+        """Crear una nueva variante."""
+        try:
+            query = """
+                INSERT INTO tipos_variantes
+                (tipo_id, nombre, coste_base, precio_recomendado, activo, shopify_variant_id)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """
+            self.db.execute_query(query, (
+                variante.tipo_id, variante.nombre, variante.coste_base, 
+                variante.precio_recomendado, variante.activo, variante.shopify_variant_id
+            ))
+            result = self.db.fetch_all("SELECT last_insert_rowid()")
+            if result:
+                return result[0][0]
+            return None
+        except Exception:
+            import logging
+            logging.exception("Error creando variante de tipo")
+            return None
+
+    def actualizar(self, variante: ProduccionTipoVariante) -> bool:
+        """Actualizar una variante existente."""
+        if not variante.id:
+            return False
+
+        try:
+            query = """
+                UPDATE tipos_variantes
+                SET tipo_id = ?, nombre = ?, coste_base = ?, 
+                    precio_recomendado = ?, activo = ?, shopify_variant_id = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """
+            self.db.execute_query(query, (
+                variante.tipo_id, variante.nombre, variante.coste_base, 
+                variante.precio_recomendado, variante.activo, 
+                variante.shopify_variant_id, variante.id
+            ))
+            return True
+        except Exception:
+            import logging
+            logging.exception(f"Error actualizando variante {variante.id}")
+            return False
+
+    def eliminar(self, variante_id: int) -> bool:
+        """Eliminar una variante (soft delete)."""
+        try:
+            query = "UPDATE tipos_variantes SET activo = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+            self.db.execute_query(query, (variante_id,))
+            return True
+        except Exception:
+            import logging
+            logging.exception(f"Error eliminando variante {variante_id}")
+            return False

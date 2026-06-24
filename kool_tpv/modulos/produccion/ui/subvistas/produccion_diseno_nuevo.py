@@ -1,7 +1,7 @@
 """Subvista para crear un nuevo diseño.
 
 Contiene la clase `DisenoNuevoView` que muestra SearchableCombos para
-colección, variante y tipo_producto, un entry para el nombre del diseño,
+colección, sufijo y tipo_producto, un entry para el nombre del diseño,
 y un botón GUARDAR que persiste via ProduccionDisenosService.
 """
 import logging
@@ -59,7 +59,7 @@ class DisenoNuevoView:
 
 		# Cargar datos para combos
 		self._colecciones = self._cargar_colecciones()
-		self._variantes = self._cargar_variantes()
+		self._sufijos = self._cargar_sufijos()
 		self._tipos = self._cargar_tipos()
 
 		# UI
@@ -84,15 +84,15 @@ class DisenoNuevoView:
 			logging.exception("Error cargando colecciones")
 			return []
 
-	def _cargar_variantes(self) -> List[str]:
-		"""Obtener variantes existentes (DISTINCT) normalizadas."""
+	def _cargar_sufijos(self) -> List[str]:
+		"""Obtener sufijos existentes (DISTINCT) normalizados."""
 		try:
 			rows = self.db.fetch_all(
-				"SELECT DISTINCT variante FROM produccion_disenos WHERE variante IS NOT NULL AND variante != '' ORDER BY variante"
+				"SELECT DISTINCT sufijo FROM produccion_disenos WHERE sufijo IS NOT NULL AND sufijo != '' ORDER BY sufijo"
 			)
 			return [_normalizar(r[0]) for r in rows if r[0]]
 		except Exception:
-			logging.exception("Error cargando variantes")
+			logging.exception("Error cargando sufijos")
 			return []
 
 	def _cargar_tipos(self) -> List[Tuple[int, str]]:
@@ -162,7 +162,7 @@ class DisenoNuevoView:
 		columns = [
 			("nombre", 200, "Nombre"),
 			("coleccion", 150, "Colección"),
-			("variante", 150, "Variante"),
+			("sufijo", 150, "Sufijo"),
 			("tipos_nombres", 200, "Tipos")
 		]
 
@@ -181,7 +181,7 @@ class DisenoNuevoView:
 		# Referencia interna para compatibilidad con código existente
 		self._nav_list = self._paginated_list.nav_list
 
-		# --- Fila con Colección y Variante ---
+		# --- Fila con Colección y Sufijo ---
 		row2 = ctk.CTkFrame(form_frame, fg_color="transparent")
 		row2.pack(fill="x", pady=(0, 10))
 
@@ -208,28 +208,28 @@ class DisenoNuevoView:
 		self._combo_coleccion.pack(fill="x")
 		self._combo_coleccion.entry.bind("<Tab>", self._on_tab_next)
 
-		# Variante
+		# Sufijo
 		var_frame = ctk.CTkFrame(row2, fg_color="transparent")
 		var_frame.pack(side="left", fill="x", expand=True)
 
-		lbl_variante = ctk.CTkLabel(
+		lbl_sufijo = ctk.CTkLabel(
 			var_frame,
-			text="VARIANTE",
+			text="SUFIJO",
 			font=self._get_font("label"),
 			text_color=self._text_sec,
 			fg_color=self._bg
 		)
-		lbl_variante.pack(anchor="w", pady=(0, 2))
+		lbl_sufijo.pack(anchor="w", pady=(0, 2))
 
-		self._combo_variante = SearchableCombo(
+		self._combo_sufijo = SearchableCombo(
 			var_frame,
-			values=self._variantes,
-			placeholder="Selecciona variante...",
+			values=self._sufijos,
+			placeholder="Selecciona sufijo...",
 			width=250,
 			module_name="produccion"
 		)
-		self._combo_variante.pack(fill="x")
-		self._combo_variante.entry.bind("<Tab>", self._on_tab_next)
+		self._combo_sufijo.pack(fill="x")
+		self._combo_sufijo.entry.bind("<Tab>", self._on_tab_next)
 
 		# --- Tipos de producto ---
 		lbl_tipo = ctk.CTkLabel(
@@ -290,7 +290,7 @@ class DisenoNuevoView:
 			self._entry_nombre._entry if hasattr(self._entry_nombre, '_entry') else self._entry_nombre,
 			self.btn_comprobar,
 			self._combo_coleccion.entry,
-			self._combo_variante.entry,
+			self._combo_sufijo.entry,
 			self._tag_selector_tipos.search_combo.entry,
 			self.btn_guardar
 		]
@@ -358,7 +358,7 @@ class DisenoNuevoView:
 			"codigo": r.codigo,
 			"nombre": r.nombre,
 			"coleccion": r.coleccion,
-			"variante": r.variante or "",
+			"sufijo": r.sufijo or "",
 			"tipos_nombres": tipos_nombres,
 			"obj": r
 		}
@@ -373,7 +373,7 @@ class DisenoNuevoView:
 		self._entry_nombre.insert(0, diseno.nombre)
 		
 		self._combo_coleccion.set(diseno.coleccion)
-		self._combo_variante.set(diseno.variante or "")
+		self._combo_sufijo.set(diseno.sufijo or "")
 		
 		# Cargar tipos en el TagSelector
 		self._tag_selector_tipos.clear()
@@ -387,7 +387,7 @@ class DisenoNuevoView:
 	def _on_guardar(self):
 		"""Guardar o Modificar el diseño."""
 		coleccion = _normalizar(self._combo_coleccion.get())
-		variante = _normalizar(self._combo_variante.get())
+		sufijo = _normalizar(self._combo_sufijo.get())
 		tipos_ids = self._tag_selector_tipos.get_selected_ids()
 		nombre = self._entry_nombre.get().strip()
 
@@ -406,7 +406,7 @@ class DisenoNuevoView:
 				codigo=self._diseno_cargado.codigo,
 				coleccion=coleccion,
 				nombre=nombre,
-				variante=variante if variante else None,
+				sufijo=sufijo if sufijo else None,
 				tipos=tipos_ids
 			)
 			if ok:
@@ -415,7 +415,7 @@ class DisenoNuevoView:
 				ToastWidget.show(self.frame, "Error al modificar el diseño", tipo="error")
 		else:
 			# MODO CREAR (Verificar duplicado exacto antes)
-			if self.service.repository.existe_diseno(coleccion, nombre, variante if variante else None):
+			if self.service.repository.existe_diseno(coleccion, nombre, sufijo if sufijo else None):
 				from kool_tpv.utils.dialogs import show_warning as show_confirm_dialog
 				confirm = show_confirm_dialog(
 					self.frame,
@@ -425,7 +425,7 @@ class DisenoNuevoView:
 				)
 				if confirm:
 					# Buscar el existente y re-cargar
-					existente = self._buscar_diseno_exacto(coleccion, nombre, variante)
+					existente = self._buscar_diseno_exacto(coleccion, nombre, sufijo)
 					if existente:
 						self._on_diseno_double_click({"obj": existente})
 					return
@@ -435,12 +435,12 @@ class DisenoNuevoView:
 			result = self.service.crear(
 				coleccion=coleccion,
 				nombre=nombre,
-				variante=variante if variante else None,
+				sufijo=sufijo if sufijo else None,
 				tipos=tipos_ids
 			)
 			if result is None:
 				# Obtener el diseño recién creado para devolverlo
-				self._diseno_cargado = self._buscar_diseno_exacto(coleccion, nombre, variante)
+				self._diseno_cargado = self._buscar_diseno_exacto(coleccion, nombre, sufijo)
 				
 				# Si venimos de un flujo, cerramos directamente sin Toast para ser más rápidos
 				# (Sabemos que venimos de un flujo si on_cerrar espera un objeto)
@@ -448,7 +448,7 @@ class DisenoNuevoView:
 			else:
 				ToastWidget.show(self.frame, result, tipo="error")
 
-	def _buscar_diseno_exacto(self, coleccion: str, nombre: str, variante: Optional[str]) -> Optional[ProduccionDiseno]:
+	def _buscar_diseno_exacto(self, coleccion: str, nombre: str, sufijo: Optional[str]) -> Optional[ProduccionDiseno]:
 		"""Buscar el diseño exacto por sus campos de negocio."""
 		try:
 			# Usar el repository para buscar por campos
@@ -457,7 +457,7 @@ class DisenoNuevoView:
 			for d in todos:
 				if (d.coleccion.lower() == coleccion.lower() and 
 					d.nombre.lower() == nombre.lower() and 
-					(d.variante or "").lower() == (variante or "").lower()):
+					(d.sufijo or "").lower() == (sufijo or "").lower()):
 					return d
 			return None
 		except Exception:

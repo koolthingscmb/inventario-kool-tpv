@@ -112,7 +112,7 @@ class NuevaProduccionDisenoView:
 		columns = [
 			("nombre", 300, "Diseño"),
 			("coleccion", 150, "Colección"),
-			("variante", 100, "Variante"),
+			("sufijo", 100, "Sufijo"),
 		]
 
 		self.search_list = SearchablePaginatedNavList(
@@ -147,7 +147,7 @@ class NuevaProduccionDisenoView:
 		return {
 			"nombre": diseno.nombre or "",
 			"coleccion": diseno.coleccion or "",
-			"variante": diseno.variante or "",
+			"sufijo": diseno.sufijo or "",
 			"_obj": diseno,
 		}
 

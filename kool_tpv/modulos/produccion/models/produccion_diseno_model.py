@@ -6,7 +6,7 @@ class ProduccionDiseno:
     codigo: str  # PK
     coleccion: str
     nombre: str
-    variante: Optional[str] = None
+    sufijo: Optional[str] = None
     tipos: List[int] = field(default_factory=list)  # IDs de produccion_tipos
     coste_camiseta: int = 0  # en céntimos
     coste_taza: int = 0      # en céntimos

@@ -100,14 +100,14 @@ class ProduccionDisenosService:
 		max_num = self.repository.obtener_max_numero_coleccion(prefijo)
 		return f"{prefijo}{max_num + 1:02d}"
 
-	def crear(self, coleccion: str, nombre: str, variante: Optional[str] = None,
+	def crear(self, coleccion: str, nombre: str, sufijo: Optional[str] = None,
 	          tipos: Optional[List[int]] = None, costes: Optional[dict] = None) -> Optional[str]:
 		"""Crear un nuevo diseño.
 
 		Args:
 			coleccion: Colección del diseño.
 			nombre: Nombre del diseño.
-			variante: Variante opcional.
+			sufijo: Sufijo opcional.
 			tipos: Lista de IDs de tipos de producto (FK a tipos.id).
 			costes: Diccionario con costes por tipo (camiseta, taza, etc) en céntimos.
 
@@ -119,10 +119,10 @@ class ProduccionDisenosService:
 
 		coleccion_norm = coleccion.strip()
 		nombre_norm = nombre.strip()
-		variante_norm = variante.strip() if variante else None
+		sufijo_norm = sufijo.strip() if sufijo else None
 
-		if self.repository.existe_diseno(coleccion_norm, nombre_norm, variante_norm):
-			return "Ya existe un diseño con esa colección, nombre y variante"
+		if self.repository.existe_diseno(coleccion_norm, nombre_norm, sufijo_norm):
+			return "Ya existe un diseño con esa colección, nombre y sufijo"
 
 		codigo = self.generar_codigo(coleccion_norm)
 		costes = costes or {}
@@ -130,7 +130,7 @@ class ProduccionDisenosService:
 			codigo=codigo,
 			coleccion=coleccion.strip(),
 			nombre=nombre.strip(),
-			variante=variante,
+			sufijo=sufijo,
 			tipos=tipos or [],
 			coste_camiseta=costes.get("camiseta", 0),
 			coste_taza=costes.get("taza", 0),
@@ -144,7 +144,7 @@ class ProduccionDisenosService:
 		ok = self.repository.crear(diseno)
 		return None if ok else "Error guardando el diseño en la base de datos"
 
-	def actualizar(self, codigo: str, coleccion: str, nombre: str, variante: Optional[str] = None,
+	def actualizar(self, codigo: str, coleccion: str, nombre: str, sufijo: Optional[str] = None,
 	              tipos: Optional[List[int]] = None, costes: Optional[dict] = None) -> bool:
 		"""Actualizar un diseño existente.
 
@@ -152,7 +152,7 @@ class ProduccionDisenosService:
 			codigo: Código del diseño a actualizar.
 			coleccion: Nueva colección.
 			nombre: Nuevo nombre.
-			variante: Nueva variante.
+			sufijo: Nuevo sufijo.
 			tipos: Lista de IDs de tipos de producto (FK a tipos.id).
 			costes: Nuevos costes por tipo en céntimos.
 
@@ -167,7 +167,7 @@ class ProduccionDisenosService:
 			codigo=codigo.strip(),
 			coleccion=coleccion.strip(),
 			nombre=nombre.strip(),
-			variante=variante,
+			sufijo=sufijo,
 			tipos=tipos or [],
 			coste_camiseta=costes.get("camiseta", 0),
 			coste_taza=costes.get("taza", 0),
