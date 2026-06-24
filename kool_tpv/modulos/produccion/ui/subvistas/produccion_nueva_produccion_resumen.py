@@ -17,6 +17,8 @@ class ItemProduccion:
 	"""Ítem de producción añadido a la orden."""
 	tipo_nombre: str = ""
 	tipo_id: Optional[int] = None
+	variante_nombre: Optional[str] = None
+	variante_id: Optional[int] = None
 	genero: Optional[str] = None
 	genero_id: Optional[int] = None
 	talla: Optional[str] = None
@@ -94,8 +96,8 @@ class NuevaProduccionResumenView:
 		self.tabla_frame.pack(expand=True, fill="both", padx=40, pady=(0, 10))
 
 		# Cabeceras
-		self._headers = ["Cant", "Tipo", "Diseño", "Género", "Talla", "Color", "Mixta"]
-		self._col_widths = [50, 100, 180, 100, 60, 100, 50]
+		self._headers = ["Cant", "Tipo", "Var", "Diseño", "Género", "Talla", "Color", "Mixta"]
+		self._col_widths = [50, 100, 80, 180, 100, 60, 100, 50]
 
 		header_frame = ctk.CTkFrame(self.tabla_frame, fg_color=self._colors.get("bg_dark", "#0d0d0d"), height=36)
 		header_frame.pack(fill="x", pady=(0, 4))
@@ -231,6 +233,7 @@ class NuevaProduccionResumenView:
 			valores = [
 				str(item.cantidad),
 				item.tipo_nombre or "",
+				item.variante_nombre or "-",
 				item.diseno_nombre or "",
 				item.genero or "",
 				item.talla or "",

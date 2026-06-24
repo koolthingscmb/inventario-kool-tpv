@@ -238,6 +238,23 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migration 016: variante_id en produccion_lineas
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('produccion_lineas')") or [])]
+			if 'variante_id' not in cols:
+				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '016_variante_id_produccion.sql'
+				if mig_path.exists():
+					logging.info('Aplicando migración 016: variante_id en produccion_lineas')
+					db.connection.execute('ALTER TABLE produccion_lineas ADD COLUMN variante_id INTEGER REFERENCES tipos_variantes(id)')
+					db.connection.commit()
+					logging.info('Migración 016 aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 016')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Validate again
 		try:
 			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table'")

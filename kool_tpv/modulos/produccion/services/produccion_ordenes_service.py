@@ -24,6 +24,8 @@ class ItemProduccion:
     produccion_mixta: bool
     coste_unitario: float
     coste_total: float
+    variante_nombre: Optional[str] = None
+    variante_id: Optional[int] = None
 
 class ProduccionOrdenesService:
     def __init__(self, db: Database):
@@ -54,8 +56,8 @@ class ProduccionOrdenesService:
                     INSERT INTO produccion_lineas 
                     (orden_id, diseno_codigo, tipo_producto, talla, color_id, 
                      cantidad, produccion_mixta, usuario_produccion_id,
-                     coste_unitario, coste_total)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     coste_unitario, coste_total, variante_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """
                 # Convertir costes a céntimos para la BD
                 coste_u_cent = int(item.coste_unitario * 100)
@@ -66,7 +68,8 @@ class ProduccionOrdenesService:
                     item.talla, item.color_id, item.cantidad,
                     1 if item.produccion_mixta else 0,
                     usuario_id,
-                    coste_u_cent, coste_t_cent
+                    coste_u_cent, coste_t_cent,
+                    item.variante_id
                 ))
 
                 # 3. Actualizar stock acumulado

@@ -16,18 +16,21 @@ from typing import Callable, List, Optional
 
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.produccion.models.produccion_tipos_model import ProduccionTipo
+from kool_tpv.modulos.produccion.models.produccion_tipo_variante_model import ProduccionTipoVariante
 from kool_tpv.modulos.produccion.models.produccion_color_model import ProduccionColor
 from kool_tpv.modulos.produccion.models.produccion_diseno_model import ProduccionDiseno
 from kool_tpv.modulos.produccion.models.produccion_genero_model import ProduccionGenero
 from kool_tpv.modulos.produccion.models.produccion_menu_model import ProduccionMenuItem
 from kool_tpv.modulos.produccion.services.produccion_disenos_service import ProduccionDisenosService
 from kool_tpv.modulos.produccion.services.produccion_tipos_service import ProduccionTiposService
+from kool_tpv.modulos.produccion.services.produccion_tipos_variantes_service import ProduccionTiposVariantesService
 from kool_tpv.modulos.produccion.services.produccion_generos_tallas_service import ProduccionTallasService
 from kool_tpv.modulos.produccion.services.produccion_colores_service import ProduccionColoresService
 from kool_tpv.modulos.produccion.services.produccion_menu_service import ProduccionMenuService
 from kool_tpv.modulos.produccion.services.produccion_ordenes_service import ProduccionOrdenesService, ItemProduccion
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion import NuevaProduccionView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_tipos import NuevaProduccionTiposView
+from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_variante import NuevaProduccionVarianteView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_genero import NuevaProduccionGeneroView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_talla import NuevaProduccionTallaView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_color import NuevaProduccionColorView
@@ -38,6 +41,7 @@ from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_resume
 # Pasos del flujo
 PASO_MENU = 0
 PASO_TIPOS = 1
+PASO_VARIANTE = 8
 PASO_GENERO = 2
 PASO_COLOR = 3
 PASO_TALLA = 4
@@ -66,6 +70,7 @@ class NuevoProduccionFlow:
 
         # Servicios
         self._tipos_service = ProduccionTiposService(db)
+        self._variantes_service = ProduccionTiposVariantesService(db)
         self._disenos_service = ProduccionDisenosService(db)
         self._tallas_service = ProduccionTallasService(db)
         self._colores_service = ProduccionColoresService(db)
@@ -77,6 +82,7 @@ class NuevoProduccionFlow:
         self._paso_anterior = PASO_MENU
         self._menu: Optional[ProduccionMenuItem] = None
         self._tipo: Optional[ProduccionTipo] = None
+        self._variante: Optional[ProduccionTipoVariante] = None
         self._genero: Optional[ProduccionGenero] = None
         self._talla: Optional[str] = None
         self._color: Optional[ProduccionColor] = None
@@ -140,6 +146,15 @@ class NuevoProduccionFlow:
                 on_volver=lambda: self._mostrar_paso(PASO_MENU)
             )
 
+        elif paso == PASO_VARIANTE:
+            self._vista_actual = NuevaProduccionVarianteView(
+                self.frame,
+                db=self.db,
+                tipo_id=self._tipo.id if self._tipo else 0,
+                on_siguiente=self._on_variante_siguiente,
+                on_volver=self._on_variante_volver
+            )
+
         elif paso == PASO_GENERO:
             self._vista_actual = NuevaProduccionGeneroView(
                 self.frame,
@@ -188,10 +203,12 @@ class NuevoProduccionFlow:
         elif paso == PASO_CANTIDAD:
             mostrar_mixta = self._es_tipo_camiseta()
 
-            # Construir frase resumen: Producto + Género + Color + Talla + Diseño
+            # Construir frase resumen: Producto + Variante + Género + Color + Talla + Diseño
             partes = []
             if self._tipo:
                 partes.append(self._tipo.nombre)
+            if self._variante:
+                partes.append(self._variante.nombre)
             if self._genero:
                 partes.append(self._genero.nombre)
             if self._color:
@@ -253,7 +270,27 @@ class NuevoProduccionFlow:
         self._ir_desde_tipo()
 
     def _ir_desde_tipo(self):
-        """Lógica común: desde un tipo, decidir el siguiente paso."""
+        """Lógica común: desde un tipo, decidir el siguiente paso (Variantes o filtros)."""
+        tipo = self._tipo
+        # 1. ¿Tiene variantes?
+        variantes = self._variantes_service.obtener_por_tipo(tipo.id, solo_activos=True)
+        if variantes:
+            self._mostrar_paso(PASO_VARIANTE)
+            return
+
+        # 2. Si no hay variantes, seguir flujo normal
+        if tipo.requiere_genero == 1:
+            self._mostrar_paso(PASO_GENERO)
+        elif tipo.requiere_color == 1:
+            self._mostrar_paso(PASO_COLOR)
+        elif tipo.requiere_talla == 1:
+            self._mostrar_paso(PASO_TALLA)
+        else:
+            self._mostrar_paso(PASO_DISENO)
+
+    def _on_variante_siguiente(self, variante: ProduccionTipoVariante):
+        """Variante seleccionada → seguir con filtros (Género, Color...)."""
+        self._variante = variante
         tipo = self._tipo
         if tipo.requiere_genero == 1:
             self._mostrar_paso(PASO_GENERO)
@@ -263,6 +300,13 @@ class NuevoProduccionFlow:
             self._mostrar_paso(PASO_TALLA)
         else:
             self._mostrar_paso(PASO_DISENO)
+
+    def _on_variante_volver(self):
+        """Volver desde variante → volver a TIPOS o MENU."""
+        if self._paso_anterior == PASO_TIPOS or self._menu:
+            self._mostrar_paso(PASO_TIPOS)
+        else:
+            self._mostrar_paso(PASO_MENU)
 
     def _on_genero_siguiente(self, genero: ProduccionGenero):
         """Género seleccionado → ir a color."""
@@ -275,9 +319,11 @@ class NuevoProduccionFlow:
             self._mostrar_paso(PASO_DISENO)
 
     def _on_color_volver(self):
-        """Volver desde color → ir a género si existe, si no a tipos/menú."""
+        """Volver desde color → ir a género o variante o tipos/menú."""
         if self._tipo and self._tipo.requiere_genero == 1:
             self._mostrar_paso(PASO_GENERO)
+        elif self._variante:
+            self._mostrar_paso(PASO_VARIANTE)
         elif self._paso_anterior == PASO_TIPOS or self._menu:
             self._mostrar_paso(PASO_TIPOS)
         else:
@@ -292,11 +338,13 @@ class NuevoProduccionFlow:
             self._mostrar_paso(PASO_DISENO)
 
     def _on_talla_volver(self):
-        """Volver desde talla → ir a color si existe, si no a género, si no a tipos/menú."""
+        """Volver desde talla → ir a color o género o variante o tipos/menú."""
         if self._tipo and self._tipo.requiere_color == 1:
             self._mostrar_paso(PASO_COLOR)
         elif self._tipo and self._tipo.requiere_genero == 1:
             self._mostrar_paso(PASO_GENERO)
+        elif self._variante:
+            self._mostrar_paso(PASO_VARIANTE)
         elif self._menu:
             self._mostrar_paso(PASO_TIPOS)
         else:
@@ -308,13 +356,15 @@ class NuevoProduccionFlow:
         self._mostrar_paso(PASO_DISENO)
 
     def _on_diseno_volver(self):
-        """Volver desde diseño → talla si existe, si no color, si no género, si no tipos/menú."""
+        """Volver desde diseño → talla, color, género, variante o tipos/menú."""
         if self._tipo and self._tipo.requiere_talla == 1:
             self._mostrar_paso(PASO_TALLA)
         elif self._tipo and self._tipo.requiere_color == 1:
             self._mostrar_paso(PASO_COLOR)
         elif self._tipo and self._tipo.requiere_genero == 1:
             self._mostrar_paso(PASO_GENERO)
+        elif self._variante:
+            self._mostrar_paso(PASO_VARIANTE)
         elif self._menu:
             self._mostrar_paso(PASO_TIPOS)
         else:
@@ -335,6 +385,7 @@ class NuevoProduccionFlow:
         self._crear_item()
         self._menu = None
         self._tipo = None
+        self._variante = None
         self._genero = None
         self._talla = None
         self._color = None
@@ -352,6 +403,7 @@ class NuevoProduccionFlow:
         """AÑADIR desde resumen → resetear selección y volver al paso 1."""
         self._menu = None
         self._tipo = None
+        self._variante = None
         self._genero = None
         self._talla = None
         self._color = None
@@ -390,10 +442,13 @@ class NuevoProduccionFlow:
         if not self._tipo:
             return
 
-        # Coste base del tipo (en euros)
-        coste_base = self._tipo.coste_base or 0.0
+        # 1. Coste base (de la variante si existe, si no del tipo)
+        if self._variante:
+            coste_base = self._variante.coste_base / 100.0
+        else:
+            coste_base = self._tipo.coste_base or 0.0
 
-        # Coste del diseño para este tipo (en céntimos → euros)
+        # 2. Coste del diseño para este tipo (en céntimos → euros)
         coste_diseno = 0.0
         if self._diseno:
             coste_diseno_cent = self._disenos_service.obtener_coste_por_tipo(
@@ -408,6 +463,8 @@ class NuevoProduccionFlow:
         item = ItemProduccion(
             tipo_nombre=self._tipo.nombre,
             tipo_id=self._tipo.id,
+            variante_nombre=self._variante.nombre if self._variante else None,
+            variante_id=self._variante.id if self._variante else None,
             genero=self._genero.nombre if self._genero else None,
             genero_id=self._genero.id if self._genero else None,
             talla=self._talla,
