@@ -27,6 +27,7 @@ class ItemProduccion:
     variante_nombre: Optional[str] = None
     variante_id: Optional[int] = None
     diseno_coleccion: Optional[str] = None
+    origen: str = "KOOL"
 
 class ProduccionOrdenesService:
     def __init__(self, db: Database):
@@ -39,10 +40,10 @@ class ProduccionOrdenesService:
             return False
 
         try:
-            # 1. Crear la cabecera de la orden
+            # 1. Crear la cabecera de la orden (origen por defecto 'KOOL')
             query_orden = """
-                INSERT INTO produccion_ordenes (usuario_id, estado)
-                VALUES (?, 'COMPLETADA')
+                INSERT INTO produccion_ordenes (usuario_id, estado, origen)
+                VALUES (?, 'COMPLETADA', 'KOOL')
             """
             self.db.execute_query(query_orden, (usuario_id,))
             
@@ -57,8 +58,8 @@ class ProduccionOrdenesService:
                     INSERT INTO produccion_lineas 
                     (orden_id, diseno_codigo, tipo_producto, talla, color_id, 
                      cantidad, produccion_mixta, usuario_produccion_id,
-                     coste_unitario, coste_total, variante_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     coste_unitario, coste_total, variante_id, origen)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """
                 # Convertir costes a céntimos para la BD
                 coste_u_cent = int(item.coste_unitario * 100)
@@ -70,7 +71,8 @@ class ProduccionOrdenesService:
                     1 if item.produccion_mixta else 0,
                     usuario_id,
                     coste_u_cent, coste_t_cent,
-                    item.variante_id
+                    item.variante_id,
+                    getattr(item, 'origen', 'KOOL') or 'KOOL'
                 ))
 
                 # 3. Actualizar stock acumulado

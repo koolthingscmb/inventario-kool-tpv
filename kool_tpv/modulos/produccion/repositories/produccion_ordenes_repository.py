@@ -28,7 +28,7 @@ class ProduccionOrdenesRepository:
 			Lista de objetos ProduccionOrden.
 		"""
 		query = """
-			SELECT id, fecha_hora, usuario_id, notas, tiempo_estimado_minutos, estado
+			SELECT id, fecha_hora, usuario_id, notas, tiempo_estimado_minutos, estado, origen
 			FROM produccion_ordenes
 			ORDER BY fecha_hora DESC
 		"""
@@ -36,14 +36,15 @@ class ProduccionOrdenesRepository:
 
 		ordenes: List[ProduccionOrden] = []
 		for row in rows:
-			id_, fecha_hora, usuario_id, notas, tiempo_estimado_minutos, estado = row
+			id_, fecha_hora, usuario_id, notas, tiempo_estimado_minutos, estado, origen = row
 			ordenes.append(ProduccionOrden(
 				id=id_,
 				fecha_hora=fecha_hora,
 				usuario_id=usuario_id,
 				notas=notas,
 				tiempo_estimado_minutos=tiempo_estimado_minutos,
-				estado=estado
+				estado=estado,
+				origen=origen or 'KOOL'
 			))
 		return ordenes
 
@@ -57,7 +58,7 @@ class ProduccionOrdenesRepository:
 			Objeto ProduccionOrden o None si no existe.
 		"""
 		query = """
-			SELECT id, fecha_hora, usuario_id, notas, tiempo_estimado_minutos, estado
+			SELECT id, fecha_hora, usuario_id, notas, tiempo_estimado_minutos, estado, origen
 			FROM produccion_ordenes
 			WHERE id = ?
 		"""
@@ -66,14 +67,15 @@ class ProduccionOrdenesRepository:
 		if not rows:
 			return None
 
-		id_, fecha_hora, usuario_id, notas, tiempo_estimado_minutos, estado = rows[0]
+		id_, fecha_hora, usuario_id, notas, tiempo_estimado_minutos, estado, origen = rows[0]
 		return ProduccionOrden(
 			id=id_,
 			fecha_hora=fecha_hora,
 			usuario_id=usuario_id,
 			notas=notas,
 			tiempo_estimado_minutos=tiempo_estimado_minutos,
-			estado=estado
+			estado=estado,
+			origen=origen or 'KOOL'
 		)
 
 	def get_pendientes(self) -> List[ProduccionOrden]:
@@ -83,7 +85,7 @@ class ProduccionOrdenesRepository:
 			Lista de objetos ProduccionOrden con estado PENDIENTE.
 		"""
 		query = """
-			SELECT id, fecha_hora, usuario_id, notas, tiempo_estimado_minutos, estado
+			SELECT id, fecha_hora, usuario_id, notas, tiempo_estimado_minutos, estado, origen
 			FROM produccion_ordenes
 			WHERE estado = 'PENDIENTE'
 			ORDER BY fecha_hora ASC
@@ -92,14 +94,15 @@ class ProduccionOrdenesRepository:
 
 		ordenes: List[ProduccionOrden] = []
 		for row in rows:
-			id_, fecha_hora, usuario_id, notas, tiempo_estimado_minutos, estado = row
+			id_, fecha_hora, usuario_id, notas, tiempo_estimado_minutos, estado, origen = row
 			ordenes.append(ProduccionOrden(
 				id=id_,
 				fecha_hora=fecha_hora,
 				usuario_id=usuario_id,
 				notas=notas,
 				tiempo_estimado_minutos=tiempo_estimado_minutos,
-				estado=estado
+				estado=estado,
+				origen=origen or 'KOOL'
 			))
 		return ordenes
 
@@ -115,12 +118,12 @@ class ProduccionOrdenesRepository:
 		try:
 			query = """
 				INSERT INTO produccion_ordenes
-				(fecha_hora, usuario_id, notas, tiempo_estimado_minutos, estado)
-				VALUES (?, ?, ?, ?, ?)
+				(fecha_hora, usuario_id, notas, tiempo_estimado_minutos, estado, origen)
+				VALUES (?, ?, ?, ?, ?, ?)
 			"""
 			self.db.execute_query(query, (
 				orden.fecha_hora, orden.usuario_id, orden.notas,
-				orden.tiempo_estimado_minutos, orden.estado
+				orden.tiempo_estimado_minutos, orden.estado, orden.origen
 			))
 			# Obtener el ID del último insert
 			result = self.db.fetch_all("SELECT last_insert_rowid()")
@@ -148,12 +151,12 @@ class ProduccionOrdenesRepository:
 			query = """
 				UPDATE produccion_ordenes
 				SET fecha_hora = ?, usuario_id = ?, notas = ?,
-				    tiempo_estimado_minutos = ?, estado = ?
+				    tiempo_estimado_minutos = ?, estado = ?, origen = ?
 				WHERE id = ?
 			"""
 			self.db.execute_query(query, (
 				orden.fecha_hora, orden.usuario_id, orden.notas,
-				orden.tiempo_estimado_minutos, orden.estado, orden.id
+				orden.tiempo_estimado_minutos, orden.estado, orden.origen, orden.id
 			))
 			return True
 		except Exception:

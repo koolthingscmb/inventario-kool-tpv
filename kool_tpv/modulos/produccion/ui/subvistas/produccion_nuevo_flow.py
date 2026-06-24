@@ -28,6 +28,7 @@ from kool_tpv.modulos.produccion.services.produccion_generos_tallas_service impo
 from kool_tpv.modulos.produccion.services.produccion_colores_service import ProduccionColoresService
 from kool_tpv.modulos.produccion.services.produccion_menu_service import ProduccionMenuService
 from kool_tpv.modulos.produccion.services.produccion_ordenes_service import ProduccionOrdenesService, ItemProduccion
+from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_origen import NuevaProduccionOrigenView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion import NuevaProduccionView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_tipos import NuevaProduccionTiposView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_variante import NuevaProduccionVarianteView
@@ -39,15 +40,16 @@ from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_cantid
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_resumen import NuevaProduccionResumenView
 
 # Pasos del flujo
-PASO_MENU = 0
-PASO_TIPOS = 1
+PASO_ORIGEN = 0
+PASO_MENU = 1
+PASO_TIPOS = 2
 PASO_VARIANTE = 8
-PASO_GENERO = 2
-PASO_COLOR = 3
-PASO_TALLA = 4
-PASO_DISENO = 5
-PASO_CANTIDAD = 6
-PASO_RESUMEN = 7
+PASO_GENERO = 3
+PASO_COLOR = 4
+PASO_TALLA = 5
+PASO_DISENO = 6
+PASO_CANTIDAD = 7
+PASO_RESUMEN = 9
 
 
 class NuevoProduccionFlow:
@@ -78,8 +80,8 @@ class NuevoProduccionFlow:
         self._ordenes_service = ProduccionOrdenesService(db)
 
         # Estado del flujo
-        self._paso_actual = PASO_MENU
-        self._paso_anterior = PASO_MENU
+        self._paso_actual = PASO_ORIGEN
+        self._paso_anterior = PASO_ORIGEN
         self._menu: Optional[ProduccionMenuItem] = None
         self._tipo: Optional[ProduccionTipo] = None
         self._variante: Optional[ProduccionTipoVariante] = None
@@ -89,6 +91,7 @@ class NuevoProduccionFlow:
         self._diseno: Optional[ProduccionDiseno] = None
         self._cantidad: Optional[CantidadSeleccion] = None
         self._items: List[ItemProduccion] = []
+        self._origen: str = 'KOOL'
 
         # Vista activa
         self._vista_actual = None
@@ -110,7 +113,7 @@ class NuevoProduccionFlow:
             self._lbl_cajero.pack(fill="x", padx=20, pady=(4, 0))
 
         # Iniciar en el primer paso
-        self._mostrar_paso(PASO_MENU)
+        self._mostrar_paso(PASO_ORIGEN)
 
     # --- Navegación entre pasos ---
 
@@ -127,7 +130,14 @@ class NuevoProduccionFlow:
         self._paso_anterior = self._paso_actual
         self._paso_actual = paso
 
-        if paso == PASO_MENU:
+        if paso == PASO_ORIGEN:
+            self._vista_actual = NuevaProduccionOrigenView(
+                self.frame,
+                on_siguiente=self._on_origen_siguiente,
+                on_volver=self._on_volver_flow
+            )
+
+        elif paso == PASO_MENU:
             self._vista_actual = NuevaProduccionView(
                 self.frame,
                 db=self.db,
@@ -225,6 +235,7 @@ class NuevoProduccionFlow:
                 on_siguiente=self._on_cantidad_siguiente,
                 on_volver=self._on_cantidad_volver,
                 on_anadir=self._on_cantidad_anadir,
+                on_origen=self._on_cantidad_origen,
                 mostrar_mixta=mostrar_mixta,
                 diseno_nombre=resumen_completo
             )
@@ -241,6 +252,11 @@ class NuevoProduccionFlow:
                 self._vista_actual.anadir_item(item)
 
     # --- Callbacks de cada paso ---
+
+    def _on_origen_siguiente(self, origen: str):
+        """Origen seleccionado (KOOL / CUSTOM) → ir al menú de producto."""
+        self._origen = origen
+        self._mostrar_paso(PASO_MENU)
 
     def _on_menu_siguiente(self, menu_item: ProduccionMenuItem):
         """Menú seleccionado → decidir si hay que mostrar tipos o ir directo."""
@@ -424,6 +440,20 @@ class NuevoProduccionFlow:
         self._cantidad = None
         self._mostrar_paso(PASO_MENU)
 
+    def _on_cantidad_origen(self, cantidad: CantidadSeleccion):
+        """ORIGEN desde cantidad → crear ítem, resetear selección y volver al paso origen."""
+        self._cantidad = cantidad
+        self._crear_item()
+        self._menu = None
+        self._tipo = None
+        self._variante = None
+        self._genero = None
+        self._talla = None
+        self._color = None
+        self._diseno = None
+        self._cantidad = None
+        self._mostrar_paso(PASO_ORIGEN)
+
     def _on_cantidad_siguiente(self, cantidad: CantidadSeleccion):
         """Cantidad seleccionada → crear ítem y ir a resumen."""
         self._cantidad = cantidad
@@ -507,7 +537,8 @@ class NuevoProduccionFlow:
             cantidad=cantidad,
             produccion_mixta=self._cantidad.produccion_mixta if self._cantidad else False,
             coste_unitario=coste_unitario,
-            coste_total=coste_total
+            coste_total=coste_total,
+            origen=self._origen
         )
         self._items.append(item)
 

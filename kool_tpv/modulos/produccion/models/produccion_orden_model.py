@@ -10,3 +10,4 @@ class ProduccionOrden:
     notas: Optional[str] = None
     tiempo_estimado_minutos: Optional[int] = None
     estado: str = "PENDIENTE"
+    origen: str = "KOOL"

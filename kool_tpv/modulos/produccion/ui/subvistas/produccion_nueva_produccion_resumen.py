@@ -31,6 +31,7 @@ class ItemProduccion:
 	produccion_mixta: bool = False
 	coste_unitario: float = 0.0
 	coste_total: float = 0.0
+	origen: str = ""
 
 
 
@@ -97,8 +98,8 @@ class NuevaProduccionResumenView:
 		self.tabla_frame.pack(expand=True, fill="both", padx=40, pady=(0, 10))
 
 		# Cabeceras
-		self._headers = ["Cant", "Tipo", "Var", "Diseño", "Colección", "Género", "Talla", "Color", "Mixta"]
-		self._col_widths = [50, 100, 80, 180, 120, 100, 60, 100, 50]
+		self._headers = ["Origen", "Cant", "Tipo", "Var", "Diseño", "Colección", "Género", "Talla", "Color", "Mixta"]
+		self._col_widths = [70, 50, 100, 80, 180, 120, 100, 60, 100, 50]
 
 		header_frame = ctk.CTkFrame(self.tabla_frame, fg_color=self._colors.get("bg_dark", "#0d0d0d"), height=36)
 		header_frame.pack(fill="x", pady=(0, 4))
@@ -232,6 +233,7 @@ class NuevaProduccionResumenView:
 			fila.pack(fill="x", padx=4, pady=3)
 
 			valores = [
+				getattr(item, 'origen', '') or '',
 				str(item.cantidad),
 				item.tipo_nombre or "",
 				item.variante_nombre or "-",

@@ -288,6 +288,36 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migración 019: campo origen en produccion_ordenes
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('produccion_ordenes')") or [])]
+			if 'origen' not in cols:
+				logging.info('Aplicando migración 019: origen en produccion_ordenes')
+				db.connection.execute("ALTER TABLE produccion_ordenes ADD COLUMN origen TEXT DEFAULT 'KOOL'")
+				db.connection.commit()
+				logging.info('Migración 019 (origen produccion_ordenes) aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 019')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
+		# Migración 020: campo origen en produccion_lineas
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('produccion_lineas')") or [])]
+			if 'origen' not in cols:
+				logging.info('Aplicando migración 020: origen en produccion_lineas')
+				db.connection.execute("ALTER TABLE produccion_lineas ADD COLUMN origen TEXT DEFAULT 'KOOL'")
+				db.connection.commit()
+				logging.info('Migración 020 (origen produccion_lineas) aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 020')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Validate again
 		try:
 			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table'")

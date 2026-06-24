@@ -35,6 +35,7 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 	             on_siguiente: Optional[Callable[[CantidadSeleccion], None]] = None,
 	             on_volver: Optional[Callable] = None,
 	             on_anadir: Optional[Callable[[CantidadSeleccion], None]] = None,
+	             on_origen: Optional[Callable] = None,
 	             mostrar_mixta: bool = False,
 	             diseno_nombre: str = ""):
 		KeyboardNavigableMixin.__init_keyboard_mixin__(self)
@@ -42,6 +43,7 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 		self.on_siguiente = on_siguiente
 		self.on_volver = on_volver
 		self.on_anadir = on_anadir
+		self.on_origen = on_origen
 		self.mostrar_mixta = mostrar_mixta
 		self.diseno_nombre = diseno_nombre
 		self.cantidad: int = 0
@@ -75,6 +77,7 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 		if self.mostrar_mixta:
 			self._navigable_buttons.append((self.btn_mixta, self._on_mixta_toggle))
 		self._navigable_buttons.append((self.btn_otro, self._on_anadir))
+		self._navigable_buttons.append((self.btn_origen, self._on_origen))
 		self._navigable_buttons.append((self.btn_volver, self._on_volver))
 		self._navigable_buttons.append((self.btn_siguiente, self._on_siguiente))
 
@@ -208,6 +211,24 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 		self.btn_otro.pack()
 		self.btn_otro.bind("<Button-1>", lambda e: self._on_anadir())
 
+		# Botón ORIGEN
+		self.btn_origen = ctk.CTkButton(
+			master=frame_otro,
+			text="ORIGEN",
+			fg_color=style.get("bg", "#1a1a2e"),
+			text_color=style.get("text", "#e0e0e0"),
+			border_color=style.get("border", "#552583"),
+			hover_color=style.get("hover", "#C77BFF"),
+			border_width=style.get("border_width", 2),
+			corner_radius=corner_radius,
+			height=chip_height,
+			width=300,
+			font=chip_font,
+			cursor="hand2"
+		)
+		self.btn_origen.pack(pady=(8, 0))
+		self.btn_origen.bind("<Button-1>", lambda e: self._on_origen())
+
 	def _crear_botones_navegacion(self):
 		"""Crear los botones de navegación inferior."""
 		frame_nav = ctk.CTkFrame(self.frame, fg_color=self._bg)
@@ -307,6 +328,17 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 				produccion_mixta=self.produccion_mixta
 			)
 			self.on_anadir(result)
+
+	def _on_origen(self):
+		"""Manejador del botón ORIGEN."""
+		if self.cantidad < 1:
+			return
+		if self.on_origen:
+			result = CantidadSeleccion(
+				cantidad=self.cantidad,
+				produccion_mixta=self.produccion_mixta
+			)
+			self.on_origen(result)
 
 	def _on_volver(self):
 		"""Manejador del botón VOLVER."""
