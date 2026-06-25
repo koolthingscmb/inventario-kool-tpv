@@ -202,5 +202,13 @@ class StockSubView(CTkFrame):
             return {}
 
     def destroy(self):
-        super().destroy()
+        """Limpieza para evitar fugas de memoria con 5000+ productos."""
+        try:
+            self.on_select_callback = None
+            self.view = None
+            if hasattr(self, 'search_list'):
+                self.search_list.destroy()
+        except: pass
+        finally:
+            super().destroy()
 

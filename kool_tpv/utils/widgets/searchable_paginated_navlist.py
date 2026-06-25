@@ -80,6 +80,14 @@ class SearchablePaginatedNavList(ctk.CTkFrame):
         """API pública: disparar búsqueda con el texto dado."""
         self._on_search(texto)
 
-    def set_search_text(self, texto: str):
-        """Compatibilidad con código existente: dispara búsqueda."""
-        self._on_search(texto)
+    def destroy(self):
+        """Limpiar referencias al destruir."""
+        try:
+            self.search_function = None
+            self.map_function = None
+            self.on_double_click = None
+            if hasattr(self, 'nav_list'):
+                self.nav_list.destroy()
+        except: pass
+        finally:
+            super().destroy()

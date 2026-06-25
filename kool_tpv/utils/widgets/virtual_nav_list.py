@@ -506,9 +506,31 @@ class VirtualNavList(ctk.CTkFrame):
             move_to = max(0, (index - items_per_page + 1) / total)
             self._canvas.yview_moveto(move_to)
 
-    def _fire_return(self):
-        if self._on_return_callback and self.selected_index >= 0:
-            self._on_return_callback()
+    def destroy(self):
+        """Limpieza profunda para evitar fugas de memoria."""
+        try:
+            # 1. Desvincular del gestor de teclado
+            if self.keyboard_manager:
+                try:
+                    if getattr(self.keyboard_manager, 'active_list', None) == self:
+                        self.keyboard_manager.clear_active_list()
+                except: pass
+            
+            # 2. Liberar datos pesados
+            self._all_data = []
+            self._visible_rows = []
+            
+            # 3. Limpiar callbacks para romper posibles ciclos
+            self.on_select_callback = None
+            self.on_double_click_callback = None
+            self.row_color_callback = None
+            self.on_selection_change_callback = None
+            self._on_return_callback = None
+            
+        except Exception:
+            logger.exception("Error en destroy de VirtualNavList")
+        finally:
+            super().destroy()
 
     def _truncate(self, text: str, width_px: int) -> str:
         try:
