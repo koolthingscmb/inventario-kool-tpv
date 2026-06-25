@@ -153,7 +153,7 @@ class KeyboardNavigableMixin:
     def _on_nav_enter(self, event):
         """Activar el widget que tiene el foco navegable."""
         if not (0 <= self._nav_focused_index < len(self._navigable_buttons)):
-            return "break"
+            return # No bloquear el Enter si no hay un botón seleccionado por navegación
 
         # Verificar que el foco real está dentro del widget navegable activo.
         # CTkButton es un contenedor compuesto: focus_get() devuelve un widget
@@ -179,7 +179,8 @@ class KeyboardNavigableMixin:
 
         if _is_descendant(current_focus, widget) and callable(callback):
             callback()
-        return "break"
+            return "break" # Solo bloquear si realmente hemos ejecutado una acción
+        return # Dejar pasar el evento si no es para nosotros
 
     def clear_keyboard_navigation(self):
         """Limpiar estado de navegación. Útil al destruir o reconstruir widgets."""

@@ -176,8 +176,7 @@ class VirtualNavList(ctk.CTkFrame):
             w.bind('<MouseWheel>', self._on_mousewheel)
             w.bind('<Button-4>',   self._on_mousewheel)
             w.bind('<Button-5>',   self._on_mousewheel)
-            w.bind('<Return>',     lambda e: self._fire_return())
-            w.bind('<KP_Enter>',   lambda e: self._fire_return())
+            # NO bindeamos Return/Enter aquí para no interferir con el BarcodeService o el CarritoNavList
 
         self.bind('<FocusIn>', lambda e: self._canvas.focus_set())
 
