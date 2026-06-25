@@ -313,6 +313,7 @@ class ProductoService:
                 'cantidad': cantidad_i,
                 'total_linea': total_linea,
                 'line_tipo': line_tipo,
+                'pvp_variable': int(prod.get('pvp_variable') or 0),
             }
         except Exception:
             logging.exception('Error construyendo producto_para_carrito')

@@ -175,23 +175,50 @@ class NuevoProduccionFlow:
             )
 
         elif paso == PASO_COLOR:
-            genero_id = self._genero.id if self._genero else 0
-            self._vista_actual = NuevaProduccionColorView(
-                self.frame,
-                db=self.db,
-                genero_id=genero_id,
-                on_siguiente=self._on_color_siguiente,
-                on_volver=self._on_color_volver
-            )
+            if self._genero:
+                # Caso GÉNERO (flujo Camiseta)
+                genero_id = self._genero.id
+                self._vista_actual = NuevaProduccionColorView(
+                    self.frame,
+                    db=self.db,
+                    genero_id=genero_id,
+                    on_siguiente=self._on_color_siguiente,
+                    on_volver=self._on_color_volver
+                )
+            else:
+                # Caso TIPO / VARIANTE (flujo Marroquinería, etc.)
+                tipo_id = self._tipo.id if self._tipo else 0
+                variante_id = self._variante.id if self._variante else None
+                self._vista_actual = NuevaProduccionColorView(
+                    self.frame,
+                    db=self.db,
+                    tipo_id=tipo_id,
+                    variante_id=variante_id,
+                    on_siguiente=self._on_color_siguiente,
+                    on_volver=self._on_color_volver
+                )
 
         elif paso == PASO_TALLA:
             tallas = []
-            if self._genero and self._color:
-                tallas = self._tallas_service.obtener_por_genero_color_3d(
-                    self._genero.id, self._color.id)
-            tallas_data = [{"codigo": t.nombre, "nombre": t.nombre} for t in tallas]
             genero_nombre = self._genero.nombre if self._genero else None
             color_nombre = self._color.nombre if self._color else None
+            
+            if self._genero and self._color:
+                # Caso GÉNERO
+                tallas = self._tallas_service.obtener_por_genero_color_3d(
+                    self._genero.id, self._color.id)
+            elif self._tipo and self._color:
+                # Caso TIPO / VARIANTE
+                tipo_id = self._tipo.id
+                variante_id = self._variante.id if self._variante else None
+                tallas = self._tallas_service.obtener_por_tipo_color_3d(
+                    tipo_id, self._color.id, variante_id)
+                if not genero_nombre:
+                    tipo_nombre = self._tipo.nombre
+                    var_nombre = f" / {self._variante.nombre}" if self._variante else ""
+                    genero_nombre = f"{tipo_nombre}{var_nombre}"
+
+            tallas_data = [{"codigo": t.nombre, "nombre": t.nombre} for t in tallas]
             self._vista_actual = NuevaProduccionTallaView(
                 self.frame,
                 on_siguiente=self._on_talla_siguiente,

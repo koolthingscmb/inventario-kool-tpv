@@ -111,7 +111,17 @@ class StockSubView(CTkFrame):
                     'pvp': producto.get('pvp'),
                     'tipo_iva': producto.get('tipo_iva', 21),
                     'cantidad': 1,
+                    'pvp_variable': producto.get('pvp_variable', 0)
                 }
+
+            # Intentar usar el controlador de la vista TPV para añadir con lógica de PVP variable
+            try:
+                if self.view and hasattr(self.view, 'controller') and self.view.controller:
+                    self.view.controller.handle_add_product(producto_data)
+                    self.view.pop_subview()
+                    return
+            except Exception:
+                logger.exception("Error intentando usar controller para añadir item desde StockSubView")
 
             parent_win = getattr(self.view, 'ticket_carrito', None)
             added = False

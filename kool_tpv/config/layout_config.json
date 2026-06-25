@@ -94,7 +94,7 @@
     },
     "tpv": {
       "sidebar_width": 220,
-      "right_width": 520,
+      "right_width": 600,
       "center": {
         "grid": {
           "columns": 4,
@@ -121,7 +121,7 @@
         }
       },
       "ticket_carrito": {
-        "width": 520,
+        "width": 600,
         "header": {
           "padding_horizontal": 12,
           "padding_vertical_top": 8,
@@ -203,10 +203,10 @@
         "row_height": 35,
         "wraplength": 170,
         "column_widths": {
-          "producto": 180,
+          "producto": 240,
           "cantidad": 50,
           "precio": 80,
-          "total": 85
+          "total": 100
         }
       },
       "buscar_overlay": {

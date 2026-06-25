@@ -34,16 +34,26 @@ class VirtualNavList(ctk.CTkFrame):
         module_name: str = 'clientes',
         keyboard_manager=None,
         layout_config: Optional[dict] = None,
+        row_color_callback: Optional[Callable[[dict, int], dict]] = None,
+        multi_select: bool = False,
+        on_selection_change: Optional[Callable[[List[int]], None]] = None,
         **kwargs
     ):
         self.colors = load_colors(module_name)
         self.module_name = module_name
+        self.row_color_callback = row_color_callback
+        self.multi_select = multi_select
+        self.on_selection_change_callback = on_selection_change
 
         nav_cfg = self.colors.get('nav_list', {})
         self.row_normal_bg    = nav_cfg.get('row_normal_bg',    '#1a1a1a')
         self.row_normal_text  = nav_cfg.get('row_normal_text',  '#e0e0e0')
+        self.row_zebra_bg     = nav_cfg.get('row_zebra_bg',     '#222222') # Fallback cebra
         self.row_selected_bg  = nav_cfg.get('row_selected_bg',  '#0d0d0d')
         self.row_selected_text= nav_cfg.get('row_selected_text','#ffffff')
+
+        # Activar zebra si está en config o por defecto (opcional)
+        self.use_zebra = nav_cfg.get('use_zebra', True)
 
         border_key = nav_cfg.get('row_selected_border', 'primary')
         self.row_selected_border = (
@@ -52,7 +62,19 @@ class VirtualNavList(ctk.CTkFrame):
 
         layout_root = layout_config if isinstance(layout_config, dict) else (load_layout_config() or {})
         nav_layout = layout_root.get('components', {}).get('nav_list', {}) or {}
+        
+        # Buscar override específico en el módulo (paridad con NavList antigua)
+        module_cfg = layout_root.get('modules', {}).get(module_name, {})
+        if isinstance(module_cfg, dict):
+            if 'nav_list' in module_cfg:
+                nav_layout = {**nav_layout, **module_cfg.get('nav_list', {})}
+            elif 'virtual_nav_list' in module_cfg:
+                nav_layout = {**nav_layout, **module_cfg.get('virtual_nav_list', {})}
+
+        # Configuración de borde (Paridad con NavList)
         self.row_height: int = int(nav_layout.get('row_height', nav_cfg.get('row_height', _ROW_HEIGHT_DEFAULT)))
+        self.row_selected_border_width = nav_layout.get('selected_border_width', 3)
+        self.row_corner_radius = nav_layout.get('corner_radius', 4)
 
         _fc = load_font_config()
         _nav_fonts = _fc.get('components', {}).get('nav_list', {})
@@ -83,6 +105,7 @@ class VirtualNavList(ctk.CTkFrame):
         # Datos y Estado
         self._all_data: List[dict] = []
         self.selected_index: int = -1
+        self.selected_indices: set = set() # Para multi-select
         self._on_return_callback = None
         
         # Virtualización
@@ -105,6 +128,7 @@ class VirtualNavList(ctk.CTkFrame):
                     key = str(col); width = 100; label = key
             except Exception:
                 key = str(col); width = 100; label = key
+            
             result.append((key, int(width), str(label)))
         return result
 
@@ -117,13 +141,13 @@ class VirtualNavList(ctk.CTkFrame):
         self._header = tk.Frame(self, bg=bg_dark, height=_HEADER_HEIGHT)
         self._header.pack(fill='x', padx=6, pady=(0, 2))
         self._header.pack_propagate(False)
-        x = 8
+        x = 10 # Margen inicial
         for key, width, label in self.columns:
             tk.Label(
                 self._header, text=label, font=self._font_header,
                 fg=secondary, bg=bg_dark, anchor='w'
             ).place(x=x, y=8, width=width, height=_HEADER_HEIGHT - 16)
-            x += width + 8
+            x += width + 12 # Espaciado
 
         # 2. Contenedor de lista
         container = tk.Frame(self, bg=bg)
@@ -184,17 +208,30 @@ class VirtualNavList(ctk.CTkFrame):
         bg = self.row_normal_bg
         fg = self.row_normal_text
         
-        row_frame = tk.Frame(self._row_container, bg=bg, height=rh)
-        row_frame.pack(fill='x', pady=1)
+        # Volvemos a tk.Frame para evitar cualquier artefacto o borde fantasma de CTk
+        row_frame = tk.Frame(
+            self._row_container, 
+            bg=bg, 
+            height=rh,
+            highlightthickness=0,
+            bd=0
+        )
+        # pack sin padx ni pady para que las filas sean bloques continuos
+        row_frame.pack(fill='x', side='top')
         row_frame.pack_propagate(False)
         
         labels = []
-        x = 8
-        for key, width, _ in self.columns:
+        x = 10 # Margen inicial
+        for i, (key, width, _) in enumerate(self.columns):
+            # Si es la última columna, le damos un margen extra para que no la tape el scroll
+            actual_width = width
+            if i == len(self.columns) - 1:
+                actual_width = width + 20 # Espacio extra para el scroll
+            
             lbl = tk.Label(row_frame, text="", font=self._font_row, fg=fg, bg=bg, anchor='w')
-            lbl.place(x=x, y=0, width=width, height=rh)
+            lbl.place(x=x, y=0, width=actual_width, height=rh)
             labels.append(lbl)
-            x += width + 8
+            x += width + 12 # Espaciado
             
         idx_in_pool = len(self._visible_rows)
         row_data = {
@@ -252,12 +289,45 @@ class VirtualNavList(ctk.CTkFrame):
                 row['data_index'] = data_idx
                 data = self._all_data[data_idx]
                 
-                # Colorear según si está seleccionado
+                # 1. Determinar colores base (Zebra / Normal)
                 is_sel = (data_idx == self.selected_index)
-                bg = self.row_selected_bg if is_sel else self.row_normal_bg
-                fg = self.row_selected_text if is_sel else self.row_normal_text
+                if self.multi_select:
+                    is_sel = (data_idx in self.selected_indices)
                 
+                if is_sel:
+                    bg = self.row_selected_bg
+                    fg = self.row_selected_text
+                else:
+                    # Lógica de color normal / cebra / personalizada
+                    bg = self.row_normal_bg
+                    if self.use_zebra and (data_idx % 2 != 0):
+                        bg = self.row_zebra_bg
+                    fg = self.row_normal_text
+
+                # Sobrescribir si hay colores en el data o callback (Incluso si está seleccionada si el callback lo decide)
+                custom_colors = None
+                if self.row_color_callback:
+                    try:
+                        custom_colors = self.row_color_callback(data, data_idx)
+                    except: pass
+                
+                if not custom_colors:
+                    # Fallback a claves especiales en data
+                    if '_row_bg' in data or '_row_fg' in data:
+                        custom_colors = {
+                            'bg': data.get('_row_bg'),
+                            'fg': data.get('_row_fg')
+                        }
+                
+                if custom_colors:
+                    # Si la fila tiene color personalizado, MANDAR sobre el resto (seleccion, cebra, etc)
+                    if custom_colors.get('bg'): bg = custom_colors['bg']
+                    if custom_colors.get('fg'): fg = custom_colors['fg']
+                
+                # Actualizar Frame (Bloque sólido, sin bordes)
                 row['frame'].configure(bg=bg)
+                
+                # Actualizar Labels
                 for j, lbl in enumerate(row['labels']):
                     key = self.columns[j][0]
                     width = self.columns[j][1]
@@ -288,6 +358,7 @@ class VirtualNavList(ctk.CTkFrame):
     def set_items(self, items: List[dict]):
         self._all_data = list(items)
         self.selected_index = -1
+        self.selected_indices.clear()
         # Asegurar que el canvas tenga sus dimensiones reales antes de refrescar
         self.update_idletasks()
         canvas_h = self._canvas.winfo_height()
@@ -305,18 +376,62 @@ class VirtualNavList(ctk.CTkFrame):
         self._refresh_ui()
 
         if self.keyboard_manager:
-            try: self.keyboard_manager.set_active_list(self)
+            try: 
+                self.keyboard_manager.set_active_list(self)
+                # Si hay items, dar foco al canvas para capturar teclas
+                if items:
+                    self._canvas.focus_set()
             except: pass
 
     def clear_items(self):
         self._all_data = []
         self.selected_index = -1
+        self.selected_indices.clear()
         self._refresh_ui()
 
     def get_selected_data(self) -> Optional[dict]:
         if 0 <= self.selected_index < len(self._all_data):
             return self._all_data[self.selected_index]
         return None
+
+    def get_selected_items(self) -> List[dict]:
+        """Obtener lista de todos los items seleccionados (multi-select)."""
+        if self.multi_select:
+            return [self._all_data[i] for i in sorted(list(self.selected_indices)) if 0 <= i < len(self._all_data)]
+        else:
+            sel = self.get_selected_data()
+            return [sel] if sel else []
+
+    def select_all(self):
+        """Seleccionar todos los items (solo multi-select)."""
+        if not self.multi_select: return
+        self.selected_indices = set(range(len(self._all_data)))
+        self._refresh_ui()
+        self._fire_selection_change()
+
+    def deselect_all(self):
+        """Deseleccionar todos los items."""
+        self.selected_indices.clear()
+        self.selected_index = -1
+        self._refresh_ui()
+        self._fire_selection_change()
+
+    def toggle_selection(self, index: int):
+        """Alternar selección de un item (solo multi-select)."""
+        if not self.multi_select: return
+        if 0 <= index < len(self._all_data):
+            if index in self.selected_indices:
+                self.selected_indices.discard(index)
+            else:
+                self.selected_indices.add(index)
+            self._refresh_ui()
+            self._fire_selection_change()
+
+    def _fire_selection_change(self):
+        if self.on_selection_change_callback:
+            try:
+                self.on_selection_change_callback(list(self.selected_indices))
+            except: pass
 
     def select_next(self) -> bool:
         if not self._all_data: return False
@@ -344,7 +459,10 @@ class VirtualNavList(ctk.CTkFrame):
     def _on_row_click(self, pool_idx: int):
         data_idx = self._visible_rows[pool_idx]['data_index']
         if data_idx >= 0:
-            self._select(data_idx, fire_callback=True)
+            if self.multi_select:
+                self.toggle_selection(data_idx)
+            else:
+                self._select(data_idx, fire_callback=True)
 
     def _on_row_double_click(self, pool_idx: int):
         data_idx = self._visible_rows[pool_idx]['data_index']

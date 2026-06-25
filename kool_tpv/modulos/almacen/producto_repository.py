@@ -317,6 +317,7 @@ WHERE 1=1
         activo: int,
         pvp,
         coste,
+        pvp_variable: int = 0,
         codigos_barras: Optional[List[str]] = None,
         producto_id: Optional[int] = None,
         shopify_taxonomy: str = '',
@@ -357,7 +358,7 @@ WHERE 1=1
                         seo_description, tipo_shop, etiquetas, shop_link, pending_sync)
                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                     (nombre, nombre_boton, sku, categoria_id, tipo_id, proveedor_id,
-                     shopify_taxonomy, iva, stock_actual, stock_min, activo, 0,
+                     shopify_taxonomy, iva, stock_actual, stock_min, activo, pvp_variable,
                      descripcion_shopify, titulo, seo_title, seo_description, tipo_shop,
                      etiquetas, shop_link, 0),
                 )
@@ -366,11 +367,11 @@ WHERE 1=1
                 cur.execute(
                     '''UPDATE productos SET nombre=?, nombre_boton=?, categoria=?, tipo=?,
                         proveedor_id=?, shopify_taxonomy=?, tipo_iva=?, stock_actual=?,
-                        stock_minimo=?, activo=?, descripcion_shopify=?, titulo=?,
+                        stock_minimo=?, activo=?, pvp_variable=?, descripcion_shopify=?, titulo=?,
                         seo_title=?, seo_description=?, tipo_shop=?, etiquetas=?,
                         shop_link=? WHERE id=?''',
                     (nombre, nombre_boton, categoria_id, tipo_id, proveedor_id,
-                     shopify_taxonomy, iva, stock_actual, stock_min, activo,
+                     shopify_taxonomy, iva, stock_actual, stock_min, activo, pvp_variable,
                      descripcion_shopify, titulo, seo_title, seo_description, tipo_shop,
                      etiquetas, shop_link, producto_id),
                 )

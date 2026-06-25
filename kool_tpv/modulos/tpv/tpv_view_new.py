@@ -74,8 +74,8 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
         # ScaleManager para densidad de interfaz
         self.scale_mgr = get_scale_manager(db)
 
-        # PANEL DERECHO (TICKET) - tamaño escalado según densidad
-        right_width = self.scale_mgr.get_width(520)
+        # PANEL DERECHO (TICKET) - Usar ancho real del JSON sin escalar para dar control total al usuario
+        right_width = self.layout_cfg.get("modules", {}).get("tpv", {}).get("right_width", 600)
         self.right_container = ctk.CTkFrame(self, width=right_width, corner_radius=0, fg_color="#1a1a1a")
         self.right_container.pack(side="right", fill="y")
         self.right_container.pack_propagate(False)

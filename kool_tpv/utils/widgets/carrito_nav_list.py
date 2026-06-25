@@ -5,8 +5,8 @@ Soporta 4 tipos de línea: normal, descuento, devolución, tesoro
 import logging
 from pathlib import Path
 import json
-from typing import Optional, Callable, Any
-from kool_tpv.utils.widgets.nav_list import NavList
+from typing import Optional, Callable, Any, List
+from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ def load_config(config_name: str) -> dict:
         return {}
 
 
-class CarritoNavList(NavList):
+class CarritoNavList(VirtualNavList):
     """NavList especializado para carrito TPV con tipos de línea y comportamiento específico."""
 
     def __init__(
@@ -61,22 +61,35 @@ class CarritoNavList(NavList):
         # Callback personalizado
         self.on_item_change_callback = on_item_change
 
-        # Inicializar NavList base
+        # Inicializar VirtualNavList base
         super().__init__(
             parent=parent,
             columns=columns,
             module_name="tpv",
             keyboard_manager=keyboard_manager,
+            row_color_callback=self._get_row_color,
             **kwargs
         )
 
         # Configurar colores específicos del carrito (override)
         self._apply_carrito_colors()
 
-        logger.info("CarritoNavList inicializado")
+        logger.info("CarritoNavList virtualizado inicializado")
 
-        # Bindings específicos del carrito (DESPUÉS de super init)
+        # Bindings específicos del carrito
         self._setup_carrito_bindings()
+
+    def _get_row_color(self, data: dict, index: int) -> dict:
+        """Determinar color de fila según el tipo de línea."""
+        line_tipo = data.get("line_tipo", "normal")
+        if line_tipo == "normal":
+            return {}
+        
+        tipo_colors = self.carrito_colors.get(f"line_{line_tipo}", {})
+        return {
+            'bg': tipo_colors.get("bg"),
+            'fg': tipo_colors.get("text")
+        }
 
     def _apply_carrito_colors(self):
         """Aplicar colores específicos del carrito sobre los de NavList base."""
@@ -85,12 +98,19 @@ class CarritoNavList(NavList):
 
             self.row_normal_bg = line_normal.get("bg", self.row_normal_bg)
             self.row_normal_text = line_normal.get("text", self.row_normal_text)
-            self.row_hover_bg = line_normal.get("hover_bg", self.row_hover_bg)
             self.row_selected_bg = line_normal.get("selected_bg", self.row_selected_bg)
             self.row_selected_text = line_normal.get("selected_text", self.row_selected_text)
             self.row_selected_border = line_normal.get("selected_border", self.row_selected_border)
         except Exception:
             logger.exception("Error aplicando colores carrito")
+
+    def add_item(self, item_data: dict):
+        """Método de compatibilidad para añadir un solo item."""
+        # En una lista virtual es más eficiente usar set_items con toda la lista,
+        # pero esto permite compatibilidad con el código actual de TicketCarrito.
+        current_items = list(self._all_data)
+        current_items.append(item_data)
+        self.set_items(current_items)
 
     def _setup_carrito_bindings(self):
         """Configurar bindings específicos del carrito."""
@@ -133,11 +153,9 @@ class CarritoNavList(NavList):
                     logger.debug('CarritoNavList: Enter ignorado (viene del escáner)')
                     return 'break'
 
-            if self.selected_index < 0:
+            data = self.get_selected_data()
+            if not data:
                 return "break"
-
-            current_index = self.selected_index
-            data, _ = self.rows_data[current_index]
 
             # No permitir añadir unidades a líneas especiales
             line_tipo = data.get("line_tipo", "normal")
@@ -145,6 +163,7 @@ class CarritoNavList(NavList):
                 return "break"
 
             if self.on_item_change_callback:
+                current_index = self.selected_index
                 # Ejecutar callback que probablemente actualice el servicio y la lista
                 try:
                     self.on_item_change_callback(data, "add")
@@ -153,13 +172,13 @@ class CarritoNavList(NavList):
 
                 # Re-seleccionar la misma fila después de cualquier reconstrucción
                 try:
-                    self.after_idle(lambda: self._select_row(current_index))
+                    self.after_idle(lambda: self._select(current_index))
                 except Exception:
                     pass
 
             # Mantener foco en el widget
             try:
-                self.focus_set()
+                self._canvas.focus_set()
             except Exception:
                 pass
 
@@ -171,16 +190,13 @@ class CarritoNavList(NavList):
 
     def _on_delete_key(self, event=None):
         """Handler Suprimir: reducir -1 unidad al item seleccionado.
-
-        Acepta `event` y devuelve "break" para evitar pérdida de selección por
-        propagación del evento.
         """
         try:
-            if self.selected_index < 0:
+            data = self.get_selected_data()
+            if not data:
                 return "break"
 
             current_index = self.selected_index
-            data, _ = self.rows_data[current_index]
 
             # Si la fila es visual y define un on_remove, ejecutarlo y no tocar el modelo
             try:
@@ -193,11 +209,11 @@ class CarritoNavList(NavList):
                         logger.exception('Error ejecutando callback on_remove de fila visual')
                     # Re-seleccionar la misma (o primera) fila después de la actualización
                     try:
-                        self.after_idle(lambda: self._select_row(current_index))
+                        self.after_idle(lambda: self._select(current_index))
                     except Exception:
                         pass
                     try:
-                        self.focus_set()
+                        self._canvas.focus_set()
                     except Exception:
                         pass
                     return "break"
@@ -212,12 +228,12 @@ class CarritoNavList(NavList):
 
                 # Re-seleccionar la misma fila después de actualización
                 try:
-                    self.after_idle(lambda: self._select_row(current_index))
+                    self.after_idle(lambda: self._select(current_index))
                 except Exception:
                     pass
 
             try:
-                self.focus_set()
+                self._canvas.focus_set()
             except Exception:
                 pass
 
@@ -227,154 +243,44 @@ class CarritoNavList(NavList):
             logger.exception("Error en _on_delete_key")
             return "break"
 
-    def add_item(self, data: dict):
-        """Override: añadir item con soporte para tipos de línea."""
+    def set_items(self, items: List[dict]):
+        """Reemplazar todas las filas con nueva lista y formateo para visual."""
         try:
-            # Determinar tipo de línea
-            line_tipo = data.get("line_tipo", "normal")
-
-            # Preparar copia para display: formatear `pvp` y `total` convirtiendo
-            # valores en céntimos a euros cuando proceda. Mantener `data`
-            # original inalterado para la lógica de negocio si es necesario.
-            display = dict(data or {})
-            try:
-                from decimal import Decimal
-                from kool_tpv.base_datos.money_adapter import read_from_db
-                from kool_tpv.utils.formatter_service import FormatterService
-                fmt = FormatterService()
-
-                for key in ("pvp", "total"):
-                    if key in display:
-                        v = display.get(key)
-                        logger.info(f"[DEBUG NAVLIST] key={key}, v={v!r}, type={type(v).__name__}")
-                        # int -> cents
-                        if isinstance(v, int):
-                            euros = read_from_db(v)
-                            logger.info(f"[DEBUG NAVLIST] int path: read_from_db({v!r}) = {euros!r}")
-                        # digit-only string -> cents
-                        elif isinstance(v, str) and v.isdigit():
-                            euros = read_from_db(int(v))
-                            logger.info(f"[DEBUG NAVLIST] str.isdigit path: read_from_db(int({v!r})) = {euros!r}")
-                        # float integral -> cents
-                        elif isinstance(v, float) and float(v).is_integer():
-                            euros = read_from_db(int(v))
-                            logger.info(f"[DEBUG NAVLIST] float.is_integer path: read_from_db(int({v!r})) = {euros!r}")
-                        else:
-                            try:
-                                euros = Decimal(str(v))
-                                logger.info(f"[DEBUG NAVLIST] else path: Decimal(str({v!r})) = {euros!r}")
-                            except Exception:
-                                euros = Decimal('0')
-                                logger.info(f"[DEBUG NAVLIST] else path: Exception -> euros = Decimal('0')")
-
-                        # Format for display
-                        formatted = fmt.format_precio(euros)
-                        logger.info(f"[DEBUG NAVLIST] fmt.format_precio({euros!r}) = {formatted!r}")
-                        display[key] = formatted
-            except Exception:
-                # If formatting helpers are unavailable, fall back to simple string
+            display_items = []
+            for itm in items:
+                display = dict(itm or {})
                 try:
-                    if 'pvp' in display:
-                        display['pvp'] = f"{float(display.get('pvp',0)):.2f} €"
+                    from decimal import Decimal
+                    from kool_tpv.base_datos.money_adapter import read_from_db
+                    from kool_tpv.utils.formatter_service import FormatterService
+                    fmt = FormatterService()
+
+                    for key in ("pvp", "total"):
+                        if key in display:
+                            v = display.get(key)
+                            # int -> cents
+                            if isinstance(v, int):
+                                euros = read_from_db(v)
+                            # digit-only string -> cents
+                            elif isinstance(v, str) and v.isdigit():
+                                euros = read_from_db(int(v))
+                            # float integral -> cents
+                            elif isinstance(v, float) and float(v).is_integer():
+                                euros = read_from_db(int(v))
+                            else:
+                                try:
+                                    euros = Decimal(str(v))
+                                except:
+                                    euros = Decimal('0')
+
+                            display[key] = fmt.format_precio(euros)
                 except Exception:
-                    pass
-
-            # Añadir item usando método padre con la copia formateada para visual
-            super().add_item(display)
-
-            # IMPORTANTE: Guardar line_tipo en el frame para referencias futuras
-            index = len(self.rows_data) - 1
-            if 0 <= index < len(self.rows_data):
-                _, frame = self.rows_data[index]
-                try:
-                    frame._line_tipo = line_tipo  # Guardar como atributo del frame
-                except Exception:
-                    pass
-
-            # Aplicar estilo según tipo
-            if line_tipo != "normal":
-                self._apply_line_style(index, line_tipo)
-
-        except Exception:
-            logger.exception("Error añadiendo item al carrito")
-
-    def _apply_line_style(self, index: int, line_tipo: str):
-        """Aplicar estilo visual según tipo de línea."""
-        try:
-            if index < 0 or index >= len(self.rows_data):
-                return
-
-            _, frame = self.rows_data[index]
-
-            # Obtener colores según tipo
-            tipo_colors = self.carrito_colors.get(f"line_{line_tipo}", {})
-            if not tipo_colors:
-                return
-
-            bg = tipo_colors.get("bg")
-            text_color = tipo_colors.get("text")
-
-            if bg:
-                frame.configure(fg_color=bg)
-
-            if text_color:
-                for child in frame.winfo_children():
                     try:
-                        child.configure(text_color=text_color)
-                    except Exception:
-                        pass
-
+                        if 'pvp' in display:
+                            display['pvp'] = f"{float(display.get('pvp',0)):.2f} €"
+                    except: pass
+                display_items.append(display)
+            
+            super().set_items(display_items)
         except Exception:
-            logger.exception(f"Error aplicando estilo {line_tipo}")
-
-    def _select_row(self, index: int):
-        """Override: seleccionar fila manteniendo colores especiales."""
-        try:
-            # Guardar índice anterior antes de delegar
-            prev_index = self.selected_index
-
-            # Llamar al método padre para gestionar selección visual básica
-            super()._select_row(index)
-
-            # Re-aplicar estilo especial en fila nueva (usar atributo del frame)
-            if 0 <= index < len(self.rows_data):
-                _, frame = self.rows_data[index]
-                line_tipo = getattr(frame, '_line_tipo', 'normal')
-                if line_tipo != 'normal':
-                    self._apply_line_style(index, line_tipo)
-
-            # Re-aplicar estilo especial en fila previa (si existe y diferente)
-            if 0 <= prev_index < len(self.rows_data) and prev_index != index:
-                _, prev_frame = self.rows_data[prev_index]
-                prev_tipo = getattr(prev_frame, '_line_tipo', 'normal')
-                if prev_tipo != 'normal':
-                    self._apply_line_style(prev_index, prev_tipo)
-
-        except Exception:
-            logger.exception("Error en _select_row override")
-
-    def _on_row_click(self, index: int):
-        """Override: click en fila manteniendo colores especiales."""
-        try:
-            # Guardar índice anterior
-            prev_index = self.selected_index
-
-            # Llamar al método padre
-            super()._on_row_click(index)
-
-            # Re-aplicar colores especiales en fila actual
-            if 0 <= index < len(self.rows_data):
-                _, frame = self.rows_data[index]
-                line_tipo = getattr(frame, '_line_tipo', 'normal')
-                if line_tipo != 'normal':
-                    self._apply_line_style(index, line_tipo)
-
-            # Re-aplicar colores especiales en fila anterior (deseleccionada)
-            if 0 <= prev_index < len(self.rows_data) and prev_index != index:
-                _, prev_frame = self.rows_data[prev_index]
-                prev_tipo = getattr(prev_frame, '_line_tipo', 'normal')
-                if prev_tipo != 'normal':
-                    self._apply_line_style(prev_index, prev_tipo)
-
-        except Exception:
-            logger.exception("Error en _on_row_click override")
+            logger.exception("Error en CarritoNavList.set_items")

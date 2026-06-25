@@ -306,6 +306,26 @@ class FavoritosSubView(ctk.CTkFrame, KeyboardNavigableMixin):
             producto_id = fav_item.get('producto_id')
             producto_data = self.producto_service.get_producto_para_carrito(producto_id)
             
+            # Intentar usar el controlador de la vista TPV para añadir con lógica de PVP variable
+            try:
+                # Buscar TpvView ascendiendo en la jerarquía
+                parent = self.master
+                tpv_view = None
+                while parent:
+                    if hasattr(parent, 'controller') and parent.controller:
+                        tpv_view = parent
+                        break
+                    if hasattr(parent, 'master'):
+                        parent = parent.master
+                    else:
+                        break
+                
+                if tpv_view and hasattr(tpv_view.controller, 'handle_add_product'):
+                    tpv_view.controller.handle_add_product(producto_data)
+                    return # handle_add_product se encarga de todo
+            except Exception:
+                logger.exception("Error intentando usar controller para añadir item")
+
             if self.carrito_service.add_item(producto_data):
                 if callable(self.on_add_callback):
                     self.on_add_callback()

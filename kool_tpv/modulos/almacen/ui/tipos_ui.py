@@ -481,10 +481,17 @@ class TiposUI:
                 id_val = None
             if not id_val:
                 return
-            ok = self.service.delete_tipo(id_val)
+            
+            ok, msg = self.service.delete_tipo(id_val)
+            
+            from kool_tpv.utils.widgets.notificaciones import ToastWidget
             if ok:
+                ToastWidget.show(self.container, msg, tipo='success')
                 self.clear()
                 self._load_tipos()
+            else:
+                ToastWidget.show(self.container, msg, tipo='error')
+                
         except Exception:
             logging.exception('Error eliminando tipo')
 

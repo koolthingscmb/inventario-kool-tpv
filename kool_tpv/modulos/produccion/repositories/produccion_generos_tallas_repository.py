@@ -81,15 +81,7 @@ class ProduccionTallasRepository:
 		return [ProduccionTalla(id=r[0], nombre=r[1], orden=r[2], activo=r[3]) for r in rows]
 
 	def get_por_genero_color_3d(self, genero_id: int, color_id: int) -> List[ProduccionTalla]:
-		"""Obtener tallas disponibles para una combinación género+color (tabla 3D).
-
-		Args:
-			genero_id: ID del género.
-			color_id: ID del color.
-
-		Returns:
-			Lista de objetos ProduccionTalla disponibles para esa combinación.
-		"""
+		"""Obtener tallas disponibles para una combinación género+color (tabla 3D)."""
 		query = """
 			SELECT t.id, t.nombre, t.orden, t.activo
 			FROM produccion_tallas t
@@ -98,6 +90,30 @@ class ProduccionTallasRepository:
 			ORDER BY t.orden
 		"""
 		rows = self.db.fetch_all(query, (genero_id, color_id))
+		return [ProduccionTalla(id=r[0], nombre=r[1], orden=r[2], activo=r[3]) for r in rows]
+
+	def get_por_tipo_color_3d(self, tipo_id: int, color_id: int, variante_id: Optional[int] = None) -> List[ProduccionTalla]:
+		"""Obtener tallas disponibles para una combinación tipo+color o variante+color (tabla Libro de Recetas)."""
+		if variante_id:
+			query = """
+				SELECT t.id, t.nombre, t.orden, t.activo
+				FROM produccion_tallas t
+				JOIN produccion_tipo_color_tallas tct ON t.id = tct.talla_id
+				WHERE tct.tipo_id = ? AND tct.variante_id = ? AND tct.color_id = ? AND t.activo = 1
+				ORDER BY t.orden
+			"""
+			params = (tipo_id, variante_id, color_id)
+		else:
+			query = """
+				SELECT t.id, t.nombre, t.orden, t.activo
+				FROM produccion_tallas t
+				JOIN produccion_tipo_color_tallas tct ON t.id = tct.talla_id
+				WHERE tct.tipo_id = ? AND tct.variante_id IS NULL AND tct.color_id = ? AND t.activo = 1
+				ORDER BY t.orden
+			"""
+			params = (tipo_id, color_id)
+			
+		rows = self.db.fetch_all(query, params)
 		return [ProduccionTalla(id=r[0], nombre=r[1], orden=r[2], activo=r[3]) for r in rows]
 
 	def crear(self, talla: ProduccionTalla) -> Optional[int]:

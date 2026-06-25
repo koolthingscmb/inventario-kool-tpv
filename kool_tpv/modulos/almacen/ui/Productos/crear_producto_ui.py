@@ -121,8 +121,11 @@ class CrearProductoUI:
         self.cb_iva = SearchableCombo(self.general_frame, placeholder='IVA (ej: 21)')
         self.cb_iva.grid(row=4, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
 
+        # Variable para PVP_VARIABLE
+        self.chk_pvp_var_var = tk.BooleanVar(value=False)
+
         ctk.CTkLabel(self.general_frame, text="PVP_VARIABLE:", text_color=self.colors['text'], font=lbl_font).grid(row=4, column=4, sticky='w', padx=6, pady=6)
-        self.chk_pvp_var = ctk.CTkCheckBox(self.general_frame, text='', fg_color=self.colors['secondary'])
+        self.chk_pvp_var = ctk.CTkCheckBox(self.general_frame, text='', variable=self.chk_pvp_var_var, fg_color=self.colors['secondary'])
         self.chk_pvp_var.grid(row=4, column=5, columnspan=3, sticky='w', padx=6, pady=6)
 
         # Fila 6: STOCK_ACTUAL (4 col) | STOCK_MINIMO (4 col)
@@ -156,6 +159,7 @@ class CrearProductoUI:
 
         # Use a BooleanVar to track activo state
         self.chk_activo_var = tk.BooleanVar(value=True)
+
         # Place a small container in the same grid cell to hold the 'Activo' label and the checkbox
         try:
             self._activo_frame = ctk.CTkFrame(self.general_frame, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
@@ -668,6 +672,7 @@ class CrearProductoUI:
         except Exception:
             coste = 0.0
         iva = self.cb_iva.get_id() or 21
+        pvp_variable = 1 if getattr(self, 'chk_pvp_var_var', None) and self.chk_pvp_var_var.get() else 0
         try:
             stock_actual = int(self.e_stock_actual.get() or 0)
         except Exception:
@@ -764,6 +769,7 @@ class CrearProductoUI:
                 activo=activo,
                 pvp=pvp,
                 coste=coste,
+                pvp_variable=pvp_variable,
                 codigos_barras=codes,
                 producto_id=self.producto_id,
                 shopify_taxonomy=shopify_taxonomy,

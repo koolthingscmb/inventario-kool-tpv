@@ -54,7 +54,11 @@ class TicketCarrito(ctk.CTkFrame):
         # (debug prints removed)
 
         # Configurar frame principal
-        width = self.ticket_layout.get("width", 420)
+        from kool_tpv.utils.scale_manager import get_scale_manager
+        self.scale_mgr = get_scale_manager(db)
+        
+        raw_width = self.ticket_layout.get("width", 520)
+        width = self.scale_mgr.get_width(raw_width)
         bg = self.ticket_colors.get("body", {}).get("bg", "#000000")
 
         super().__init__(parent, width=width, fg_color=bg, **kwargs)
@@ -882,10 +886,6 @@ class TicketCarrito(ctk.CTkFrame):
     def update_carrito(self):
         """Actualizar display del carrito manteniendo scroll."""
         try:
-            try:
-                pass
-            except Exception:
-                pass
             if not self.carrito_service:
                 return
 
@@ -893,16 +893,15 @@ class TicketCarrito(ctk.CTkFrame):
             scroll_pos = 0.0
             try:
                 if hasattr(self, 'carrito_nav_list'):
-                    # El canvas es el panel interno del scroll
-                    # Intentamos leer la posición Y actual (devuelve tupla, ej: (0.0, 0.4))
-                    scroll_pos = self.carrito_nav_list._parent_canvas.yview()[0]
+                    # VirtualNavList usa self._canvas
+                    scroll_pos = self.carrito_nav_list._canvas.yview()[0]
             except Exception:
                 pass
 
-            # Limpiar nav_list (borra todo)
             if hasattr(self, 'carrito_nav_list'):
-                self.carrito_nav_list.clear_items()
-
+                # Recopilar todos los items (reales + visuales)
+                items_to_set = []
+                
                 # Obtener items del servicio
                 items = self.carrito_service.get_items() or []
 
@@ -922,14 +921,25 @@ class TicketCarrito(ctk.CTkFrame):
                     except Exception:
                         pass
 
-                # Añadir items al nav_list
+                # Preparar items reales
                 for item in items:
-                    total_linea = item.get('total_linea', 0.0)
+                    # Asegurar que el PVP y el Total sean negativos si es una devolución
                     if str(item.get('line_tipo', 'venta')).lower() == 'devolucion':
-                        item['total'] = -total_linea  # negat el Decimal (no convertir a float: activaría rama cents→euros)
+                        try:
+                            from decimal import Decimal
+                            # Precio unitario (PVP)
+                            pvp_val = Decimal(str(item.get('pvp', 0.0)))
+                            item['pvp'] = -abs(pvp_val)
+                            
+                            # Total de la línea
+                            total_val = Decimal(str(item.get('total_linea', 0.0)))
+                            item['total'] = -abs(total_val)
+                        except Exception:
+                            item['total'] = item.get('total_linea', 0.0)
                     else:
-                        item['total'] = total_linea
-                    self.carrito_nav_list.add_item(item)
+                        item['total'] = item.get('total_linea', 0.0)
+                    
+                    items_to_set.append(item)
 
                 # Sincronizar cliente visual con el servicio
                 try:
@@ -938,83 +948,62 @@ class TicketCarrito(ctk.CTkFrame):
                 except Exception:
                     logger.exception("Error sincronizando cliente en update_carrito")
 
+                # Línea visual de tesoro
                 try:
                     puntos = self.carrito_service.get_puntos_canjeados()
-                    logger.info(f"[DEBUG TESORO] puntos={puntos!r}, type={type(puntos).__name__}")
-                    # Añadir fila visual de canje SOLO si no hay una línea 'tesoro' real
-                    try:
-                        has_tesoro = any(str(it.get('line_tipo', '')).lower() == 'tesoro' for it in items)
-                    except Exception:
-                        has_tesoro = False
+                    has_tesoro = any(str(it.get('line_tipo', '')).lower() == 'tesoro' for it in items)
                     from decimal import Decimal
                     if not has_tesoro and puntos and Decimal(str(puntos)) > Decimal('0'):
-                        # Convertir puntos (euros) a centavos para consistencia con sistema
                         puntos_centavos = int(Decimal(str(puntos)) * 100)
-                        logger.info(f"[DEBUG TESORO] puntos_centavos={puntos_centavos!r}, -puntos_centavos={-puntos_centavos!r}")
-                        self.carrito_nav_list.add_item({
+                        items_to_set.append({
                             "id": "__tesoro_visual__",
                             "nombre": ">> TESORO CANJEADO <<",
                             "cantidad": "",
-                            "pvp": -puntos_centavos,  # Mismo valor que total para mostrar -0.50€
-                            "total": -puntos_centavos,  # Negativo en centavos
+                            "pvp": -puntos_centavos,
+                            "total": -puntos_centavos,
                             "line_tipo": "tesoro_visual",
                             "visual": True,
                             "on_remove": self._remove_tesoro_visual
                         })
                 except Exception:
-                    import logging
-                    logging.exception("Error añadiendo línea visual de canje")
+                    logger.exception("Error añadiendo línea visual de canje")
 
-                # Añadir línea visual de descuento si aplica (similar a CarritoUI)
+                # Línea visual de descuento
                 try:
                     resumen_tmp = self.carrito_service.get_resumen_financiero() or {}
-                except Exception:
-                    resumen_tmp = {}
-
-                try:
                     descuento_euros = resumen_tmp.get('descuento_euros', None)
                     descuento_tipo = resumen_tmp.get('descuento_tipo', None)
                     descuento_valor = resumen_tmp.get('descuento_valor', None)
                     from decimal import Decimal
-                    logger.info(f"TicketCarrito.update_carrito: resumen_financiero={resumen_tmp}")
                     if descuento_euros and Decimal(str(descuento_euros)) > Decimal('0') and descuento_tipo is not None:
-                        try:
-                            logger.info(f"TicketCarrito.update_carrito: detectado descuento {descuento_tipo} -> {descuento_valor} ({descuento_euros}€)")
-                            if descuento_tipo == 'directo':
-                                texto_descuento = '>> Descuento Directo:'
-                            elif descuento_tipo == 'porcentaje':
-                                texto_descuento = f'>> Descuento -{descuento_valor}%:'
-                            else:
-                                texto_descuento = '>> Descuento:'
+                        if descuento_tipo == 'directo':
+                            texto_descuento = '>> Descuento Directo:'
+                        elif descuento_tipo == 'porcentaje':
+                            texto_descuento = f'>> Descuento -{descuento_valor}%:'
+                        else:
+                            texto_descuento = '>> Descuento:'
 
-                            # Insert visual discount row
-                            from decimal import Decimal
-                            descuento_negativo = -Decimal(str(descuento_euros))
-                            self.carrito_nav_list.add_item({
-                                "id": "__descuento_visual__",
-                                "nombre": texto_descuento,
-                                "cantidad": "",
-                                "pvp": descuento_negativo,  # Mismo valor que total para mostrar -X.XX€
-                                "total": descuento_negativo,
-                                "line_tipo": "descuento",
-                                "visual": True,
-                                "on_remove": self._remove_descuento_visual if hasattr(self, '_remove_descuento_visual') else (lambda: None)
-                            })
-                            logger.info("TicketCarrito.update_carrito: línea de descuento añadida al NavList")
-                        except Exception:
-                            import logging
-                            logging.exception('Error insertando línea visual de descuento')
+                        descuento_negativo = -Decimal(str(descuento_euros))
+                        items_to_set.append({
+                            "id": "__descuento_visual__",
+                            "nombre": texto_descuento,
+                            "cantidad": "",
+                            "pvp": descuento_negativo,
+                            "total": descuento_negativo,
+                            "line_tipo": "descuento",
+                            "visual": True,
+                            "on_remove": self._remove_descuento_visual if hasattr(self, '_remove_descuento_visual') else (lambda: None)
+                        })
                 except Exception:
-                    import logging
-                    logging.exception("Error añadiendo línea visual de canje")
+                    logger.exception('Error insertando línea visual de descuento')
 
-                # Añadir línea visual de vale de devolución si aplica
+                # Línea visual de vale
                 try:
                     vale_euros = resumen_tmp.get('vale_euros')
                     if vale_euros and float(vale_euros) > 0:
                         from decimal import Decimal
                         vale_negativo = -Decimal(str(vale_euros))
-                        self.carrito_nav_list.add_item({
+                        items_to_set.append({
                             "id": "__vale_visual__",
                             "nombre": ">> Vale usado:",
                             "cantidad": "",
@@ -1024,14 +1013,15 @@ class TicketCarrito(ctk.CTkFrame):
                             "visual": True,
                             "on_remove": self._remove_vale_visual if hasattr(self, '_remove_vale_visual') else (lambda: None)
                         })
-                        logger.info("TicketCarrito.update_carrito: línea de vale añadida al NavList")
                 except Exception:
-                    import logging
-                    logging.exception("Error insertando línea visual de vale")
+                    logger.exception("Error insertando línea visual de vale")
 
-                # Restaurar scroll (volver a donde estaba)
+                # CARGAR TODO DE GOLPE (Eficiencia Virtual)
+                self.carrito_nav_list.set_items(items_to_set)
+
+                # Restaurar scroll
                 try:
-                    self.carrito_nav_list._parent_canvas.yview_moveto(scroll_pos)
+                    self.carrito_nav_list._canvas.yview_moveto(scroll_pos)
                 except Exception:
                     pass
 
@@ -1039,36 +1029,18 @@ class TicketCarrito(ctk.CTkFrame):
                 resumen = self.carrito_service.get_resumen_financiero() or {}
                 subtotal = resumen.get("subtotal", 0.0)
                 total = resumen.get("total", 0.0)
-
-                # Obtener desglose de IVA (si el servicio lo proporciona)
                 desglose_iva = resumen.get("iva_desglose", [])
-
                 self.update_totales(subtotal, total, desglose_iva)
 
-                # Si hay un payment controller activo, actualizar su total
                 if self.active_payment_controller and hasattr(self.active_payment_controller, 'set_total'):
-                    try:
-                        self.active_payment_controller.set_total(total)
-                    except Exception:
-                        logger.exception("Error actualizando total en payment controller")
+                    self.active_payment_controller.set_total(total)
 
             # --- Restaurar selección y teclado ---
             try:
-                if hasattr(self, "carrito_nav_list") and self.carrito_nav_list.rows_data:
-                    # Seleccionar primera fila
-                    try:
-                        self.carrito_nav_list._select_row(0)
-                    except Exception:
-                        pass
-
+                if hasattr(self, "carrito_nav_list") and self.carrito_nav_list._all_data:
                     # Dar foco visual
                     try:
-                        self.carrito_nav_list.focus_set()
-                    except Exception:
-                        pass
-
-                    try:
-                        pass
+                        self.carrito_nav_list._canvas.focus_set()
                     except Exception:
                         pass
 
@@ -1078,17 +1050,11 @@ class TicketCarrito(ctk.CTkFrame):
                             self.carrito_nav_list.keyboard_manager.set_active_list(
                                 self.carrito_nav_list
                             )
-                            try:
-                                pass
-                            except Exception:
-                                pass
                     except Exception:
                         pass
             except Exception:
-                import logging
-                logging.exception("Error restaurando foco y navegación del carrito")
+                logger.exception("Error restaurando foco y navegación del carrito")
 
-            # Forzar pintado inmediato para evitar negro
             self.update_idletasks()
 
         except Exception:

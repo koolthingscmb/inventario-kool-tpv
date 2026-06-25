@@ -39,13 +39,40 @@ class TipoService:
             logging.exception('Error actualizando tipo %s', id)
             return False
 
-    def delete_tipo(self, id: int) -> bool:
+    def delete_tipo(self, id: int) -> tuple[bool, str]:
+        """Elimina un tipo comprobando dependencias.
+        Returns: (success, message)
+        """
         try:
+            # 1. Comprobar productos asociados
+            res = self.db.fetch_one("SELECT COUNT(*) FROM productos WHERE tipo = ?", (id,))
+            if res and res[0] > 0:
+                return False, f"NO SE PUEDE ELIMINAR: TIENE {res[0]} PRODUCTOS ASOCIADOS"
+
+            # 2. Comprobar relaciones de producción (si existen las tablas)
+            try:
+                # Estas tablas podrían no existir en todas las instalaciones todavía
+                res = self.db.fetch_one("SELECT COUNT(*) FROM produccion_tipos_generos WHERE tipo_id = ?", (id,))
+                if res and res[0] > 0:
+                    return False, "NO SE PUEDE ELIMINAR: TIENE GÉNEROS ASOCIADOS EN MATRIZ"
+                
+                res = self.db.fetch_one("SELECT COUNT(*) FROM produccion_tipos_colores WHERE tipo_id = ?", (id,))
+                if res and res[0] > 0:
+                    return False, "NO SE PUEDE ELIMINAR: TIENE COLORES ASOCIADOS EN MATRIZ"
+            except Exception:
+                # Si fallan estas queries es que las tablas no existen, ignoramos
+                pass
+
+            # 3. Intentar borrado físico
             self.repo.delete(id)
-            return True
-        except Exception:
+            return True, "TIPO ELIMINADO CORRECTAMENTE"
+
+        except Exception as e:
+            msg = str(e).upper()
+            if "FOREIGN KEY" in msg:
+                return False, "ERROR DE INTEGRIDAD: ESTÁ SIENDO USADO EN OTRA TABLA"
             logging.exception('Error eliminando tipo %s', id)
-            return False
+            return False, f"ERROR AL ELIMINAR: {msg}"
 
     def get_ventas_por_tipo(self, ticket_ids: List[int], line_tipo: str = None, as_dict: bool = False):
         """Delega al repo para obtener ventas por tipo.

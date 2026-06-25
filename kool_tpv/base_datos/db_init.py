@@ -345,6 +345,24 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migración 023: Tabla produccion_tipo_color_tallas y limpieza stock
+		try:
+			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table' AND name='produccion_tipo_color_tallas'")
+			if not rows:
+				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '023_matriz_config_table.sql'
+				if mig_path.exists():
+					logging.info('Aplicando migración 023: Tabla produccion_tipo_color_tallas y limpieza stock')
+					cur = db.connection.cursor()
+					cur.executescript(mig_path.read_text(encoding='utf-8'))
+					db.connection.commit()
+					logging.info('Migración 023 aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 023')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Validate again
 		try:
 			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table'")

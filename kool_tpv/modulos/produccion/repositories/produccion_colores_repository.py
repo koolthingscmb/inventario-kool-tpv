@@ -127,14 +127,7 @@ class ProduccionColoresRepository:
 			return False
 
 	def get_por_genero_3d(self, genero_id: int) -> List[ProduccionColor]:
-		"""Obtener colores asignados a un género (tabla 3D).
-
-		Args:
-			genero_id: ID del género.
-
-		Returns:
-			Lista de objetos ProduccionColor asignados a ese género.
-		"""
+		"""Obtener colores asignados a un género (tabla 3D)."""
 		query = """
 			SELECT DISTINCT c.id, c.nombre, c.codigo_hex
 			FROM produccion_colores c
@@ -143,6 +136,33 @@ class ProduccionColoresRepository:
 			ORDER BY c.nombre
 		"""
 		rows = self.db.fetch_all(query, (genero_id,))
+		return [
+			ProduccionColor(id=r[0], nombre=r[1], codigo_hex=r[2])
+			for r in rows
+		]
+
+	def get_por_tipo_3d(self, tipo_id: int, variante_id: Optional[int] = None) -> List[ProduccionColor]:
+		"""Obtener colores asignados a un tipo o variante (tabla Libro de Recetas)."""
+		if variante_id:
+			query = """
+				SELECT DISTINCT c.id, c.nombre, c.codigo_hex
+				FROM produccion_colores c
+				JOIN produccion_tipo_color_tallas tct ON c.id = tct.color_id
+				WHERE tct.tipo_id = ? AND tct.variante_id = ?
+				ORDER BY c.nombre
+			"""
+			params = (tipo_id, variante_id)
+		else:
+			query = """
+				SELECT DISTINCT c.id, c.nombre, c.codigo_hex
+				FROM produccion_colores c
+				JOIN produccion_tipo_color_tallas tct ON c.id = tct.color_id
+				WHERE tct.tipo_id = ? AND tct.variante_id IS NULL
+				ORDER BY c.nombre
+			"""
+			params = (tipo_id,)
+			
+		rows = self.db.fetch_all(query, params)
 		return [
 			ProduccionColor(id=r[0], nombre=r[1], codigo_hex=r[2])
 			for r in rows

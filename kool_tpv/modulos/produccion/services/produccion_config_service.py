@@ -14,6 +14,7 @@ from kool_tpv.modulos.produccion.repositories.produccion_tipos_repository import
 from kool_tpv.modulos.produccion.repositories.produccion_menu_repository import ProduccionMenuRepository
 from kool_tpv.modulos.produccion.repositories.produccion_menu_tipos_repository import ProduccionMenuTiposRepository
 from kool_tpv.modulos.produccion.models.produccion_menu_model import ProduccionMenuItem
+from kool_tpv.modulos.produccion.models.produccion_tipo_variante_model import ProduccionTipoVariante
 
 class ProduccionConfigService:
     def __init__(self, db: Database):
@@ -67,6 +68,31 @@ class ProduccionConfigService:
         """Obtener un tipo por su ID."""
         return self.tipos_repo.get_por_id(tipo_id)
 
+    def obtener_variantes_por_tipo(self, tipo_id: int, solo_matriz: bool = False) -> List[ProduccionTipoVariante]:
+        """Obtener variantes de un tipo. 
+        Si solo_matriz es True, solo devuelve las que requieren color o talla.
+        """
+        vars = self.relaciones_repo.db.fetch_all(
+            "SELECT id, tipo_id, nombre, coste_base, precio_recomendado, activo, shopify_variant_id, created_at, updated_at, requiere_talla, requiere_color FROM tipos_variantes WHERE tipo_id = ? AND activo = 1",
+            (tipo_id,)
+        )
+        from datetime import datetime
+        results = []
+        for r in vars:
+            v = ProduccionTipoVariante(
+                id=r[0], tipo_id=r[1], nombre=r[2], coste_base=r[3], precio_recomendado=r[4],
+                activo=r[5], shopify_variant_id=r[6], 
+                created_at=datetime.fromisoformat(r[7]) if r[7] else None,
+                updated_at=datetime.fromisoformat(r[8]) if r[8] else None,
+                requiere_talla=r[9] or 0, requiere_color=r[10] or 0
+            )
+            if solo_matriz:
+                if v.requiere_color == 1 or v.requiere_talla == 1:
+                    results.append(v)
+            else:
+                results.append(v)
+        return results
+
     # --- Gestión de la Matriz (Relaciones) ---
     def obtener_relaciones_genero(self, genero_id: int):
         """Obtener tallas y colores asociados a un género."""
@@ -107,30 +133,40 @@ class ProduccionConfigService:
         self.relaciones_repo.remove_color_de_genero_3d(genero_id, color_id)
         return True
 
-    # --- Matriz 3D para TIPOS (usa produccion_stock_colores_tallas) ---
+    # --- Matriz 3D para TIPOS y VARIANTES (usa produccion_stock_colores_tallas) ---
 
     def obtener_tipos_para_matriz(self) -> List[ProduccionTipo]:
-        """Obtener tipos que requieren color o talla para mostrar en la matriz."""
+        """Obtener tipos que requieren color o talla o tienen variantes que lo requieren."""
         todos = self.tipos_repo.get_activos()
-        return [t for t in todos if t.requiere_color == 1 or t.requiere_talla == 1]
+        # Un tipo aparece si él requiere algo O si alguna de sus variantes activas requiere algo
+        results = []
+        for t in todos:
+            if t.requiere_color == 1 or t.requiere_talla == 1:
+                results.append(t)
+                continue
+            
+            # Comprobar variantes
+            vars = self.obtener_variantes_por_tipo(t.id, solo_matriz=True)
+            if vars:
+                results.append(t)
+        return results
 
-    def obtener_colores_tipo_3d(self, tipo_id: int) -> Set[int]:
-        """IDs de colores asignados a un tipo (stock base)."""
-        return self.relaciones_repo.get_colores_id_por_tipo_3d(tipo_id)
+    def obtener_colores_tipo_3d(self, tipo_id: int, variante_id: Optional[int] = None) -> Set[int]:
+        """IDs de colores asignados a un tipo o variante (stock base)."""
+        return self.relaciones_repo.get_colores_id_por_tipo_3d(tipo_id, variante_id)
 
-    def obtener_tallas_tipo_color_3d(self, tipo_id: int, color_id: int) -> Set[int]:
-        """IDs de tallas disponibles para una combinación tipo+color."""
-        return self.relaciones_repo.get_tallas_id_por_tipo_color_3d(tipo_id, color_id)
+    def obtener_tallas_tipo_color_3d(self, tipo_id: int, color_id: int, variante_id: Optional[int] = None) -> Set[int]:
+        """IDs de tallas disponibles para una combinación tipo+color o variante+color."""
+        return self.relaciones_repo.get_tallas_id_por_tipo_color_3d(tipo_id, color_id, variante_id)
 
-    def guardar_tallas_tipo_color_3d(self, tipo_id: int, color_id: int, tallas_ids: List[int]):
-        """Sincronizar tallas para una combinación tipo+color."""
-        all_tallas = {t.id: t for t in self.tallas_repo.get_todos()}
-        self.relaciones_repo.actualizar_tallas_tipo_color_3d(tipo_id, color_id, tallas_ids, all_tallas)
+    def guardar_tallas_tipo_color_3d(self, tipo_id: int, color_id: int, tallas_ids: List[int], variante_id: Optional[int] = None):
+        """Sincronizar tallas para una combinación tipo+color o variante+color."""
+        self.relaciones_repo.actualizar_tallas_tipo_color_3d(tipo_id, color_id, tallas_ids, variante_id)
         return True
 
-    def eliminar_color_tipo_3d(self, tipo_id: int, color_id: int):
-        """Eliminar un color y todas sus tallas de un tipo en el stock base."""
-        self.relaciones_repo.remove_color_de_tipo_3d(tipo_id, color_id)
+    def eliminar_color_tipo_3d(self, tipo_id: int, color_id: int, variante_id: Optional[int] = None):
+        """Eliminar un color y todas sus tallas de un tipo o variante en el stock base."""
+        self.relaciones_repo.remove_color_de_tipo_3d(tipo_id, color_id, variante_id)
         return True
 
     # --- Gestión del Menú ---

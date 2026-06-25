@@ -5,7 +5,7 @@ from typing import Callable, List, Dict, Any, Optional
 import customtkinter as ctk
 
 from kool_tpv.utils.factories.button_factory import ButtonFactory
-from kool_tpv.utils.widgets.nav_list_multi_select import NavListMultiSelect
+from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.font_loader import load_font_config
 from kool_tpv.utils.config_loader import load_colors
 from kool_tpv.utils.keyboard_nav_mixin import KeyboardNavigableMixin
@@ -108,14 +108,22 @@ class VistaSeleccion(ctk.CTkFrame, KeyboardNavigableMixin):
         )
         self.chk_agrupar.pack(side='left', padx=15, pady=10)
 
-        # Lista de albaranes con NavListMultiSelect
-        self.lista_albaranes = NavListMultiSelect(
+        # Lista de albaranes con VirtualNavList (Multi-select)
+        self.columns_spec = [
+            ('id', 50, 'ID'),
+            ('num_albaran', 150, 'Nº Albarán'),
+            ('fecha', 120, 'Fecha'),
+            ('proveedor_nombre', 250, 'Proveedor'),
+            ('total', 120, 'Total')
+        ]
+        
+        self.lista_albaranes = VirtualNavList(
             self,
-            columns=['id', 'num_albaran', 'fecha', 'proveedor_nombre', 'total'],
-            column_widths=[50, 150, 120, 250, 120],
-            header_texts=['ID', 'Nº Albarán', 'Fecha', 'Proveedor', 'Total'],
-            on_selection_change=self._on_seleccion_cambio,
-            row_height=30
+            columns=self.columns_spec,
+            module_name=self.colors.get('module_name', 'almacen'),
+            keyboard_manager=getattr(self.winfo_toplevel(), 'keyboard_manager', None),
+            multi_select=True,
+            on_selection_change=self._on_seleccion_cambio
         )
         self.lista_albaranes.grid(row=2, column=0, padx=20, pady=10, sticky='nsew')
 
@@ -194,16 +202,16 @@ class VistaSeleccion(ctk.CTkFrame, KeyboardNavigableMixin):
             for alb in self.albaranes:
                 filas.append({
                     'id': alb.get('id'),
-                    'num_albaran': alb.get('num_albaran', ''),
+                    'num_albaran': str(alb.get('num_albaran', '')),
                     'fecha': alb.get('fecha', ''),
                     'proveedor_nombre': alb.get('proveedor_nombre', ''),
                     'num_lineas': str(alb.get('num_lineas', 0)),
                     'total': f"{alb.get('total', 0):.2f} €"
                 })
-            self.lista_albaranes.set_data(filas)
-            logger.info(f"Cargados {len(filas)} albaranes en la lista")
+            self.lista_albaranes.set_items(filas)
+            logger.info(f"Cargados {len(filas)} albaranes en la lista virtual")
         except Exception:
-            logger.exception("Error cargando albaranes en la lista")
+            logger.exception("Error cargando albaranes en la lista virtual")
 
     def _on_seleccion_cambio(self, selected_ids):
         """Callback cuando cambia la selección."""

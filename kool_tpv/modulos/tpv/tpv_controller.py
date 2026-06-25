@@ -13,6 +13,7 @@ from datetime import datetime
 
 from kool_tpv.base_datos.money_adapter import prepare_for_db
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
+from kool_tpv.utils.custom_dialog import show_input_dialog
 
 logger = logging.getLogger(__name__)
 
@@ -102,16 +103,76 @@ class TpvController:
             if producto is None:
                 ToastWidget.show(self.view, 'EL PRODUCTO NO EXISTE EN EL SISTEMA', tipo='error')
                 return
-            carrito = getattr(self.view, 'carrito_service', None)
-            if carrito is None:
-                return
-            carrito.add_item(producto, parent_window=self.view)
-            logger.info('Barcode: producto añadido al carrito -> %s', producto.get('nombre'))
+            
+            # Usar el manejador unificado para añadir productos
+            self.handle_add_product(producto)
+            
+        except Exception:
+            logger.exception('Error procesando código de barras: %s', code)
+
+    def handle_add_product(self, producto: dict):
+        """Manejador unificado para añadir productos al carrito con chequeo de pvp_variable."""
+        carrito = getattr(self.view, 'carrito_service', None)
+        if carrito is None:
+            return
+
+        # Si el PVP es variable, preguntar precio
+        if int(producto.get('pvp_variable', 0)) == 1:
+            def on_price_entered(valor):
+                if valor is None: # Cancelado
+                    return
+                try:
+                    # Normalizar separador decimal (coma a punto)
+                    valor_limpio = str(valor).replace(',', '.')
+                    nuevo_pvp = Decimal(valor_limpio)
+                    if nuevo_pvp < 0:
+                        ToastWidget.show(self.view, "EL PRECIO NO PUEDE SER NEGATIVO", tipo='error')
+                        return
+                    
+                    # Actualizar PVP y total de línea
+                    producto['pvp'] = nuevo_pvp
+                    producto['total_linea'] = nuevo_pvp * Decimal(producto.get('cantidad', 1))
+                    
+                    # Añadir al carrito
+                    self._finalizar_add_item(producto)
+                except Exception:
+                    ToastWidget.show(self.view, "PRECIO INVÁLIDO", tipo='error')
+
+            show_input_dialog(
+                parent=self.view,
+                tipo='info',
+                titulo='PRECIO VARIABLE',
+                mensaje=f"INTRODUCE EL PRECIO PARA:\n{producto.get('nombre', '').upper()}",
+                valor_defecto="",
+                callback=on_price_entered,
+                window_title="PVP VARIABLE"
+            )
+        else:
+            # Añadir directamente
+            self._finalizar_add_item(producto)
+
+    def _finalizar_add_item(self, producto: dict):
+        """Finaliza la adición del item al carrito y actualiza la UI."""
+        carrito = getattr(self.view, 'carrito_service', None)
+        if not carrito:
+            return
+
+        if carrito.add_item(producto, parent_window=self.view):
+            logger.info('Producto añadido al carrito -> %s', producto.get('nombre'))
+            # Actualizar ticket visual
             ticket = getattr(self.view, 'ticket_carrito', None)
             if ticket and hasattr(ticket, 'update_carrito'):
                 ticket.update_carrito()
-        except Exception:
-            logger.exception('Error procesando código de barras: %s', code)
+            
+            # Si hay un callback on_add_callback en la subvista actual, llamarlo
+            # Esto es para que Favoritos o BuscarArticulo sepan que se añadió algo
+            try:
+                if hasattr(self.view, '_subview_stack') and self.view._subview_stack:
+                    current_view = self.view._subview_stack[-1]["view"]
+                    if hasattr(current_view, 'on_add_callback') and callable(current_view.on_add_callback):
+                        current_view.on_add_callback()
+            except Exception:
+                pass
 
     def setup_services(self):
         """Instanciar servicios de negocio."""

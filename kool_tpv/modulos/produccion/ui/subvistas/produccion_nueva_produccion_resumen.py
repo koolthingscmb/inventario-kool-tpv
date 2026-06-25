@@ -9,30 +9,10 @@ from typing import Callable, List, Optional
 
 import customtkinter as ctk
 
+from kool_tpv.modulos.produccion.services.produccion_ordenes_service import ItemProduccion
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font, get_nav_button_config, get_nav_button_style
-
-
-@dataclass
-class ItemProduccion:
-	"""Ítem de producción añadido a la orden."""
-	tipo_nombre: str = ""
-	tipo_id: Optional[int] = None
-	variante_nombre: Optional[str] = None
-	variante_id: Optional[int] = None
-	diseno_coleccion: Optional[str] = None
-	genero: Optional[str] = None
-	genero_id: Optional[int] = None
-	talla: Optional[str] = None
-	color_nombre: Optional[str] = None
-	color_id: Optional[int] = None
-	diseno_codigo: Optional[str] = None
-	diseno_nombre: Optional[str] = None
-	cantidad: int = 0
-	produccion_mixta: bool = False
-	coste_unitario: float = 0.0
-	coste_total: float = 0.0
-	origen: str = ""
-
+from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
+from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
 
 
 class NuevaProduccionResumenView:
@@ -93,36 +73,53 @@ class NuevaProduccionResumenView:
 		titulo.pack(pady=(20, 10))
 
 	def _crear_tabla(self):
-		"""Crear la tabla con cabeceras y filas de ítems."""
+		"""Crear la tabla con cabeceras y filas de ítems usando VirtualNavList."""
 		self.tabla_frame = ctk.CTkFrame(self.frame, fg_color=self._bg)
 		self.tabla_frame.pack(expand=True, fill="both", padx=40, pady=(0, 10))
 
-		# Cabeceras
-		self._headers = ["Origen", "Cant", "Tipo", "Var", "Diseño", "Colección", "Género", "Talla", "Color", "Mixta"]
-		self._col_widths = [70, 50, 100, 80, 180, 120, 100, 60, 100, 50]
+		# Configuración de columnas para VirtualNavList
+		self.columns = [
+			("origen", 80, "Origen"),
+			("cantidad", 60, "Cant"),
+			("tipo", 150, "Tipo"),
+			("variante", 120, "Variante"),
+			("diseno", 180, "Diseño"),
+			("coleccion", 120, "Colección"),
+			("genero", 100, "Género"),
+			("talla", 60, "Talla"),
+			("color", 100, "Color"),
+			("mixta", 60, "Mixta")
+		]
 
-		header_frame = ctk.CTkFrame(self.tabla_frame, fg_color=self._colors.get("bg_dark", "#0d0d0d"), height=36)
-		header_frame.pack(fill="x", pady=(0, 4))
-		header_frame.pack_propagate(False)
+		# Obtener el keyboard manager del toplevel
+		root = self.frame.winfo_toplevel()
+		km = getattr(root, 'keyboard_manager', None)
 
-		for i, h in enumerate(self._headers):
-			lbl = ctk.CTkLabel(
-				header_frame,
-				text=h,
-				font=self._get_font("label"),
-				text_color=self._text_sec,
-				width=self._col_widths[i],
-				anchor="w"
-			)
-			lbl.pack(side="left", padx=(6, 0))
-
-		# Frame scrollable para las filas
-		self.filas_frame = ctk.CTkScrollableFrame(
+		self.nav_list = VirtualNavList(
 			self.tabla_frame,
-			fg_color=self._bg,
-			label_text=""
+			columns=self.columns,
+			module_name="produccion",
+			keyboard_manager=km,
+			on_double_click=self._on_item_double_click
 		)
-		self.filas_frame.pack(expand=True, fill="both")
+		self.nav_list.pack(expand=True, fill="both")
+		
+		# Bind tecla Delete para eliminar ítems
+		self.nav_list.bind('<Delete>', lambda e: self._on_eliminar_teclado())
+
+	def _on_item_double_click(self, data):
+		"""Doble clic para eliminar (o podríamos abrir edición en el futuro)."""
+		idx = data.get("_idx")
+		if idx is not None:
+			self.eliminar_item(idx)
+
+	def _on_eliminar_teclado(self):
+		"""Eliminar el ítem seleccionado con la tecla Supr."""
+		data = self.nav_list.get_selected_data()
+		if data:
+			idx = data.get("_idx")
+			if idx is not None:
+				self.eliminar_item(idx)
 
 	def _crear_total_unidades(self):
 		"""Crear el label del total de unidades."""
@@ -211,65 +208,24 @@ class NuevaProduccionResumenView:
 			self._refrescar_lista()
 
 	def _refrescar_lista(self):
-		"""Refrescar la tabla visual de ítems."""
-		# Limpiar filas
-		for w in list(self.filas_frame.winfo_children()):
-			w.destroy()
-
-		if not self.items:
-			lbl_vacio = ctk.CTkLabel(
-				self.filas_frame,
-				text="No hay ítems añadidos",
-				font=self._get_font("label"),
-				text_color=self._text_sec
-			)
-			lbl_vacio.pack(pady=40)
-			self._actualizar_total()
-			return
-
-		# Crear una fila por ítem
+		"""Refrescar la tabla virtual de ítems."""
+		rows = []
 		for idx, item in enumerate(self.items):
-			fila = ctk.CTkFrame(self.filas_frame, fg_color=self._bg, corner_radius=6)
-			fila.pack(fill="x", padx=4, pady=3)
-
-			valores = [
-				getattr(item, 'origen', '') or '',
-				str(item.cantidad),
-				item.tipo_nombre or "",
-				item.variante_nombre or "-",
-				item.diseno_nombre or "",
-				item.diseno_coleccion or "-",
-				item.genero or "",
-				item.talla or "",
-				item.color_nombre or "",
-				"Sí" if item.produccion_mixta else "No",
-			]
-
-			for i, val in enumerate(valores):
-				lbl = ctk.CTkLabel(
-					fila,
-					text=val,
-					font=self._get_font("label"),
-					text_color=self._text,
-					width=self._col_widths[i],
-					anchor="w"
-				)
-				lbl.pack(side="left", padx=(6, 0))
-
-			# Botón eliminar
-			btn_eliminar = ctk.CTkButton(
-				master=fila,
-				text="X",
-				command=lambda i=idx: self.eliminar_item(i),
-				width=30,
-				height=28,
-				fg_color="#e74c3c",
-				hover_color="#c0392b",
-				text_color="#FFFFFF",
-				cursor="hand2"
-			)
-			btn_eliminar.pack(side="right", padx=(0, 4))
-
+			rows.append({
+				"origen": getattr(item, 'origen', '') or '',
+				"cantidad": str(item.cantidad),
+				"tipo": item.tipo_nombre or "",
+				"variante": item.variante_nombre or "-",
+				"diseno": item.diseno_nombre or "",
+				"coleccion": item.diseno_coleccion or "-",
+				"genero": item.genero or "",
+				"talla": item.talla or "",
+				"color": item.color_nombre or "",
+				"mixta": "Sí" if item.produccion_mixta else "No",
+				"_idx": idx  # Guardar índice real para eliminar
+			})
+		
+		self.nav_list.set_items(rows)
 		self._actualizar_total()
 
 	def _actualizar_total(self):

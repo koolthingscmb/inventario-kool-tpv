@@ -194,5 +194,5 @@ class TipoRepository:
         )
 
     def delete(self, id: int) -> None:
-        """Elimina un tipo por id."""
+        """Elimina un tipo por id. Lanza IntegrityError si está en uso."""
         self.db.execute_query('DELETE FROM tipos WHERE id = ?', (id,))
