@@ -78,6 +78,43 @@ class ProduccionRelacionesRepository:
             (genero_id, color_id)
         )
 
+    # --- Matriz 3D para TIPOS (usa produccion_stock_colores_tallas) ---
+
+    def get_colores_id_por_tipo_3d(self, tipo_id: int) -> Set[int]:
+        """Obtener IDs de colores asignados a un tipo (DISTINCT desde stock base)."""
+        query = "SELECT DISTINCT color_id FROM produccion_stock_colores_tallas WHERE tipo_id = ? AND color_id IS NOT NULL"
+        rows = self.db.fetch_all(query, (tipo_id,))
+        return {row[0] for row in rows if row[0] is not None}
+
+    def get_tallas_id_por_tipo_color_3d(self, tipo_id: int, color_id: int) -> Set[int]:
+        """Obtener IDs de tallas disponibles para una combinación tipo+color."""
+        query = "SELECT talla_id FROM produccion_stock_colores_tallas WHERE tipo_id = ? AND color_id = ? AND talla_id IS NOT NULL"
+        rows = self.db.fetch_all(query, (tipo_id, color_id))
+        return {row[0] for row in rows if row[0] is not None}
+
+    def actualizar_tallas_tipo_color_3d(self, tipo_id: int, color_id: int, tallas_ids: List[int], all_tallas: dict):
+        """Sincronizar tallas para una combinación tipo+color (borrar y re-insertar en stock base)."""
+        # Borrar registros de esta combinación que tengan talla_id (los que no tienen talla_id pueden ser manuales)
+        self.db.execute_query(
+            "DELETE FROM produccion_stock_colores_tallas WHERE tipo_id = ? AND color_id = ? AND (talla_id IS NOT NULL OR talla IS NOT NULL)",
+            (tipo_id, color_id)
+        )
+        for t_id in tallas_ids:
+            talla_nombre = all_tallas[t_id].nombre if t_id in all_tallas else str(t_id)
+            self.db.execute_query(
+                """INSERT INTO produccion_stock_colores_tallas 
+                   (tipo_id, color_id, talla_id, talla, cantidad) 
+                   VALUES (?, ?, ?, ?, 0)""",
+                (tipo_id, color_id, t_id, talla_nombre)
+            )
+
+    def remove_color_de_tipo_3d(self, tipo_id: int, color_id: int):
+        """Eliminar un color y todas sus tallas de un tipo en el stock base."""
+        self.db.execute_query(
+            "DELETE FROM produccion_stock_colores_tallas WHERE tipo_id = ? AND color_id = ?",
+            (tipo_id, color_id)
+        )
+
     # --- Relaciones Tipo <-> Género ---
     def get_generos_id_por_tipo(self, tipo_id: int) -> Set[int]:
         """Obtener IDs de géneros asociados a un tipo de producto."""

@@ -318,6 +318,33 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migración 021: campo talla_id en produccion_stock_colores_tallas (INTEGER)
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('produccion_stock_colores_tallas')") or [])]
+			if 'talla_id' not in cols:
+				logging.info('Aplicando migración 021: talla_id en produccion_stock_colores_tallas')
+				db.connection.execute("ALTER TABLE produccion_stock_colores_tallas ADD COLUMN talla_id INTEGER")
+				
+				# Intentar sincronizar talla_id desde produccion_tallas comparando por nombre
+				db.connection.execute("""
+					UPDATE produccion_stock_colores_tallas
+					SET talla_id = (
+						SELECT id FROM produccion_tallas 
+						WHERE produccion_tallas.nombre = produccion_stock_colores_tallas.talla
+						LIMIT 1
+					)
+					WHERE talla_id IS NULL
+				""")
+				
+				db.connection.commit()
+				logging.info('Migración 021 (talla_id en produccion_stock_colores_tallas) aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 021')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Validate again
 		try:
 			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table'")

@@ -59,6 +59,14 @@ class ProduccionConfigService:
             return self.generos_repo.actualizar(genero)
         return self.generos_repo.crear(genero) is not None
 
+    def obtener_todos_generos_dict(self) -> dict:
+        """Obtener todos los géneros indexados por ID."""
+        return {g.id: g.nombre for g in self.generos_repo.get_todos()}
+
+    def obtener_por_id(self, tipo_id: int) -> Optional[ProduccionTipo]:
+        """Obtener un tipo por su ID."""
+        return self.tipos_repo.get_por_id(tipo_id)
+
     # --- Gestión de la Matriz (Relaciones) ---
     def obtener_relaciones_genero(self, genero_id: int):
         """Obtener tallas y colores asociados a un género."""
@@ -97,6 +105,32 @@ class ProduccionConfigService:
     def eliminar_color_genero_3d(self, genero_id: int, color_id: int):
         """Eliminar un color y todas sus tallas de un género."""
         self.relaciones_repo.remove_color_de_genero_3d(genero_id, color_id)
+        return True
+
+    # --- Matriz 3D para TIPOS (usa produccion_stock_colores_tallas) ---
+
+    def obtener_tipos_para_matriz(self) -> List[ProduccionTipo]:
+        """Obtener tipos que requieren color o talla para mostrar en la matriz."""
+        todos = self.tipos_repo.get_activos()
+        return [t for t in todos if t.requiere_color == 1 or t.requiere_talla == 1]
+
+    def obtener_colores_tipo_3d(self, tipo_id: int) -> Set[int]:
+        """IDs de colores asignados a un tipo (stock base)."""
+        return self.relaciones_repo.get_colores_id_por_tipo_3d(tipo_id)
+
+    def obtener_tallas_tipo_color_3d(self, tipo_id: int, color_id: int) -> Set[int]:
+        """IDs de tallas disponibles para una combinación tipo+color."""
+        return self.relaciones_repo.get_tallas_id_por_tipo_color_3d(tipo_id, color_id)
+
+    def guardar_tallas_tipo_color_3d(self, tipo_id: int, color_id: int, tallas_ids: List[int]):
+        """Sincronizar tallas para una combinación tipo+color."""
+        all_tallas = {t.id: t for t in self.tallas_repo.get_todos()}
+        self.relaciones_repo.actualizar_tallas_tipo_color_3d(tipo_id, color_id, tallas_ids, all_tallas)
+        return True
+
+    def eliminar_color_tipo_3d(self, tipo_id: int, color_id: int):
+        """Eliminar un color y todas sus tallas de un tipo en el stock base."""
+        self.relaciones_repo.remove_color_de_tipo_3d(tipo_id, color_id)
         return True
 
     # --- Gestión del Menú ---

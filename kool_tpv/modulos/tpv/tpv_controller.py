@@ -97,11 +97,10 @@ class TpvController:
         logger.info(f"TpvController: Procesando código escaneado: '{code}'")
         try:
             from kool_tpv.base_datos.producto_service import ProductoService
-            from kool_tpv.utils.custom_dialog import show_error
             producto_service = ProductoService(self.db)
             producto = producto_service.buscar_por_ean(code)
             if producto is None:
-                show_error(self.view, 'Código no encontrado', f'No se encontró ningún producto con el código:\n{code}')
+                ToastWidget.show(self.view, 'EL PRODUCTO NO EXISTE EN EL SISTEMA', tipo='error')
                 return
             carrito = getattr(self.view, 'carrito_service', None)
             if carrito is None:
