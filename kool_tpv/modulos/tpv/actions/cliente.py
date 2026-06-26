@@ -10,7 +10,7 @@ import logging
 
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.tpv.subviews.cliente_subview import ClienteSubView
-from kool_tpv.utils.custom_dialog import show_warning
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
 
 
 class ClienteAction:
@@ -43,7 +43,7 @@ class ClienteAction:
                                 parent = self.view.parent.winfo_toplevel()
                             except Exception:
                                 parent = getattr(self.view, 'parent', self.view)
-                            show_warning(parent, 'No se puede añadir cliente con un descuento en curso', 'No se puede añadir cliente con un descuento en curso')
+                            ToastWidget.show(parent, 'NO SE PUEDE AÑADIR CLIENTE CON UN DESCUENTO EN CURSO', tipo='warning')
                             return
                     except Exception:
                         logging.exception('ClienteAction: error comprobando descuento activo')

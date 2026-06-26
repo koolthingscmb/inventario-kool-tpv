@@ -219,15 +219,16 @@ class FavoritosConfigSubView(ctk.CTkFrame):
 
     def _ejecutar_auto_orden(self):
         """Ejecuta la reorganización por ventas después de confirmar."""
-        from kool_tpv.utils.custom_dialog import show_warning, show_info
+        from kool_tpv.utils.custom_dialog import show_warning
+        from kool_tpv.utils.widgets.notificaciones import ToastWidget
         
         def on_confirm(res):
             if res:
                 if self.favoritos_service.auto_ordenar_por_ventas():
                     self.refrescar_lista()
-                    show_info(self.view, "ÉXITO", "LISTA REORGANIZADA POR VENTAS")
+                    ToastWidget.show(self.view, 'LISTA REORGANIZADA POR VENTAS', tipo='success')
                 else:
-                    show_info(self.view, "AVISO", "NO SE PUDO REORGANIZAR LA LISTA")
+                    ToastWidget.show(self.view, 'NO SE PUDO REORGANIZAR LA LISTA', tipo='warning')
 
         show_warning(
             self.view,

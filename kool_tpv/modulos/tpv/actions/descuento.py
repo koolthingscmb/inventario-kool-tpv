@@ -9,7 +9,8 @@ subvista `DescuentoSubView`.
 import logging
 from typing import Any
 
-from kool_tpv.utils.custom_dialog import show_password_dialog, show_warning
+from kool_tpv.utils.custom_dialog import show_password_dialog
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +68,7 @@ class DescuentoAction:
                 if carrito is not None:
                     try:
                         if carrito.is_empty():
-                            show_warning(parent, 'Carrito vacío', 'Carrito vacío')
+                            ToastWidget.show(parent, 'CARRITO VACÍO', tipo='warning')
                             return
                     except Exception:
                         # Si is_empty falla, no bloqueamos la acción; continuar
@@ -97,7 +98,7 @@ class DescuentoAction:
                 if carrito is not None and getattr(carrito, 'has_descuento', None):
                     try:
                         if carrito.has_descuento():
-                            show_warning(parent, 'Ya hay un descuento en curso', 'Ya hay un descuento en curso')
+                            ToastWidget.show(parent, 'YA HAY UN DESCUENTO EN CURSO', tipo='warning')
                             return
                     except Exception:
                         # si la comprobación falla, no bloqueamos

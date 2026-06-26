@@ -184,9 +184,9 @@ class TicketsHandler:
 
 			if len(sel) > 1:
 				try:
-					from kool_tpv.utils.custom_dialog import show_error
+					from kool_tpv.utils.widgets.notificaciones import ToastWidget
 					root = parent.overlay.winfo_toplevel() if getattr(parent, 'overlay', None) is not None else None
-					show_error(root, 'Error', 'Solamente se puede Mostrar un ticket a la vez')
+					ToastWidget.show(root, 'SOLAMENTE SE PUEDE MOSTRAR UN TICKET A LA VEZ', tipo='error')
 				except Exception:
 					logging.exception('Error mostrando diálogo de selección múltiple en Mostrar')
 				return
