@@ -220,7 +220,7 @@ class BaseDialog(ctk.CTkToplevel):
             return int(wraplength_cfg) if isinstance(wraplength_cfg, (int, float)) else int(self.fallbacks['geometry']['wraplength'])
 
     def _crear_barra_titulo(self, parent, titulo):
-        """Crea la barra superior con color de fondo según tipo, icono pequeño y título.
+        """Crea la barra superior con color de fondo según tipo, icono y título centrados.
 
         Args:
             parent: Frame contenedor donde se empaqueta la barra.
@@ -240,24 +240,37 @@ class BaseDialog(ctk.CTkToplevel):
         bar = ctk.CTkFrame(parent, fg_color=bar_bg, corner_radius=0, height=bar_height)
         bar.pack(fill='x', side='top')
         bar.pack_propagate(False)
+        bar.update_idletasks()
+        bar_w = bar.winfo_width() or int(self.geometry_cfg.get('width', 400))
 
-        # Icono pequeño en la barra
+        # Icono pequeño en la barra (centrado con el título)
         icon_img = self._cargar_icono(bar_icon_size)
-        if icon_img:
-            lbl_icon = ctk.CTkLabel(bar, image=icon_img, text='', fg_color=bar_bg)
-            lbl_icon.image = icon_img
-            lbl_icon.pack(side='left', padx=(bar_pad, bar_pad))
+        icon_w = bar_icon_size if icon_img else 0
+        gap = 8 if icon_img and titulo else 0
+        title_text = titulo.upper() if titulo else ''
 
-        # Título en la barra
+        # Título en la barra (centrado)
         title_font = self._get_font('title')
         lbl_title = ctk.CTkLabel(
             bar,
-            text=titulo.upper(),
+            text=title_text,
             font=title_font,
             text_color=bar_text,
             fg_color=bar_bg
         )
-        lbl_title.pack(side='left', padx=(0, bar_pad))
+        # Medir ancho del título para centrar el conjunto icono+texto
+        lbl_title.update_idletasks()
+        text_w = lbl_title.winfo_reqwidth()
+        total_w = icon_w + gap + text_w
+        start_x = max(bar_pad, (bar_w - total_w) // 2)
+
+        if icon_img:
+            lbl_icon = ctk.CTkLabel(bar, image=icon_img, text='', fg_color=bar_bg)
+            lbl_icon.image = icon_img
+            lbl_icon.place(x=start_x, rely=0.5, anchor='w', y=0)
+            lbl_title.place(x=start_x + icon_w + gap, rely=0.5, anchor='w', y=0)
+        else:
+            lbl_title.place(x=bar_w // 2, rely=0.5, anchor='center', y=0)
 
         # Frame de contenido debajo de la barra
         content_bg = tipo_config.get('bg', self.fallbacks['colors']['bg'])
