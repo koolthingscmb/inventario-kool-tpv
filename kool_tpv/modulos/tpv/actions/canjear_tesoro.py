@@ -7,7 +7,8 @@ indicar cuánto canjear.
 from decimal import Decimal, InvalidOperation
 import logging
 
-from kool_tpv.utils.custom_dialog import show_warning, show_error, show_info, show_input_dialog
+from kool_tpv.utils.custom_dialog import show_input_dialog
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
 from kool_tpv.utils.formatter_service import FormatterService
 
 
@@ -54,26 +55,26 @@ class CanjearTesoroAction:
         except Exception:
             _has_devol = False
         if _has_devol:
-            show_warning(parent_window, 'Modo devolución', 'No se puede canjear Tesoro durante una devolución.')
+            ToastWidget.show(parent_window, 'NO SE PUEDE CANJEAR TESORO DURANTE UNA DEVOLUCIÓN', tipo='warning')
             return
 
         # Validar que haya productos en el carrito
         try:
             if self.carrito_service.is_empty():
-                show_warning(parent_window, '', 'NO HAY PRODUCTOS EN EL CARRITO. NO SE PUEDE CANJEAR TESORO.')
+                ToastWidget.show(parent_window, 'NO HAY PRODUCTOS EN EL CARRITO. NO SE PUEDE CANJEAR TESORO.', tipo='warning')
                 return
         except Exception:
             logging.exception('Error validando carrito vacío')
 
         cliente = self.carrito_service.get_cliente()
         if not cliente:
-            show_warning(parent_window, 'Sin cliente', 'Selecciona un cliente primero para canjear tesoro.')
+            ToastWidget.show(parent_window, 'SELECCIONA UN CLIENTE PRIMERO PARA CANJEAR TESORO', tipo='warning')
             return
 
         # No permitir canjear si hay un descuento activo
         try:
             if hasattr(self.carrito_service, 'has_descuento') and self.carrito_service.has_descuento():
-                show_error(parent_window, 'Descuento activo', 'No se puede canjear tesoro mientras hay un descuento aplicado. Elimina el descuento primero.')
+                ToastWidget.show(parent_window, 'NO SE PUEDE CANJEAR TESORO CON UN DESCUENTO ACTIVO. ELIMINA EL DESCUENTO PRIMERO.', tipo='error')
                 return
         except Exception:
             logging.exception('Error verificando descuento activo antes de canjear tesoro')
@@ -119,27 +120,27 @@ class CanjearTesoroAction:
         try:
             valor_decimal = Decimal(valor_normalizado)
         except (InvalidOperation, ValueError):
-            show_error(parent_window, "Valor inválido", "Introduzca un número válido para canjear.")
+            ToastWidget.show(parent_window, 'INTRODUZCA UN NÚMERO VÁLIDO PARA CANJEAR', tipo='error')
             return
 
         # No permitir negativos
         if valor_decimal <= Decimal('0'):
-            show_error(parent_window, "Valor inválido", "La cantidad a canjear debe ser mayor que 0.")
+            ToastWidget.show(parent_window, 'LA CANTIDAD A CANJEAR DEBE SER MAYOR QUE 0', tipo='error')
             return
 
         # Validaciones: no puede superar saldo ni el total del ticket
         if valor_decimal > saldo:
-            show_error(parent_window, "Saldo insuficiente", "La cantidad indicada supera el saldo del cliente.")
+            ToastWidget.show(parent_window, 'LA CANTIDAD INDICADA SUPERA EL SALDO DEL CLIENTE', tipo='error')
             return
 
         # Comparar contra el total bruto del ticket
         try:
             if valor_decimal > total_actual:
-                show_error(parent_window, "Cantidad superior al total", "La cantidad indicada no puede ser superior al subtotal más IVA del ticket.")
+                ToastWidget.show(parent_window, 'LA CANTIDAD NO PUEDE SUPERAR EL SUBTOTAL + IVA DEL TICKET', tipo='error')
                 return
         except Exception:
             logging.exception('Error comparando valor a canjear con total_actual')
-            show_error(parent_window, "Error", "No se pudo validar la cantidad a canjear. Intente de nuevo.")
+            ToastWidget.show(parent_window, 'NO SE PUDO VALIDAR LA CANTIDAD A CANJEAR', tipo='error')
             return
 
         # Aplicar canje
@@ -155,4 +156,4 @@ class CanjearTesoroAction:
             logging.info(f"Canje de {valor_decimal} puntos aplicado")
         except Exception:
             logging.exception('Error aplicando canje de tesoro')
-            show_error(parent_window, "Error", "No se pudo aplicar el canje de tesoro. Consulte los logs.")
+            ToastWidget.show(parent_window, 'NO SE PUDO APLICAR EL CANJE DE TESORO', tipo='error')
