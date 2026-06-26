@@ -4,7 +4,8 @@ Subvista de selección de cajero con navegación por teclado (mixin).
 from customtkinter import CTkFrame, CTkScrollableFrame
 from kool_tpv.base_datos.usuario_service import UsuarioService
 from kool_tpv.utils.factories.button_factory import ButtonFactory
-from kool_tpv.utils.custom_dialog import show_password_dialog, show_warning
+from kool_tpv.utils.custom_dialog import show_password_dialog
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
 from kool_tpv.utils.auth_service import AuthService
 from kool_tpv.utils.keyboard_nav_mixin import KeyboardNavigableMixin
 
@@ -100,10 +101,5 @@ class CajeroSubView(CTkFrame, KeyboardNavigableMixin):
             if callable(pop):
                 pop()
         else:
-            show_warning(
-                parent,
-                "CÓDIGO NO VÁLIDO",
-                "La contraseña introducida es incorrecta.\nInténtalo de nuevo.",
-                callback=lambda _: self._select_cajero(user_id, nombre)
-            )
+            ToastWidget.show(parent, 'CÓDIGO NO VÁLIDO — INTÉNTALO DE NUEVO', tipo='error')
 

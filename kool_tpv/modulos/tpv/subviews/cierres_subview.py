@@ -187,8 +187,8 @@ class CierresSubView(CTkFrame):
             
             sel = nav.get_selected_data()
             if not sel:
-                from kool_tpv.utils.custom_dialog import show_warning
-                show_warning(self.winfo_toplevel(), 'Selecciona un cierre', 'Selecciona un cierre para imprimir')
+                from kool_tpv.utils.widgets.notificaciones import ToastWidget
+                ToastWidget.show(self.winfo_toplevel(), 'SELECCIONA UN CIERRE PARA IMPRIMIR', tipo='warning')
                 return
             
             cierre_id = sel.get('cierre_id') or sel.get('id')
