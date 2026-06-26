@@ -227,8 +227,7 @@ class FidelizacionProductosUI:
         try:
             float(valor)
         except ValueError:
-            from kool_tpv.utils.custom_dialog import show_error
-            show_error(self.container, 'Error', 'Introduce un valor numérico válido')
+            ToastWidget.show(self.container, 'INTRODUCE UN VALOR NUMÉRICO VÁLIDO', tipo='error')
             return
 
         try:
@@ -248,5 +247,4 @@ class FidelizacionProductosUI:
 
         except Exception:
             logging.exception('Error guardando fidelización en productos')
-            from kool_tpv.utils.custom_dialog import show_error
-            show_error(self.container, 'Error', 'No se pudo guardar')
+            ToastWidget.show(self.container, 'NO SE PUDO GUARDAR', tipo='error')

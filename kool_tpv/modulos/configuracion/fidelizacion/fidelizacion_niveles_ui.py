@@ -233,11 +233,10 @@ class FidelizacionNivelesUI:
         puntos = self.entry_puntos.get().strip()
 
         if not level or not nombre or not grafismo or not puntos:
-            from kool_tpv.utils.custom_dialog import show_error
-            show_error(
+            ToastWidget.show(
                 self.container,
-                'Campos obligatorios',
-                'Level, Nombre, Grafismo y Puntos mínimos son obligatorios'
+                'LEVEL, NOMBRE, GRAFISMO Y PUNTOS MÍNIMOS SON OBLIGATORIOS',
+                tipo='error'
             )
             return
 
@@ -247,8 +246,7 @@ class FidelizacionNivelesUI:
             puntos = puntos.replace(',', '.')
             puntos_num = float(puntos)
         except ValueError:
-            from kool_tpv.utils.custom_dialog import show_error
-            show_error(self.container, 'Error', 'Level debe ser entero y Puntos numérico')
+            ToastWidget.show(self.container, 'LEVEL DEBE SER ENTERO Y PUNTOS NUMÉRICO', tipo='error')
             return
 
         # Preparar datos
@@ -278,14 +276,12 @@ class FidelizacionNivelesUI:
 
             ToastWidget.show(self.parent, f'Nivel {accion}', tipo='success')
         else:
-            from kool_tpv.utils.custom_dialog import show_error
-            show_error(self.container, 'Error', 'No se pudo guardar')
+            ToastWidget.show(self.container, 'NO SE PUDO GUARDAR', tipo='error')
 
     def _on_eliminar(self):
         """Eliminar nivel seleccionado (con confirmación)."""
         if not self.selected_nivel:
-            from kool_tpv.utils.custom_dialog import show_warning
-            show_warning(self.container, 'Atención', 'Selecciona un nivel primero')
+            ToastWidget.show(self.container, 'SELECCIONA UN NIVEL PRIMERO', tipo='warning')
             return
 
         from kool_tpv.utils.custom_dialog import show_warning
@@ -299,8 +295,7 @@ class FidelizacionNivelesUI:
 
                 ToastWidget.show(self.parent, 'Nivel eliminado', tipo='success')
             else:
-                from kool_tpv.utils.custom_dialog import show_error
-                show_error(self.container, 'Error', 'No se pudo eliminar')
+                ToastWidget.show(self.container, 'NO SE PUDO ELIMINAR', tipo='error')
 
         show_warning(
             self.container,

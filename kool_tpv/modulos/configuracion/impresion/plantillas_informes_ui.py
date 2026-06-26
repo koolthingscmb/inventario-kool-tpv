@@ -167,8 +167,7 @@ class PlantillasInformesUI:
             self._mostrar_preview_logo(destino)
         except Exception:
             logging.exception('Error seleccionando logo')
-            from kool_tpv.utils.custom_dialog import show_error
-            show_error(self.container, 'Error', 'No se pudo cargar el logo')
+            ToastWidget.show(self.container, 'NO SE PUDO CARGAR EL LOGO', tipo='error')
 
     def _on_quitar_logo(self):
         try:
@@ -200,8 +199,7 @@ class PlantillasInformesUI:
             ToastWidget.show(self.parent, 'Plantilla guardada', tipo='success')
         except Exception:
             logging.exception('Error guardando plantilla')
-            from kool_tpv.utils.custom_dialog import show_error
-            show_error(self.container, 'Error', 'No se pudo guardar la plantilla')
+            ToastWidget.show(self.container, 'NO SE PUDO GUARDAR LA PLANTILLA', tipo='error')
 
     def _on_restaurar(self):
         try:

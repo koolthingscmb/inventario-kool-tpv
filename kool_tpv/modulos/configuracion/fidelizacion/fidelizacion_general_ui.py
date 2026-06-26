@@ -97,8 +97,7 @@ class FidelizacionGeneralUI:
         try:
             float(nuevo_valor)
         except ValueError:
-            from kool_tpv.utils.custom_dialog import show_error
-            show_error(self.container, 'Error', 'Introduce un valor numérico válido')
+            ToastWidget.show(self.container, 'INTRODUCE UN VALOR NUMÉRICO VÁLIDO', tipo='error')
             return
 
         try:
@@ -125,5 +124,4 @@ class FidelizacionGeneralUI:
             except Exception:
                 pass
             logging.exception('Error guardando fide_porcentaje_general')
-            from kool_tpv.utils.custom_dialog import show_error
-            show_error(self.container, 'Error', 'No se pudo guardar')
+            ToastWidget.show(self.container, 'NO SE PUDO GUARDAR', tipo='error')
