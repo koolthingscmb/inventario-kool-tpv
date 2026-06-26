@@ -76,67 +76,58 @@ class MessageDialog(BaseDialog):
         # Botones unificados
         self.btn = self._crear_botones(content_frame, btn_text=btn_text, confirm=self.confirm)
 
+    def _ejecutar_callback(self, result=None):
+        """Ejecuta el callback de forma segura, intentando pasar el resultado."""
+        if not self.callback or not callable(self.callback):
+            return
+
+        def _safe_call():
+            try:
+                # Intentar llamar con el resultado (para confirm=True)
+                if result is not None:
+                    try:
+                        self.callback(result)
+                    except TypeError:
+                        # Si falla por argumentos, llamar sin nada
+                        self.callback()
+                else:
+                    self.callback()
+            except Exception:
+                logging.exception('Error ejecutando callback de MessageDialog')
+
+        try:
+            self._cb_parent.after(20, _safe_call)
+        except Exception:
+            try:
+                self.after(20, _safe_call)
+            except Exception:
+                _safe_call()
+
     def _on_close(self):
         """Cerrar diálogo y ejecutar callback."""
+        self._ejecutar_callback()
         try:
-            if self.callback and callable(self.callback):
-                try:
-                    cb = self.callback
-                    self._cb_parent.after(20, lambda: cb())
-                except Exception:
-                    try:
-                        self.after(20, lambda: cb())
-                    except Exception:
-                        logging.exception('Error ejecutando callback en _on_close')
+            self.grab_release()
         except Exception:
-            logging.exception('Error en _on_close')
-        finally:
-            try:
-                self.grab_release()
-            except Exception:
-                pass
-            self.destroy()
+            pass
+        self.destroy()
 
     def _on_accept(self):
         """Aceptar: cerrar con resultado True."""
+        self.result = True
+        self._ejecutar_callback(True)
         try:
-            self.result = True
-            if self.callback and callable(self.callback):
-                try:
-                    cb = self.callback
-                    self._cb_parent.after(20, lambda: cb(True))
-                except Exception:
-                    try:
-                        self.after(20, lambda: cb(True))
-                    except Exception:
-                        logging.exception('Error ejecutando callback en accept')
+            self.grab_release()
         except Exception:
-            logging.exception('Error en _on_accept')
-        finally:
-            try:
-                self.grab_release()
-            except Exception:
-                pass
-            self.destroy()
+            pass
+        self.destroy()
 
     def _on_cancel(self):
         """Cancelar: cerrar con resultado False."""
+        self.result = False
+        self._ejecutar_callback(False)
         try:
-            self.result = False
-            if self.callback and callable(self.callback):
-                try:
-                    cb = self.callback
-                    self._cb_parent.after(20, lambda: cb(False))
-                except Exception:
-                    try:
-                        self.after(20, lambda: cb(False))
-                    except Exception:
-                        logging.exception('Error ejecutando callback en cancel')
+            self.grab_release()
         except Exception:
-            logging.exception('Error en _on_cancel')
-        finally:
-            try:
-                self.grab_release()
-            except Exception:
-                pass
-            self.destroy()
+            pass
+        self.destroy()

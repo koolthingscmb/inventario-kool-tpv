@@ -100,25 +100,45 @@ class InputDialog(BaseDialog):
         # Botones unificados (siempre confirm en InputDialog: Cancelar + Aceptar)
         self.btn = self._crear_botones(content_frame, btn_text='ACEPTAR', confirm=True)
 
+    def _ejecutar_callback(self, result=None):
+        """Ejecuta el callback de forma segura."""
+        if not self.callback or not callable(self.callback):
+            return
+
+        def _safe_call():
+            try:
+                # InputDialog siempre intenta pasar el valor (o None)
+                try:
+                    self.callback(result)
+                except TypeError:
+                    # Si falla por argumentos, llamar sin nada
+                    self.callback()
+            except Exception:
+                logging.exception('Error ejecutando callback de InputDialog')
+
+        try:
+            self._cb_parent.after(20, _safe_call)
+        except Exception:
+            try:
+                self.after(20, _safe_call)
+            except Exception:
+                _safe_call()
+
     def _on_accept(self):
         """Aceptar: devolver valor ingresado."""
         valor = self.entry.get().strip()
         self.result = valor
+        self._ejecutar_callback(valor)
         try:
-            if self.callback and callable(self.callback):
-                self.callback(valor)
+            self.grab_release()
         except Exception:
-            logging.exception('Error ejecutando callback de InputDialog')
-        finally:
-            try:
-                self.grab_release()
-            except Exception:
-                pass
-            self.destroy()
+            pass
+        self.destroy()
 
     def _on_cancel(self):
         """Cancelar: cerrar sin valor."""
         self.result = None
+        self._ejecutar_callback(None)
         try:
             self.grab_release()
         except Exception:

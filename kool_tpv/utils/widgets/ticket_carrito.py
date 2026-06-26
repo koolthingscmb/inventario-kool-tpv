@@ -654,6 +654,10 @@ class TicketCarrito(ctk.CTkFrame):
                     self.tesoro_label.configure(text=f"{tesoro} pts")
             else:
                 self.cliente_nombre_label.configure(text="SELECCIONAR CLIENTE...")
+                try:
+                    self.cliente_nivel_label.configure(text="")
+                except Exception:
+                    pass
                 self.tesoro_label.configure(text="0 pts")
         except Exception:
             logger.exception("Error actualizando cliente")
