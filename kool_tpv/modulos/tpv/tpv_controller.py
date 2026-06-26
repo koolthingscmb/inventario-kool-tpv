@@ -873,8 +873,6 @@ class TpvController:
             importe_tarjeta: Desglose tarjeta
         """
         try:
-            from kool_tpv.utils.custom_dialog import show_error
-
             carrito_service = getattr(self.view, 'carrito_service', None)
             if not carrito_service:
                 logger.error('carrito_service no disponible')
@@ -882,35 +880,8 @@ class TpvController:
 
             # Validar carrito no vacío
             if carrito_service.is_empty():
-                show_error(
-                    self.view.container,
-                    'Carrito vacío',
-                    'No se puede realizar una venta sin artículos.'
-                )
+                ToastWidget.show(self.view, 'NO SE PUEDE REALIZAR UNA VENTA SIN ARTÍCULOS', tipo='error')
                 return
-
-            # Guardia última línea: para pagos en efectivo, verificar importe suficiente
-            # (se omite en devoluciones: la tienda devuelve dinero al cliente, no cobra)
-            _es_devolucion_guard = False
-            try:
-                _es_devolucion_guard = carrito_service.get_ticket_type() == 'devolucion'
-            except Exception:
-                pass
-            if forma_pago == 'Efectivo' and efectivo is not None and not _es_devolucion_guard:
-                try:
-                    from decimal import Decimal as _Dec
-                    resumen_check = carrito_service.get_resumen_financiero()
-                    total_check = _Dec(str(resumen_check.get('total', '0')))
-                    efectivo_check = _Dec(str(efectivo))
-                    if efectivo_check < total_check:
-                        show_error(
-                            self.view.container,
-                            'Importe insuficiente',
-                            f'Entregado: {efectivo_check:.2f} € — Total: {total_check:.2f} €'
-                        )
-                        return
-                except Exception:
-                    logger.exception('Error en guardia de importe efectivo')
 
             # Preparar ticket_data
             ticket_data = {
@@ -936,11 +907,7 @@ class TpvController:
                 cajero_obj = None
 
             if not cajero_obj:
-                show_error(
-                    self.view.container,
-                    '',
-                    'Debe autenticar un cajero antes de finalizar la venta.'
-                )
+                ToastWidget.show(self.view, 'DEBE AUTENTICAR UN CAJERO ANTES DE FINALIZAR LA VENTA', tipo='error')
                 return
 
             # Usar nombre del cajero para el ticket (save_ticket espera un nombre)
@@ -1115,22 +1082,13 @@ class TpvController:
             else:
                 # Mostrar error
                 error_msg = result.get('error', 'Error desconocido')
-                show_error(
-                    self.view.container,
-                    'Error guardando ticket',
-                    error_msg
-                )
+                ToastWidget.show(self.view, f'ERROR GUARDANDO TICKET: {error_msg}', tipo='error')
                 logger.error(f'Error finalizando venta: {error_msg}')
 
         except Exception:
             logger.exception('Error inesperado en finalize_sale')
             try:
-                from kool_tpv.utils.custom_dialog import show_error
-                show_error(
-                    self.view.container,
-                    'Error',
-                    'Error interno al finalizar la venta'
-                )
+                ToastWidget.show(self.view, 'ERROR INTERNO AL FINALIZAR LA VENTA', tipo='error')
             except Exception:
                 pass
 
