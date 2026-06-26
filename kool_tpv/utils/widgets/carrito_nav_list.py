@@ -155,7 +155,8 @@ class CarritoNavList(VirtualNavList):
 
             data = self.get_selected_data()
             if not data:
-                return "break"
+                # No consumir Enter si no hay selección: permitir que llegue a BarcodeService
+                return
 
             # No permitir añadir unidades a líneas especiales
             line_tipo = data.get("line_tipo", "normal")
