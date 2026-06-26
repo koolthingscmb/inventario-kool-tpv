@@ -31,15 +31,18 @@ FALLBACKS = {
         'button_text': '#000000',
         'cancel_bg': '#666666',
         'cancel_hover': '#555555',
-        'button_focus_border': '#FFFFFF'
+        'button_focus_border': '#FFFFFF',
+        'title_bar_bg': '#3498db',
+        'title_bar_text': '#FFFFFF'
     },
     'geometry': {
         'width': 580,
         'height': 400,
         'border_width': 4,
-        'icon_size': 96,
+        'icon_size': 24,
         'button_width': 160,
         'button_height': 55,
+        'title_bar_height': 50,
         'corner_radius': 0,
         'wraplength': 'auto',
         'focus_border_width': 3,
@@ -83,6 +86,8 @@ def _transform_ui_dialogs_to_legacy_format(ui_data: dict) -> tuple:
             'cancel_bg': colors.get('cancel_bg', FALLBACKS['colors']['cancel_bg']),
             'cancel_hover': colors.get('cancel_hover', FALLBACKS['colors']['cancel_hover']),
             'button_focus_border': colors.get('button_focus_border', FALLBACKS['colors']['button_focus_border']),
+            'title_bar_bg': colors.get('title_bar_bg', FALLBACKS['colors']['title_bar_bg']),
+            'title_bar_text': colors.get('title_bar_text', FALLBACKS['colors']['title_bar_text']),
         }
 
     # Construir fonts_dict en formato legacy
@@ -119,6 +124,9 @@ def _transform_ui_dialogs_to_legacy_format(ui_data: dict) -> tuple:
         'focus_border_width': window.get('focus_border_width', FALLBACKS['geometry']['focus_border_width']),
         'entry_width': window.get('entry_width', FALLBACKS['geometry']['entry_width']),
         'entry_height': window.get('entry_height', FALLBACKS['geometry']['entry_height']),
+        'button_width': window.get('button_width', FALLBACKS['geometry']['button_width']),
+        'button_height': window.get('button_height', FALLBACKS['geometry']['button_height']),
+        'title_bar_height': window.get('title_bar_height', FALLBACKS['geometry']['title_bar_height']),
         'padding_x': window.get('padding_x', FALLBACKS['geometry']['padding_x']),
         'padding_y': window.get('padding_y', FALLBACKS['geometry']['padding_y']),
         'spacing_icon_top': spacing.get('icon_top', 10),

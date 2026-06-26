@@ -210,8 +210,175 @@ class BaseDialog(ctk.CTkToplevel):
         except Exception:
             pass
 
-    def _cargar_icono(self):
-        """Cargar icono según tipo."""
+    def _calcular_wraplength(self):
+        """Calcula wraplength dinámico basado en configuración."""
+        wraplength_cfg = self.geometry_cfg.get('wraplength', self.fallbacks['geometry']['wraplength'])
+        if wraplength_cfg == 'auto':
+            padding_x = int(self.geometry_cfg.get('padding_x', 20))
+            return max(200, self._dialog_width - (padding_x * 2) - 40)
+        else:
+            return int(wraplength_cfg) if isinstance(wraplength_cfg, (int, float)) else int(self.fallbacks['geometry']['wraplength'])
+
+    def _crear_barra_titulo(self, parent, titulo):
+        """Crea la barra superior con color de fondo según tipo, icono pequeño y título.
+
+        Args:
+            parent: Frame contenedor donde se empaqueta la barra.
+            titulo: Texto del título (se convierte a mayúsculas).
+
+        Returns:
+            El frame de contenido inferior (donde deben ir mensaje, entry, etc.)
+        """
+        tipo_config = self.dialogs_colors.get(self.tipo, {})
+        bar_bg = tipo_config.get('title_bar_bg', self.fallbacks['colors']['title_bar_bg'])
+        bar_text = tipo_config.get('title_bar_text', self.fallbacks['colors']['title_bar_text'])
+        bar_height = int(self.geometry_cfg.get('title_bar_height', self.fallbacks['geometry']['title_bar_height']))
+        bar_icon_size = int(self.geometry_cfg.get('icon_size', self.fallbacks['geometry']['icon_size']))
+        bar_pad = max(4, bar_height // 6)
+
+        # Barra superior
+        bar = ctk.CTkFrame(parent, fg_color=bar_bg, corner_radius=0, height=bar_height)
+        bar.pack(fill='x', side='top')
+        bar.pack_propagate(False)
+
+        # Icono pequeño en la barra
+        icon_img = self._cargar_icono(bar_icon_size)
+        if icon_img:
+            lbl_icon = ctk.CTkLabel(bar, image=icon_img, text='', fg_color=bar_bg)
+            lbl_icon.image = icon_img
+            lbl_icon.pack(side='left', padx=(bar_pad, bar_pad))
+
+        # Título en la barra
+        title_font = self._get_font('title')
+        lbl_title = ctk.CTkLabel(
+            bar,
+            text=titulo.upper(),
+            font=title_font,
+            text_color=bar_text,
+            fg_color=bar_bg
+        )
+        lbl_title.pack(side='left', padx=(0, bar_pad))
+
+        # Frame de contenido debajo de la barra
+        content_bg = tipo_config.get('bg', self.fallbacks['colors']['bg'])
+        content_frame = ctk.CTkFrame(parent, fg_color=content_bg, corner_radius=0)
+        content_frame.pack(fill='both', expand=True)
+        return content_frame
+
+    def _crear_botones(self, parent, btn_text='Aceptar', confirm=False):
+        """Crea los botones del diálogo de forma unificada.
+
+        Args:
+            parent: Frame contenedor.
+            btn_text: Texto del botón principal.
+            confirm: Si True, muestra Cancelar + Aceptar. Si False, solo Aceptar.
+
+        Returns:
+            El botón principal (para focus_set).
+        """
+        tipo_config = self.dialogs_colors.get(self.tipo, {})
+        button_font = self._get_font('button')
+        btn_w = int(self.geometry_cfg.get('button_width', self.fallbacks['geometry']['button_width']))
+        btn_h = int(self.geometry_cfg.get('button_height', self.fallbacks['geometry']['button_height']))
+        corner_radius = int(self.geometry_cfg.get('corner_radius', self.fallbacks['geometry']['corner_radius']))
+        style_key = self._get_button_style_key()
+
+        btn_frame = ctk.CTkFrame(parent, fg_color='transparent')
+        btn_frame.pack(pady=(0, 10))
+
+        if confirm:
+            # Cancelar
+            try:
+                btn_cancel = ButtonFactory.create_button(
+                    parent=btn_frame,
+                    text='CANCELAR',
+                    command=self._on_cancel,
+                    style_key='dialog_cancel_btn',
+                    font=button_font
+                )
+            except Exception:
+                btn_cancel = ctk.CTkButton(
+                    btn_frame,
+                    text='CANCELAR',
+                    command=self._on_cancel,
+                    fg_color=tipo_config.get('cancel_bg', self.fallbacks['colors']['cancel_bg']),
+                    hover_color=tipo_config.get('cancel_hover', self.fallbacks['colors']['cancel_hover']),
+                    text_color=tipo_config.get('button_text', self.fallbacks['colors']['button_text']),
+                    font=button_font,
+                    width=btn_w,
+                    height=btn_h,
+                    corner_radius=corner_radius,
+                    border_width=0
+                )
+            btn_cancel.pack(side='left', padx=(0, 10))
+            self._setup_button_focus(btn_cancel, is_accept=False)
+
+            # Aceptar
+            try:
+                btn_accept = ButtonFactory.create_button(
+                    parent=btn_frame,
+                    text=btn_text,
+                    command=self._on_accept,
+                    style_key=style_key,
+                    font=button_font
+                )
+            except Exception:
+                btn_accept = ctk.CTkButton(
+                    btn_frame,
+                    text=btn_text.upper(),
+                    command=self._on_accept,
+                    fg_color=tipo_config.get('button_bg', self.fallbacks['colors']['button_bg']),
+                    hover_color=tipo_config.get('button_hover', self.fallbacks['colors']['button_hover']),
+                    text_color=tipo_config.get('button_text', self.fallbacks['colors']['button_text']),
+                    font=button_font,
+                    width=btn_w,
+                    height=btn_h,
+                    corner_radius=corner_radius,
+                    border_width=0
+                )
+            btn_accept.pack(side='left')
+            self._setup_button_focus(btn_accept, is_accept=True)
+
+            # Navegación TAB
+            try:
+                btn_cancel.bind('<Tab>', lambda e: (btn_accept.focus_set(), 'break'))
+                btn_accept.bind('<Tab>', lambda e: (btn_cancel.focus_set(), 'break'))
+            except Exception:
+                pass
+
+            self.btn_cancel = btn_cancel
+            self.btn_accept = btn_accept
+            return btn_accept
+        else:
+            # Botón único
+            try:
+                btn = ButtonFactory.create_button(
+                    parent=btn_frame,
+                    text=btn_text,
+                    command=self._on_close,
+                    style_key=style_key,
+                    font=button_font
+                )
+            except Exception:
+                btn = ctk.CTkButton(
+                    btn_frame,
+                    text=btn_text.upper(),
+                    command=self._on_close,
+                    fg_color=tipo_config.get('button_bg', self.fallbacks['colors']['button_bg']),
+                    hover_color=tipo_config.get('button_hover', self.fallbacks['colors']['button_hover']),
+                    text_color=tipo_config.get('button_text', self.fallbacks['colors']['button_text']),
+                    font=button_font,
+                    width=btn_w,
+                    height=btn_h,
+                    corner_radius=corner_radius,
+                    border_width=0
+                )
+            btn.pack()
+            self._setup_button_focus(btn, is_accept=True)
+            return btn
+
+    def _cargar_icono(self, size=None):
+        """Cargar icono según tipo, redimensionado al tamaño indicado."""
         try:
             base = Path(__file__).resolve().parents[2]
             icons_dir = base / "assets" / "dialogs"
@@ -222,7 +389,7 @@ class BaseDialog(ctk.CTkToplevel):
                 fallback = icons_dir / "dialog_error.png"
                 tried.append(fallback)
 
-            icon_size = int(self.geometry_cfg.get('icon_size', self.fallbacks['geometry']['icon_size'])) if isinstance(self.geometry_cfg.get('icon_size', None), int) else int(self.fallbacks['geometry']['icon_size'])
+            icon_size = int(size if size is not None else self.geometry_cfg.get('icon_size', self.fallbacks['geometry']['icon_size']))
             for p in tried:
                 try:
                     if p.exists():
@@ -236,15 +403,6 @@ class BaseDialog(ctk.CTkToplevel):
             logging.exception(f'Error cargando icono dialog_{self.tipo}.png')
 
         return None
-
-    def _calcular_wraplength(self):
-        """Calcula wraplength dinámico basado en configuración."""
-        wraplength_cfg = self.geometry_cfg.get('wraplength', self.fallbacks['geometry']['wraplength'])
-        if wraplength_cfg == 'auto':
-            padding_x = int(self.geometry_cfg.get('padding_x', 20))
-            return max(200, self._dialog_width - (padding_x * 2) - 40)
-        else:
-            return int(wraplength_cfg) if isinstance(wraplength_cfg, (int, float)) else int(self.fallbacks['geometry']['wraplength'])
 
     def _on_accept(self):
         """Método a sobrescribir en subclases."""

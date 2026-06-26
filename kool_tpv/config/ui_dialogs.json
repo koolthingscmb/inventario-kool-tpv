@@ -6,7 +6,10 @@
         "height": 300,
         "border_width": 10,
         "corner_radius": 20,
-        "icon_size": 80,
+        "icon_size": 24,
+        "button_width": 160,
+        "button_height": 55,
+        "title_bar_height": 50,
         "padding_x": 10,
         "padding_y": 10
       },
@@ -21,7 +24,9 @@
         "button_text": "#000000",
         "cancel_bg": "#2980b9",
         "cancel_hover": "#3498db",
-        "button_focus_border": "#5DADE2"
+        "button_focus_border": "#5DADE2",
+        "title_bar_bg": "#3498db",
+        "title_bar_text": "#FFFFFF"
       },
       "fonts": {
         "title": {"family": "Courier New", "size": 20, "weight": "bold"},
@@ -61,7 +66,10 @@
         "height": 300,
         "border_width": 10,
         "corner_radius": 20,
-        "icon_size": 80,
+        "icon_size": 24,
+        "button_width": 160,
+        "button_height": 55,
+        "title_bar_height": 50,
         "padding_x": 10,
         "padding_y": 10
       },
@@ -76,7 +84,9 @@
         "button_text": "#000000",
         "cancel_bg": "#d68910",
         "cancel_hover": "#f39c12",
-        "button_focus_border": "#FFD700"
+        "button_focus_border": "#FFD700",
+        "title_bar_bg": "#f39c12",
+        "title_bar_text": "#FFFFFF"
       },
       "fonts": {
         "title": {"family": "Courier New", "size": 20, "weight": "bold"},
@@ -116,7 +126,10 @@
         "height": 300,
         "border_width": 10,
         "corner_radius": 20,
-        "icon_size": 80,
+        "icon_size": 24,
+        "button_width": 160,
+        "button_height": 55,
+        "title_bar_height": 50,
         "padding_x": 10,
         "padding_y": 10
       },
@@ -131,7 +144,9 @@
         "button_text": "#000000",
         "cancel_bg": "#c0392b",
         "cancel_hover": "#e74c3c",
-        "button_focus_border": "#FF6B6B"
+        "button_focus_border": "#FF6B6B",
+        "title_bar_bg": "#e74c3c",
+        "title_bar_text": "#FFFFFF"
       },
       "fonts": {
         "title": {"family": "Courier New", "size": 20, "weight": "bold"},
@@ -171,7 +186,10 @@
         "height": 300,
         "border_width": 10,
         "corner_radius": 20,
-        "icon_size": 80,
+        "icon_size": 24,
+        "button_width": 160,
+        "button_height": 55,
+        "title_bar_height": 50,
         "padding_x": 10,
         "padding_y": 10
       },
@@ -186,7 +204,9 @@
         "button_text": "#000000",
         "cancel_bg": "#27ae60",
         "cancel_hover": "#2ecc71",
-        "button_focus_border": "#00FF00"
+        "button_focus_border": "#00FF00",
+        "title_bar_bg": "#2ecc71",
+        "title_bar_text": "#FFFFFF"
       },
       "fonts": {
         "title": {"family": "Courier New", "size": 20, "weight": "bold"},
@@ -226,7 +246,10 @@
         "height": 300,
         "border_width": 10,
         "corner_radius": 20,
-        "icon_size": 80,
+        "icon_size": 24,
+        "button_width": 160,
+        "button_height": 55,
+        "title_bar_height": 50,
         "padding_x": 10,
         "padding_y": 10,
         "entry_width": 300,
@@ -243,7 +266,9 @@
         "button_text": "#FFFFFF",
         "cancel_bg": "#8e44ad",
         "cancel_hover": "#9b59b6",
-        "button_focus_border": "#C39BD3"
+        "button_focus_border": "#C39BD3",
+        "title_bar_bg": "#9b59b6",
+        "title_bar_text": "#FFFFFF"
       },
       "fonts": {
         "title": {"family": "Courier New", "size": 20, "weight": "bold"},
@@ -283,7 +308,10 @@
         "height": 300,
         "border_width": 10,
         "corner_radius": 20,
-        "icon_size": 80,
+        "icon_size": 24,
+        "button_width": 160,
+        "button_height": 55,
+        "title_bar_height": 50,
         "padding_x": 10,
         "padding_y": 10,
         "entry_width": 300,
@@ -300,7 +328,9 @@
         "button_text": "#000000",
         "cancel_bg": "#27ae60",
         "cancel_hover": "#2ecc71",
-        "button_focus_border": "#00FF00"
+        "button_focus_border": "#00FF00",
+        "title_bar_bg": "#2ecc71",
+        "title_bar_text": "#FFFFFF"
       },
       "fonts": {
         "title": {"family": "Courier New", "size": 20, "weight": "bold"},
