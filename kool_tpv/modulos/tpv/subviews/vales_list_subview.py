@@ -127,19 +127,9 @@ class ValesListSubView(CTkFrame):
                 ToastWidget.show(self, 'Vale eliminado', tipo='success')
                 self.search_list.search('')
             else:
-                from kool_tpv.utils.custom_dialog import show_error
-                show_error(self, 'Error', 'No se pudo eliminar el vale')
+                ToastWidget.show(self, 'NO SE PUDO ELIMINAR EL VALE', tipo='error')
 
-        if usado:
-            _ejecutar()
-        else:
-            from kool_tpv.utils.custom_dialog import show_warning
-            show_warning(
-                self,
-                '⚠️ Confirmar',
-                f'¿Eliminar vale PENDIENTE de {data.get("importe", "")}?\nEsta acción no se puede deshacer.',
-                callback=_ejecutar
-            )
+        _ejecutar()
 
     def destroy(self):
         super().destroy()
