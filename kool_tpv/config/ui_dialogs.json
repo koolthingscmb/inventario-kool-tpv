@@ -243,7 +243,7 @@
     "password": {
       "window": {
         "width": 400,
-        "height": 300,
+        "height": 150,
         "border_width": 10,
         "corner_radius": 20,
         "icon_size": 40,

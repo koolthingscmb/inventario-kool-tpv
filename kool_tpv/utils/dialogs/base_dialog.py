@@ -29,10 +29,10 @@ class BaseDialog(ctk.CTkToplevel):
             self._cb_parent = self
 
         # Cargar configuración desde JSON
-        self.dialogs_colors, self.fonts_data, self.geometry_cfg, self.fallbacks = load_dialog_config()
+        self.dialogs_colors, self.fonts_data, self.geometry_cfg, self.fallbacks, self.geometry_by_type = load_dialog_config()
 
         # Filtrar tipos válidos
-        valid_dialog_types = ['info', 'success', 'warning', 'error', 'password']
+        valid_dialog_types = ['info', 'success', 'warning', 'error', 'password', 'input']
         allowed_types = [k for k in self.dialogs_colors.keys() if k in valid_dialog_types] if self.dialogs_colors else valid_dialog_types
         self.tipo = tipo if tipo in allowed_types else 'info'
         self.result = None
@@ -50,9 +50,19 @@ class BaseDialog(ctk.CTkToplevel):
 
     def _setup_geometry(self, parent):
         """Configurar geometría de ventana."""
+        # Intentar leer geometría específica del tipo
+        tipo_geom = self.geometry_by_type.get(self.tipo, {}) if self.geometry_by_type else {}
         try:
-            width = self.geometry_cfg.get('width') if isinstance(self.geometry_cfg.get('width'), int) else None
-            height = self.geometry_cfg.get('height') if isinstance(self.geometry_cfg.get('height'), int) else None
+            width = tipo_geom.get('width') or self.geometry_cfg.get('width')
+            height = tipo_geom.get('height') or self.geometry_cfg.get('height')
+            if isinstance(width, str):
+                width = int(width) if width else None
+            if isinstance(height, str):
+                height = int(height) if height else None
+            if not isinstance(width, int):
+                width = None
+            if not isinstance(height, int):
+                height = None
         except Exception:
             width = None
             height = None
@@ -213,9 +223,10 @@ class BaseDialog(ctk.CTkToplevel):
     def _calcular_wraplength(self):
         """Calcula wraplength dinámico basado en configuración."""
         wraplength_cfg = self.geometry_cfg.get('wraplength', self.fallbacks['geometry']['wraplength'])
+        dialog_w = self.geometry_by_type.get(self.tipo, {}).get('width', 0) or self._dialog_width
         if wraplength_cfg == 'auto':
             padding_x = int(self.geometry_cfg.get('padding_x', 20))
-            return max(200, self._dialog_width - (padding_x * 2) - 40)
+            return max(200, dialog_w - (padding_x * 2) - 40)
         else:
             return int(wraplength_cfg) if isinstance(wraplength_cfg, (int, float)) else int(self.fallbacks['geometry']['wraplength'])
 
@@ -241,7 +252,7 @@ class BaseDialog(ctk.CTkToplevel):
         bar.pack(fill='x', side='top')
         bar.pack_propagate(False)
         bar.update_idletasks()
-        bar_w = bar.winfo_width() or int(self.geometry_cfg.get('width', 400))
+        bar_w = bar.winfo_width() or int(self.geometry_by_type.get(self.tipo, {}).get('width', 0)) or int(self.geometry_cfg.get('width', 400))
 
         # Icono pequeño en la barra (centrado con el título)
         icon_img = self._cargar_icono(bar_icon_size)

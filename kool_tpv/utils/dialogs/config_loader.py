@@ -136,7 +136,16 @@ def _transform_ui_dialogs_to_legacy_format(ui_data: dict) -> tuple:
         'spacing_entry_bottom': spacing.get('entry_bottom', 10),
     }
 
-    return colors_dict, fonts_dict, geometry, FALLBACKS
+    # Geometría por tipo (para que cada dialog pueda tener su propio width/height)
+    geometry_by_type = {}
+    for dialog_type, config in dialogs_data.items():
+        w = config.get('window', {})
+        geometry_by_type[dialog_type] = {
+            'width': w.get('width', geometry['width']),
+            'height': w.get('height', geometry['height']),
+        }
+
+    return colors_dict, fonts_dict, geometry, FALLBACKS, geometry_by_type
 
 
 def load_dialog_config():
@@ -151,7 +160,7 @@ def load_dialog_config():
     Las siguientes llamadas devuelven el cache en memoria.
 
     Returns:
-        tuple: (colors_dict, fonts_dict, geometry_dict, fallbacks_dict)
+        tuple: (colors_dict, fonts_dict, geometry_dict, fallbacks_dict, geometry_by_type_dict)
     """
     global _CONFIG_CACHE
 
@@ -189,11 +198,11 @@ def load_dialog_config():
             geometry = layout_data.get('components', {}).get('dialog', {})
 
         # Guardar en cache para futuras llamadas
-        _CONFIG_CACHE = (dialogs_colors, fonts_data, geometry, FALLBACKS)
+        _CONFIG_CACHE = (dialogs_colors, fonts_data, geometry, FALLBACKS, {})
         return _CONFIG_CACHE
 
     except Exception as e:
         logging.exception("Error cargando configuración de diálogos, usando fallbacks")
         # En caso de error, cachear fallbacks para no reintentar
-        _CONFIG_CACHE = ({}, {}, {}, FALLBACKS)
+        _CONFIG_CACHE = ({}, {}, {}, FALLBACKS, {})
         return _CONFIG_CACHE
