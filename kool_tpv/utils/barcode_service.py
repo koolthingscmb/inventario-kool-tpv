@@ -66,7 +66,6 @@ class BarcodeService:
     def _dispatch(self, source: str):
         """Disparar callback con el código acumulado."""
         code = ''.join(self._buffer).strip()
-        logger.info(f"BarcodeService: _dispatch source={source}, code='{code}', buffer_len={len(self._buffer)}")
         self._buffer.clear()
         self._last_key_time = 0.0
         self._just_dispatched = True
@@ -84,24 +83,19 @@ class BarcodeService:
             char = event.char
             keysym = event.keysym
             
-            logger.info(f"BarcodeService: _on_key char='{char}', keysym='{keysym}', buffer='{''.join(self._buffer)}', just_dispatched={self._just_dispatched}, ignore_until={self._ignore_return_until}, now={now}")
-
             # Terminador explícito (Enter, Tab, \r)
             is_terminator = keysym in ('Return', 'KP_Enter', 'Tab') or char in ('\r', '\n', '\t')
             if is_terminator:
                 if now < self._ignore_return_until or self._just_dispatched:
-                    logger.info(f"BarcodeService: bloqueando terminador (now={now} < ignore={self._ignore_return_until} or just_dispatched={self._just_dispatched})")
                     # Consumir el Enter del escáner para que no llegue al CarritoNavList
                     self._just_dispatched = False
                     return 'break'
                 
                 # Si hay algo en el buffer, disparamos sea cual sea la longitud (min 3)
                 if len(self._buffer) >= MIN_CODE_LENGTH:
-                    logger.info(f"BarcodeService: terminador detectado con buffer={len(self._buffer)}")
                     self._dispatch('terminator')
                     return 'break'
                 else:
-                    logger.info("BarcodeService: terminador ignorado (buffer vacío o corto)")
                     self._buffer.clear()
                 return
 
@@ -112,16 +106,12 @@ class BarcodeService:
                 return
 
             elapsed = now - self._last_key_time
-            logger.info(f"BarcodeService: char='{char}', elapsed={elapsed}ms, threshold={THRESHOLD_MS}ms")
-
             # Si hay pausa larga entre teclas, resetear buffer
             if self._buffer and elapsed > THRESHOLD_MS:
-                logger.info(f"BarcodeService: pausa larga ({elapsed}ms), reseteando buffer")
                 self._buffer.clear()
 
             # Si hay foco en Entry y velocidad lenta → es escritura humana, ignorar
             if self._is_typing_in_entry() and elapsed > THRESHOLD_MS:
-                logger.info(f"BarcodeService: detectada escritura humana en Entry, ignorando")
                 return
 
             self._buffer.append(char)
@@ -129,7 +119,6 @@ class BarcodeService:
 
             # Disparo inmediato al alcanzar longitud EAN-13
             if len(self._buffer) == EAN_LENGTH:
-                logger.info(f"BarcodeService: EAN-13 completo")
                 self._dispatch('ean13')
 
         except Exception:

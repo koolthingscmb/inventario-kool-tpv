@@ -185,7 +185,11 @@ class StockSubView(CTkFrame):
         try:
             if not self.producto_service:
                 return []
-            return self.producto_service.listar_productos(texto or '')
+            return self.producto_service.buscar_productos_paginados(
+                termino_busqueda=texto or '',
+                limit=5000,
+                offset=0
+            )
         except Exception:
             return []
 
