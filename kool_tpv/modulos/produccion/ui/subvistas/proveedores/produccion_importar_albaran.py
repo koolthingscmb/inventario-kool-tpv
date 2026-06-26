@@ -13,7 +13,6 @@ from kool_tpv.utils.font_loader import load_font_config
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
-from kool_tpv.utils.dialogs import show_error
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
 from kool_tpv.utils.csv_import import CsvParser
 from kool_tpv.base_datos.proveedor_service import ProveedorService
@@ -208,7 +207,7 @@ class ProduccionImportarAlbaran:
                 
             datos, errores = parser.parse_file(self.selected_file_path)
             if errores and not datos:
-                show_error(self.container, 'Error', f'Error parseando CSV:\n{errores[0]}')
+                ToastWidget.show(self.container, f'ERROR PARSEANDO CSV: {errores[0]}', tipo='error')
                 return
                 
             self.parse_result = datos
@@ -216,7 +215,7 @@ class ProduccionImportarAlbaran:
             
         except Exception:
             logger.exception("Error analizando CSV")
-            show_error(self.container, 'Error', 'No se pudo analizar el CSV')
+            ToastWidget.show(self.container, 'NO SE PUDO ANALIZAR EL CSV', tipo='error')
 
     def _procesar_lineas(self):
         """Aplicar mapeos y validaciones a los datos brutos."""
@@ -352,7 +351,7 @@ class ProduccionImportarAlbaran:
         
         num_albaran = self.entry_num.get().strip()
         if not num_albaran:
-            show_error(self.container, 'Error', 'Introduce un número de albarán')
+            ToastWidget.show(self.container, 'INTRODUCE UN NÚMERO DE ALBARÁN', tipo='error')
             return
             
         try:
@@ -400,7 +399,7 @@ class ProduccionImportarAlbaran:
             
         except Exception:
             logger.exception("Error procesando importación")
-            show_error(self.container, 'Error', 'Error al procesar la importación')
+            ToastWidget.show(self.container, 'ERROR AL PROCESAR LA IMPORTACIÓN', tipo='error')
 
     def _actualizar_stock_y_coste(self, p, repo):
         """Calcula coste medio y actualiza stock base."""

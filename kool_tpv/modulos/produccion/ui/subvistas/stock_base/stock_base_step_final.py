@@ -214,8 +214,8 @@ class StockBaseStepFinal(KeyboardNavigableMixin):
             cantidad = 0
 
         if not sku:
-            from kool_tpv.utils.dialogs import show_error
-            show_error(self.frame, "Falta SKU", "Debes introducir un SKU de Shopify.")
+            from kool_tpv.utils.widgets.notificaciones import ToastWidget
+            ToastWidget.show(self.frame, 'DEBES INTRODUCIR UN SKU DE SHOPIFY', tipo='error')
             return
 
         if self.on_guardar:

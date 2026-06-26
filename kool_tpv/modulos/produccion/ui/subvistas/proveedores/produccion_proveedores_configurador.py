@@ -6,7 +6,6 @@ from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
 from kool_tpv.utils.config_loader import load_colors
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.base_datos.proveedor_service import ProveedorService
-from kool_tpv.utils.custom_dialog import show_error
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 
@@ -232,7 +231,7 @@ class ProduccionProveedoresConfigurador:
             for k, c in self.csv_checks.items(): data[k] = bool(c.get())
             if self.proveedor_service.save_mapeo_csv(self.proveedor_id, json.dumps(data, indent=2)):
                 ToastWidget.show(self.container, "CSV Guardado", tipo='success')
-        except: logger.exception("Error CSV"); show_error(self.container, "Error", "Error al guardar")
+        except: logger.exception("Error CSV"); ToastWidget.show(self.container, 'ERROR AL GUARDAR CSV', tipo='error')
 
     def _save_mapping(self, m_type):
         try:
@@ -249,8 +248,8 @@ class ProduccionProveedoresConfigurador:
             else: success = self.proveedor_service.save_mapeo_colores(self.proveedor_id, json_str)
             
             if success: ToastWidget.show(self.container, f"Mapeo {m_type} guardado", tipo='success')
-            else: show_error(self.container, "Error", "Error al guardar en BD")
-        except: logger.exception("Error Mapeo"); show_error(self.container, "Error", "Error al guardar")
+            else: ToastWidget.show(self.container, 'ERROR AL GUARDAR EN BD', tipo='error')
+        except: logger.exception("Error Mapeo"); ToastWidget.show(self.container, 'ERROR AL GUARDAR', tipo='error')
 
     def _on_volver(self):
         if self.owner and hasattr(self.owner, 'show_proveedores_with_id'): self.owner.show_proveedores_with_id(self.proveedor_id)

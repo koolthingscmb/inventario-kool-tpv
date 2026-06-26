@@ -143,7 +143,7 @@ class ProduccionInformesView:
             ff = self.entry_hasta.get()
             
             if "Stock" not in tipo and fi > ff:
-                show_warning(self.container, "Fechas inválidas", "La fecha de inicio no puede ser posterior a la de fin.")
+                ToastWidget.show(self.container, 'LA FECHA DE INICIO NO PUEDE SER POSTERIOR A LA DE FIN', tipo='warning')
                 return
             
             # Llamar al service según el tipo

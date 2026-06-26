@@ -131,8 +131,8 @@ class ProduccionProveedoresView:
             if getattr(self, 'owner', None) and hasattr(self.owner, 'show_configurar_mapeos'):
                 self.owner.show_configurar_mapeos(prov_id, nombre_prov)
             else:
-                from kool_tpv.utils.custom_dialog import show_error
-                show_error(self.container, 'Error', 'No se puede abrir el configurador de mapeos')
+                from kool_tpv.utils.widgets.notificaciones import ToastWidget
+                ToastWidget.show(self.container, 'NO SE PUEDE ABRIR EL CONFIGURADOR DE MAPEOS', tipo='error')
         except Exception:
             logging.exception('Error en _abrir_configurador_mapeos')
 
@@ -286,7 +286,7 @@ class ProduccionProveedoresView:
             if getattr(self, 'owner', None) and hasattr(self.owner, 'show_importar_albaran'):
                 self.owner.show_importar_albaran(prov_id, nombre_prov)
             else:
-                from kool_tpv.utils.custom_dialog import show_error
-                show_error(self.container, 'Error', 'No se puede abrir el importador de albaranes')
+                from kool_tpv.utils.widgets.notificaciones import ToastWidget
+                ToastWidget.show(self.container, 'NO SE PUEDE ABRIR EL IMPORTADOR DE ALBARANES', tipo='error')
         except Exception:
             logging.exception('Error en _importar_albaran')
