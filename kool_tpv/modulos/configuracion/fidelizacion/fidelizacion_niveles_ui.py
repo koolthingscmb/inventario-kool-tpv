@@ -159,10 +159,8 @@ class FidelizacionNivelesUI:
         try:
             niveles = self.service.get_all_niveles()
 
-            self.nav_list.clear_items()
-
-            for nivel in niveles:
-                self.nav_list.add_item({
+            items = [
+                {
                     'id': nivel['id'],
                     'level': str(nivel['level']),
                     'nombre_nivel': nivel['nombre_nivel'],
@@ -170,7 +168,10 @@ class FidelizacionNivelesUI:
                     'tesoro_minimo': str(read_from_db(nivel['tesoro_minimo'])),
                     'tipo_recompensa': nivel['tipo_recompensa'],
                     'detalle_recompensa': nivel['detalle_recompensa']
-                })
+                }
+                for nivel in niveles
+            ]
+            self.nav_list.set_items(items)
 
         except Exception:
             logging.exception('Error cargando niveles')
