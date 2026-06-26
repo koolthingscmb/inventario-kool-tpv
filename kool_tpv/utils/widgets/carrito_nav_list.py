@@ -153,6 +153,10 @@ class CarritoNavList(VirtualNavList):
                     logger.debug('CarritoNavList: Enter ignorado (viene del escáner)')
                     return 'break'
 
+                # Si el escáner tiene caracteres pendientes en buffer, no consumir el Enter
+                if barcode_svc._buffer:
+                    return
+
             data = self.get_selected_data()
             if not data:
                 # No consumir Enter si no hay selección: permitir que llegue a BarcodeService
