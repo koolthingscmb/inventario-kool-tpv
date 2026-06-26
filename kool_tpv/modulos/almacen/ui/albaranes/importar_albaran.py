@@ -13,7 +13,6 @@ from kool_tpv.utils.font_loader import load_font_config
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
-from kool_tpv.utils.dialogs import show_error
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
 from kool_tpv.modulos.almacen.ui.albaranes.albaran_borrador import AlbaranBorradorService
 
@@ -958,11 +957,11 @@ class ImportarAlbaranUI:
                 # Ir a vista previa del albarán para guardarlo
                 self._mostrar_ui_vista_previa_albaran()
             else:
-                show_error(self.container, 'Error', f'Creados {creados} de {len(completados)} productos')
+                ToastWidget.show(self.container, f'CREADOS {creados} DE {len(completados)} PRODUCTOS', tipo='error')
 
         except Exception:
             logger.exception('Error creando productos')
-            show_error(self.container, 'Error', 'Error al crear productos en la base de datos')
+            ToastWidget.show(self.container, 'ERROR AL CREAR PRODUCTOS EN LA BASE DE DATOS', tipo='error')
 
     def _mostrar_ui_vista_previa_albaran(self):
         """Mostrar vista previa del albarán con cabecera y líneas antes de guardar."""
@@ -1147,7 +1146,7 @@ class ImportarAlbaranUI:
 
         except Exception as e:
             logger.exception('Error guardando albarán')
-            show_error(self.container, 'Error', f'Error al guardar albarán: {e}')
+            ToastWidget.show(self.container, f'ERROR AL GUARDAR ALBARÁN: {e}', tipo='error')
 
     def _on_volver_desde_creacion(self):
         """Volver a la pantalla inicial limpia."""
@@ -1192,7 +1191,7 @@ class ImportarAlbaranUI:
         except Exception:
             logger.exception('Error guardando borrador')
             if not silencioso:
-                show_error(self.container, 'Error', 'No se pudo guardar el borrador.')
+                ToastWidget.show(self.container, 'NO SE PUDO GUARDAR EL BORRADOR', tipo='error')
             return False
 
     def _on_ir_a_tpv_click(self):
@@ -1210,7 +1209,7 @@ class ImportarAlbaranUI:
 
         # Guardar borrador silenciosamente
         if not self._guardar_borrador(silencioso=True):
-            show_error(self.container, 'Error', 'No se pudo guardar el borrador')
+            ToastWidget.show(self.container, 'NO SE PUDO GUARDAR EL BORRADOR', tipo='error')
             return
 
         # Cerrar módulo y volver al menú principal
@@ -1221,10 +1220,10 @@ class ImportarAlbaranUI:
                 logger.info('Volviendo al menú principal desde albarán (para ir a TPV)')
             else:
                 logger.warning('No se pudo cerrar el módulo: método no disponible')
-                show_error(self.container, 'Error', 'No se pudo volver al menú principal')
+                ToastWidget.show(self.container, 'NO SE PUDO VOLVER AL MENÚ PRINCIPAL', tipo='error')
         except Exception:
             logger.exception('Error volviendo al menú principal desde albarán')
-            show_error(self.container, 'Error', 'Error al volver al menú principal')
+            ToastWidget.show(self.container, 'NO SE PUDO VOLVER AL MENÚ PRINCIPAL', tipo='error')
 
     def cargar_borrador(self, borrador_info: dict):
         """Carga un borrador y restaura el estado de la UI.
@@ -1302,7 +1301,7 @@ class ImportarAlbaranUI:
             logger.info(f'Borrador cargado: albarán {cabecera.get("num_albaran")}')
         except Exception:
             logger.exception('Error cargando borrador')
-            show_error(self.container, 'Error', 'No se pudo cargar el borrador.')
+            ToastWidget.show(self.container, 'NO SE PUDO CARGAR EL BORRADOR', tipo='error')
 
     def _on_volver_click(self):
         """Volver a la vista anterior."""
@@ -1380,9 +1379,9 @@ class ImportarAlbaranUI:
         return cantidad_original
 
     def _mostrar_error(self, mensaje):
-        """Mostrar mensaje de error usando diálogo del proyecto."""
+        """Mostrar mensaje de error usando Toast del proyecto."""
         try:
-            show_error(self.container, 'Error', mensaje)
+            ToastWidget.show(self.container, mensaje, tipo='error')
         except Exception:
             logger.error(mensaje)
 
