@@ -899,19 +899,10 @@ class InformesView(BaseModuleView):
                 )
 
         except PermissionError:
-            from kool_tpv.utils.custom_dialog import show_error
-            show_error(
-                self.central_area,
-                "No se pudo guardar el archivo",
-                "El archivo está abierto o no tienes permisos.\n"
-                "Ciérralo e inténtalo de nuevo."
-            )
+            from kool_tpv.utils.widgets.notificaciones import ToastWidget
+            ToastWidget.show(self.central_area, 'EL ARCHIVO ESTÁ ABIERTO O NO TIENES PERMISOS. CIÉRRALO E INTÉNTALO DE NUEVO.', tipo='error')
         except Exception:
             import logging
             logging.exception('Error durante exportación del informe')
-            from kool_tpv.utils.custom_dialog import show_error
-            show_error(
-                self.central_area,
-                "Error al exportar",
-                "Ocurrió un error inesperado al generar el archivo."
-            )
+            from kool_tpv.utils.widgets.notificaciones import ToastWidget
+            ToastWidget.show(self.central_area, 'ERROR INESPERADO AL GENERAR EL ARCHIVO', tipo='error')

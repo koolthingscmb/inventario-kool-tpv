@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 import customtkinter as ctk
 from kool_tpv.utils.factories.button_factory import ButtonFactory
-from kool_tpv.utils.custom_dialog import show_password_dialog, show_warning
+from kool_tpv.utils.custom_dialog import show_password_dialog
 from kool_tpv.utils.dialogs.input_dialog import InputDialog
 from kool_tpv.utils.auth_service import AuthService
 from kool_tpv.base_datos.usuario_service import UsuarioService
@@ -178,7 +178,7 @@ class PresenciaUI(ctk.CTkFrame):
                 self._refresh_user_chips()
                 self._show_user_detail()
         else:
-            show_warning(self.winfo_toplevel(), "ERROR", "Contraseña incorrecta")
+            ToastWidget.show(self.winfo_toplevel(), 'CONTRASEÑA INCORRECTA', tipo='error')
             self._show_placeholder()
 
     def _on_corregir_click(self, sesion_id):
@@ -195,7 +195,7 @@ class PresenciaUI(ctk.CTkFrame):
 
         # Validar formato básico HH:MM
         if ":" not in hora or len(hora.split(":")[0]) > 2:
-            show_warning(self.winfo_toplevel(), "ERROR", "Formato de hora inválido (usa HH:MM)")
+            ToastWidget.show(self.winfo_toplevel(), 'FORMATO DE HORA INVÁLIDO (USA HH:MM)', tipo='error')
             return
 
         # 2. Pedir Nota
@@ -221,7 +221,7 @@ class PresenciaUI(ctk.CTkFrame):
             self._refresh_user_chips()
             self._show_user_detail() # Refrescar detalle para que salga el botón de entrada normal
         else:
-            show_warning(self.winfo_toplevel(), "ERROR", f"No se pudo corregir: {res.get('error')}")
+            ToastWidget.show(self.winfo_toplevel(), f'NO SE PUDO CORREGIR: {res.get("error")}', tipo='error')
 
     def _show_placeholder(self):
         for w in self.detail_container.winfo_children():
