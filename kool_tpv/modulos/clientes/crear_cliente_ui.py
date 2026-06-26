@@ -20,7 +20,7 @@ from kool_tpv.utils.utils import (
 )
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.config_loader import create_action_button, load_colors
-from kool_tpv.utils.custom_dialog import show_error, show_info, show_input_dialog, show_password_dialog
+from kool_tpv.utils.custom_dialog import show_input_dialog, show_password_dialog
 from kool_tpv.utils.auth_service import AuthService
 from kool_tpv.modulos.clientes.clientes_tickets import ClientesTicketsUI
 
@@ -479,8 +479,7 @@ class CrearClienteUI:
 
             if not cliente:
                 logger.error(f'Cliente {self.cliente_id} no encontrado')
-                from kool_tpv.utils.custom_dialog import show_error
-                show_error(self.container, 'Error', 'Cliente no encontrado en BD')
+                ToastWidget.show(self.container, 'CLIENTE NO ENCONTRADO EN BD', tipo='error')
                 return
 
             # === RELLENAR DATOS BÁSICOS ===
@@ -653,15 +652,13 @@ class CrearClienteUI:
         """Guardar/actualizar cliente."""
         try:
             if not self.cliente_service:
-                from kool_tpv.utils.custom_dialog import show_error
-                show_error(self.container, 'Error', 'Servicio de clientes no disponible')
+                ToastWidget.show(self.container, 'SERVICIO DE CLIENTES NO DISPONIBLE', tipo='error')
                 return
 
             # Validar nombre obligatorio
             nombre = (self.e_nombre.get() or '').strip()
             if not nombre:
-                from kool_tpv.utils.custom_dialog import show_error
-                show_error(self.container, 'Validación', 'El nombre es obligatorio')
+                ToastWidget.show(self.container, 'EL NOMBRE ES OBLIGATORIO', tipo='error')
                 return
 
             # Recopilar datos del formulario
@@ -709,23 +706,21 @@ class CrearClienteUI:
                         logger.exception('Error limpiando formulario tras save')
 
             if not ok:
-                from kool_tpv.utils.custom_dialog import show_error
-                show_error(self.container, 'Error', 'No se pudo guardar el cliente')
+                ToastWidget.show(self.container, 'NO SE PUDO GUARDAR EL CLIENTE', tipo='error')
 
         except Exception:
             logger.exception('Error guardando cliente')
-            from kool_tpv.utils.custom_dialog import show_error
-            show_error(self.container, 'Error', 'Error inesperado al guardar')
+            ToastWidget.show(self.container, 'ERROR INESPERADO AL GUARDAR', tipo='error')
 
     def _on_sumar_puntos(self):
         """Sumar puntos tesoro (requiere password admin y diálogo de entrada)."""
         try:
             if not self.cliente_id:
-                show_error(self.container, 'Sumar Tesoro', 'Debes guardar el cliente primero')
+                ToastWidget.show(self.container, 'DEBES GUARDAR EL CLIENTE PRIMERO', tipo='error')
                 return
 
             if not self.cliente_service or not self.auth_service:
-                show_error(self.container, 'Error', 'Servicios no disponibles')
+                ToastWidget.show(self.container, 'SERVICIOS NO DISPONIBLES', tipo='error')
                 return
 
             # Obtener ventana padre para los diálogos
@@ -741,7 +736,7 @@ class CrearClienteUI:
             
             is_valid, _ = self.auth_service.validate_admin_password(pwd)
             if not is_valid:
-                show_error(parent_window, "Acceso denegado", "Contraseña de administrador incorrecta.")
+                ToastWidget.show(parent_window, 'CONTRASEÑA DE ADMINISTRADOR INCORRECTA', tipo='error')
                 return
 
             # 2. MOSTRAR DIÁLOGO DE ENTRADA PARA LA CANTIDAD
@@ -760,12 +755,12 @@ class CrearClienteUI:
             try:
                 valor_decimal = Decimal(valor_normalizado)
             except (InvalidOperation, ValueError):
-                show_error(parent_window, "Valor inválido", "Introduzca un número válido para sumar.")
+                ToastWidget.show(parent_window, 'INTRODUZCA UN NÚMERO VÁLIDO PARA SUMAR', tipo='error')
                 return
 
             # No permitir negativos ni cero
             if valor_decimal <= Decimal('0'):
-                show_error(parent_window, "Valor inválido", "La cantidad a sumar debe ser mayor que 0.")
+                ToastWidget.show(parent_window, 'LA CANTIDAD A SUMAR DEBE SER MAYOR QUE 0', tipo='error')
                 return
 
             # Ejecutar persistencia en BD
@@ -776,19 +771,18 @@ class CrearClienteUI:
                 # Recargar ficha para ver nuevos valores
                 self._cargar_cliente()
             else:
-                show_error(parent_window, "Error", "No se pudo actualizar el Tesoro en la base de datos.")
+                ToastWidget.show(parent_window, 'NO SE PUDO ACTUALIZAR EL TESORO EN LA BASE DE DATOS', tipo='error')
 
         except Exception:
             logger.exception('Error en _on_sumar_puntos')
-            show_error(self.container, 'Error', 'Ocurrió un error inesperado al sumar tesoro')
+            ToastWidget.show(self.container, 'ERROR INESPERADO AL SUMAR TESORO', tipo='error')
 
     def _on_tickets(self):
         """Abrir vista de tickets del cliente actual."""
         try:
             # Validar que hay cliente cargado
             if not self.cliente_id:
-                from kool_tpv.utils.custom_dialog import show_error
-                show_error(self.container, 'Tickets', 'Debes guardar el cliente primero')
+                ToastWidget.show(self.container, 'DEBES GUARDAR EL CLIENTE PRIMERO', tipo='error')
                 return
 
             # Obtener nombre del cliente
@@ -823,8 +817,7 @@ class CrearClienteUI:
         except Exception:
             logger.exception('Error en _on_tickets')
             try:
-                from kool_tpv.utils.custom_dialog import show_error
-                show_error(self.container, 'Error', 'No se pudo abrir vista de tickets')
+                ToastWidget.show(self.container, 'NO SE PUDO ABRIR VISTA DE TICKETS', tipo='error')
             except Exception:
                 pass
 
@@ -833,8 +826,7 @@ class CrearClienteUI:
         try:
             # TODO: Abrir UI de comunicación
             logger.info('TODO: Implementar comunicación cliente')
-            from kool_tpv.utils.custom_dialog import show_info
-            show_info(self.container, 'En desarrollo', 'Función COMUNICACIÓN próximamente')
+            ToastWidget.show(self.container, 'FUNCIÓN COMUNICACIÓN PRÓXIMAMENTE', tipo='info')
         except Exception:
             logger.exception('Error en comunicación')
 

@@ -580,8 +580,7 @@ class ClientesTicketsUI(PaginaConVisor):
                 contenido = ''
 
             if not contenido or not contenido.strip():
-                from kool_tpv.utils.custom_dialog import show_error
-                show_error(self.container, 'Imprimir', 'Selecciona un ticket primero')
+                ToastWidget.show(self.container, 'SELECCIONA UN TICKET PRIMERO', tipo='error')
                 return
 
             logger.info('Acción IMPRIMIR triggered')
@@ -598,8 +597,7 @@ class ClientesTicketsUI(PaginaConVisor):
                 sel = None
 
             if not sel:
-                from kool_tpv.utils.custom_dialog import show_error
-                show_error(self.container, 'Imprimir', 'Selecciona un ticket primero')
+                ToastWidget.show(self.container, 'SELECCIONA UN TICKET PRIMERO', tipo='error')
                 return
 
             ticket_id = sel.get('ticket_id') or sel.get('id')
@@ -700,8 +698,7 @@ class ClientesTicketsUI(PaginaConVisor):
                 contenido = ''
 
             if not contenido or not contenido.strip():
-                from kool_tpv.utils.custom_dialog import show_error
-                show_error(self.container, 'Exportar', 'Selecciona un ticket primero')
+                ToastWidget.show(self.container, 'SELECCIONA UN TICKET PRIMERO', tipo='error')
                 return
 
             logger.info('Acción EXPORTAR triggered')

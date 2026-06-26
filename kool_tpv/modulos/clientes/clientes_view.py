@@ -135,8 +135,8 @@ class ClientesView(BaseModuleView):
         except Exception:
             logging.exception('Error abriendo vista tickets')
             try:
-                from kool_tpv.utils.custom_dialog import show_error
-                show_error(self.central_area, 'Error', 'No se pudo abrir tickets del cliente')
+                from kool_tpv.utils.widgets.notificaciones import ToastWidget
+                ToastWidget.show(self.central_area, 'NO SE PUDO ABRIR TICKETS DEL CLIENTE', tipo='error')
             except Exception:
                 pass
 
