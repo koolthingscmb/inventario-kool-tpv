@@ -36,7 +36,7 @@ class CarritoService:
 
 
     def add_item(self, producto_data: Dict, parent_window=None) -> bool:
-        from kool_tpv.utils.custom_dialog import show_error
+        from kool_tpv.utils.widgets.notificaciones import ToastWidget
         producto_id = producto_data.get('id')
         if producto_id is None:
             logging.error('Producto sin ID no se puede añadir al carrito')
@@ -54,10 +54,7 @@ class CarritoService:
         # Bloquear la adición de artículos con cantidad positiva si hay una devolución activa
         try:
             if getattr(self, '_devolucion_active', False) and line_tipo != 'devolucion' and cantidad_in > 0:
-                if parent_window is not None:
-                    show_error(parent_window, 'Operación no permitida', 'No se puede iniciar una venta con una devolución en curso')
-                else:
-                    show_error(None, 'Operación no permitida', 'No se puede iniciar una venta con una devolución en curso')
+                ToastWidget.show(parent_window, 'NO SE PUEDE INICIAR UNA VENTA CON UNA DEVOLUCIÓN EN CURSO', tipo='error')
                 return False
         except Exception:
             # si hay error leyendo la bandera, no bloquear pero loguear

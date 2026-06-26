@@ -330,7 +330,7 @@ def _open_devolucion_subview(view):
     Crea `DevolucionSubView` dinámicamente y hace `view.push_subview(..., "DEVOLUCIÓN")`.
     """
     try:
-        from kool_tpv.utils.custom_dialog import show_error
+        from kool_tpv.utils.widgets.notificaciones import ToastWidget
 
         # Comprobar permiso del cajero logueado
         from kool_tpv.modulos.tpv.actions.permisos import check_permiso
@@ -362,9 +362,7 @@ def _open_devolucion_subview(view):
 
         if sale_active:
             try:
-                parent = getattr(view, 'container', None) or view.parent
-                show_error(parent, 'Operación no permitida',
-                          'No se puede devolver si hay una venta en curso')
+                ToastWidget.show(view, 'NO SE PUEDE DEVOLVER SI HAY UNA VENTA EN CURSO', tipo='error')
             except Exception:
                 logger.exception('Error mostrando diálogo devolucion bloqueada')
             return
@@ -412,7 +410,7 @@ def _open_devolucion_subview(view):
 def _attempt_devolucion(view):
     """Intentar abrir devolución con validación de venta activa."""
     try:
-        from kool_tpv.utils.custom_dialog import show_error
+        from kool_tpv.utils.widgets.notificaciones import ToastWidget
 
         sale_active = False
         try:
@@ -432,9 +430,7 @@ def _attempt_devolucion(view):
 
         if sale_active:
             try:
-                parent = getattr(view, 'container', None) or view.parent
-                show_error(parent, 'Operación no permitida', 
-                          'No se puede devolver si hay una venta en curso')
+                ToastWidget.show(view, 'NO SE PUEDE DEVOLVER SI HAY UNA VENTA EN CURSO', tipo='error')
             except Exception:
                 logger.exception('Error mostrando diálogo devolucion bloqueada')
             return
