@@ -773,9 +773,8 @@ class EntradaManualUI:
             # Validar proveedor solo si el tipo lo requiere
             if self.tipo in ['ENTRADA', 'DEVOLUCION']:
                 if not prov_id:
-                    from kool_tpv.utils.custom_dialog import show_error
-                    show_error(self.container, 'Proveedor requerido',
-                               f'Debe seleccionar un proveedor para albaranes de tipo {self.tipo}')
+                    from kool_tpv.utils.widgets.notificaciones import ToastWidget
+                    ToastWidget.show(self.container, f'DEBE SELECCIONAR UN PROVEEDOR PARA ALBARANES DE TIPO {self.tipo}', tipo='error')
                     return
 
             albaran_id = self.albaran_service.save_albaran(num, prov_id, fecha, self.lines, tipo=self.tipo)

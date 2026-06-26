@@ -389,13 +389,13 @@ class CategoriasUI:
             self.e_icono.insert(0, dest_filename)
             self.e_icono.configure(state='disabled')
 
-            from kool_tpv.utils.custom_dialog import show_info
-            show_info(self.container, "ÉXITO", f"Icono guardado como: {dest_filename}")
+            from kool_tpv.utils.widgets.notificaciones import ToastWidget
+            ToastWidget.show(self.container, f'ICONO GUARDADO COMO: {dest_filename}', tipo='success')
 
         except Exception:
             logging.exception("Error subiendo icono")
-            from kool_tpv.utils.custom_dialog import show_error
-            show_error(self.container, "ERROR", "No se pudo subir el icono")
+            from kool_tpv.utils.widgets.notificaciones import ToastWidget
+            ToastWidget.show(self.container, 'NO SE PUDO SUBIR EL ICONO', tipo='error')
 
     def _limpiar_icono(self):
         """Limpiar el icono seleccionado."""

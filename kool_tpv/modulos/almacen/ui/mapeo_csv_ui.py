@@ -248,19 +248,11 @@ class MapeoCsvUI:
                     faltantes.append('columna_precio_base o columna_coste')
 
                 if faltantes:
-                    show_error(
-                        self.container,
-                        'JSON incompleto',
-                        f'Faltan campos obligatorios: {", ".join(faltantes)}'
-                    )
+                    ToastWidget.show(self.container, f'FALTAN CAMPOS OBLIGATORIOS: {", ".join(faltantes)}', tipo='error')
                     return
 
             except json.JSONDecodeError as e:
-                show_error(
-                    self.container,
-                    'JSON inválido',
-                    f'Error de sintaxis en línea {e.lineno}: {e.msg}'
-                )
+                ToastWidget.show(self.container, f'JSON INVÁLIDO — LÍNEA {e.lineno}: {e.msg}', tipo='error')
                 return
 
             # Guardar en BD
@@ -275,7 +267,7 @@ class MapeoCsvUI:
                 except Exception:
                     logging.exception('Error volviendo a proveedores desde mapeo')
             else:
-                show_error(self.container, 'Error', 'No se pudo guardar el mapeo CSV')
+                ToastWidget.show(self.container, 'NO SE PUDO GUARDAR EL MAPEO CSV', tipo='error')
 
         except Exception:
             logging.exception('Error guardando mapeo CSV')

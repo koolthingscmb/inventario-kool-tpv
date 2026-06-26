@@ -626,8 +626,8 @@ class CrearProductoUI:
         valid, msg = self._validate_strict()
         if not valid:
             try:
-                from kool_tpv.utils.custom_dialog import show_error
-                show_error(self.container, 'Validación', msg)
+                from kool_tpv.utils.widgets.notificaciones import ToastWidget
+                ToastWidget.show(self.container, msg, tipo='error')
             except Exception:
                 logging.error('Validación: %s', msg)
             return
@@ -636,8 +636,8 @@ class CrearProductoUI:
         sku = (getattr(self, 'e_sku', None) and self.e_sku.get() or '').strip()
         if not sku:
             try:
-                from kool_tpv.utils.custom_dialog import show_error
-                show_error(self.container, 'Validación', 'El SKU es obligatorio')
+                from kool_tpv.utils.widgets.notificaciones import ToastWidget
+                ToastWidget.show(self.container, 'EL SKU ES OBLIGATORIO', tipo='error')
             except Exception:
                 logging.error('Validación: El SKU es obligatorio')
             return
@@ -801,8 +801,8 @@ class CrearProductoUI:
         except Exception:
             logging.exception('Error guardando producto, transacción revertida')
             try:
-                from kool_tpv.utils.custom_dialog import show_error
-                show_error(self.container, 'Error', 'No se pudo guardar el producto')
+                from kool_tpv.utils.widgets.notificaciones import ToastWidget
+                ToastWidget.show(self.container, 'NO SE PUDO GUARDAR EL PRODUCTO', tipo='error')
             except Exception:
                 pass
 

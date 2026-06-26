@@ -417,12 +417,12 @@ class ProveedoresUI:
                     self.owner.show_configurar_mapeos(prov_id, nombre_prov)
                 except Exception:
                     logging.exception(f'Error llamando owner.show_configurar_mapeos para {prov_id}')
-                    from kool_tpv.utils.custom_dialog import show_error
-                    show_error(self.container, 'Error', 'No se puede abrir configurador de mapeos')
+                    from kool_tpv.utils.widgets.notificaciones import ToastWidget
+                    ToastWidget.show(self.container, 'NO SE PUEDE ABRIR CONFIGURADOR DE MAPEOS', tipo='error')
             else:
                 logging.warning('ProveedoresUI: owner no disponible para show_configurar_mapeos')
-                from kool_tpv.utils.custom_dialog import show_error
-                show_error(self.container, 'Error', 'No se puede abrir configurador de mapeos')
+                from kool_tpv.utils.widgets.notificaciones import ToastWidget
+                ToastWidget.show(self.container, 'NO SE PUEDE ABRIR CONFIGURADOR DE MAPEOS', tipo='error')
 
         except Exception:
             logging.exception('Error en _editar_mapeo_csv')
