@@ -152,6 +152,12 @@ class KeyboardNavigableMixin:
 
     def _on_nav_enter(self, event):
         """Activar el widget que tiene el foco navegable."""
+        # Si el BarcodeService tiene caracteres pendientes, no consumir el Enter
+        # (es el terminador del escáner, debe llegar a bind_all)
+        barcode_svc = getattr(self._nav_toplevel, '_barcode_service', None) if self._nav_toplevel else None
+        if barcode_svc and barcode_svc._buffer:
+            return
+
         if not (0 <= self._nav_focused_index < len(self._navigable_buttons)):
             return # No bloquear el Enter si no hay un botón seleccionado por navegación
 

@@ -76,6 +76,8 @@ class TpvController:
             root = self.view.winfo_toplevel()
             self._barcode_service = BarcodeService(root, on_barcode=self._on_barcode_scanned)
             self._barcode_service.attach()
+            # Guardar referencia en el toplevel para que KeyboardNavigableMixin pueda consultar el buffer
+            root._barcode_service = self._barcode_service
             # Pasar referencia al CarritoNavList para que ignore el Enter del escáner
             ticket = getattr(self.view, 'ticket_carrito', None)
             if ticket and hasattr(ticket, 'carrito_nav_list'):
