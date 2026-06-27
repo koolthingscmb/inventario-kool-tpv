@@ -139,9 +139,6 @@ class TiposUI:
         self.chk_activo = ctk.CTkCheckBox(self.grid_frame, text='ACTIVO', text_color=self.colors['text'], font=lbl_font, width=20)
         self.chk_activo.grid(row=2, column=4, sticky='w', padx=6, pady=6)
 
-        self.chk_genero = ctk.CTkCheckBox(self.grid_frame, text='GÉNERO', text_color=self.colors['text'], font=lbl_font, width=20)
-        self.chk_genero.grid(row=2, column=5, sticky='w', padx=6, pady=6)
-
         self.chk_color = ctk.CTkCheckBox(self.grid_frame, text='COLOR', text_color=self.colors['text'], font=lbl_font, width=20)
         self.chk_color.grid(row=2, column=6, sticky='w', padx=6, pady=6)
 
@@ -290,7 +287,6 @@ class TiposUI:
                 pass
             # checkboxes
             self.chk_activo.select() if tipo.get('activo', 1) == 1 else self.chk_activo.deselect()
-            self.chk_genero.select() if tipo.get('requiere_genero', 0) == 1 else self.chk_genero.deselect()
             self.chk_color.select() if tipo.get('requiere_color', 0) == 1 else self.chk_color.deselect()
             self.chk_talla.select() if tipo.get('requiere_talla', 0) == 1 else self.chk_talla.deselect()
             # focus name
@@ -328,7 +324,6 @@ class TiposUI:
             self.e_coste.delete(0, 'end')
             self.e_orden.delete(0, 'end')
             self.chk_activo.select()
-            self.chk_genero.deselect()
             self.chk_color.deselect()
             self.chk_talla.deselect()
             try:
@@ -371,7 +366,6 @@ class TiposUI:
             except Exception:
                 orden = 0
 
-            requiere_genero = 1 if self.chk_genero.get() else 0
             requiere_color = 1 if self.chk_color.get() else 0
             requiere_talla = 1 if self.chk_talla.get() else 0
             activo = 1 if self.chk_activo.get() else 0
@@ -384,12 +378,12 @@ class TiposUI:
                 id_val = None
 
             if id_val:
-                ok = self.service.update_tipo(id_val, nombre, descripcion, fide, color=color, icono=icono, coste_base=coste_base, requiere_talla=requiere_talla, requiere_color=requiere_color, requiere_genero=requiere_genero, activo=activo, orden=orden)
+                ok = self.service.update_tipo(id_val, nombre, descripcion, fide, color=color, icono=icono, coste_base=coste_base, requiere_talla=requiere_talla, requiere_color=requiere_color, activo=activo, orden=orden)
                 if ok:
                     self.clear()
                     self._load_tipos()
             else:
-                new_id = self.service.save_tipo(nombre, descripcion, fide, color=color, icono=icono, coste_base=coste_base, requiere_talla=requiere_talla, requiere_color=requiere_color, requiere_genero=requiere_genero, activo=activo, orden=orden)
+                new_id = self.service.save_tipo(nombre, descripcion, fide, color=color, icono=icono, coste_base=coste_base, requiere_talla=requiere_talla, requiere_color=requiere_color, activo=activo, orden=orden)
                 if new_id:
                     self.clear()
                     self._load_tipos()

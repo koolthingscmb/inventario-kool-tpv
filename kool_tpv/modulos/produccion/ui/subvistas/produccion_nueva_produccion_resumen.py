@@ -85,7 +85,6 @@ class NuevaProduccionResumenView:
 			("variante", 120, "Variante"),
 			("diseno", 180, "Diseño"),
 			("coleccion", 120, "Colección"),
-			("genero", 100, "Género"),
 			("talla", 60, "Talla"),
 			("color", 100, "Color"),
 			("mixta", 60, "Mixta")
@@ -218,7 +217,6 @@ class NuevaProduccionResumenView:
 				"variante": item.variante_nombre or "-",
 				"diseno": item.diseno_nombre or "",
 				"coleccion": item.diseno_coleccion or "-",
-				"genero": item.genero or "",
 				"talla": item.talla or "",
 				"color": item.color_nombre or "",
 				"mixta": "Sí" if item.produccion_mixta else "No",

@@ -101,10 +101,6 @@ class ProduccionColoresService:
 		"""
 		return self.repository.eliminar(color_id)
 
-	def obtener_por_genero_3d(self, genero_id: int) -> List[ProduccionColor]:
-		"""Obtener colores asignados a un género (tabla 3D)."""
-		return self.repository.get_por_genero_3d(genero_id)
-
 	def obtener_por_tipo_3d(self, tipo_id: int, variante_id: Optional[int] = None) -> List[ProduccionColor]:
 		"""Obtener colores asignados a un tipo o variante (tabla stock base)."""
 		return self.repository.get_por_tipo_3d(tipo_id, variante_id)

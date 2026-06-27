@@ -5,7 +5,7 @@ subvistas, el estado de la selección y la lógica de saltar pasos según
 el tipo de producto (requiere_talla, requiere_color).
 
 Flujo:
-1. Menú (producto) → 1b. Tipos (si el menú tiene +1 tipo) → 2. Género (si requiere_genero)
+1. Menú (producto) → 1b. Tipos (si el menú tiene +1 tipo) → 2. Variante (si tiene)
 → 3. Color (si requiere_color) → 4. Talla (si requiere_talla)
 → 5. Diseño → 6. Cantidad → 7. Resumen
 
@@ -19,7 +19,6 @@ from kool_tpv.modulos.produccion.models.produccion_tipos_model import Produccion
 from kool_tpv.modulos.produccion.models.produccion_tipo_variante_model import ProduccionTipoVariante
 from kool_tpv.modulos.produccion.models.produccion_color_model import ProduccionColor
 from kool_tpv.modulos.produccion.models.produccion_diseno_model import ProduccionDiseno
-from kool_tpv.modulos.produccion.models.produccion_genero_model import ProduccionGenero
 from kool_tpv.modulos.produccion.models.produccion_menu_model import ProduccionMenuItem
 from kool_tpv.modulos.produccion.services.produccion_disenos_service import ProduccionDisenosService
 from kool_tpv.modulos.produccion.services.produccion_tipos_service import ProduccionTiposService
@@ -32,7 +31,6 @@ from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_origen
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion import NuevaProduccionView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_tipos import NuevaProduccionTiposView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_variante import NuevaProduccionVarianteView
-from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_genero import NuevaProduccionGeneroView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_talla import NuevaProduccionTallaView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_color import NuevaProduccionColorView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_diseno import NuevaProduccionDisenoView
@@ -44,7 +42,6 @@ PASO_ORIGEN = 0
 PASO_MENU = 1
 PASO_TIPOS = 2
 PASO_VARIANTE = 8
-PASO_GENERO = 3
 PASO_COLOR = 4
 PASO_TALLA = 5
 PASO_DISENO = 6
@@ -85,7 +82,6 @@ class NuevoProduccionFlow:
         self._menu: Optional[ProduccionMenuItem] = None
         self._tipo: Optional[ProduccionTipo] = None
         self._variante: Optional[ProduccionTipoVariante] = None
-        self._genero: Optional[ProduccionGenero] = None
         self._talla: Optional[str] = None
         self._color: Optional[ProduccionColor] = None
         self._diseno: Optional[ProduccionDiseno] = None
@@ -165,58 +161,31 @@ class NuevoProduccionFlow:
                 on_volver=self._on_variante_volver
             )
 
-        elif paso == PASO_GENERO:
-            self._vista_actual = NuevaProduccionGeneroView(
+        elif paso == PASO_COLOR:
+            tipo_id = self._tipo.id if self._tipo else 0
+            variante_id = self._variante.id if self._variante else None
+            self._vista_actual = NuevaProduccionColorView(
                 self.frame,
                 db=self.db,
-                tipo_id=self._tipo.id if self._tipo else 0,
-                on_siguiente=self._on_genero_siguiente,
-                on_volver=lambda: self._mostrar_paso(PASO_MENU)
+                tipo_id=tipo_id,
+                variante_id=variante_id,
+                on_siguiente=self._on_color_siguiente,
+                on_volver=self._on_color_volver
             )
-
-        elif paso == PASO_COLOR:
-            if self._genero:
-                # Caso GÉNERO (flujo Camiseta)
-                genero_id = self._genero.id
-                self._vista_actual = NuevaProduccionColorView(
-                    self.frame,
-                    db=self.db,
-                    genero_id=genero_id,
-                    on_siguiente=self._on_color_siguiente,
-                    on_volver=self._on_color_volver
-                )
-            else:
-                # Caso TIPO / VARIANTE (flujo Marroquinería, etc.)
-                tipo_id = self._tipo.id if self._tipo else 0
-                variante_id = self._variante.id if self._variante else None
-                self._vista_actual = NuevaProduccionColorView(
-                    self.frame,
-                    db=self.db,
-                    tipo_id=tipo_id,
-                    variante_id=variante_id,
-                    on_siguiente=self._on_color_siguiente,
-                    on_volver=self._on_color_volver
-                )
 
         elif paso == PASO_TALLA:
             tallas = []
-            genero_nombre = self._genero.nombre if self._genero else None
             color_nombre = self._color.nombre if self._color else None
             
-            if self._genero and self._color:
-                # Caso GÉNERO
-                tallas = self._tallas_service.obtener_por_genero_color_3d(
-                    self._genero.id, self._color.id)
-            elif self._tipo and self._color:
-                # Caso TIPO / VARIANTE
+            if self._tipo and self._color:
                 tipo_id = self._tipo.id
                 variante_id = self._variante.id if self._variante else None
                 tallas = self._tallas_service.obtener_por_tipo_color_3d(
                     tipo_id, self._color.id, variante_id)
-                if not genero_nombre:
-                    tipo_nombre = self._tipo.nombre
-                    var_nombre = f" / {self._variante.nombre}" if self._variante else ""
-                    genero_nombre = f"{tipo_nombre}{var_nombre}"
+
+            tipo_nombre = self._tipo.nombre if self._tipo else ""
+            var_nombre = f" / {self._variante.nombre}" if self._variante else ""
+            tipo_label = f"{tipo_nombre}{var_nombre}" if tipo_nombre else None
 
             tallas_data = [{"codigo": t.nombre, "nombre": t.nombre} for t in tallas]
             self._vista_actual = NuevaProduccionTallaView(
@@ -224,7 +193,7 @@ class NuevoProduccionFlow:
                 on_siguiente=self._on_talla_siguiente,
                 on_volver=self._on_talla_volver,
                 tallas_disponibles=tallas_data,
-                genero_nombre=genero_nombre,
+                tipo_nombre=tipo_label,
                 color_nombre=color_nombre
             )
 
@@ -240,14 +209,12 @@ class NuevoProduccionFlow:
         elif paso == PASO_CANTIDAD:
             mostrar_mixta = self._es_tipo_camiseta()
 
-            # Construir frase resumen: Producto + Variante + Género + Color + Talla + Diseño
+            # Construir frase resumen: Producto + Variante + Color + Talla + Diseño
             partes = []
             if self._tipo:
                 partes.append(self._tipo.nombre)
             if self._variante:
                 partes.append(self._variante.nombre)
-            if self._genero:
-                partes.append(self._genero.nombre)
             if self._color:
                 partes.append(self._color.nombre)
             if self._talla:
@@ -322,9 +289,7 @@ class NuevoProduccionFlow:
             return
 
         # 2. Si no hay variantes, seguir flujo normal
-        if tipo.requiere_genero == 1:
-            self._mostrar_paso(PASO_GENERO)
-        elif tipo.requiere_color == 1:
+        if tipo.requiere_color == 1:
             self._mostrar_paso(PASO_COLOR)
         elif tipo.requiere_talla == 1:
             self._mostrar_paso(PASO_TALLA)
@@ -332,18 +297,15 @@ class NuevoProduccionFlow:
             self._mostrar_paso(PASO_DISENO)
 
     def _on_variante_siguiente(self, variante: ProduccionTipoVariante):
-        """Variante seleccionada → seguir con filtros (Género, Color...)."""
+        """Variante seleccionada → seguir con filtros (Color...)."""
         self._variante = variante
         tipo = self._tipo
         
         # Un paso se muestra si el Tipo lo requiere O si la Variante lo requiere
-        req_genero = tipo.requiere_genero == 1
         req_color = (tipo.requiere_color == 1) or (variante.requiere_color == 1)
         req_talla = (tipo.requiere_talla == 1) or (variante.requiere_talla == 1)
 
-        if req_genero:
-            self._mostrar_paso(PASO_GENERO)
-        elif req_color:
+        if req_color:
             self._mostrar_paso(PASO_COLOR)
         elif req_talla:
             self._mostrar_paso(PASO_TALLA)
@@ -357,28 +319,9 @@ class NuevoProduccionFlow:
         else:
             self._mostrar_paso(PASO_MENU)
 
-    def _on_genero_siguiente(self, genero: ProduccionGenero):
-        """Género seleccionado → ir a color."""
-        self._genero = genero
-        tipo = self._tipo
-        variante = self._variante
-        
-        req_color = (tipo.requiere_color == 1) or (variante and variante.requiere_color == 1)
-        req_talla = (tipo.requiere_talla == 1) or (variante and variante.requiere_talla == 1)
-
-        if req_color:
-            self._mostrar_paso(PASO_COLOR)
-        elif req_talla:
-            self._mostrar_paso(PASO_TALLA)
-        else:
-            self._mostrar_paso(PASO_DISENO)
-
     def _on_color_volver(self):
-        """Volver desde color → ir a género o variante o tipos/menú."""
-        tipo = self._tipo
-        if tipo and tipo.requiere_genero == 1:
-            self._mostrar_paso(PASO_GENERO)
-        elif self._variante:
+        """Volver desde color → ir a variante o tipos/menú."""
+        if self._variante:
             self._mostrar_paso(PASO_VARIANTE)
         elif self._paso_anterior == PASO_TIPOS or self._menu:
             self._mostrar_paso(PASO_TIPOS)
@@ -399,17 +342,14 @@ class NuevoProduccionFlow:
             self._mostrar_paso(PASO_DISENO)
 
     def _on_talla_volver(self):
-        """Volver desde talla → ir a color o género o variante o tipos/menú."""
+        """Volver desde talla → ir a color o variante o tipos/menú."""
         tipo = self._tipo
         variante = self._variante
         
         req_color = (tipo.requiere_color == 1) or (variante and variante.requiere_color == 1)
-        req_genero = (tipo.requiere_genero == 1)
 
         if req_color:
             self._mostrar_paso(PASO_COLOR)
-        elif req_genero:
-            self._mostrar_paso(PASO_GENERO)
         elif self._variante:
             self._mostrar_paso(PASO_VARIANTE)
         elif self._menu:
@@ -423,20 +363,17 @@ class NuevoProduccionFlow:
         self._mostrar_paso(PASO_DISENO)
 
     def _on_diseno_volver(self):
-        """Volver desde diseño → talla, color, género, variante o tipos/menú."""
+        """Volver desde diseño → talla, color, variante o tipos/menú."""
         tipo = self._tipo
         variante = self._variante
         
         req_talla = (tipo.requiere_talla == 1) or (variante and variante.requiere_talla == 1)
         req_color = (tipo.requiere_color == 1) or (variante and variante.requiere_color == 1)
-        req_genero = (tipo.requiere_genero == 1)
 
         if req_talla:
             self._mostrar_paso(PASO_TALLA)
         elif req_color:
             self._mostrar_paso(PASO_COLOR)
-        elif req_genero:
-            self._mostrar_paso(PASO_GENERO)
         elif self._variante:
             self._mostrar_paso(PASO_VARIANTE)
         elif self._menu:
@@ -460,7 +397,6 @@ class NuevoProduccionFlow:
         self._menu = None
         self._tipo = None
         self._variante = None
-        self._genero = None
         self._talla = None
         self._color = None
         self._diseno = None
@@ -474,7 +410,6 @@ class NuevoProduccionFlow:
         self._menu = None
         self._tipo = None
         self._variante = None
-        self._genero = None
         self._talla = None
         self._color = None
         self._diseno = None
@@ -492,7 +427,6 @@ class NuevoProduccionFlow:
         self._menu = None
         self._tipo = None
         self._variante = None
-        self._genero = None
         self._talla = None
         self._color = None
         self._diseno = None
@@ -553,8 +487,6 @@ class NuevoProduccionFlow:
             tipo_id=self._tipo.id,
             variante_nombre=self._variante.nombre if self._variante else None,
             variante_id=self._variante.id if self._variante else None,
-            genero=self._genero.nombre if self._genero else None,
-            genero_id=self._genero.id if self._genero else None,
             talla=self._talla,
             color_nombre=self._color.nombre if self._color else None,
             color_id=self._color.id if self._color else None,

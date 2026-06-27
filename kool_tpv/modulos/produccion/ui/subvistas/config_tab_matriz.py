@@ -28,7 +28,6 @@ class ConfigTabMatriz:
         self._all_tallas = {t.id: t for t in self.service.obtener_todas_tallas()}
         
         # Estado
-        self._current_mode = "GÉNEROS"  # "GÉNEROS" o "TIPOS"
         self._selected_id = None
         self._selected_variante_id = None
         self._selected_color = None
@@ -41,27 +40,9 @@ class ConfigTabMatriz:
         self._tallas_dirty = False
         self._last_talla_idx = None
 
-        # --- BARRA SUPERIOR: Modo y Chips ---
+        # --- BARRA SUPERIOR: Chips ---
         self._header = tk.Frame(self.parent, bg=self._bg)
         self._header.pack(fill="x", pady=(5, 8))
-
-        # Selector de Modo (Toggle)
-        mode_frame = tk.Frame(self._header, bg=self._bg)
-        mode_frame.pack(side="left", padx=(0, 15))
-        
-        self.btn_mode_gen = ctk.CTkButton(
-            mode_frame, text="GÉNEROS", width=100, height=32,
-            fg_color=self._CHIP_SELECTED, hover_color="#8e44ad",
-            command=lambda: self._switch_mode("GÉNEROS")
-        )
-        self.btn_mode_gen.pack(side="left", padx=2)
-        
-        self.btn_mode_tip = ctk.CTkButton(
-            mode_frame, text="TIPOS", width=100, height=32,
-            fg_color=self._CHIP_NORMAL, hover_color="#34495e",
-            command=lambda: self._switch_mode("TIPOS")
-        )
-        self.btn_mode_tip.pack(side="left", padx=2)
 
         # Scroll de Chips
         self._chips_scroll = ctk.CTkScrollableFrame(
@@ -119,36 +100,13 @@ class ConfigTabMatriz:
         # Cargar datos iniciales
         self._rebuild_chips()
 
-    def _switch_mode(self, mode):
-        if self._current_mode == mode:
-            return
-        self._save_tallas_if_dirty()
-        self._current_mode = mode
-        self._selected_id = None
-        self._selected_variante_id = None
-        self._selected_color = None
-        
-        # Actualizar botones modo
-        self.btn_mode_gen.configure(fg_color=self._CHIP_SELECTED if mode == "GÉNEROS" else self._CHIP_NORMAL)
-        self.btn_mode_tip.configure(fg_color=self._CHIP_SELECTED if mode == "TIPOS" else self._CHIP_NORMAL)
-        
-        if mode == "GÉNEROS":
-            self._variante_frame.pack_forget()
-        
-        self._rebuild_chips()
-        self._rebuild_colores()
-        self._clear_tallas()
-
     def _rebuild_chips(self):
-        """Reconstruir los chips según el modo (GÉNEROS o TIPOS)."""
+        """Reconstruir los chips de tipos."""
         for child in self._chips_scroll.winfo_children():
             child.destroy()
         self._chip_widgets = {}
 
-        if self._current_mode == "GÉNEROS":
-            items = self.service.obtener_todos_generos()
-        else:
-            items = self.service.obtener_tipos_para_matriz()
+        items = self.service.obtener_tipos_para_matriz()
 
         for item in items:
             chip = tk.Label(
@@ -171,17 +129,12 @@ class ConfigTabMatriz:
         for i_id, chip in self._chip_widgets.items():
             chip.configure(bg=self._CHIP_SELECTED if i_id == item_id else self._CHIP_NORMAL)
         
-        # Cargar variantes si estamos en modo TIPOS
-        if self._current_mode == "TIPOS":
-            self._rebuild_variante_chips(item_id)
-        
+        # Cargar variantes
+        self._rebuild_variante_chips(item_id)
+
         # Cargar colores asignados
-        if self._current_mode == "GÉNEROS":
-            self._colores_asignados = self.service.obtener_colores_genero_3d(item_id)
-            self.lbl_colores_title.configure(text="COLORES DEL GÉNERO")
-        else:
-            self._colores_asignados = self.service.obtener_colores_tipo_3d(item_id, self._selected_variante_id)
-            self.lbl_colores_title.configure(text="COLORES DEL TIPO")
+        self._colores_asignados = self.service.obtener_colores_tipo_3d(item_id, self._selected_variante_id)
+        self.lbl_colores_title.configure(text="COLORES DEL TIPO")
             
         self._rebuild_colores()
         self._clear_tallas()
@@ -287,21 +240,17 @@ class ConfigTabMatriz:
             w["lbl"].configure(bg=bg)
             
         # Cargar tallas
-        if self._current_mode == "GÉNEROS":
-            self._tallas_state = self.service.obtener_tallas_genero_color_3d(self._selected_id, color_id)
-            gn = self.service.obtener_todos_generos_dict().get(self._selected_id, "GÉNERO")
-        else:
-            self._tallas_state = self.service.obtener_tallas_tipo_color_3d(self._selected_id, color_id, self._selected_variante_id)
-            tipo = self.service.obtener_por_id(self._selected_id)
-            tn = tipo.nombre if tipo else "TIPO"
-            
-            vn = ""
-            if self._selected_variante_id:
-                vars = self.service.obtener_variantes_por_tipo(self._selected_id)
-                v_obj = next((v for v in vars if v.id == self._selected_variante_id), None)
-                vn = f" / {v_obj.nombre}" if v_obj else ""
-            
-            gn = f"{tn}{vn}"
+        self._tallas_state = self.service.obtener_tallas_tipo_color_3d(self._selected_id, color_id, self._selected_variante_id)
+        tipo = self.service.obtener_por_id(self._selected_id)
+        tn = tipo.nombre if tipo else "TIPO"
+        
+        vn = ""
+        if self._selected_variante_id:
+            vars = self.service.obtener_variantes_por_tipo(self._selected_id)
+            v_obj = next((v for v in vars if v.id == self._selected_variante_id), None)
+            vn = f" / {v_obj.nombre}" if v_obj else ""
+        
+        gn = f"{tn}{vn}"
             
         self._tallas_dirty = False
         cn = self._all_colores[color_id].nombre
@@ -369,7 +318,7 @@ class ConfigTabMatriz:
         if not disponibles:
             return
         win = tk.Toplevel(self.parent.winfo_toplevel())
-        win.title(f"Añadir color al {self._current_mode[:-1]}")
+        win.title("Añadir color al tipo")
         win.geometry("300x400")
         win.configure(bg=self._bg)
         win.transient(self.parent.winfo_toplevel())
@@ -424,22 +373,13 @@ class ConfigTabMatriz:
         if not self._tallas_dirty or not self._selected_id:
             return
 
-        if self._current_mode == "GÉNEROS":
-            # Para géneros guardamos solo si hay un color seleccionado
-            if self._selected_color:
-                self.service.guardar_tallas_genero_color_3d(
-                    self._selected_id,
-                    self._selected_color,
-                    list(self._tallas_state))
-        else:
-            # PARA TIPOS/VARIANTES: 
-            # Si hay un color seleccionado, guardamos sus tallas
-            if self._selected_color:
-                self.service.guardar_tallas_tipo_color_3d(
-                    self._selected_id,
-                    self._selected_color,
-                    list(self._tallas_state),
-                    variante_id=self._selected_variante_id)
+        # Si hay un color seleccionado, guardamos sus tallas
+        if self._selected_color:
+            self.service.guardar_tallas_tipo_color_3d(
+                self._selected_id,
+                self._selected_color,
+                list(self._tallas_state),
+                variante_id=self._selected_variante_id)
             
             # Además, nos aseguramos de que todos los colores en la lista existan en la BD
             # aunque no tengan tallas seleccionadas

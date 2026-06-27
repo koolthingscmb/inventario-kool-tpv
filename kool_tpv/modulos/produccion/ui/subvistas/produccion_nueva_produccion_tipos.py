@@ -2,7 +2,6 @@
 
 Contiene la clase `NuevaProduccionTiposView` que muestra chips de tipos
 cargados desde la base de datos según el menú seleccionado.
-Patrón idéntico a NuevaProduccionGeneroView.
 """
 from typing import Callable, List, Optional
 

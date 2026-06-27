@@ -29,14 +29,14 @@ class NuevaProduccionTallaView(KeyboardNavigableMixin):
 		on_siguiente: Callback cuando se pulsa SIGUIENTE (recibe el código de talla).
 		on_volver: Callback cuando se pulsa VOLVER.
 		tallas_disponibles: Lista opcional de tallas disponibles.
-		genero_nombre: Nombre del género para mostrar en el título.
+		tipo_nombre: Nombre del tipo para mostrar en el título.
 	"""
 
 	def __init__(self, parent,
 	             on_siguiente: Optional[Callable[[str], None]] = None,
 	             on_volver: Optional[Callable] = None,
 	             tallas_disponibles: Optional[List[dict]] = None,
-	             genero_nombre: Optional[str] = None,
+	             tipo_nombre: Optional[str] = None,
 	             color_nombre: Optional[str] = None):
 		KeyboardNavigableMixin.__init_keyboard_mixin__(self)
 		self.parent = parent
@@ -46,7 +46,7 @@ class NuevaProduccionTallaView(KeyboardNavigableMixin):
 		self.tallas = tallas_disponibles or TALLAS
 		self._chip_buttons: List[ctk.CTkButton] = []
 		self._selected_chip: Optional[ctk.CTkButton] = None
-		self._genero_nombre = genero_nombre
+		self._tipo_nombre = tipo_nombre
 		self._color_nombre = color_nombre
 
 		# Cargar configuración
@@ -93,10 +93,10 @@ class NuevaProduccionTallaView(KeyboardNavigableMixin):
 	def _crear_titulo(self):
 		"""Crear el título de la subvista."""
 		texto = "SELECCIONA TALLA"
-		if self._genero_nombre and self._color_nombre:
-			texto = f"SELECCIONA TALLA ({self._genero_nombre} / {self._color_nombre})"
-		elif self._genero_nombre:
-			texto = f"SELECCIONA TALLA ({self._genero_nombre})"
+		if self._tipo_nombre and self._color_nombre:
+			texto = f"SELECCIONA TALLA ({self._tipo_nombre} / {self._color_nombre})"
+		elif self._tipo_nombre:
+			texto = f"SELECCIONA TALLA ({self._tipo_nombre})"
 		titulo = ctk.CTkLabel(
 			self.frame,
 			text=texto,

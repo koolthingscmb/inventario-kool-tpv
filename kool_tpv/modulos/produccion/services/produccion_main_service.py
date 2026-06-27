@@ -183,6 +183,8 @@ class ProduccionMainService:
 	def _obtener_coste_diseno(self, codigo: str, tipo_producto: str) -> int:
 		"""Obtener el coste de un diseño para un tipo de producto.
 
+		Busca en la lista de costes dinámicos del diseño.
+
 		Args:
 			codigo: Código del diseño.
 			tipo_producto: Tipo de producto.
@@ -191,19 +193,31 @@ class ProduccionMainService:
 			Coste en céntimos (0 si no existe).
 		"""
 		diseno = self.disenos_repo.get_por_codigo(codigo)
-		if not diseno:
+		if not diseno or not diseno.costes:
 			return 0
 
-		coste_map = {
-			"camiseta": diseno.coste_camiseta,
-			"taza": diseno.coste_taza,
-			"gorra": diseno.coste_gorra,
-			"calcetin": diseno.coste_calcetin,
-			"libreta": diseno.coste_libreta,
-			"poster": diseno.coste_poster,
-			"cartera": diseno.coste_cartera,
-		}
-		return coste_map.get(tipo_producto.lower(), 0)
+		# Resolver tipo_id desde el nombre
+		rows = self.db.fetch_all(
+			"SELECT id FROM produccion_tipos WHERE LOWER(nombre) = LOWER(?) AND activo = 1",
+			(tipo_producto,)
+		)
+		if not rows:
+			return 0
+		tipo_id = rows[0][0]
+
+		# Buscar coste más específico
+		best = None
+		best_score = -1
+		for c in diseno.costes:
+			if c.tipo_id != tipo_id:
+				continue
+			score = 0
+			if c.variante_id is not None:
+				score += 1
+			if score > best_score:
+				best = c
+				best_score = score
+		return best.coste if best else 0
 
 	def _actualizar_stock(self, producto_id: int, color_id: int, delta: int) -> bool:
 		"""Actualizar el stock de colores de un producto.

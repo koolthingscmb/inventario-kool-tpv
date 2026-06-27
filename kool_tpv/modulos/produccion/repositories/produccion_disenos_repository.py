@@ -7,7 +7,7 @@ y gestionar diseños desde la base de datos usando el wrapper
 from typing import List, Optional
 
 from kool_tpv.base_datos.db_wrapper import Database
-from kool_tpv.modulos.produccion.models.produccion_diseno_model import ProduccionDiseno
+from kool_tpv.modulos.produccion.models.produccion_diseno_model import ProduccionDiseno, DisenoCoste
 
 
 class ProduccionDisenosRepository:
@@ -34,6 +34,31 @@ class ProduccionDisenosRepository:
 				mapping[dis_cod].append(tip_id)
 		return mapping
 
+	def _get_costes_para_disenos(self, codigos: List[str]) -> dict:
+		"""Obtener un mapeo {codigo: [DisenoCoste, ...]} para una lista de diseños."""
+		if not codigos:
+			return {}
+		placeholders = ', '.join(['?'] * len(codigos))
+		query = f"""
+			SELECT diseno_codigo, tipo_id, variante_id, talla_id, coste
+			FROM produccion_disenos_costes
+			WHERE diseno_codigo IN ({placeholders})
+		"""
+		rows = self.db.fetch_all(query, tuple(codigos))
+		
+		mapping = {c: [] for c in codigos}
+		for row in rows:
+			dis_cod = row[0]
+			if dis_cod in mapping:
+				mapping[dis_cod].append(DisenoCoste(
+					diseno_codigo=row[0],
+					tipo_id=row[1],
+					variante_id=row[2],
+					talla_id=row[3],
+					coste=row[4] or 0
+				))
+		return mapping
+
 	def get_todos(self) -> List[ProduccionDiseno]:
 		"""Obtener todos los diseños.
 
@@ -50,6 +75,7 @@ class ProduccionDisenosRepository:
 		rows = self.db.fetch_all(query)
 		codigos = [r[0] for r in rows]
 		tipos_map = self._get_tipos_para_disenos(codigos)
+		costes_map = self._get_costes_para_disenos(codigos)
 
 		disenos: List[ProduccionDiseno] = []
 		for row in rows:
@@ -62,6 +88,7 @@ class ProduccionDisenosRepository:
 				nombre=nombre,
 				sufijo=sufijo,
 				tipos=tipos_map.get(codigo, []),
+				costes=costes_map.get(codigo, []),
 				coste_camiseta=coste_camiseta or 0,
 				coste_taza=coste_taza or 0,
 				coste_gorra=coste_gorra or 0,
@@ -90,6 +117,7 @@ class ProduccionDisenosRepository:
 		rows = self.db.fetch_all(query)
 		codigos = [r[0] for r in rows]
 		tipos_map = self._get_tipos_para_disenos(codigos)
+		costes_map = self._get_costes_para_disenos(codigos)
 
 		disenos: List[ProduccionDiseno] = []
 		for row in rows:
@@ -102,6 +130,7 @@ class ProduccionDisenosRepository:
 				nombre=nombre,
 				sufijo=sufijo,
 				tipos=tipos_map.get(codigo, []),
+				costes=costes_map.get(codigo, []),
 				coste_camiseta=coste_camiseta or 0,
 				coste_taza=coste_taza or 0,
 				coste_gorra=coste_gorra or 0,
@@ -135,6 +164,7 @@ class ProduccionDisenosRepository:
 			return None
 
 		tipos_map = self._get_tipos_para_disenos([codigo])
+		costes_map = self._get_costes_para_disenos([codigo])
 
 		(codigo, coleccion, nombre, sufijo,
 		 coste_camiseta, coste_taza, coste_gorra, coste_calcetin,
@@ -145,6 +175,7 @@ class ProduccionDisenosRepository:
 			nombre=nombre,
 			sufijo=sufijo,
 			tipos=tipos_map.get(codigo, []),
+			costes=costes_map.get(codigo, []),
 			coste_camiseta=coste_camiseta or 0,
 			coste_taza=coste_taza or 0,
 			coste_gorra=coste_gorra or 0,
@@ -195,6 +226,7 @@ class ProduccionDisenosRepository:
 
 		codigos = [r[0] for r in rows]
 		tipos_map = self._get_tipos_para_disenos(codigos)
+		costes_map = self._get_costes_para_disenos(codigos)
 
 		disenos: List[ProduccionDiseno] = []
 		for row in rows:
@@ -207,6 +239,7 @@ class ProduccionDisenosRepository:
 				nombre=nombre,
 				sufijo=sufijo,
 				tipos=tipos_map.get(codigo, []),
+				costes=costes_map.get(codigo, []),
 				coste_camiseta=coste_camiseta or 0,
 				coste_taza=coste_taza or 0,
 				coste_gorra=coste_gorra or 0,
@@ -251,6 +284,16 @@ class ProduccionDisenosRepository:
 						(diseno.codigo, tipo_id)
 					)
 
+			# 3. Insertar costes
+			if diseno.costes:
+				for c in diseno.costes:
+					self.db.execute_query(
+						"""INSERT INTO produccion_disenos_costes
+						   (diseno_codigo, tipo_id, variante_id, talla_id, coste)
+						   VALUES (?, ?, ?, ?, ?)""",
+						(diseno.codigo, c.tipo_id, c.variante_id, c.talla_id, c.coste)
+					)
+
 			return True
 		except Exception:
 			import logging
@@ -290,6 +333,17 @@ class ProduccionDisenosRepository:
 					self.db.execute_query(
 						"INSERT INTO produccion_disenos_tipos (diseno_codigo, tipo_id) VALUES (?, ?)",
 						(diseno.codigo, tipo_id)
+					)
+
+			# 3. Actualizar costes (borrar y re-insertar)
+			self.db.execute_query("DELETE FROM produccion_disenos_costes WHERE diseno_codigo = ?", (diseno.codigo,))
+			if diseno.costes:
+				for c in diseno.costes:
+					self.db.execute_query(
+						"""INSERT INTO produccion_disenos_costes
+						   (diseno_codigo, tipo_id, variante_id, talla_id, coste)
+						   VALUES (?, ?, ?, ?, ?)""",
+						(diseno.codigo, c.tipo_id, c.variante_id, c.talla_id, c.coste)
 					)
 
 			return True

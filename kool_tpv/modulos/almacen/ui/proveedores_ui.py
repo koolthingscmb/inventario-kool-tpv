@@ -128,10 +128,12 @@ class ProveedoresUI:
         )
         self.btn_ir_web.grid(row=7, column=7, sticky='ew', padx=6, pady=6)
 
-        # Fila 8: NOTAS (campo entry simple)
+        # Fila 8: NOTAS | PRODUCCIÓN
         ctk.CTkLabel(self.grid_frame, text='NOTAS:', text_color=self.colors['text'], font=lbl_font).grid(row=8, column=0, sticky='w', padx=6, pady=6)
         self.e_notas = ctk.CTkEntry(self.grid_frame, placeholder_text='Observaciones internas', **entry_kw)
-        self.e_notas.grid(row=8, column=1, columnspan=7, sticky='ew', padx=6, pady=6)
+        self.e_notas.grid(row=8, column=1, columnspan=5, sticky='ew', padx=6, pady=6)
+        self.chk_produccion = ctk.CTkCheckBox(self.grid_frame, text='PRODUCCIÓN', text_color=self.colors['text'], font=lbl_font)
+        self.chk_produccion.grid(row=8, column=6, columnspan=2, sticky='w', padx=6, pady=6)
 
         # Fila 9: Chips area
         self.grid_frame.grid_rowconfigure(9, weight=1)
@@ -295,6 +297,8 @@ class ProveedoresUI:
             self.e_notas.delete(0, 'end')
             self.e_notas.insert(0, prov.get('notas') or '')
 
+            self.chk_produccion.select() if prov.get('es_produccion') else self.chk_produccion.deselect()
+
             self.btn_guardar.configure(text='ACTUALIZAR')
         except Exception:
             logging.exception('Error cargando proveedor en formulario')
@@ -319,6 +323,7 @@ class ProveedoresUI:
             self.e_email_comercial.delete(0, 'end')
             self.e_web.delete(0, 'end')
             self.e_notas.delete(0, 'end')
+            self.chk_produccion.deselect()
 
             self.btn_guardar.configure(text='GUARDAR')
         except Exception:
@@ -344,7 +349,8 @@ class ProveedoresUI:
                 'telefono_comercial': self.e_tlf_comercial.get().strip(),
                 'email_comercial': self.e_email_comercial.get().strip(),
                 'web': self.e_web.get().strip(),
-                'notas': self.e_notas.get().strip()
+                'notas': self.e_notas.get().strip(),
+                'es_produccion': 1 if self.chk_produccion.get() else 0
             }
 
             id_val = None

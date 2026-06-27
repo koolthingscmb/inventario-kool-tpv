@@ -38,10 +38,10 @@ class ProduccionImportarAlbaran:
         self.lineas_procesadas = [] # Datos con color mapeado y validaciones
         self.mapeo_colores = {} # color_prov -> color_interno (nombre)
         self.mapeo_tipos = {} # palabra -> tipo_id
-        self.mapeo_generos = {} # palabra -> genero_id
+        pass  # género removed
         self.colores_internos = {} # nombre -> id
         self.tipos_disponibles = {} # id -> nombre
-        self.generos_disponibles = {} # id -> nombre
+        pass  # género removed
         
         try:
             self.colors = load_colors('produccion')
@@ -76,13 +76,6 @@ class ProduccionImportarAlbaran:
                 except Exception:
                     logger.error("Error parseando mapeo_tipos JSON")
 
-            # Géneros
-            mapeo_generos_json = prov_service.get_mapeo_generos(self.proveedor_id)
-            if mapeo_generos_json:
-                try:
-                    self.mapeo_generos = json.loads(mapeo_generos_json)
-                except Exception:
-                    logger.error("Error parseando mapeo_generos JSON")
         
         # 2. Colores internos (Canonical)
         try:
@@ -98,12 +91,6 @@ class ProduccionImportarAlbaran:
         except Exception:
             logger.exception("Error cargando tipos")
 
-        # 4. Géneros
-        try:
-            rows = self.db.fetch_all("SELECT id, nombre FROM produccion_generos ORDER BY nombre")
-            self.generos_disponibles = {r[0]: r[1] for r in rows}
-        except Exception:
-            logger.exception("Error cargando géneros")
 
     def _setup_ui(self):
         font_config = load_font_config()
@@ -252,20 +239,6 @@ class ProduccionImportarAlbaran:
                     if tipo_id: break
             
             # 2. Mapeo de GÉNERO
-            genero_id = None
-            genero_nombre = '???'
-            if isinstance(self.mapeo_generos, dict):
-                for g_nom, keywords in self.mapeo_generos.items():
-                    if isinstance(keywords, list):
-                        for kw in keywords:
-                            if kw.lower().strip() in nombre_lower:
-                                for gid, gnom in self.generos_disponibles.items():
-                                    if gnom.lower() == g_nom.lower():
-                                        genero_id = gid
-                                        genero_nombre = gnom
-                                        break
-                                if genero_id: break
-                    if genero_id: break
 
             # 3. Mapeo de COLOR
             # Recorrer el diccionario: ColorInterno -> [Lista de Colores Proveedor]
@@ -287,7 +260,6 @@ class ProduccionImportarAlbaran:
             estado = '✓ OK'
             if not tipo_id: 
                 estado = '⚠ Falta Tipo'
-            elif not genero_id:
                 estado = '⚠ Falta Género'
             elif not color_id: 
                 estado = '⚠ Color desconocido'
@@ -298,8 +270,8 @@ class ProduccionImportarAlbaran:
                 'nombre_csv': nombre_csv,
                 'tipo_id': tipo_id,
                 'tipo_nombre': tipo_nombre,
-                'genero_id': genero_id,
-                'genero_nombre': genero_nombre,
+                
+                
                 'color_id': color_id,
                 'color_prov': col_prov,
                 'color_interno': color_mapeado or '???',
@@ -323,7 +295,6 @@ class ProduccionImportarAlbaran:
             rows.append({
                 'PRODUCTO CSV': p['nombre_csv'],
                 'TIPO': p['tipo_nombre'],
-                'GÉNERO': p['genero_nombre'],
                 'COLOR PROV': p['color_prov'],
                 'COLOR INT': p['color_interno'],
                 'TALLA': p['talla'],
@@ -364,7 +335,7 @@ class ProduccionImportarAlbaran:
                 lineas_albaran.append({
                     'producto_id': None, # No es un producto de la tabla 'productos'
                     'ean': '',
-                    'nombre': f"{p['tipo_nombre']} {p['genero_nombre']} - {p['color_interno']} ({p['talla']})",
+                    'nombre': f"{p['tipo_nombre']} - {p['color_interno']} ({p['talla']})",
                     'cantidad': p['uds'],
                     'coste': p['coste'],
                     'tipo_iva': 21,
@@ -404,15 +375,15 @@ class ProduccionImportarAlbaran:
     def _actualizar_stock_y_coste(self, p, repo):
         """Calcula coste medio y actualiza stock base."""
         tipo_id = p['tipo_id']
-        genero_id = p['genero_id']
+        
         color_id = p['color_id']
         talla = p['talla']
         cantidad_nueva = p['uds']
         coste_nuevo_eur = p['coste']
         
         # Obtener stock actual para calcular el medio
-        query = "SELECT cantidad, coste_medio, sku FROM produccion_stock_colores_tallas WHERE tipo_id=? AND genero_id=? AND color_id=? AND talla=?"
-        row = self.db.fetch_one(query, (tipo_id, genero_id, color_id, talla))
+        query = "SELECT cantidad, coste_medio, sku FROM produccion_stock_colores_tallas WHERE tipo_id=? AND color_id=? AND talla=?"
+        row = self.db.fetch_one(query, (tipo_id, color_id, talla))
         
         cant_actual = 0
         coste_actual_cents = 0
@@ -436,12 +407,12 @@ class ProduccionImportarAlbaran:
             
         # Generar SKU si no existe
         if not sku:
-            sku = self._generar_sku_pattern(tipo_id, genero_id, color_id, talla)
+            sku = self._generar_sku_pattern(tipo_id, color_id, talla)
             
         # Upsert
         repo.crear_o_actualizar(
             tipo_id=tipo_id,
-            genero_id=genero_id,
+            
             color_id=color_id,
             talla=talla,
             sku=sku,
@@ -449,21 +420,20 @@ class ProduccionImportarAlbaran:
             coste_medio=nuevo_coste_medio
         )
 
-    def _generar_sku_pattern(self, tipo_id, genero_id, color_id, talla):
+    def _generar_sku_pattern(self, tipo_id, color_id, talla):
         """Genera un SKU tipo TYPE-GEN-COLOR-SIZE."""
         try:
             tipo_nom = self.db.fetch_one("SELECT nombre FROM tipos WHERE id=?", (tipo_id,))[0]
-            genero_nom = self.db.fetch_one("SELECT nombre FROM produccion_generos WHERE id=?", (genero_id,))[0]
             color_nom = self.db.fetch_one("SELECT nombre FROM produccion_colores WHERE id=?", (color_id,))[0]
             
             def clean(s): return s.upper().replace(' ', '').replace('Á', 'A').replace('É', 'E').replace('Í', 'I').replace('Ó', 'O').replace('Ú', 'U')
             
             t = clean(tipo_nom)[:3]
-            g = clean(genero_nom)[:3]
+            
             c = clean(color_nom)[:3]
             s = clean(talla)
             
-            return f"{t}-{g}-{c}-{s}"
+            return f"{t}-{c}-{s}"
         except:
             return ""
 

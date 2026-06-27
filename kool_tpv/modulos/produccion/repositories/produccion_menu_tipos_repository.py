@@ -15,7 +15,7 @@ class ProduccionMenuTiposRepository:
         query = """
             SELECT t.id, t.nombre, t.descripcion, t.color, t.icono,
                    t.coste_base, t.requiere_talla, t.requiere_color,
-                   t.requiere_genero, t.activo, t.orden
+                   t.activo, t.orden
             FROM tipos t
             JOIN produccion_menu_tipos pmt ON t.id = pmt.tipo_id
             WHERE pmt.menu_id = ? AND t.activo = 1
@@ -26,8 +26,8 @@ class ProduccionMenuTiposRepository:
             ProduccionTipo(
                 id=r[0], nombre=r[1], descripcion=r[2], color=r[3], icono=r[4],
                 coste_base=r[5] or 0.0, requiere_talla=r[6] or 0,
-                requiere_color=r[7] or 0, requiere_genero=r[8] or 0,
-                activo=r[9] if r[9] is not None else 1, orden=r[10] or 0
+                requiere_color=r[7] or 0,
+                activo=r[8] if r[8] is not None else 1, orden=r[9] or 0
             )
             for r in rows
         ]

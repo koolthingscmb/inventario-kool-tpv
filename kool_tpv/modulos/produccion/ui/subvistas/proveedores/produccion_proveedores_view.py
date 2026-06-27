@@ -93,10 +93,12 @@ class ProduccionProveedoresView:
         self.e_web.grid(row=7, column=1, columnspan=6, sticky='ew', padx=6, pady=6)
         self.btn_ir_web = ButtonFactory.create_button(parent=self.grid_frame, text='IR', command=self._abrir_web, style_key="mini_action")
         self.btn_ir_web.grid(row=7, column=7, sticky='ew', padx=6, pady=6)
-        # Fila 8: NOTAS
+        # Fila 8: NOTAS | PRODUCCIÓN
         ctk.CTkLabel(self.grid_frame, text='NOTAS:', text_color=self.colors['text'], font=lbl_font).grid(row=8, column=0, sticky='w', padx=6, pady=6)
         self.e_notas = ctk.CTkEntry(self.grid_frame, placeholder_text='Observaciones', **ekw)
-        self.e_notas.grid(row=8, column=1, columnspan=7, sticky='ew', padx=6, pady=6)
+        self.e_notas.grid(row=8, column=1, columnspan=5, sticky='ew', padx=6, pady=6)
+        self.chk_produccion = ctk.CTkCheckBox(self.grid_frame, text='PRODUCCIÓN', text_color=self.colors['text'], font=lbl_font)
+        self.chk_produccion.grid(row=8, column=6, columnspan=2, sticky='w', padx=6, pady=6)
         # Fila 9: Chips
         self.grid_frame.grid_rowconfigure(9, weight=1)
         self.chips_frame = ctk.CTkScrollableFrame(self.grid_frame, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
@@ -202,6 +204,7 @@ class ProduccionProveedoresView:
             self.e_email_comercial.delete(0, 'end'); self.e_email_comercial.insert(0, prov.get('email_comercial') or '')
             self.e_web.delete(0, 'end'); self.e_web.insert(0, prov.get('web') or '')
             self.e_notas.delete(0, 'end'); self.e_notas.insert(0, prov.get('notas') or '')
+            self.chk_produccion.select() if prov.get('es_produccion') else self.chk_produccion.deselect()
             self.btn_guardar.configure(text='ACTUALIZAR')
         except Exception:
             logging.exception('Error cargando proveedor en formulario')
@@ -215,6 +218,7 @@ class ProduccionProveedoresView:
             self.e_email.delete(0, 'end'); self.e_telefono.delete(0, 'end')
             self.e_comercial.delete(0, 'end'); self.e_tlf_comercial.delete(0, 'end')
             self.e_email_comercial.delete(0, 'end'); self.e_web.delete(0, 'end'); self.e_notas.delete(0, 'end')
+            self.chk_produccion.deselect()
             self.btn_guardar.configure(text='GUARDAR')
         except Exception:
             logging.exception('Error limpiando formulario')
@@ -234,7 +238,8 @@ class ProduccionProveedoresView:
                 'persona_comercial': self.e_comercial.get().strip(),
                 'telefono_comercial': self.e_tlf_comercial.get().strip(),
                 'email_comercial': self.e_email_comercial.get().strip(),
-                'web': self.e_web.get().strip(), 'notas': self.e_notas.get().strip()
+                'web': self.e_web.get().strip(), 'notas': self.e_notas.get().strip(),
+                'es_produccion': 1 if self.chk_produccion.get() else 0
             }
             id_val = None
             try:

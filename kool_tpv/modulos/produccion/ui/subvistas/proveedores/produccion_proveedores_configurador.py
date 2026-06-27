@@ -68,7 +68,7 @@ class ProduccionProveedoresConfigurador:
         menu_frame = ctk.CTkFrame(self.container, fg_color='transparent')
         menu_frame.grid(row=1, column=0, sticky='ew', padx=20, pady=(0, 10))
         
-        self.tabs = ['CSV', 'TIPOS', 'GÉNEROS', 'COLORES', 'TALLAS']
+        self.tabs = ['CSV', 'TIPOS', 'COLORES', 'TALLAS']
         self.tab_buttons = {}
         for tab in self.tabs:
             btn = ctk.CTkButton(menu_frame, text=tab, width=100, height=32,
@@ -85,7 +85,7 @@ class ProduccionProveedoresConfigurador:
         if self.current_tab == tab_name and self.current_widget: return
             
         # Guardar lo escrito en la pestaña actual antes de salir
-        if self.current_tab in ['TIPOS', 'GÉNEROS', 'COLORES', 'TALLAS'] and hasattr(self, 'mapping_entries'):
+        if self.current_tab in ['TIPOS', 'COLORES', 'TALLAS'] and hasattr(self, 'mapping_entries'):
             self._update_temp_data()
 
         # Actualizar botones
@@ -97,7 +97,6 @@ class ProduccionProveedoresConfigurador:
         
         if tab_name == 'CSV': self.current_widget = self._build_csv_tab()
         elif tab_name == 'TIPOS': self.current_widget = self._build_mapping_tab('tipos')
-        elif tab_name == 'GÉNEROS': self.current_widget = self._build_mapping_tab('generos')
         elif tab_name == 'COLORES': self.current_widget = self._build_mapping_tab('colores')
         elif tab_name == 'TALLAS': self.current_widget = self._build_mapping_tab('tallas')
             
@@ -150,7 +149,6 @@ class ProduccionProveedoresConfigurador:
         if tab_key not in self.temp_mapeo_datos:
             mapeo_json = None
             if mapping_type == 'tipos': mapeo_json = self.proveedor_service.get_mapeo_tipos(self.proveedor_id)
-            elif mapping_type == 'generos': mapeo_json = self.proveedor_service.get_mapeo_generos(self.proveedor_id)
             elif mapping_type == 'colores': mapeo_json = self.proveedor_service.get_mapeo_colores(self.proveedor_id)
             elif mapping_type == 'tallas': mapeo_json = self.proveedor_service.get_mapeo_tallas(self.proveedor_id)
             try: self.temp_mapeo_datos[tab_key] = json.loads(mapeo_json) if mapeo_json else {}
@@ -186,7 +184,6 @@ class ProduccionProveedoresConfigurador:
         self.mapping_entries = {}
         items = []
         if mapping_type == 'tipos': items = sorted(self.tipos_seleccionados)
-        elif mapping_type == 'generos': items = [r[0] for r in self.db.fetch_all("SELECT nombre FROM produccion_generos ORDER BY nombre")]
         elif mapping_type == 'tallas': items = [r[0] for r in self.db.fetch_all("SELECT nombre FROM produccion_tallas ORDER BY orden")]
         else: items = [r[0] for r in self.db.fetch_all("SELECT nombre FROM produccion_colores ORDER BY nombre")]
 
@@ -243,7 +240,6 @@ class ProduccionProveedoresConfigurador:
             json_str = json.dumps(self.temp_mapeo_datos[key], indent=2, ensure_ascii=False)
             success = False
             if m_type == 'tipos': success = self.proveedor_service.save_mapeo_tipos(self.proveedor_id, json_str)
-            elif m_type == 'generos': success = self.proveedor_service.save_mapeo_generos(self.proveedor_id, json_str)
             elif m_type == 'tallas': success = self.proveedor_service.save_mapeo_tallas(self.proveedor_id, json_str)
             else: success = self.proveedor_service.save_mapeo_colores(self.proveedor_id, json_str)
             

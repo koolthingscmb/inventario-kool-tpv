@@ -128,7 +128,6 @@ class ProduccionStockBaseView:
 			for it in items:
 				rows.append({
 					"ARTÍCULO": it["tipo"],
-					"GÉNERO": it["genero"],
 					"COLOR": it["color"],
 					"TALLA": it["talla"],
 					"SKU SHOPIFY": it["sku"],

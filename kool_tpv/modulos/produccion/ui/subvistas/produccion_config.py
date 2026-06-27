@@ -3,7 +3,6 @@
 Contenedor thin que gestiona los tabs y delega el contenido a:
 - config_tab_colores.py
 - config_tab_tallas.py
-- config_tab_generos.py
 - config_tab_matriz.py
 - config_tab_menu.py
 """
@@ -16,7 +15,6 @@ from kool_tpv.modulos.produccion.services.produccion_config_service import Produ
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font
 from kool_tpv.modulos.produccion.ui.subvistas.config_tab_colores import ConfigTabColores
 from kool_tpv.modulos.produccion.ui.subvistas.config_tab_tallas import ConfigTabTallas
-from kool_tpv.modulos.produccion.ui.subvistas.config_tab_generos import ConfigTabGeneros
 from kool_tpv.modulos.produccion.ui.subvistas.config_tab_matriz import ConfigTabMatriz
 from kool_tpv.modulos.produccion.ui.subvistas.config_tab_menu import ConfigTabMenu
 from kool_tpv.utils.config_loader import load_layout_config
@@ -42,7 +40,7 @@ class ProduccionConfigView:
 
         # Estado de tabs
         self._main_tabs = ["CATÁLOGO", "MATRIZ", "MENÚ", "VARIANTES"]
-        self._sub_tabs = ["COLORES", "TALLAS", "GÉNEROS"]
+        self._sub_tabs = ["COLORES", "TALLAS"]
         self._current_main_tab = None
         self._current_sub_tab = None
         self._main_tab_labels = {}
@@ -194,8 +192,6 @@ class ProduccionConfigView:
             self._current_tab_obj = ConfigTabColores(**kwargs)
         elif sub_name == "TALLAS":
             self._current_tab_obj = ConfigTabTallas(**kwargs)
-        elif sub_name == "GÉNEROS":
-            self._current_tab_obj = ConfigTabGeneros(**kwargs)
         self.frame.after(50, self._refresh_current_nav)
 
     def _clear_content(self):

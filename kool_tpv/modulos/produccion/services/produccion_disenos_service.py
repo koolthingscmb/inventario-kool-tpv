@@ -6,7 +6,7 @@ diseños con lógica de negocio, utilizando el repository para acceso a datos.
 from typing import List, Optional
 
 from kool_tpv.base_datos.db_wrapper import Database
-from kool_tpv.modulos.produccion.models.produccion_diseno_model import ProduccionDiseno
+from kool_tpv.modulos.produccion.models.produccion_diseno_model import ProduccionDiseno, DisenoCoste
 from kool_tpv.modulos.produccion.repositories.produccion_disenos_repository import ProduccionDisenosRepository
 
 
@@ -60,7 +60,10 @@ class ProduccionDisenosService:
 		return self.repository.buscar(filtro)
 
 	def obtener_coste_por_tipo(self, codigo: str, tipo_producto: str) -> int:
-		"""Obtener el coste de un diseño para un tipo de producto específico.
+		"""Obtener el coste de un diseño para un tipo de producto específico (compatibilidad).
+
+		Busca en la lista de costes dinámicos del diseño. Resuelve el tipo_id
+		a partir del nombre del tipo.
 
 		Args:
 			codigo: Código del diseño.
@@ -70,20 +73,57 @@ class ProduccionDisenosService:
 			Coste en céntimos (0 si no existe el diseño o el tipo).
 		"""
 		diseno = self.repository.get_por_codigo(codigo)
-		if not diseno:
+		if not diseno or not diseno.costes:
 			return 0
 
-		# Mapear tipo de producto al campo correspondiente
-		coste_map = {
-			"camiseta": diseno.coste_camiseta,
-			"taza": diseno.coste_taza,
-			"gorra": diseno.coste_gorra,
-			"calcetin": diseno.coste_calcetin,
-			"libreta": diseno.coste_libreta,
-			"poster": diseno.coste_poster,
-			"cartera": diseno.coste_cartera,
-		}
-		return coste_map.get(tipo_producto.lower(), 0)
+		# Resolver tipo_id desde el nombre
+		rows = self.db.fetch_all(
+			"SELECT id FROM tipos WHERE LOWER(nombre) = LOWER(?) AND activo = 1",
+			(tipo_producto,)
+		)
+		if not rows:
+			return 0
+		tipo_id = rows[0][0]
+
+		return self.obtener_coste(codigo, tipo_id)
+
+	def obtener_coste(self, codigo: str, tipo_id: int, variante_id: Optional[int] = None,
+	                 talla_id: Optional[int] = None) -> int:
+		"""Obtener el coste más específico de un diseño dado tipo, variante y talla.
+
+		Busca en la lista de costes del diseño y retorna el match más específico.
+
+		Args:
+			codigo: Código del diseño.
+			tipo_id: ID del tipo de producto.
+			variante_id: ID de la variante (opcional).
+			talla_id: ID de la talla (opcional).
+
+		Returns:
+			Coste en céntimos (0 si no existe el diseño o no hay coste configurado).
+		"""
+		diseno = self.repository.get_por_codigo(codigo)
+		if not diseno or not diseno.costes:
+			return 0
+
+		best = None
+		best_score = -1
+		for c in diseno.costes:
+			if c.tipo_id != tipo_id:
+				continue
+			score = 0
+			if c.variante_id is not None and c.variante_id == variante_id:
+				score += 1
+			elif c.variante_id is not None:
+				continue
+			if c.talla_id is not None and c.talla_id == talla_id:
+				score += 1
+			elif c.talla_id is not None:
+				continue
+			if score > best_score:
+				best = c
+				best_score = score
+		return best.coste if best else 0
 
 	def generar_codigo(self, coleccion: str) -> str:
 		"""Generar código único para un nuevo diseño.
@@ -101,7 +141,8 @@ class ProduccionDisenosService:
 		return f"{prefijo}{max_num + 1:02d}"
 
 	def crear(self, coleccion: str, nombre: str, sufijo: Optional[str] = None,
-	          tipos: Optional[List[int]] = None, costes: Optional[dict] = None) -> Optional[str]:
+	          tipos: Optional[List[int]] = None, costes: Optional[dict] = None,
+	          lista_costes: Optional[List[DisenoCoste]] = None) -> Optional[str]:
 		"""Crear un nuevo diseño.
 
 		Args:
@@ -109,7 +150,8 @@ class ProduccionDisenosService:
 			nombre: Nombre del diseño.
 			sufijo: Sufijo opcional.
 			tipos: Lista de IDs de tipos de producto (FK a tipos.id).
-			costes: Diccionario con costes por tipo (camiseta, taza, etc) en céntimos.
+			costes: Diccionario con costes por tipo (camiseta, taza, etc) en céntimos (compatibilidad).
+			lista_costes: Lista de DisenoCoste para la tabla nueva de costes dinámicos.
 
 		Returns:
 			None si OK, o string con el error.
@@ -125,27 +167,21 @@ class ProduccionDisenosService:
 			return "Ya existe un diseño con esa colección, nombre y sufijo"
 
 		codigo = self.generar_codigo(coleccion_norm)
-		costes = costes or {}
 		diseno = ProduccionDiseno(
 			codigo=codigo,
 			coleccion=coleccion.strip(),
 			nombre=nombre.strip(),
 			sufijo=sufijo,
 			tipos=tipos or [],
-			coste_camiseta=costes.get("camiseta", 0),
-			coste_taza=costes.get("taza", 0),
-			coste_gorra=costes.get("gorra", 0),
-			coste_calcetin=costes.get("calcetin", 0),
-			coste_libreta=costes.get("libreta", 0),
-			coste_poster=costes.get("poster", 0),
-			coste_cartera=costes.get("cartera", 0),
+			costes=lista_costes or [],
 			activo=1
 		)
 		ok = self.repository.crear(diseno)
 		return None if ok else "Error guardando el diseño en la base de datos"
 
 	def actualizar(self, codigo: str, coleccion: str, nombre: str, sufijo: Optional[str] = None,
-	              tipos: Optional[List[int]] = None, costes: Optional[dict] = None) -> bool:
+	              tipos: Optional[List[int]] = None, costes: Optional[dict] = None,
+	              lista_costes: Optional[List[DisenoCoste]] = None) -> bool:
 		"""Actualizar un diseño existente.
 
 		Args:
@@ -154,7 +190,8 @@ class ProduccionDisenosService:
 			nombre: Nuevo nombre.
 			sufijo: Nuevo sufijo.
 			tipos: Lista de IDs de tipos de producto (FK a tipos.id).
-			costes: Nuevos costes por tipo en céntimos.
+			costes: Nuevos costes por tipo en céntimos (compatibilidad).
+			lista_costes: Lista de DisenoCoste para la tabla nueva de costes dinámicos.
 
 		Returns:
 			True si OK, False si error.
@@ -162,20 +199,13 @@ class ProduccionDisenosService:
 		if not codigo or not coleccion or not nombre:
 			return False
 
-		costes = costes or {}
 		diseno = ProduccionDiseno(
 			codigo=codigo.strip(),
 			coleccion=coleccion.strip(),
 			nombre=nombre.strip(),
 			sufijo=sufijo,
 			tipos=tipos or [],
-			coste_camiseta=costes.get("camiseta", 0),
-			coste_taza=costes.get("taza", 0),
-			coste_gorra=costes.get("gorra", 0),
-			coste_calcetin=costes.get("calcetin", 0),
-			coste_libreta=costes.get("libreta", 0),
-			coste_poster=costes.get("poster", 0),
-			coste_cartera=costes.get("cartera", 0),
+			costes=lista_costes or [],
 			activo=1
 		)
 		return self.repository.actualizar(diseno)

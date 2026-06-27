@@ -30,7 +30,6 @@ class NuevaProduccionColorView(KeyboardNavigableMixin):
 	def __init__(self, parent, db: Database,
 	             on_siguiente: Optional[Callable[[ProduccionColor], None]] = None,
 	             on_volver: Optional[Callable] = None,
-	             genero_id: int = 0,
 	             tipo_id: int = 0,
 	             variante_id: Optional[int] = None):
 		KeyboardNavigableMixin.__init_keyboard_mixin__(self)
@@ -38,7 +37,6 @@ class NuevaProduccionColorView(KeyboardNavigableMixin):
 		self.db = db
 		self.on_siguiente = on_siguiente
 		self.on_volver = on_volver
-		self._genero_id = genero_id
 		self._tipo_id = tipo_id
 		self._variante_id = variante_id
 		self.color_seleccionado: Optional[ProduccionColor] = None
@@ -111,10 +109,8 @@ class NuevaProduccionColorView(KeyboardNavigableMixin):
 		)
 		self.chips_frame.pack(expand=True, fill="both", padx=40, pady=20)
 
-		# Cargar colores asignados al género (tabla 3D) o al tipo/variante
-		if self._genero_id:
-			colores = self._service.obtener_por_genero_3d(self._genero_id)
-		elif self._tipo_id:
+		# Cargar colores asignados al tipo/variante
+		if self._tipo_id:
 			colores = self._service.obtener_por_tipo_3d(self._tipo_id, self._variante_id)
 		else:
 			colores = self._service.obtener_activos()

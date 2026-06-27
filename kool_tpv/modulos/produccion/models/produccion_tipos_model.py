@@ -12,6 +12,5 @@ class ProduccionTipo:
     coste_base: float = 0.0
     requiere_talla: int = 0
     requiere_color: int = 0
-    requiere_genero: int = 0
     activo: int = 1
     orden: int = 0

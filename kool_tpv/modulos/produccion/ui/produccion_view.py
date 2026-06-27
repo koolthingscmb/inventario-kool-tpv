@@ -208,10 +208,10 @@ class ProduccionView(BaseModuleView):
 			try:
 				for w in list(self.central_area.winfo_children()):
 					w.destroy()
-				view = DisenoNuevoView(
+				self._diseno_view = DisenoNuevoView(
 						self.central_area,
 						db=self.db,
-						on_cerrar=self._on_flow_cerrar,
+						on_cerrar=self._on_diseno_guardado,
 					)
 				try:
 					self.actualizar_ruta('PRODUCCIÓN / NUEVO DISEÑO')
@@ -222,6 +222,14 @@ class ProduccionView(BaseModuleView):
 				logging.exception('Error instanciando DisenoNuevoView en show_diseno_nuevo')
 		except Exception:
 			logging.exception('Error abriendo show_diseno_nuevo en ProduccionView')
+
+	def _on_diseno_guardado(self, diseno=None):
+		"""Tras guardar un diseno desde DISENO +: limpiar formulario y refrescar lista."""
+		try:
+			if hasattr(self, '_diseno_view') and self._diseno_view:
+				self._diseno_view._limpiar_formulario()
+		except Exception:
+			logging.exception('Error limpiando formulario tras guardar diseno')
 
 	def show_config(self):
 		"""Abrir vista de configuración del taller (Backoffice)."""
@@ -297,10 +305,6 @@ class ProduccionView(BaseModuleView):
 	def show_mapeo_tipos(self, proveedor_id, proveedor_nombre=''):
 		"""Mostrar configurador unificado en la pestaña TIPOS."""
 		self.show_configurar_mapeos(proveedor_id, proveedor_nombre, tab_inicial='TIPOS')
-
-	def show_mapeo_generos(self, proveedor_id, proveedor_nombre=''):
-		"""Mostrar configurador unificado en la pestaña GÉNEROS."""
-		self.show_configurar_mapeos(proveedor_id, proveedor_nombre, tab_inicial='GÉNEROS')
 
 	def show_importar_albaran(self, proveedor_id=None, proveedor_nombre=''):
 		"""Mostrar importador de albarán para producción."""

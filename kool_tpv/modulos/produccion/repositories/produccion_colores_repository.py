@@ -126,21 +126,6 @@ class ProduccionColoresRepository:
 			logging.exception(f"Error actualizando color {color.id}")
 			return False
 
-	def get_por_genero_3d(self, genero_id: int) -> List[ProduccionColor]:
-		"""Obtener colores asignados a un género (tabla 3D)."""
-		query = """
-			SELECT DISTINCT c.id, c.nombre, c.codigo_hex
-			FROM produccion_colores c
-			JOIN produccion_genero_color_tallas gct ON c.id = gct.color_id
-			WHERE gct.genero_id = ?
-			ORDER BY c.nombre
-		"""
-		rows = self.db.fetch_all(query, (genero_id,))
-		return [
-			ProduccionColor(id=r[0], nombre=r[1], codigo_hex=r[2])
-			for r in rows
-		]
-
 	def get_por_tipo_3d(self, tipo_id: int, variante_id: Optional[int] = None) -> List[ProduccionColor]:
 		"""Obtener colores asignados a un tipo o variante (tabla Libro de Recetas)."""
 		if variante_id:

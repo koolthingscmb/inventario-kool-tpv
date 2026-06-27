@@ -13,8 +13,6 @@ from kool_tpv.base_datos.db_wrapper import Database
 class ItemProduccion:
     tipo_nombre: str
     tipo_id: int
-    genero: Optional[str]
-    genero_id: Optional[int]
     talla: Optional[str]
     color_nombre: Optional[str]
     color_id: Optional[int]

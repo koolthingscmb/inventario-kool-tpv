@@ -28,7 +28,8 @@ class ProveedorService:
                     'telefono_comercial': r[11] or '',
                     'email_comercial': r[12] or '',
                     'web': r[13] or '',
-                    'notas': r[14] or ''
+                    'notas': r[14] or '',
+                    'es_produccion': r[20] if len(r) > 20 else 0
                 })
             return proveedores
         except Exception:
@@ -36,14 +37,9 @@ class ProveedorService:
             return []
 
     def get_proveedores_con_mapeos(self):
-        """Obtener solo proveedores que tienen algún mapeo configurado."""
+        """Obtener proveedores marcados como de producción."""
         try:
-            query = """SELECT * FROM proveedores
-                       WHERE (mapeo_colores IS NOT NULL AND mapeo_colores != '' AND mapeo_colores != '{}')
-                          OR (mapeo_tipos IS NOT NULL AND mapeo_tipos != '' AND mapeo_tipos != '{}')
-                          OR (mapeo_generos IS NOT NULL AND mapeo_generos != '' AND mapeo_generos != '{}')
-                          OR (mapeo_tallas IS NOT NULL AND mapeo_tallas != '' AND mapeo_tallas != '{}')
-                       ORDER BY nombre ASC"""
+            query = "SELECT * FROM proveedores WHERE es_produccion = 1 ORDER BY nombre ASC"
             rows = self.db.fetch_all(query)
             proveedores = []
             for r in rows or []:
@@ -62,11 +58,12 @@ class ProveedorService:
                     'telefono_comercial': r[11] or '',
                     'email_comercial': r[12] or '',
                     'web': r[13] or '',
-                    'notas': r[14] or ''
+                    'notas': r[14] or '',
+                    'es_produccion': r[20] if len(r) > 20 else 0
                 })
             return proveedores
         except Exception:
-            logging.exception('Error obteniendo proveedores con mapeos')
+            logging.exception('Error obteniendo proveedores de producción')
             return []
 
     def get_proveedor(self, proveedor_id):
@@ -101,7 +98,8 @@ class ProveedorService:
                 'email_comercial': row[12] or '',
                 'web': row[13] or '',
                 'notas': row[14] or '',
-                'mapeo_csv': row[15] or None
+                'mapeo_csv': row[15] or None,
+                'es_produccion': row[20] if len(row) > 20 else 0
             }
         except Exception:
             logging.exception(f'Error obteniendo proveedor {proveedor_id}')
@@ -110,18 +108,18 @@ class ProveedorService:
     def save_proveedor(self, nombre, que_vende='', nif_cif='', iva_intracom='', 
                        dir_fiscal='', dir_envio='', email='', telefono='', 
                        forma_pago='', persona_comercial='', telefono_comercial='', 
-                       email_comercial='', web='', notas=''):
+                       email_comercial='', web='', notas='', es_produccion=0):
         """Crear nuevo proveedor."""
         try:
             query = """INSERT INTO proveedores 
                        (nombre, que_vende, nif_cif, iva_intracom, dir_fiscal, dir_envio, 
                         email, telefono, forma_pago, persona_comercial, telefono_comercial, 
-                        email_comercial, web, notas) 
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+                        email_comercial, web, notas, es_produccion) 
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
             self.db.execute_query(query, (nombre, que_vende, nif_cif, iva_intracom, 
                                          dir_fiscal, dir_envio, email, telefono, 
                                          forma_pago, persona_comercial, telefono_comercial, 
-                                         email_comercial, web, notas))
+                                         email_comercial, web, notas, es_produccion))
             return True
         except Exception:
             logging.exception('Error guardando proveedor')
@@ -130,19 +128,19 @@ class ProveedorService:
     def update_proveedor(self, prov_id, nombre, que_vende='', nif_cif='', iva_intracom='', 
                         dir_fiscal='', dir_envio='', email='', telefono='', 
                         forma_pago='', persona_comercial='', telefono_comercial='', 
-                        email_comercial='', web='', notas=''):
+                        email_comercial='', web='', notas='', es_produccion=0):
         """Actualizar proveedor existente."""
         try:
             query = """UPDATE proveedores SET 
                        nombre=?, que_vende=?, nif_cif=?, iva_intracom=?, 
                        dir_fiscal=?, dir_envio=?, email=?, telefono=?, 
                        forma_pago=?, persona_comercial=?, telefono_comercial=?, 
-                       email_comercial=?, web=?, notas=? 
+                       email_comercial=?, web=?, notas=?, es_produccion=? 
                        WHERE id=?"""
             self.db.execute_query(query, (nombre, que_vende, nif_cif, iva_intracom, 
                                          dir_fiscal, dir_envio, email, telefono, 
                                          forma_pago, persona_comercial, telefono_comercial, 
-                                         email_comercial, web, notas, prov_id))
+                                         email_comercial, web, notas, es_produccion, prov_id))
             return True
         except Exception:
             logging.exception('Error actualizando proveedor')

@@ -1,14 +1,13 @@
 """Servicio para la configuración del taller (Backoffice).
 
-Coordina la gestión de Colores, Tallas, Géneros y sus relaciones.
+Coordina la gestión de Colores, Tallas y sus relaciones.
 """
 from typing import List, Set, Optional
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.produccion.models.produccion_color_model import ProduccionColor
 from kool_tpv.modulos.produccion.models.produccion_talla_model import ProduccionTalla
-from kool_tpv.modulos.produccion.models.produccion_genero_model import ProduccionGenero
 from kool_tpv.modulos.produccion.repositories.produccion_colores_repository import ProduccionColoresRepository
-from kool_tpv.modulos.produccion.repositories.produccion_generos_tallas_repository import ProduccionGenerosRepository, ProduccionTallasRepository
+from kool_tpv.modulos.produccion.repositories.produccion_generos_tallas_repository import ProduccionTallasRepository
 from kool_tpv.modulos.produccion.repositories.produccion_relaciones_repository import ProduccionRelacionesRepository
 from kool_tpv.modulos.produccion.repositories.produccion_tipos_repository import ProduccionTiposRepository
 from kool_tpv.modulos.produccion.repositories.produccion_menu_repository import ProduccionMenuRepository
@@ -20,7 +19,6 @@ class ProduccionConfigService:
     def __init__(self, db: Database):
         self.db = db
         self.colores_repo = ProduccionColoresRepository(db)
-        self.generos_repo = ProduccionGenerosRepository(db)
         self.tallas_repo = ProduccionTallasRepository(db)
         self.relaciones_repo = ProduccionRelacionesRepository(db)
         self.tipos_repo = ProduccionTiposRepository(db)
@@ -49,20 +47,6 @@ class ProduccionConfigService:
         if talla_id:
             return self.tallas_repo.actualizar(talla)
         return self.tallas_repo.crear(talla) is not None
-
-    # --- Gestión de Géneros ---
-    def obtener_todos_generos(self) -> List[ProduccionGenero]:
-        return self.generos_repo.get_todos()
-
-    def guardar_genero(self, nombre: str, orden: int, activo: int = 1, genero_id: Optional[int] = None) -> bool:
-        genero = ProduccionGenero(id=genero_id, nombre=nombre, orden=orden, activo=activo)
-        if genero_id:
-            return self.generos_repo.actualizar(genero)
-        return self.generos_repo.crear(genero) is not None
-
-    def obtener_todos_generos_dict(self) -> dict:
-        """Obtener todos los géneros indexados por ID."""
-        return {g.id: g.nombre for g in self.generos_repo.get_todos()}
 
     def obtener_por_id(self, tipo_id: int) -> Optional[ProduccionTipo]:
         """Obtener un tipo por su ID."""
@@ -93,47 +77,7 @@ class ProduccionConfigService:
                 results.append(v)
         return results
 
-    # --- Gestión de la Matriz (Relaciones) ---
-    def obtener_relaciones_genero(self, genero_id: int):
-        """Obtener tallas y colores asociados a un género."""
-        return {
-            "tallas": self.relaciones_repo.get_tallas_id_por_genero(genero_id),
-            "colores": self.relaciones_repo.get_colores_id_por_genero(genero_id)
-        }
-
-    def actualizar_relaciones_genero(self, genero_id: int, tallas_ids: List[int], colores_ids: List[int]):
-        """Actualizar qué tallas y colores están disponibles para un género."""
-        self.relaciones_repo.actualizar_tallas_genero(genero_id, tallas_ids)
-        self.relaciones_repo.actualizar_colores_genero(genero_id, colores_ids)
-        return True
-
-    def obtener_generos_por_tipo(self, tipo_id: int) -> Set[int]:
-        return self.relaciones_repo.get_generos_id_por_tipo(tipo_id)
-
-    def actualizar_generos_tipo(self, tipo_id: int, generos_ids: List[int]):
-        return self.relaciones_repo.actualizar_generos_tipo(tipo_id, generos_ids)
-
-    # --- Matriz 3D: Género <-> Color <-> Talla ---
-
-    def obtener_colores_genero_3d(self, genero_id: int) -> Set[int]:
-        """IDs de colores asignados a un género (tabla 3D)."""
-        return self.relaciones_repo.get_colores_id_por_genero_3d(genero_id)
-
-    def obtener_tallas_genero_color_3d(self, genero_id: int, color_id: int) -> Set[int]:
-        """IDs de tallas disponibles para una combinación género+color."""
-        return self.relaciones_repo.get_tallas_id_por_genero_color_3d(genero_id, color_id)
-
-    def guardar_tallas_genero_color_3d(self, genero_id: int, color_id: int, tallas_ids: List[int]):
-        """Sincronizar tallas para una combinación género+color."""
-        self.relaciones_repo.actualizar_tallas_genero_color_3d(genero_id, color_id, tallas_ids)
-        return True
-
-    def eliminar_color_genero_3d(self, genero_id: int, color_id: int):
-        """Eliminar un color y todas sus tallas de un género."""
-        self.relaciones_repo.remove_color_de_genero_3d(genero_id, color_id)
-        return True
-
-    # --- Matriz 3D para TIPOS y VARIANTES (usa produccion_stock_colores_tallas) ---
+    # --- Matriz 3D para TIPOS y VARIANTES ---
 
     def obtener_tipos_para_matriz(self) -> List[ProduccionTipo]:
         """Obtener tipos que requieren color o talla o tienen variantes que lo requieren."""
