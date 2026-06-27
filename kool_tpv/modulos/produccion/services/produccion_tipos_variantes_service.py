@@ -89,3 +89,16 @@ class ProduccionTiposVariantesService:
     def eliminar(self, variante_id: int) -> bool:
         """Eliminar una variante (soft delete)."""
         return self.repository.eliminar(variante_id)
+
+    def obtener_activos_como_dict(self) -> dict:
+        """Obtener variantes activas como dict {id: "Tipo / Variante"} para UI."""
+        variantes = self.repository.get_todos()
+        resultado = {}
+        for v in variantes:
+            if v.activo != 1:
+                continue
+            tipo_row = self.db.fetch_one("SELECT nombre FROM tipos WHERE id = ?", (v.tipo_id,))
+            tipo_nombre = tipo_row[0] if tipo_row else "???"
+            clave = f"{tipo_nombre} / {v.nombre}"
+            resultado[v.id] = clave
+        return resultado

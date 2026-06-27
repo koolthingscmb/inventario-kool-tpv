@@ -24,23 +24,26 @@ class ProduccionStockBaseRepository:
 		"""Obtener todo el stock de bases con nombres legibles.
 
 		Returns:
-			Lista de dicts con: id, tipo, color, talla, sku, cantidad.
+			Lista de dicts con: id, tipo, variante, color, talla, sku, cantidad.
 		"""
 		query = """
 			SELECT 
 				psbt.id,
 				t.nombre AS tipo_nombre,
+				v.nombre AS variante_nombre,
 				c.nombre AS color_nombre,
 				psbt.talla,
 				psbt.sku,
 				psbt.cantidad,
 				psbt.tipo_id,
+				psbt.variante_id,
 				psbt.color_id,
 				psbt.coste_medio
 			FROM produccion_stock_colores_tallas psbt
 			JOIN tipos t ON psbt.tipo_id = t.id
+			LEFT JOIN tipos_variantes v ON psbt.variante_id = v.id
 			LEFT JOIN produccion_colores c ON psbt.color_id = c.id
-			ORDER BY t.nombre, c.nombre, psbt.talla
+			ORDER BY t.nombre, v.nombre, c.nombre, psbt.talla
 		"""
 		try:
 			rows = self.db.fetch_all(query)
@@ -48,13 +51,15 @@ class ProduccionStockBaseRepository:
 				{
 					"id": r[0],
 					"tipo": r[1],
-					"color": r[2] or "-",
-					"talla": r[3] or "-",
-					"sku": r[4] or "",
-					"cantidad": r[5] or 0,
-					"tipo_id": r[6],
-					"color_id": r[7],
-					"coste_medio": r[8] or 0
+					"variante": r[2] or "-",
+					"color": r[3] or "-",
+					"talla": r[4] or "-",
+					"sku": r[5] or "",
+					"cantidad": r[6] or 0,
+					"tipo_id": r[7],
+					"variante_id": r[8],
+					"color_id": r[9],
+					"coste_medio": r[10] or 0
 				}
 				for r in rows
 			]
@@ -64,7 +69,8 @@ class ProduccionStockBaseRepository:
 
 	def crear_o_actualizar(self, tipo_id: int,
 	                      color_id: Optional[int], talla: str, sku: str, 
-	                      cantidad: int, coste_medio: int = 0) -> bool:
+	                      cantidad: int, coste_medio: int = 0,
+	                      variante_id: Optional[int] = None) -> bool:
 		"""Insertar o actualizar una variante de stock base (Upsert manual).
 		
 		Usa SELECT + UPDATE/INSERT en vez de ON CONFLICT porque SQLite
@@ -72,7 +78,7 @@ class ProduccionStockBaseRepository:
 		"""
 		check_query = """
 			SELECT id FROM produccion_stock_colores_tallas 
-			WHERE tipo_id = ? AND color_id IS ? AND talla = ?
+			WHERE tipo_id = ? AND variante_id IS ? AND color_id IS ? AND talla = ?
 		"""
 		update_query = """
 			UPDATE produccion_stock_colores_tallas 
@@ -81,15 +87,15 @@ class ProduccionStockBaseRepository:
 		"""
 		insert_query = """
 			INSERT INTO produccion_stock_colores_tallas 
-				(tipo_id, color_id, talla, sku, cantidad, coste_medio)
-			VALUES (?, ?, ?, ?, ?, ?)
+				(tipo_id, variante_id, color_id, talla, sku, cantidad, coste_medio)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
 		"""
 		try:
-			existing = self.db.fetch_all(check_query, (tipo_id, color_id, talla))
+			existing = self.db.fetch_all(check_query, (tipo_id, variante_id, color_id, talla))
 			if existing:
 				self.db.execute_query(update_query, (sku, cantidad, coste_medio, existing[0][0]))
 			else:
-				self.db.execute_query(insert_query, (tipo_id, color_id, talla, sku, cantidad, coste_medio))
+				self.db.execute_query(insert_query, (tipo_id, variante_id, color_id, talla, sku, cantidad, coste_medio))
 			return True
 		except Exception:
 			logger.exception(f"Error en upsert stock base: tipo={tipo_id}, sku={sku}")
@@ -105,29 +111,31 @@ class ProduccionStockBaseRepository:
 			return False
 
 	def obtener_cantidad(self, tipo_id: int,
-	                     color_id: Optional[int], talla: str) -> int:
+	                     color_id: Optional[int], talla: str,
+	                     variante_id: Optional[int] = None) -> int:
 		"""Obtener la cantidad disponible para una variante específica."""
 		query = """
 			SELECT cantidad FROM produccion_stock_colores_tallas 
-			WHERE tipo_id = ? AND color_id IS ? AND talla = ?
+			WHERE tipo_id = ? AND variante_id IS ? AND color_id IS ? AND talla = ?
 		"""
 		try:
-			res = self.db.fetch_all(query, (tipo_id, color_id, talla))
+			res = self.db.fetch_all(query, (tipo_id, variante_id, color_id, talla))
 			return res[0][0] if res else 0
 		except Exception:
 			logger.exception("Error consultando cantidad stock base")
 			return 0
 
 	def actualizar_cantidad(self, tipo_id: int,
-	                        color_id: Optional[int], talla: str, delta: int) -> bool:
+	                        color_id: Optional[int], talla: str, delta: int,
+	                        variante_id: Optional[int] = None) -> bool:
 		"""Sumar o restar cantidad al stock (ej: -1 al producir)."""
 		query = """
 			UPDATE produccion_stock_colores_tallas 
 			SET cantidad = cantidad + ?
-			WHERE tipo_id = ? AND color_id IS ? AND talla = ?
+			WHERE tipo_id = ? AND variante_id IS ? AND color_id IS ? AND talla = ?
 		"""
 		try:
-			self.db.execute_query(query, (delta, tipo_id, color_id, talla))
+			self.db.execute_query(query, (delta, tipo_id, variante_id, color_id, talla))
 			return True
 		except Exception:
 			logger.exception("Error actualizando cantidad stock base")

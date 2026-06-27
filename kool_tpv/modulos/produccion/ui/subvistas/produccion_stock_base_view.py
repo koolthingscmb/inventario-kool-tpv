@@ -1,7 +1,7 @@
 """Vista de gestión de Stock Base para producción.
 
 Permite ver y editar el inventario de materiales en blanco (camisetas, tazas, etc.)
-con sus SKUs de Shopify, colores, tallas y géneros.
+con sus SKUs de Shopify, colores, tallas y variantes.
 """
 import logging
 import customtkinter as ctk
@@ -84,7 +84,7 @@ class ProduccionStockBaseView:
 		# Tabla de stock
 		columnas = [
 			("ARTÍCULO", 200),
-			("GÉNERO", 120),
+			("VARIANTE", 120),
 			("COLOR", 150),
 			("TALLA", 80),
 			("SKU SHOPIFY", 180),
@@ -128,6 +128,7 @@ class ProduccionStockBaseView:
 			for it in items:
 				rows.append({
 					"ARTÍCULO": it["tipo"],
+					"VARIANTE": it.get("variante", "-"),
 					"COLOR": it["color"],
 					"TALLA": it["talla"],
 					"SKU SHOPIFY": it["sku"],

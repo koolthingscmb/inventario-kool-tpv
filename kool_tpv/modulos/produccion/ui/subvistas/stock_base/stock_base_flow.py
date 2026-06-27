@@ -12,6 +12,7 @@ from typing import Callable, List, Optional
 
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.produccion.models.produccion_tipos_model import ProduccionTipo
+from kool_tpv.modulos.produccion.models.produccion_tipo_variante_model import ProduccionTipoVariante
 from kool_tpv.modulos.produccion.models.produccion_color_model import ProduccionColor
 from kool_tpv.modulos.produccion.models.produccion_menu_model import ProduccionMenuItem
 from kool_tpv.modulos.produccion.services.produccion_menu_service import ProduccionMenuService
@@ -19,9 +20,11 @@ from kool_tpv.modulos.produccion.services.produccion_colores_service import Prod
 from kool_tpv.modulos.produccion.services.produccion_generos_tallas_service import ProduccionTallasService
 from kool_tpv.modulos.produccion.services.produccion_stock_base_service import ProduccionStockBaseService
 from kool_tpv.modulos.produccion.services.produccion_tipos_service import ProduccionTiposService
+from kool_tpv.modulos.produccion.services.produccion_tipos_variantes_service import ProduccionTiposVariantesService
 
 from kool_tpv.modulos.produccion.ui.subvistas.stock_base.stock_base_step_menu import StockBaseStepMenu
 from kool_tpv.modulos.produccion.ui.subvistas.stock_base.stock_base_step_tipo import StockBaseStepTipo
+from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_variante import NuevaProduccionVarianteView
 from kool_tpv.modulos.produccion.ui.subvistas.stock_base.stock_base_step_color import StockBaseStepColor
 from kool_tpv.modulos.produccion.ui.subvistas.stock_base.stock_base_step_talla import StockBaseStepTalla
 from kool_tpv.modulos.produccion.ui.subvistas.stock_base.stock_base_step_final import StockBaseStepFinal
@@ -29,6 +32,7 @@ from kool_tpv.modulos.produccion.ui.subvistas.stock_base.stock_base_step_final i
 # Pasos del flujo
 PASO_MENU = 0
 PASO_TIPO = 1
+PASO_VARIANTE = 2
 PASO_COLOR = 3
 PASO_TALLA = 4
 PASO_FINAL = 5
@@ -59,12 +63,14 @@ class StockBaseFlow:
         self._tallas_service = ProduccionTallasService(db)
         self._stock_service = ProduccionStockBaseService(db)
         self._tipos_service = ProduccionTiposService(db)
+        self._variantes_service = ProduccionTiposVariantesService(db)
 
         # Estado del flujo
         self._paso_actual = PASO_MENU
         self._paso_anterior = PASO_MENU
         self._menu: Optional[ProduccionMenuItem] = None
         self._tipo: Optional[ProduccionTipo] = None
+        self._variante: Optional[ProduccionTipoVariante] = None
         self._color: Optional[ProduccionColor] = None
         self._talla: Optional[str] = None
         self._sku_edit: Optional[str] = None
@@ -89,6 +95,7 @@ class StockBaseFlow:
     def _cargar_item(self, item: dict):
         """Cargar datos de una fila existente para edición."""
         tipo_id = item.get("tipo_id")
+        variante_id = item.get("variante_id")
         color_id = item.get("color_id")
         self._talla = item.get("talla") or ""
         self._sku_edit = item.get("sku") or ""
@@ -96,6 +103,8 @@ class StockBaseFlow:
 
         if tipo_id:
             self._tipo = self._tipos_service.obtener_por_id(tipo_id)
+        if variante_id:
+            self._variante = self._variantes_service.obtener_por_id(variante_id)
         if color_id:
             self._color = self._colores_service.obtener_por_id(color_id)
 
@@ -131,12 +140,24 @@ class StockBaseFlow:
                 on_volver=lambda: self._mostrar_paso(PASO_MENU)
             )
 
+        elif paso == PASO_VARIANTE:
+            tipo_id = self._tipo.id if self._tipo else 0
+            self._vista_actual = NuevaProduccionVarianteView(
+                self.frame,
+                db=self.db,
+                tipo_id=tipo_id,
+                on_siguiente=self._on_variante_siguiente,
+                on_volver=self._on_variante_volver
+            )
+
         elif paso == PASO_COLOR:
             tipo_id = self._tipo.id if self._tipo else 0
+            variante_id = self._variante.id if self._variante else None
             self._vista_actual = StockBaseStepColor(
                 self.frame,
                 db=self.db,
                 tipo_id=tipo_id,
+                variante_id=variante_id,
                 on_siguiente=self._on_color_siguiente,
                 on_volver=self._on_color_volver
             )
@@ -144,8 +165,9 @@ class StockBaseFlow:
         elif paso == PASO_TALLA:
             tallas = []
             if self._tipo and self._color:
+                variante_id = self._variante.id if self._variante else None
                 tallas = self._tallas_service.obtener_por_tipo_color_3d(
-                    self._tipo.id, self._color.id)
+                    self._tipo.id, self._color.id, variante_id)
             tallas_data = [{"codigo": t.nombre, "nombre": t.nombre} for t in tallas]
             self._vista_actual = StockBaseStepTalla(
                 self.frame,
@@ -183,9 +205,14 @@ class StockBaseFlow:
             self._cerrar_flow()
         else:
             tipo = self._tipo
+            variante = self._variante
             if tipo and tipo.requiere_talla == 1:
                 self._mostrar_paso(PASO_TALLA)
             elif tipo and tipo.requiere_color == 1:
+                self._mostrar_paso(PASO_COLOR)
+            elif variante and variante.requiere_talla == 1:
+                self._mostrar_paso(PASO_TALLA)
+            elif variante and variante.requiere_color == 1:
                 self._mostrar_paso(PASO_COLOR)
             else:
                 self._cerrar_flow()
@@ -213,8 +240,13 @@ class StockBaseFlow:
                 self._mostrar_paso(PASO_FINAL)
 
     def _ir_desde_tipo(self):
-        """Lógica común: desde un tipo, decidir el siguiente paso según requiere_*."""
+        """Lógica común: desde un tipo, decidir el siguiente paso según requiere_* y variantes."""
         tipo = self._tipo
+        if tipo:
+            variantes = self._variantes_service.obtener_por_tipo(tipo.id, solo_activos=True)
+            if variantes:
+                self._mostrar_paso(PASO_VARIANTE)
+                return
         if tipo and tipo.requiere_color == 1:
             self._mostrar_paso(PASO_COLOR)
         elif tipo and tipo.requiere_talla == 1:
@@ -225,11 +257,36 @@ class StockBaseFlow:
     def _on_tipo_siguiente(self, tipo: ProduccionTipo):
         """Tipo seleccionado → decidir siguiente paso según requiere_*."""
         self._tipo = tipo
+        self._variante = None
         self._ir_desde_tipo()
 
-    def _on_color_volver(self):
-        """Volver desde color → tipo/menú."""
+    def _on_variante_siguiente(self, variante: ProduccionTipoVariante):
+        """Variante seleccionada → decidir siguiente paso según requiere_*."""
+        self._variante = variante
+        tipo = self._tipo
+        if tipo and tipo.requiere_color == 1:
+            self._mostrar_paso(PASO_COLOR)
+        elif variante and variante.requiere_color == 1:
+            self._mostrar_paso(PASO_COLOR)
+        elif tipo and tipo.requiere_talla == 1:
+            self._mostrar_paso(PASO_TALLA)
+        elif variante and variante.requiere_talla == 1:
+            self._mostrar_paso(PASO_TALLA)
+        else:
+            self._mostrar_paso(PASO_FINAL)
+
+    def _on_variante_volver(self):
+        """Volver desde variante → tipo/menú."""
         if self._menu:
+            self._mostrar_paso(PASO_TIPO)
+        else:
+            self._mostrar_paso(PASO_MENU)
+
+    def _on_color_volver(self):
+        """Volver desde color → variante, tipo o menú."""
+        if self._variante:
+            self._mostrar_paso(PASO_VARIANTE)
+        elif self._menu:
             self._mostrar_paso(PASO_TIPO)
         else:
             self._mostrar_paso(PASO_MENU)
@@ -238,16 +295,24 @@ class StockBaseFlow:
         """Color seleccionado → decidir siguiente paso."""
         self._color = color
         tipo = self._tipo
+        variante = self._variante
         if tipo and tipo.requiere_talla == 1:
+            self._mostrar_paso(PASO_TALLA)
+        elif variante and variante.requiere_talla == 1:
             self._mostrar_paso(PASO_TALLA)
         else:
             self._mostrar_paso(PASO_FINAL)
 
     def _on_talla_volver(self):
-        """Volver desde talla → color si existe, si no tipo/menú."""
+        """Volver desde talla → color si existe, variante si existe, si no tipo/menú."""
         tipo = self._tipo
+        variante = self._variante
         if tipo and tipo.requiere_color == 1:
             self._mostrar_paso(PASO_COLOR)
+        elif variante and variante.requiere_color == 1:
+            self._mostrar_paso(PASO_COLOR)
+        elif self._variante:
+            self._mostrar_paso(PASO_VARIANTE)
         elif self._menu:
             self._mostrar_paso(PASO_TIPO)
         else:
@@ -261,6 +326,7 @@ class StockBaseFlow:
     def _on_final_guardar(self, sku: str, cantidad: int):
         """GUARDAR desde final → guardar variante en BD."""
         tipo_id = self._tipo.id if self._tipo else 0
+        variante_id = self._variante.id if self._variante else None
         color_id = self._color.id if self._color else None
         talla = self._talla or ""
 
@@ -269,7 +335,8 @@ class StockBaseFlow:
             color_id=color_id,
             talla=talla,
             sku=sku,
-            cantidad=cantidad
+            cantidad=cantidad,
+            variante_id=variante_id
         )
 
         if ok:
@@ -286,6 +353,7 @@ class StockBaseFlow:
         """OTRA VARIANTE desde final → resetear y volver al paso 1."""
         self._menu = None
         self._tipo = None
+        self._variante = None
         self._color = None
         self._talla = None
         self._sku_edit = None

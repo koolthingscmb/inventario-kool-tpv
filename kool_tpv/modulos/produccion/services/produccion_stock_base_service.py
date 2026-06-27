@@ -27,7 +27,8 @@ class ProduccionStockBaseService:
 		return self.repo.get_todos()
 
 	def guardar_variante(self, tipo_id: int,
-	                     color_id: Optional[int], talla: str, sku: str, cantidad: int) -> bool:
+	                     color_id: Optional[int], talla: str, sku: str, cantidad: int,
+	                     variante_id: Optional[int] = None, coste_medio: int = 0) -> bool:
 		"""Guardar o actualizar una variante de stock.
 		
 		Valida que los datos mínimos estén presentes.
@@ -40,31 +41,34 @@ class ProduccionStockBaseService:
 		talla = (talla or "").strip().upper()
 		sku = (sku or "").strip().upper()
 		
-		return self.repo.crear_o_actualizar(tipo_id, color_id, talla, sku, cantidad)
+		return self.repo.crear_o_actualizar(tipo_id, color_id, talla, sku, cantidad, coste_medio, variante_id)
 
 	def eliminar_variante(self, id_stock: int) -> bool:
 		"""Eliminar un registro de stock."""
 		return self.repo.eliminar(id_stock)
 
 	def comprobar_disponibilidad(self, tipo_id: int,
-	                           color_id: int, talla: str, cantidad_requerida: int = 1) -> bool:
+	                           color_id: int, talla: str, cantidad_requerida: int = 1,
+	                           variante_id: Optional[int] = None) -> bool:
 		"""Verifica si hay stock suficiente para producir."""
-		stock_actual = self.repo.obtener_cantidad(tipo_id, color_id, (talla or "").strip().upper())
+		stock_actual = self.repo.obtener_cantidad(tipo_id, color_id, (talla or "").strip().upper(), variante_id)
 		return stock_actual >= cantidad_requerida
 
 	def consumir_stock(self, tipo_id: int,
-	                  color_id: int, talla: str, cantidad: int) -> bool:
+	                  color_id: int, talla: str, cantidad: int,
+	                  variante_id: Optional[int] = None) -> bool:
 		"""Descontar stock del almacén de bases."""
 		if cantidad <= 0:
 			return True
-		return self.repo.actualizar_cantidad(tipo_id, color_id, (talla or "").strip().upper(), -cantidad)
+		return self.repo.actualizar_cantidad(tipo_id, color_id, (talla or "").strip().upper(), -cantidad, variante_id)
 
 	def reponer_stock(self, tipo_id: int,
-	                 color_id: int, talla: str, cantidad: int) -> bool:
+	                 color_id: int, talla: str, cantidad: int,
+	                 variante_id: Optional[int] = None) -> bool:
 		"""Añadir stock al almacén de bases."""
 		if cantidad <= 0:
 			return True
-		return self.repo.actualizar_cantidad(tipo_id, color_id, (talla or "").strip().upper(), cantidad)
+		return self.repo.actualizar_cantidad(tipo_id, color_id, (talla or "").strip().upper(), cantidad, variante_id)
 
 	def obtener_opciones_formulario(self) -> Dict[str, List[Dict[str, Any]]]:
 		"""Obtener listas de tipos y colores para los selectores."""

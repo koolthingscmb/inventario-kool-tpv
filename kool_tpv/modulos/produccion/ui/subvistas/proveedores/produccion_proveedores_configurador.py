@@ -1,4 +1,4 @@
-"""UI unificada para configuración de mapeos de proveedor (CSV, Tipos, Géneros, Colores)."""
+"""UI unificada para configuración de mapeos de proveedor (CSV, Variantes, Colores, Tallas)."""
 import logging
 import json
 import customtkinter as ctk
@@ -8,6 +8,8 @@ from kool_tpv.utils.font_loader import get_font
 from kool_tpv.base_datos.proveedor_service import ProveedorService
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
 from kool_tpv.utils.factories.button_factory import ButtonFactory
+from kool_tpv.modulos.produccion.services.produccion_tipos_variantes_service import ProduccionTiposVariantesService
+from kool_tpv.modulos.produccion.services.produccion_colores_service import ProduccionColoresService
 
 logger = logging.getLogger(__name__)
 
@@ -51,10 +53,10 @@ class ProduccionProveedoresConfigurador:
         
         self.show_tab(tab_inicial)
 
-    def _get_tipos_sistema(self):
+    def _get_variantes_sistema(self):
         if self._cache_tipos_sistema is None:
-            rows = self.db.fetch_all("SELECT id, nombre FROM tipos WHERE activo = 1 ORDER BY nombre")
-            self._cache_tipos_sistema = {r[1]: r[0] for r in rows}
+            svc = ProduccionTiposVariantesService(self.db)
+            self._cache_tipos_sistema = svc.obtener_activos_como_dict()
         return self._cache_tipos_sistema
 
     def _setup_header(self):
@@ -68,7 +70,7 @@ class ProduccionProveedoresConfigurador:
         menu_frame = ctk.CTkFrame(self.container, fg_color='transparent')
         menu_frame.grid(row=1, column=0, sticky='ew', padx=20, pady=(0, 10))
         
-        self.tabs = ['CSV', 'TIPOS', 'COLORES', 'TALLAS']
+        self.tabs = ['CSV', 'VARIANTES', 'COLORES', 'TALLAS']
         self.tab_buttons = {}
         for tab in self.tabs:
             btn = ctk.CTkButton(menu_frame, text=tab, width=100, height=32,
@@ -85,7 +87,7 @@ class ProduccionProveedoresConfigurador:
         if self.current_tab == tab_name and self.current_widget: return
             
         # Guardar lo escrito en la pestaña actual antes de salir
-        if self.current_tab in ['TIPOS', 'COLORES', 'TALLAS'] and hasattr(self, 'mapping_entries'):
+        if self.current_tab in ['VARIANTES', 'COLORES', 'TALLAS'] and hasattr(self, 'mapping_entries'):
             self._update_temp_data()
 
         # Actualizar botones
@@ -96,7 +98,7 @@ class ProduccionProveedoresConfigurador:
         self.current_tab = tab_name
         
         if tab_name == 'CSV': self.current_widget = self._build_csv_tab()
-        elif tab_name == 'TIPOS': self.current_widget = self._build_mapping_tab('tipos')
+        elif tab_name == 'VARIANTES': self.current_widget = self._build_mapping_tab('variantes')
         elif tab_name == 'COLORES': self.current_widget = self._build_mapping_tab('colores')
         elif tab_name == 'TALLAS': self.current_widget = self._build_mapping_tab('tallas')
             
@@ -148,34 +150,39 @@ class ProduccionProveedoresConfigurador:
         # Cargar datos (Memoria > BD)
         if tab_key not in self.temp_mapeo_datos:
             mapeo_json = None
-            if mapping_type == 'tipos': mapeo_json = self.proveedor_service.get_mapeo_tipos(self.proveedor_id)
-            elif mapping_type == 'colores': mapeo_json = self.proveedor_service.get_mapeo_colores(self.proveedor_id)
-            elif mapping_type == 'tallas': mapeo_json = self.proveedor_service.get_mapeo_tallas(self.proveedor_id)
-            try: self.temp_mapeo_datos[tab_key] = json.loads(mapeo_json) if mapeo_json else {}
-            except: self.temp_mapeo_datos[tab_key] = {}
+            if mapping_type == 'variantes':
+                mapeo_json = self.proveedor_service.get_mapeo_variantes(self.proveedor_id)
+            elif mapping_type == 'colores':
+                mapeo_json = self.proveedor_service.get_mapeo_colores(self.proveedor_id)
+            elif mapping_type == 'tallas':
+                mapeo_json = self.proveedor_service.get_mapeo_tallas(self.proveedor_id)
+            try:
+                self.temp_mapeo_datos[tab_key] = json.loads(mapeo_json) if mapeo_json else {}
+            except:
+                self.temp_mapeo_datos[tab_key] = {}
 
         mapeo_actual = self.temp_mapeo_datos[tab_key]
 
-        if mapping_type == 'tipos':
-            # Obtener tipos reales del sistema
-            tipos_sistema = self._get_tipos_sistema()
-            nombres_sistema = set(tipos_sistema.keys())
+        if mapping_type == 'variantes':
+            # Obtener variantes reales del sistema
+            variantes_sistema = self._get_variantes_sistema()
+            nombres_sistema = set(variantes_sistema.values())
 
-            # Cargar selección inicial solo con tipos que EXISTAN en el sistema
+            # Cargar selección inicial solo con variantes que EXISTAN en el sistema
             if self.tipos_seleccionados is None:
                 self.tipos_seleccionados = [nom for nom in mapeo_actual.keys() if nom in nombres_sistema]
             
             sel_frame = ctk.CTkFrame(container, fg_color='#1a1a1a')
             sel_frame.pack(fill='x', pady=(0, 5))
-            ctk.CTkLabel(sel_frame, text="TIPOS ACTIVOS PARA ESTE PROVEEDOR:", font=('Courier New', 11, 'bold'), text_color=self.colors.get('primary', '#9b59b6')).pack(pady=5)
+            ctk.CTkLabel(sel_frame, text="VARIANTES ACTIVAS PARA ESTE PROVEEDOR:", font=('Courier New', 11, 'bold'), text_color=self.colors.get('primary', '#9b59b6')).pack(pady=5)
             chips_f = ctk.CTkFrame(sel_frame, fg_color='transparent')
             chips_f.pack(fill='x', padx=10, pady=5)
-            for i in range(6): chips_f.grid_columnconfigure(i, weight=1)
+            for i in range(4): chips_f.grid_columnconfigure(i, weight=1)
             
             for i, nom in enumerate(sorted(nombres_sistema)):
                 style = "chip_selected" if nom in self.tipos_seleccionados else "chip_default"
                 btn = ButtonFactory.create_button(chips_f, nom, command=lambda n=nom: self._toggle_tipo(n), style_key=style)
-                btn.grid(row=i//6, column=i%6, padx=2, pady=2, sticky='ew')
+                btn.grid(row=i//4, column=i%4, padx=2, pady=2, sticky='ew')
 
         scroll = ctk.CTkScrollableFrame(container, fg_color='#111111')
         scroll.pack(fill='both', expand=True)
@@ -183,10 +190,11 @@ class ProduccionProveedoresConfigurador:
         
         self.mapping_entries = {}
         items = []
-        if mapping_type == 'tipos': items = sorted(self.tipos_seleccionados)
+        if mapping_type == 'variantes': items = sorted(self.tipos_seleccionados)
         elif mapping_type == 'tallas': items = [r[0] for r in self.db.fetch_all("SELECT nombre FROM produccion_tallas ORDER BY orden")]
-        else: items = [r[0] for r in self.db.fetch_all("SELECT nombre FROM produccion_colores ORDER BY nombre")]
-
+        else:
+            svc = ProduccionColoresService(self.db)
+            items = [c.nombre for c in svc.obtener_activos()]
         for item in items:
             val = mapeo_actual.get(item, [])
             self._add_form_row(scroll, item, item, ", ".join(val) if isinstance(val, list) else str(val), self.mapping_entries)
@@ -199,7 +207,7 @@ class ProduccionProveedoresConfigurador:
         if nombre in self.tipos_seleccionados: self.tipos_seleccionados.remove(nombre)
         else: self.tipos_seleccionados.append(nombre)
         self.current_widget = None
-        self.show_tab('TIPOS')
+        self.show_tab('VARIANTES')
 
     def _add_section_header(self, parent, text):
         ctk.CTkLabel(parent, text=text, font=('Courier New', 14, 'bold'), text_color=self.colors.get('primary', '#9b59b6')).pack(anchor='w', padx=10, pady=(10, 2))
@@ -239,7 +247,7 @@ class ProduccionProveedoresConfigurador:
 
             json_str = json.dumps(self.temp_mapeo_datos[key], indent=2, ensure_ascii=False)
             success = False
-            if m_type == 'tipos': success = self.proveedor_service.save_mapeo_tipos(self.proveedor_id, json_str)
+            if m_type == 'variantes': success = self.proveedor_service.save_mapeo_variantes(self.proveedor_id, json_str)
             elif m_type == 'tallas': success = self.proveedor_service.save_mapeo_tallas(self.proveedor_id, json_str)
             else: success = self.proveedor_service.save_mapeo_colores(self.proveedor_id, json_str)
             

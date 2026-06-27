@@ -240,27 +240,27 @@ class ProveedorService:
             logging.exception(f'Error guardando mapeo_tipos proveedor {proveedor_id}')
             return False
 
-    def get_mapeo_generos(self, proveedor_id):
-        """Obtener configuración de mapeo de géneros del proveedor."""
+    def get_mapeo_variantes(self, proveedor_id):
+        """Obtener configuración de mapeo de variantes del proveedor."""
         try:
-            query = "SELECT mapeo_generos FROM proveedores WHERE id = ?"
+            query = "SELECT mapeo_variantes FROM proveedores WHERE id = ?"
             row = self.db.fetch_one(query, (proveedor_id,))
             if row and row[0]:
                 return row[0]
             return None
         except Exception:
-            logging.exception(f'Error obteniendo mapeo_generos proveedor {proveedor_id}')
+            logging.exception(f'Error obteniendo mapeo_variantes proveedor {proveedor_id}')
             return None
 
-    def save_mapeo_generos(self, proveedor_id, mapeo_json):
-        """Guardar configuración de mapeo de géneros del proveedor."""
+    def save_mapeo_variantes(self, proveedor_id, mapeo_json):
+        """Guardar configuración de mapeo de variantes del proveedor."""
         try:
-            query = "UPDATE proveedores SET mapeo_generos = ? WHERE id = ?"
+            query = "UPDATE proveedores SET mapeo_variantes = ? WHERE id = ?"
             self.db.execute_query(query, (mapeo_json, proveedor_id))
-            logging.info(f'Mapeo géneros actualizado para proveedor {proveedor_id}')
+            logging.info(f'Mapeo variantes actualizado para proveedor {proveedor_id}')
             return True
         except Exception:
-            logging.exception(f'Error guardando mapeo_generos proveedor {proveedor_id}')
+            logging.exception(f'Error guardando mapeo_variantes proveedor {proveedor_id}')
             return False
 
     def get_mapeo_tallas(self, proveedor_id):

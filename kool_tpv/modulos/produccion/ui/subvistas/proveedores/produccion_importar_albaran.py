@@ -19,6 +19,8 @@ from kool_tpv.base_datos.proveedor_service import ProveedorService
 from kool_tpv.base_datos.albaran_service import AlbaranService
 from kool_tpv.modulos.almacen.albaran_repository import AlbaranRepository
 from kool_tpv.modulos.produccion.repositories.produccion_stock_base_repository import ProduccionStockBaseRepository
+from kool_tpv.modulos.produccion.services.produccion_colores_service import ProduccionColoresService
+from kool_tpv.modulos.produccion.services.produccion_tipos_variantes_service import ProduccionTiposVariantesService
 from kool_tpv.base_datos.money_adapter import prepare_for_db
 
 logger = logging.getLogger(__name__)
@@ -37,11 +39,10 @@ class ProduccionImportarAlbaran:
         self.parse_result = [] # Datos brutos del CSV
         self.lineas_procesadas = [] # Datos con color mapeado y validaciones
         self.mapeo_colores = {} # color_prov -> color_interno (nombre)
-        self.mapeo_tipos = {} # palabra -> tipo_id
-        pass  # género removed
+        self.mapeo_variantes = {} # "Tipo / Variante" -> [keywords]
         self.colores_internos = {} # nombre -> id
-        self.tipos_disponibles = {} # id -> nombre
-        pass  # género removed
+        self.variantes_disponibles = {} # id -> "Tipo / Variante"
+        self.variantes_lookup = {} # "Tipo / Variante" -> (variante_id, tipo_id)
         
         try:
             self.colors = load_colors('produccion')
@@ -54,7 +55,7 @@ class ProduccionImportarAlbaran:
         self._setup_ui()
 
     def _cargar_mapeos(self):
-        """Cargar configuración de colores y tipos."""
+        """Cargar configuración de colores y variantes."""
         if not self.db: return
         
         prov_service = ProveedorService(self.db)
@@ -68,28 +69,34 @@ class ProduccionImportarAlbaran:
                 except Exception:
                     logger.error("Error parseando mapeo_colores JSON")
             
-            # Tipos
-            mapeo_tipos_json = prov_service.get_mapeo_tipos(self.proveedor_id)
-            if mapeo_tipos_json:
+            # Variantes
+            mapeo_variantes_json = prov_service.get_mapeo_variantes(self.proveedor_id)
+            if mapeo_variantes_json:
                 try:
-                    self.mapeo_tipos = json.loads(mapeo_tipos_json)
+                    self.mapeo_variantes = json.loads(mapeo_variantes_json)
                 except Exception:
-                    logger.error("Error parseando mapeo_tipos JSON")
+                    logger.error("Error parseando mapeo_variantes JSON")
 
         
         # 2. Colores internos (Canonical)
         try:
-            rows = self.db.fetch_all("SELECT id, nombre FROM produccion_colores")
-            self.colores_internos = {r[1]: r[0] for r in rows}
+            svc_colores = ProduccionColoresService(self.db)
+            self.colores_internos = {c.nombre: c.id for c in svc_colores.obtener_activos()}
         except Exception:
             logger.exception("Error cargando colores internos")
             
-        # 3. Tipos de productos (Bases)
+        # 3. Variantes disponibles
         try:
-            rows = self.db.fetch_all("SELECT id, nombre FROM tipos WHERE activo = 1 ORDER BY nombre")
-            self.tipos_disponibles = {r[0]: r[1] for r in rows}
+            svc_variantes = ProduccionTiposVariantesService(self.db)
+            dict_variantes = svc_variantes.obtener_activos_como_dict()
+            self.variantes_disponibles = dict_variantes  # {id: "Tipo / Variante"}
+            # Construir lookup inverso: "Tipo / Variante" -> (variante_id, tipo_id)
+            for vid, etiqueta in dict_variantes.items():
+                variante = svc_variantes.obtener_por_id(vid)
+                if variante:
+                    self.variantes_lookup[etiqueta] = (vid, variante.tipo_id)
         except Exception:
-            logger.exception("Error cargando tipos")
+            logger.exception("Error cargando variantes")
 
 
     def _setup_ui(self):
@@ -144,7 +151,7 @@ class ProduccionImportarAlbaran:
 
         # TABLA PREVIEW
         self.columns = [
-            ('PRODUCTO CSV', 180), ('TIPO', 100), ('GÉNERO', 100), 
+            ('PRODUCTO CSV', 180), ('VARIANTE', 140),
             ('COLOR PROV', 120), ('COLOR INT', 100), ('TALLA', 60), 
             ('UDS', 50), ('COSTE', 70), ('ESTADO', 120)
         ]
@@ -208,7 +215,7 @@ class ProduccionImportarAlbaran:
         """Aplicar mapeos y validaciones a los datos brutos."""
         self.lineas_procesadas = []
         
-        logger.info(f"Procesando {len(self.parse_result)} líneas con mapeo_tipos: {self.mapeo_tipos}")
+        logger.info(f"Procesando {len(self.parse_result)} líneas con mapeo_variantes: {self.mapeo_variantes}")
         logger.info(f"Mapeo colores: {self.mapeo_colores}")
         
         for fila in self.parse_result:
@@ -218,29 +225,26 @@ class ProduccionImportarAlbaran:
             uds = fila.get('cantidad', 0)
             coste = fila.get('coste', 0.0)
             
-            # 1. Mapeo de TIPO (por palabras clave en nombre)
+            # 1. Mapeo de VARIANTE (por palabras clave en nombre)
+            variante_id = None
             tipo_id = None
-            tipo_nombre = '???'
+            variante_label = '???'
             nombre_lower = nombre_csv.lower()
             
-            # Recorrer el diccionario: NombreTipo -> [Lista de Keywords]
-            if isinstance(self.mapeo_tipos, dict):
-                for t_nom, keywords in self.mapeo_tipos.items():
+            # Recorrer el diccionario: "Tipo / Variante" -> [Lista de Keywords]
+            if isinstance(self.mapeo_variantes, dict):
+                for v_label, keywords in self.mapeo_variantes.items():
                     if isinstance(keywords, list):
                         for kw in keywords:
                             if kw.lower().strip() in nombre_lower:
-                                # Buscar ID del tipo por su nombre
-                                for tid, tnom in self.tipos_disponibles.items():
-                                    if tnom.lower() == t_nom.lower():
-                                        tipo_id = tid
-                                        tipo_nombre = tnom
-                                        break
-                                if tipo_id: break
-                    if tipo_id: break
-            
-            # 2. Mapeo de GÉNERO
+                                lookup = self.variantes_lookup.get(v_label)
+                                if lookup:
+                                    variante_id, tipo_id = lookup
+                                    variante_label = v_label
+                                break
+                    if variante_id: break
 
-            # 3. Mapeo de COLOR
+            # 2. Mapeo de COLOR
             # Recorrer el diccionario: ColorInterno -> [Lista de Colores Proveedor]
             color_mapeado = None
             if isinstance(self.mapeo_colores, dict):
@@ -258,20 +262,18 @@ class ProduccionImportarAlbaran:
             color_id = self.colores_internos.get(color_mapeado) if color_mapeado else None
             
             estado = '✓ OK'
-            if not tipo_id: 
-                estado = '⚠ Falta Tipo'
-                estado = '⚠ Falta Género'
-            elif not color_id: 
+            if not variante_id:
+                estado = '⚠ Falta Variante'
+            elif not color_id:
                 estado = '⚠ Color desconocido'
-            elif uds <= 0: 
+            elif uds <= 0:
                 estado = '⚠ Cantidad 0'
             
             self.lineas_procesadas.append({
                 'nombre_csv': nombre_csv,
                 'tipo_id': tipo_id,
-                'tipo_nombre': tipo_nombre,
-                
-                
+                'variante_id': variante_id,
+                'variante_nombre': variante_label,
                 'color_id': color_id,
                 'color_prov': col_prov,
                 'color_interno': color_mapeado or '???',
@@ -294,7 +296,7 @@ class ProduccionImportarAlbaran:
         for p in self.lineas_procesadas:
             rows.append({
                 'PRODUCTO CSV': p['nombre_csv'],
-                'TIPO': p['tipo_nombre'],
+                'VARIANTE': p['variante_nombre'],
                 'COLOR PROV': p['color_prov'],
                 'COLOR INT': p['color_interno'],
                 'TALLA': p['talla'],
@@ -335,7 +337,7 @@ class ProduccionImportarAlbaran:
                 lineas_albaran.append({
                     'producto_id': None, # No es un producto de la tabla 'productos'
                     'ean': '',
-                    'nombre': f"{p['tipo_nombre']} - {p['color_interno']} ({p['talla']})",
+                    'nombre': f"{p['variante_nombre']} - {p['color_interno']} ({p['talla']})",
                     'cantidad': p['uds'],
                     'coste': p['coste'],
                     'tipo_iva': 21,
@@ -375,15 +377,15 @@ class ProduccionImportarAlbaran:
     def _actualizar_stock_y_coste(self, p, repo):
         """Calcula coste medio y actualiza stock base."""
         tipo_id = p['tipo_id']
-        
+        variante_id = p.get('variante_id')
         color_id = p['color_id']
         talla = p['talla']
         cantidad_nueva = p['uds']
         coste_nuevo_eur = p['coste']
         
         # Obtener stock actual para calcular el medio
-        query = "SELECT cantidad, coste_medio, sku FROM produccion_stock_colores_tallas WHERE tipo_id=? AND color_id=? AND talla=?"
-        row = self.db.fetch_one(query, (tipo_id, color_id, talla))
+        query = "SELECT cantidad, coste_medio, sku FROM produccion_stock_colores_tallas WHERE tipo_id=? AND variante_id IS ? AND color_id=? AND talla=?"
+        row = self.db.fetch_one(query, (tipo_id, variante_id, color_id, talla))
         
         cant_actual = 0
         coste_actual_cents = 0
@@ -407,21 +409,21 @@ class ProduccionImportarAlbaran:
             
         # Generar SKU si no existe
         if not sku:
-            sku = self._generar_sku_pattern(tipo_id, color_id, talla)
+            sku = self._generar_sku_pattern(tipo_id, color_id, talla, variante_id)
             
         # Upsert
         repo.crear_o_actualizar(
             tipo_id=tipo_id,
-            
             color_id=color_id,
             talla=talla,
             sku=sku,
             cantidad=cant_total,
-            coste_medio=nuevo_coste_medio
+            coste_medio=nuevo_coste_medio,
+            variante_id=variante_id
         )
 
-    def _generar_sku_pattern(self, tipo_id, color_id, talla):
-        """Genera un SKU tipo TYPE-GEN-COLOR-SIZE."""
+    def _generar_sku_pattern(self, tipo_id, color_id, talla, variante_id=None):
+        """Genera un SKU tipo TYPE-VAR-COLOR-SIZE."""
         try:
             tipo_nom = self.db.fetch_one("SELECT nombre FROM tipos WHERE id=?", (tipo_id,))[0]
             color_nom = self.db.fetch_one("SELECT nombre FROM produccion_colores WHERE id=?", (color_id,))[0]
@@ -429,11 +431,14 @@ class ProduccionImportarAlbaran:
             def clean(s): return s.upper().replace(' ', '').replace('Á', 'A').replace('É', 'E').replace('Í', 'I').replace('Ó', 'O').replace('Ú', 'U')
             
             t = clean(tipo_nom)[:3]
-            
+            v = ""
+            if variante_id:
+                var_nom = self.db.fetch_one("SELECT nombre FROM tipos_variantes WHERE id=?", (variante_id,))[0]
+                v = clean(var_nom)[:3]
             c = clean(color_nom)[:3]
             s = clean(talla)
             
-            return f"{t}-{c}-{s}"
+            return f"{t}-{v}-{c}-{s}" if v else f"{t}-{c}-{s}"
         except:
             return ""
 

@@ -24,17 +24,20 @@ class StockBaseStepColor(KeyboardNavigableMixin):
         parent: Widget padre.
         db: Instancia de Database.
         tipo_id: ID del tipo seleccionado (para filtrar colores 3D).
+        variante_id: ID de la variante seleccionada (opcional).
         on_siguiente: Callback cuando se selecciona color (recibe ProduccionColor).
         on_volver: Callback para volver al paso anterior.
     """
 
     def __init__(self, parent, db: Database, tipo_id: int = 0,
+                 variante_id: Optional[int] = None,
                  on_siguiente: Optional[Callable[[ProduccionColor], None]] = None,
                  on_volver: Optional[Callable] = None):
         KeyboardNavigableMixin.__init_keyboard_mixin__(self)
         self.parent = parent
         self.db = db
         self.tipo_id = tipo_id
+        self.variante_id = variante_id
         self.on_siguiente = on_siguiente
         self.on_volver = on_volver
         self.color_seleccionado: Optional[ProduccionColor] = None
@@ -74,7 +77,7 @@ class StockBaseStepColor(KeyboardNavigableMixin):
         self.chips_frame.pack(expand=True, fill="both", padx=40, pady=20)
 
         if self.tipo_id:
-            colores = self._service.obtener_por_tipo_3d(self.tipo_id)
+            colores = self._service.obtener_por_tipo_3d(self.tipo_id, self.variante_id)
         else:
             colores = self._service.obtener_activos()
 
