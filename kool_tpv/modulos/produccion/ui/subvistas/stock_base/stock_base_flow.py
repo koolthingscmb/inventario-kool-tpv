@@ -17,7 +17,7 @@ from kool_tpv.modulos.produccion.models.produccion_color_model import Produccion
 from kool_tpv.modulos.produccion.models.produccion_menu_model import ProduccionMenuItem
 from kool_tpv.modulos.produccion.services.produccion_menu_service import ProduccionMenuService
 from kool_tpv.modulos.produccion.services.produccion_colores_service import ProduccionColoresService
-from kool_tpv.modulos.produccion.services.produccion_generos_tallas_service import ProduccionTallasService
+from kool_tpv.modulos.produccion.services.produccion_tallas_service import ProduccionTallasService
 from kool_tpv.modulos.produccion.services.produccion_stock_base_service import ProduccionStockBaseService
 from kool_tpv.modulos.produccion.services.produccion_tipos_service import ProduccionTiposService
 from kool_tpv.modulos.produccion.services.produccion_tipos_variantes_service import ProduccionTiposVariantesService

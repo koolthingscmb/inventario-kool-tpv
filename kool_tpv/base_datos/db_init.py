@@ -192,12 +192,6 @@ def initialize_database(db_path: str) -> None:
 				db.connection.execute('ALTER TABLE proveedores ADD COLUMN mapeo_tipos TEXT')
 				db.connection.commit()
 				logging.info('Migración 012 (mapeo_tipos) aplicada correctamente')
-
-			if 'mapeo_generos' not in cols:
-				logging.info('Aplicando migración 013: mapeo_generos en proveedores')
-				db.connection.execute('ALTER TABLE proveedores ADD COLUMN mapeo_generos TEXT DEFAULT \'{}\'')
-				db.connection.commit()
-				logging.info('Migración 013 (mapeo_generos) aplicada correctamente')
 		except Exception:
 			logging.exception('Error aplicando migración 012')
 			try:

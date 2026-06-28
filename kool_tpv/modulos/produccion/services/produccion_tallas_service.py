@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.produccion.models.produccion_talla_model import ProduccionTalla
-from kool_tpv.modulos.produccion.repositories.produccion_generos_tallas_repository import (
+from kool_tpv.modulos.produccion.repositories.produccion_tallas_repository import (
     ProduccionTallasRepository,
 )
 
