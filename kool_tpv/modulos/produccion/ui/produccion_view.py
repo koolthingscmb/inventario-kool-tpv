@@ -114,6 +114,9 @@ class ProduccionView(BaseModuleView):
 		try:
 			if self.central_area.winfo_children():
 				for widget in self.central_area.winfo_children():
+					if hasattr(widget, '_volver'):
+						widget._volver()
+						return True
 					widget.destroy()
 				try:
 					self.actualizar_ruta('PRODUCCIÓN')
@@ -288,7 +291,9 @@ class ProduccionView(BaseModuleView):
 				owner=self,
 				tab_inicial=tab_inicial
 			)
-			config_ui.get_widget().pack(fill='both', expand=True)
+			widget = config_ui.get_widget()
+			widget._volver = config_ui._on_volver
+			widget.pack(fill='both', expand=True)
 			self.actualizar_ruta(f'PRODUCCIÓN / PROVEEDORES / CONFIGURAR MAPEOS ({tab_inicial})')
 			logging.info(f'Abriendo configurador de mapeos para proveedor {proveedor_id}...')
 		except Exception:
@@ -316,7 +321,9 @@ class ProduccionView(BaseModuleView):
 				proveedor_nombre=proveedor_nombre,
 				owner=self
 			)
-			importar_ui.get_widget().pack(fill='both', expand=True)
+			widget = importar_ui.get_widget()
+			widget._volver = importar_ui._on_volver_click
+			widget.pack(fill='both', expand=True)
 			self.actualizar_ruta('PRODUCCIÓN / PROVEEDORES / IMPORTAR ALBARÁN')
 			logging.info(f'Abriendo importador de albarán (proveedor {proveedor_id})...')
 		except Exception:

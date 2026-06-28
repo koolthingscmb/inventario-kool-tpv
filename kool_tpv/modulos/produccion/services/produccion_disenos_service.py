@@ -8,6 +8,8 @@ from typing import List, Optional
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.produccion.models.produccion_diseno_model import ProduccionDiseno, DisenoCoste
 from kool_tpv.modulos.produccion.repositories.produccion_disenos_repository import ProduccionDisenosRepository
+from kool_tpv.modulos.produccion.repositories.produccion_colecciones_repository import ProduccionColeccionesRepository
+from kool_tpv.modulos.produccion.repositories.produccion_sufijos_repository import ProduccionSufijosRepository
 
 
 class ProduccionDisenosService:
@@ -20,6 +22,8 @@ class ProduccionDisenosService:
 	def __init__(self, db: Database):
 		self.db = db
 		self.repository = ProduccionDisenosRepository(db)
+		self.colecciones_repo = ProduccionColeccionesRepository(db)
+		self.sufijos_repo = ProduccionSufijosRepository(db)
 
 	def obtener_todos(self) -> List[ProduccionDiseno]:
 		"""Obtener todos los diseños.
@@ -125,30 +129,31 @@ class ProduccionDisenosService:
 				best_score = score
 		return best.coste if best else 0
 
-	def generar_codigo(self, coleccion: str) -> str:
+	def generar_codigo(self, coleccion_id: int) -> str:
 		"""Generar código único para un nuevo diseño.
 
 		Formato: COLECCION + número secuencial de 2 dígitos (ANIME01, ANIME02, GAME01...).
 
 		Args:
-			coleccion: Nombre de la colección.
+			coleccion_id: ID de la colección.
 
 		Returns:
 			Código generado.
 		"""
-		prefijo = coleccion.strip().upper()[:10]
+		coleccion = self.colecciones_repo.get_por_id(coleccion_id)
+		prefijo = (coleccion.nombre if coleccion else "DES").strip().upper()[:10]
 		max_num = self.repository.obtener_max_numero_coleccion(prefijo)
 		return f"{prefijo}{max_num + 1:02d}"
 
-	def crear(self, coleccion: str, nombre: str, sufijo: Optional[str] = None,
+	def crear(self, coleccion_id: int, nombre: str, sufijo_id: Optional[int] = None,
 	          tipos: Optional[List[int]] = None, costes: Optional[dict] = None,
 	          lista_costes: Optional[List[DisenoCoste]] = None) -> Optional[str]:
 		"""Crear un nuevo diseño.
 
 		Args:
-			coleccion: Colección del diseño.
+			coleccion_id: ID de la colección del diseño.
 			nombre: Nombre del diseño.
-			sufijo: Sufijo opcional.
+			sufijo_id: ID del sufijo opcional.
 			tipos: Lista de IDs de tipos de producto (FK a tipos.id).
 			costes: Diccionario con costes por tipo (camiseta, taza, etc) en céntimos (compatibilidad).
 			lista_costes: Lista de DisenoCoste para la tabla nueva de costes dinámicos.
@@ -156,22 +161,20 @@ class ProduccionDisenosService:
 		Returns:
 			None si OK, o string con el error.
 		"""
-		if not coleccion or not nombre:
+		if not coleccion_id or not nombre:
 			return "Colección y nombre son obligatorios"
 
-		coleccion_norm = coleccion.strip()
 		nombre_norm = nombre.strip()
-		sufijo_norm = sufijo.strip() if sufijo else None
 
-		if self.repository.existe_diseno(coleccion_norm, nombre_norm, sufijo_norm):
+		if self.repository.existe_diseno(coleccion_id, nombre_norm, sufijo_id):
 			return "Ya existe un diseño con esa colección, nombre y sufijo"
 
-		codigo = self.generar_codigo(coleccion_norm)
+		codigo = self.generar_codigo(coleccion_id)
 		diseno = ProduccionDiseno(
 			codigo=codigo,
-			coleccion=coleccion.strip(),
+			coleccion_id=coleccion_id,
 			nombre=nombre.strip(),
-			sufijo=sufijo,
+			sufijo_id=sufijo_id,
 			tipos=tipos or [],
 			costes=lista_costes or [],
 			activo=1
@@ -179,16 +182,16 @@ class ProduccionDisenosService:
 		ok = self.repository.crear(diseno)
 		return None if ok else "Error guardando el diseño en la base de datos"
 
-	def actualizar(self, codigo: str, coleccion: str, nombre: str, sufijo: Optional[str] = None,
+	def actualizar(self, codigo: str, coleccion_id: int, nombre: str, sufijo_id: Optional[int] = None,
 	              tipos: Optional[List[int]] = None, costes: Optional[dict] = None,
 	              lista_costes: Optional[List[DisenoCoste]] = None) -> bool:
 		"""Actualizar un diseño existente.
 
 		Args:
 			codigo: Código del diseño a actualizar.
-			coleccion: Nueva colección.
+			coleccion_id: ID de la colección.
 			nombre: Nuevo nombre.
-			sufijo: Nuevo sufijo.
+			sufijo_id: ID del sufijo.
 			tipos: Lista de IDs de tipos de producto (FK a tipos.id).
 			costes: Nuevos costes por tipo en céntimos (compatibilidad).
 			lista_costes: Lista de DisenoCoste para la tabla nueva de costes dinámicos.
@@ -196,14 +199,14 @@ class ProduccionDisenosService:
 		Returns:
 			True si OK, False si error.
 		"""
-		if not codigo or not coleccion or not nombre:
+		if not codigo or not coleccion_id or not nombre:
 			return False
 
 		diseno = ProduccionDiseno(
 			codigo=codigo.strip(),
-			coleccion=coleccion.strip(),
+			coleccion_id=coleccion_id,
 			nombre=nombre.strip(),
-			sufijo=sufijo,
+			sufijo_id=sufijo_id,
 			tipos=tipos or [],
 			costes=lista_costes or [],
 			activo=1

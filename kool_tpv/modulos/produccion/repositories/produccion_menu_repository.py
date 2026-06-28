@@ -68,3 +68,10 @@ class ProduccionMenuRepository:
         """Borrar un elemento del menú."""
         self.db.execute_query("DELETE FROM produccion_menu WHERE id = ?", (menu_id,))
         return True
+
+    def actualizar_orden(self, menu_id: int, nuevo_orden: int):
+        """Actualizar solo el campo orden de un menú."""
+        self.db.execute_query(
+            "UPDATE produccion_menu SET orden = ? WHERE id = ?",
+            (nuevo_orden, menu_id)
+        )

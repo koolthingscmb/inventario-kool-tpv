@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from kool_tpv.base_datos.db_wrapper import Database
+from kool_tpv.base_datos.money_adapter import prepare_for_db
 
 @dataclass
 class ItemProduccion:
@@ -60,8 +61,8 @@ class ProduccionOrdenesService:
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """
                 # Convertir costes a céntimos para la BD
-                coste_u_cent = int(item.coste_unitario * 100)
-                coste_t_cent = int(item.coste_total * 100)
+                coste_u_cent = prepare_for_db(item.coste_unitario)
+                coste_t_cent = prepare_for_db(item.coste_total)
                 
                 self.db.execute_query(query_linea, (
                     orden_id, item.diseno_codigo, item.tipo_nombre, 

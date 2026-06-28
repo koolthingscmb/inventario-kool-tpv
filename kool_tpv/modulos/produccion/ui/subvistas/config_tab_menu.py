@@ -37,10 +37,8 @@ class ConfigTabMenu:
         frame_lista.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 6))
 
         columns = [
-            ("nombre", 160, "NOMBRE"),
-            ("sistema", 100, "SISTEMA"),
-            ("orden", 50, "ORDEN"),
-            ("ntipos", 50, "TIPOS"),
+            ("nombre", 200, "NOMBRE"),
+            ("ntipos", 60, "TIPOS"),
             ("estado", 40, "ACT"),
         ]
         self._nav = VirtualNavList(
@@ -72,9 +70,6 @@ class ConfigTabMenu:
         self._entry_nombre = ctk.CTkEntry(form_top, placeholder_text="Nombre del menú...", width=200)
         self._entry_nombre.pack(side=tk.LEFT, padx=(0, 4), fill=tk.X, expand=True)
 
-        self._entry_orden = ctk.CTkEntry(form_top, placeholder_text="Orden", width=60)
-        self._entry_orden.pack(side=tk.LEFT, padx=(0, 4))
-
         self._var_activo = ctk.IntVar(value=1)
         ctk.CTkCheckBox(form_top, text="Activo", variable=self._var_activo,
                         fg_color="#27ae60", text_color=self._text).pack(side=tk.LEFT, padx=(0, 4))
@@ -82,11 +77,13 @@ class ConfigTabMenu:
         ctk.CTkButton(form_top, text="GUARDAR", fg_color="#27ae60", hover_color="#2ecc71",
                       width=90, command=self._guardar).pack(side=tk.LEFT)
 
-        # Entry de sistema (segunda fila)
-        form_row2 = tk.Frame(frame_right, bg="#34495e")
-        form_row2.pack(fill="x", padx=10, pady=(0, 4))
-        self._entry_sistema = ctk.CTkEntry(form_row2, placeholder_text="Sistema (DTG, Sublimación...) opcional", width=300)
-        self._entry_sistema.pack(fill=tk.X)
+        # Botones de reordenación
+        frame_reorder = tk.Frame(frame_right, bg="#34495e")
+        frame_reorder.pack(fill="x", padx=10, pady=(0, 4))
+        ctk.CTkButton(frame_reorder, text="⬆ SUBIR", fg_color="#7f8c8d", hover_color="#95a5a6",
+                      command=lambda: self._mover(-1)).pack(side=tk.LEFT, padx=(0, 5), expand=True, fill=tk.X)
+        ctk.CTkButton(frame_reorder, text="⬇ BAJAR", fg_color="#7f8c8d", hover_color="#95a5a6",
+                      command=lambda: self._mover(1)).pack(side=tk.LEFT, padx=(5, 0), expand=True, fill=tk.X)
 
         # Separador
         sep = tk.Frame(frame_right, bg="#1a252f", height=2)
@@ -115,11 +112,8 @@ class ConfigTabMenu:
             items.append({
                 "id": m.id,
                 "nombre": m.nombre,
-                "sistema": m.sistema_produccion or "",
-                "orden": str(m.orden),
                 "ntipos": str(len(tipos_ids)),
                 "estado": "✓" if m.activo else "✗",
-                "_sistema": m.sistema_produccion,
                 "_activo": m.activo,
             })
         self._nav.set_items(items)
@@ -128,10 +122,6 @@ class ConfigTabMenu:
         self._menu_id_edit = data.get("id")
         self._entry_nombre.delete(0, tk.END)
         self._entry_nombre.insert(0, data.get("nombre", ""))
-        self._entry_sistema.delete(0, tk.END)
-        self._entry_sistema.insert(0, data.get("_sistema") or "")
-        self._entry_orden.delete(0, tk.END)
-        self._entry_orden.insert(0, data.get("orden", "0"))
         self._var_activo.set(data.get("_activo", 1))
 
         # Cargar tipos asignados a este menú
@@ -173,18 +163,28 @@ class ConfigTabMenu:
         if chip:
             chip.configure(bg=self._CHIP_SELECTED if tipo_id in self._tipos_selected else self._CHIP_NORMAL)
 
+    def _mover(self, direccion: int):
+        if not self._menu_id_edit:
+            return
+        menu_id = self._menu_id_edit
+        ok = self.service.mover_menu(menu_id, direccion)
+        if ok:
+            self._cargar_lista()
+            for i, item in enumerate(self._nav._all_data):
+                if item.get("id") == menu_id:
+                    self._nav.selected_index = i
+                    self._nav._refresh_ui()
+                    if hasattr(self._nav, '_scroll_to_index'):
+                        self._nav._scroll_to_index(i)
+                    break
+
     def _guardar(self):
         nombre = self._entry_nombre.get().strip()
         if not nombre:
             return
-        sistema = self._entry_sistema.get().strip()
-        try:
-            orden = int(self._entry_orden.get().strip() or "0")
-        except ValueError:
-            orden = 0
         activo = self._var_activo.get()
 
-        ok = self.service.guardar_menu(nombre, sistema, orden, activo, 0, self._menu_id_edit)
+        ok = self.service.guardar_menu(nombre, None, 0, activo, 0, self._menu_id_edit)
         if ok:
             if not self._menu_id_edit:
                 items = self.service.obtener_todos_menu()
@@ -202,8 +202,6 @@ class ConfigTabMenu:
     def _limpiar(self):
         self._menu_id_edit = None
         self._entry_nombre.delete(0, tk.END)
-        self._entry_sistema.delete(0, tk.END)
-        self._entry_orden.delete(0, tk.END)
         self._var_activo.set(1)
         self._tipos_selected = set()
         self._refresh_tipos_chips()

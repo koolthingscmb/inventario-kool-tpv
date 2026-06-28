@@ -7,6 +7,7 @@ import tkinter as tk
 from typing import Optional, Callable, List, Dict
 
 from kool_tpv.modulos.produccion.services.produccion_disenos_service import ProduccionDisenosService
+from kool_tpv.modulos.produccion.repositories.produccion_colecciones_repository import ProduccionColeccionesRepository
 from kool_tpv.modulos.produccion.models.produccion_diseno_model import ProduccionDiseno
 
 
@@ -27,6 +28,7 @@ class DisenoSearchWidget:
 		self.titulo = titulo
 		self.diseno_seleccionado: Optional[str] = None
 		self.disenos_service = ProduccionDisenosService(db)
+		self._colecciones_repo = ProduccionColeccionesRepository(db)
 		self.resultados: List[ProduccionDiseno] = []
 
 		# Frame principal
@@ -114,8 +116,10 @@ class DisenoSearchWidget:
 		self.listbox.delete(0, tk.END)
 		for diseno in self.resultados:
 			texto = f"{diseno.codigo} - {diseno.nombre}"
-			if diseno.coleccion:
-				texto += f" ({diseno.coleccion})"
+			if diseno.coleccion_id:
+				col = self._colecciones_repo.get_por_id(diseno.coleccion_id)
+				if col:
+					texto += f" ({col.nombre})"
 			self.listbox.insert(tk.END, texto)
 
 	def _on_doble_clic(self, event):

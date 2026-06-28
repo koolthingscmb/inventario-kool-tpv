@@ -66,11 +66,11 @@ class ProduccionDisenosRepository:
 			Lista de objetos ProduccionDiseno.
 		"""
 		query = """
-			SELECT codigo, coleccion, nombre, sufijo,
-			       coste_camiseta, coste_taza, coste_gorra, coste_calcetin,
-			       coste_libreta, coste_poster, coste_cartera, activo
-			FROM produccion_disenos
-			ORDER BY coleccion, nombre
+			SELECT d.codigo, d.coleccion_id, d.nombre, d.sufijo_id,
+			       d.coste_camiseta, d.coste_taza, d.coste_gorra, d.coste_calcetin,
+			       d.coste_libreta, d.coste_poster, d.coste_cartera, d.activo
+			FROM produccion_disenos d
+			ORDER BY (SELECT nombre FROM produccion_colecciones WHERE id = d.coleccion_id), d.nombre
 		"""
 		rows = self.db.fetch_all(query)
 		codigos = [r[0] for r in rows]
@@ -79,14 +79,14 @@ class ProduccionDisenosRepository:
 
 		disenos: List[ProduccionDiseno] = []
 		for row in rows:
-			(codigo, coleccion, nombre, sufijo,
+			(codigo, coleccion_id, nombre, sufijo_id,
 			 coste_camiseta, coste_taza, coste_gorra, coste_calcetin,
 			 coste_libreta, coste_poster, coste_cartera, activo) = row
 			disenos.append(ProduccionDiseno(
 				codigo=codigo,
-				coleccion=coleccion,
+				coleccion_id=coleccion_id or 0,
 				nombre=nombre,
-				sufijo=sufijo,
+				sufijo_id=sufijo_id,
 				tipos=tipos_map.get(codigo, []),
 				costes=costes_map.get(codigo, []),
 				coste_camiseta=coste_camiseta or 0,
@@ -107,12 +107,12 @@ class ProduccionDisenosRepository:
 			Lista de objetos ProduccionDiseno con activo=1.
 		"""
 		query = """
-			SELECT codigo, coleccion, nombre, sufijo,
-			       coste_camiseta, coste_taza, coste_gorra, coste_calcetin,
-			       coste_libreta, coste_poster, coste_cartera, activo
-			FROM produccion_disenos
-			WHERE activo = 1
-			ORDER BY coleccion, nombre
+			SELECT d.codigo, d.coleccion_id, d.nombre, d.sufijo_id,
+			       d.coste_camiseta, d.coste_taza, d.coste_gorra, d.coste_calcetin,
+			       d.coste_libreta, d.coste_poster, d.coste_cartera, d.activo
+			FROM produccion_disenos d
+			WHERE d.activo = 1
+			ORDER BY (SELECT nombre FROM produccion_colecciones WHERE id = d.coleccion_id), d.nombre
 		"""
 		rows = self.db.fetch_all(query)
 		codigos = [r[0] for r in rows]
@@ -121,14 +121,14 @@ class ProduccionDisenosRepository:
 
 		disenos: List[ProduccionDiseno] = []
 		for row in rows:
-			(codigo, coleccion, nombre, sufijo,
+			(codigo, coleccion_id, nombre, sufijo_id,
 			 coste_camiseta, coste_taza, coste_gorra, coste_calcetin,
 			 coste_libreta, coste_poster, coste_cartera, activo) = row
 			disenos.append(ProduccionDiseno(
 				codigo=codigo,
-				coleccion=coleccion,
+				coleccion_id=coleccion_id or 0,
 				nombre=nombre,
-				sufijo=sufijo,
+				sufijo_id=sufijo_id,
 				tipos=tipos_map.get(codigo, []),
 				costes=costes_map.get(codigo, []),
 				coste_camiseta=coste_camiseta or 0,
@@ -152,7 +152,7 @@ class ProduccionDisenosRepository:
 			Objeto ProduccionDiseno o None si no existe.
 		"""
 		query = """
-			SELECT codigo, coleccion, nombre, sufijo,
+			SELECT codigo, coleccion_id, nombre, sufijo_id,
 			       coste_camiseta, coste_taza, coste_gorra, coste_calcetin,
 			       coste_libreta, coste_poster, coste_cartera, activo
 			FROM produccion_disenos
@@ -166,14 +166,14 @@ class ProduccionDisenosRepository:
 		tipos_map = self._get_tipos_para_disenos([codigo])
 		costes_map = self._get_costes_para_disenos([codigo])
 
-		(codigo, coleccion, nombre, sufijo,
+		(codigo, coleccion_id, nombre, sufijo_id,
 		 coste_camiseta, coste_taza, coste_gorra, coste_calcetin,
 		 coste_libreta, coste_poster, coste_cartera, activo) = rows[0]
 		return ProduccionDiseno(
 			codigo=codigo,
-			coleccion=coleccion,
+			coleccion_id=coleccion_id or 0,
 			nombre=nombre,
-			sufijo=sufijo,
+			sufijo_id=sufijo_id,
 			tipos=tipos_map.get(codigo, []),
 			costes=costes_map.get(codigo, []),
 			coste_camiseta=coste_camiseta or 0,
@@ -198,7 +198,7 @@ class ProduccionDisenosRepository:
 		params = []
 
 		# Término completo
-		condiciones.append("(codigo LIKE ? OR nombre LIKE ? OR coleccion LIKE ?)")
+		condiciones.append("(d.codigo LIKE ? OR d.nombre LIKE ? OR c.nombre LIKE ?)")
 		term_completo = f"%{filtro}%"
 		params.extend([term_completo, term_completo, term_completo])
 
@@ -206,18 +206,19 @@ class ProduccionDisenosRepository:
 		if len(palabras) > 1:
 			for p in palabras:
 				if len(p) > 2:
-					condiciones.append("(nombre LIKE ? OR coleccion LIKE ?)")
+					condiciones.append("(d.nombre LIKE ? OR c.nombre LIKE ?)")
 					term_p = f"%{p}%"
 					params.extend([term_p, term_p])
 
 		query = f"""
-			SELECT DISTINCT codigo, coleccion, nombre, sufijo,
-			       coste_camiseta, coste_taza, coste_gorra, coste_calcetin,
-			       coste_libreta, coste_poster, coste_cartera, activo
-			FROM produccion_disenos
-			WHERE activo = 1
+			SELECT DISTINCT d.codigo, d.coleccion_id, d.nombre, d.sufijo_id,
+			       d.coste_camiseta, d.coste_taza, d.coste_gorra, d.coste_calcetin,
+			       d.coste_libreta, d.coste_poster, d.coste_cartera, d.activo
+			FROM produccion_disenos d
+			LEFT JOIN produccion_colecciones c ON c.id = d.coleccion_id
+			WHERE d.activo = 1
 			  AND ({" OR ".join(condiciones)})
-			ORDER BY coleccion, nombre
+			ORDER BY c.nombre, d.nombre
 		"""
 		
 		rows = self.db.fetch_all(query, tuple(params))
@@ -230,14 +231,14 @@ class ProduccionDisenosRepository:
 
 		disenos: List[ProduccionDiseno] = []
 		for row in rows:
-			(codigo, coleccion, nombre, sufijo,
+			(codigo, coleccion_id, nombre, sufijo_id,
 			 coste_camiseta, coste_taza, coste_gorra, coste_calcetin,
 			 coste_libreta, coste_poster, coste_cartera, activo) = row
 			disenos.append(ProduccionDiseno(
 				codigo=codigo,
-				coleccion=coleccion,
+				coleccion_id=coleccion_id or 0,
 				nombre=nombre,
-				sufijo=sufijo,
+				sufijo_id=sufijo_id,
 				tipos=tipos_map.get(codigo, []),
 				costes=costes_map.get(codigo, []),
 				coste_camiseta=coste_camiseta or 0,
@@ -264,13 +265,13 @@ class ProduccionDisenosRepository:
 			# 1. Insertar diseño
 			query = """
 				INSERT INTO produccion_disenos
-				(codigo, coleccion, nombre, sufijo,
+				(codigo, coleccion_id, nombre, sufijo_id,
 				 coste_camiseta, coste_taza, coste_gorra, coste_calcetin,
 				 coste_libreta, coste_poster, coste_cartera, activo)
 				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			"""
 			self.db.execute_query(query, (
-				diseno.codigo, diseno.coleccion, diseno.nombre, diseno.sufijo,
+				diseno.codigo, diseno.coleccion_id, diseno.nombre, diseno.sufijo_id,
 				diseno.coste_camiseta, diseno.coste_taza,
 				diseno.coste_gorra, diseno.coste_calcetin, diseno.coste_libreta,
 				diseno.coste_poster, diseno.coste_cartera, diseno.activo
@@ -313,14 +314,14 @@ class ProduccionDisenosRepository:
 			# 1. Actualizar diseño
 			query = """
 				UPDATE produccion_disenos
-				SET coleccion = ?, nombre = ?, sufijo = ?,
+				SET coleccion_id = ?, nombre = ?, sufijo_id = ?,
 				    coste_camiseta = ?, coste_taza = ?, coste_gorra = ?,
 				    coste_calcetin = ?, coste_libreta = ?, coste_poster = ?,
 				    coste_cartera = ?, activo = ?
 				WHERE codigo = ?
 			"""
 			self.db.execute_query(query, (
-				diseno.coleccion, diseno.nombre, diseno.sufijo,
+				diseno.coleccion_id, diseno.nombre, diseno.sufijo_id,
 				diseno.coste_camiseta, diseno.coste_taza, diseno.coste_gorra,
 				diseno.coste_calcetin, diseno.coste_libreta, diseno.coste_poster,
 				diseno.coste_cartera, diseno.activo, diseno.codigo
@@ -399,27 +400,27 @@ class ProduccionDisenosRepository:
 			logging.exception(f"Error obteniendo max número para prefijo {prefijo}")
 			return 0
 
-	def existe_diseno(self, coleccion: str, nombre: str, sufijo: Optional[str] = None) -> bool:
+	def existe_diseno(self, coleccion_id: int, nombre: str, sufijo_id: Optional[int] = None) -> bool:
 		"""Comprobar si ya existe un diseño con esa colección, nombre y sufijo.
 
 		Args:
-			coleccion: Colección del diseño.
+			coleccion_id: ID de la colección del diseño.
 			nombre: Nombre del diseño.
-			sufijo: Sufijo (opcional).
+			sufijo_id: ID del sufijo (opcional).
 
 		Returns:
 			True si ya existe, False si no.
 		"""
 		try:
-			if sufijo:
+			if sufijo_id:
 				rows = self.db.fetch_all(
-					"SELECT 1 FROM produccion_disenos WHERE LOWER(coleccion) = LOWER(?) AND LOWER(nombre) = LOWER(?) AND LOWER(sufijo) = LOWER(?) AND activo = 1 LIMIT 1",
-					(coleccion, nombre, sufijo)
+					"SELECT 1 FROM produccion_disenos WHERE coleccion_id = ? AND LOWER(nombre) = LOWER(?) AND sufijo_id = ? AND activo = 1 LIMIT 1",
+					(coleccion_id, nombre, sufijo_id)
 				)
 			else:
 				rows = self.db.fetch_all(
-					"SELECT 1 FROM produccion_disenos WHERE LOWER(coleccion) = LOWER(?) AND LOWER(nombre) = LOWER(?) AND (sufijo IS NULL OR sufijo = '') AND activo = 1 LIMIT 1",
-					(coleccion, nombre)
+					"SELECT 1 FROM produccion_disenos WHERE coleccion_id = ? AND LOWER(nombre) = LOWER(?) AND (sufijo_id IS NULL) AND activo = 1 LIMIT 1",
+					(coleccion_id, nombre)
 				)
 			return len(rows) > 0
 		except Exception:

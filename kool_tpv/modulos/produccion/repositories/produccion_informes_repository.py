@@ -63,10 +63,11 @@ class ProduccionInformesRepository:
             fi = f"{fecha_inicio} 00:00:00"
             ff = f"{fecha_fin} 23:59:59"
             query = """SELECT l.diseno_codigo, COALESCE(d.nombre, l.diseno_codigo),
-                        COALESCE(d.coleccion, '-'), COALESCE(SUM(l.cantidad), 0), COALESCE(SUM(l.coste_total), 0)
+                        COALESCE(c.nombre, '-'), COALESCE(SUM(l.cantidad), 0), COALESCE(SUM(l.coste_total), 0)
                        FROM produccion_lineas l
                        JOIN produccion_ordenes o ON o.id = l.orden_id
                        LEFT JOIN produccion_disenos d ON d.codigo = l.diseno_codigo
+                       LEFT JOIN produccion_colecciones c ON c.id = d.coleccion_id
                        WHERE o.fecha_hora BETWEEN ? AND ?
                        GROUP BY l.diseno_codigo ORDER BY SUM(l.cantidad) DESC"""
             rows = self.db.fetch_all(query, (fi, ff))
@@ -82,13 +83,14 @@ class ProduccionInformesRepository:
         try:
             fi = f"{fecha_inicio} 00:00:00"
             ff = f"{fecha_fin} 23:59:59"
-            query = """SELECT COALESCE(d.coleccion, 'SIN COLECCIÓN'),
+            query = """SELECT COALESCE(c.nombre, 'SIN COLECCIÓN'),
                         COALESCE(SUM(l.cantidad), 0), COALESCE(SUM(l.coste_total), 0), COUNT(DISTINCT l.diseno_codigo)
                        FROM produccion_lineas l
                        JOIN produccion_ordenes o ON o.id = l.orden_id
                        LEFT JOIN produccion_disenos d ON d.codigo = l.diseno_codigo
+                       LEFT JOIN produccion_colecciones c ON c.id = d.coleccion_id
                        WHERE o.fecha_hora BETWEEN ? AND ?
-                       GROUP BY d.coleccion ORDER BY SUM(l.cantidad) DESC"""
+                       GROUP BY c.nombre ORDER BY SUM(l.cantidad) DESC"""
             rows = self.db.fetch_all(query, (fi, ff))
             return [{'coleccion': r[0] or 'SIN COLECCIÓN', 'unidades': int(r[1]),
                      'coste_total': int(r[2]), 'num_disenos': int(r[3])} for r in rows or []]
@@ -138,11 +140,12 @@ class ProduccionInformesRepository:
             fi = f"{fecha_inicio} 00:00:00"
             ff = f"{fecha_fin} 23:59:59"
             query = """SELECT dv.diseno_codigo, COALESCE(d.nombre, dv.diseno_codigo),
-                        COALESCE(d.coleccion, '-'), COALESCE(SUM(dv.cantidad), 0),
+                        COALESCE(c.nombre, '-'), COALESCE(SUM(dv.cantidad), 0),
                         COALESCE(SUM(tk.total), 0)
                        FROM produccion_disenos_ventas dv
                        JOIN tickets tk ON tk.id = dv.ticket_id
                        LEFT JOIN produccion_disenos d ON d.codigo = dv.diseno_codigo
+                       LEFT JOIN produccion_colecciones c ON c.id = d.coleccion_id
                        WHERE dv.fecha_venta BETWEEN ? AND ?
                        GROUP BY dv.diseno_codigo ORDER BY SUM(dv.cantidad) DESC"""
             rows = self.db.fetch_all(query, (fi, ff))

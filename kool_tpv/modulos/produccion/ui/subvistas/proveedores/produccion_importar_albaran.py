@@ -57,6 +57,9 @@ class ProduccionImportarAlbaran:
         
         self._cargar_mapeos()
         self._setup_ui()
+        
+        self._esc_handler = lambda e: self._on_volver_click()
+        self._bind_esc_recursive(self.container)
 
     def _cargar_mapeos(self):
         """Cargar configuración de colores y variantes."""
@@ -342,6 +345,7 @@ class ProduccionImportarAlbaran:
                 'color_interno': color_mapeado or '???',
                 'talla_prov': talla_prov,
                 'talla_kool': talla_mapeada or '???',
+                'talla_id': talla_id,
                 'uds': uds,
                 'coste': coste,
                 'total': uds * coste,
@@ -437,7 +441,8 @@ class ProduccionImportarAlbaran:
                     talla=p['talla_kool'],
                     cantidad_nueva=p['uds'],
                     coste_nuevo_eur=p['coste'],
-                    variante_id=p.get('variante_id')
+                    variante_id=p.get('variante_id'),
+                    talla_id=p.get('talla_id')
                 )
                 
             ToastWidget.show(self.container, "Albarán procesado y stock actualizado", tipo='success')
@@ -450,6 +455,11 @@ class ProduccionImportarAlbaran:
     def _on_volver_click(self):
         if self.owner and hasattr(self.owner, 'show_proveedores'):
             self.owner.show_proveedores(proveedor_id=self.proveedor_id)
+
+    def _bind_esc_recursive(self, widget):
+        widget.bind('<Escape>', self._esc_handler)
+        for child in widget.winfo_children():
+            self._bind_esc_recursive(child)
 
     def get_widget(self):
         return self.container

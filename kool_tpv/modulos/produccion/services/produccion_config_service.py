@@ -12,6 +12,8 @@ from kool_tpv.modulos.produccion.repositories.produccion_relaciones_repository i
 from kool_tpv.modulos.produccion.repositories.produccion_tipos_repository import ProduccionTiposRepository
 from kool_tpv.modulos.produccion.repositories.produccion_menu_repository import ProduccionMenuRepository
 from kool_tpv.modulos.produccion.repositories.produccion_menu_tipos_repository import ProduccionMenuTiposRepository
+from kool_tpv.modulos.produccion.repositories.produccion_colecciones_repository import ProduccionColeccionesRepository, ProduccionColeccion
+from kool_tpv.modulos.produccion.repositories.produccion_sufijos_repository import ProduccionSufijosRepository, ProduccionSufijo
 from kool_tpv.modulos.produccion.models.produccion_menu_model import ProduccionMenuItem
 from kool_tpv.modulos.produccion.models.produccion_tipo_variante_model import ProduccionTipoVariante
 from kool_tpv.modulos.produccion.models.produccion_tipos_model import ProduccionTipo
@@ -26,6 +28,8 @@ class ProduccionConfigService:
         self.tipos_repo = ProduccionTiposRepository(db)
         self.menu_repo = ProduccionMenuRepository(db)
         self.menu_tipos_repo = ProduccionMenuTiposRepository(db)
+        self.colecciones_repo = ProduccionColeccionesRepository(db)
+        self.sufijos_repo = ProduccionSufijosRepository(db)
         self._stock_service = ProduccionStockBaseService(db)
 
     # --- Gestión de Colores ---
@@ -154,6 +158,30 @@ class ProduccionConfigService:
         """Obtener coste medio ponderado de una variante desde el stock."""
         return self._stock_service.obtener_coste_medio_variante(tipo_id, variante_id)
 
+    def mover_menu(self, menu_id: int, direccion: int) -> bool:
+        """Intercambiar el orden de un menú con su vecino.
+        
+        Args:
+            menu_id: ID del menú a mover.
+            direccion: -1 para subir, +1 para bajar.
+        """
+        menus = self.menu_repo.get_todos()
+        idx = None
+        for i, m in enumerate(menus):
+            if m.id == menu_id:
+                idx = i
+                break
+        if idx is None:
+            return False
+        nuevo_idx = idx + direccion
+        if nuevo_idx < 0 or nuevo_idx >= len(menus):
+            return False
+        m_actual = menus[idx]
+        m_vecino = menus[nuevo_idx]
+        self.menu_repo.actualizar_orden(m_actual.id, m_vecino.orden)
+        self.menu_repo.actualizar_orden(m_vecino.id, m_actual.orden)
+        return True
+
     def guardar_menu(self, nombre: str, sistema_produccion: str, orden: int,
                      activo: int, tipo_id: int, menu_id: Optional[int] = None) -> bool:
         """Crear o actualizar un elemento del menú."""
@@ -188,3 +216,29 @@ class ProduccionConfigService:
         """Sincronizar los tipos asignados a un menú."""
         self.menu_tipos_repo.actualizar_tipos_menu(menu_id, tipos_ids)
         return True
+
+    # --- Gestión de Colecciones ---
+
+    def obtener_colecciones(self) -> List[ProduccionColeccion]:
+        return self.colecciones_repo.get_activas()
+
+    def guardar_coleccion(self, nombre: str, coleccion_id: Optional[int] = None) -> bool:
+        if coleccion_id:
+            return self.colecciones_repo.actualizar(coleccion_id, nombre, 1)
+        return self.colecciones_repo.crear(nombre) is not None
+
+    def eliminar_coleccion(self, coleccion_id: int) -> bool:
+        return self.colecciones_repo.eliminar(coleccion_id)
+
+    # --- Gestión de Sufijos ---
+
+    def obtener_sufijos(self) -> List[ProduccionSufijo]:
+        return self.sufijos_repo.get_activos()
+
+    def guardar_sufijo(self, nombre: str, sufijo_id: Optional[int] = None) -> bool:
+        if sufijo_id:
+            return self.sufijos_repo.actualizar(sufijo_id, nombre, 1)
+        return self.sufijos_repo.crear(nombre) is not None
+
+    def eliminar_sufijo(self, sufijo_id: int) -> bool:
+        return self.sufijos_repo.eliminar(sufijo_id)

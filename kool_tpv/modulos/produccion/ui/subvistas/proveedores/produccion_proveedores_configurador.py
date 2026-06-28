@@ -44,6 +44,9 @@ class ProduccionProveedoresConfigurador:
         self.content_area = ctk.CTkFrame(self.container, fg_color='transparent')
         self.content_area.grid(row=2, column=0, sticky='nsew', padx=20, pady=(0, 20))
         
+        self._esc_handler = lambda e: self._on_volver()
+        self._bind_esc_recursive(self.container)
+        
         self.current_tab = None
         self.current_widget = None
         
@@ -103,7 +106,9 @@ class ProduccionProveedoresConfigurador:
         elif tab_name == 'COLORES': self.current_widget = self._build_mapping_tab('colores')
         elif tab_name == 'TALLAS': self.current_widget = self._build_mapping_tab('tallas')
             
-        if self.current_widget: self.current_widget.pack(fill='both', expand=True)
+        if self.current_widget:
+            self.current_widget.pack(fill='both', expand=True)
+            self._bind_esc_recursive(self.current_widget)
 
     def _update_temp_data(self):
         if not hasattr(self, 'mapping_entries') or not self.current_tab:
@@ -262,5 +267,10 @@ class ProduccionProveedoresConfigurador:
     def _on_volver(self):
         if self.owner and hasattr(self.owner, 'show_proveedores_with_id'): self.owner.show_proveedores_with_id(self.proveedor_id)
         elif self.owner and hasattr(self.owner, 'show_proveedores'): self.owner.show_proveedores(self.proveedor_id)
+
+    def _bind_esc_recursive(self, widget):
+        widget.bind('<Escape>', self._esc_handler)
+        for child in widget.winfo_children():
+            self._bind_esc_recursive(child)
 
     def get_widget(self): return self.container

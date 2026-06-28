@@ -10,6 +10,7 @@ from typing import List, Optional
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import get_font, get_chip_config, get_chip_style
 from kool_tpv.modulos.produccion.services.produccion_tipos_variantes_service import ProduccionTiposVariantesService
 from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
+from kool_tpv.base_datos.money_adapter import prepare_for_db, read_from_db
 
 
 class ConfigTabVariantes:
@@ -161,7 +162,7 @@ class ConfigTabVariantes:
         for v in variantes:
             coste_medio = self.config_service.obtener_coste_medio_variante(
                 self._tipo_selected_id, v.id if v.id else None)
-            coste_str = f"{coste_medio / 100:.2f}€" if coste_medio > 0 else "-"
+            coste_str = f"{read_from_db(coste_medio):.2f}€" if coste_medio > 0 else "-"
             estado_str = "✓" if v.activo else "✗"
 
             row_frame = tk.Frame(self._variantes_scroll, bg="#34495e", cursor="hand2")
@@ -241,7 +242,7 @@ class ConfigTabVariantes:
 
         try:
             precio_val = float(self._entry_precio_nuevo.get().replace(",", ".") or "0")
-            precio_cents = int(round(precio_val * 100))
+            precio_cents = prepare_for_db(precio_val)
         except ValueError:
             ToastWidget.show(self.parent, "Precio debe ser numérico", tipo="error")
             return

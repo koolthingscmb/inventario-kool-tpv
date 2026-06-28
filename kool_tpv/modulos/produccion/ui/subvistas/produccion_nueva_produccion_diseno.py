@@ -13,6 +13,8 @@ import customtkinter as ctk
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.produccion.models.produccion_diseno_model import ProduccionDiseno
 from kool_tpv.modulos.produccion.services.produccion_disenos_service import ProduccionDisenosService
+from kool_tpv.modulos.produccion.repositories.produccion_colecciones_repository import ProduccionColeccionesRepository
+from kool_tpv.modulos.produccion.repositories.produccion_sufijos_repository import ProduccionSufijosRepository
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font, get_nav_button_config, get_nav_button_style
 from kool_tpv.utils.widgets.searchable_paginated_navlist import SearchablePaginatedNavList
 from kool_tpv.utils.config_loader import load_layout_config
@@ -42,6 +44,8 @@ class NuevaProduccionDisenoView:
 
 		# Servicio para cargar diseños desde BD
 		self._service = ProduccionDisenosService(db)
+		self._colecciones_repo = ProduccionColeccionesRepository(db)
+		self._sufijos_repo = ProduccionSufijosRepository(db)
 
 		# Cargar configuración
 		self.config = cargar_config_produccion()
@@ -144,10 +148,12 @@ class NuevaProduccionDisenoView:
 
 	def _map_diseno(self, diseno: ProduccionDiseno) -> dict:
 		"""Mapear un ProduccionDiseno a dict para VirtualNavList."""
+		coleccion = self._colecciones_repo.get_por_id(diseno.coleccion_id)
+		sufijo = self._sufijos_repo.get_por_id(diseno.sufijo_id) if diseno.sufijo_id else None
 		return {
 			"nombre": diseno.nombre or "",
-			"coleccion": diseno.coleccion or "",
-			"sufijo": diseno.sufijo or "",
+			"coleccion": coleccion.nombre if coleccion else "",
+			"sufijo": sufijo.nombre if sufijo else "",
 			"_obj": diseno,
 		}
 

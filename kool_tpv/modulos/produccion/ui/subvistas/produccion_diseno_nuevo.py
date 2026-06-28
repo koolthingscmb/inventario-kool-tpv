@@ -15,10 +15,13 @@ from kool_tpv.modulos.produccion.models.produccion_diseno_model import Produccio
 from kool_tpv.modulos.produccion.services.produccion_disenos_service import ProduccionDisenosService
 from kool_tpv.modulos.produccion.services.produccion_tipos_service import ProduccionTiposService
 from kool_tpv.modulos.produccion.services.produccion_tipos_variantes_service import ProduccionTiposVariantesService
+from kool_tpv.modulos.produccion.repositories.produccion_colecciones_repository import ProduccionColeccionesRepository
+from kool_tpv.modulos.produccion.repositories.produccion_sufijos_repository import ProduccionSufijosRepository
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font, get_nav_button_config, get_nav_button_style
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.widgets.searchable_paginated_navlist import SearchablePaginatedNavList
 from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
+from kool_tpv.base_datos.money_adapter import prepare_for_db, read_from_db
 
 
 def _normalizar(texto: str) -> str:
@@ -42,6 +45,8 @@ class DisenoNuevoView:
 		self.service = ProduccionDisenosService(db)
 		self.tipos_service = ProduccionTiposService(db)
 		self.variantes_service = ProduccionTiposVariantesService(db)
+		self.colecciones_repo = ProduccionColeccionesRepository(db)
+		self.sufijos_repo = ProduccionSufijosRepository(db)
 
 		# Estado de edición
 		self._diseno_cargado: Optional[ProduccionDiseno] = None
@@ -76,23 +81,17 @@ class DisenoNuevoView:
 		return get_font(self.config, key)
 
 	def _cargar_colecciones(self) -> List[str]:
-		"""Obtener colecciones existentes (DISTINCT) normalizadas."""
+		"""Obtener colecciones activas desde la tabla produccion_colecciones."""
 		try:
-			rows = self.db.fetch_all(
-				"SELECT DISTINCT coleccion FROM produccion_disenos WHERE coleccion IS NOT NULL AND coleccion != '' ORDER BY coleccion"
-			)
-			return [_normalizar(r[0]) for r in rows if r[0]]
+			return [c.nombre for c in self.colecciones_repo.get_activas()]
 		except Exception:
 			logging.exception("Error cargando colecciones")
 			return []
 
 	def _cargar_sufijos(self) -> List[str]:
-		"""Obtener sufijos existentes (DISTINCT) normalizados."""
+		"""Obtener sufijos activos desde la tabla produccion_sufijos."""
 		try:
-			rows = self.db.fetch_all(
-				"SELECT DISTINCT sufijo FROM produccion_disenos WHERE sufijo IS NOT NULL AND sufijo != '' ORDER BY sufijo"
-			)
-			return [_normalizar(r[0]) for r in rows if r[0]]
+			return [s.nombre for s in self.sufijos_repo.get_activos()]
 		except Exception:
 			logging.exception("Error cargando sufijos")
 			return []
@@ -178,10 +177,19 @@ class DisenoNuevoView:
 			col_frame,
 			values=self._colecciones,
 			placeholder="Selecciona colección...",
-			module_name="produccion"
+			module_name="produccion",
+			command=self._on_coleccion_selected
 		)
 		self._combo_coleccion.pack(fill="x")
 		self._combo_coleccion.entry.bind("<Tab>", self._on_tab_next)
+
+		self._btn_add_coleccion = ctk.CTkButton(
+			col_frame, text="+", width=24, height=24,
+			fg_color="transparent", hover_color="#3a3a3a", text_color=self._text,
+			font=self._get_font("button"),
+			command=self._on_add_coleccion
+		)
+		self._btn_add_coleccion.pack(side="left", padx=(2, 0))
 
 		# Sufijo
 		var_frame = ctk.CTkFrame(top_row, fg_color="transparent")
@@ -200,10 +208,19 @@ class DisenoNuevoView:
 			var_frame,
 			values=self._sufijos,
 			placeholder="Selecciona sufijo...",
-			module_name="produccion"
+			module_name="produccion",
+			command=self._on_sufijo_selected
 		)
 		self._combo_sufijo.pack(fill="x")
 		self._combo_sufijo.entry.bind("<Tab>", self._on_tab_next)
+
+		self._btn_add_sufijo = ctk.CTkButton(
+			var_frame, text="+", width=24, height=24,
+			fg_color="transparent", hover_color="#3a3a3a", text_color=self._text,
+			font=self._get_font("button"),
+			command=self._on_add_sufijo
+		)
+		self._btn_add_sufijo.pack(side="left", padx=(2, 0))
 
 		# --- SearchablePaginatedNavList ---
 		from kool_tpv.utils.config_loader import load_layout_config
@@ -213,8 +230,8 @@ class DisenoNuevoView:
 
 		columns = [
 			("nombre", 200, "Nombre"),
-			("coleccion", 150, "Colección"),
-			("sufijo", 150, "Sufijo"),
+			("coleccion_nombre", 150, "Colección"),
+			("sufijo_nombre", 150, "Sufijo"),
 			("tipos_nombres", 200, "Tipos")
 		]
 
@@ -368,7 +385,7 @@ class DisenoNuevoView:
 				entry = ctk.CTkEntry(cell, placeholder_text="0.00", width=70, font=self._get_font("entry"))
 				entry.pack(side="left", padx=(0, 4))
 				if item.get("coste"):
-					entry.insert(0, f"{item['coste'] / 100:.2f}")
+					entry.insert(0, f"{read_from_db(item['coste']):.2f}")
 				item["entry"] = entry
 
 				btn_x = ctk.CTkButton(
@@ -391,7 +408,7 @@ class DisenoNuevoView:
 			if entry:
 				try:
 					val = entry.get().strip().replace(",", ".")
-					coste_cent = int(float(val) * 100) if val else 0
+					coste_cent = prepare_for_db(val) if val else 0
 				except ValueError:
 					coste_cent = 0
 			else:
@@ -474,11 +491,13 @@ class DisenoNuevoView:
 	def _map_diseno_para_lista(self, r: ProduccionDiseno) -> dict:
 		"""Función de mapeo para SearchablePaginatedNavList."""
 		tipos_nombres = ", ".join([self._cache_tipos.get(tid, str(tid)) for tid in r.tipos])
+		coleccion_nombre = self._get_coleccion_nombre(r.coleccion_id)
+		sufijo_nombre = self._get_sufijo_nombre(r.sufijo_id) if r.sufijo_id else ""
 		return {
 			"codigo": r.codigo,
 			"nombre": r.nombre,
-			"coleccion": r.coleccion,
-			"sufijo": r.sufijo or "",
+			"coleccion_nombre": coleccion_nombre,
+			"sufijo_nombre": sufijo_nombre,
 			"tipos_nombres": tipos_nombres,
 			"obj": r
 		}
@@ -492,8 +511,10 @@ class DisenoNuevoView:
 		self._entry_nombre.delete(0, tk.END)
 		self._entry_nombre.insert(0, diseno.nombre)
 		
-		self._combo_coleccion.set(diseno.coleccion)
-		self._combo_sufijo.set(diseno.sufijo or "")
+		coleccion_nombre = self._get_coleccion_nombre(diseno.coleccion_id)
+		sufijo_nombre = self._get_sufijo_nombre(diseno.sufijo_id) if diseno.sufijo_id else ""
+		self._combo_coleccion.set(coleccion_nombre)
+		self._combo_sufijo.set(sufijo_nombre)
 		
 		# Cargar costes existentes en el grid
 		self._coste_items = []
@@ -518,8 +539,13 @@ class DisenoNuevoView:
 
 	def _on_guardar(self):
 		"""Guardar o Modificar el diseño."""
-		coleccion = _normalizar(self._combo_coleccion.get())
-		sufijo = _normalizar(self._combo_sufijo.get())
+		coleccion_nombre = self._combo_coleccion.get().strip()
+		sufijo_nombre = self._combo_sufijo.get().strip()
+		# Resolver IDs desde los nombres
+		coleccion_obj = self.colecciones_repo.get_por_nombre(coleccion_nombre) if coleccion_nombre else None
+		coleccion_id = coleccion_obj.id if coleccion_obj else None
+		sufijo_obj = self.sufijos_repo.get_por_nombre(sufijo_nombre) if sufijo_nombre else None
+		sufijo_id = sufijo_obj.id if sufijo_obj else None
 		# Recopilar tipos_ids desde los items de coste
 		tipos_ids = list(set(item["tipo_id"] for item in self._coste_items))
 		nombre = self._entry_nombre.get().strip()
@@ -528,7 +554,7 @@ class DisenoNuevoView:
 			ToastWidget.show(self.frame, "El nombre del diseño es obligatorio", tipo="warning")
 			self._entry_nombre.focus_set()
 			return
-		if not coleccion:
+		if not coleccion_id:
 			ToastWidget.show(self.frame, "La colección es obligatoria", tipo="warning")
 			self._combo_coleccion.entry.focus_set()
 			return
@@ -538,9 +564,9 @@ class DisenoNuevoView:
 			lista_costes = self._build_lista_costes()
 			ok = self.service.actualizar(
 				codigo=self._diseno_cargado.codigo,
-				coleccion=coleccion,
+				coleccion_id=coleccion_id,
 				nombre=nombre,
-				sufijo=sufijo if sufijo else None,
+				sufijo_id=sufijo_id,
 				tipos=tipos_ids,
 				lista_costes=lista_costes
 			)
@@ -551,17 +577,17 @@ class DisenoNuevoView:
 				ToastWidget.show(self.frame, "Error al modificar el diseño", tipo="error")
 		else:
 			# MODO CREAR (Verificar duplicado exacto antes)
-			if self.service.repository.existe_diseno(coleccion, nombre, sufijo if sufijo else None):
+			if self.service.repository.existe_diseno(coleccion_id, nombre, sufijo_id):
 				from kool_tpv.utils.dialogs import show_warning as show_confirm_dialog
 				confirm = show_confirm_dialog(
 					self.frame,
 					"Diseño Duplicado",
-					f"Ya existe el diseño '{coleccion} - {nombre}'.\n¿Deseas MODIFICARLO?",
+					f"Ya existe el diseño '{coleccion_nombre} - {nombre}'.\n¿Deseas MODIFICARLO?",
 					confirm=True
 				)
 				if confirm:
 					# Buscar el existente y re-cargar
-					existente = self._buscar_diseno_exacto(coleccion, nombre, sufijo)
+					existente = self._buscar_diseno_exacto(coleccion_id, nombre, sufijo_id)
 					if existente:
 						self._on_diseno_double_click({"obj": existente})
 					return
@@ -570,29 +596,27 @@ class DisenoNuevoView:
 
 			lista_costes = self._build_lista_costes()
 			result = self.service.crear(
-				coleccion=coleccion,
+				coleccion_id=coleccion_id,
 				nombre=nombre,
-				sufijo=sufijo if sufijo else None,
+				sufijo_id=sufijo_id,
 				tipos=tipos_ids,
 				lista_costes=lista_costes
 			)
 			if result is None:
-				self._diseno_cargado = self._buscar_diseno_exacto(coleccion, nombre, sufijo)
+				self._diseno_cargado = self._buscar_diseno_exacto(coleccion_id, nombre, sufijo_id)
 				ToastWidget.show(self.frame, "Diseño guardado correctamente", tipo="success")
 				self.frame.after(500, self._on_guardar_ok)
 			else:
 				ToastWidget.show(self.frame, result, tipo="error")
 
-	def _buscar_diseno_exacto(self, coleccion: str, nombre: str, sufijo: Optional[str]) -> Optional[ProduccionDiseno]:
+	def _buscar_diseno_exacto(self, coleccion_id: int, nombre: str, sufijo_id: Optional[int]) -> Optional[ProduccionDiseno]:
 		"""Buscar el diseño exacto por sus campos de negocio."""
 		try:
-			# Usar el repository para buscar por campos
-			# Podríamos añadir un método get_by_fields al repo, pero usaremos buscar() por ahora
 			todos = self.service.obtener_todos()
 			for d in todos:
-				if (d.coleccion.lower() == coleccion.lower() and 
+				if (d.coleccion_id == coleccion_id and 
 					d.nombre.lower() == nombre.lower() and 
-					(d.sufijo or "").lower() == (sufijo or "").lower()):
+					d.sufijo_id == sufijo_id):
 					return d
 			return None
 		except Exception:
@@ -610,6 +634,50 @@ class DisenoNuevoView:
 		self._cache_tipos = {t.id: t.nombre for t in self.tipos_service.obtener_activos()}
 		self._paginated_list.search("")
 		self._entry_nombre.focus_set()
+
+	def _get_coleccion_nombre(self, coleccion_id: int) -> str:
+		"""Resolver nombre de colección desde ID."""
+		c = self.colecciones_repo.get_por_id(coleccion_id)
+		return c.nombre if c else ""
+
+	def _get_sufijo_nombre(self, sufijo_id: int) -> str:
+		"""Resolver nombre de sufijo desde ID."""
+		s = self.sufijos_repo.get_por_id(sufijo_id)
+		return s.nombre if s else ""
+
+	def _on_coleccion_selected(self, value: str):
+		pass
+
+	def _on_sufijo_selected(self, value: str):
+		pass
+
+	def _on_add_coleccion(self):
+		"""Añadir una nueva colección."""
+		from kool_tpv.utils.dialogs import show_input_dialog
+		nombre = show_input_dialog(self.frame, "Nueva Colección", "Nombre de la colección:")
+		if nombre and nombre.strip():
+			new_id = self.colecciones_repo.crear(nombre.strip())
+			if new_id:
+				self._colecciones = self._cargar_colecciones()
+				self._combo_coleccion.configure(values=self._colecciones)
+				self._combo_coleccion.set(nombre.strip())
+				ToastWidget.show(self.frame, "Colección añadida", tipo='success')
+			else:
+				ToastWidget.show(self.frame, "Error al añadir colección", tipo='error')
+
+	def _on_add_sufijo(self):
+		"""Añadir un nuevo sufijo."""
+		from kool_tpv.utils.dialogs import show_input_dialog
+		nombre = show_input_dialog(self.frame, "Nuevo Sufijo", "Nombre del sufijo:")
+		if nombre and nombre.strip():
+			new_id = self.sufijos_repo.crear(nombre.strip())
+			if new_id:
+				self._sufijos = self._cargar_sufijos()
+				self._combo_sufijo.configure(values=self._sufijos)
+				self._combo_sufijo.set(nombre.strip())
+				ToastWidget.show(self.frame, "Sufijo añadido", tipo='success')
+			else:
+				ToastWidget.show(self.frame, "Error al añadir sufijo", tipo='error')
 
 	def _on_guardar_ok(self, confirmed=None):
 		"""Callback tras guardar OK: cerrar vista enviando el diseño."""

@@ -71,7 +71,7 @@ class ProduccionStockBaseRepository:
 	                  variante_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
 		"""Obtener un registro específico por sus parámetros identificadores."""
 		query = """
-			SELECT id, tipo_id, variante_id, color_id, talla, sku, cantidad, coste_medio
+			SELECT id, tipo_id, variante_id, color_id, talla, sku, cantidad, coste_medio, talla_id
 			FROM produccion_stock_colores_tallas
 			WHERE tipo_id = ? AND variante_id IS ? AND color_id IS ? AND talla = ?
 		"""
@@ -86,7 +86,8 @@ class ProduccionStockBaseRepository:
 					"talla": row[4],
 					"sku": row[5],
 					"cantidad": row[6],
-					"coste_medio": row[7]
+					"coste_medio": row[7],
+					"talla_id": row[8]
 				}
 			return None
 		except Exception:
@@ -110,7 +111,8 @@ class ProduccionStockBaseRepository:
 	def crear_o_actualizar(self, tipo_id: int,
 	                      color_id: Optional[int], talla: str, sku: str, 
 	                      cantidad: int, coste_medio: int = 0,
-	                      variante_id: Optional[int] = None) -> bool:
+	                      variante_id: Optional[int] = None,
+	                      talla_id: Optional[int] = None) -> bool:
 		"""Insertar o actualizar una variante de stock base (Upsert manual).
 		
 		Usa SELECT + UPDATE/INSERT en vez de ON CONFLICT porque SQLite
@@ -122,20 +124,20 @@ class ProduccionStockBaseRepository:
 		"""
 		update_query = """
 			UPDATE produccion_stock_colores_tallas 
-			SET sku = ?, cantidad = ?, coste_medio = ?
+			SET sku = ?, cantidad = ?, coste_medio = ?, talla_id = ?
 			WHERE id = ?
 		"""
 		insert_query = """
 			INSERT INTO produccion_stock_colores_tallas 
-				(tipo_id, variante_id, color_id, talla, sku, cantidad, coste_medio)
-			VALUES (?, ?, ?, ?, ?, ?, ?)
+				(tipo_id, variante_id, color_id, talla, sku, cantidad, coste_medio, talla_id)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		"""
 		try:
 			existing = self.db.fetch_all(check_query, (tipo_id, variante_id, color_id, talla))
 			if existing:
-				self.db.execute_query(update_query, (sku, cantidad, coste_medio, existing[0][0]))
+				self.db.execute_query(update_query, (sku, cantidad, coste_medio, talla_id, existing[0][0]))
 			else:
-				self.db.execute_query(insert_query, (tipo_id, variante_id, color_id, talla, sku, cantidad, coste_medio))
+				self.db.execute_query(insert_query, (tipo_id, variante_id, color_id, talla, sku, cantidad, coste_medio, talla_id))
 			return True
 		except Exception:
 			logger.exception(f"Error en upsert stock base: tipo={tipo_id}, sku={sku}")

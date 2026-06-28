@@ -13,6 +13,7 @@ from kool_tpv.modulos.produccion.repositories.produccion_tallas_repository impor
 from kool_tpv.modulos.produccion.services.produccion_tipos_service import ProduccionTiposService
 from kool_tpv.modulos.produccion.services.produccion_colores_service import ProduccionColoresService
 from kool_tpv.modulos.produccion.services.produccion_tipos_variantes_service import ProduccionTiposVariantesService
+from kool_tpv.base_datos.money_adapter import prepare_for_db
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,8 @@ class ProduccionStockBaseService:
 
 	def importar_stock(self, tipo_id: int, color_id: int, talla: str, 
 	                   cantidad_nueva: int, coste_nuevo_eur: float,
-	                   variante_id: Optional[int] = None) -> bool:
+	                   variante_id: Optional[int] = None,
+	                   talla_id: Optional[int] = None) -> bool:
 		"""Procesa la entrada de stock calculando coste medio y generando SKU si es necesario."""
 		try:
 			# 1. Obtener datos actuales
@@ -57,10 +59,12 @@ class ProduccionStockBaseService:
 				cant_previa = stock_actual['cantidad'] or 0
 				coste_medio_previo = stock_actual['coste_medio'] or 0
 				sku = stock_actual['sku'] or ""
+				if not talla_id:
+					talla_id = stock_actual.get('talla_id')
 			
 			# 2. Calcular nuevo coste medio ponderado (en céntimos)
 			cant_total = cant_previa + cantidad_nueva
-			coste_nuevo_cents = int(coste_nuevo_eur * 100)
+			coste_nuevo_cents = prepare_for_db(coste_nuevo_eur)
 			
 			if cant_total > 0:
 				numerador = (cant_previa * coste_medio_previo) + (cantidad_nueva * coste_nuevo_cents)
@@ -80,7 +84,8 @@ class ProduccionStockBaseService:
 				sku=sku,
 				cantidad=cant_total,
 				coste_medio=nuevo_coste_medio,
-				variante_id=variante_id
+				variante_id=variante_id,
+				talla_id=talla_id
 			)
 			
 			# 5. Auto-poblar la matriz si la combinación no existe

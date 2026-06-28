@@ -27,6 +27,8 @@ from kool_tpv.modulos.produccion.services.produccion_tallas_service import Produ
 from kool_tpv.modulos.produccion.services.produccion_colores_service import ProduccionColoresService
 from kool_tpv.modulos.produccion.services.produccion_menu_service import ProduccionMenuService
 from kool_tpv.modulos.produccion.services.produccion_ordenes_service import ProduccionOrdenesService, ItemProduccion
+from kool_tpv.modulos.produccion.repositories.produccion_colecciones_repository import ProduccionColeccionesRepository
+from kool_tpv.base_datos.money_adapter import read_from_db
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_origen import NuevaProduccionOrigenView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion import NuevaProduccionView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_tipos import NuevaProduccionTiposView
@@ -75,6 +77,7 @@ class NuevoProduccionFlow:
         self._colores_service = ProduccionColoresService(db)
         self._menu_service = ProduccionMenuService(db)
         self._ordenes_service = ProduccionOrdenesService(db)
+        self._colecciones_repo = ProduccionColeccionesRepository(db)
 
         # Estado del flujo
         self._paso_actual = PASO_ORIGEN
@@ -466,9 +469,9 @@ class NuevoProduccionFlow:
 
         # 1. Coste base (de la variante si existe, si no del tipo)
         if self._variante:
-            coste_base = self._variante.coste_base / 100.0
+            coste_base = float(read_from_db(self._variante.coste_base))
         else:
-            coste_base = self._tipo.coste_base or 0.0
+            coste_base = float(read_from_db(self._tipo.coste_base or 0))
 
         # 2. Coste del diseño para este tipo (en céntimos → euros)
         coste_diseno = 0.0
@@ -476,7 +479,7 @@ class NuevoProduccionFlow:
             coste_diseno_cent = self._disenos_service.obtener_coste_por_tipo(
                 self._diseno.codigo, self._tipo.nombre
             )
-            coste_diseno = coste_diseno_cent / 100.0
+            coste_diseno = float(read_from_db(coste_diseno_cent))
 
         coste_unitario = coste_base + coste_diseno
         cantidad = self._cantidad.cantidad if self._cantidad else 0
@@ -492,7 +495,7 @@ class NuevoProduccionFlow:
             color_id=self._color.id if self._color else None,
             diseno_codigo=self._diseno.codigo if self._diseno else None,
             diseno_nombre=self._diseno.nombre if self._diseno else None,
-            diseno_coleccion=self._diseno.coleccion if self._diseno else None,
+            diseno_coleccion=self._get_coleccion_nombre(self._diseno.coleccion_id) if self._diseno else None,
             cantidad=cantidad,
             produccion_mixta=self._cantidad.produccion_mixta if self._cantidad else False,
             coste_unitario=coste_unitario,
@@ -502,6 +505,11 @@ class NuevoProduccionFlow:
         self._items.append(item)
 
     # --- Utilidades ---
+
+    def _get_coleccion_nombre(self, coleccion_id: int) -> str:
+        """Resolver nombre de colección desde ID."""
+        c = self._colecciones_repo.get_por_id(coleccion_id)
+        return c.nombre if c else ""
 
     def _es_tipo_camiseta(self) -> bool:
         """Comprobar si el tipo seleccionado es camiseta (para producción mixta)."""

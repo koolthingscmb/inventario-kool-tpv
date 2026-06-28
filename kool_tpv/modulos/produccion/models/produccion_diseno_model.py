@@ -12,9 +12,9 @@ class DisenoCoste:
 @dataclass
 class ProduccionDiseno:
     codigo: str  # PK
-    coleccion: str
+    coleccion_id: int
     nombre: str
-    sufijo: Optional[str] = None
+    sufijo_id: Optional[int] = None
     tipos: List[int] = field(default_factory=list)  # IDs de produccion_tipos
     costes: List[DisenoCoste] = field(default_factory=list)  # costes dinámicos
     # Campos viejos mantenidos para compatibilidad durante la migración
