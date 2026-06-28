@@ -184,21 +184,6 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
-		# Migration 012: Columna mapeo_tipos en proveedores
-		try:
-			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('proveedores')") or [])]
-			if 'mapeo_tipos' not in cols:
-				logging.info('Aplicando migración 012: mapeo_tipos en proveedores')
-				db.connection.execute('ALTER TABLE proveedores ADD COLUMN mapeo_tipos TEXT')
-				db.connection.commit()
-				logging.info('Migración 012 (mapeo_tipos) aplicada correctamente')
-		except Exception:
-			logging.exception('Error aplicando migración 012')
-			try:
-				db.connection.rollback()
-			except Exception:
-				pass
-
 		# Migration 014: Columna mapeo_tallas en proveedores
 		try:
 			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('proveedores')") or [])]

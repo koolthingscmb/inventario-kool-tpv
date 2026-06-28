@@ -1,6 +1,8 @@
 """UI de Importar Albarán para Producción - Gestión de Bases Textiles."""
 import logging
 import json
+import re
+import unicodedata
 import tkinter as tk
 from tkinter import filedialog
 from pathlib import Path
@@ -40,7 +42,9 @@ class ProduccionImportarAlbaran:
         self.lineas_procesadas = [] # Datos con color mapeado y validaciones
         self.mapeo_colores = {} # color_prov -> color_interno (nombre)
         self.mapeo_variantes = {} # "Tipo / Variante" -> [keywords]
+        self.mapeo_tallas = {} # talla_kool -> [keywords]
         self.colores_internos = {} # nombre -> id
+        self.tallas_internas = {} # nombre -> id
         self.variantes_disponibles = {} # id -> "Tipo / Variante"
         self.variantes_lookup = {} # "Tipo / Variante" -> (variante_id, tipo_id)
         
@@ -77,6 +81,14 @@ class ProduccionImportarAlbaran:
                 except Exception:
                     logger.error("Error parseando mapeo_variantes JSON")
 
+            # Tallas
+            mapeo_tallas_json = prov_service.get_mapeo_tallas(self.proveedor_id)
+            if mapeo_tallas_json:
+                try:
+                    self.mapeo_tallas = json.loads(mapeo_tallas_json)
+                except Exception:
+                    logger.error("Error parseando mapeo_tallas JSON")
+
         
         # 2. Colores internos (Canonical)
         try:
@@ -84,6 +96,14 @@ class ProduccionImportarAlbaran:
             self.colores_internos = {c.nombre: c.id for c in svc_colores.obtener_activos()}
         except Exception:
             logger.exception("Error cargando colores internos")
+
+        # 2b. Tallas internas (Canonical)
+        try:
+            from kool_tpv.modulos.produccion.services.produccion_tallas_service import ProduccionTallasService
+            svc_tallas = ProduccionTallasService(self.db)
+            self.tallas_internas = {t.nombre: t.id for t in svc_tallas.obtener_todas()}
+        except Exception:
+            logger.exception("Error cargando tallas internas")
             
         # 3. Variantes disponibles
         try:
@@ -151,8 +171,9 @@ class ProduccionImportarAlbaran:
 
         # TABLA PREVIEW
         self.columns = [
-            ('PRODUCTO CSV', 180), ('VARIANTE', 140),
-            ('COLOR PROV', 120), ('COLOR INT', 100), ('TALLA', 60), 
+            ('PRODUCTO CSV', 180), ('VARIANTE KOOL', 140),
+            ('COLOR PROV', 110), ('COLOR KOOL', 100), 
+            ('TALLA PROV', 80), ('TALLA KOOL', 80),
             ('UDS', 50), ('COSTE', 70), ('ESTADO', 120)
         ]
         self.nav_list = VirtualNavList(self.container, columns=self.columns, module_name='produccion')
@@ -211,17 +232,35 @@ class ProduccionImportarAlbaran:
             logger.exception("Error analizando CSV")
             ToastWidget.show(self.container, 'NO SE PUDO ANALIZAR EL CSV', tipo='error')
 
+    @staticmethod
+    def _normalizar(texto: str) -> str:
+        """Normalizar texto para matching robusto:
+        - Lowercase
+        - Quitar tildes/diacríticos
+        - Quitar caracteres especiales (#, -, _, etc.)
+        - Colapsar espacios múltiples
+        """
+        if not texto:
+            return ""
+        texto = texto.lower()
+        texto = unicodedata.normalize('NFD', texto)
+        texto = texto.encode('ascii', 'ignore').decode('ascii')
+        texto = re.sub(r'[^a-z0-9\s]', ' ', texto)
+        texto = re.sub(r'\s+', ' ', texto).strip()
+        return texto
+
     def _procesar_lineas(self):
         """Aplicar mapeos y validaciones a los datos brutos."""
         self.lineas_procesadas = []
         
         logger.info(f"Procesando {len(self.parse_result)} líneas con mapeo_variantes: {self.mapeo_variantes}")
         logger.info(f"Mapeo colores: {self.mapeo_colores}")
+        logger.info(f"Mapeo tallas: {self.mapeo_tallas}")
         
         for fila in self.parse_result:
             nombre_csv = fila.get('nombre', '').strip()
             col_prov = fila.get('color', '').strip()
-            talla = fila.get('talla', '').strip().upper()
+            talla_prov = fila.get('talla', '').strip()
             uds = fila.get('cantidad', 0)
             coste = fila.get('coste', 0.0)
             
@@ -229,14 +268,14 @@ class ProduccionImportarAlbaran:
             variante_id = None
             tipo_id = None
             variante_label = '???'
-            nombre_lower = nombre_csv.lower()
+            nombre_norm = self._normalizar(nombre_csv)
             
             # Recorrer el diccionario: "Tipo / Variante" -> [Lista de Keywords]
             if isinstance(self.mapeo_variantes, dict):
                 for v_label, keywords in self.mapeo_variantes.items():
                     if isinstance(keywords, list):
                         for kw in keywords:
-                            if kw.lower().strip() in nombre_lower:
+                            if self._normalizar(kw) in nombre_norm:
                                 lookup = self.variantes_lookup.get(v_label)
                                 if lookup:
                                     variante_id, tipo_id = lookup
@@ -248,24 +287,48 @@ class ProduccionImportarAlbaran:
             # Recorrer el diccionario: ColorInterno -> [Lista de Colores Proveedor]
             color_mapeado = None
             if isinstance(self.mapeo_colores, dict):
+                col_prov_norm = self._normalizar(col_prov)
                 for c_interno, c_prov_list in self.mapeo_colores.items():
                     if isinstance(c_prov_list, list):
-                        # Comprobar si el color del CSV está en esta lista
-                        if any(str(cp).strip().lower() == col_prov.lower() for cp in c_prov_list):
+                        if any(self._normalizar(str(cp)) in col_prov_norm for cp in c_prov_list):
                             color_mapeado = c_interno
                             break
-                    elif str(c_prov_list).strip().lower() == col_prov.lower():
-                        # Por si acaso no fuera lista
+                    elif self._normalizar(str(c_prov_list)) in col_prov_norm:
                         color_mapeado = c_interno
                         break
             
             color_id = self.colores_internos.get(color_mapeado) if color_mapeado else None
+
+            # 3. Mapeo de TALLA
+            talla_mapeada = None
+            if isinstance(self.mapeo_tallas, dict):
+                talla_prov_norm = self._normalizar(talla_prov)
+                for t_interna, t_prov_list in self.mapeo_tallas.items():
+                    if isinstance(t_prov_list, list):
+                        if any(self._normalizar(str(tp)) == talla_prov_norm for tp in t_prov_list):
+                            talla_mapeada = t_interna
+                            break
+                    elif self._normalizar(str(t_prov_list)) == talla_prov_norm:
+                        talla_mapeada = t_interna
+                        break
+            
+            # Si no hay mapeo explícito, probamos si coincide directamente con una interna
+            if not talla_mapeada:
+                t_prov_norm = self._normalizar(talla_prov)
+                for t_interna in self.tallas_internas.keys():
+                    if self._normalizar(t_interna) == t_prov_norm:
+                        talla_mapeada = t_interna
+                        break
+            
+            talla_id = self.tallas_internas.get(talla_mapeada) if talla_mapeada else None
             
             estado = '✓ OK'
             if not variante_id:
                 estado = '⚠ Falta Variante'
             elif not color_id:
                 estado = '⚠ Color desconocido'
+            elif not talla_id:
+                estado = '⚠ Talla desconocida'
             elif uds <= 0:
                 estado = '⚠ Cantidad 0'
             
@@ -277,7 +340,8 @@ class ProduccionImportarAlbaran:
                 'color_id': color_id,
                 'color_prov': col_prov,
                 'color_interno': color_mapeado or '???',
-                'talla': talla,
+                'talla_prov': talla_prov,
+                'talla_kool': talla_mapeada or '???',
                 'uds': uds,
                 'coste': coste,
                 'total': uds * coste,
@@ -296,10 +360,11 @@ class ProduccionImportarAlbaran:
         for p in self.lineas_procesadas:
             rows.append({
                 'PRODUCTO CSV': p['nombre_csv'],
-                'VARIANTE': p['variante_nombre'],
+                'VARIANTE KOOL': p['variante_nombre'],
                 'COLOR PROV': p['color_prov'],
-                'COLOR INT': p['color_interno'],
-                'TALLA': p['talla'],
+                'COLOR KOOL': p['color_interno'],
+                'TALLA PROV': p['talla_prov'],
+                'TALLA KOOL': p['talla_kool'],
                 'UDS': str(p['uds']),
                 'COSTE': f"{p['coste']:.2f}€",
                 'ESTADO': p['estado']
@@ -328,7 +393,8 @@ class ProduccionImportarAlbaran:
             return
             
         try:
-            repo_stock = ProduccionStockBaseRepository(self.db)
+            from kool_tpv.modulos.produccion.services.produccion_stock_base_service import ProduccionStockBaseService
+            stock_service = ProduccionStockBaseService(self.db)
             repo_albaran = AlbaranRepository(self.db)
             
             # 1. Preparar líneas para AlbaranRepository (registro histórico)
@@ -337,7 +403,7 @@ class ProduccionImportarAlbaran:
                 lineas_albaran.append({
                     'producto_id': None, # No es un producto de la tabla 'productos'
                     'ean': '',
-                    'nombre': f"{p['variante_nombre']} - {p['color_interno']} ({p['talla']})",
+                    'nombre': f"{p['variante_nombre']} - {p['color_interno']} ({p['talla_kool']})",
                     'cantidad': p['uds'],
                     'coste': p['coste'],
                     'tipo_iva': 21,
@@ -363,9 +429,16 @@ class ProduccionImportarAlbaran:
                 totales=totales
             )
             
-            # 3. Actualizar Stock y Coste Medio
+            # 3. Actualizar Stock y Coste Medio usando el servicio
             for p in self.lineas_procesadas:
-                self._actualizar_stock_y_coste(p, repo_stock)
+                stock_service.importar_stock(
+                    tipo_id=p['tipo_id'],
+                    color_id=p['color_id'],
+                    talla=p['talla_kool'],
+                    cantidad_nueva=p['uds'],
+                    coste_nuevo_eur=p['coste'],
+                    variante_id=p.get('variante_id')
+                )
                 
             ToastWidget.show(self.container, "Albarán procesado y stock actualizado", tipo='success')
             self._on_volver_click()
@@ -373,74 +446,6 @@ class ProduccionImportarAlbaran:
         except Exception:
             logger.exception("Error procesando importación")
             ToastWidget.show(self.container, 'ERROR AL PROCESAR LA IMPORTACIÓN', tipo='error')
-
-    def _actualizar_stock_y_coste(self, p, repo):
-        """Calcula coste medio y actualiza stock base."""
-        tipo_id = p['tipo_id']
-        variante_id = p.get('variante_id')
-        color_id = p['color_id']
-        talla = p['talla']
-        cantidad_nueva = p['uds']
-        coste_nuevo_eur = p['coste']
-        
-        # Obtener stock actual para calcular el medio
-        query = "SELECT cantidad, coste_medio, sku FROM produccion_stock_colores_tallas WHERE tipo_id=? AND variante_id IS ? AND color_id=? AND talla=?"
-        row = self.db.fetch_one(query, (tipo_id, variante_id, color_id, talla))
-        
-        cant_actual = 0
-        coste_actual_cents = 0
-        sku = ""
-        
-        if row:
-            cant_actual = row[0] or 0
-            coste_actual_cents = row[1] or 0
-            sku = row[2] or ""
-            
-        # Nuevo stock
-        cant_total = cant_actual + cantidad_nueva
-        
-        # Coste medio ponderado (en céntimos)
-        coste_nuevo_cents = int(coste_nuevo_eur * 100)
-        if cant_total > 0:
-            numerador = (cant_actual * coste_actual_cents) + (cantidad_nueva * coste_nuevo_cents)
-            nuevo_coste_medio = int(numerador / cant_total)
-        else:
-            nuevo_coste_medio = coste_nuevo_cents
-            
-        # Generar SKU si no existe
-        if not sku:
-            sku = self._generar_sku_pattern(tipo_id, color_id, talla, variante_id)
-            
-        # Upsert
-        repo.crear_o_actualizar(
-            tipo_id=tipo_id,
-            color_id=color_id,
-            talla=talla,
-            sku=sku,
-            cantidad=cant_total,
-            coste_medio=nuevo_coste_medio,
-            variante_id=variante_id
-        )
-
-    def _generar_sku_pattern(self, tipo_id, color_id, talla, variante_id=None):
-        """Genera un SKU tipo TYPE-VAR-COLOR-SIZE."""
-        try:
-            tipo_nom = self.db.fetch_one("SELECT nombre FROM tipos WHERE id=?", (tipo_id,))[0]
-            color_nom = self.db.fetch_one("SELECT nombre FROM produccion_colores WHERE id=?", (color_id,))[0]
-            
-            def clean(s): return s.upper().replace(' ', '').replace('Á', 'A').replace('É', 'E').replace('Í', 'I').replace('Ó', 'O').replace('Ú', 'U')
-            
-            t = clean(tipo_nom)[:3]
-            v = ""
-            if variante_id:
-                var_nom = self.db.fetch_one("SELECT nombre FROM tipos_variantes WHERE id=?", (variante_id,))[0]
-                v = clean(var_nom)[:3]
-            c = clean(color_nom)[:3]
-            s = clean(talla)
-            
-            return f"{t}-{v}-{c}-{s}" if v else f"{t}-{c}-{s}"
-        except:
-            return ""
 
     def _on_volver_click(self):
         if self.owner and hasattr(self.owner, 'show_proveedores'):

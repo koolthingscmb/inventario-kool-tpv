@@ -302,10 +302,6 @@ class ProduccionView(BaseModuleView):
 		"""Mostrar configurador unificado en la pestaña COLORES."""
 		self.show_configurar_mapeos(proveedor_id, proveedor_nombre, tab_inicial='COLORES')
 
-	def show_mapeo_tipos(self, proveedor_id, proveedor_nombre=''):
-		"""Mostrar configurador unificado en la pestaña TIPOS."""
-		self.show_configurar_mapeos(proveedor_id, proveedor_nombre, tab_inicial='TIPOS')
-
 	def show_importar_albaran(self, proveedor_id=None, proveedor_nombre=''):
 		"""Mostrar importador de albarán para producción."""
 		try:

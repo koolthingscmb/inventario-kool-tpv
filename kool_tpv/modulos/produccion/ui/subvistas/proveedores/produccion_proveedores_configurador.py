@@ -10,6 +10,7 @@ from kool_tpv.utils.widgets.notificaciones import ToastWidget
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.modulos.produccion.services.produccion_tipos_variantes_service import ProduccionTiposVariantesService
 from kool_tpv.modulos.produccion.services.produccion_colores_service import ProduccionColoresService
+from kool_tpv.modulos.produccion.services.produccion_tallas_service import ProduccionTallasService
 
 logger = logging.getLogger(__name__)
 
@@ -190,11 +191,14 @@ class ProduccionProveedoresConfigurador:
         
         self.mapping_entries = {}
         items = []
-        if mapping_type == 'variantes': items = sorted(self.tipos_seleccionados)
-        elif mapping_type == 'tallas': items = [r[0] for r in self.db.fetch_all("SELECT nombre FROM produccion_tallas ORDER BY orden")]
+        if mapping_type == 'variantes':
+            items = sorted(self.tipos_seleccionados)
+        elif mapping_type == 'tallas':
+            svc_tallas = ProduccionTallasService(self.db)
+            items = [t.nombre for t in svc_tallas.obtener_todas()]
         else:
-            svc = ProduccionColoresService(self.db)
-            items = [c.nombre for c in svc.obtener_activos()]
+            svc_colores = ProduccionColoresService(self.db)
+            items = [c.nombre for c in svc_colores.obtener_activos()]
         for item in items:
             val = mapeo_actual.get(item, [])
             self._add_form_row(scroll, item, item, ", ".join(val) if isinstance(val, list) else str(val), self.mapping_entries)

@@ -67,6 +67,32 @@ class ProduccionStockBaseRepository:
 			logger.exception("Error obteniendo stock base")
 			return []
 
+	def get_by_params(self, tipo_id: int, color_id: Optional[int], talla: str, 
+	                  variante_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
+		"""Obtener un registro específico por sus parámetros identificadores."""
+		query = """
+			SELECT id, tipo_id, variante_id, color_id, talla, sku, cantidad, coste_medio
+			FROM produccion_stock_colores_tallas
+			WHERE tipo_id = ? AND variante_id IS ? AND color_id IS ? AND talla = ?
+		"""
+		try:
+			row = self.db.fetch_one(query, (tipo_id, variante_id, color_id, talla))
+			if row:
+				return {
+					"id": row[0],
+					"tipo_id": row[1],
+					"variante_id": row[2],
+					"color_id": row[3],
+					"talla": row[4],
+					"sku": row[5],
+					"cantidad": row[6],
+					"coste_medio": row[7]
+				}
+			return None
+		except Exception:
+			logger.exception("Error buscando stock base por parámetros")
+			return None
+
 	def crear_o_actualizar(self, tipo_id: int,
 	                      color_id: Optional[int], talla: str, sku: str, 
 	                      cantidad: int, coste_medio: int = 0,
