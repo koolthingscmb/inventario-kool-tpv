@@ -8,6 +8,8 @@ import logging
 
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.produccion.repositories.produccion_stock_base_repository import ProduccionStockBaseRepository
+from kool_tpv.modulos.produccion.repositories.produccion_relaciones_repository import ProduccionRelacionesRepository
+from kool_tpv.modulos.produccion.repositories.produccion_tallas_repository import ProduccionTallasRepository
 from kool_tpv.modulos.produccion.services.produccion_tipos_service import ProduccionTiposService
 from kool_tpv.modulos.produccion.services.produccion_colores_service import ProduccionColoresService
 from kool_tpv.modulos.produccion.services.produccion_tipos_variantes_service import ProduccionTiposVariantesService
@@ -28,6 +30,16 @@ class ProduccionStockBaseService:
 	def listar_todo(self) -> List[Dict[str, Any]]:
 		"""Obtener la lista completa de stock base."""
 		return self.repo.get_todos()
+
+	def obtener_stock_por_tipo_color(self, tipo_id: int, color_id: int,
+	                                 variante_id: Optional[int] = None) -> Dict[str, int]:
+		"""Obtener dict {talla: cantidad} para una combinación tipo+color+variante."""
+		return self.repo.get_stock_por_tipo_color(tipo_id, color_id, variante_id)
+
+	def obtener_coste_medio_variante(self, tipo_id: int,
+	                                 variante_id: Optional[int] = None) -> float:
+		"""Obtener el coste medio ponderado de una variante desde el stock."""
+		return self.repo.get_coste_medio_variante(tipo_id, variante_id)
 
 	def importar_stock(self, tipo_id: int, color_id: int, talla: str, 
 	                   cantidad_nueva: int, coste_nuevo_eur: float,
@@ -61,7 +73,7 @@ class ProduccionStockBaseService:
 				sku = self.generar_sku(tipo_id, color_id, talla, variante_id)
 			
 			# 4. Guardar
-			return self.repo.crear_o_actualizar(
+			ok = self.repo.crear_o_actualizar(
 				tipo_id=tipo_id,
 				color_id=color_id,
 				talla=talla,
@@ -70,9 +82,28 @@ class ProduccionStockBaseService:
 				coste_medio=nuevo_coste_medio,
 				variante_id=variante_id
 			)
+			
+			# 5. Auto-poblar la matriz si la combinación no existe
+			if ok:
+				self._asegurar_matriz(tipo_id, color_id, talla, variante_id)
+			
+			return ok
 		except Exception:
 			logger.exception("Error en importar_stock del servicio")
 			return False
+
+	def _asegurar_matriz(self, tipo_id: int, color_id: int, talla: str, variante_id: Optional[int] = None):
+		"""Auto-poblar la matriz produccion_tipo_color_tallas al importar stock."""
+		try:
+			repo_tallas = ProduccionTallasRepository(self.db)
+			talla_obj = repo_tallas.get_por_nombre(talla)
+			if not talla_obj:
+				logger.warning(f"Auto-matriz: talla '{talla}' no encontrada en BD, saltando")
+				return
+			repo_rel = ProduccionRelacionesRepository(self.db)
+			repo_rel.asegurar_relacion(tipo_id, color_id, talla_obj.id, variante_id)
+		except Exception:
+			logger.exception("Error auto-poblando matriz")
 
 	def generar_sku(self, tipo_id: int, color_id: int, talla: str, variante_id: Optional[int] = None) -> str:
 		"""Genera un SKU único basado en el patrón TIPO-VAR-COLOR-TALLA."""

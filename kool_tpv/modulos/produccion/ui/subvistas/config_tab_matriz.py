@@ -9,8 +9,10 @@ class ConfigTabMatriz:
     """Pestaña MATRIZ: gestiona relaciones género+color+talla."""
 
     _CHIP_NORMAL = "#34495e"
-    _CHIP_SELECTED = "#9b59b6"
+    _CHIP_SELECTED = "#27ae60"
     _CHIP_COLOR_SEL = "#3498db"
+    _CHIP_NO_STOCK = "#2c2c2c"
+    _CHIP_NO_STOCK_FG = "#666666"
 
     def __init__(self, parent, service, config, colors, km, layout_config):
         self.parent = parent
@@ -39,6 +41,7 @@ class ConfigTabMatriz:
         self._tallas_state = set()
         self._tallas_dirty = False
         self._last_talla_idx = None
+        self._stock_actual = {}
 
         # --- BARRA SUPERIOR: Chips ---
         self._header = tk.Frame(self.parent, bg=self._bg)
@@ -241,6 +244,12 @@ class ConfigTabMatriz:
             
         # Cargar tallas
         self._tallas_state = self.service.obtener_tallas_tipo_color_3d(self._selected_id, color_id, self._selected_variante_id)
+        
+        # Cargar stock disponible para esta combinación
+        from kool_tpv.modulos.produccion.services.produccion_stock_base_service import ProduccionStockBaseService
+        stock_svc = ProduccionStockBaseService(self.service.db)
+        self._stock_actual = stock_svc.obtener_stock_por_tipo_color(self._selected_id, color_id, self._selected_variante_id)
+        
         tipo = self.service.obtener_por_id(self._selected_id)
         tn = tipo.nombre if tipo else "TIPO"
         
@@ -286,6 +295,7 @@ class ConfigTabMatriz:
         self._tallas_label.configure(text="TALLAS")
         self._tallas_state = set()
         self._tallas_dirty = False
+        self._stock_actual = {}
 
     def _on_talla_click(self, event, talla_id, idx):
         if not self._selected_color:
@@ -308,7 +318,12 @@ class ConfigTabMatriz:
 
     def _refresh_tallas(self):
         for tid, chip in self._talla_chips.items():
-            chip.configure(bg=self._CHIP_SELECTED if tid in self._tallas_state else self._CHIP_NORMAL)
+            talla = self._all_tallas[tid]
+            stock = self._stock_actual.get(talla.nombre, 0)
+            if tid in self._tallas_state:
+                chip.configure(text=f"{talla.nombre} [{stock}]", bg=self._CHIP_SELECTED, fg=self._text)
+            else:
+                chip.configure(text=f"{talla.nombre} [{stock}]", bg=self._CHIP_NO_STOCK, fg=self._CHIP_NO_STOCK_FG)
 
     def _add_color_dialog(self):
         if not self._selected_id:

@@ -60,6 +60,29 @@ class ProduccionRelacionesRepository:
                     (tipo_id, variante_id, color_id, t_id)
                 )
 
+    def asegurar_relacion(self, tipo_id: int, color_id: int, talla_id: int,
+                          variante_id: Optional[int] = None) -> bool:
+        """Asegurar que una combinación tipo+variante+color+talla existe en la matriz.
+        
+        Si no existe, la inserta. Si ya existe, no hace nada.
+        Returns True si se insertó, False si ya existía.
+        """
+        if variante_id:
+            check = "SELECT 1 FROM produccion_tipo_color_tallas WHERE tipo_id = ? AND variante_id = ? AND color_id = ? AND talla_id = ?"
+            row = self.db.fetch_all(check, (tipo_id, variante_id, color_id, talla_id))
+        else:
+            check = "SELECT 1 FROM produccion_tipo_color_tallas WHERE tipo_id = ? AND variante_id IS NULL AND color_id = ? AND talla_id = ?"
+            row = self.db.fetch_all(check, (tipo_id, color_id, talla_id))
+        
+        if row:
+            return False
+        
+        self.db.execute_query(
+            "INSERT INTO produccion_tipo_color_tallas (tipo_id, variante_id, color_id, talla_id) VALUES (?, ?, ?, ?)",
+            (tipo_id, variante_id, color_id, talla_id)
+        )
+        return True
+
     def remove_color_de_tipo_3d(self, tipo_id: int, color_id: int, variante_id: Optional[int] = None):
         """Eliminar un color y todas sus tallas de un tipo o variante."""
         if variante_id:

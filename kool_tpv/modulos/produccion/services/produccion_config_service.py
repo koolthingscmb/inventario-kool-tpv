@@ -14,6 +14,8 @@ from kool_tpv.modulos.produccion.repositories.produccion_menu_repository import 
 from kool_tpv.modulos.produccion.repositories.produccion_menu_tipos_repository import ProduccionMenuTiposRepository
 from kool_tpv.modulos.produccion.models.produccion_menu_model import ProduccionMenuItem
 from kool_tpv.modulos.produccion.models.produccion_tipo_variante_model import ProduccionTipoVariante
+from kool_tpv.modulos.produccion.models.produccion_tipos_model import ProduccionTipo
+from kool_tpv.modulos.produccion.services.produccion_stock_base_service import ProduccionStockBaseService
 
 class ProduccionConfigService:
     def __init__(self, db: Database):
@@ -24,6 +26,7 @@ class ProduccionConfigService:
         self.tipos_repo = ProduccionTiposRepository(db)
         self.menu_repo = ProduccionMenuRepository(db)
         self.menu_tipos_repo = ProduccionMenuTiposRepository(db)
+        self._stock_service = ProduccionStockBaseService(db)
 
     # --- Gestión de Colores ---
     def obtener_todos_colores(self) -> List[ProduccionColor]:
@@ -47,6 +50,30 @@ class ProduccionConfigService:
         if talla_id:
             return self.tallas_repo.actualizar(talla)
         return self.tallas_repo.crear(talla) is not None
+
+    def mover_talla(self, talla_id: int, direccion: int) -> bool:
+        """Intercambiar el orden de una talla con su vecina.
+        
+        Args:
+            talla_id: ID de la talla a mover.
+            direccion: -1 para subir, +1 para bajar.
+        """
+        tallas = self.tallas_repo.get_todas()
+        idx = None
+        for i, t in enumerate(tallas):
+            if t.id == talla_id:
+                idx = i
+                break
+        if idx is None:
+            return False
+        nuevo_idx = idx + direccion
+        if nuevo_idx < 0 or nuevo_idx >= len(tallas):
+            return False
+        t_actual = tallas[idx]
+        t_vecina = tallas[nuevo_idx]
+        self.tallas_repo.actualizar_orden(t_actual.id, t_vecina.orden)
+        self.tallas_repo.actualizar_orden(t_vecina.id, t_actual.orden)
+        return True
 
     def obtener_por_id(self, tipo_id: int) -> Optional[ProduccionTipo]:
         """Obtener un tipo por su ID."""
@@ -118,6 +145,14 @@ class ProduccionConfigService:
     def obtener_todos_menu(self):
         """Obtener todos los elementos del menú."""
         return self.menu_repo.get_todos()
+
+    def obtener_tipos_de_menus_ordenados(self) -> List[ProduccionTipo]:
+        """Obtener tipos asociados a cualquier menú, ordenados por menú y tipo."""
+        return self.menu_tipos_repo.get_tipos_todos_menus_ordenados()
+
+    def obtener_coste_medio_variante(self, tipo_id: int, variante_id: Optional[int] = None) -> float:
+        """Obtener coste medio ponderado de una variante desde el stock."""
+        return self._stock_service.obtener_coste_medio_variante(tipo_id, variante_id)
 
     def guardar_menu(self, nombre: str, sistema_produccion: str, orden: int,
                      activo: int, tipo_id: int, menu_id: Optional[int] = None) -> bool:

@@ -31,8 +31,7 @@ class ConfigTabTallas:
         frame_lista.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
 
         columns = [
-            ("nombre", 200, "NOMBRE"),
-            ("orden", 80, "ORDEN"),
+            ("nombre", 260, "NOMBRE"),
             ("estado", 60, "ACT"),
         ]
         self._nav = VirtualNavList(
@@ -56,12 +55,16 @@ class ConfigTabTallas:
         self._entry_nombre = ctk.CTkEntry(frame_form, placeholder_text="Nombre (S, M, L, XL...)", width=250)
         self._entry_nombre.pack(pady=5, padx=20)
 
-        self._entry_orden = ctk.CTkEntry(frame_form, placeholder_text="Orden (0, 1, 2...)", width=250)
-        self._entry_orden.pack(pady=5, padx=20)
-
         self._var_activo = ctk.IntVar(value=1)
         ctk.CTkCheckBox(frame_form, text="Activo", variable=self._var_activo,
                         fg_color="#27ae60", text_color=self._text).pack(pady=5, padx=20, anchor="w")
+
+        frame_reorder = tk.Frame(frame_form, bg="#34495e")
+        frame_reorder.pack(pady=(5, 0), padx=20, fill=tk.X)
+        ctk.CTkButton(frame_reorder, text="⬆ SUBIR", fg_color="#7f8c8d", hover_color="#95a5a6",
+                      command=lambda: self._mover(-1)).pack(side=tk.LEFT, padx=(0, 5), expand=True, fill=tk.X)
+        ctk.CTkButton(frame_reorder, text="⬇ BAJAR", fg_color="#7f8c8d", hover_color="#95a5a6",
+                      command=lambda: self._mover(1)).pack(side=tk.LEFT, padx=(5, 0), expand=True, fill=tk.X)
 
         frame_btns = tk.Frame(frame_form, bg="#34495e")
         frame_btns.pack(pady=15, padx=20, fill=tk.X)
@@ -80,7 +83,6 @@ class ConfigTabTallas:
         items = [{
             "id": t.id,
             "nombre": t.nombre,
-            "orden": str(t.orden),
             "estado": "✓" if t.activo else "✗",
             "_activo": t.activo,
         } for t in tallas]
@@ -90,20 +92,29 @@ class ConfigTabTallas:
         self._talla_id_edit = data.get("id")
         self._entry_nombre.delete(0, tk.END)
         self._entry_nombre.insert(0, data.get("nombre", ""))
-        self._entry_orden.delete(0, tk.END)
-        self._entry_orden.insert(0, data.get("orden", "0"))
         self._var_activo.set(data.get("_activo", 1))
+
+    def _mover(self, direccion: int):
+        if not self._talla_id_edit:
+            return
+        talla_id = self._talla_id_edit
+        ok = self.service.mover_talla(talla_id, direccion)
+        if ok:
+            self._cargar_lista()
+            for i, item in enumerate(self._nav._all_data):
+                if item.get("id") == talla_id:
+                    self._nav.selected_index = i
+                    self._nav._refresh_ui()
+                    if hasattr(self._nav, '_scroll_to_index'):
+                        self._nav._scroll_to_index(i)
+                    break
 
     def _guardar(self):
         nombre = self._entry_nombre.get().strip()
         if not nombre:
             return
-        try:
-            orden = int(self._entry_orden.get().strip() or "0")
-        except ValueError:
-            orden = 0
         activo = self._var_activo.get()
-        ok = self.service.guardar_talla(nombre, orden, activo, self._talla_id_edit)
+        ok = self.service.guardar_talla(nombre, 0, activo, self._talla_id_edit)
         if ok:
             self._limpiar()
             self._cargar_lista()
@@ -111,7 +122,6 @@ class ConfigTabTallas:
     def _limpiar(self):
         self._talla_id_edit = None
         self._entry_nombre.delete(0, tk.END)
-        self._entry_orden.delete(0, tk.END)
         self._var_activo.set(1)
 
     def _eliminar(self):

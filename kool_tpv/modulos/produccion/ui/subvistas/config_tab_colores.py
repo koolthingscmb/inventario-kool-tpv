@@ -1,5 +1,6 @@
 """Tab de configuración de colores del taller."""
 import tkinter as tk
+from tkinter import colorchooser
 import customtkinter as ctk
 from typing import Optional
 
@@ -56,8 +57,14 @@ class ConfigTabColores:
         self._entry_nombre = ctk.CTkEntry(frame_form, placeholder_text="Nombre del color", width=250)
         self._entry_nombre.pack(pady=5, padx=20)
 
-        self._entry_hex = ctk.CTkEntry(frame_form, placeholder_text="Código HEX (#FFFFFF)", width=250)
-        self._entry_hex.pack(pady=5, padx=20)
+        hex_row = ctk.CTkFrame(frame_form, fg_color="transparent")
+        hex_row.pack(pady=5, padx=20, fill=tk.X)
+
+        self._entry_hex = ctk.CTkEntry(hex_row, placeholder_text="Código HEX (#FFFFFF)", width=190)
+        self._entry_hex.pack(side=tk.LEFT, padx=(0, 5))
+
+        ctk.CTkButton(hex_row, text="🎨", width=40, fg_color="#8e44ad", hover_color="#9b59b6",
+                      command=self._abrir_color_picker).pack(side=tk.LEFT)
 
         self._preview = ctk.CTkFrame(frame_form, fg_color="#FFFFFF", width=250, height=40, corner_radius=6)
         self._preview.pack(pady=5, padx=20)
@@ -95,6 +102,14 @@ class ConfigTabColores:
                 self._preview.configure(fg_color=hex_code)
             except Exception:
                 pass
+
+    def _abrir_color_picker(self):
+        hex_actual = self._entry_hex.get().strip() or "#FFFFFF"
+        resultado = colorchooser.askcolor(color=hex_actual, title="Seleccionar color")
+        if resultado and resultado[1]:
+            self._entry_hex.delete(0, tk.END)
+            self._entry_hex.insert(0, resultado[1].upper())
+            self._actualizar_preview()
 
     def _guardar(self):
         nombre = self._entry_nombre.get().strip()

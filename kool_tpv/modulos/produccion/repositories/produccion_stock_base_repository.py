@@ -93,6 +93,20 @@ class ProduccionStockBaseRepository:
 			logger.exception("Error buscando stock base por parámetros")
 			return None
 
+	def get_stock_por_tipo_color(self, tipo_id: int, color_id: int,
+	                             variante_id: Optional[int] = None) -> Dict[str, int]:
+		"""Obtener un dict {talla: cantidad} para un tipo+color+variante dados."""
+		query = """
+			SELECT talla, cantidad FROM produccion_stock_colores_tallas
+			WHERE tipo_id = ? AND variante_id IS ? AND color_id = ?
+		"""
+		try:
+			rows = self.db.fetch_all(query, (tipo_id, variante_id, color_id))
+			return {r[0]: r[1] for r in rows if r[0]}
+		except Exception:
+			logger.exception("Error obteniendo stock por tipo+color")
+			return {}
+
 	def crear_o_actualizar(self, tipo_id: int,
 	                      color_id: Optional[int], talla: str, sku: str, 
 	                      cantidad: int, coste_medio: int = 0,
@@ -150,6 +164,21 @@ class ProduccionStockBaseRepository:
 		except Exception:
 			logger.exception("Error consultando cantidad stock base")
 			return 0
+
+	def get_coste_medio_variante(self, tipo_id: int,
+	                             variante_id: Optional[int] = None) -> float:
+		"""Obtener el coste medio ponderado de una variante (suma cantidad*coste / suma cantidad)."""
+		query = """
+			SELECT COALESCE(SUM(cantidad * coste_medio) / NULLIF(SUM(cantidad), 0), 0)
+			FROM produccion_stock_colores_tallas
+			WHERE tipo_id = ? AND variante_id IS ?
+		"""
+		try:
+			row = self.db.fetch_one(query, (tipo_id, variante_id))
+			return float(row[0]) if row and row[0] else 0.0
+		except Exception:
+			logger.exception("Error obteniendo coste medio variante")
+			return 0.0
 
 	def actualizar_cantidad(self, tipo_id: int,
 	                        color_id: Optional[int], talla: str, delta: int,
