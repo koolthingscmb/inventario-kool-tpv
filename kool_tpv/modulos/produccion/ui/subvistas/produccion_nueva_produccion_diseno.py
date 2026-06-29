@@ -18,9 +18,10 @@ from kool_tpv.modulos.produccion.repositories.produccion_sufijos_repository impo
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font, get_nav_button_config, get_nav_button_style
 from kool_tpv.utils.widgets.searchable_paginated_navlist import SearchablePaginatedNavList
 from kool_tpv.utils.config_loader import load_layout_config
+from kool_tpv.utils.keyboard_nav_mixin import KeyboardNavigableMixin
 
 
-class NuevaProduccionDisenoView:
+class NuevaProduccionDisenoView(KeyboardNavigableMixin):
 	"""Subvista para seleccionar un diseño.
 
 	Args:
@@ -35,6 +36,7 @@ class NuevaProduccionDisenoView:
 	             keyboard_mgr=None,
 	             on_siguiente: Optional[Callable[[ProduccionDiseno], None]] = None,
 	             on_volver: Optional[Callable] = None):
+		KeyboardNavigableMixin.__init_keyboard_mixin__(self)
 		self.parent = parent
 		self.db = db
 		self.keyboard_mgr = keyboard_mgr
@@ -99,7 +101,7 @@ class NuevaProduccionDisenoView:
 		self.entry_busqueda.bind("<Return>", self._on_buscar_enter)
 		self.entry_busqueda.bind("<KP_Enter>", self._on_buscar_enter)
 
-		btn_nuevo = ctk.CTkButton(
+		self.btn_nuevo = ctk.CTkButton(
 			master=frame_search,
 			text="NUEVO",
 			command=self._on_nuevo_diseno,
@@ -109,7 +111,7 @@ class NuevaProduccionDisenoView:
 			hover_color="#8e44ad",
 			cursor="hand2"
 		)
-		btn_nuevo.pack(side="right", padx=(10, 0))
+		self.btn_nuevo.pack(side="right", padx=(10, 0))
 
 	def _crear_lista_disenos(self):
 		"""Crear la lista de diseños usando SearchablePaginatedNavList."""
@@ -229,7 +231,7 @@ class NuevaProduccionDisenoView:
 		# Botón VOLVER
 		nav_volver = get_nav_button_config(self.config, "volver")
 		style_volver = get_nav_button_style(self.config, nav_volver.get("style_key", "volver"))
-		btn_volver = ctk.CTkButton(
+		self.btn_volver = ctk.CTkButton(
 			frame_nav,
 			text=nav_volver.get("text", "VOLVER"),
 			font=self._get_font(nav_volver.get("font_key", "button")),
@@ -243,7 +245,7 @@ class NuevaProduccionDisenoView:
 			cursor="hand2",
 			command=self._on_volver
 		)
-		btn_volver.pack(side=tk.LEFT, padx=10)
+		self.btn_volver.pack(side=tk.LEFT, padx=10)
 
 		# Botón SIGUIENTE
 		nav_sig = get_nav_button_config(self.config, "siguiente")
@@ -286,6 +288,7 @@ class NuevaProduccionDisenoView:
 
 	def destruir(self):
 		"""Destruir la subvista y limpiar recursos."""
+		self.clear_keyboard_navigation()
 		if self.keyboard_mgr:
 			try:
 				self.keyboard_mgr.clear_active_list()

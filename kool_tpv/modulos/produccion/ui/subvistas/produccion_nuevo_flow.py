@@ -114,6 +114,26 @@ class NuevoProduccionFlow:
         # Iniciar en el primer paso
         self._mostrar_paso(PASO_ORIGEN)
 
+        # Vincular tecla Escape para navegación atrás
+        self.frame.after(100, self._vincular_teclado_global)
+
+    def _vincular_teclado_global(self):
+        """Vincular teclas rápidas globales para el flujo."""
+        try:
+            root = self.frame.winfo_toplevel()
+            root.bind("<Escape>", lambda e: self._on_escape_press())
+        except Exception:
+            pass
+
+    def _on_escape_press(self):
+        """Manejador de tecla Escape: ir al paso anterior."""
+        if self._vista_actual:
+            # Intentar llamar al método de volver de la vista
+            if hasattr(self._vista_actual, '_on_volver'):
+                self._vista_actual._on_volver()
+            elif hasattr(self._vista_actual, 'on_volver') and callable(self._vista_actual.on_volver):
+                self._vista_actual.on_volver()
+
     # --- Navegación entre pasos ---
 
     def _mostrar_paso(self, paso: int):

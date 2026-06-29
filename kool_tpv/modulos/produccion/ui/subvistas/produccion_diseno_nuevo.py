@@ -17,8 +17,8 @@ from kool_tpv.modulos.produccion.services.produccion_tipos_service import Produc
 from kool_tpv.modulos.produccion.services.produccion_tipos_variantes_service import ProduccionTiposVariantesService
 from kool_tpv.modulos.produccion.repositories.produccion_colecciones_repository import ProduccionColeccionesRepository
 from kool_tpv.modulos.produccion.repositories.produccion_sufijos_repository import ProduccionSufijosRepository
+from kool_tpv.modulos.produccion.repositories.produccion_metodos_repository import ProduccionMetodosRepository
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font, get_nav_button_config, get_nav_button_style
-from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.widgets.searchable_paginated_navlist import SearchablePaginatedNavList
 from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
 from kool_tpv.base_datos.money_adapter import prepare_for_db, read_from_db
@@ -47,11 +47,22 @@ class DisenoNuevoView:
 		self.variantes_service = ProduccionTiposVariantesService(db)
 		self.colecciones_repo = ProduccionColeccionesRepository(db)
 		self.sufijos_repo = ProduccionSufijosRepository(db)
+		self.metodos_repo = ProduccionMetodosRepository(db)
+
+		# Estado de selección para chips
+		self._coleccion_seleccionada: Optional[str] = None
+		self._sufijo_seleccionado: Optional[str] = None
+
+		# Cachés para evitar latencia
+		self._colecciones_cache = {c.id: c.nombre for c in self.colecciones_repo.get_activas()}
+		self._sufijos_cache = {s.id: s.nombre for s in self.sufijos_repo.get_activos()}
+		self._metodos_cache = self.metodos_repo.get_activos()
 
 		# Estado de edición
 		self._diseno_cargado: Optional[ProduccionDiseno] = None
 		self._cache_tipos = {t.id: t.nombre for t in self.tipos_service.obtener_activos()}
 		self._coste_items: list = []  # Lista de dicts con datos de cada coste
+		self._metodos_entries: dict = {} # {metodo_id: entry_widget}
 
 		# Cargar configuración
 		self.config = cargar_config_produccion()
@@ -70,9 +81,9 @@ class DisenoNuevoView:
 		self._tipos = self._cargar_tipos()
 
 		# UI
-		self._crear_titulo()
 		self._crear_formulario()
-		self._crear_boton_guardar()
+		self._render_chips_colecciones()
+		self._render_chips_sufijos()
 
 		# Foco inicial
 		self.frame.after(100, lambda: self._entry_nombre.focus_set())
@@ -105,44 +116,26 @@ class DisenoNuevoView:
 			logging.exception("Error cargando tipos")
 			return []
 
-	def _crear_titulo(self):
-		"""Crear el título de la subvista."""
-		titulo = ctk.CTkLabel(
-			self.frame,
-			text="NUEVO DISEÑO",
-			font=self._get_font("title"),
-			text_color=self._text,
-			fg_color=self._bg
-		)
-		titulo.pack(pady=(20, 20))
-
 	def _crear_formulario(self):
-		"""Crear los campos del formulario."""
-		form_frame = ctk.CTkFrame(self.frame, fg_color=self._bg)
-		form_frame.pack(pady=(0, 20), padx=40, fill="both", expand=True)
+		"""Crear los campos del formulario organizados en frames independientes."""
+		# 1. FRAME SUPERIOR (Nombre y Botones +)
+		self.top_frame = ctk.CTkFrame(self.frame, fg_color="transparent")
+		self.top_frame.pack(side="top", fill="x", padx=40, pady=(10, 5))
 
-		# --- Fila superior: Nombre + COMPROBAR | Colección | Sufijo ---
-		top_row = ctk.CTkFrame(form_frame, fg_color="transparent")
-		top_row.pack(fill="x", pady=(10, 5))
-
-		# Nombre + COMPROBAR
-		name_frame = ctk.CTkFrame(top_row, fg_color="transparent")
-		name_frame.pack(side="left", fill="x", expand=True, padx=(0, 10))
-
+		# Fila superior: Nombre + COMPROBAR + COLECCIÓN + SUFIJO
 		lbl_nombre = ctk.CTkLabel(
-			name_frame,
-			text="NOMBRE DEL DISEÑO",
+			self.top_frame,
+			text="CREAR DISEÑO O BUSCAR DISEÑO",
 			font=self._get_font("label"),
-			text_color=self._text_sec,
-			fg_color=self._bg
+			text_color=self._text_sec
 		)
 		lbl_nombre.pack(anchor="w", pady=(0, 2))
 
-		name_search_frame = ctk.CTkFrame(name_frame, fg_color="transparent")
-		name_search_frame.pack(fill="x")
+		controls_row = ctk.CTkFrame(self.top_frame, fg_color="transparent")
+		controls_row.pack(fill="x")
 
 		self._entry_nombre = ctk.CTkEntry(
-			name_search_frame,
+			controls_row,
 			font=self._get_font("entry")
 		)
 		self._entry_nombre.pack(side="left", fill="x", expand=True, padx=(0, 10))
@@ -153,76 +146,36 @@ class DisenoNuevoView:
 		_entry_nombre_inner.bind("<FocusOut>", self._on_entry_focus_out)
 
 		self.btn_comprobar = ctk.CTkButton(
-			name_search_frame,
+			controls_row,
 			text="COMPROBAR",
 			width=120,
 			command=self._on_comprobar
 		)
-		self.btn_comprobar.pack(side="left")
-
-		# Colección
-		col_frame = ctk.CTkFrame(top_row, fg_color="transparent")
-		col_frame.pack(side="left", fill="x", expand=True, padx=(0, 10))
-
-		lbl_coleccion = ctk.CTkLabel(
-			col_frame,
-			text="COLECCIÓN",
-			font=self._get_font("label"),
-			text_color=self._text_sec,
-			fg_color=self._bg
-		)
-		lbl_coleccion.pack(anchor="w", pady=(0, 2))
-
-		self._combo_coleccion = SearchableCombo(
-			col_frame,
-			values=self._colecciones,
-			placeholder="Selecciona colección...",
-			module_name="produccion",
-			command=self._on_coleccion_selected
-		)
-		self._combo_coleccion.pack(fill="x")
-		self._combo_coleccion.entry.bind("<Tab>", self._on_tab_next)
+		# No empaquetamos el botón, lo dejamos solo para el binding de Return si fuera necesario, 
+		# pero el usuario prefiere el botón abajo. Lo eliminamos visualmente.
 
 		self._btn_add_coleccion = ctk.CTkButton(
-			col_frame, text="+", width=24, height=24,
-			fg_color="transparent", hover_color="#3a3a3a", text_color=self._text,
+			controls_row,
+			text="+ COLECCIÓN",
+			width=140,
 			font=self._get_font("button"),
 			command=self._on_add_coleccion
 		)
-		self._btn_add_coleccion.pack(side="left", padx=(2, 0))
-
-		# Sufijo
-		var_frame = ctk.CTkFrame(top_row, fg_color="transparent")
-		var_frame.pack(side="left", fill="x", expand=True)
-
-		lbl_sufijo = ctk.CTkLabel(
-			var_frame,
-			text="SUFIJO",
-			font=self._get_font("label"),
-			text_color=self._text_sec,
-			fg_color=self._bg
-		)
-		lbl_sufijo.pack(anchor="w", pady=(0, 2))
-
-		self._combo_sufijo = SearchableCombo(
-			var_frame,
-			values=self._sufijos,
-			placeholder="Selecciona sufijo...",
-			module_name="produccion",
-			command=self._on_sufijo_selected
-		)
-		self._combo_sufijo.pack(fill="x")
-		self._combo_sufijo.entry.bind("<Tab>", self._on_tab_next)
+		self._btn_add_coleccion.pack(side="left", padx=(0, 10))
 
 		self._btn_add_sufijo = ctk.CTkButton(
-			var_frame, text="+", width=24, height=24,
-			fg_color="transparent", hover_color="#3a3a3a", text_color=self._text,
+			controls_row,
+			text="+ SUFIJO",
+			width=140,
 			font=self._get_font("button"),
 			command=self._on_add_sufijo
 		)
-		self._btn_add_sufijo.pack(side="left", padx=(2, 0))
+		self._btn_add_sufijo.pack(side="left")
 
-		# --- SearchablePaginatedNavList ---
+		# 2. FRAME DE LISTA (VirtualNavList) - El que se expande
+		self.list_frame = ctk.CTkFrame(self.frame, fg_color="transparent")
+		self.list_frame.pack(side="top", fill="both", padx=40, pady=5)
+
 		from kool_tpv.utils.config_loader import load_layout_config
 		root = self.frame.winfo_toplevel()
 		from kool_tpv.utils.keyboard_manager import KeyboardManager
@@ -236,7 +189,7 @@ class DisenoNuevoView:
 		]
 
 		self._paginated_list = SearchablePaginatedNavList(
-			parent=form_frame,
+			parent=self.list_frame,
 			columns=columns,
 			search_function=self._buscar_disenos_paginado,
 			map_function=self._map_diseno_para_lista,
@@ -246,190 +199,263 @@ class DisenoNuevoView:
 			keyboard_manager=_km,
 			layout_config=load_layout_config()
 		)
-		self._paginated_list.pack(fill="x", pady=(0, 20))
-		# Referencia interna para compatibilidad con código existente
+		self._paginated_list.pack(fill="both", expand=True)
 		self._nav_list = self._paginated_list.nav_list
 
-		# --- Sección de costes (50% abajo) ---
-		bottom_frame = ctk.CTkFrame(self.frame, fg_color=self._bg)
-		bottom_frame.pack(fill="both", expand=True, padx=40, pady=(0, 10))
+		# 3. FRAME DE CHIPS (Colecciones y Sufijos)
+		self.chips_frame = ctk.CTkFrame(self.frame, fg_color="transparent")
+		self.chips_frame.pack(side="top", fill="x", padx=40, pady=5)
+		self._crear_chips_section(self.chips_frame)
 
-		lbl_costes = ctk.CTkLabel(
-			bottom_frame,
-			text="BUSCA TIPO, GÉNERO O VARIANTE:",
+		# 4. FRAME INFERIOR (Acción Principal)
+		self.bottom_frame = ctk.CTkFrame(self.frame, fg_color="transparent")
+		self.bottom_frame.pack(side="top", fill="both", expand=True, padx=40, pady=(5, 20))
+
+		# Rejilla de Métodos de Producción
+		self._frame_metodos = ctk.CTkFrame(self.bottom_frame, fg_color="transparent")
+		self._frame_metodos.pack(fill="x", pady=(0, 10))
+		self._render_rejilla_metodos()
+
+		self.btn_accion_principal = ctk.CTkButton(
+			self.bottom_frame,
+			text="GUARDAR NUEVO DISEÑO",
+			height=50,
+			font=self._get_font("button"),
+			command=self._on_accion_principal
+		)
+		self.btn_accion_principal.pack(fill="x", pady=10)
+		self._update_main_button()
+
+	def _crear_chips_section(self, parent):
+		"""Crear la sección de chips."""
+		self._chips_container = ctk.CTkFrame(parent, fg_color="transparent")
+		self._chips_container.pack(fill="x", expand=False)
+
+		# Grid 2 columnas
+		self._chips_container.grid_columnconfigure(0, weight=1)
+		self._chips_container.grid_columnconfigure(1, weight=1)
+
+		# Columna COLECCIONES
+		col_left = ctk.CTkFrame(self._chips_container, fg_color="transparent")
+		col_left.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+
+		lbl_col = ctk.CTkLabel(
+			col_left, text="COLECCIONES",
 			font=self._get_font("label"),
-			text_color=self._text_sec,
-			fg_color=self._bg
+			text_color=self._text_sec
 		)
-		lbl_costes.pack(anchor="w", pady=(10, 2))
+		lbl_col.pack(pady=(0, 5))
 
-		self._combo_costes = SearchableCombo(
-			bottom_frame,
-			placeholder="Buscar tipo, género o variante...",
-			width=400,
-			module_name="produccion",
-			search_function=self._buscar_costes_callback,
-			command=self._on_coste_selected
+		self._frame_chips_colecciones = ctk.CTkFrame(col_left, fg_color="transparent")
+		self._frame_chips_colecciones.pack(fill="both", expand=True)
+
+		# Columna SUFIJOS
+		col_right = ctk.CTkFrame(self._chips_container, fg_color="transparent")
+		col_right.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
+
+		lbl_suf = ctk.CTkLabel(
+			col_right, text="SUFIJOS",
+			font=self._get_font("label"),
+			text_color=self._text_sec
 		)
-		self._combo_costes.pack(fill="x", pady=(0, 10))
+		lbl_suf.pack(pady=(0, 5))
 
-		self._costes_grid = ctk.CTkScrollableFrame(bottom_frame, fg_color=self._bg, height=150)
-		self._costes_grid.pack(fill="both", expand=True, pady=(0, 10))
+		self._frame_chips_sufijos = ctk.CTkFrame(col_right, fg_color="transparent")
+		self._frame_chips_sufijos.pack(fill="both", expand=True)
 
-	def _crear_boton_guardar(self):
-		"""Crear el botón GUARDAR desde config."""
-		nav_guardar = get_nav_button_config(self.config, "confirmar")
-		style_guardar = get_nav_button_style(self.config, nav_guardar.get("style_key", "confirmar"))
-		self.btn_guardar = ctk.CTkButton(
-			self.frame,
-			text="GUARDAR",
-			font=self._get_font(nav_guardar.get("font_key", "button")),
-			fg_color=style_guardar.get("bg", "#27ae60"),
-			text_color=style_guardar.get("text", "#FFFFFF"),
-			hover_color=style_guardar.get("hover", "#2ecc71"),
-			border_color=style_guardar.get("border", "#27ae60"),
-			border_width=style_guardar.get("focus_thickness", 0),
-			width=nav_guardar.get("width", 15) * 10,
-			height=nav_guardar.get("height", 2) * 20,
-			cursor="hand2",
-			command=self._on_guardar
-		)
-		self.btn_guardar.pack(pady=(0, 20))
+	def _render_chips_colecciones(self):
+		"""Renderizar chips de colecciones activas."""
+		for w in self._frame_chips_colecciones.winfo_children():
+			w.destroy()
 
-	def _buscar_costes_callback(self, filtro: str) -> List[dict]:
-		"""Buscar tipos, géneros y variantes de forma unificada."""
-		try:
-			results = []
-			fl = filtro.lower()
+		# Colores desde config
+		chips_cfg = self.config.get("chips", {}).get("diseno", {})
+		default_cfg = chips_cfg.get("default", {})
+		selected_cfg = chips_cfg.get("selected", {})
 
-			# 1. Tipos
-			for t in self.tipos_service.obtener_activos():
-				if fl in t.nombre.lower():
-					results.append({
-						"id": f"t{t.id}",
-						"nombre_display": t.nombre,
-						"tipo_id": t.id,
-						"variante_id": None,
-						"label": t.nombre
-					})
+		colecciones = self.colecciones_repo.get_activas()
+		
+		container = ctk.CTkFrame(self._frame_chips_colecciones, fg_color="transparent")
+		container.pack(fill="both", expand=True)
 
-			# 2. Variantes
-			for v in self.variantes_service.obtener_todos():
-				if v.activo and fl in v.nombre.lower():
-					tipo_nombre = self._cache_tipos.get(v.tipo_id, str(v.tipo_id))
-					label = f"{tipo_nombre} {v.nombre}"
-					results.append({
-						"id": f"v{v.id}",
-						"nombre_display": label,
-						"tipo_id": v.tipo_id,
-						"variante_id": v.id,
-						"label": label
-					})
+		for c in colecciones:
+			is_selected = (c.nombre == self._coleccion_seleccionada)
+			
+			bg_color = selected_cfg.get("bg", "#552583") if is_selected else default_cfg.get("bg", "#1a1a2e")
+			text_color = selected_cfg.get("text", "#ffffff") if is_selected else default_cfg.get("text", "#e0e0e0")
+			border_color = selected_cfg.get("border", "#C77BFF") if is_selected else default_cfg.get("border", "#552583")
+			hover_color = selected_cfg.get("hover", "#8e44ad") if is_selected else default_cfg.get("hover", "#C77BFF")
 
-			return results
-		except Exception:
-			logging.exception("Error en búsqueda unificada de costes")
-			return []
-
-	def _on_coste_selected(self, value: str):
-		"""Callback al seleccionar un item del buscador de costes."""
-		try:
-			data = self._combo_costes.get_producto_data()
-			if not data:
-				return
-			self._add_coste_item(
-				tipo_id=data["tipo_id"],
-				variante_id=data.get("variante_id"),
-				label=data["label"]
+			chip = ctk.CTkButton(
+				container,
+				text=c.nombre,
+				width=0,
+				height=32,
+				corner_radius=16,
+				fg_color=bg_color,
+				text_color=text_color,
+				border_color=border_color,
+				border_width=2 if is_selected else 1,
+				hover_color=hover_color,
+				font=self._get_font("button_small") if "button_small" in self.config.get("fonts", {}) else (None, 12),
+				command=lambda name=c.nombre: self._on_chip_coleccion_click(name)
 			)
-			self._combo_costes.clear()
-		except Exception:
-			logging.exception("Error al seleccionar coste")
+			chip.pack(side="left", padx=4, pady=4)
 
-	def _add_coste_item(self, tipo_id: int, variante_id: Optional[int], label: str, coste: int = 0):
-		"""Añadir un item de coste al grid si no existe ya."""
-		for item in self._coste_items:
-			if (item["tipo_id"] == tipo_id and
-				item.get("variante_id") == variante_id):
-				return
-		self._coste_items.append({
-			"tipo_id": tipo_id,
-			"variante_id": variante_id,
-			"label": label,
-			"coste": coste,
-			"entry": None
-		})
-		self._render_costes_grid()
+	def _render_chips_sufijos(self):
+		"""Renderizar chips de sufijos activos."""
+		for w in self._frame_chips_sufijos.winfo_children():
+			w.destroy()
 
-	def _remove_coste_item(self, idx: int):
-		"""Eliminar un item de coste del grid."""
-		if 0 <= idx < len(self._coste_items):
-			self._coste_items.pop(idx)
-			self._render_costes_grid()
+		# Colores desde config
+		chips_cfg = self.config.get("chips", {}).get("diseno", {})
+		default_cfg = chips_cfg.get("default", {})
+		selected_cfg = chips_cfg.get("selected", {})
 
-	def _render_costes_grid(self):
-		"""Renderizar el grid de costes, máx 3 por fila."""
+		sufijos = self.sufijos_repo.get_activos()
+		
+		container = ctk.CTkFrame(self._frame_chips_sufijos, fg_color="transparent")
+		container.pack(fill="both", expand=True)
+
+		for s in sufijos:
+			is_selected = (s.nombre == self._sufijo_seleccionado)
+			
+			bg_color = selected_cfg.get("bg", "#552583") if is_selected else default_cfg.get("bg", "#1a1a2e")
+			text_color = selected_cfg.get("text", "#ffffff") if is_selected else default_cfg.get("text", "#e0e0e0")
+			border_color = selected_cfg.get("border", "#C77BFF") if is_selected else default_cfg.get("border", "#552583")
+			hover_color = selected_cfg.get("hover", "#8e44ad") if is_selected else default_cfg.get("hover", "#C77BFF")
+
+			chip = ctk.CTkButton(
+				container,
+				text=s.nombre,
+				width=0,
+				height=32,
+				corner_radius=16,
+				fg_color=bg_color,
+				text_color=text_color,
+				border_color=border_color,
+				border_width=2 if is_selected else 1,
+				hover_color=hover_color,
+				font=self._get_font("button_small") if "button_small" in self.config.get("fonts", {}) else (None, 12),
+				command=lambda name=s.nombre: self._on_chip_sufijo_click(name)
+			)
+			chip.pack(side="left", padx=4, pady=4)
+
+	def _render_rejilla_metodos(self):
+		"""Renderizar rejilla de métodos de producción con sus costes usando widgets CTk."""
+		for w in self._frame_metodos.winfo_children():
+			w.destroy()
+		
+		self._metodos_entries = {}
+		metodos = self._metodos_cache
+		
+		# Grid config: 3 columnas
+		cols = 3
+		for i in range(cols):
+			self._frame_metodos.grid_columnconfigure(i, weight=1)
+
+		# Título sección
+		lbl_title = ctk.CTkLabel(
+			self._frame_metodos, 
+			text="COSTES POR MÉTODO DE PRODUCCIÓN",
+			font=self._get_font("label"),
+			text_color=self._text_sec
+		)
+		lbl_title.grid(row=0, column=0, columnspan=cols, pady=(0, 10), sticky="w")
+
+		# Si hay un diseño cargado, obtener sus costes
+		costes_actuales = {}
+		if self._diseno_cargado:
+			costes_actuales = self.metodos_repo.get_costes_por_diseno(self._diseno_cargado.codigo)
+
+		row = 1
+		col = 0
+		for m in metodos:
+			# Contenedor para cada método (usamos CTkFrame para coherencia visual)
+			m_frame = ctk.CTkFrame(self._frame_metodos, fg_color="transparent")
+			m_frame.grid(row=row, column=col, padx=10, pady=5, sticky="ew")
+			
+			lbl = ctk.CTkLabel(
+				m_frame, text=f"{m.nombre}:",
+				font=self._get_font("label")
+			)
+			lbl.pack(side="left", padx=(0, 5))
+			
+			entry = ctk.CTkEntry(
+				m_frame, width=100,
+				font=self._get_font("entry"),
+				justify="right"
+			)
+			entry.pack(side="right", fill="x", expand=True)
+			
+			# Valor inicial
+			valor_db = costes_actuales.get(m.id, 0)
+			entry.insert(0, f"{read_from_db(valor_db):.2f}")
+			
+			self._metodos_entries[m.id] = entry
+			
+			# Bindings
+			_inner = entry._entry if hasattr(entry, '_entry') else entry
+			_inner.bind("<FocusIn>", self._on_entry_focus_in)
+			_inner.bind("<FocusOut>", self._on_entry_focus_out)
+
+			col += 1
+			if col >= cols:
+				col = 0
+				row += 1
+
+		# Botón + MÉTODO
+		btn_add = ctk.CTkButton(
+			self._frame_metodos,
+			text="+ MÉTODO",
+			width=100,
+			fg_color=self.config.get("colors", {}).get("buttons", {}).get("nuevo", {}).get("bg", "#3498db"),
+			command=self._on_add_metodo
+		)
+		btn_add.grid(row=row, column=col, padx=10, pady=5, sticky="w")
+		
+		# Forzar refresco en Mac
+		self.frame.update_idletasks()
+
+	def _on_chip_coleccion_click(self, nombre):
+		"""Seleccionar/Deseleccionar chip de colección."""
+		if self._coleccion_seleccionada == nombre:
+			self._coleccion_seleccionada = None
+		else:
+			self._coleccion_seleccionada = nombre
+		self._render_chips_colecciones()
+
+	def _on_chip_sufijo_click(self, nombre):
+		"""Seleccionar/Deseleccionar chip de sufijo."""
+		if self._sufijo_seleccionado == nombre:
+			self._sufijo_seleccionado = None
+		else:
+			self._sufijo_seleccionado = nombre
+		self._render_chips_sufijos()
+
+	def _on_entry_focus_in(self, event):
+		"""Liberar flechas del teclado al entrar al entry."""
 		try:
-			for w in list(self._costes_grid.winfo_children()):
-				w.destroy()
-
-			for i, item in enumerate(self._coste_items):
-				row = i // 3
-				col = i % 3
-				cell = ctk.CTkFrame(self._costes_grid, fg_color="transparent")
-				cell.grid(row=row, column=col, sticky="ew", padx=4, pady=4)
-
-				lbl = ctk.CTkLabel(cell, text=item["label"], font=self._get_font("label"), text_color=self._text, fg_color="transparent")
-				lbl.pack(side="left", padx=(4, 8))
-
-				entry = ctk.CTkEntry(cell, placeholder_text="0.00", width=70, font=self._get_font("entry"))
-				entry.pack(side="left", padx=(0, 4))
-				if item.get("coste"):
-					entry.insert(0, f"{read_from_db(item['coste']):.2f}")
-				item["entry"] = entry
-
-				btn_x = ctk.CTkButton(
-					cell, text="✕", width=20, height=20,
-					fg_color="transparent", hover_color="#e74c3c", text_color=self._text_sec,
-					command=lambda idx=i: self._remove_coste_item(idx)
-				)
-				btn_x.pack(side="left")
-
-			for col in range(3):
-				self._costes_grid.grid_columnconfigure(col, weight=1)
+			from kool_tpv.utils.keyboard_manager import KeyboardManager
+			KeyboardManager.get_instance().set_capture_enabled(False)
 		except Exception:
-			logging.exception("Error renderizando grid de costes")
+			pass
 
-	def _build_lista_costes(self) -> List[DisenoCoste]:
-		"""Construir lista de DisenoCoste desde los items del grid."""
-		lista = []
-		for item in self._coste_items:
-			entry = item.get("entry")
-			if entry:
-				try:
-					val = entry.get().strip().replace(",", ".")
-					coste_cent = prepare_for_db(val) if val else 0
-				except ValueError:
-					coste_cent = 0
-			else:
-				coste_cent = item.get("coste", 0)
-			lista.append(DisenoCoste(
-				diseno_codigo=self._diseno_cargado.codigo if self._diseno_cargado else "",
-				tipo_id=item["tipo_id"],
-				variante_id=item.get("variante_id"),
-				coste=coste_cent
-			))
-		return lista
+	def _on_entry_focus_out(self, event):
+		"""Reactivar flechas del teclado al salir del entry."""
+		try:
+			from kool_tpv.utils.keyboard_manager import KeyboardManager
+			KeyboardManager.get_instance().set_capture_enabled(True)
+		except Exception:
+			pass
 
 	def _on_tab_next(self, event):
 		"""Tab: mover foco al siguiente widget."""
 		widgets = [
 			self._entry_nombre._entry if hasattr(self._entry_nombre, '_entry') else self._entry_nombre,
 			self.btn_comprobar,
-			self._combo_coleccion.entry,
-			self._combo_sufijo.entry,
-			self._combo_costes.entry,
-			self.btn_guardar
+			self._btn_add_coleccion,
+			self._btn_add_sufijo
 		]
 		current = event.widget
 		try:
@@ -459,28 +485,23 @@ class DisenoNuevoView:
 				pass
 		return "break"
 
-	def _on_entry_focus_in(self, event):
-		"""Liberar flechas del teclado al entrar al entry."""
-		try:
-			from kool_tpv.utils.keyboard_manager import KeyboardManager
-			KeyboardManager.get_instance().set_capture_enabled(False)
-		except Exception:
-			pass
-
-	def _on_entry_focus_out(self, event):
-		"""Reactivar flechas del teclado al salir del entry."""
-		try:
-			from kool_tpv.utils.keyboard_manager import KeyboardManager
-			KeyboardManager.get_instance().set_capture_enabled(True)
-		except Exception:
-			pass
-
 	def _on_comprobar(self):
 		"""Buscar diseños por el nombre introducido usando el componente paginado."""
 		nombre = self._entry_nombre.get().strip()
 		# Pre-cargar tipos para el map_function
 		self._cache_tipos = {t.id: t.nombre for t in self.tipos_service.obtener_activos()}
+		
+		# Al buscar de nuevo, reseteamos el estado de "diseño cargado" 
+		# para que el botón vuelva a "GUARDAR NUEVO"
+		self._diseno_cargado = None
+		self._update_main_button()
+		
+		# Ejecutar búsqueda a través del widget
 		self._paginated_list.search(nombre)
+		
+		# Mostrar toast si no hay resultados y hay un filtro
+		if nombre and not self._paginated_list.nav_list._all_data:
+			ToastWidget.show(self.frame, "NO SE ENCONTRÓ DISEÑO", tipo="warning")
 
 	def _buscar_disenos_paginado(self, filtro: str) -> List[ProduccionDiseno]:
 		"""Función de búsqueda para SearchablePaginatedNavList."""
@@ -502,112 +523,139 @@ class DisenoNuevoView:
 			"obj": r
 		}
 
-	def _on_diseno_double_click(self, item_data: dict):
-		"""Al hacer doble click, cargar el diseño."""
-		diseno: ProduccionDiseno = item_data["obj"]
-		self._diseno_cargado = diseno
-		
-		# Rellenar campos
-		self._entry_nombre.delete(0, tk.END)
-		self._entry_nombre.insert(0, diseno.nombre)
-		
-		coleccion_nombre = self._get_coleccion_nombre(diseno.coleccion_id)
-		sufijo_nombre = self._get_sufijo_nombre(diseno.sufijo_id) if diseno.sufijo_id else ""
-		self._combo_coleccion.set(coleccion_nombre)
-		self._combo_sufijo.set(sufijo_nombre)
-		
-		# Cargar costes existentes en el grid
-		self._coste_items = []
-		for c in diseno.costes:
-			tipo_nombre = self._cache_tipos.get(c.tipo_id, str(c.tipo_id))
-			label = tipo_nombre
-			if c.variante_id:
-				rows = self.db.fetch_all("SELECT nombre FROM produccion_tipos_variantes WHERE id = ?", (c.variante_id,))
-				variante_nombre = rows[0][0] if rows else str(c.variante_id)
-				label = f"{tipo_nombre} {variante_nombre}"
-			self._coste_items.append({
-				"tipo_id": c.tipo_id,
-				"variante_id": c.variante_id,
-				"label": label,
-				"coste": c.coste,
-				"entry": None
-			})
-		self._render_costes_grid()
+	def _update_main_button(self):
+		"""Actualizar texto y estilo del botón principal según el estado."""
+		if self._diseno_cargado:
+			self.btn_accion_principal.configure(
+				text="MODIFICAR DISEÑO",
+				fg_color=self.config.get("colors", {}).get("buttons", {}).get("costes", {}).get("bg", "#f39c12"),
+				hover_color=self.config.get("colors", {}).get("buttons", {}).get("costes", {}).get("hover", "#d68910")
+			)
+		else:
+			self.btn_accion_principal.configure(
+				text="GUARDAR NUEVO DISEÑO",
+				fg_color=self.config.get("colors", {}).get("buttons", {}).get("confirmar", {}).get("bg", "#27ae60"),
+				hover_color=self.config.get("colors", {}).get("buttons", {}).get("confirmar", {}).get("hover", "#2ecc71")
+			)
 
-		# Cambiar texto botón guardar
-		self.btn_guardar.configure(text="MODIFICAR DISEÑO")
+	def _on_accion_principal(self):
+		"""Lógica del botón principal: Guardar o Modificar."""
+		self._on_guardar()
 
 	def _on_guardar(self):
 		"""Guardar o Modificar el diseño."""
-		coleccion_nombre = self._combo_coleccion.get().strip()
-		sufijo_nombre = self._combo_sufijo.get().strip()
-		# Resolver IDs desde los nombres
-		coleccion_obj = self.colecciones_repo.get_por_nombre(coleccion_nombre) if coleccion_nombre else None
-		coleccion_id = coleccion_obj.id if coleccion_obj else None
-		sufijo_obj = self.sufijos_repo.get_por_nombre(sufijo_nombre) if sufijo_nombre else None
-		sufijo_id = sufijo_obj.id if sufijo_obj else None
-		# Recopilar tipos_ids desde los items de coste
-		tipos_ids = list(set(item["tipo_id"] for item in self._coste_items))
 		nombre = self._entry_nombre.get().strip()
+		coleccion_nombre = self._coleccion_seleccionada
+		sufijo_nombre = self._sufijo_seleccionado
 
 		if not nombre:
 			ToastWidget.show(self.frame, "El nombre del diseño es obligatorio", tipo="warning")
 			self._entry_nombre.focus_set()
 			return
-		if not coleccion_id:
+		if not coleccion_nombre:
 			ToastWidget.show(self.frame, "La colección es obligatoria", tipo="warning")
-			self._combo_coleccion.entry.focus_set()
 			return
+
+		# Resolver IDs desde los nombres seleccionados en chips
+		coleccion_obj = self.colecciones_repo.get_por_nombre(coleccion_nombre)
+		coleccion_id = coleccion_obj.id if coleccion_obj else None
+		
+		sufijo_id = None
+		if sufijo_nombre:
+			sufijo_obj = self.sufijos_repo.get_por_nombre(sufijo_nombre)
+			sufijo_id = sufijo_obj.id if sufijo_obj else None
+
+		if not coleccion_id:
+			ToastWidget.show(self.frame, "Error al resolver la colección", tipo="error")
+			return
+
+		# Recopilar tipos_ids desde los ítems de coste
+		tipos_ids = list(set(item["tipo_id"] for item in self._coste_items))
 
 		if self._diseno_cargado:
 			# MODO MODIFICAR
-			lista_costes = self._build_lista_costes()
 			ok = self.service.actualizar(
 				codigo=self._diseno_cargado.codigo,
 				coleccion_id=coleccion_id,
 				nombre=nombre,
 				sufijo_id=sufijo_id,
 				tipos=tipos_ids,
-				lista_costes=lista_costes
+				lista_costes=[] 
 			)
 			if ok:
+				# Guardar costes por método
+				for metodo_id, entry in self._metodos_entries.items():
+					try:
+						coste_val = float(entry.get().replace(',', '.'))
+						self.metodos_repo.guardar_coste_diseno(
+							self._diseno_cargado.codigo,
+							metodo_id,
+							prepare_for_db(coste_val)
+						)
+					except ValueError:
+						pass
+
 				ToastWidget.show(self.frame, "Diseño modificado correctamente", tipo="success")
+				# Resetear estado tras modificar con éxito para que el botón vuelva a GUARDAR
+				self._diseno_cargado = None
+				self._update_main_button()
+				self._render_rejilla_metodos() # Limpiar campos
 				self.frame.after(500, self._on_guardar_ok)
 			else:
 				ToastWidget.show(self.frame, "Error al modificar el diseño", tipo="error")
 		else:
-			# MODO CREAR (Verificar duplicado exacto antes)
+			# MODO CREAR
 			if self.service.repository.existe_diseno(coleccion_id, nombre, sufijo_id):
-				from kool_tpv.utils.dialogs import show_warning as show_confirm_dialog
-				confirm = show_confirm_dialog(
-					self.frame,
-					"Diseño Duplicado",
-					f"Ya existe el diseño '{coleccion_nombre} - {nombre}'.\n¿Deseas MODIFICARLO?",
-					confirm=True
-				)
-				if confirm:
-					# Buscar el existente y re-cargar
-					existente = self._buscar_diseno_exacto(coleccion_id, nombre, sufijo_id)
-					if existente:
-						self._on_diseno_double_click({"obj": existente})
-					return
-				else:
-					return
+				ToastWidget.show(self.frame, "Ya existe un diseño con ese nombre en esta colección", tipo="warning")
+				return
 
-			lista_costes = self._build_lista_costes()
 			result = self.service.crear(
 				coleccion_id=coleccion_id,
 				nombre=nombre,
 				sufijo_id=sufijo_id,
 				tipos=tipos_ids,
-				lista_costes=lista_costes
+				lista_costes=[]
 			)
 			if result is None:
+				# Buscar el recién creado
 				self._diseno_cargado = self._buscar_diseno_exacto(coleccion_id, nombre, sufijo_id)
+				
+				# Guardar costes por método
+				if self._diseno_cargado:
+					for metodo_id, entry in self._metodos_entries.items():
+						try:
+							coste_val = float(entry.get().replace(',', '.'))
+							self.metodos_repo.guardar_coste_diseno(
+								self._diseno_cargado.codigo,
+								metodo_id,
+								prepare_for_db(coste_val)
+							)
+						except ValueError:
+							pass
+
 				ToastWidget.show(self.frame, "Diseño guardado correctamente", tipo="success")
 				self.frame.after(500, self._on_guardar_ok)
 			else:
 				ToastWidget.show(self.frame, result, tipo="error")
+
+	def _on_diseno_double_click(self, item_data: dict):
+		"""Al hacer doble click, cargar el diseño y sus chips."""
+		diseno: ProduccionDiseno = item_data["obj"]
+		self._diseno_cargado = diseno
+		
+		# Rellenar nombre
+		self._entry_nombre.delete(0, tk.END)
+		self._entry_nombre.insert(0, diseno.nombre)
+		
+		# Seleccionar chips automáticamente
+		self._coleccion_seleccionada = self._get_coleccion_nombre(diseno.coleccion_id)
+		self._sufijo_seleccionado = self._get_sufijo_nombre(diseno.sufijo_id) if diseno.sufijo_id else None
+		
+		# Refrescar UI
+		self._render_chips_colecciones()
+		self._render_chips_sufijos()
+		self._render_rejilla_metodos() # Cargar costes del diseño
+		self._update_main_button()
 
 	def _buscar_diseno_exacto(self, coleccion_id: int, nombre: str, sufijo_id: Optional[int]) -> Optional[ProduccionDiseno]:
 		"""Buscar el diseño exacto por sus campos de negocio."""
@@ -626,30 +674,10 @@ class DisenoNuevoView:
 		"""Limpiar todos los campos para crear un nuevo diseño."""
 		self._diseno_cargado = None
 		self._entry_nombre.delete(0, tk.END)
-		self._combo_coleccion.clear()
-		self._combo_sufijo.clear()
 		self._coste_items = []
-		self._render_costes_grid()
-		self.btn_guardar.configure(text="GUARDAR DISEÑO")
 		self._cache_tipos = {t.id: t.nombre for t in self.tipos_service.obtener_activos()}
 		self._paginated_list.search("")
 		self._entry_nombre.focus_set()
-
-	def _get_coleccion_nombre(self, coleccion_id: int) -> str:
-		"""Resolver nombre de colección desde ID."""
-		c = self.colecciones_repo.get_por_id(coleccion_id)
-		return c.nombre if c else ""
-
-	def _get_sufijo_nombre(self, sufijo_id: int) -> str:
-		"""Resolver nombre de sufijo desde ID."""
-		s = self.sufijos_repo.get_por_id(sufijo_id)
-		return s.nombre if s else ""
-
-	def _on_coleccion_selected(self, value: str):
-		pass
-
-	def _on_sufijo_selected(self, value: str):
-		pass
 
 	def _on_add_coleccion(self):
 		"""Añadir una nueva colección."""
@@ -658,9 +686,10 @@ class DisenoNuevoView:
 		if nombre and nombre.strip():
 			new_id = self.colecciones_repo.crear(nombre.strip())
 			if new_id:
-				self._colecciones = self._cargar_colecciones()
-				self._combo_coleccion.configure(values=self._colecciones)
-				self._combo_coleccion.set(nombre.strip())
+				# Actualizar caché
+				self._colecciones_cache = {c.id: c.nombre for c in self.colecciones_repo.get_activas()}
+				self._colecciones = list(self._colecciones_cache.values())
+				self._render_chips_colecciones()
 				ToastWidget.show(self.frame, "Colección añadida", tipo='success')
 			else:
 				ToastWidget.show(self.frame, "Error al añadir colección", tipo='error')
@@ -672,12 +701,35 @@ class DisenoNuevoView:
 		if nombre and nombre.strip():
 			new_id = self.sufijos_repo.crear(nombre.strip())
 			if new_id:
-				self._sufijos = self._cargar_sufijos()
-				self._combo_sufijo.configure(values=self._sufijos)
-				self._combo_sufijo.set(nombre.strip())
+				# Actualizar caché
+				self._sufijos_cache = {s.id: s.nombre for s in self.sufijos_repo.get_activos()}
+				self._sufijos = list(self._sufijos_cache.values())
+				self._render_chips_sufijos()
 				ToastWidget.show(self.frame, "Sufijo añadido", tipo='success')
 			else:
 				ToastWidget.show(self.frame, "Error al añadir sufijo", tipo='error')
+
+	def _on_add_metodo(self):
+		"""Añadir un nuevo método de producción."""
+		from kool_tpv.utils.dialogs import show_input_dialog
+		nombre = show_input_dialog(self.frame, "Nuevo Método", "Nombre de la técnica (DTG, Bordado...):")
+		if nombre and nombre.strip():
+			new_id = self.metodos_repo.crear(nombre.strip().upper())
+			if new_id:
+				# Actualizar caché de métodos
+				self._metodos_cache = self.metodos_repo.get_activos()
+				self._render_rejilla_metodos()
+				ToastWidget.show(self.frame, "Método añadido", tipo='success')
+			else:
+				ToastWidget.show(self.frame, "Error al añadir método", tipo='error')
+
+	def _get_coleccion_nombre(self, coleccion_id: int) -> str:
+		"""Resolver nombre de colección desde caché."""
+		return self._colecciones_cache.get(coleccion_id, "")
+
+	def _get_sufijo_nombre(self, sufijo_id: int) -> str:
+		"""Resolver nombre de sufijo desde caché."""
+		return self._sufijos_cache.get(sufijo_id, "")
 
 	def _on_guardar_ok(self, confirmed=None):
 		"""Callback tras guardar OK: cerrar vista enviando el diseño."""

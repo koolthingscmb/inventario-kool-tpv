@@ -60,6 +60,7 @@ class NuevaProduccionOrigenView(KeyboardNavigableMixin):
 			(btn, lambda b=btn, c=getattr(btn, '_origen_codigo', None): self._on_nav_enter_callback(b, c))
 			for btn in self._chip_buttons
 		]
+		
 		if self._navigable_buttons:
 			try:
 				self._nav_toplevel = self.frame.winfo_toplevel()
@@ -161,7 +162,7 @@ class NuevaProduccionOrigenView(KeyboardNavigableMixin):
 		# Botón VOLVER
 		nav_volver = get_nav_button_config(self.config, "volver")
 		style_volver = get_nav_button_style(self.config, nav_volver.get("style_key", "volver"))
-		btn_volver = ctk.CTkButton(
+		self.btn_volver = ctk.CTkButton(
 			frame_nav,
 			text=nav_volver.get("text", "VOLVER"),
 			font=self._get_font(nav_volver.get("font_key", "button")),
@@ -175,7 +176,7 @@ class NuevaProduccionOrigenView(KeyboardNavigableMixin):
 			cursor="hand2",
 			command=self._on_volver
 		)
-		btn_volver.pack(side=tk.LEFT, padx=10)
+		self.btn_volver.pack(side=tk.LEFT, padx=10)
 
 		# Botón SIGUIENTE
 		nav_sig = get_nav_button_config(self.config, "siguiente")

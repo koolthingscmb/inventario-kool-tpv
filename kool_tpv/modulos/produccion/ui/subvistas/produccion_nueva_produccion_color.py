@@ -238,7 +238,7 @@ class NuevaProduccionColorView(KeyboardNavigableMixin):
 		# Botón VOLVER
 		nav_volver = get_nav_button_config(self.config, "volver")
 		style_volver = get_nav_button_style(self.config, nav_volver.get("style_key", "volver"))
-		btn_volver = ctk.CTkButton(
+		self.btn_volver = ctk.CTkButton(
 			frame_nav,
 			text=nav_volver.get("text", "VOLVER"),
 			font=self._get_font(nav_volver.get("font_key", "button")),
@@ -252,7 +252,7 @@ class NuevaProduccionColorView(KeyboardNavigableMixin):
 			cursor="hand2",
 			command=self._on_volver
 		)
-		btn_volver.pack(side=tk.LEFT, padx=10)
+		self.btn_volver.pack(side=tk.LEFT, padx=10)
 
 		# Botón SIGUIENTE
 		nav_sig = get_nav_button_config(self.config, "siguiente")

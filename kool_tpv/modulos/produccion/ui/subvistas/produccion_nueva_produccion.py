@@ -13,9 +13,10 @@ from kool_tpv.modulos.produccion.models.produccion_tipos_model import Produccion
 from kool_tpv.modulos.produccion.models.produccion_menu_model import ProduccionMenuItem
 from kool_tpv.modulos.produccion.ui.produccion_producto_selector import ProductoSelectorWidget
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font, get_nav_button_config, get_nav_button_style
+from kool_tpv.utils.keyboard_nav_mixin import KeyboardNavigableMixin
 
 
-class NuevaProduccionView:
+class NuevaProduccionView(KeyboardNavigableMixin):
 	"""Subvista para seleccionar el tipo de producto.
 
 	Args:
@@ -28,6 +29,7 @@ class NuevaProduccionView:
 	             on_siguiente: Optional[Callable[[ProduccionMenuItem], None]] = None,
 	             on_volver: Optional[Callable] = None,
 	             keyboard_mgr=None):
+		KeyboardNavigableMixin.__init_keyboard_mixin__(self)
 		self.parent = parent
 		self.db = db
 		self.on_siguiente = on_siguiente
@@ -77,7 +79,7 @@ class NuevaProduccionView:
 		# Botón VOLVER
 		nav_volver = get_nav_button_config(self.config, "volver")
 		style_volver = get_nav_button_style(self.config, nav_volver.get("style_key", "volver"))
-		btn_volver = ctk.CTkButton(
+		self.btn_volver = ctk.CTkButton(
 			frame_nav,
 			text=nav_volver.get("text", "VOLVER"),
 			font=self._get_font(nav_volver.get("font_key", "button")),
@@ -91,7 +93,7 @@ class NuevaProduccionView:
 			cursor="hand2",
 			command=self._on_volver
 		)
-		btn_volver.pack(side=tk.LEFT, padx=10)
+		self.btn_volver.pack(side=tk.LEFT, padx=10)
 
 		# Botón SIGUIENTE
 		nav_sig = get_nav_button_config(self.config, "siguiente")
@@ -136,6 +138,7 @@ class NuevaProduccionView:
 
 	def destruir(self):
 		"""Destruir la subvista y limpiar recursos."""
+		self.clear_keyboard_navigation()
 		if hasattr(self.selector, 'destruir'):
 			self.selector.destruir()
 		self.frame.destroy()
