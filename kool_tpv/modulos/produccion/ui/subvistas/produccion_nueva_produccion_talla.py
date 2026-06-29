@@ -72,6 +72,8 @@ class NuevaProduccionTallaView(KeyboardNavigableMixin):
 			(btn, lambda b=btn, t=getattr(btn, '_talla_codigo', None): self._on_nav_enter_callback(b, t))
 			for btn in self._chip_buttons
 		]
+		self._navigable_buttons.append((self.btn_volver, self._on_volver))
+		self._navigable_buttons.append((self.btn_siguiente, self._on_siguiente))
 		if self._navigable_buttons:
 			try:
 				self._nav_toplevel = self.frame.winfo_toplevel()

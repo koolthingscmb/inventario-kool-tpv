@@ -132,14 +132,9 @@ class ProduccionView(BaseModuleView):
 			return False
 
 	def show_nuevo(self):
-		"""Abrir flujo de nueva producción: autenticar cajero si no hay, luego flow."""
+		"""Abrir flujo de nueva producción."""
 		try:
-			for w in list(self.central_area.winfo_children()):
-				w.destroy()
-			if self._cajero_id is not None:
-				self._iniciar_flow()
-			else:
-				self._mostrar_auth_cajero()
+			self._iniciar_flow()
 		except Exception:
 			logging.exception('Error abriendo show_nuevo en ProduccionView')
 

@@ -53,6 +53,30 @@ class NuevaProduccionView(KeyboardNavigableMixin):
 		# Botones de navegación
 		self._crear_botones_navegacion()
 
+		# Configurar navegación con KeyboardNavigableMixin
+		# Primero los chips del selector, luego los botones
+		self._navigable_buttons = []
+		if hasattr(self.selector, 'get_navigable_widgets'):
+			for btn, callback in self.selector.get_navigable_widgets():
+				self._navigable_buttons.append((btn, callback))
+		
+		self._navigable_buttons.append((self.btn_volver, self._on_volver))
+		self._navigable_buttons.append((self.btn_siguiente, self._on_siguiente))
+
+		if self._navigable_buttons:
+			try:
+				self._nav_toplevel = self.frame.winfo_toplevel()
+			except Exception:
+				self._nav_toplevel = self.frame
+			self._nav_toplevel.bind("<Tab>", self._on_nav_tab_next)
+			self._nav_toplevel.bind("<Shift-Tab>", self._on_nav_tab_prev)
+			self._nav_toplevel.bind("<Return>", self._on_nav_enter)
+			self._nav_toplevel.bind("<KP_Enter>", self._on_nav_enter)
+			self.frame.bind("<Destroy>", self._on_nav_destroy)
+
+		if self._navigable_buttons:
+			self.frame.after(100, lambda: self._focus_nav_widget(0))
+
 	def _get_font(self, key: str) -> tuple:
 		"""Obtener una fuente desde la configuración."""
 		return get_font(self.config, key)

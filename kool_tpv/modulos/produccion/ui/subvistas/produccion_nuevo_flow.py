@@ -29,6 +29,7 @@ from kool_tpv.modulos.produccion.services.produccion_menu_service import Producc
 from kool_tpv.modulos.produccion.services.produccion_ordenes_service import ProduccionOrdenesService, ItemProduccion
 from kool_tpv.modulos.produccion.repositories.produccion_colecciones_repository import ProduccionColeccionesRepository
 from kool_tpv.base_datos.money_adapter import read_from_db
+from kool_tpv.modulos.produccion.ui.subvistas.produccion_cajero_auth import CajeroAuthView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_origen import NuevaProduccionOrigenView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion import NuevaProduccionView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_tipos import NuevaProduccionTiposView
@@ -40,6 +41,7 @@ from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_cantid
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_resumen import NuevaProduccionResumenView
 
 # Pasos del flujo
+PASO_CAJERO = -1
 PASO_ORIGEN = 0
 PASO_MENU = 1
 PASO_TIPOS = 2
@@ -80,8 +82,8 @@ class NuevoProduccionFlow:
         self._colecciones_repo = ProduccionColeccionesRepository(db)
 
         # Estado del flujo
-        self._paso_actual = PASO_ORIGEN
-        self._paso_anterior = PASO_ORIGEN
+        self._paso_actual = PASO_CAJERO if not usuario_id else PASO_ORIGEN
+        self._paso_anterior = self._paso_actual
         self._menu: Optional[ProduccionMenuItem] = None
         self._tipo: Optional[ProduccionTipo] = None
         self._variante: Optional[ProduccionTipoVariante] = None
@@ -112,27 +114,7 @@ class NuevoProduccionFlow:
             self._lbl_cajero.pack(fill="x", padx=20, pady=(4, 0))
 
         # Iniciar en el primer paso
-        self._mostrar_paso(PASO_ORIGEN)
-
-        # Vincular tecla Escape para navegación atrás
-        self.frame.after(100, self._vincular_teclado_global)
-
-    def _vincular_teclado_global(self):
-        """Vincular teclas rápidas globales para el flujo."""
-        try:
-            root = self.frame.winfo_toplevel()
-            root.bind("<Escape>", lambda e: self._on_escape_press())
-        except Exception:
-            pass
-
-    def _on_escape_press(self):
-        """Manejador de tecla Escape: ir al paso anterior."""
-        if self._vista_actual:
-            # Intentar llamar al método de volver de la vista
-            if hasattr(self._vista_actual, '_on_volver'):
-                self._vista_actual._on_volver()
-            elif hasattr(self._vista_actual, 'on_volver') and callable(self._vista_actual.on_volver):
-                self._vista_actual.on_volver()
+        self._mostrar_paso(self._paso_actual)
 
     # --- Navegación entre pasos ---
 
@@ -149,11 +131,19 @@ class NuevoProduccionFlow:
         self._paso_anterior = self._paso_actual
         self._paso_actual = paso
 
-        if paso == PASO_ORIGEN:
+        if paso == PASO_CAJERO:
+            self._vista_actual = CajeroAuthView(
+                self.frame,
+                db=self.db,
+                on_success=self._on_cajero_auth_success,
+                on_cancel=self._on_volver_flow
+            )
+
+        elif paso == PASO_ORIGEN:
             self._vista_actual = NuevaProduccionOrigenView(
                 self.frame,
                 on_siguiente=self._on_origen_siguiente,
-                on_volver=self._on_volver_flow
+                on_volver=lambda: self._mostrar_paso(PASO_CAJERO)
             )
 
         elif paso == PASO_MENU:
@@ -162,7 +152,7 @@ class NuevoProduccionFlow:
                 db=self.db,
                 keyboard_mgr=self.keyboard_mgr,
                 on_siguiente=self._on_menu_siguiente,
-                on_volver=self._on_volver_flow
+                on_volver=lambda: self._mostrar_paso(PASO_ORIGEN)
             )
 
         elif paso == PASO_TIPOS:
@@ -269,6 +259,15 @@ class NuevoProduccionFlow:
                 self._vista_actual.anadir_item(item)
 
     # --- Callbacks de cada paso ---
+
+    def _on_cajero_auth_success(self, usuario_id: int, nombre: str):
+        """Cajero autenticado -> ir a origen."""
+        self._usuario_id = usuario_id
+        self._usuario_nombre = nombre
+        # Actualizar label si existe
+        if hasattr(self, '_lbl_cajero'):
+            self._lbl_cajero.configure(text=f"Cajero: {nombre}")
+        self._mostrar_paso(PASO_ORIGEN)
 
     def _on_origen_siguiente(self, origen: str):
         """Origen seleccionado (KOOL / CUSTOM) → ir al menú de producto."""

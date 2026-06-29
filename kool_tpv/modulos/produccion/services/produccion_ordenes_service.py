@@ -9,6 +9,10 @@ from datetime import datetime
 
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.base_datos.money_adapter import prepare_for_db
+from kool_tpv.modulos.produccion.models.produccion_orden_model import ProduccionOrden
+from kool_tpv.modulos.produccion.models.produccion_linea_model import ProduccionLinea
+from kool_tpv.modulos.produccion.repositories.produccion_ordenes_repository import ProduccionOrdenesRepository
+from kool_tpv.modulos.produccion.repositories.produccion_stock_base_repository import ProduccionStockBaseRepository
 
 @dataclass
 class ItemProduccion:
@@ -32,6 +36,8 @@ class ProduccionOrdenesService:
     def __init__(self, db: Database):
         self.db = db
         self.logger = logging.getLogger(__name__)
+        self.repo_ordenes = ProduccionOrdenesRepository(db)
+        self.repo_stock_base = ProduccionStockBaseRepository(db)
 
     def guardar_orden(self, items: List[ItemProduccion], usuario_id: Optional[int] = None) -> bool:
         """Guardar una orden de producción completa y actualizar el stock."""
@@ -39,43 +45,59 @@ class ProduccionOrdenesService:
             return False
 
         try:
-            # 1. Crear la cabecera de la orden (origen por defecto 'KOOL')
-            query_orden = """
-                INSERT INTO produccion_ordenes (usuario_id, estado, origen)
-                VALUES (?, 'COMPLETADA', 'KOOL')
-            """
-            self.db.execute_query(query_orden, (usuario_id,))
-            
-            # Obtener el ID de la orden creada
-            res = self.db.fetch_all("SELECT last_insert_rowid()")
-            orden_id = res[0][0]
+            # Determinamos el origen de la orden (del primer ítem o KOOL por defecto)
+            origen_orden = items[0].origen if items else 'KOOL'
 
-            # 2. Guardar cada línea y actualizar stock
-            for item in items:
-                # Guardar línea
-                query_linea = """
-                    INSERT INTO produccion_lineas 
-                    (orden_id, diseno_codigo, tipo_producto, talla, color_id, 
-                     cantidad, produccion_mixta, usuario_produccion_id,
-                     coste_unitario, coste_total, variante_id, origen)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """
-                # Convertir costes a céntimos para la BD
-                coste_u_cent = prepare_for_db(item.coste_unitario)
-                coste_t_cent = prepare_for_db(item.coste_total)
+            # Usamos el manager de transacciones de db_wrapper
+            with self.db.transaction() as cur:
+                # 1. Crear la cabecera de la orden
+                orden = ProduccionOrden(
+                    usuario_id=usuario_id,
+                    estado='COMPLETADA',
+                    origen=origen_orden,
+                    fecha_hora=datetime.now()
+                )
+                orden_id = self.repo_ordenes.crear(orden)
                 
-                self.db.execute_query(query_linea, (
-                    orden_id, item.diseno_codigo, item.tipo_nombre, 
-                    item.talla, item.color_id, item.cantidad,
-                    1 if item.produccion_mixta else 0,
-                    usuario_id,
-                    coste_u_cent, coste_t_cent,
-                    item.variante_id,
-                    getattr(item, 'origen', 'KOOL') or 'KOOL'
-                ))
+                if not orden_id:
+                    raise Exception("No se pudo crear la cabecera de la orden")
 
-                # 3. Actualizar stock acumulado
-                self._actualizar_stock_diseno(item)
+                # 2. Guardar cada línea y actualizar stock
+                for item in items:
+                    # Guardar línea usando el repo profesionalmente
+                    linea = ProduccionLinea(
+                        orden_id=orden_id,
+                        diseno_codigo=item.diseno_codigo,
+                        tipo_producto=item.tipo_nombre,
+                        talla=item.talla,
+                        color_id=item.color_id,
+                        cantidad=item.cantidad,
+                        produccion_mixta=1 if item.produccion_mixta else 0,
+                        usuario_produccion_id=usuario_id,
+                        coste_unitario=int(prepare_for_db(item.coste_unitario)),
+                        coste_total=int(prepare_for_db(item.coste_total)),
+                        variante_id=item.variante_id,
+                        origen=item.origen or 'KOOL'
+                    )
+                    
+                    linea_id = self.repo_ordenes.crear_linea(linea)
+                    if not linea_id:
+                        raise Exception(f"No se pudo crear la línea para el diseño {item.diseno_codigo}")
+
+                    # 3. Actualizar stock de bases (descontar el material en blanco)
+                    # Usamos el repo de stock base que ya soporta variantes
+                    ok_stock_base = self.repo_stock_base.actualizar_cantidad(
+                        tipo_id=item.tipo_id,
+                        color_id=item.color_id,
+                        talla=item.talla,
+                        delta=-item.cantidad,
+                        variante_id=item.variante_id
+                    )
+                    if not ok_stock_base:
+                        self.logger.warning(f"No se pudo descontar stock de base para tipo {item.tipo_id}, variante {item.variante_id}")
+
+                    # 4. Actualizar stock acumulado de diseños (incluyendo variante)
+                    self._actualizar_stock_diseno(item)
 
             return True
 
@@ -84,19 +106,19 @@ class ProduccionOrdenesService:
             return False
 
     def _actualizar_stock_diseno(self, item: ItemProduccion):
-        """Actualizar la tabla produccion_disenos_stock."""
+        """Actualizar la tabla produccion_disenos_stock incluyendo variante_id."""
         try:
-            # Intentar insertar o actualizar
+            # Intentar insertar o actualizar incluyendo variante_id para no mezclar stocks
             query = """
                 INSERT INTO produccion_disenos_stock 
-                (diseno_codigo, tipo_id, color_id, talla, cantidad)
-                VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT(diseno_codigo, tipo_id, color_id, talla) 
+                (diseno_codigo, tipo_id, color_id, talla, cantidad, variante_id)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(diseno_codigo, tipo_id, color_id, talla, variante_id) 
                 DO UPDATE SET cantidad = cantidad + excluded.cantidad
             """
             self.db.execute_query(query, (
                 item.diseno_codigo, item.tipo_id, item.color_id, 
-                item.talla, item.cantidad
+                item.talla, item.cantidad, item.variante_id
             ))
         except Exception:
             self.logger.exception(f"Error actualizando stock para diseño {item.diseno_codigo}")

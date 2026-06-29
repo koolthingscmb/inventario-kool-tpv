@@ -21,10 +21,8 @@ from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config
 from kool_tpv.utils.keyboard_nav_mixin import KeyboardNavigableMixin
 
 
-class ProductoSelectorWidget(KeyboardNavigableMixin):
+class ProductoSelectorWidget:
 	"""Widget para seleccionar el tipo de producto fabricable.
-
-	Usa KeyboardNavigableMixin para Tab/Shift+Tab/Enter (mismo patrón que el TPV).
 
 	Args:
 		parent: Widget padre donde se mostrará el selector.
@@ -40,7 +38,6 @@ class ProductoSelectorWidget(KeyboardNavigableMixin):
 	             on_advance: Optional[Callable] = None,
 	             keyboard_mgr=None,
 	             titulo: str = "SELECCIONA PRODUCTO"):
-		KeyboardNavigableMixin.__init_keyboard_mixin__(self)
 		self.parent = parent
 		self.db = db
 		self.on_seleccion = on_seleccion
@@ -72,30 +69,17 @@ class ProductoSelectorWidget(KeyboardNavigableMixin):
 		# Chips de tipos
 		self._crear_chips_tipos()
 
-		# Configurar navegación con KeyboardNavigableMixin (Tab/Shift+Tab/Enter)
-		self._navigable_buttons = [
-			(btn, lambda b=btn, t=getattr(btn, '_menu_data', None): self._on_nav_enter_callback(b, t))
-			for btn in self._chip_buttons
-		]
-		# Usar self.frame como widget para toplevel (ProductoSelectorWidget no es widget)
-		if self._navigable_buttons:
-			try:
-				self._nav_toplevel = self.frame.winfo_toplevel()
-			except Exception:
-				self._nav_toplevel = self.frame
-			self._nav_toplevel.bind("<Tab>", self._on_nav_tab_next)
-			self._nav_toplevel.bind("<Shift-Tab>", self._on_nav_tab_prev)
-			self._nav_toplevel.bind("<Return>", self._on_nav_enter)
-			self._nav_toplevel.bind("<KP_Enter>", self._on_nav_enter)
-			self.frame.bind("<Destroy>", self._on_nav_destroy)
-
-		# Auto-focus primer chip
-		if self._chip_buttons:
-			self.frame.after(100, lambda: self._focus_nav_widget(0))
-
+		# Auto-focus primer chip (si se maneja internamente, pero ahora lo hará la vista padre)
 		# Registrarse en KeyboardManager (para flechas Up/Down)
 		if self.keyboard_mgr:
 			self.keyboard_mgr.set_active_list(self)
+
+	def get_navigable_widgets(self) -> List[tuple]:
+		"""Devolver lista de (widget, callback) para el mixin de navegación."""
+		return [
+			(btn, lambda b=btn, t=getattr(btn, '_menu_data', None): self._on_nav_enter_callback(b, t))
+			for btn in self._chip_buttons
+		]
 
 	def _crear_titulo(self):
 		"""Crear el título del widget."""
@@ -250,7 +234,6 @@ class ProductoSelectorWidget(KeyboardNavigableMixin):
 
 	def destruir(self):
 		"""Destruir el widget y limpiar recursos."""
-		self.clear_keyboard_navigation()
 		if self.keyboard_mgr:
 			self.keyboard_mgr.clear_active_list()
 		self.frame.destroy()

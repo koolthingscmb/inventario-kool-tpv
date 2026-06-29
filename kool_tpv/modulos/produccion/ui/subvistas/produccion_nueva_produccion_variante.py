@@ -4,6 +4,7 @@ Muestra chips de variantes cargados desde la base de datos para el tipo seleccio
 """
 from typing import Callable, List, Optional
 
+import tkinter as tk
 import customtkinter as ctk
 
 from kool_tpv.base_datos.db_wrapper import Database
@@ -56,6 +57,8 @@ class NuevaProduccionVarianteView(KeyboardNavigableMixin):
             (btn, lambda b=btn, v=getattr(btn, '_variante_data', None): self._on_nav_enter_callback(b, v))
             for btn in self._chip_buttons
         ]
+        self._navigable_buttons.append((self.btn_volver, self._on_volver))
+        self._navigable_buttons.append((self.btn_siguiente, self._on_siguiente))
         if self._navigable_buttons:
             try:
                 self._nav_toplevel = self.frame.winfo_toplevel()
@@ -82,7 +85,7 @@ class NuevaProduccionVarianteView(KeyboardNavigableMixin):
 
     def _crear_chips_variantes(self):
         self.chips_frame = ctk.CTkScrollableFrame(self.frame, fg_color=self._bg, label_text="")
-        self.chips_frame.pack(expand=True, fill="both", padx=40, pady=(10, 10))
+        self.chips_frame.pack(expand=True, fill="both", padx=40, pady=20)
 
         variantes = self._service.obtener_por_tipo(self.tipo_id, solo_activos=True)
 
@@ -133,35 +136,6 @@ class NuevaProduccionVarianteView(KeyboardNavigableMixin):
         for i in range(n_rows):
             self.chips_frame.rowconfigure(i, weight=1)
 
-    def _crear_botones_navegacion(self):
-        """Crear botones de navegación inferior."""
-        import tkinter as tk
-        frame_nav = ctk.CTkFrame(self.frame, fg_color=self._bg)
-        frame_nav.pack(fill="x", padx=40, pady=20)
-
-        # Botón VOLVER
-        nav_volver = get_nav_button_config(self.config, "volver")
-        style_volver = get_nav_button_style(self.config, nav_volver.get("style_key", "volver"))
-        self.btn_volver = ctk.CTkButton(
-            frame_nav,
-            text=nav_volver.get("text", "VOLVER"),
-            font=get_font(self.config, nav_volver.get("font_key", "button")),
-            fg_color=style_volver.get("bg", "#e74c3c"),
-            text_color=style_volver.get("text", "#FFFFFF"),
-            hover_color=style_volver.get("hover", "#c0392b"),
-            border_color=style_volver.get("border", "#e74c3c"),
-            border_width=style_volver.get("focus_thickness", 0),
-            width=nav_volver.get("width", 15) * 10,
-            height=nav_volver.get("height", 2) * 20,
-            cursor="hand2",
-            command=self._on_volver_click
-        )
-        self.btn_volver.pack(side=tk.LEFT, padx=10)
-
-    def _on_volver_click(self):
-        if self.on_volver:
-            self.on_volver()
-
     def _on_chip_click(self, btn: ctk.CTkButton, var: ProduccionTipoVariante):
         self._select_chip(btn, var)
 
@@ -190,6 +164,57 @@ class NuevaProduccionVarianteView(KeyboardNavigableMixin):
             border_width=style.get("border_width", 1),
             font=(font_family[0], style.get("font_size", 14), font_family[2])
         )
+
+    def _crear_botones_navegacion(self):
+        """Crear los botones de navegación inferior."""
+        frame_nav = ctk.CTkFrame(self.frame, fg_color=self._bg)
+        frame_nav.pack(fill="x", padx=40, pady=20)
+
+        # Botón VOLVER
+        nav_volver = get_nav_button_config(self.config, "volver")
+        style_volver = get_nav_button_style(self.config, nav_volver.get("style_key", "volver"))
+        self.btn_volver = ctk.CTkButton(
+            frame_nav,
+            text=nav_volver.get("text", "VOLVER"),
+            font=get_font(self.config, nav_volver.get("font_key", "button")),
+            fg_color=style_volver.get("bg", "#e74c3c"),
+            text_color=style_volver.get("text", "#FFFFFF"),
+            hover_color=style_volver.get("hover", "#c0392b"),
+            border_color=style_volver.get("border", "#e74c3c"),
+            border_width=style_volver.get("focus_thickness", 0),
+            width=nav_volver.get("width", 15) * 10,
+            height=nav_volver.get("height", 2) * 20,
+            cursor="hand2",
+            command=self._on_volver
+        )
+        self.btn_volver.pack(side=tk.LEFT, padx=10)
+
+        # Botón SIGUIENTE
+        nav_sig = get_nav_button_config(self.config, "siguiente")
+        style_siguiente = get_nav_button_style(self.config, nav_sig.get("style_key", "siguiente"))
+        self.btn_siguiente = ctk.CTkButton(
+            frame_nav,
+            text=nav_sig.get("text", "SIGUIENTE"),
+            font=get_font(self.config, nav_sig.get("font_key", "button")),
+            fg_color=style_siguiente.get("bg", "#27ae60"),
+            text_color=style_siguiente.get("text", "#FFFFFF"),
+            hover_color=style_siguiente.get("hover", "#2ecc71"),
+            border_color=style_siguiente.get("border", "#1C0629"),
+            border_width=style_siguiente.get("focus_thickness", 0),
+            width=nav_sig.get("width", 15) * 10,
+            height=nav_sig.get("height", 2) * 20,
+            cursor="hand2",
+            command=self._on_siguiente
+        )
+        self.btn_siguiente.pack(side=tk.RIGHT, padx=10)
+
+    def _on_volver(self):
+        if self.on_volver:
+            self.on_volver()
+
+    def _on_siguiente(self):
+        if self.variante_seleccionada and self.on_siguiente:
+            self.on_siguiente(self.variante_seleccionada)
 
     def _on_nav_enter_callback(self, btn: ctk.CTkButton, var: Optional[ProduccionTipoVariante]):
         if self._selected_chip is not None and self._selected_chip == btn:

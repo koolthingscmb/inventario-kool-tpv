@@ -14,3 +14,5 @@ class ProduccionLinea:
     usuario_produccion_id: Optional[int] = None
     coste_unitario: int = 0    # en céntimos
     coste_total: int = 0       # en céntimos
+    variante_id: Optional[int] = None
+    origen: str = "KOOL"

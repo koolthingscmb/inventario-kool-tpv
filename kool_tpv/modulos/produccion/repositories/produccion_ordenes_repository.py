@@ -215,7 +215,7 @@ class ProduccionOrdenesRepository:
 		query = """
 			SELECT id, orden_id, diseno_codigo, tipo_producto, talla, color_id,
 			       cantidad, produccion_mixta, usuario_produccion_id,
-			       coste_unitario, coste_total
+			       coste_unitario, coste_total, variante_id, origen
 			FROM produccion_lineas
 			WHERE orden_id = ?
 			ORDER BY id
@@ -226,7 +226,7 @@ class ProduccionOrdenesRepository:
 		for row in rows:
 			(id_, orden_id, diseno_codigo, tipo_producto, talla, color_id,
 			 cantidad, produccion_mixta, usuario_produccion_id,
-			 coste_unitario, coste_total) = row
+			 coste_unitario, coste_total, variante_id, origen) = row
 			lineas.append(ProduccionLinea(
 				id=id_,
 				orden_id=orden_id,
@@ -238,7 +238,9 @@ class ProduccionOrdenesRepository:
 				produccion_mixta=produccion_mixta,
 				usuario_produccion_id=usuario_produccion_id,
 				coste_unitario=coste_unitario,
-				coste_total=coste_total
+				coste_total=coste_total,
+				variante_id=variante_id,
+				origen=origen or 'KOOL'
 			))
 		return lineas
 
@@ -256,14 +258,16 @@ class ProduccionOrdenesRepository:
 				INSERT INTO produccion_lineas
 				(orden_id, diseno_codigo, tipo_producto, talla, color_id,
 				 cantidad, produccion_mixta, usuario_produccion_id,
-				 coste_unitario, coste_total)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				 coste_unitario, coste_total, variante_id, origen)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			"""
 			self.db.execute_query(query, (
 				linea.orden_id, linea.diseno_codigo, linea.tipo_producto,
 				linea.talla, linea.color_id, linea.cantidad,
 				linea.produccion_mixta, linea.usuario_produccion_id,
-				linea.coste_unitario, linea.coste_total
+				linea.coste_unitario, linea.coste_total, 
+				getattr(linea, 'variante_id', None),
+				getattr(linea, 'origen', 'KOOL') or 'KOOL'
 			))
 			# Obtener el ID del último insert
 			result = self.db.fetch_all("SELECT last_insert_rowid()")

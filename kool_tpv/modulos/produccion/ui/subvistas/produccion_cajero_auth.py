@@ -15,7 +15,7 @@ from kool_tpv.utils.auth_service import AuthService
 from kool_tpv.utils.dialogs.helpers import show_password_dialog, show_warning
 from kool_tpv.utils.keyboard_nav_mixin import KeyboardNavigableMixin
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import (
-	cargar_config_produccion, get_font, get_chip_config, get_chip_style
+	cargar_config_produccion, get_font, get_chip_config, get_chip_style, get_nav_button_config, get_nav_button_style
 )
 
 
@@ -57,12 +57,13 @@ class CajeroAuthView(ctk.CTkFrame, KeyboardNavigableMixin):
 
 		self._crear_titulo()
 		self._crear_chips()
-		self._crear_botones()
+		self._crear_botones_navegacion()
 
 		self._navigable_buttons = [
 			(btn, lambda u=getattr(btn, '_usr_data', None): self._on_nav_enter_callback(u))
 			for btn in self._chip_buttons
 		]
+		self._navigable_buttons.append((self.btn_volver, self._on_volver))
 		if self._navigable_buttons:
 			try:
 				self._setup_keyboard_navigation()
@@ -144,29 +145,6 @@ class CajeroAuthView(ctk.CTkFrame, KeyboardNavigableMixin):
 		for i in range(n_rows):
 			self.chips_frame.rowconfigure(i, weight=1)
 
-	def _crear_botones(self):
-		from kool_tpv.modulos.produccion.ui.subvistas.config_helper import get_nav_button_config, get_nav_button_style
-		frame_nav = ctk.CTkFrame(self, fg_color=self._bg)
-		frame_nav.pack(fill="x", padx=40, pady=20)
-
-		nav_volver = get_nav_button_config(self.config, "volver")
-		style_volver = get_nav_button_style(self.config, nav_volver.get("style_key", "volver"))
-		btn_volver = ctk.CTkButton(
-			frame_nav,
-			text=nav_volver.get("text", "VOLVER"),
-			font=get_font(self.config, nav_volver.get("font_key", "button")),
-			fg_color=style_volver.get("bg", "#e74c3c"),
-			text_color=style_volver.get("text", "#FFFFFF"),
-			hover_color=style_volver.get("hover", "#c0392b"),
-			border_color=style_volver.get("border", "#e74c3c"),
-			border_width=style_volver.get("focus_thickness", 0),
-			width=nav_volver.get("width", 15) * 10,
-			height=nav_volver.get("height", 2) * 20,
-			cursor="hand2",
-			command=self._on_volver
-		)
-		btn_volver.pack(side="left", padx=10)
-
 	def _on_chip_click(self, btn: ctk.CTkButton, usr: dict):
 		self._select_chip(btn, usr)
 
@@ -232,6 +210,35 @@ class CajeroAuthView(ctk.CTkFrame, KeyboardNavigableMixin):
 				pass
 		self._selected_chip = None
 
+	def _crear_botones_navegacion(self):
+		"""Crear los botones de navegación inferior (solo VOLVER en auth)."""
+		frame_nav = ctk.CTkFrame(self, fg_color=self._bg)
+		frame_nav.pack(fill="x", padx=40, pady=20)
+
+		# Botón VOLVER
+		nav_volver = get_nav_button_config(self.config, "volver")
+		style_volver = get_nav_button_style(self.config, nav_volver.get("style_key", "volver"))
+		self.btn_volver = ctk.CTkButton(
+			frame_nav,
+			text=nav_volver.get("text", "VOLVER"),
+			font=get_font(self.config, nav_volver.get("font_key", "button")),
+			fg_color=style_volver.get("bg", "#e74c3c"),
+			text_color=style_volver.get("text", "#FFFFFF"),
+			hover_color=style_volver.get("hover", "#c0392b"),
+			border_color=style_volver.get("border", "#e74c3c"),
+			border_width=style_volver.get("focus_thickness", 0),
+			width=nav_volver.get("width", 15) * 10,
+			height=nav_volver.get("height", 2) * 20,
+			cursor="hand2",
+			command=self._on_volver
+		)
+		self.btn_volver.pack(side="left", padx=10)
+
+	def _on_volver(self):
+		"""Manejador del botón VOLVER."""
+		if self.on_cancel:
+			self.on_cancel()
+
 	def _on_nav_enter_callback(self, usr: dict):
 		"""Callback de Enter en navegación: seleccionar chip y auth."""
 		if usr:
@@ -242,10 +249,6 @@ class CajeroAuthView(ctk.CTkFrame, KeyboardNavigableMixin):
 					break
 			if btn:
 				self._select_chip(btn, usr)
-
-	def _on_volver(self):
-		if self.on_cancel:
-			self.on_cancel()
 
 	def destruir(self):
 		try:
