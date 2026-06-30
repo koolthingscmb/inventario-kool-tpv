@@ -526,7 +526,8 @@ class ResetService:
             cur.execute("DELETE FROM descuentos")
             cur.execute("DELETE FROM categorias WHERE id != 1")
             cur.execute("DELETE FROM tipos WHERE id != 1")
-            logging.warning('RESET COMPLETO: productos, precios, favoritos, categorias y tipos extra borrados')
+            cur.execute("DELETE FROM proveedores")
+            logging.warning('RESET COMPLETO: productos, precios, favoritos, categorias, tipos extra y proveedores borrados')
 
             # Producción — cada DELETE en su propio try/except por si alguna tabla no existe
             _tablas_prod = [
@@ -544,7 +545,7 @@ class ResetService:
                 except Exception:
                     pass
             try:
-                cur.execute("DELETE FROM sqlite_sequence WHERE name IN ('produccion_ordenes', 'produccion_lineas', 'produccion_disenos_stock', 'produccion_stock_colores_tallas', 'produccion_tipo_color_tallas', 'produccion_disenos', 'produccion_menu', 'categorias', 'tipos', 'productos', 'precios', 'descuentos')")
+                cur.execute("DELETE FROM sqlite_sequence WHERE name IN ('produccion_ordenes', 'produccion_lineas', 'produccion_disenos_stock', 'produccion_stock_colores_tallas', 'produccion_tipo_color_tallas', 'produccion_disenos', 'produccion_menu', 'categorias', 'tipos', 'productos', 'precios', 'descuentos', 'proveedores')")
             except Exception:
                 pass
             logging.warning('RESET COMPLETO: datos de producción y catálogo borrados, contadores reseteados')

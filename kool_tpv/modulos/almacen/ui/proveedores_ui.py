@@ -239,11 +239,16 @@ class ProveedoresUI:
 
     def _select_chip(self, btn):
         try:
-            if self.selected_chip is not None:
+            # Comprobar si el chip anterior todavía existe antes de aplicarle estilo
+            if self.selected_chip is not None and self.selected_chip.winfo_exists():
                 ButtonFactory.apply_style(self.selected_chip, "chip_default")
 
-            self.selected_chip = btn
-            ButtonFactory.apply_style(btn, "chip_selected")
+            # Comprobar si el nuevo botón existe
+            if btn is not None and btn.winfo_exists():
+                self.selected_chip = btn
+                ButtonFactory.apply_style(btn, "chip_selected")
+            else:
+                self.selected_chip = None
 
         except Exception:
             logging.exception("Error aplicando estilos de selección de chip")
