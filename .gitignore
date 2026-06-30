@@ -4,11 +4,17 @@ __pycache__/
 *.pyc
 *.pyo
 *.log
+.DS_Store
+.pytest_cache/
+.coverage
 
 # Ignore test DB copies created by the dev helper
 kool_tpv/base_datos/*.test.db
 # Ignore any local DB snapshots
 kool_tpv/base_datos/kool_bd.*.db
+# Ignore DB backups
+*.bak
+*.bak_*
 
 # Backups locales
 backups/
@@ -19,6 +25,9 @@ kool_tpv/borradores/
 # Base de datos de trabajo (se genera automáticamente al arrancar)
 kool_tpv/base_datos/kool_bd.db
 kool_tpv/base_datos/kool_tpv.db
+
+# Vales de devolución (se generan en runtime)
+vales_devolucion/
 
 # Scripts de test/utilidad locales
 stress_test_data.py
