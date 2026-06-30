@@ -518,14 +518,36 @@ class ResetService:
             cur.execute(f"UPDATE clientes {_CLIENTES_RESET_SET}")
             logging.warning('RESET COMPLETO: estadísticas clientes reseteadas')
 
-            # Producción
-            cur.execute("DELETE FROM produccion_lineas")
-            cur.execute("DELETE FROM produccion_ordenes")
-            cur.execute("DELETE FROM produccion_disenos_stock")
-            cur.execute("DELETE FROM produccion_stock_colores_tallas")
-            cur.execute("DELETE FROM produccion_tipo_color_tallas")
-            cur.execute("DELETE FROM sqlite_sequence WHERE name IN ('produccion_ordenes', 'produccion_lineas', 'produccion_disenos_stock', 'produccion_stock_colores_tallas', 'produccion_tipo_color_tallas')")
-            logging.warning('RESET COMPLETO: datos de producción borrados y contadores reseteados')
+            # Productos y catálogo
+            cur.execute("DELETE FROM productos")
+            cur.execute("DELETE FROM precios")
+            cur.execute("DELETE FROM favoritos")
+            cur.execute("DELETE FROM stock_movements")
+            cur.execute("DELETE FROM descuentos")
+            cur.execute("DELETE FROM categorias WHERE id != 1")
+            cur.execute("DELETE FROM tipos WHERE id != 1")
+            logging.warning('RESET COMPLETO: productos, precios, favoritos, categorias y tipos extra borrados')
+
+            # Producción — cada DELETE en su propio try/except por si alguna tabla no existe
+            _tablas_prod = [
+                'produccion_lineas', 'produccion_ordenes', 'produccion_disenos_stock',
+                'produccion_disenos_tipos', 'produccion_disenos_costes',
+                'produccion_disenos_ventas', 'produccion_disenos',
+                'produccion_stock_colores_tallas', 'produccion_tipo_color_tallas',
+                'produccion_menu_tipos', 'produccion_menu',
+                'produccion_genero_colores', 'produccion_genero_color_tallas',
+                'produccion_estados'
+            ]
+            for tbl in _tablas_prod:
+                try:
+                    cur.execute(f"DELETE FROM {tbl}")
+                except Exception:
+                    pass
+            try:
+                cur.execute("DELETE FROM sqlite_sequence WHERE name IN ('produccion_ordenes', 'produccion_lineas', 'produccion_disenos_stock', 'produccion_stock_colores_tallas', 'produccion_tipo_color_tallas', 'produccion_disenos', 'produccion_menu', 'categorias', 'tipos', 'productos', 'precios', 'descuentos')")
+            except Exception:
+                pass
+            logging.warning('RESET COMPLETO: datos de producción y catálogo borrados, contadores reseteados')
 
             conn.commit()
             logging.warning('⚠️⚠️⚠️ RESET COMPLETO EJECUTADO ⚠️⚠️⚠️')
