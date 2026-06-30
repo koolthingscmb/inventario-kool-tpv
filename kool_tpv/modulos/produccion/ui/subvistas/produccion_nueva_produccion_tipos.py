@@ -14,7 +14,7 @@ from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config
 from kool_tpv.utils.keyboard_nav_mixin import KeyboardNavigableMixin
 
 
-class NuevaProduccionTiposView(KeyboardNavigableMixin):
+class NuevaProduccionTiposView(ctk.CTkFrame, KeyboardNavigableMixin):
 	"""Subvista para seleccionar el tipo de producto tras elegir un menú.
 
 	Args:
@@ -46,8 +46,9 @@ class NuevaProduccionTiposView(KeyboardNavigableMixin):
 		self._text_sec = self._colors.get("text_secondary", "#95a5a6")
 		self._chip_cfg = get_chip_config(self.config, "producto")
 
-		self.frame = ctk.CTkFrame(parent, fg_color=self._bg)
-		self.frame.pack(fill="both", expand=True)
+		# Inicializar como CTkFrame
+		ctk.CTkFrame.__init__(self, parent, fg_color=self._bg)
+		self.pack(fill="both", expand=True)
 
 		self._crear_titulo()
 		self._crear_chips_tipos()
@@ -59,23 +60,16 @@ class NuevaProduccionTiposView(KeyboardNavigableMixin):
 		]
 		self._navigable_buttons.append((self.btn_volver, self._on_volver_handler))
 		self._navigable_buttons.append((self.btn_siguiente, self._on_siguiente_handler))
+		
 		if self._navigable_buttons:
-			try:
-				self._nav_toplevel = self.frame.winfo_toplevel()
-			except Exception:
-				self._nav_toplevel = self.frame
-			self._nav_toplevel.bind("<Tab>", self._on_nav_tab_next)
-			self._nav_toplevel.bind("<Shift-Tab>", self._on_nav_tab_prev)
-			self._nav_toplevel.bind("<Return>", self._on_nav_enter)
-			self._nav_toplevel.bind("<KP_Enter>", self._on_nav_enter)
-			self.frame.bind("<Destroy>", self._on_nav_destroy)
+			self._setup_keyboard_navigation()
 
 		if self._chip_buttons:
-			self.frame.after(100, lambda: self._focus_nav_widget(0))
+			self.after(100, lambda: self._focus_nav_widget(0))
 
 	def _crear_titulo(self):
 		titulo = ctk.CTkLabel(
-			self.frame,
+			self,
 			text="SELECCIONA TIPO",
 			font=get_font(self.config, "title"),
 			text_color=self._text,
@@ -84,7 +78,7 @@ class NuevaProduccionTiposView(KeyboardNavigableMixin):
 		titulo.pack(pady=20)
 
 	def _crear_chips_tipos(self):
-		self.chips_frame = ctk.CTkScrollableFrame(self.frame, fg_color=self._bg, label_text="")
+		self.chips_frame = ctk.CTkScrollableFrame(self, fg_color=self._bg, label_text="")
 		self.chips_frame.pack(expand=True, fill="both", padx=40, pady=20)
 
 		tipos = self._service.obtener_tipos_por_menu(self.menu_id)
@@ -167,7 +161,7 @@ class NuevaProduccionTiposView(KeyboardNavigableMixin):
 
 	def _crear_botones_navegacion(self):
 		from kool_tpv.modulos.produccion.ui.subvistas.config_helper import get_nav_button_config, get_nav_button_style
-		frame_nav = ctk.CTkFrame(self.frame, fg_color=self._bg)
+		frame_nav = ctk.CTkFrame(self, fg_color=self._bg)
 		frame_nav.pack(fill="x", padx=40, pady=20)
 
 		# Botón VOLVER
@@ -228,4 +222,4 @@ class NuevaProduccionTiposView(KeyboardNavigableMixin):
 
 	def destruir(self):
 		self.clear_keyboard_navigation()
-		self.frame.destroy()
+		self.destroy()

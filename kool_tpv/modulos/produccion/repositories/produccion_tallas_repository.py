@@ -18,13 +18,13 @@ class ProduccionTallasRepository:
 		return [ProduccionTalla(id=r[0], nombre=r[1], orden=r[2], activo=r[3]) for r in rows]
 
 	def get_por_tipo_color_3d(self, tipo_id: int, color_id: int, variante_id: Optional[int] = None) -> List[ProduccionTalla]:
-		"""Obtener tallas disponibles para una combinación tipo+color o variante+color (tabla Libro de Recetas)."""
+		"""Obtener tallas con stock disponible para una combinación tipo+color o variante+color."""
 		if variante_id:
 			query = """
 				SELECT t.id, t.nombre, t.orden, t.activo
 				FROM produccion_tallas t
-				JOIN produccion_tipo_color_tallas tct ON t.id = tct.talla_id
-				WHERE tct.tipo_id = ? AND tct.variante_id = ? AND tct.color_id = ? AND t.activo = 1
+				JOIN produccion_stock_colores_tallas s ON t.nombre = s.talla
+				WHERE s.tipo_id = ? AND s.variante_id = ? AND s.color_id = ? AND s.cantidad > 0 AND t.activo = 1
 				ORDER BY t.orden
 			"""
 			params = (tipo_id, variante_id, color_id)
@@ -32,8 +32,8 @@ class ProduccionTallasRepository:
 			query = """
 				SELECT t.id, t.nombre, t.orden, t.activo
 				FROM produccion_tallas t
-				JOIN produccion_tipo_color_tallas tct ON t.id = tct.talla_id
-				WHERE tct.tipo_id = ? AND tct.variante_id IS NULL AND tct.color_id = ? AND t.activo = 1
+				JOIN produccion_stock_colores_tallas s ON t.nombre = s.talla
+				WHERE s.tipo_id = ? AND s.variante_id IS NULL AND s.color_id = ? AND s.cantidad > 0 AND t.activo = 1
 				ORDER BY t.orden
 			"""
 			params = (tipo_id, color_id)

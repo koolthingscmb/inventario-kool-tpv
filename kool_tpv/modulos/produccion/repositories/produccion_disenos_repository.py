@@ -66,36 +66,23 @@ class ProduccionDisenosRepository:
 			Lista de objetos ProduccionDiseno.
 		"""
 		query = """
-			SELECT d.codigo, d.coleccion_id, d.nombre, d.sufijo_id,
-			       d.coste_camiseta, d.coste_taza, d.coste_gorra, d.coste_calcetin,
-			       d.coste_libreta, d.coste_poster, d.coste_cartera, d.activo
+			SELECT d.codigo, d.coleccion_id, d.nombre, d.sufijo_id, d.activo
 			FROM produccion_disenos d
 			ORDER BY (SELECT nombre FROM produccion_colecciones WHERE id = d.coleccion_id), d.nombre
 		"""
 		rows = self.db.fetch_all(query)
 		codigos = [r[0] for r in rows]
 		tipos_map = self._get_tipos_para_disenos(codigos)
-		costes_map = self._get_costes_para_disenos(codigos)
 
 		disenos: List[ProduccionDiseno] = []
 		for row in rows:
-			(codigo, coleccion_id, nombre, sufijo_id,
-			 coste_camiseta, coste_taza, coste_gorra, coste_calcetin,
-			 coste_libreta, coste_poster, coste_cartera, activo) = row
+			(codigo, coleccion_id, nombre, sufijo_id, activo) = row
 			disenos.append(ProduccionDiseno(
 				codigo=codigo,
 				coleccion_id=coleccion_id or 0,
 				nombre=nombre,
 				sufijo_id=sufijo_id,
 				tipos=tipos_map.get(codigo, []),
-				costes=costes_map.get(codigo, []),
-				coste_camiseta=coste_camiseta or 0,
-				coste_taza=coste_taza or 0,
-				coste_gorra=coste_gorra or 0,
-				coste_calcetin=coste_calcetin or 0,
-				coste_libreta=coste_libreta or 0,
-				coste_poster=coste_poster or 0,
-				coste_cartera=coste_cartera or 0,
 				activo=activo
 			))
 		return disenos
@@ -107,9 +94,7 @@ class ProduccionDisenosRepository:
 			Lista de objetos ProduccionDiseno con activo=1.
 		"""
 		query = """
-			SELECT d.codigo, d.coleccion_id, d.nombre, d.sufijo_id,
-			       d.coste_camiseta, d.coste_taza, d.coste_gorra, d.coste_calcetin,
-			       d.coste_libreta, d.coste_poster, d.coste_cartera, d.activo
+			SELECT d.codigo, d.coleccion_id, d.nombre, d.sufijo_id, d.activo
 			FROM produccion_disenos d
 			WHERE d.activo = 1
 			ORDER BY (SELECT nombre FROM produccion_colecciones WHERE id = d.coleccion_id), d.nombre
@@ -117,44 +102,24 @@ class ProduccionDisenosRepository:
 		rows = self.db.fetch_all(query)
 		codigos = [r[0] for r in rows]
 		tipos_map = self._get_tipos_para_disenos(codigos)
-		costes_map = self._get_costes_para_disenos(codigos)
 
 		disenos: List[ProduccionDiseno] = []
 		for row in rows:
-			(codigo, coleccion_id, nombre, sufijo_id,
-			 coste_camiseta, coste_taza, coste_gorra, coste_calcetin,
-			 coste_libreta, coste_poster, coste_cartera, activo) = row
+			(codigo, coleccion_id, nombre, sufijo_id, activo) = row
 			disenos.append(ProduccionDiseno(
 				codigo=codigo,
 				coleccion_id=coleccion_id or 0,
 				nombre=nombre,
 				sufijo_id=sufijo_id,
 				tipos=tipos_map.get(codigo, []),
-				costes=costes_map.get(codigo, []),
-				coste_camiseta=coste_camiseta or 0,
-				coste_taza=coste_taza or 0,
-				coste_gorra=coste_gorra or 0,
-				coste_calcetin=coste_calcetin or 0,
-				coste_libreta=coste_libreta or 0,
-				coste_poster=coste_poster or 0,
-				coste_cartera=coste_cartera or 0,
 				activo=activo
 			))
 		return disenos
 
 	def get_por_codigo(self, codigo: str) -> Optional[ProduccionDiseno]:
-		"""Obtener un diseño por su código.
-
-		Args:
-			codigo: Código del diseño.
-
-		Returns:
-			Objeto ProduccionDiseno o None si no existe.
-		"""
+		"""Obtener un diseño por su código."""
 		query = """
-			SELECT codigo, coleccion_id, nombre, sufijo_id,
-			       coste_camiseta, coste_taza, coste_gorra, coste_calcetin,
-			       coste_libreta, coste_poster, coste_cartera, activo
+			SELECT codigo, coleccion_id, nombre, sufijo_id, activo
 			FROM produccion_disenos
 			WHERE codigo = ?
 		"""
@@ -164,25 +129,14 @@ class ProduccionDisenosRepository:
 			return None
 
 		tipos_map = self._get_tipos_para_disenos([codigo])
-		costes_map = self._get_costes_para_disenos([codigo])
 
-		(codigo, coleccion_id, nombre, sufijo_id,
-		 coste_camiseta, coste_taza, coste_gorra, coste_calcetin,
-		 coste_libreta, coste_poster, coste_cartera, activo) = rows[0]
+		(codigo, coleccion_id, nombre, sufijo_id, activo) = rows[0]
 		return ProduccionDiseno(
 			codigo=codigo,
 			coleccion_id=coleccion_id or 0,
 			nombre=nombre,
 			sufijo_id=sufijo_id,
 			tipos=tipos_map.get(codigo, []),
-			costes=costes_map.get(codigo, []),
-			coste_camiseta=coste_camiseta or 0,
-			coste_taza=coste_taza or 0,
-			coste_gorra=coste_gorra or 0,
-			coste_calcetin=coste_calcetin or 0,
-			coste_libreta=coste_libreta or 0,
-			coste_poster=coste_poster or 0,
-			coste_cartera=coste_cartera or 0,
 			activo=activo
 		)
 
@@ -198,22 +152,20 @@ class ProduccionDisenosRepository:
 		params = []
 
 		# Término completo
-		condiciones.append("(d.codigo LIKE ? OR d.nombre LIKE ? OR c.nombre LIKE ?)")
+		condiciones.append("d.nombre LIKE ?")
 		term_completo = f"%{filtro}%"
-		params.extend([term_completo, term_completo, term_completo])
+		params.append(term_completo)
 
 		# Palabras individuales (para que 'Gear 6' encuentre 'Gear 5')
 		if len(palabras) > 1:
 			for p in palabras:
 				if len(p) > 2:
-					condiciones.append("(d.nombre LIKE ? OR c.nombre LIKE ?)")
+					condiciones.append("d.nombre LIKE ?")
 					term_p = f"%{p}%"
-					params.extend([term_p, term_p])
+					params.append(term_p)
 
 		query = f"""
-			SELECT DISTINCT d.codigo, d.coleccion_id, d.nombre, d.sufijo_id,
-			       d.coste_camiseta, d.coste_taza, d.coste_gorra, d.coste_calcetin,
-			       d.coste_libreta, d.coste_poster, d.coste_cartera, d.activo
+			SELECT DISTINCT d.codigo, d.coleccion_id, d.nombre, d.sufijo_id, d.activo
 			FROM produccion_disenos d
 			LEFT JOIN produccion_colecciones c ON c.id = d.coleccion_id
 			WHERE d.activo = 1
@@ -227,54 +179,31 @@ class ProduccionDisenosRepository:
 
 		codigos = [r[0] for r in rows]
 		tipos_map = self._get_tipos_para_disenos(codigos)
-		costes_map = self._get_costes_para_disenos(codigos)
 
 		disenos: List[ProduccionDiseno] = []
 		for row in rows:
-			(codigo, coleccion_id, nombre, sufijo_id,
-			 coste_camiseta, coste_taza, coste_gorra, coste_calcetin,
-			 coste_libreta, coste_poster, coste_cartera, activo) = row
+			(codigo, coleccion_id, nombre, sufijo_id, activo) = row
 			disenos.append(ProduccionDiseno(
 				codigo=codigo,
 				coleccion_id=coleccion_id or 0,
 				nombre=nombre,
 				sufijo_id=sufijo_id,
 				tipos=tipos_map.get(codigo, []),
-				costes=costes_map.get(codigo, []),
-				coste_camiseta=coste_camiseta or 0,
-				coste_taza=coste_taza or 0,
-				coste_gorra=coste_gorra or 0,
-				coste_calcetin=coste_calcetin or 0,
-				coste_libreta=coste_libreta or 0,
-				coste_poster=coste_poster or 0,
-				coste_cartera=coste_cartera or 0,
 				activo=activo
 			))
 		return disenos
 
 	def crear(self, diseno: ProduccionDiseno) -> bool:
-		"""Crear un nuevo diseño.
-
-		Args:
-			diseno: Objeto ProduccionDiseno con los datos.
-
-		Returns:
-			True si OK, False si error.
-		"""
+		"""Crear un nuevo diseño."""
 		try:
 			# 1. Insertar diseño
 			query = """
 				INSERT INTO produccion_disenos
-				(codigo, coleccion_id, nombre, sufijo_id,
-				 coste_camiseta, coste_taza, coste_gorra, coste_calcetin,
-				 coste_libreta, coste_poster, coste_cartera, activo)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				(codigo, coleccion_id, nombre, sufijo_id, activo)
+				VALUES (?, ?, ?, ?, ?)
 			"""
 			self.db.execute_query(query, (
-				diseno.codigo, diseno.coleccion_id, diseno.nombre, diseno.sufijo_id,
-				diseno.coste_camiseta, diseno.coste_taza,
-				diseno.coste_gorra, diseno.coste_calcetin, diseno.coste_libreta,
-				diseno.coste_poster, diseno.coste_cartera, diseno.activo
+				diseno.codigo, diseno.coleccion_id, diseno.nombre, diseno.sufijo_id, diseno.activo
 			))
 
 			# 2. Insertar tipos
@@ -285,16 +214,6 @@ class ProduccionDisenosRepository:
 						(diseno.codigo, tipo_id)
 					)
 
-			# 3. Insertar costes
-			if diseno.costes:
-				for c in diseno.costes:
-					self.db.execute_query(
-						"""INSERT INTO produccion_disenos_costes
-						   (diseno_codigo, tipo_id, variante_id, talla_id, coste)
-						   VALUES (?, ?, ?, ?, ?)""",
-						(diseno.codigo, c.tipo_id, c.variante_id, c.talla_id, c.coste)
-					)
-
 			return True
 		except Exception:
 			import logging
@@ -302,29 +221,16 @@ class ProduccionDisenosRepository:
 			return False
 
 	def actualizar(self, diseno: ProduccionDiseno) -> bool:
-		"""Actualizar un diseño existente.
-
-		Args:
-			diseno: Objeto ProduccionDiseno con los datos (debe tener código).
-
-		Returns:
-			True si OK, False si error.
-		"""
+		"""Actualizar un diseño existente."""
 		try:
 			# 1. Actualizar diseño
 			query = """
 				UPDATE produccion_disenos
-				SET coleccion_id = ?, nombre = ?, sufijo_id = ?,
-				    coste_camiseta = ?, coste_taza = ?, coste_gorra = ?,
-				    coste_calcetin = ?, coste_libreta = ?, coste_poster = ?,
-				    coste_cartera = ?, activo = ?
+				SET coleccion_id = ?, nombre = ?, sufijo_id = ?, activo = ?
 				WHERE codigo = ?
 			"""
 			self.db.execute_query(query, (
-				diseno.coleccion_id, diseno.nombre, diseno.sufijo_id,
-				diseno.coste_camiseta, diseno.coste_taza, diseno.coste_gorra,
-				diseno.coste_calcetin, diseno.coste_libreta, diseno.coste_poster,
-				diseno.coste_cartera, diseno.activo, diseno.codigo
+				diseno.coleccion_id, diseno.nombre, diseno.sufijo_id, diseno.activo, diseno.codigo
 			))
 
 			# 2. Actualizar tipos (borrar y re-insertar)
@@ -334,17 +240,6 @@ class ProduccionDisenosRepository:
 					self.db.execute_query(
 						"INSERT INTO produccion_disenos_tipos (diseno_codigo, tipo_id) VALUES (?, ?)",
 						(diseno.codigo, tipo_id)
-					)
-
-			# 3. Actualizar costes (borrar y re-insertar)
-			self.db.execute_query("DELETE FROM produccion_disenos_costes WHERE diseno_codigo = ?", (diseno.codigo,))
-			if diseno.costes:
-				for c in diseno.costes:
-					self.db.execute_query(
-						"""INSERT INTO produccion_disenos_costes
-						   (diseno_codigo, tipo_id, variante_id, talla_id, coste)
-						   VALUES (?, ?, ?, ?, ?)""",
-						(diseno.codigo, c.tipo_id, c.variante_id, c.talla_id, c.coste)
 					)
 
 			return True
@@ -427,3 +322,43 @@ class ProduccionDisenosRepository:
 			import logging
 			logging.exception("Error comprobando existencia de diseño")
 			return False
+
+	def get_estadisticas_disenos(self, codigos: List[str]) -> dict:
+		"""Obtener estadísticas (total producido y costes por método) para una lista de diseños."""
+		if not codigos:
+			return {}
+			
+		placeholders = ', '.join(['?'] * len(codigos))
+		
+		# 1. Obtener total producido
+		q_producido = f"""
+			SELECT diseno_codigo, SUM(cantidad) 
+			FROM produccion_lineas 
+			WHERE diseno_codigo IN ({placeholders})
+			GROUP BY diseno_codigo
+		"""
+		rows_producido = self.db.fetch_all(q_producido, tuple(codigos))
+		producido_map = {row[0]: row[1] or 0 for row in rows_producido}
+		
+		# 2. Obtener costes por método
+		q_costes = f"""
+			SELECT dm.diseno_codigo, m.nombre, dm.coste
+			FROM produccion_disenos_metodos dm
+			JOIN produccion_metodos m ON m.id = dm.metodo_id
+			WHERE dm.diseno_codigo IN ({placeholders})
+			ORDER BY dm.diseno_codigo, m.orden
+		"""
+		rows_costes = self.db.fetch_all(q_costes, tuple(codigos))
+		
+		costes_map = {c: [] for c in codigos}
+		for dis_cod, met_nom, coste in rows_costes:
+			if dis_cod in costes_map:
+				costes_map[dis_cod].append((met_nom, coste))
+				
+		stats = {}
+		for cod in codigos:
+			stats[cod] = {
+				"total_producido": producido_map.get(cod, 0),
+				"costes_metodos": costes_map.get(cod, [])
+			}
+		return stats

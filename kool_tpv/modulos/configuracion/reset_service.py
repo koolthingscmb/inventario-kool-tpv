@@ -394,6 +394,93 @@ class ResetService:
             logging.exception('Error reseteando stock/ventas productos')
             return False
 
+    def borrar_produccion_ordenes(self) -> bool:
+        """Borrar TODAS las órdenes de producción y sus líneas (CASCADE)."""
+        try:
+            conn = self.db.connection
+            cur = conn.cursor()
+            cur.execute("PRAGMA foreign_keys = ON")
+            cur.execute("DELETE FROM produccion_lineas")
+            cur.execute("DELETE FROM produccion_ordenes")
+            logging.warning('TODAS las órdenes y líneas de producción borradas')
+            conn.commit()
+            return True
+        except Exception:
+            try:
+                self.db.connection.rollback()
+            except Exception:
+                pass
+            logging.exception('Error borrando órdenes de producción')
+            return False
+
+    def borrar_produccion_stock_disenos(self) -> bool:
+        """Borrar TODO el stock acumulado de diseños."""
+        try:
+            conn = self.db.connection
+            cur = conn.cursor()
+            cur.execute("DELETE FROM produccion_disenos_stock")
+            logging.warning('Stock de diseños borrado')
+            conn.commit()
+            return True
+        except Exception:
+            try:
+                self.db.connection.rollback()
+            except Exception:
+                pass
+            logging.exception('Error borrando stock de diseños')
+            return False
+
+    def borrar_produccion_stock_bases(self) -> bool:
+        """Borrar TODO el stock de bases (stock_colores_tallas)."""
+        try:
+            conn = self.db.connection
+            cur = conn.cursor()
+            cur.execute("DELETE FROM produccion_stock_colores_tallas")
+            logging.warning('Stock de bases borrado')
+            conn.commit()
+            return True
+        except Exception:
+            try:
+                self.db.connection.rollback()
+            except Exception:
+                pass
+            logging.exception('Error borrando stock de bases')
+            return False
+
+    def borrar_produccion_recetas(self) -> bool:
+        """Borrar TODAS las recetas (tipo_color_tallas)."""
+        try:
+            conn = self.db.connection
+            cur = conn.cursor()
+            cur.execute("DELETE FROM produccion_tipo_color_tallas")
+            logging.warning('Recetas (tipo_color_tallas) borradas')
+            conn.commit()
+            return True
+        except Exception:
+            try:
+                self.db.connection.rollback()
+            except Exception:
+                pass
+            logging.exception('Error borrando recetas')
+            return False
+
+    def reset_produccion_contadores(self) -> bool:
+        """Resetear los AUTOINCREMENT de las tablas de producción a 0."""
+        try:
+            conn = self.db.connection
+            cur = conn.cursor()
+            cur.execute("DELETE FROM sqlite_sequence WHERE name IN ('produccion_ordenes', 'produccion_lineas', 'produccion_disenos_stock', 'produccion_stock_colores_tallas', 'produccion_tipo_color_tallas')")
+            logging.warning('Contadores AUTOINCREMENT de producción reseteados')
+            conn.commit()
+            return True
+        except Exception:
+            try:
+                self.db.connection.rollback()
+            except Exception:
+                pass
+            logging.exception('Error reseteando contadores de producción')
+            return False
+
     def reset_completo(self) -> bool:
         """Reset TOTAL: borra tickets, cierres, albaranes, facturas, resetea contadores y estadísticas clientes."""
         try:
@@ -430,6 +517,15 @@ class ResetService:
 
             cur.execute(f"UPDATE clientes {_CLIENTES_RESET_SET}")
             logging.warning('RESET COMPLETO: estadísticas clientes reseteadas')
+
+            # Producción
+            cur.execute("DELETE FROM produccion_lineas")
+            cur.execute("DELETE FROM produccion_ordenes")
+            cur.execute("DELETE FROM produccion_disenos_stock")
+            cur.execute("DELETE FROM produccion_stock_colores_tallas")
+            cur.execute("DELETE FROM produccion_tipo_color_tallas")
+            cur.execute("DELETE FROM sqlite_sequence WHERE name IN ('produccion_ordenes', 'produccion_lineas', 'produccion_disenos_stock', 'produccion_stock_colores_tallas', 'produccion_tipo_color_tallas')")
+            logging.warning('RESET COMPLETO: datos de producción borrados y contadores reseteados')
 
             conn.commit()
             logging.warning('⚠️⚠️⚠️ RESET COMPLETO EJECUTADO ⚠️⚠️⚠️')

@@ -103,50 +103,7 @@ class ProduccionInformesService:
         report["items"] = rows
         return report
 
-    # ── 3. PRODUCCIÓN POR DISEÑO ─────────────────────────────────────────────
-
-    def get_informe_produccion_por_diseno(self, fecha_inicio: str, fecha_fin: str) -> dict:
-        """Informe de producción desglosado por diseño."""
-        data = self.repo.get_produccion_por_diseno(fecha_inicio, fecha_fin)
-        report = self._get_base_report(f"PRODUCCIÓN POR DISEÑO", fecha_inicio, fecha_fin)
-        
-        total_uds = sum(r['unidades'] for r in data)
-        report["sections"].append({"type": "summary", "headers": ["Total Diseños", "Total Unidades"], "rows": [[len(data), total_uds]]})
-
-        rows = [[r['diseno_codigo'], r['diseno_nombre'], r['coleccion'], r['unidades'], f"{read_from_db(r['coste_total']):.2f} €"] for r in data]
-        report["sections"].append({
-            "type": "table",
-            "headers": ["Código", "Diseño", "Colección", "Unidades", "Coste Total"],
-            "rows": rows
-        })
-
-        report["titulo"] = report["title"]; report["fecha_generacion"] = report["generated_at"]
-        report["resumen"] = {"Diseños": len(data), "Unidades": total_uds}
-        report["headers"] = ["Código", "Diseño", "Colección", "Uds", "Coste"]; report["items"] = rows
-        return report
-
-    # ── 4. PRODUCCIÓN POR COLECCIÓN ──────────────────────────────────────────
-
-    def get_informe_produccion_por_coleccion(self, fecha_inicio: str, fecha_fin: str) -> dict:
-        """Informe de producción agrupado por colección."""
-        data = self.repo.get_produccion_por_coleccion(fecha_inicio, fecha_fin)
-        report = self._get_base_report(f"PRODUCCIÓN POR COLECCIÓN", fecha_inicio, fecha_fin)
-        
-        total_uds = sum(r['unidades'] for r in data)
-        rows = [[r['coleccion'], r['unidades'], f"{read_from_db(r['coste_total']):.2f} €", r['num_disenos']] for r in data]
-        
-        report["sections"].append({
-            "type": "table",
-            "headers": ["Colección", "Unidades", "Coste Total", "Num. Diseños"],
-            "rows": rows
-        })
-
-        report["titulo"] = report["title"]; report["fecha_generacion"] = report["generated_at"]
-        report["resumen"] = {"Colecciones": len(data), "Unidades": total_uds}
-        report["headers"] = ["Colección", "Uds", "Coste", "Diseños"]; report["items"] = rows
-        return report
-
-    # ── 5. STOCK POR TIPO ────────────────────────────────────────────────────
+    # ── 3. STOCK POR TIPO ────────────────────────────────────────────────────
 
     def get_informe_stock_por_tipo(self) -> dict:
         """Informe de stock actual de bases por tipo."""
@@ -174,7 +131,7 @@ class ProduccionInformesService:
         report["headers"] = ["Tipo", "Stock", "Valor", "Refs"]; report["items"] = rows
         return report
 
-    # ── 6. STOCK POR VARIANTE ────────────────────────────────────────────────
+    # ── 4. STOCK POR VARIANTE ────────────────────────────────────────────────
 
     def get_informe_stock_por_variante(self) -> dict:
         """Informe de stock actual de bases desglosado por variante."""
@@ -192,30 +149,47 @@ class ProduccionInformesService:
         report["headers"] = ["Tipo", "Variante", "Stock", "Valor", "Refs"]; report["items"] = rows
         return report
 
-    # ── 7. VENTAS DE DISEÑOS ─────────────────────────────────────────────────
+    # ── 5. PRODUCCIÓN DE DISEÑOS ─────────────────────────────────────────────
 
-    def get_informe_ventas_disenos(self, fecha_inicio: str, fecha_fin: str) -> dict:
-        """Informe de ventas reales de productos con diseño."""
-        data = self.repo.get_ventas_disenos(fecha_inicio, fecha_fin)
-        report = self._get_base_report(f"VENTAS DE DISEÑOS", fecha_inicio, fecha_fin)
+    def get_informe_produccion_detallada_disenos(self, fecha_inicio: str, fecha_fin: str,
+                                              coleccion_ids: list = None,
+                                              sufijo_ids: list = None) -> dict:
+        """Informe detallado de producción de diseños por variante y método."""
+        data = self.repo.get_produccion_detallada_disenos(fecha_inicio, fecha_fin, coleccion_ids, sufijo_ids)
+        report = self._get_base_report(f"PRODUCCIÓN DE DISEÑOS", fecha_inicio, fecha_fin)
         
-        total_uds = sum(r['unidades_vendidas'] for r in data)
-        total_ventas = sum(r['total_ventas'] for r in data)
+        total_uds = sum(r['unidades'] for r in data)
+        total_coste = sum(r['coste_total'] for r in data)
 
         report["sections"].append({
             "type": "summary",
-            "headers": ["Total Unidades", "Total Ventas"],
-            "rows": [[total_uds, f"{read_from_db(total_ventas):.2f} €"]]
+            "headers": ["Total Registros", "Total Unidades", "Coste Total"],
+            "rows": [[len(data), total_uds, f"{read_from_db(total_coste):.2f} €"]]
         })
 
-        rows = [[r['diseno_codigo'], r['diseno_nombre'], r['coleccion'], r['unidades_vendidas'], f"{read_from_db(r['total_ventas']):.2f} €"] for r in data]
+        rows = []
+        for r in data:
+            rows.append([
+                r['diseno_nombre'],
+                r['coleccion'],
+                r['sufijo'],
+                r['tipo_nombre'],
+                r['variante'],
+                r['metodo'],
+                r['unidades'],
+                f"{read_from_db(r['coste_total']):.2f} €"
+            ])
+
         report["sections"].append({
             "type": "table",
-            "headers": ["Código", "Diseño", "Colección", "Uds. Vendidas", "Total Ventas"],
+            "headers": ["Diseño", "Col.", "Suf.", "Tipo", "Variante", "Impresión", "Uds", "Coste"],
             "rows": rows
         })
 
-        report["titulo"] = report["title"]; report["fecha_generacion"] = report["generated_at"]
-        report["resumen"] = {"Uds. Vendidas": total_uds, "Total Ingresos": f"{read_from_db(total_ventas):.2f} €"}
-        report["headers"] = ["Código", "Diseño", "Colección", "Ventas", "Total"]; report["items"] = rows
+        # Compatibilidad visor
+        report["titulo"] = report["title"]
+        report["fecha_generacion"] = report["generated_at"]
+        report["resumen"] = {"Unidades": total_uds, "Coste Total": f"{read_from_db(total_coste):.2f} €"}
+        report["headers"] = ["Diseño", "Col.", "Suf.", "Tipo", "Var.", "Mét.", "Uds", "Coste"]
+        report["items"] = rows
         return report

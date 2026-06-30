@@ -2,12 +2,12 @@
 
 Contiene la clase `NuevoProduccionFlow` que gestiona la navegación entre
 subvistas, el estado de la selección y la lógica de saltar pasos según
-el tipo de producto (requiere_talla, requiere_color).
+lo que haya disponible en el stock (colores, tallas).
 
 Flujo:
 1. Menú (producto) → 1b. Tipos (si el menú tiene +1 tipo) → 2. Variante (si tiene)
-→ 3. Color (si requiere_color) → 4. Talla (si requiere_talla)
-→ 5. Diseño → 6. Cantidad → 7. Resumen
+→ 3. Color (si hay colores en stock) → 4. Talla (si hay tallas en stock)
+→ 5. Diseño → 6. Método → 7. Cantidad → 8. Resumen
 
 Desde Resumen: AÑADIR vuelve al paso 1, CONFIRMAR guarda la orden.
 """
@@ -28,6 +28,7 @@ from kool_tpv.modulos.produccion.services.produccion_colores_service import Prod
 from kool_tpv.modulos.produccion.services.produccion_menu_service import ProduccionMenuService
 from kool_tpv.modulos.produccion.services.produccion_ordenes_service import ProduccionOrdenesService, ItemProduccion
 from kool_tpv.modulos.produccion.repositories.produccion_colecciones_repository import ProduccionColeccionesRepository
+from kool_tpv.modulos.produccion.repositories.produccion_sufijos_repository import ProduccionSufijosRepository
 from kool_tpv.base_datos.money_adapter import read_from_db
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_cajero_auth import CajeroAuthView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_origen import NuevaProduccionOrigenView
@@ -37,6 +38,8 @@ from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_varian
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_talla import NuevaProduccionTallaView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_color import NuevaProduccionColorView
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_diseno import NuevaProduccionDisenoView
+from kool_tpv.modulos.produccion.services.tipos_variantes_metodos_service import TiposVariantesMetodosService
+from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_metodo import NuevaProduccionMetodoView, MetodoSeleccion
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_cantidad import NuevaProduccionCantidadView, CantidadSeleccion
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_resumen import NuevaProduccionResumenView
 
@@ -49,6 +52,7 @@ PASO_VARIANTE = 8
 PASO_COLOR = 4
 PASO_TALLA = 5
 PASO_DISENO = 6
+PASO_METODO = 10
 PASO_CANTIDAD = 7
 PASO_RESUMEN = 9
 
@@ -63,11 +67,13 @@ class NuevoProduccionFlow:
     """
 
     def __init__(self, parent, db: Database, keyboard_mgr=None, on_cerrar: Optional[Callable] = None,
-                 usuario_id: Optional[int] = None, usuario_nombre: str = ''):
+                 usuario_id: Optional[int] = None, usuario_nombre: str = '',
+                 on_cajero_auth: Optional[Callable[[int, str], None]] = None):
         self.parent = parent
         self.db = db
         self.keyboard_mgr = keyboard_mgr
         self.on_cerrar = on_cerrar
+        self.on_cajero_auth = on_cajero_auth
         self._usuario_id = usuario_id
         self._usuario_nombre = usuario_nombre
 
@@ -79,7 +85,9 @@ class NuevoProduccionFlow:
         self._colores_service = ProduccionColoresService(db)
         self._menu_service = ProduccionMenuService(db)
         self._ordenes_service = ProduccionOrdenesService(db)
+        self._metodos_service = TiposVariantesMetodosService(db)
         self._colecciones_repo = ProduccionColeccionesRepository(db)
+        self._sufijos_repo = ProduccionSufijosRepository(db)
 
         # Estado del flujo
         self._paso_actual = PASO_CAJERO if not usuario_id else PASO_ORIGEN
@@ -88,8 +96,10 @@ class NuevoProduccionFlow:
         self._tipo: Optional[ProduccionTipo] = None
         self._variante: Optional[ProduccionTipoVariante] = None
         self._talla: Optional[str] = None
+        self._talla_auto_asignada: bool = False
         self._color: Optional[ProduccionColor] = None
         self._diseno: Optional[ProduccionDiseno] = None
+        self._metodo: Optional[MetodoSeleccion] = None
         self._cantidad: Optional[CantidadSeleccion] = None
         self._items: List[ItemProduccion] = []
         self._origen: str = 'KOOL'
@@ -101,17 +111,24 @@ class NuevoProduccionFlow:
         self.frame = tk.Frame(parent, bg="#2c3e50")
         self.frame.pack(fill=tk.BOTH, expand=True)
 
-        # Label de cajero arriba del todo
-        if usuario_nombre:
-            import customtkinter as ctk
-            self._lbl_cajero = ctk.CTkLabel(
-                self.frame,
-                text=f"Cajero: {usuario_nombre}",
-                font=("Courier New", 14, "bold"),
-                text_color="#C77BFF",
-                anchor="e"
-            )
-            self._lbl_cajero.pack(fill="x", padx=20, pady=(4, 0))
+        # Header para info de cajero
+        self._header = tk.Frame(self.frame, bg="#2c3e50")
+        self._header.pack(fill="x", side=tk.TOP)
+
+        # Label de cajero arriba a la derecha (siempre creado, se actualiza tras auth)
+        import customtkinter as ctk
+        self._lbl_cajero = ctk.CTkLabel(
+            self._header,
+            text=f"Cajero: {usuario_nombre}" if usuario_nombre else "",
+            font=("Courier New", 14, "bold"),
+            text_color="#C77BFF",
+            anchor="e"
+        )
+        self._lbl_cajero.pack(side=tk.RIGHT, padx=20, pady=(4, 0))
+
+        # El contenido de los pasos irá en este frame
+        self._content_frame = tk.Frame(self.frame, bg="#2c3e50")
+        self._content_frame.pack(fill=tk.BOTH, expand=True)
 
         # Iniciar en el primer paso
         self._mostrar_paso(self._paso_actual)
@@ -133,7 +150,7 @@ class NuevoProduccionFlow:
 
         if paso == PASO_CAJERO:
             self._vista_actual = CajeroAuthView(
-                self.frame,
+                self._content_frame,
                 db=self.db,
                 on_success=self._on_cajero_auth_success,
                 on_cancel=self._on_volver_flow
@@ -141,14 +158,14 @@ class NuevoProduccionFlow:
 
         elif paso == PASO_ORIGEN:
             self._vista_actual = NuevaProduccionOrigenView(
-                self.frame,
+                self._content_frame,
                 on_siguiente=self._on_origen_siguiente,
                 on_volver=lambda: self._mostrar_paso(PASO_CAJERO)
             )
 
         elif paso == PASO_MENU:
             self._vista_actual = NuevaProduccionView(
-                self.frame,
+                self._content_frame,
                 db=self.db,
                 keyboard_mgr=self.keyboard_mgr,
                 on_siguiente=self._on_menu_siguiente,
@@ -158,7 +175,7 @@ class NuevoProduccionFlow:
         elif paso == PASO_TIPOS:
             menu_id = self._menu.id if self._menu else 0
             self._vista_actual = NuevaProduccionTiposView(
-                self.frame,
+                self._content_frame,
                 db=self.db,
                 menu_id=menu_id,
                 on_siguiente=self._on_tipos_siguiente,
@@ -167,7 +184,7 @@ class NuevoProduccionFlow:
 
         elif paso == PASO_VARIANTE:
             self._vista_actual = NuevaProduccionVarianteView(
-                self.frame,
+                self._content_frame,
                 db=self.db,
                 tipo_id=self._tipo.id if self._tipo else 0,
                 on_siguiente=self._on_variante_siguiente,
@@ -178,7 +195,7 @@ class NuevoProduccionFlow:
             tipo_id = self._tipo.id if self._tipo else 0
             variante_id = self._variante.id if self._variante else None
             self._vista_actual = NuevaProduccionColorView(
-                self.frame,
+                self._content_frame,
                 db=self.db,
                 tipo_id=tipo_id,
                 variante_id=variante_id,
@@ -202,7 +219,7 @@ class NuevoProduccionFlow:
 
             tallas_data = [{"codigo": t.nombre, "nombre": t.nombre} for t in tallas]
             self._vista_actual = NuevaProduccionTallaView(
-                self.frame,
+                self._content_frame,
                 on_siguiente=self._on_talla_siguiente,
                 on_volver=self._on_talla_volver,
                 tallas_disponibles=tallas_data,
@@ -212,15 +229,37 @@ class NuevoProduccionFlow:
 
         elif paso == PASO_DISENO:
             self._vista_actual = NuevaProduccionDisenoView(
-                self.frame,
+                self._content_frame,
                 db=self.db,
                 keyboard_mgr=self.keyboard_mgr,
                 on_siguiente=self._on_diseno_siguiente,
                 on_volver=self._on_diseno_volver
             )
 
+        elif paso == PASO_METODO:
+            self._vista_actual = NuevaProduccionMetodoView(
+                self._content_frame,
+                db=self.db,
+                variante_id=self._variante.id if self._variante else 0,
+                on_siguiente=self._on_metodo_siguiente,
+                on_volver=self._on_metodo_volver
+            )
+
         elif paso == PASO_CANTIDAD:
             mostrar_mixta = self._es_tipo_camiseta()
+
+            # Consultar stock disponible para esta combinación
+            stock_disponible = 0
+            if self._tipo and self._color and self._talla:
+                try:
+                    from kool_tpv.modulos.produccion.repositories.produccion_stock_base_repository import ProduccionStockBaseRepository
+                    stock_repo = ProduccionStockBaseRepository(self.db)
+                    variante_id = self._variante.id if self._variante else None
+                    stock_disponible = stock_repo.obtener_cantidad(
+                        self._tipo.id, self._color.id, self._talla, variante_id
+                    )
+                except Exception:
+                    pass
 
             # Construir frase resumen: Producto + Variante + Color + Talla + Diseño
             partes = []
@@ -238,18 +277,20 @@ class NuevoProduccionFlow:
             resumen_completo = " ".join(partes)
 
             self._vista_actual = NuevaProduccionCantidadView(
-                self.frame,
+                self._content_frame,
+                db=self.db,
                 on_siguiente=self._on_cantidad_siguiente,
                 on_volver=self._on_cantidad_volver,
                 on_anadir=self._on_cantidad_anadir,
                 on_origen=self._on_cantidad_origen,
                 mostrar_mixta=mostrar_mixta,
-                diseno_nombre=resumen_completo
+                diseno_nombre=resumen_completo,
+                stock_disponible=stock_disponible
             )
 
         elif paso == PASO_RESUMEN:
             self._vista_actual = NuevaProduccionResumenView(
-                self.frame,
+                self._content_frame,
                 on_anadir=self._on_resumen_anadir,
                 on_confirmar=self._on_resumen_confirmar,
                 on_volver=lambda: self._mostrar_paso(PASO_CANTIDAD)
@@ -267,6 +308,9 @@ class NuevoProduccionFlow:
         # Actualizar label si existe
         if hasattr(self, '_lbl_cajero'):
             self._lbl_cajero.configure(text=f"Cajero: {nombre}")
+        # Notificar a ProduccionView para que persista el cajero
+        if self.on_cajero_auth:
+            self.on_cajero_auth(usuario_id, nombre)
         self._mostrar_paso(PASO_ORIGEN)
 
     def _on_origen_siguiente(self, origen: str):
@@ -311,9 +355,10 @@ class NuevoProduccionFlow:
             return
 
         # 2. Si no hay variantes, seguir flujo normal
-        if tipo.requiere_color == 1:
+        #    Decidir si mostrar color/talla según lo que haya en el stock
+        if self._hay_colores_disponibles(tipo.id, None):
             self._mostrar_paso(PASO_COLOR)
-        elif tipo.requiere_talla == 1:
+        elif self._hay_tallas_disponibles(tipo.id, None, None):
             self._mostrar_paso(PASO_TALLA)
         else:
             self._mostrar_paso(PASO_DISENO)
@@ -322,14 +367,12 @@ class NuevoProduccionFlow:
         """Variante seleccionada → seguir con filtros (Color...)."""
         self._variante = variante
         tipo = self._tipo
-        
-        # Un paso se muestra si el Tipo lo requiere O si la Variante lo requiere
-        req_color = (tipo.requiere_color == 1) or (variante.requiere_color == 1)
-        req_talla = (tipo.requiere_talla == 1) or (variante.requiere_talla == 1)
+        variante_id = variante.id if variante else None
 
-        if req_color:
+        # Decidir si mostrar color/talla según lo que haya en el stock
+        if self._hay_colores_disponibles(tipo.id, variante_id):
             self._mostrar_paso(PASO_COLOR)
-        elif req_talla:
+        elif self._hay_tallas_disponibles(tipo.id, variante_id, None):
             self._mostrar_paso(PASO_TALLA)
         else:
             self._mostrar_paso(PASO_DISENO)
@@ -355,22 +398,30 @@ class NuevoProduccionFlow:
         self._color = color
         tipo = self._tipo
         variante = self._variante
-        
-        req_talla = (tipo.requiere_talla == 1) or (variante and variante.requiere_talla == 1)
+        variante_id = variante.id if variante else None
 
-        if req_talla:
-            self._mostrar_paso(PASO_TALLA)
+        # Si hay tallas disponibles, comprobar si solo hay una → auto-asignar
+        if self._hay_tallas_disponibles(tipo.id, variante_id, color.id):
+            tallas = self._tallas_service.obtener_por_tipo_color_3d(tipo.id, color.id, variante_id)
+            if len(tallas) == 1:
+                self._talla = tallas[0].nombre
+                self._talla_auto_asignada = True
+                self._mostrar_paso(PASO_DISENO)
+            else:
+                self._talla_auto_asignada = False
+                self._mostrar_paso(PASO_TALLA)
         else:
+            self._talla_auto_asignada = False
             self._mostrar_paso(PASO_DISENO)
 
     def _on_talla_volver(self):
         """Volver desde talla → ir a color o variante o tipos/menú."""
         tipo = self._tipo
         variante = self._variante
-        
-        req_color = (tipo.requiere_color == 1) or (variante and variante.requiere_color == 1)
+        variante_id = variante.id if variante else None
 
-        if req_color:
+        # Volver a color si había colores disponibles
+        if self._hay_colores_disponibles(tipo.id, variante_id):
             self._mostrar_paso(PASO_COLOR)
         elif self._variante:
             self._mostrar_paso(PASO_VARIANTE)
@@ -388,13 +439,13 @@ class NuevoProduccionFlow:
         """Volver desde diseño → talla, color, variante o tipos/menú."""
         tipo = self._tipo
         variante = self._variante
-        
-        req_talla = (tipo.requiere_talla == 1) or (variante and variante.requiere_talla == 1)
-        req_color = (tipo.requiere_color == 1) or (variante and variante.requiere_color == 1)
+        variante_id = variante.id if variante else None
+        color_id = self._color.id if self._color else None
 
-        if req_talla:
+        # Volver a talla si se mostró el paso (no auto-asignada)
+        if not self._talla_auto_asignada and self._hay_tallas_disponibles(tipo.id, variante_id, color_id):
             self._mostrar_paso(PASO_TALLA)
-        elif req_color:
+        elif self._hay_colores_disponibles(tipo.id, variante_id):
             self._mostrar_paso(PASO_COLOR)
         elif self._variante:
             self._mostrar_paso(PASO_VARIANTE)
@@ -404,13 +455,51 @@ class NuevoProduccionFlow:
             self._mostrar_paso(PASO_MENU)
 
     def _on_diseno_siguiente(self, diseno: ProduccionDiseno):
-        """Diseño seleccionado → ir a cantidad."""
+        """Diseño seleccionado → ir a método (si hay variante) o cantidad."""
         self._diseno = diseno
+        if self._variante:
+            # Comprobar cuántos métodos tiene la variante
+            metodos = self._metodos_service.obtener_metodos_por_variante(self._variante.id)
+            if len(metodos) == 1:
+                # Solo uno -> auto-seleccionar y saltar al siguiente paso
+                m = metodos[0]
+                self._metodo = MetodoSeleccion(id=m['id'], nombre=m['nombre'])
+                self._mostrar_paso(PASO_CANTIDAD)
+            elif len(metodos) > 1:
+                self._mostrar_paso(PASO_METODO)
+            else:
+                # Sin métodos configurados -> ir a cantidad (coste método será 0)
+                self._metodo = None
+                self._mostrar_paso(PASO_CANTIDAD)
+        else:
+            self._mostrar_paso(PASO_CANTIDAD)
+
+    def _on_metodo_siguiente(self, metodo: MetodoSeleccion):
+        """Método seleccionado → ir a cantidad."""
+        self._metodo = metodo
         self._mostrar_paso(PASO_CANTIDAD)
 
-    def _on_cantidad_volver(self):
-        """Volver desde cantidad → ir a diseño."""
+    def _on_metodo_volver(self):
+        """Volver desde método → ir a diseño."""
         self._mostrar_paso(PASO_DISENO)
+
+    def _on_cantidad_volver(self):
+        """Volver desde cantidad → ir a método o diseño."""
+        if self._metodo:
+            # Comprobar si el método fue auto-seleccionado (solo había uno)
+            metodos = self._metodos_service.obtener_metodos_por_variante(self._variante.id) if self._variante else []
+            if len(metodos) == 1:
+                self._mostrar_paso(PASO_DISENO)
+            else:
+                self._mostrar_paso(PASO_METODO)
+        else:
+            self._mostrar_paso(PASO_DISENO)
+
+    def _on_cantidad_siguiente(self, cantidad: CantidadSeleccion):
+        """Cantidad seleccionada → crear ítem y ir a resumen."""
+        self._cantidad = cantidad
+        self._crear_item()
+        self._mostrar_paso(PASO_RESUMEN)
 
     def _on_cantidad_anadir(self, cantidad: CantidadSeleccion):
         """AÑADIR desde cantidad → crear ítem, resetear selección y volver al paso 1."""
@@ -420,8 +509,10 @@ class NuevoProduccionFlow:
         self._tipo = None
         self._variante = None
         self._talla = None
+        self._talla_auto_asignada = False
         self._color = None
         self._diseno = None
+        self._metodo = None
         self._cantidad = None
         self._mostrar_paso(PASO_MENU)
 
@@ -433,16 +524,12 @@ class NuevoProduccionFlow:
         self._tipo = None
         self._variante = None
         self._talla = None
+        self._talla_auto_asignada = False
         self._color = None
         self._diseno = None
+        self._metodo = None
         self._cantidad = None
         self._mostrar_paso(PASO_ORIGEN)
-
-    def _on_cantidad_siguiente(self, cantidad: CantidadSeleccion):
-        """Cantidad seleccionada → crear ítem y ir a resumen."""
-        self._cantidad = cantidad
-        self._crear_item()
-        self._mostrar_paso(PASO_RESUMEN)
 
     def _on_resumen_anadir(self):
         """AÑADIR desde resumen → resetear selección y volver al paso 1."""
@@ -450,8 +537,10 @@ class NuevoProduccionFlow:
         self._tipo = None
         self._variante = None
         self._talla = None
+        self._talla_auto_asignada = False
         self._color = None
         self._diseno = None
+        self._metodo = None
         self._cantidad = None
         self._mostrar_paso(PASO_MENU)
 
@@ -486,21 +575,47 @@ class NuevoProduccionFlow:
         if not self._tipo:
             return
 
-        # 1. Coste base (de la variante si existe, si no del tipo)
-        if self._variante:
-            coste_base = float(read_from_db(self._variante.coste_base))
-        else:
-            coste_base = float(read_from_db(self._tipo.coste_base or 0))
+        # 1. Coste base (coste medio del material en blanco)
+        coste_base = 0.0
+        # Intentar obtener coste_medio de produccion_stock_colores_tallas
+        try:
+            query = """
+                SELECT coste_medio 
+                FROM produccion_stock_colores_tallas 
+                WHERE tipo_id = ? AND color_id = ? AND talla = ?
+            """
+            params = [self._tipo.id, self._color.id if self._color else 0, self._talla or '']
+            if self._variante:
+                query += " AND variante_id = ?"
+                params.append(self._variante.id)
+            else:
+                query += " AND variante_id IS NULL"
+            
+            row = self.db.fetch_one(query, tuple(params))
+            if row:
+                coste_base = float(read_from_db(row[0]))
+        except Exception:
+            # Fallback al coste_base de la variante si falla la consulta
+            if self._variante:
+                coste_base = float(read_from_db(self._variante.coste_base))
+            else:
+                coste_base = float(read_from_db(self._tipo.coste_base or 0))
 
-        # 2. Coste del diseño para este tipo (en céntimos → euros)
-        coste_diseno = 0.0
-        if self._diseno:
-            coste_diseno_cent = self._disenos_service.obtener_coste_por_tipo(
-                self._diseno.codigo, self._tipo.nombre
-            )
-            coste_diseno = float(read_from_db(coste_diseno_cent))
+        # 2. Coste del método de impresión (desde produccion_disenos_metodos)
+        coste_metodo = 0.0
+        if self._diseno and self._metodo:
+            try:
+                query = "SELECT coste FROM produccion_disenos_metodos WHERE diseno_codigo = ? AND metodo_id = ?"
+                row = self.db.fetch_one(query, (self._diseno.codigo, self._metodo.id))
+                if row:
+                    coste_metodo = float(read_from_db(row[0]))
+            except Exception:
+                pass
 
-        coste_unitario = coste_base + coste_diseno
+        # 3. Coste del Extra
+        coste_extra = self._cantidad.extra_coste if self._cantidad else 0.0
+
+        coste_unitario = coste_base + coste_metodo + coste_extra
         cantidad = self._cantidad.cantidad if self._cantidad else 0
         coste_total = coste_unitario * cantidad
 
@@ -515,20 +630,53 @@ class NuevoProduccionFlow:
             diseno_codigo=self._diseno.codigo if self._diseno else None,
             diseno_nombre=self._diseno.nombre if self._diseno else None,
             diseno_coleccion=self._get_coleccion_nombre(self._diseno.coleccion_id) if self._diseno else None,
+            diseno_sufijo=self._get_sufijo_nombre(self._diseno.sufijo_id) if self._diseno else None,
             cantidad=cantidad,
             produccion_mixta=self._cantidad.produccion_mixta if self._cantidad else False,
+            extra_id=self._cantidad.extra_id if self._cantidad else None,
+            extra_coste=self._cantidad.extra_coste if self._cantidad else 0.0,
+            extra_nombre=self._cantidad.extra_nombre if self._cantidad else None,
             coste_unitario=coste_unitario,
             coste_total=coste_total,
-            origen=self._origen
+            metodo_id=self._metodo.id if self._metodo else None,
+            metodo_nombre=self._metodo.nombre if self._metodo else None,
+            origen=self._origen,
+            usuario_nombre=self._usuario_nombre
         )
         self._items.append(item)
 
     # --- Utilidades ---
 
+    def _hay_colores_disponibles(self, tipo_id: int, variante_id: Optional[int]) -> bool:
+        """Comprobar si hay colores asignados en el stock para este tipo/variante."""
+        try:
+            colores = self._colores_service.obtener_por_tipo_3d(tipo_id, variante_id)
+            return len(colores) > 0
+        except Exception:
+            return False
+
+    def _hay_tallas_disponibles(self, tipo_id: int, variante_id: Optional[int],
+                                color_id: Optional[int]) -> bool:
+        """Comprobar si hay tallas asignadas en el stock para esta combinación."""
+        try:
+            if not color_id:
+                return False
+            tallas = self._tallas_service.obtener_por_tipo_color_3d(tipo_id, color_id, variante_id)
+            return len(tallas) > 0
+        except Exception:
+            return False
+
     def _get_coleccion_nombre(self, coleccion_id: int) -> str:
         """Resolver nombre de colección desde ID."""
         c = self._colecciones_repo.get_por_id(coleccion_id)
         return c.nombre if c else ""
+
+    def _get_sufijo_nombre(self, sufijo_id) -> str:
+        """Resolver nombre de sufijo desde ID."""
+        if not sufijo_id:
+            return ""
+        s = self._sufijos_repo.get_por_id(sufijo_id)
+        return s.nombre if s else ""
 
     def _es_tipo_camiseta(self) -> bool:
         """Comprobar si el tipo seleccionado es camiseta (para producción mixta)."""

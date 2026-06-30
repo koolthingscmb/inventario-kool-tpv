@@ -27,10 +27,17 @@ class ItemProduccion:
     produccion_mixta: bool
     coste_unitario: float
     coste_total: float
+    extra_id: Optional[int] = None
+    extra_coste: float = 0.0
+    extra_nombre: Optional[str] = None
     variante_nombre: Optional[str] = None
     variante_id: Optional[int] = None
     diseno_coleccion: Optional[str] = None
+    diseno_sufijo: Optional[str] = None
+    metodo_id: Optional[int] = None
+    metodo_nombre: Optional[str] = None
     origen: str = "KOOL"
+    usuario_nombre: Optional[str] = None
 
 class ProduccionOrdenesService:
     def __init__(self, db: Database):
@@ -68,15 +75,18 @@ class ProduccionOrdenesService:
                     linea = ProduccionLinea(
                         orden_id=orden_id,
                         diseno_codigo=item.diseno_codigo,
-                        tipo_producto=item.tipo_nombre,
+                        tipo_id=item.tipo_id,
                         talla=item.talla,
                         color_id=item.color_id,
                         cantidad=item.cantidad,
                         produccion_mixta=1 if item.produccion_mixta else 0,
+                        extra_id=item.extra_id,
+                        extra_coste=int(prepare_for_db(item.extra_coste)),
                         usuario_produccion_id=usuario_id,
                         coste_unitario=int(prepare_for_db(item.coste_unitario)),
                         coste_total=int(prepare_for_db(item.coste_total)),
                         variante_id=item.variante_id,
+                        metodo_id=item.metodo_id,
                         origen=item.origen or 'KOOL'
                     )
                     

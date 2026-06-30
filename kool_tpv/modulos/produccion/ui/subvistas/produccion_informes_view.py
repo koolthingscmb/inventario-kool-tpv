@@ -17,6 +17,7 @@ from kool_tpv.utils.widgets.notificaciones import ToastWidget, show_warning
 from kool_tpv.utils.formatter_service import FormatterService
 
 from kool_tpv.modulos.produccion.services.produccion_informes_service import ProduccionInformesService
+from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_chip_config, get_chip_style, get_font as get_prod_font
 
 
 class ProduccionInformesView:
@@ -27,8 +28,21 @@ class ProduccionInformesView:
         self.km = km
         self.service = ProduccionInformesService(db)
         
+        # Repositorios para filtros
+        from kool_tpv.modulos.produccion.repositories.produccion_colecciones_repository import ProduccionColeccionesRepository
+        from kool_tpv.modulos.produccion.repositories.produccion_sufijos_repository import ProduccionSufijosRepository
+        self.colecciones_repo = ProduccionColeccionesRepository(db)
+        self.sufijos_repo = ProduccionSufijosRepository(db)
+
         # Estado del informe actual
         self.current_report_data = None
+        self._filtros_diseno = {
+            "coleccion_ids": [],
+            "sufijo_ids": []
+        }
+        
+        # Cargar configuración de producción
+        self.prod_config = cargar_config_produccion()
         
         # Contenedor principal
         self.container = ctk.CTkFrame(self.parent, fg_color=self.colors.get('background', '#1a1a1a'))
@@ -49,11 +63,9 @@ class ProduccionInformesView:
         self.report_types = [
             "Resumen de producción",
             "Producción por tipo",
-            "Producción por diseño",
-            "Producción por colección",
             "Stock por Tipo",
             "Stock por Variante",
-            "Ventas de diseños"
+            "Producción de diseños"
         ]
         
         self.cb_tipo_informe = ctk.CTkComboBox(
@@ -66,6 +78,10 @@ class ProduccionInformesView:
         )
         self.cb_tipo_informe.set(self.report_types[0])
         self.cb_tipo_informe.pack(side='left', padx=(0, 20))
+        
+        # --- Frame de Chips (Filtros dinámicos) ---
+        self.chips_frame_main = ctk.CTkFrame(self.container, fg_color='transparent')
+        # Se packea solo cuando se necesita
         
         # Filtros de fecha
         self.dates_frame = ctk.CTkFrame(self.filters_frame, fg_color='transparent')
@@ -130,11 +146,87 @@ class ProduccionInformesView:
         self.btn_export_pdf.configure(state='disabled')
         
     def _on_tipo_changed(self, value):
-        """Ocultar/Mostrar fechas según el tipo de informe."""
+        """Ocultar/Mostrar fechas y chips según el tipo de informe."""
+        # Resetear filtros al cambiar de informe
+        self._filtros_diseno = {"coleccion_ids": [], "sufijo_ids": []}
+
         if "Stock" in value:
             self.dates_frame.pack_forget()
         else:
             self.dates_frame.pack(side='left', after=self.cb_tipo_informe)
+            
+        if value == "Producción de diseños":
+            self.chips_frame_main.pack(fill='x', padx=20, pady=(0, 10), after=self.filters_frame)
+            self._render_chips_filtros()
+        else:
+            self.chips_frame_main.pack_forget()
+            
+    def _render_chips_filtros(self):
+        """Renderizar los chips de Colección y Sufijo usando config_helper."""
+        for w in self.chips_frame_main.winfo_children():
+            w.destroy()
+            
+        # Config de chips desde config_helper (igual que diseno_nuevo)
+        chip_cfg = get_chip_config(self.prod_config, "diseno")
+        default_cfg = get_chip_style(chip_cfg, "default")
+        selected_cfg = get_chip_style(chip_cfg, "selected")
+        font_key = chip_cfg.get("font_key", "label")
+        chip_font = get_prod_font(self.prod_config, font_key)
+        chip_height = chip_cfg.get("height", 40)
+        chip_radius = chip_cfg.get("corner_radius", 8)
+        chip_padx = chip_cfg.get("padx", 6)
+        chip_pady = chip_cfg.get("pady", 4)
+        
+        # Contenedor para Colecciones
+        f_col = ctk.CTkFrame(self.chips_frame_main, fg_color='transparent')
+        f_col.pack(fill='x', pady=2)
+        ctk.CTkLabel(f_col, text="Colecciones:", font=get_font('label_small'), text_color=self.colors.get('text_secondary')).pack(side='left', padx=5)
+        
+        # Contenedor para Sufijos
+        f_suf = ctk.CTkFrame(self.chips_frame_main, fg_color='transparent')
+        f_suf.pack(fill='x', pady=2)
+        ctk.CTkLabel(f_suf, text="Sufijos:", font=get_font('label_small'), text_color=self.colors.get('text_secondary')).pack(side='left', padx=5)
+        
+        # Pintar Colecciones
+        for c in self.colecciones_repo.get_activas():
+            is_sel = c.id in self._filtros_diseno["coleccion_ids"]
+            style = selected_cfg if is_sel else default_cfg
+            
+            btn = ctk.CTkButton(
+                f_col, text=c.nombre, width=0, height=chip_height, corner_radius=chip_radius,
+                fg_color=style.get("bg", "#1a1a2e"),
+                text_color=style.get("text", "#e0e0e0"),
+                border_color=style.get("border", "#552583"),
+                border_width=style.get("border_width", 1),
+                hover_color=style.get("hover", "#C77BFF"),
+                font=chip_font,
+                command=lambda cid=c.id: self._toggle_filtro("coleccion_ids", cid)
+            )
+            btn.pack(side='left', padx=chip_padx, pady=chip_pady)
+            
+        # Pintar Sufijos
+        for s in self.sufijos_repo.get_activos():
+            is_sel = s.id in self._filtros_diseno["sufijo_ids"]
+            style = selected_cfg if is_sel else default_cfg
+            
+            btn = ctk.CTkButton(
+                f_suf, text=s.nombre, width=0, height=chip_height, corner_radius=chip_radius,
+                fg_color=style.get("bg", "#1a1a2e"),
+                text_color=style.get("text", "#e0e0e0"),
+                border_color=style.get("border", "#552583"),
+                border_width=style.get("border_width", 1),
+                hover_color=style.get("hover", "#C77BFF"),
+                font=chip_font,
+                command=lambda sid=s.id: self._toggle_filtro("sufijo_ids", sid)
+            )
+            btn.pack(side='left', padx=chip_padx, pady=chip_pady)
+
+    def _toggle_filtro(self, key, item_id):
+        if item_id in self._filtros_diseno[key]:
+            self._filtros_diseno[key].remove(item_id)
+        else:
+            self._filtros_diseno[key].append(item_id)
+        self._render_chips_filtros()
             
     def _on_generar_click(self):
         try:
@@ -151,16 +243,16 @@ class ProduccionInformesView:
                 report_data = self.service.get_informe_resumen_produccion(fi, ff)
             elif tipo == "Producción por tipo":
                 report_data = self.service.get_informe_produccion_por_tipo(fi, ff)
-            elif tipo == "Producción por diseño":
-                report_data = self.service.get_informe_produccion_por_diseno(fi, ff)
-            elif tipo == "Producción por colección":
-                report_data = self.service.get_informe_produccion_por_coleccion(fi, ff)
             elif tipo == "Stock por Tipo":
                 report_data = self.service.get_informe_stock_por_tipo()
             elif tipo == "Stock por Variante":
                 report_data = self.service.get_informe_stock_por_variante()
-            elif tipo == "Ventas de diseños":
-                report_data = self.service.get_informe_ventas_disenos(fi, ff)
+            elif tipo == "Producción de diseños":
+                report_data = self.service.get_informe_produccion_detallada_disenos(
+                    fi, ff, 
+                    coleccion_ids=self._filtros_diseno["coleccion_ids"],
+                    sufijo_ids=self._filtros_diseno["sufijo_ids"]
+                )
             else:
                 return
             

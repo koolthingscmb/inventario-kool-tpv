@@ -19,6 +19,7 @@ class ProduccionMenuTiposRepository:
             FROM tipos t
             JOIN produccion_menu_tipos pmt ON t.id = pmt.tipo_id
             WHERE pmt.menu_id = ? AND t.activo = 1
+              AND t.id IN (SELECT DISTINCT tipo_id FROM produccion_stock_colores_tallas WHERE cantidad > 0)
             ORDER BY t.orden
         """
         rows = self.db.fetch_all(query, (menu_id,))
@@ -58,6 +59,7 @@ class ProduccionMenuTiposRepository:
             JOIN produccion_menu_tipos pmt ON t.id = pmt.tipo_id
             JOIN produccion_menu m ON pmt.menu_id = m.id
             WHERE t.activo = 1 AND m.activo = 1
+              AND t.id IN (SELECT DISTINCT tipo_id FROM produccion_stock_colores_tallas WHERE cantidad > 0)
             ORDER BY m.orden, t.orden
         """
         rows = self.db.fetch_all(query)

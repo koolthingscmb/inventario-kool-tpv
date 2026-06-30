@@ -57,6 +57,7 @@ class DisenoNuevoView:
 		self._colecciones_cache = {c.id: c.nombre for c in self.colecciones_repo.get_activas()}
 		self._sufijos_cache = {s.id: s.nombre for s in self.sufijos_repo.get_activos()}
 		self._metodos_cache = self.metodos_repo.get_activos()
+		self._stats_cache = {}  # Caché temporal para estadísticas de la lista actual
 
 		# Estado de edición
 		self._diseno_cargado: Optional[ProduccionDiseno] = None
@@ -142,8 +143,6 @@ class DisenoNuevoView:
 		_entry_nombre_inner = self._entry_nombre._entry if hasattr(self._entry_nombre, '_entry') else self._entry_nombre
 		_entry_nombre_inner.bind("<Tab>", self._on_tab_next)
 		_entry_nombre_inner.bind("<Return>", lambda e: self._on_comprobar())
-		_entry_nombre_inner.bind("<FocusIn>", self._on_entry_focus_in)
-		_entry_nombre_inner.bind("<FocusOut>", self._on_entry_focus_out)
 
 		self.btn_comprobar = ctk.CTkButton(
 			controls_row,
@@ -182,10 +181,12 @@ class DisenoNuevoView:
 		_km = getattr(root, 'keyboard_manager', None)
 
 		columns = [
-			("nombre", 200, "Nombre"),
-			("coleccion_nombre", 150, "Colección"),
-			("sufijo_nombre", 150, "Sufijo"),
-			("tipos_nombres", 200, "Tipos")
+			("codigo", 100, "Código"),
+			("nombre", 180, "Nombre"),
+			("coleccion_nombre", 120, "Colección"),
+			("sufijo_nombre", 100, "Sufijo"),
+			("tipos_nombres", 150, "Tipos"),
+			("total_producido", 80, "Uds.")
 		]
 
 		self._paginated_list = SearchablePaginatedNavList(
@@ -396,8 +397,6 @@ class DisenoNuevoView:
 			
 			# Bindings
 			_inner = entry._entry if hasattr(entry, '_entry') else entry
-			_inner.bind("<FocusIn>", self._on_entry_focus_in)
-			_inner.bind("<FocusOut>", self._on_entry_focus_out)
 
 			col += 1
 			if col >= cols:
@@ -432,22 +431,6 @@ class DisenoNuevoView:
 		else:
 			self._sufijo_seleccionado = nombre
 		self._render_chips_sufijos()
-
-	def _on_entry_focus_in(self, event):
-		"""Liberar flechas del teclado al entrar al entry."""
-		try:
-			from kool_tpv.utils.keyboard_manager import KeyboardManager
-			KeyboardManager.get_instance().set_capture_enabled(False)
-		except Exception:
-			pass
-
-	def _on_entry_focus_out(self, event):
-		"""Reactivar flechas del teclado al salir del entry."""
-		try:
-			from kool_tpv.utils.keyboard_manager import KeyboardManager
-			KeyboardManager.get_instance().set_capture_enabled(True)
-		except Exception:
-			pass
 
 	def _on_tab_next(self, event):
 		"""Tab: mover foco al siguiente widget."""
@@ -506,20 +489,33 @@ class DisenoNuevoView:
 	def _buscar_disenos_paginado(self, filtro: str) -> List[ProduccionDiseno]:
 		"""Función de búsqueda para SearchablePaginatedNavList."""
 		if filtro.strip():
-			return self.service.buscar(filtro.strip())
-		return self.service.obtener_activos()
+			disenos = self.service.buscar(filtro.strip())
+		else:
+			disenos = self.service.obtener_activos()
+		
+		# Pre-cargar estadísticas para la lista actual
+		codigos = [d.codigo for d in disenos]
+		self._stats_cache = self.service.obtener_estadisticas_disenos(codigos)
+		
+		return disenos
 
 	def _map_diseno_para_lista(self, r: ProduccionDiseno) -> dict:
 		"""Función de mapeo para SearchablePaginatedNavList."""
 		tipos_nombres = ", ".join([self._cache_tipos.get(tid, str(tid)) for tid in r.tipos])
 		coleccion_nombre = self._get_coleccion_nombre(r.coleccion_id)
 		sufijo_nombre = self._get_sufijo_nombre(r.sufijo_id) if r.sufijo_id else ""
+		
+		# Estadísticas desde la caché pre-cargada en _buscar_disenos_paginado
+		stats = self._stats_cache.get(r.codigo, {"total_producido": 0})
+		total_producido = stats["total_producido"]
+
 		return {
 			"codigo": r.codigo,
 			"nombre": r.nombre,
 			"coleccion_nombre": coleccion_nombre,
 			"sufijo_nombre": sufijo_nombre,
 			"tipos_nombres": tipos_nombres,
+			"total_producido": total_producido,
 			"obj": r
 		}
 
@@ -579,8 +575,7 @@ class DisenoNuevoView:
 				coleccion_id=coleccion_id,
 				nombre=nombre,
 				sufijo_id=sufijo_id,
-				tipos=tipos_ids,
-				lista_costes=[] 
+				tipos=tipos_ids
 			)
 			if ok:
 				# Guardar costes por método
@@ -613,8 +608,7 @@ class DisenoNuevoView:
 				coleccion_id=coleccion_id,
 				nombre=nombre,
 				sufijo_id=sufijo_id,
-				tipos=tipos_ids,
-				lista_costes=[]
+				tipos=tipos_ids
 			)
 			if result is None:
 				# Buscar el recién creado
@@ -738,11 +732,6 @@ class DisenoNuevoView:
 
 	def destruir(self):
 		"""Destruir la subvista."""
-		try:
-			from kool_tpv.utils.keyboard_manager import KeyboardManager
-			KeyboardManager.get_instance().set_capture_enabled(True)
-		except Exception:
-			pass
 		try:
 			self.frame.winfo_toplevel().grab_release()
 		except Exception:

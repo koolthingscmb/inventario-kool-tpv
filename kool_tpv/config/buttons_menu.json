@@ -42,9 +42,9 @@
       {"id": "nuevo", "text": "PROD +", "action": "show_nuevo"},
       {"id": "diseno_nuevo", "text": "DISEÑO +", "action": "show_diseno_nuevo"},
       {"id": "proveedores", "text": "PROVEEDOR", "action": "show_colores"},
-      {"id": "stock", "text": "SKU", "action": "show_stock"},
+      {"id": "stock", "text": "STOCK/SKU", "action": "show_stock"},
       {"id": "informes", "text": "INFORMES", "action": "show_informes"},
-      {"id": "config", "text": "CONFIGURAR", "action": "show_config"}
+      {"id": "config", "text": "TALLER", "action": "show_config"}
     ]
   },
   "config": {

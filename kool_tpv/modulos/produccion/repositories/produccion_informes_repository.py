@@ -45,60 +45,19 @@ class ProduccionInformesRepository:
         try:
             fi = f"{fecha_inicio} 00:00:00"
             ff = f"{fecha_fin} 23:59:59"
-            query = """SELECT l.tipo_producto, COALESCE(SUM(l.cantidad), 0), COALESCE(SUM(l.coste_total), 0), COUNT(DISTINCT l.orden_id)
+            query = """SELECT t.nombre, COALESCE(SUM(l.cantidad), 0), COALESCE(SUM(l.coste_total), 0), COUNT(DISTINCT l.orden_id)
                        FROM produccion_lineas l
                        JOIN produccion_ordenes o ON o.id = l.orden_id
+                       JOIN tipos t ON t.id = l.tipo_id
                        WHERE o.fecha_hora BETWEEN ? AND ?
-                       GROUP BY l.tipo_producto ORDER BY SUM(l.cantidad) DESC"""
+                       GROUP BY l.tipo_id ORDER BY SUM(l.cantidad) DESC"""
             rows = self.db.fetch_all(query, (fi, ff))
             return [{'tipo': r[0] or 'SIN TIPO', 'unidades': int(r[1]), 'coste_total': int(r[2]), 'num_ordenes': int(r[3])} for r in rows or []]
         except Exception:
             logging.exception('Error en get_produccion_por_tipo')
             return []
 
-    # ── 3. PRODUCCIÓN POR DISEÑO ─────────────────────────────────────────────
-
-    def get_produccion_por_diseno(self, fecha_inicio: str, fecha_fin: str) -> list:
-        try:
-            fi = f"{fecha_inicio} 00:00:00"
-            ff = f"{fecha_fin} 23:59:59"
-            query = """SELECT l.diseno_codigo, COALESCE(d.nombre, l.diseno_codigo),
-                        COALESCE(c.nombre, '-'), COALESCE(SUM(l.cantidad), 0), COALESCE(SUM(l.coste_total), 0)
-                       FROM produccion_lineas l
-                       JOIN produccion_ordenes o ON o.id = l.orden_id
-                       LEFT JOIN produccion_disenos d ON d.codigo = l.diseno_codigo
-                       LEFT JOIN produccion_colecciones c ON c.id = d.coleccion_id
-                       WHERE o.fecha_hora BETWEEN ? AND ?
-                       GROUP BY l.diseno_codigo ORDER BY SUM(l.cantidad) DESC"""
-            rows = self.db.fetch_all(query, (fi, ff))
-            return [{'diseno_codigo': r[0] or '', 'diseno_nombre': r[1] or '', 'coleccion': r[2] or '-',
-                     'unidades': int(r[3]), 'coste_total': int(r[4])} for r in rows or []]
-        except Exception:
-            logging.exception('Error en get_produccion_por_diseno')
-            return []
-
-    # ── 4. PRODUCCIÓN POR COLECCIÓN ──────────────────────────────────────────
-
-    def get_produccion_por_coleccion(self, fecha_inicio: str, fecha_fin: str) -> list:
-        try:
-            fi = f"{fecha_inicio} 00:00:00"
-            ff = f"{fecha_fin} 23:59:59"
-            query = """SELECT COALESCE(c.nombre, 'SIN COLECCIÓN'),
-                        COALESCE(SUM(l.cantidad), 0), COALESCE(SUM(l.coste_total), 0), COUNT(DISTINCT l.diseno_codigo)
-                       FROM produccion_lineas l
-                       JOIN produccion_ordenes o ON o.id = l.orden_id
-                       LEFT JOIN produccion_disenos d ON d.codigo = l.diseno_codigo
-                       LEFT JOIN produccion_colecciones c ON c.id = d.coleccion_id
-                       WHERE o.fecha_hora BETWEEN ? AND ?
-                       GROUP BY c.nombre ORDER BY SUM(l.cantidad) DESC"""
-            rows = self.db.fetch_all(query, (fi, ff))
-            return [{'coleccion': r[0] or 'SIN COLECCIÓN', 'unidades': int(r[1]),
-                     'coste_total': int(r[2]), 'num_disenos': int(r[3])} for r in rows or []]
-        except Exception:
-            logging.exception('Error en get_produccion_por_coleccion')
-            return []
-
-    # ── 5. STOCK POR TIPO ────────────────────────────────────────────────────
+    # ── 3. STOCK POR TIPO ────────────────────────────────────────────────────
 
     def get_stock_por_tipo(self) -> list:
         try:
@@ -114,7 +73,7 @@ class ProduccionInformesRepository:
             logging.exception('Error en get_stock_por_tipo')
             return []
 
-    # ── 6. STOCK POR VARIANTE ────────────────────────────────────────────────
+    # ── 4. STOCK POR VARIANTE ────────────────────────────────────────────────
 
     def get_stock_por_variante(self) -> list:
         try:
@@ -122,8 +81,8 @@ class ProduccionInformesRepository:
                         COALESCE(SUM(s.cantidad), 0), COALESCE(SUM(s.cantidad * s.coste_medio), 0), COUNT(*)
                        FROM produccion_stock_colores_tallas s
                        JOIN tipos t ON t.id = s.tipo_id
-                       LEFT JOIN tipos_variantes v ON v.tipo_id = s.tipo_id
-                       GROUP BY t.id, v.id
+                       LEFT JOIN tipos_variantes v ON v.id = s.variante_id
+                       GROUP BY t.id, s.variante_id
                        ORDER BY t.nombre ASC, v.nombre ASC"""
             rows = self.db.fetch_all(query)
             return [{'tipo_nombre': r[0] or '', 'variante_nombre': r[1] or 'SIN VARIANTE',
@@ -133,24 +92,64 @@ class ProduccionInformesRepository:
             logging.exception('Error en get_stock_por_variante')
             return []
 
-    # ── 7. VENTAS DE DISEÑOS ─────────────────────────────────────────────────
+    # ── 5. PRODUCCIÓN DETALLADA DE DISEÑOS ───────────────────────────────────
 
-    def get_ventas_disenos(self, fecha_inicio: str, fecha_fin: str) -> list:
+    def get_produccion_detallada_disenos(self, fecha_inicio: str, fecha_fin: str, 
+                                        coleccion_ids: list = None, 
+                                        sufijo_ids: list = None) -> list:
         try:
             fi = f"{fecha_inicio} 00:00:00"
             ff = f"{fecha_fin} 23:59:59"
-            query = """SELECT dv.diseno_codigo, COALESCE(d.nombre, dv.diseno_codigo),
-                        COALESCE(c.nombre, '-'), COALESCE(SUM(dv.cantidad), 0),
-                        COALESCE(SUM(tk.total), 0)
-                       FROM produccion_disenos_ventas dv
-                       JOIN tickets tk ON tk.id = dv.ticket_id
-                       LEFT JOIN produccion_disenos d ON d.codigo = dv.diseno_codigo
+            
+            query = """SELECT 
+                        l.diseno_codigo, 
+                        COALESCE(d.nombre, l.diseno_codigo) as diseno_nombre,
+                        COALESCE(c.nombre, 'SIN COL.') as coleccion,
+                        COALESCE(s.nombre, '-') as sufijo,
+                        l.tipo_id,
+                        t.nombre as tipo_nombre,
+                        COALESCE(v.nombre, '-') as variante,
+                        COALESCE(m.nombre, '-') as metodo,
+                        SUM(l.cantidad) as unidades,
+                        SUM(l.coste_total) as coste_total
+                       FROM produccion_lineas l
+                       JOIN produccion_ordenes o ON o.id = l.orden_id
+                       JOIN tipos t ON t.id = l.tipo_id
+                       LEFT JOIN produccion_disenos d ON d.codigo = l.diseno_codigo
                        LEFT JOIN produccion_colecciones c ON c.id = d.coleccion_id
-                       WHERE dv.fecha_venta BETWEEN ? AND ?
-                       GROUP BY dv.diseno_codigo ORDER BY SUM(dv.cantidad) DESC"""
-            rows = self.db.fetch_all(query, (fi, ff))
-            return [{'diseno_codigo': r[0] or '', 'diseno_nombre': r[1] or '', 'coleccion': r[2] or '-',
-                     'unidades_vendidas': int(r[3]), 'total_ventas': int(r[4])} for r in rows or []]
+                       LEFT JOIN produccion_sufijos s ON s.id = d.sufijo_id
+                       LEFT JOIN tipos_variantes v ON v.id = l.variante_id
+                       LEFT JOIN produccion_metodos m ON m.id = l.metodo_id
+                       WHERE o.fecha_hora BETWEEN ? AND ?
+                    """
+            params = [fi, ff]
+            
+            if coleccion_ids:
+                placeholders = ",".join(["?"] * len(coleccion_ids))
+                query += f" AND d.coleccion_id IN ({placeholders})"
+                params.extend(coleccion_ids)
+                
+            if sufijo_ids:
+                placeholders = ",".join(["?"] * len(sufijo_ids))
+                query += f" AND d.sufijo_id IN ({placeholders})"
+                params.extend(sufijo_ids)
+                
+            query += """ GROUP BY l.diseno_codigo, l.variante_id, l.metodo_id 
+                         ORDER BY c.nombre, d.nombre, l.cantidad DESC"""
+            
+            rows = self.db.fetch_all(query, tuple(params))
+            return [{
+                'diseno_codigo': r[0],
+                'diseno_nombre': r[1],
+                'coleccion': r[2],
+                'sufijo': r[3],
+                'tipo_id': r[4],
+                'tipo_nombre': r[5],
+                'variante': r[6],
+                'metodo': r[7],
+                'unidades': int(r[8]),
+                'coste_total': int(r[9])
+            } for r in rows or []]
         except Exception:
-            logging.exception('Error en get_ventas_disenos')
+            logging.exception('Error en get_produccion_detallada_disenos')
             return []

@@ -39,7 +39,7 @@ class ProduccionConfigView:
         self._km = getattr(root, 'keyboard_manager', None)
 
         # Estado de tabs
-        self._main_tabs = ["CATÁLOGO", "MATRIZ", "MENÚ", "VARIANTES"]
+        self._main_tabs = ["CATÁLOGO", "MATRIZ", "MENÚ", "VARIANTES", "EXTRAS"]
         self._sub_tabs = ["COLORES", "TALLAS"]
         self._current_main_tab = None
         self._current_sub_tab = None
@@ -165,6 +165,11 @@ class ProduccionConfigView:
                 from kool_tpv.modulos.produccion.ui.subvistas.config_tab_variantes import ConfigTabVariantes
                 self._current_tab_obj = ConfigTabVariantes(
                     self._content_frame, self.service, self.config,
+                    self._colors, self._km, self._layout_config)
+            elif tab_name == "EXTRAS":
+                from kool_tpv.modulos.produccion.ui.subvistas.config_tab_extras import ConfigTabExtras
+                self._current_tab_obj = ConfigTabExtras(
+                    self._content_frame, self.db, self.config,
                     self._colors, self._km, self._layout_config)
 
     def _select_sub_tab(self, sub_name):

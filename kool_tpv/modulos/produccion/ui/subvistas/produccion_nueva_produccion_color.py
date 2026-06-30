@@ -13,6 +13,7 @@ import customtkinter as ctk
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.produccion.models.produccion_color_model import ProduccionColor
 from kool_tpv.modulos.produccion.services.produccion_colores_service import ProduccionColoresService
+from kool_tpv.modulos.produccion.services.produccion_tallas_service import ProduccionTallasService
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font, get_chip_config, get_chip_style, get_nav_button_config, get_nav_button_style
 from kool_tpv.utils.keyboard_nav_mixin import KeyboardNavigableMixin
 
@@ -45,6 +46,7 @@ class NuevaProduccionColorView(KeyboardNavigableMixin):
 
 		# Servicio para cargar colores desde BD
 		self._service = ProduccionColoresService(db)
+		self._tallas_service = ProduccionTallasService(db)
 
 		# Cargar configuración
 		self.config = cargar_config_produccion()
@@ -127,6 +129,18 @@ class NuevaProduccionColorView(KeyboardNavigableMixin):
 			lbl_vacio.pack(pady=40)
 			return
 
+		# Pre-calcular tallas disponibles por color para info de auto-asignación
+		self._tallas_por_color = {}
+		if self._tipo_id:
+			for color in colores:
+				try:
+					tallas = self._tallas_service.obtener_por_tipo_color_3d(
+						self._tipo_id, color.id, self._variante_id)
+					if len(tallas) == 1:
+						self._tallas_por_color[color.id] = tallas[0].nombre
+				except Exception:
+					pass
+
 		cols = self._chip_cfg.get("columns", 4)
 		padx = self._chip_cfg.get("padx", 8)
 		pady = self._chip_cfg.get("pady", 8)
@@ -137,12 +151,16 @@ class NuevaProduccionColorView(KeyboardNavigableMixin):
 		font_family = get_font(self.config, font_key)
 		chip_font = (font_family[0], default_style.get("font_size", 14), font_family[2])
 		for idx, color in enumerate(colores):
-			# Usar el hex del color como fondo del chip si está disponible
 			bg_color = color.codigo_hex if color.codigo_hex else None
 			text_color = self._calcular_texto_contraste(bg_color) if bg_color else None
 
+			chip_cell = ctk.CTkFrame(self.chips_frame, fg_color=self._bg)
+			row = idx // cols
+			col = idx % cols
+			chip_cell.grid(row=row, column=col, padx=padx, pady=pady, sticky="nsew")
+
 			btn = ctk.CTkButton(
-				master=self.chips_frame,
+				master=chip_cell,
 				text=color.nombre,
 				fg_color=bg_color or default_style.get("bg", "#1a1a2e"),
 				text_color=text_color or default_style.get("text", "#e0e0e0"),
@@ -154,13 +172,20 @@ class NuevaProduccionColorView(KeyboardNavigableMixin):
 				font=chip_font,
 				cursor="hand2"
 			)
-
-			row = idx // cols
-			col = idx % cols
-			btn.grid(row=row, column=col, padx=padx, pady=pady, sticky="nsew")
+			btn.pack(fill="x")
 			btn.bind("<Button-1>", lambda e, b=btn, c=color: self._on_chip_click(b, c))
 			setattr(btn, "_color_data", color)
 			self._chip_buttons.append(btn)
+
+			if color.id in self._tallas_por_color:
+				lbl = ctk.CTkLabel(
+					chip_cell,
+					text=f"Solo talla {self._tallas_por_color[color.id]} · auto-asignada",
+					font=(self._get_font("label")[0], 10),
+					text_color=self._text_sec,
+					fg_color=self._bg
+				)
+				lbl.pack(pady=(2, 0))
 
 		# Pesos del grid
 		for i in range(cols):

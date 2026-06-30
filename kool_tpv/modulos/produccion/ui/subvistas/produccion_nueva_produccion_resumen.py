@@ -79,15 +79,18 @@ class NuevaProduccionResumenView:
 
 		# Configuración de columnas para VirtualNavList
 		self.columns = [
+			("usuario", 100, "Usuario"),
 			("origen", 80, "Origen"),
 			("cantidad", 60, "Cant"),
-			("tipo", 150, "Tipo"),
-			("variante", 120, "Variante"),
-			("diseno", 180, "Diseño"),
-			("coleccion", 120, "Colección"),
-			("talla", 60, "Talla"),
+			("tipo", 120, "Tipo"),
+			("variante", 100, "Variante"),
 			("color", 100, "Color"),
-			("mixta", 60, "Mixta")
+			("talla", 60, "Talla"),
+			("extra", 100, "Extra"),
+			("metodo", 100, "Método"),
+			("coleccion", 100, "Colección"),
+			("sufijo", 80, "Sufijo"),
+			("diseno", 150, "Diseño"),
 		]
 
 		# Obtener el keyboard manager del toplevel
@@ -211,15 +214,18 @@ class NuevaProduccionResumenView:
 		rows = []
 		for idx, item in enumerate(self.items):
 			rows.append({
+				"usuario": getattr(item, 'usuario_nombre', '') or '',
 				"origen": getattr(item, 'origen', '') or '',
 				"cantidad": str(item.cantidad),
 				"tipo": item.tipo_nombre or "",
 				"variante": item.variante_nombre or "-",
-				"diseno": item.diseno_nombre or "",
-				"coleccion": item.diseno_coleccion or "-",
-				"talla": item.talla or "",
 				"color": item.color_nombre or "",
-				"mixta": "Sí" if item.produccion_mixta else "No",
+				"talla": item.talla or "",
+				"extra": getattr(item, 'extra_nombre', '-') or ('Mixta' if item.produccion_mixta else '-'),
+				"metodo": getattr(item, 'metodo_nombre', '-') or '-',
+				"coleccion": item.diseno_coleccion or "-",
+				"sufijo": getattr(item, 'diseno_sufijo', '') or '-',
+				"diseno": item.diseno_nombre or "",
 				"_idx": idx  # Guardar índice real para eliminar
 			})
 		

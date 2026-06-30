@@ -4,6 +4,7 @@ Contiene la clase `NuevaProduccionCantidadView` que muestra botones
 para seleccionar cantidad (+1, +5, +10), producción mixta y navegación.
 """
 import tkinter as tk
+import logging
 from dataclasses import dataclass
 from typing import Callable, Optional
 
@@ -18,6 +19,9 @@ class CantidadSeleccion:
 	"""Resultado de la selección de cantidad."""
 	cantidad: int
 	produccion_mixta: bool = False
+	extra_id: Optional[int] = None
+	extra_coste: float = 0.0
+	extra_nombre: Optional[str] = None
 
 
 class NuevaProduccionCantidadView(KeyboardNavigableMixin):
@@ -31,15 +35,17 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 		mostrar_mixta: Si True, muestra el botón MIXTA.
 	"""
 
-	def __init__(self, parent,
+	def __init__(self, parent, db: Database,
 	             on_siguiente: Optional[Callable[[CantidadSeleccion], None]] = None,
 	             on_volver: Optional[Callable] = None,
 	             on_anadir: Optional[Callable[[CantidadSeleccion], None]] = None,
 	             on_origen: Optional[Callable] = None,
 	             mostrar_mixta: bool = False,
-	             diseno_nombre: str = ""):
+	             diseno_nombre: str = "",
+	             stock_disponible: int = 0):
 		KeyboardNavigableMixin.__init_keyboard_mixin__(self)
 		self.parent = parent
+		self.db = db
 		self.on_siguiente = on_siguiente
 		self.on_volver = on_volver
 		self.on_anadir = on_anadir
@@ -47,8 +53,12 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 		self.mostrar_mixta = mostrar_mixta
 		self.diseno_nombre = diseno_nombre
 		self.cantidad: int = 0
-		self.produccion_mixta: bool = False
-		self._mixta_seleccionada: bool = False
+		self.stock_disponible: int = stock_disponible
+		
+		from kool_tpv.modulos.produccion.services.produccion_extras_service import ProduccionExtrasService
+		self.extras_service = ProduccionExtrasService(db)
+		self.extra_seleccionado: Optional[any] = None
+		self._extra_btns = {}
 
 		# Cargar configuración
 		self.config = cargar_config_produccion()
@@ -65,8 +75,7 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 		# Título + botones
 		self._crear_titulo()
 		self._crear_botones_cantidad()
-		if self.mostrar_mixta:
-			self._crear_boton_mixta()
+		self._crear_chips_extras()
 		self._crear_boton_otro_producto()
 		self._crear_botones_navegacion()
 
@@ -74,8 +83,10 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 		self._navigable_buttons = []
 		for btn in self._btns_cantidad:
 			self._navigable_buttons.append((btn, lambda b=btn: self._on_cantidad_btn(b)))
-		if self.mostrar_mixta:
-			self._navigable_buttons.append((self.btn_mixta, self._on_mixta_toggle))
+		
+		for btn in self._extra_btns.values():
+			self._navigable_buttons.append((btn, lambda b=btn: self._on_extra_click(getattr(b, "_extra_obj"))))
+
 		self._navigable_buttons.append((self.btn_otro, self._on_anadir))
 		self._navigable_buttons.append((self.btn_origen, self._on_origen))
 		self._navigable_buttons.append((self.btn_volver, self._on_volver))
@@ -110,6 +121,17 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 			fg_color=self._bg
 		)
 		titulo.pack(pady=(20, 5))
+
+		stock_txt = f"Stock disponible: {self.stock_disponible}" if self.stock_disponible > 0 else ""
+		if stock_txt:
+			self.lbl_stock = ctk.CTkLabel(
+				self.frame,
+				text=stock_txt,
+				font=self._get_font("label"),
+				text_color=self._text_sec,
+				fg_color=self._bg
+			)
+			self.lbl_stock.pack(pady=(0, 5))
 
 		self.lbl_total = ctk.CTkLabel(
 			self.frame,
@@ -275,9 +297,14 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 	# --- Lógica ---
 
 	def _on_cantidad_btn(self, btn):
-		"""Incrementar la cantidad según el botón pulsado."""
+		"""Incrementar la cantidad según el botón pulsado, respetando el stock disponible."""
 		incremento = getattr(btn, "_incremento", 0)
-		self.cantidad += incremento
+		nueva_cantidad = self.cantidad + incremento
+		if self.stock_disponible > 0 and nueva_cantidad > self.stock_disponible:
+			from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
+			ToastWidget.show(self.frame, f"Stock insuficiente (máx {self.stock_disponible} uds)", tipo="error")
+			return
+		self.cantidad = nueva_cantidad
 		self.lbl_total.configure(text=f"TOTAL: {self.cantidad}")
 
 	def _on_mixta_toggle(self):
@@ -307,25 +334,110 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 				font=(font_family[0], default_style.get("font_size", 14), font_family[2])
 			)
 
+	def _crear_chips_extras(self):
+		"""Crear chips dinámicos para los extras configurados."""
+		extras = self.extras_service.get_todos(solo_activos=True)
+		if not extras:
+			return
+
+		frame_extras = ctk.CTkFrame(self.frame, fg_color=self._bg)
+		frame_extras.pack(pady=(10, 10))
+
+		style = get_chip_style(self._chip_cfg, "default")
+		font_key = self._chip_cfg.get("font_key", "label")
+		font_family = get_font(self.config, font_key)
+		chip_font = (font_family[0], style.get("font_size", 14), font_family[2])
+		corner_radius = self._chip_cfg.get("corner_radius", 18) # Más redondo para chips de extra
+		chip_height = self._chip_cfg.get("height", 40)
+
+		for extra in extras:
+			btn = ctk.CTkButton(
+				master=frame_extras,
+				text=extra.nombre.upper(),
+				fg_color=style.get("bg", "#1a1a2e"),
+				text_color=style.get("text", "#e0e0e0"),
+				border_color=style.get("border", "#552583"),
+				hover_color=style.get("hover", "#C77BFF"),
+				border_width=style.get("border_width", 2),
+				corner_radius=corner_radius,
+				height=chip_height,
+				width=0, # Ajuste automático al texto
+				font=chip_font,
+				cursor="hand2"
+			)
+			btn.pack(side=tk.LEFT, padx=6)
+			btn.bind("<Button-1>", lambda e, ex=extra: self._on_extra_click(ex))
+			setattr(btn, "_extra_obj", extra)
+			self._extra_btns[extra.id] = btn
+
+	def _on_extra_click(self, extra):
+		"""Manejar el click en un chip de extra (selección única/deselección)."""
+		# Si pulsamos el mismo que ya está seleccionado -> deseleccionar
+		if self.extra_seleccionado and self.extra_seleccionado.id == extra.id:
+			self.extra_seleccionado = None
+		else:
+			self.extra_seleccionado = extra
+
+		self._actualizar_estilo_extras()
+
+	def _actualizar_estilo_extras(self):
+		"""Actualizar visualmente qué chip de extra está seleccionado."""
+		selected_style = get_chip_style(self._chip_cfg, "selected")
+		default_style = get_chip_style(self._chip_cfg, "default")
+		font_key = self._chip_cfg.get("font_key", "label")
+		font_family = get_font(self.config, font_key)
+
+		for extra_id, btn in self._extra_btns.items():
+			is_selected = (self.extra_seleccionado and self.extra_seleccionado.id == extra_id)
+			style = selected_style if is_selected else default_style
+			
+			btn.configure(
+				fg_color=style.get("bg"),
+				text_color=style.get("text"),
+				border_color=style.get("border"),
+				hover_color=style.get("hover"),
+				border_width=style.get("border_width", 2),
+				font=(font_family[0], style.get("font_size", 14), font_family[2])
+			)
+
 	def _on_siguiente(self):
 		"""Manejador del botón SIGUIENTE."""
+		logger = logging.getLogger(__name__)
+		logger.info(f"_on_siguiente llamado. cantidad={self.cantidad}, on_siguiente={self.on_siguiente}")
 		if self.cantidad < 1:
+			logger.warning("SIGUIENTE ignorado: cantidad < 1")
 			return
 		if self.on_siguiente:
-			result = CantidadSeleccion(
-				cantidad=self.cantidad,
-				produccion_mixta=self.produccion_mixta
-			)
-			self.on_siguiente(result)
+			try:
+				from kool_tpv.base_datos.money_adapter import read_from_db
+				extra_coste = float(read_from_db(self.extra_seleccionado.coste)) if self.extra_seleccionado else 0.0
+				
+				result = CantidadSeleccion(
+					cantidad=self.cantidad,
+					produccion_mixta=(self.extra_seleccionado.nombre.upper() == "MIXTA") if self.extra_seleccionado else False,
+					extra_id=self.extra_seleccionado.id if self.extra_seleccionado else None,
+					extra_coste=extra_coste,
+					extra_nombre=self.extra_seleccionado.nombre if self.extra_seleccionado else None
+				)
+				logger.info(f"Llamando on_siguiente con result={result}")
+				self.on_siguiente(result)
+			except Exception as e:
+				logger.exception(f"Error en _on_siguiente: {e}")
 
 	def _on_anadir(self):
 		"""Manejador del botón OTRO PRODUCTO."""
 		if self.cantidad < 1:
 			return
 		if self.on_anadir:
+			from kool_tpv.base_datos.money_adapter import read_from_db
+			extra_coste = float(read_from_db(self.extra_seleccionado.coste)) if self.extra_seleccionado else 0.0
+			
 			result = CantidadSeleccion(
 				cantidad=self.cantidad,
-				produccion_mixta=self.produccion_mixta
+				produccion_mixta=(self.extra_seleccionado.nombre.upper() == "MIXTA") if self.extra_seleccionado else False,
+				extra_id=self.extra_seleccionado.id if self.extra_seleccionado else None,
+				extra_coste=extra_coste,
+				extra_nombre=self.extra_seleccionado.nombre if self.extra_seleccionado else None
 			)
 			self.on_anadir(result)
 
@@ -334,11 +446,18 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 		if self.cantidad < 1:
 			return
 		if self.on_origen:
+			from kool_tpv.base_datos.money_adapter import read_from_db
+			extra_coste = float(read_from_db(self.extra_seleccionado.coste)) if self.extra_seleccionado else 0.0
+			
 			result = CantidadSeleccion(
 				cantidad=self.cantidad,
-				produccion_mixta=self.produccion_mixta
+				produccion_mixta=(self.extra_seleccionado.nombre.upper() == "MIXTA") if self.extra_seleccionado else False,
+				extra_id=self.extra_seleccionado.id if self.extra_seleccionado else None,
+				extra_coste=extra_coste,
+				extra_nombre=self.extra_seleccionado.nombre if self.extra_seleccionado else None
 			)
 			self.on_origen(result)
+
 
 	def _on_volver(self):
 		"""Manejador del botón VOLVER."""
@@ -346,14 +465,15 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 			self.on_volver()
 
 	def obtener_seleccion(self) -> CantidadSeleccion:
-		"""Obtener la selección de cantidad.
-
-		Returns:
-			Objeto CantidadSeleccion con cantidad y produccion_mixta.
-		"""
+		"""Obtener la selección de cantidad."""
+		from kool_tpv.base_datos.money_adapter import read_from_db
+		extra_coste = float(read_from_db(self.extra_seleccionado.coste)) if self.extra_seleccionado else 0.0
 		return CantidadSeleccion(
 			cantidad=self.cantidad,
-			produccion_mixta=self.produccion_mixta
+			produccion_mixta=(self.extra_seleccionado.nombre.upper() == "MIXTA") if self.extra_seleccionado else False,
+			extra_id=self.extra_seleccionado.id if self.extra_seleccionado else None,
+			extra_coste=extra_coste,
+			extra_nombre=self.extra_seleccionado.nombre if self.extra_seleccionado else None
 		)
 
 	def destruir(self):

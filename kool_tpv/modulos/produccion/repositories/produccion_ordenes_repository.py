@@ -213,9 +213,9 @@ class ProduccionOrdenesRepository:
 			Lista de objetos ProduccionLinea.
 		"""
 		query = """
-			SELECT id, orden_id, diseno_codigo, tipo_producto, talla, color_id,
-			       cantidad, produccion_mixta, usuario_produccion_id,
-			       coste_unitario, coste_total, variante_id, origen
+			SELECT id, orden_id, diseno_codigo, tipo_id, talla, color_id,
+			       cantidad, produccion_mixta, extra_id, extra_coste, usuario_produccion_id,
+			       coste_unitario, coste_total, variante_id, metodo_id, origen
 			FROM produccion_lineas
 			WHERE orden_id = ?
 			ORDER BY id
@@ -224,22 +224,25 @@ class ProduccionOrdenesRepository:
 
 		lineas: List[ProduccionLinea] = []
 		for row in rows:
-			(id_, orden_id, diseno_codigo, tipo_producto, talla, color_id,
-			 cantidad, produccion_mixta, usuario_produccion_id,
-			 coste_unitario, coste_total, variante_id, origen) = row
+			(id_, orden_id, diseno_codigo, tipo_id, talla, color_id,
+			 cantidad, produccion_mixta, extra_id, extra_coste, usuario_produccion_id,
+			 coste_unitario, coste_total, variante_id, metodo_id, origen) = row
 			lineas.append(ProduccionLinea(
 				id=id_,
 				orden_id=orden_id,
 				diseno_codigo=diseno_codigo,
-				tipo_producto=tipo_producto,
+				tipo_id=tipo_id,
 				talla=talla,
 				color_id=color_id,
 				cantidad=cantidad,
 				produccion_mixta=produccion_mixta,
+				extra_id=extra_id,
+				extra_coste=extra_coste,
 				usuario_produccion_id=usuario_produccion_id,
 				coste_unitario=coste_unitario,
 				coste_total=coste_total,
 				variante_id=variante_id,
+				metodo_id=metodo_id,
 				origen=origen or 'KOOL'
 			))
 		return lineas
@@ -256,17 +259,19 @@ class ProduccionOrdenesRepository:
 		try:
 			query = """
 				INSERT INTO produccion_lineas
-				(orden_id, diseno_codigo, tipo_producto, talla, color_id,
-				 cantidad, produccion_mixta, usuario_produccion_id,
-				 coste_unitario, coste_total, variante_id, origen)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				(orden_id, diseno_codigo, tipo_id, talla, color_id,
+				 cantidad, produccion_mixta, extra_id, extra_coste, usuario_produccion_id,
+				 coste_unitario, coste_total, variante_id, metodo_id, origen)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			"""
 			self.db.execute_query(query, (
-				linea.orden_id, linea.diseno_codigo, linea.tipo_producto,
+				linea.orden_id, linea.diseno_codigo, linea.tipo_id,
 				linea.talla, linea.color_id, linea.cantidad,
-				linea.produccion_mixta, linea.usuario_produccion_id,
+				linea.produccion_mixta, linea.extra_id, linea.extra_coste,
+				linea.usuario_produccion_id,
 				linea.coste_unitario, linea.coste_total, 
 				getattr(linea, 'variante_id', None),
+				getattr(linea, 'metodo_id', None),
 				getattr(linea, 'origen', 'KOOL') or 'KOOL'
 			))
 			# Obtener el ID del último insert

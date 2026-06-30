@@ -23,8 +23,22 @@ class ProduccionMenuRepository:
         ]
 
     def get_activos(self) -> List[ProduccionMenuItem]:
-        """Obtener los elementos del menú activos."""
-        query = "SELECT id, nombre, sistema_produccion, orden, activo, tipo_id FROM produccion_menu WHERE activo = 1 ORDER BY orden"
+        """Obtener los elementos del menú activos que tienen al menos un tipo con stock."""
+        query = """
+            SELECT m.id, m.nombre, m.sistema_produccion, m.orden, m.activo, m.tipo_id
+            FROM produccion_menu m
+            WHERE m.activo = 1
+              AND (
+                EXISTS (
+                    SELECT 1 FROM produccion_menu_tipos pmt
+                    WHERE pmt.menu_id = m.id
+                      AND pmt.tipo_id IN (SELECT DISTINCT tipo_id FROM produccion_stock_colores_tallas WHERE cantidad > 0)
+                )
+                OR
+                (m.tipo_id IS NOT NULL AND m.tipo_id IN (SELECT DISTINCT tipo_id FROM produccion_stock_colores_tallas WHERE cantidad > 0))
+              )
+            ORDER BY m.orden
+        """
         rows = self.db.fetch_all(query)
         return [
             ProduccionMenuItem(

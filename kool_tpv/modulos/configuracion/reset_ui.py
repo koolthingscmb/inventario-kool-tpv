@@ -203,6 +203,38 @@ class ResetUI:
             anchor='w'
         ).pack(side='left', fill='x', expand=True)
 
+        # === PRODUCCIÓN ===
+        self._add_title('PRODUCCIÓN')
+        frame = ctk.CTkFrame(self.container, fg_color='transparent')
+        frame.pack(fill='x', padx=20, pady=3)
+        btn = ButtonFactory.create_button(parent=frame, text='BORRAR ÓRDENES', command=self._borrar_produccion_ordenes, style_key='action_danger_small')
+        btn.pack(side='left', padx=(0, 15))
+        ctk.CTkLabel(frame, text='⚠️ Eliminar TODAS las órdenes y líneas de producción', font=get_font('label', module=self.module_name), text_color=self.colors.get('text', '#999999'), anchor='w').pack(side='left', fill='x', expand=True)
+
+        frame = ctk.CTkFrame(self.container, fg_color='transparent')
+        frame.pack(fill='x', padx=20, pady=3)
+        btn = ButtonFactory.create_button(parent=frame, text='BORRAR STOCK DISEÑOS', command=self._borrar_produccion_stock_disenos, style_key='action_warning_small')
+        btn.pack(side='left', padx=(0, 15))
+        ctk.CTkLabel(frame, text='Borrar TODO el stock acumulado de diseños', font=get_font('label', module=self.module_name), text_color=self.colors.get('text', '#999999'), anchor='w').pack(side='left', fill='x', expand=True)
+
+        frame = ctk.CTkFrame(self.container, fg_color='transparent')
+        frame.pack(fill='x', padx=20, pady=3)
+        btn = ButtonFactory.create_button(parent=frame, text='BORRAR STOCK BASES', command=self._borrar_produccion_stock_bases, style_key='action_warning_small')
+        btn.pack(side='left', padx=(0, 15))
+        ctk.CTkLabel(frame, text='⚠️ Borrar TODO el stock de bases (stock_colores_tallas)', font=get_font('label', module=self.module_name), text_color=self.colors.get('text', '#999999'), anchor='w').pack(side='left', fill='x', expand=True)
+
+        frame = ctk.CTkFrame(self.container, fg_color='transparent')
+        frame.pack(fill='x', padx=20, pady=3)
+        btn = ButtonFactory.create_button(parent=frame, text='BORRAR RECETAS', command=self._borrar_produccion_recetas, style_key='action_warning_small')
+        btn.pack(side='left', padx=(0, 15))
+        ctk.CTkLabel(frame, text='Borrar TODAS las recetas (tipo_color_tallas)', font=get_font('label', module=self.module_name), text_color=self.colors.get('text', '#999999'), anchor='w').pack(side='left', fill='x', expand=True)
+
+        frame = ctk.CTkFrame(self.container, fg_color='transparent')
+        frame.pack(fill='x', padx=20, pady=3)
+        btn = ButtonFactory.create_button(parent=frame, text='RESET CONTADORES PROD.', command=self._reset_produccion_contadores, style_key='action_primary')
+        btn.pack(side='left', padx=(0, 15))
+        ctk.CTkLabel(frame, text='Reiniciar AUTOINCREMENT de tablas de producción a 0', font=get_font('label', module=self.module_name), text_color=self.colors.get('text', '#999999'), anchor='w').pack(side='left', fill='x', expand=True)
+
         # === CONTADORES ===
         self._add_title('CONTADORES FISCALES')
         frame = ctk.CTkFrame(self.container, fg_color='transparent')
@@ -269,7 +301,7 @@ class ResetUI:
 
         ctk.CTkLabel(
             danger_frame,
-            text='Borra tickets, cierres, albaranes, facturas, resetea contadores y tesoro',
+            text='Borra tickets, cierres, albaranes, facturas, producción, resetea contadores y tesoro',
             font=get_font('label', module=module_name),
             text_color='#FFCCCC'
         ).pack(pady=(0, 15))
@@ -468,3 +500,48 @@ class ResetUI:
                     show_error(self.container, 'Error', 'Fallo')
             show_warning(self.container, '⚠️⚠️ ÚLTIMA CONFIRMACIÓN', 'NO se puede deshacer. ¿CONTINUAR?', callback=_ejecutar)
         show_warning(self.container, '⚠️ RESET COMPLETO', 'Borrará TODO.\n¿Continuar?', callback=_segunda)
+
+    def _borrar_produccion_ordenes(self):
+        def _confirmar():
+            ok = self.service.borrar_produccion_ordenes()
+            if ok:
+                ToastWidget.show(self.parent, 'Órdenes de producción borradas', tipo='success')
+            else:
+                show_error(self.container, 'Error', 'Fallo')
+        show_warning(self.container, '⚠️ PELIGRO', 'Borrar TODAS las órdenes y líneas de producción?', callback=_confirmar)
+
+    def _borrar_produccion_stock_disenos(self):
+        def _confirmar():
+            ok = self.service.borrar_produccion_stock_disenos()
+            if ok:
+                ToastWidget.show(self.parent, 'Stock de diseños borrado', tipo='success')
+            else:
+                show_error(self.container, 'Error', 'Fallo')
+        show_warning(self.container, 'Confirmar', 'Borrar TODO el stock de diseños?', callback=_confirmar)
+
+    def _borrar_produccion_stock_bases(self):
+        def _confirmar():
+            ok = self.service.borrar_produccion_stock_bases()
+            if ok:
+                ToastWidget.show(self.parent, 'Stock de bases borrado', tipo='success')
+            else:
+                show_error(self.container, 'Error', 'Fallo')
+        show_warning(self.container, '⚠️ PELIGRO', 'Borrar TODO el stock de bases (stock_colores_tallas)?', callback=_confirmar)
+
+    def _borrar_produccion_recetas(self):
+        def _confirmar():
+            ok = self.service.borrar_produccion_recetas()
+            if ok:
+                ToastWidget.show(self.parent, 'Recetas borradas', tipo='success')
+            else:
+                show_error(self.container, 'Error', 'Fallo')
+        show_warning(self.container, 'Confirmar', 'Borrar TODAS las recetas (tipo_color_tallas)?', callback=_confirmar)
+
+    def _reset_produccion_contadores(self):
+        def _confirmar():
+            ok = self.service.reset_produccion_contadores()
+            if ok:
+                ToastWidget.show(self.parent, 'Contadores de producción reseteados', tipo='success')
+            else:
+                show_error(self.container, 'Error', 'Fallo')
+        show_warning(self.container, 'Confirmar', 'Reset AUTOINCREMENT de tablas de producción?', callback=_confirmar)

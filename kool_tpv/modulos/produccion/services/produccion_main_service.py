@@ -48,7 +48,9 @@ class ProduccionMainService:
 	def añadir_linea(self, orden_id: int, diseno_codigo: str, producto_id: int,
 	                 color_id: int, talla: str, cantidad: int,
 	                 usuario_produccion_id: Optional[int] = None,
-	                 produccion_mixta: int = 0) -> Optional[int]:
+	                 produccion_mixta: int = 0,
+	                 extra_id: Optional[int] = None,
+	                 extra_coste: int = 0) -> Optional[int]:
 		"""Añadir una línea a una orden de producción.
 
 		Args:
@@ -60,6 +62,8 @@ class ProduccionMainService:
 			cantidad: Cantidad a producir.
 			usuario_produccion_id: ID del usuario de producción.
 			produccion_mixta: 1 si es producción mixta, 0 si no.
+			extra_id: ID del extra aplicado.
+			extra_coste: Coste del extra en céntimos.
 
 		Returns:
 			ID de la línea creada o None si error.
@@ -69,22 +73,26 @@ class ProduccionMainService:
 		if not producto:
 			return None
 
-		tipo_producto = producto.get("tipo", "")
+		tipo_id = producto.get("tipo", 0)
 
 		# Obtener el coste unitario del diseño para este tipo de producto
-		coste_unitario = self._obtener_coste_diseno(diseno_codigo, tipo_producto)
+		coste_unitario = self._obtener_coste_diseno(diseno_codigo, tipo_id)
 
-		# Calcular coste total
-		coste_total = coste_unitario * cantidad
+		# Calcular coste total (unitario * cantidad) + coste del extra
+		# El extra se aplica una vez por línea o por unidad? 
+		# Normalmente un extra como "MIXTA" es por unidad producida.
+		coste_total = (coste_unitario + extra_coste) * cantidad
 
 		linea = ProduccionLinea(
 			orden_id=orden_id,
 			diseno_codigo=diseno_codigo,
-			tipo_producto=tipo_producto,
+			tipo_id=tipo_id,
 			talla=talla,
 			color_id=color_id,
 			cantidad=cantidad,
 			produccion_mixta=produccion_mixta,
+			extra_id=extra_id,
+			extra_coste=extra_coste,
 			usuario_produccion_id=usuario_produccion_id,
 			coste_unitario=coste_unitario,
 			coste_total=coste_total
@@ -180,14 +188,14 @@ class ProduccionMainService:
 		id_, nombre, tipo = rows[0]
 		return {"id": id_, "nombre": nombre, "tipo": tipo}
 
-	def _obtener_coste_diseno(self, codigo: str, tipo_producto: str) -> int:
+	def _obtener_coste_diseno(self, codigo: str, tipo_id: int) -> int:
 		"""Obtener el coste de un diseño para un tipo de producto.
 
 		Busca en la lista de costes dinámicos del diseño.
 
 		Args:
 			codigo: Código del diseño.
-			tipo_producto: Tipo de producto.
+			tipo_id: ID del tipo de producto.
 
 		Returns:
 			Coste en céntimos (0 si no existe).
@@ -195,15 +203,6 @@ class ProduccionMainService:
 		diseno = self.disenos_repo.get_por_codigo(codigo)
 		if not diseno or not diseno.costes:
 			return 0
-
-		# Resolver tipo_id desde el nombre
-		rows = self.db.fetch_all(
-			"SELECT id FROM produccion_tipos WHERE LOWER(nombre) = LOWER(?) AND activo = 1",
-			(tipo_producto,)
-		)
-		if not rows:
-			return 0
-		tipo_id = rows[0][0]
 
 		# Buscar coste más específico
 		best = None

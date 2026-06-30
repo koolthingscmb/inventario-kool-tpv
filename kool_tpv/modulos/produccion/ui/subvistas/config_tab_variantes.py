@@ -9,6 +9,7 @@ from typing import List, Optional
 
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import get_font, get_chip_config, get_chip_style
 from kool_tpv.modulos.produccion.services.produccion_tipos_variantes_service import ProduccionTiposVariantesService
+from kool_tpv.modulos.produccion.services.tipos_variantes_metodos_service import TiposVariantesMetodosService
 from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
 from kool_tpv.base_datos.money_adapter import prepare_for_db, read_from_db
 
@@ -24,6 +25,7 @@ class ConfigTabVariantes:
         self.config_service = config_service
         self.db = config_service.db
         self.service = ProduccionTiposVariantesService(self.db)
+        self.metodos_service = TiposVariantesMetodosService(self.db)
 
         self.config = config
         self._colors = colors
@@ -37,6 +39,7 @@ class ConfigTabVariantes:
         self._tipo_chips = {}
         self._variante_id_edit = None
         self._variante_rows = {}
+        self._metodo_vars = {} # {metodo_id: BooleanVar}
        
         self._chip_cfg = get_chip_config(config, "producto")
 
@@ -76,9 +79,23 @@ class ConfigTabVariantes:
         sep = tk.Frame(frame_right, bg="#1a252f", height=2)
         sep.pack(fill="x", padx=10, pady=4)
 
-        # Lista de variantes (scrollable)
-        self._variantes_scroll = ctk.CTkScrollableFrame(frame_right, fg_color="#2c3e50")
-        self._variantes_scroll.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 4))
+        # Lista de variantes (scrollable) - SIN expand para que no se coma el espacio de los métodos
+        self._variantes_scroll = ctk.CTkScrollableFrame(frame_right, fg_color="#2c3e50", height=200)
+        self._variantes_scroll.pack(fill=tk.BOTH, expand=False, padx=10, pady=(0, 4))
+
+        # --- SECCIÓN MÉTODOS (abajo de variantes) ---
+        self._frame_metodos = tk.Frame(frame_right, bg="#34495e")
+        self._frame_metodos.pack(fill="x", padx=10, pady=5) # Lo dejamos pack fijo para que se vea
+        
+        tk.Label(self._frame_metodos, text="MÉTODOS DE IMPRESIÓN DISPONIBLES", 
+                 font=get_font(self.config, "label"), fg="#FFD700", bg="#34495e").pack(pady=(8, 4))
+        
+        self._metodos_container = tk.Frame(self._frame_metodos, bg="#34495e")
+        self._metodos_container.pack(fill="x", padx=10, pady=5)
+
+        self._lbl_no_variante = tk.Label(self._metodos_container, text="Selecciona una variante para asignar métodos",
+                                         font=get_font(self.config, "label"), fg="#95a5a6", bg="#34495e")
+        self._lbl_no_variante.pack(pady=10)
 
         # Frame para formulario de nueva variante (oculto inicialmente)
         self._form_nuevo = None
@@ -143,6 +160,14 @@ class ConfigTabVariantes:
         self._btn_guardar.pack_forget()
         self._ocultar_form_nuevo()
 
+        # Resetear sección de métodos al placeholder
+        for child in self._metodos_container.winfo_children():
+            child.destroy()
+        self._metodo_vars = {}
+        self._lbl_no_variante = tk.Label(self._metodos_container, text="Selecciona una variante para asignar métodos",
+                                         font=get_font(self.config, "label"), fg="#95a5a6", bg="#34495e")
+        self._lbl_no_variante.pack(pady=10)
+
         if not self._tipo_selected_id:
             self._lbl_tipo_nombre.configure(text="Selecciona un tipo →")
             return
@@ -183,8 +208,100 @@ class ConfigTabVariantes:
             bg = "#1a5274" if vid == variante_id else "#34495e"
             rf.configure(bg=bg)
             lbl.configure(bg=bg)
+        
+        # Ocultar label de aviso si existe y sigue vivo
+        if hasattr(self, '_lbl_no_variante') and self._lbl_no_variante.winfo_exists():
+            self._lbl_no_variante.pack_forget()
+
+        # Asegurar que la sección de métodos está visible
+        self._frame_metodos.pack(fill="x", padx=10, pady=5)
+
         self._btn_guardar.pack(fill="x", padx=10, pady=(4, 8))
         self._ocultar_form_nuevo()
+        self._cargar_metodos_variante(variante_id)
+
+    def _cargar_metodos_variante(self, variante_id):
+        """Cargar los métodos de la variante y mostrarlos como chips interactivos."""
+        for child in self._metodos_container.winfo_children():
+            child.destroy()
+        
+        self._metodo_states = {} # {metodo_id: bool}
+        self._metodo_chips = {}  # {metodo_id: ctk.CTkButton}
+
+        todos = self.metodos_service.obtener_metodos_activos()
+        asignados = self.metodos_service.obtener_metodos_por_variante(variante_id)
+        asignados_ids = {m["id"] for m in asignados}
+
+        if not todos:
+            tk.Label(self._metodos_container, text="No hay métodos activos en la BD",
+                     font=get_font(self.config, "label"), fg="#e74c3c", bg="#34495e").pack(pady=10)
+            return
+
+        # Configuración de chips
+        cols = self._chip_cfg.get("columns", 5)
+        padx = self._chip_cfg.get("padx", 6)
+        pady = self._chip_cfg.get("pady", 6)
+        chip_height = 36 # Más compacto para el taller
+        corner_radius = self._chip_cfg.get("corner_radius", 16)
+        
+        default_style = get_chip_style(self._chip_cfg, "default")
+        selected_style = get_chip_style(self._chip_cfg, "selected")
+        font_family = get_font(self.config, self._chip_cfg.get("font_key", "label"))
+        chip_font = (font_family[0], 12, font_family[2]) # Fuente algo más pequeña
+
+        # Frame contenedor
+        grid_frame = tk.Frame(self._metodos_container, bg="#34495e")
+        grid_frame.pack(pady=5, fill="x")
+
+        for i, m in enumerate(todos):
+            is_selected = m["id"] in asignados_ids
+            self._metodo_states[m["id"]] = is_selected
+            
+            btn = ctk.CTkButton(
+                grid_frame,
+                text=m["nombre"],
+                width=100,
+                height=chip_height,
+                corner_radius=corner_radius,
+                font=chip_font,
+                fg_color=selected_style.get("bg", "#552583") if is_selected else default_style.get("bg", "#1a1a2e"),
+                text_color=selected_style.get("text", "#ffffff") if is_selected else default_style.get("text", "#e0e0e0"),
+                border_color=selected_style.get("border", "#C77BFF") if is_selected else default_style.get("border", "#552583"),
+                border_width=2 if is_selected else 1,
+                hover_color=selected_style.get("hover", "#8e44ad") if is_selected else default_style.get("hover", "#C77BFF"),
+                command=lambda mid=m["id"]: self._toggle_metodo(mid)
+            )
+            row = i // cols
+            col = i % cols
+            btn.grid(row=row, column=col, padx=padx, pady=pady, sticky="ew")
+            self._metodo_chips[m["id"]] = btn
+
+        for j in range(cols):
+            grid_frame.columnconfigure(j, weight=1)
+
+    def _toggle_metodo(self, metodo_id):
+        """Alternar estado de selección de un método."""
+        new_state = not self._metodo_states[metodo_id]
+        self._metodo_states[metodo_id] = new_state
+        
+        btn = self._metodo_chips[metodo_id]
+        default_style = get_chip_style(self._chip_cfg, "default")
+        selected_style = get_chip_style(self._chip_cfg, "selected")
+        
+        if new_state:
+            btn.configure(
+                fg_color=selected_style.get("bg", "#552583"),
+                text_color=selected_style.get("text", "#ffffff"),
+                border_color=selected_style.get("border", "#C77BFF"),
+                border_width=2
+            )
+        else:
+            btn.configure(
+                fg_color=default_style.get("bg", "#1a1a2e"),
+                text_color=default_style.get("text", "#e0e0e0"),
+                border_color=default_style.get("border", "#552583"),
+                border_width=1
+            )
 
     def _mostrar_form_nuevo(self):
         if not self._tipo_selected_id:
@@ -197,6 +314,15 @@ class ConfigTabVariantes:
             rf.configure(bg="#34495e")
             lbl.configure(bg="#34495e")
         self._btn_guardar.pack_forget()
+
+        # Resetear sección de métodos al placeholder
+        for child in self._metodos_container.winfo_children():
+            child.destroy()
+        self._metodo_states = {}
+        self._metodo_chips = {}
+        self._lbl_no_variante = tk.Label(self._metodos_container, text="Selecciona una variante para asignar métodos",
+                                         font=get_font(self.config, "label"), fg="#95a5a6", bg="#34495e")
+        self._lbl_no_variante.pack(pady=10)
 
         self._form_nuevo = tk.Frame(self._variantes_scroll, bg="#1a252f", highlightbackground="#2980b9", highlightthickness=1)
         self._form_nuevo.pack(fill="x", padx=4, pady=4)
@@ -260,21 +386,34 @@ class ConfigTabVariantes:
     def _guardar_edicion(self):
         if not self._variante_id_edit:
             return
-        variante = self.service.obtener_por_id(self._variante_id_edit)
+        
+        # Guardar ID actual para evitar que se pierda tras el refresh
+        variante_id = self._variante_id_edit
+        
+        variante = self.service.obtener_por_id(variante_id)
         if not variante:
             return
 
-        # Por ahora solo togglear activo/inactivo
-        nuevo_activo = 0 if variante.activo else 1
-        ok = self.service.actualizar(
-            self._variante_id_edit, variante.tipo_id, variante.nombre,
+        # 1. Guardar métodos seleccionados
+        metodos_seleccionados = [mid for mid, val in self._metodo_states.items() if val]
+        ok_metodos = self.metodos_service.sincronizar_metodos(variante_id, metodos_seleccionados)
+
+        # 2. Togglear activo/inactivo (esto se podría mejorar con un checkbox real en la UI)
+        # Por ahora lo dejamos como está o lo hacemos más explícito
+        nuevo_activo = variante.activo # No cambiar activo a menos que queramos
+        
+        ok_variante = self.service.actualizar(
+            variante_id, variante.tipo_id, variante.nombre,
             variante.coste_base, variante.precio_recomendado,
             nuevo_activo, variante.shopify_variant_id,
             variante.requiere_talla, variante.requiere_color
         )
-        if ok:
-            ToastWidget.show(self.parent, "Variante actualizada", tipo="success")
+        
+        if ok_metodos and ok_variante:
+            ToastWidget.show(self.parent, "Variante y métodos actualizados", tipo="success")
+            # Recargar variantes pero re-seleccionar la actual
             self._cargar_variantes()
+            self._select_variante(variante_id)
         else:
             ToastWidget.show(self.parent, "Error al actualizar", tipo="error")
 

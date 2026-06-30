@@ -14,7 +14,7 @@ from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config
 from kool_tpv.utils.keyboard_nav_mixin import KeyboardNavigableMixin
 
 
-class NuevaProduccionVarianteView(KeyboardNavigableMixin):
+class NuevaProduccionVarianteView(ctk.CTkFrame, KeyboardNavigableMixin):
     """Subvista para seleccionar la variante del tipo de producto.
 
     Args:
@@ -46,8 +46,9 @@ class NuevaProduccionVarianteView(KeyboardNavigableMixin):
         self._text_sec = self._colors.get("text_secondary", "#95a5a6")
         self._chip_cfg = get_chip_config(self.config, "producto")
 
-        self.frame = ctk.CTkFrame(parent, fg_color=self._bg)
-        self.frame.pack(fill="both", expand=True)
+        # Inicializar como CTkFrame
+        ctk.CTkFrame.__init__(self, parent, fg_color=self._bg)
+        self.pack(fill="both", expand=True)
 
         self._crear_titulo()
         self._crear_chips_variantes()
@@ -59,23 +60,16 @@ class NuevaProduccionVarianteView(KeyboardNavigableMixin):
         ]
         self._navigable_buttons.append((self.btn_volver, self._on_volver))
         self._navigable_buttons.append((self.btn_siguiente, self._on_siguiente))
+        
         if self._navigable_buttons:
-            try:
-                self._nav_toplevel = self.frame.winfo_toplevel()
-            except Exception:
-                self._nav_toplevel = self.frame
-            self._nav_toplevel.bind("<Tab>", self._on_nav_tab_next)
-            self._nav_toplevel.bind("<Shift-Tab>", self._on_nav_tab_prev)
-            self._nav_toplevel.bind("<Return>", self._on_nav_enter)
-            self._nav_toplevel.bind("<KP_Enter>", self._on_nav_enter)
-            self.frame.bind("<Destroy>", self._on_nav_destroy)
+            self._setup_keyboard_navigation()
 
         if self._chip_buttons:
-            self.frame.after(100, lambda: self._focus_nav_widget(0))
+            self.after(100, lambda: self._focus_nav_widget(0))
 
     def _crear_titulo(self):
         titulo = ctk.CTkLabel(
-            self.frame,
+            self,
             text="SELECCIONA VARIANTE",
             font=get_font(self.config, "title"),
             text_color=self._text,
@@ -84,7 +78,7 @@ class NuevaProduccionVarianteView(KeyboardNavigableMixin):
         titulo.pack(pady=20)
 
     def _crear_chips_variantes(self):
-        self.chips_frame = ctk.CTkScrollableFrame(self.frame, fg_color=self._bg, label_text="")
+        self.chips_frame = ctk.CTkScrollableFrame(self, fg_color=self._bg, label_text="")
         self.chips_frame.pack(expand=True, fill="both", padx=40, pady=20)
 
         variantes = self._service.obtener_por_tipo(self.tipo_id, solo_activos=True)
@@ -167,7 +161,7 @@ class NuevaProduccionVarianteView(KeyboardNavigableMixin):
 
     def _crear_botones_navegacion(self):
         """Crear los botones de navegación inferior."""
-        frame_nav = ctk.CTkFrame(self.frame, fg_color=self._bg)
+        frame_nav = ctk.CTkFrame(self, fg_color=self._bg)
         frame_nav.pack(fill="x", padx=40, pady=20)
 
         # Botón VOLVER
@@ -228,4 +222,4 @@ class NuevaProduccionVarianteView(KeyboardNavigableMixin):
 
     def destruir(self):
         self.clear_keyboard_navigation()
-        self.frame.destroy()
+        self.destroy()

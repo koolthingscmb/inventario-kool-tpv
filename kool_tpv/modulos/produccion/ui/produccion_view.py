@@ -123,9 +123,7 @@ class ProduccionView(BaseModuleView):
 				except Exception:
 					pass
 				return True
-			# No hay subvista → cerrar módulo → resetear cajero
-			self._cajero_id = None
-			self._cajero_nombre = ''
+			# No hay subvista → cerrar módulo (mantener cajero para sesiones futuras)
 			return False
 		except Exception:
 			logging.exception('Error en _on_power de ProduccionView')
@@ -168,6 +166,11 @@ class ProduccionView(BaseModuleView):
 			pass
 		self._iniciar_flow()
 
+	def _on_cajero_auth_from_flow(self, usuario_id: int, usuario_nombre: str):
+		"""Cajero autenticado dentro del flow → solo guardar credenciales."""
+		self._cajero_id = usuario_id
+		self._cajero_nombre = usuario_nombre
+
 	def _iniciar_flow(self):
 		"""Crear el flujo de producción con el cajero ya autenticado."""
 		try:
@@ -181,6 +184,7 @@ class ProduccionView(BaseModuleView):
 				on_cerrar=self._on_flow_cerrar,
 				usuario_id=self._cajero_id,
 				usuario_nombre=self._cajero_nombre,
+				on_cajero_auth=self._on_cajero_auth_from_flow,
 			)
 			try:
 				self.actualizar_ruta('PRODUCCIÓN / NUEVO')
