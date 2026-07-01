@@ -13,6 +13,7 @@ from kool_tpv.modulos.produccion.models.produccion_orden_model import Produccion
 from kool_tpv.modulos.produccion.models.produccion_linea_model import ProduccionLinea
 from kool_tpv.modulos.produccion.repositories.produccion_ordenes_repository import ProduccionOrdenesRepository
 from kool_tpv.modulos.produccion.repositories.produccion_stock_base_repository import ProduccionStockBaseRepository
+from kool_tpv.modulos.produccion.services.variante_producto_service import VarianteProductoService
 
 @dataclass
 class ItemProduccion:
@@ -45,6 +46,7 @@ class ProduccionOrdenesService:
         self.logger = logging.getLogger(__name__)
         self.repo_ordenes = ProduccionOrdenesRepository(db)
         self.repo_stock_base = ProduccionStockBaseRepository(db)
+        self.link_service = VarianteProductoService(db)
 
     def guardar_orden(self, items: List[ItemProduccion], usuario_id: Optional[int] = None) -> bool:
         """Guardar una orden de producción completa y actualizar el stock."""
@@ -109,6 +111,10 @@ class ProduccionOrdenesService:
                     # 4. Actualizar stock acumulado de diseños (incluyendo variante)
                     self._actualizar_stock_diseno(item)
 
+                    # 5. INTEGRACIÓN TPV: Sumar stock al producto TPV vinculado
+                    if item.variante_id:
+                        self._actualizar_stock_tpv_vinculado(item)
+
             return True
 
         except Exception:
@@ -132,3 +138,21 @@ class ProduccionOrdenesService:
             ))
         except Exception:
             self.logger.exception(f"Error actualizando stock para diseño {item.diseno_codigo}")
+
+    def _actualizar_stock_tpv_vinculado(self, item: ItemProduccion):
+        """Si la variante está vinculada a un producto TPV, sumar el stock correspondiente."""
+        try:
+            link = self.link_service.get_por_variante(item.variante_id)
+            if link and link.producto_id:
+                # Calcular cantidad a sumar según el ratio (por defecto 1)
+                ratio = link.ratio if link.ratio and link.ratio > 0 else 1
+                cantidad_tpv = item.cantidad * ratio
+                
+                # Ejecutar el update directamente en la base de datos
+                # Esto se ejecuta dentro de la misma transacción que el resto de la orden
+                query = "UPDATE productos SET stock_actual = stock_actual + ? WHERE id = ?"
+                self.db.execute_query(query, (cantidad_tpv, link.producto_id))
+                
+                self.logger.info(f"VINCULACIÓN TPV: Sumado +{cantidad_tpv} uds al producto ID {link.producto_id} (Variante {item.variante_id})")
+        except Exception:
+            self.logger.exception(f"Error al actualizar stock TPV vinculado para variante {item.variante_id}")

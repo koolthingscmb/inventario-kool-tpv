@@ -54,14 +54,13 @@ class ProduccionTiposVariantesRepository:
         return [self._row_to_variante(row) for row in rows]
 
     def get_por_tipo(self, tipo_id: int, solo_activos: bool = True) -> List[ProduccionTipoVariante]:
-        """Obtener variantes de un tipo con stock disponible."""
+        """Obtener variantes de un tipo."""
         query = self._QUERY_SELECT + " WHERE tipo_id = ?"
         if solo_activos:
             query += " AND activo = 1"
-        query += " AND id IN (SELECT DISTINCT variante_id FROM produccion_stock_colores_tallas WHERE tipo_id = ? AND cantidad > 0)"
         query += " ORDER BY nombre"
 
-        rows = self.db.fetch_all(query, (tipo_id, tipo_id))
+        rows = self.db.fetch_all(query, (tipo_id,))
         return [self._row_to_variante(row) for row in rows]
 
     def get_por_id(self, variante_id: int) -> Optional[ProduccionTipoVariante]:

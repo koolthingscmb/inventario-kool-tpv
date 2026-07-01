@@ -39,7 +39,7 @@ class ProduccionConfigView:
         self._km = getattr(root, 'keyboard_manager', None)
 
         # Estado de tabs
-        self._main_tabs = ["CATÁLOGO", "MATRIZ", "MENÚ", "VARIANTES", "EXTRAS"]
+        self._main_tabs = ["TUTORIAL", "CATÁLOGO", "MATRIZ", "MENÚ", "VARIANTES", "EXTRAS", "PRODUCTOS TPV"]
         self._sub_tabs = ["COLORES", "TALLAS"]
         self._current_main_tab = None
         self._current_sub_tab = None
@@ -66,7 +66,7 @@ class ProduccionConfigView:
         self._content_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=(5, 10))
 
         # Seleccionar primer tab
-        self._select_main_tab("CATÁLOGO")
+        self._select_main_tab("TUTORIAL")
 
     def _crear_cabecera(self):
         cabecera = tk.Frame(self.frame, bg=self._bg, height=50)
@@ -171,6 +171,16 @@ class ProduccionConfigView:
                 self._current_tab_obj = ConfigTabExtras(
                     self._content_frame, self.db, self.config,
                     self._colors, self._km, self._layout_config)
+            elif tab_name == "PRODUCTOS TPV":
+                from kool_tpv.modulos.produccion.ui.subvistas.config_tab_productos_tpv import ConfigTabProductosTpv
+                self._current_tab_obj = ConfigTabProductosTpv(
+                    self._content_frame, self.service, self.config,
+                    self._colors, self._km, self._layout_config)
+            elif tab_name == "TUTORIAL":
+                from kool_tpv.modulos.produccion.ui.subvistas.config_tab_tutorial import ConfigTabTutorial
+                self._current_tab_obj = ConfigTabTutorial(
+                    self._content_frame, self.config, self._colors, 
+                    self._km, self._layout_config)
 
     def _select_sub_tab(self, sub_name):
         if self._current_sub_tab == sub_name:

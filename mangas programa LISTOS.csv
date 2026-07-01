@@ -12,8 +12,6 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788491468189,20th Century Boys 4,"11,41",1,"16,95",,Libros de cómics,MANGA,4,PLANETA
 9788491468196,20th Century Boys 5,"11,41",0,"16,95",,Libros de cómics,MANGA,4,PLANETA
 9788413410203,21th Century Boys,"11,41",0,"16,95",,Libros de cómics,MANGA,4,PLANETA
-9788467969177,Academia Kimetsu 2,"6,06",0,9,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467969184,Academia Kimetsu 3,"6,06",0,9,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467969191,Academia Kimetsu 4,"6,06",1,9,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467973464,Academia Kimetsu 5,"6,06",1,9,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467973471,Academia Kimetsu 6,"6,06",1,9,,Libros de cómics,MANGA,4,ASTURLIBROS
@@ -36,7 +34,6 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788467939934,Akira B/N 5,"15,45",1,"22,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467939941,Akira B/N 6,"15,45",1,"22,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788498144178,Akira Color 3,"12,47",1,"19,95",,Libros de cómics,MANGA,4,ASTURLIBROS
-9791388055478,Albus Cambia Mundo 1,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
 9791370133542,All Are Dead 1,"11,41",1,"16,95",,Libros de cómics,MANGA,4,AZETA
 9788467980714,All you need is kill INT,"15,45",1,"22,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788412930641,Annarasumanara 1,"11,11",1,"16,95",,Libros de cómics,MANGA,4,AZETA
@@ -58,7 +55,6 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788467924275,Antes caída SNK 7,"5,37",1,8,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467928136,Antes caída SNK 8,"5,37",1,8,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467929638,Antes caída SNK 9,"5,37",1,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467971354,Antología Frieren,"11,25",0,9,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788410305717,As the gods will 1 PROMO,"1,3",2,"1,95",,Libros de cómics,MANGA,4,AZETA
 9788467960921,Ataque Titanes 1,"6,05",1,9,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467964141,Ataque Titanes 1 EC,"16,49",1,"24,5",,Libros de cómics,MANGA,4,ASTURLIBROS
@@ -92,7 +88,6 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788419195456,Atelier Witch 9,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
 9791387831912,Atelier Witch Hat EG 1,"16,16",0,24,,Libros de cómics,MANGA,4,AZETA
 9791388055225,Atelier Witch Hat EG 2,15,1,24,,Libros de cómics,MANGA,4,AZETA
-9791387506346,ATOM 16,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
 9791388055362,ATOM 18,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
 9788410223172,Badducks 1,"6,39",1,"9,5",,Libros de cómics,MANGA,4,AZETA
 9788410223370,Badducks 2,"6,39",1,"9,5",,Libros de cómics,MANGA,4,AZETA
@@ -102,40 +97,12 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788467979503,Barco Teseo 2,"13,12",1,"19,5",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467979510,Barco Teseo 3,"13,12",1,"19,5",,Libros de cómics,MANGA,4,ASTURLIBROS
 9791399163032,Bastard 3,"13,43",1,"19,95",,Libros de cómics,MANGA,4,AZETA
-9788416401147,BD Color Androides 1 CAT,"8,72",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788416401239,BD Color Androides 2 CAT,"8,8",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788416476756,BD Color Androides 3 CAT,"8,8",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788416543342,BD Color Androides 6 CAT,"8,72",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788416636877,BD Color Buu 1 CAT,"8,72",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788416636884,BD Color Buu 2 CAT,"8,72",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788491463610,BD Color Buu 3 CAT,"8,72",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788416816606,BD Color Buu 4 CAT,"8,72",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788416889624,BD Color Buu 5 CAT,"8,72",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788416889747,BD Color Buu 6 CAT,"8,72",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788416090037,BD Color Freezer 1 CAT,"8,72",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788416090044,BD Color Freezer 2 CAT,"8,72",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788416090051,BD Color Freezer 3 CAT,"8,72",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788416090068,BD Color Freezer 4 CAT,"8,72",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788416090075,BD Color Freezer 5 CAT,"8,41",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788416051786,BD Color Guerrers 1 CAT,"8,72",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788416090013,BD Color Guerrers 2 CAT,"8,72",2,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788416889808,BD Color Origen 1 CAT,"8,72",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788491468325,BD Color Satanàs 1 CAT,"8,72",1,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788491731443,BD Color Satanàs 2 CAT,"8,72",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788491731450,BD Color Satanàs 3 CAT,"8,72",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788491731467,BD Color Satanàs 4 CAT,"8,72",1,"12,95",,Libros de cómics,MANGA,4,PLANETA
 9788416401079,BDZ Guerrers 5 Anime,"7,07",1,"10,5",,Libros de cómics,MANGA,4,PLANETA
 9788416244478,BDGT 100 anys CAT,"7,1",2,"10,5",,Libros de cómics,MANGA,4,PLANETA
 9788416636532,BDZ Rivals Forts CAT,"7,07",0,"10,5",,Libros de cómics,MANGA,4,PLANETA
-9791387506421,Beat Motion 1,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
-9791387506735,Beat Motion 2,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
-9791387831042,Beat Motion 3,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
-9791387831370,Beat Motion 4,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
-9791387831608,Beat Motion 5,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
 9791388055140,Beat Motion 6,"8,08",1,12,,Libros de cómics,MANGA,4,AZETA
 9788467977097,Become Lord Elden Ring 1,"10,74",1,"15,95",,Libros de cómics,MANGA,4,ASTURLIBROS
-8424248924928,Berserk 21 Acrílico,"16,79",3,"24,95",,Libros de cómics,MANGA,4,ASTURLIBROS
-8424248924911,Berserk 21 Postales,"14,78",4,"21,95",,Libros de cómics,MANGA,4,ASTURLIBROS
+8424248924911,Berserk Mazimum 21 Postales,"14,78",4,"21,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788411015035,Berserk Maximum 1,"11,41",0,"16,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788411017732,Berserk Maximum 10,"11,41",1,"16,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788411500906,Berserk Maximum 11,"11,41",1,"16,95",,Libros de cómics,MANGA,4,ASTURLIBROS
@@ -205,17 +172,14 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788413418896,Bola Drac ED 7,"8,72",1,"12,95",,Libros de cómics,MANGA,4,PLANETA
 9788413418902,Bola Drac ED 8,"8,72",1,"12,95",,Libros de cómics,MANGA,4,PLANETA
 9788413418919,Bola Drac ED 9,"8,04",1,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788411615891,Bola Drac Legend 1,"86,54",0,150,,Libros de cómics,MANGA,4,PLANETA
-9788411618885,Bola Drac Legend 2,"86,54",0,150,,Libros de cómics,MANGA,4,PLANETA
-9791387780784,Bola Drac Legend 3,"86,54",0,150,,Libros de cómics,MANGA,4,PLANETA
 9788419177087,Borregos Red 1,"9,76",1,"14,5",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788419177094,Borregos Red 2,"9,76",1,"14,5",,Libros de cómics,MANGA,4,ASTURLIBROS
-9788419536983,Boy s Abyss 10,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
-9788419914491,Boy s Abyss 12,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
-9788419195975,Boy s Abyss 6,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
-9788419536297,Boy s Abyss 7,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
-9788419536464,Boy s Abyss 8,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
-9788419536808,Boy s Abyss 9,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
+9788419536983,Boy's Abyss 10,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
+9788419914491,Boy's Abyss 12,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
+9788419195975,Boy's Abyss 6,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
+9788419536297,Boy's Abyss 7,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
+9788419536464,Boy's Abyss 8,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
+9788419536808,Boy's Abyss 9,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
 9791387506209,Boy's Abyss 17,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
 9791387506742,Boy's Abyss 18,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
 9788467970173,Brillo Noches Luna INT,"12,12",1,18,,Libros de cómics,MANGA,4,ASTURLIBROS
@@ -224,30 +188,7 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9791388178832,Bug Ego 2,"6,66",0,"9,9",,Libros de cómics,MANGA,4,ASTURLIBROS
 9791388298257,Bug Ego 3,"6,66",1,"9,9",,Libros de cómics,MANGA,4,ASTURLIBROS
 9791388055485,Bugle Call 1,"6,06",2,9,,Libros de cómics,MANGA,4,AZETA
-9788467967098,Bungou Stray 1,"6,05",0,9,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467936568,Bungou Stray 11,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467936582,Bungou Stray 13,"6,06",0,9,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467936599,Bungou Stray 14,"6,06",0,9,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467960372,Bungou Stray 16,"6,05",0,9,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467963731,Bungou Stray 18,"6,06",0,9,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467973594,Bungou Stray 19,"6,06",0,9,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467927665,Bungou Stray 3,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467929782,Bungou Stray 5,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467967104,Bungou Stray 6,"6,06",0,9,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467967111,Bungou Stray 7,"6,05",1,9,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467967218,Bungou Stray 8,"6,05",0,9,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467933888,Bungou Stray 9,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467960594,Called game 1,"6,05",0,9,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788418309809,Callejeando Perro Fantasma,"15,48",1,23,,Libros de cómics,MANGA,4,UDL
-9788417575243,Cantina medianoche 1,"12,12",0,18,,Libros de cómics,MANGA,4,UDL
-9788417575731,Cantina medianoche 2,"12,12",0,18,,Libros de cómics,MANGA,4,UDL
-9788417575915,Cantina medianoche 3,"12,12",0,18,,Libros de cómics,MANGA,4,UDL
-9788418215537,Cantina medianoche 4,"12,12",0,18,,Libros de cómics,MANGA,4,UDL
-9788418909276,Cantina medianoche 5,"12,12",0,18,,Libros de cómics,MANGA,4,UDL
-9788418909894,Cantina medianoche 6,"13,46",0,20,,Libros de cómics,MANGA,4,UDL
-9788419670618,Cantina medianoche 7,"13,46",0,20,,Libros de cómics,MANGA,4,UDL
-9788410332607,Cantina medianoche 8,"13,46",0,20,,Libros de cómics,MANGA,4,UDL
-9788410332881,Cantina medianoche 9,"13,46",0,20,,Libros de cómics,MANGA,4,UDL
 9788467963021,Cardcaptor Sakura 1,"7,37",1,"10,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467928181,Cardcaptor Sakura 2,"7,37",1,"10,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467939958,Cardcaptor Sakura 3,"6,7",1,"9,95",,Libros de cómics,MANGA,4,ASTURLIBROS
@@ -297,8 +238,6 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9791388055331,Color Collection,"6,39",1,"9,5",,Libros de cómics,MANGA,4,AZETA
 9788418309533,Confines Sueños,"16,16",1,24,,Libros de cómics,MANGA,4,UDL
 9791399140583,Cuando Florece Deseo 1,"5,38",1,8,,Libros de cómics,MANGA,4,AZETA
-9788413414317,Daily Butterfly 12,"5,35",1,"8,5",,Libros de cómics,MANGA,4,PLANETA
-9788411122344,Daily Butterfly 8,"5,35",1,"8,5",,Libros de cómics,MANGA,4,PLANETA
 9788467951585,Dan Da Dan 1,"6,06",3,9,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467965155,Dan Da Dan 10,"6,05",0,9,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467965162,Dan Da Dan 11,"6,06",2,9,,Libros de cómics,MANGA,4,ASTURLIBROS
@@ -322,7 +261,6 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788418309762,Daño Cerebral,"16,16",1,24,,Libros de cómics,MANGA,4,UDL
 9788419177865,Dark Angel INT,"23,56",1,35,,Libros de cómics,MANGA,4,ASTURLIBROS
 9791387506674,Daydream Hour,"16,16",1,24,,Libros de cómics,MANGA,4,AZETA
-9788411615884,DB Legend 1,"86,54",0,150,,Libros de cómics,MANGA,4,PLANETA
 9788411618878,DB Legend 2,"86,54",1,150,,Libros de cómics,MANGA,4,PLANETA
 9788491460008,DB Super 1,"5,47",2,"8,5",,Libros de cómics,MANGA,4,PLANETA
 9788413416175,DB Super 10,"5,72",0,"8,5",,Libros de cómics,MANGA,4,PLANETA
@@ -367,7 +305,6 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788416401253,DBZ Retorn Broly,"7,07",1,"10,5",,Libros de cómics,MANGA,4,PLANETA
 9788491468349,DBZ Son Goku El Superguerrer CAT,"7,07",1,"10,5",,Libros de cómics,MANGA,4,PLANETA
 9788416636488,DBZ Último combate,"7,07",0,"10,5",,Libros de cómics,MANGA,4,PLANETA
-9788467926736,DDDD 5,"5,72",1,"8,5",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467963045,Death Note Black 1,"12,75",0,"18,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467912104,Death Note Black 2,"12,75",1,"18,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467963052,Death Note Black 3,"12,75",0,"18,95",,Libros de cómics,MANGA,4,ASTURLIBROS
@@ -381,7 +318,6 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788411611688,Detective Conan 46,"9,39",1,"13,95",,Libros de cómics,MANGA,4,PLANETA
 9788411612678,Detective Conan 47,"9,39",1,"13,95",,Libros de cómics,MANGA,4,PLANETA
 9788411616980,Detective Conan 48,"9,39",1,"13,95",,Libros de cómics,MANGA,4,PLANETA
-9788419177605,Devilman 1,"22,18",0,"32,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9791387885021,Diarios de la Boticaria 1,"6,7",2,"9,95",,Libros de cómics,MANGA,4,AZETA
 9791387885137,Diarios de la Boticaria 10,"6,7",1,"9,95",,Libros de cómics,MANGA,4,AZETA
 9791387885175,Diarios de la Boticaria 11,"6,7",1,"9,95",,Libros de cómics,MANGA,4,AZETA
@@ -413,16 +349,8 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9791387779795,Doraemon 3en1 3 CAT,"10,35",2,"17,95",,Libros de cómics,MANGA,4,PLANETA
 9791387918101,Doraemon 3en1 4 CAT,"10,35",2,"17,95",,Libros de cómics,MANGA,4,PLANETA
 9791387780968,Doraemon Aventura Antartida,"7,07",1,"10,5",,Libros de cómics,MANGA,4,PLANETA
-9788416244010,Doraemon Color 1,"7,07",0,"10,5",,Libros de cómics,MANGA,4,PLANETA
-9788416244027,Doraemon Color 2,"7,07",0,"10,5",,Libros de cómics,MANGA,4,PLANETA
-9788416244034,Doraemon Color 3,"7,07",0,"10,5",,Libros de cómics,MANGA,4,PLANETA
-9788416244041,Doraemon Color 4,"7,07",0,"10,5",,Libros de cómics,MANGA,4,PLANETA
-9788416244058,Doraemon Color 5,"7,07",0,"10,5",,Libros de cómics,MANGA,4,PLANETA
-9788416244065,Doraemon Color 6,"7,07",0,"10,5",,Libros de cómics,MANGA,4,PLANETA
 9788411617345,Doraemon Héroes Espacio,"7,07",1,"10,5",,Libros de cómics,MANGA,4,PLANETA
-9791387779061,Doraemon Nacimiento Japon,"7,07",0,"10,5",,Libros de cómics,MANGA,4,PLANETA
 9788491736707,Doraemon y el pequeño dinosaurio,"7,07",1,"10,5",,Libros de cómics,MANGA,4,PLANETA
-9788491736714,Doraemon y los Dioses del Viento,"7,07",0,"10,5",,Libros de cómics,MANGA,4,PLANETA
 9788491736721,Doraemon y los siete magos,"7,07",1,"10,5",,Libros de cómics,MANGA,4,PLANETA
 9788491737827,Dr. Slump 1,"9,38",1,"13,95",,Libros de cómics,MANGA,4,PLANETA
 9788491737919,Dr. Slump 10,"9,39",1,"13,95",,Libros de cómics,MANGA,4,PLANETA
@@ -503,20 +431,7 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788412513547,El lugar donde se encuentran los piratas,"5,38",1,8,,Libros de cómics,MANGA,4,AZETA
 9788419409249,El viaje de Shuna,"16,79",1,"24,95",,Libros de cómics,MANGA,4,AZETA
 9788419981172,El viaje de Shuna BOL,"10,27",1,"15,95",,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467962970,Elden Ring 1,"6,7",0,"9,95",,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467965407,Elden Ring 2,"6,7",0,"9,95",,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467965414,Elden Ring 3,"6,7",0,"9,95",,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467974225,Elden Ring 4,"6,7",0,"9,95",,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467974232,Elden Ring 5,"6,7",0,"9,95",,Libros de cómics,MANGA,4,ASTURLIBROS
-9791387506520,Enamoraos Falsos  Ángeles 1,"5,72",1,"8,5",,Libros de cómics,MANGA,4,AZETA
-9791387506896,Enamoraos Falsos  Ángeles 2,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
-9791387831257,Enamoraos Falsos  Ángeles 3,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
-9791387831479,Enamoraos Falsos  Ángeles 4,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
-9791387831776,Enamoraos Falsos  Ángeles 5,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
-9791387506759,Erio Muñeca 1,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
-9791387831127,Erio Muñeca 2,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
-9791387831356,Erio Muñeca 3,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
-9791387831837,Erio Muñeca 4,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
+9791387506520,Enamoraos Falsos Ángeles 1,"5,72",1,"8,5",,Libros de cómics,MANGA,4,AZETA
 9788467960563,Espíritus inframundo 1,"6,06",1,9,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467960570,Espíritus inframundo 2,"6,06",1,9,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467960587,Espíritus inframundo 3,"6,06",1,9,,Libros de cómics,MANGA,4,ASTURLIBROS
@@ -562,7 +477,6 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788467959635,Frieren 7,"6,06",1,9,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467966527,Frieren 8,"6,06",1,9,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467966534,Frieren 9,"6,05",1,9,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467971347,Frieren Artworks 1,"13,43",0,"19,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467963137,Fullmetal Alchemist 1,"10,74",1,"15,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467914917,Fullmetal Alchemist 10,"10,74",1,"15,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467914924,Fullmetal Alchemist 11,"10,74",1,"15,95",,Libros de cómics,MANGA,4,ASTURLIBROS
@@ -608,7 +522,6 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788419610744,Gannibal 7,"6,7",0,"9,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788419610751,Gannibal 8,"6,7",0,"9,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788419610973,Gannibal 9,"6,7",1,"9,95",,Libros de cómics,MANGA,4,ASTURLIBROS
-9791387831981,Given 10 Mix,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
 9788417820800,Given 4,"6,03",1,9,,Libros de cómics,MANGA,4,AZETA
 9788467978186,Gon INT,"39,71",0,59,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467960969,Guardianes de la noche 1,"6,06",1,9,,Libros de cómics,MANGA,4,ASTURLIBROS
@@ -645,7 +558,6 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788419177254,Hero Mask 1,"6,39",1,"9,5",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788419177261,Hero Mask 2,"6,39",1,"9,5",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788419177278,Hero Mask 3,"6,39",1,"9,5",,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467944877,Héroes,"6,7",0,"9,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9789929831377,Himenospia 1,"7,37",1,"10,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9789929821576,Himenospia 2,"7,37",1,"10,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788419177582,Himenospia 3,"7,37",1,"10,95",,Libros de cómics,MANGA,4,ASTURLIBROS
@@ -707,22 +619,8 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788467966893,Jujutsu Kaisen 9 ,"6,06",0,9,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467947298,Jujutsu Kaisen Fanbook,"8,09",0,"12,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9791387779290,Kagurabachi 1,"6,03",1,"8,95",,Libros de cómics,MANGA,4,AZETA
-9791387919016,Kaiju 8 Side B 1,"5,7",0,"8,95",,Libros de cómics,MANGA,4,PLANETA
 9788491748373,Kaiju nº8 1,"5,72",4,"8,5",,Libros de cómics,MANGA,4,PLANETA
-9788411611435,Kaiju nº8 10,"5,9",0,"8,5",,Libros de cómics,MANGA,4,PLANETA
-9788411612784,Kaiju nº8 11,"5,72",0,"8,5",,Libros de cómics,MANGA,4,PLANETA
-9788411616935,Kaiju nº8 12,"5,75",0,"8,5",,Libros de cómics,MANGA,4,PLANETA
-9788411619387,Kaiju nº8 13,"5,35",0,"8,5",,Libros de cómics,MANGA,4,PLANETA
-9791387780302,Kaiju nº8 14,"5,72",0,"8,5",,Libros de cómics,MANGA,4,PLANETA
-9791387781866,Kaiju nº8 15,"6,13",0,"8,5",,Libros de cómics,MANGA,4,PLANETA
 9788411128544,Kaiju nº8 2,"5,35",1,"8,5",,Libros de cómics,MANGA,4,PLANETA
-9788411128568,Kaiju nº8 3,"5,35",0,"8,5",,Libros de cómics,MANGA,4,PLANETA
-9788411128575,Kaiju nº8 4,"5,35",0,"8,5",,Libros de cómics,MANGA,4,PLANETA
-9788411402606,Kaiju nº8 5,"5,35",0,"8,5",,Libros de cómics,MANGA,4,PLANETA
-9788411402613,Kaiju nº8 6,"4,57",0,"8,5",,Libros de cómics,MANGA,4,PLANETA
-9788411402620,Kaiju nº8 7,"4,9",0,"8,5",,Libros de cómics,MANGA,4,PLANETA
-9788411402637,Kaiju nº8 8,"5,35",0,"8,5",,Libros de cómics,MANGA,4,PLANETA
-9788411610889,Kaiju nº8 9,"5,75",0,"8,5",,Libros de cómics,MANGA,4,PLANETA
 9788419914057,Killing Stalk 3 6,"7,41",1,11,,Libros de cómics,MANGA,4,AZETA
 9788467973655,Kimetsu Fanbook 2,"6,7",1,"12,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788419096098,Kingdom 1,"5,72",1,"8,5",,Libros de cómics,MANGA,4,ASTURLIBROS
@@ -743,11 +641,7 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788419383907,Kingdom 6,"5,72",1,"8,5",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788419451668,Kingdom 7,"5,72",1,"8,5",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788410463806,Kiokuya,"10,03",1,"14,9",,Libros de cómics,MANGA,4,AZETA
-9788418788291,Kitchen Witch Hat 1,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
-9788418788680,Kitchen Witch Hat 2,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
 9788419195166,Kitchen Witch Hat 3,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
-9788419536358,Kitchen Witch Hat 4,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
-9788410223684,Kitchen Witch Hat 5,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
 9791387691929,Konosuba! 10,"10,06",1,15,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788491469971,La princesa Caballero,"18,84",1,28,,Libros de cómics,MANGA,4,PLANETA
 9788419195098,Los artistas no pisan las flores,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
@@ -763,7 +657,6 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788417777128,Made in Abyss 6,"6,66",1,"9,9",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788417920319,Made in Abyss 7,"6,68",1,"9,9",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788418061431,Made in Abyss 8,"6,68",1,"9,9",,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467970234,Maginzer Ignition,"6,73",0,10,,Libros de cómics,MANGA,4,ASTURLIBROS
 9791387691837,Maldiciones Imborrables,"12,12",1,18,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788411613125,Mandalorian 1,"6,7",1,"9,95",,Libros de cómics,MANGA,4,PLANETA
 9788411618762,Mandalorian 2,"6,7",1,"9,95",,Libros de cómics,MANGA,4,PLANETA
@@ -789,12 +682,6 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788467955217,Mashle 7,"5,38",1,8,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467955224,Mashle 8,"5,38",1,8,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467955231,Mashle 9,"5,38",1,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467968385,Mazinger Ota 1,"10,77",0,16,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467968392,Mazinger Ota 2,"10,77",0,16,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467968408,Mazinger Ota 3,"10,77",0,16,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467939347,Mazinger Z Ed. Coleccionista 1,"10,75",0,16,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467948028,Mazinger Z Ed. Coleccionista 2,"9,99",0,16,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467948035,Mazinger Z Ed. Coleccionista 3,"10,77",0,16,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467970982,Minecraft 1,"6,06",0,9,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467970999,Minecraft 2,"6,06",1,9,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467971002,Minecraft 3,"5,62",1,9,,Libros de cómics,MANGA,4,ASTURLIBROS
@@ -812,24 +699,10 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9791388055232,Misterios Residencia Kaika 1,"6,73",1,10,,Libros de cómics,MANGA,4,AZETA
 9791388055386,Misterios Residencia Kaika 2,"6,06",1,10,,Libros de cómics,MANGA,4,AZETA
 9791387822217,Moguland 1,"6,7",1,"9,95",,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467476613,Monster 1,"10,06",0,"16,95",,Libros de cómics,MANGA,4,PLANETA
-9788467476620,Monster 2,"10,06",0,"15,95",,Libros de cómics,MANGA,4,PLANETA
-9788467476637,Monster 3,"10,06",0,"15,95",,Libros de cómics,MANGA,4,PLANETA
-9788467476644,Monster 4,"10,06",0,"15,95",,Libros de cómics,MANGA,4,PLANETA
-9788467476651,Monster 5,"10,06",0,"15,95",,Libros de cómics,MANGA,4,PLANETA
-9788467476668,Monster 6,"10,07",0,"15,95",,Libros de cómics,MANGA,4,PLANETA
-9788467476675,Monster 7,"10,06",0,"15,95",,Libros de cómics,MANGA,4,PLANETA
-9788467476682,Monster 8,"10,07",0,"15,95",,Libros de cómics,MANGA,4,PLANETA
-9788467491814,Monster 9,"10,07",0,"15,95",,Libros de cómics,MANGA,4,PLANETA
-9788411619080,MS Gundam Origin 1,"14,42",0,20,,Libros de cómics,MANGA,4,PLANETA
-9791387780449,MS Gundam Origin 2,"14,42",0,20,,Libros de cómics,MANGA,4,PLANETA
-9791387918545,MS Gundam Origin 3,"14,42",0,20,,Libros de cómics,MANGA,4,PLANETA
 9788467972863,Mujina Into Deep 1,"6,7",1,"9,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467974454,Mujina Into Deep 2,"6,7",1,"9,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467974478,Mujina Into Deep 3,"6,7",1,"9,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467979664,Mujina Into Deep 4,"6,7",1,"9,95",,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467922288,Museum 2,"6,39",0,"9,5",,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467922295,Museum 3,"6,39",1,"9,5",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467968231,Museum Pack Integral,"20,16",1,"29,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788491735328,My Hero Academia 17,"5,35",1,"8,5",,Libros de cómics,MANGA,4,PLANETA
 9788491735335,My Hero Academia 18,"5,35",1,"8,5",,Libros de cómics,MANGA,4,PLANETA
@@ -846,7 +719,6 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788411401852,My Hero Academia 35,"5,72",3,"8,5",,Libros de cómics,MANGA,4,PLANETA
 9788491461425,My Hero Academia 7,"5,35",1,"8,5",,Libros de cómics,MANGA,4,PLANETA
 9791388055270,Nagahama 2,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
-9788411618250,Nana 3en1 1,"12,8",0,20,,Libros de cómics,MANGA,4,PLANETA
 9788410492592,Nana 3en1 3 CAT,"13,43",1,20,,Libros de cómics,MANGA,4,PLANETA
 9791387780388,Nana 3en1 4 CAT,"13,43",1,20,,Libros de cómics,MANGA,4,PLANETA
 9791387781576,Nana 3en1 5 CAT,"13,43",1,20,,Libros de cómics,MANGA,4,PLANETA
@@ -894,7 +766,6 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9791387780425,Nausicaä 3,"9,35",1,"12,95",,Libros de cómics,MANGA,4,PLANETA
 9791387781880,Nausicaä 4,"8,72",1,"12,95",,Libros de cómics,MANGA,4,PLANETA
 9791387919030,Nausicaä 5,"8,67",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788411618342,Nausicaa CAT 1,"9,34",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
 9788419177346,Nigakute Amai 1,"12,75",1,"18,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9791399119398,NL 3 Konosuba,"8,08",1,12,,Libros de cómics,MANGA,4,AZETA
 9791399119381,NL Cudlestate 2,"8,08",1,12,,Libros de cómics,MANGA,4,AZETA
@@ -986,9 +857,7 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788418172939,One Punch-Man Hero Perfection,"6,66",0,"9,9",,Libros de cómics,MANGA,4,ASTURLIBROS
 9791387822842,Oni Goroshi 1,"12,08",1,"17,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9791387822859,Oni Goroshi 2,"12,08",1,"17,95",,Libros de cómics,MANGA,4,ASTURLIBROS
-9791399172140,Pack Battan,"8,08",0,12,,Libros de cómics,MANGA,4,AZETA
 9791399172157,Pack Sei,"8,08",1,12,,Libros de cómics,MANGA,4,AZETA
-9791387780845,Patlabor 1,"18,03",0,25,,Libros de cómics,MANGA,4,PLANETA
 9788419177155,Pet Shop Horrors 1,"20,16",1,"29,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788419177162,Pet Shop Horrors 2,"20,16",1,"29,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9791388055355,Pink Heart Jam 2,"6,39",1,"9,5",,Libros de cómics,MANGA,4,AZETA
@@ -1066,13 +935,6 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9791388055058,Rakugo 1,"10,77",1,16,,Libros de cómics,MANGA,4,PLANETA
 9791388055249,Rakugo 2,"10,77",1,16,,Libros de cómics,MANGA,4,PLANETA
 9791388055430,Rakugo 3,"10,77",1,16,,Libros de cómics,MANGA,4,PLANETA
-9788410223721,Re Cervin 1,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
-9788410223998,Re Cervin 2,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
-9791387506377,Re Cervin 3,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
-9791387506537,Re Cervin 4,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
-9791387831103,Re Cervin 5,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
-9791387831455,Re Cervin 6,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
-9791388055133,Re Cervin 7,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
 9788419730572,Real 1,"6,05",1,9,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788419869203,Real 2,"6,06",1,9,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788419916983,Real 3,"6,06",1,9,,Libros de cómics,MANGA,4,ASTURLIBROS
@@ -1083,8 +945,6 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9791387784577,Real 8,"6,06",1,9,,Libros de cómics,MANGA,4,ASTURLIBROS
 9791387831660,Reviviendo Dias 1,"6,39",0,"9,5",,Libros de cómics,MANGA,4,AZETA
 9791387831905,Reviviendo Dias 2,"6,39",1,"9,5",,Libros de cómics,MANGA,4,AZETA
-9791388055157,Reviviendo Dias 3,"6,39",0,"9,5",,Libros de cómics,MANGA,4,AZETA
-9791388055294,Reviviendo Dias 4,"6,39",0,"9,5",,Libros de cómics,MANGA,4,AZETA
 9791388055515,Reviviendo Dias 5,"6,39",1,"9,5",,Libros de cómics,MANGA,4,AZETA
 9791387691943,Rezos Macabros,"10,77",1,16,,Libros de cómics,MANGA,4,ASTURLIBROS
 9791387919139,Sabueso Gou Tanabe,"10,74",1,"15,95",,Libros de cómics,MANGA,4,PLANETA
@@ -1092,7 +952,6 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788467971156,Sailor Moon ET 2,"12,8",1,"18,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467971163,Sailor Moon ET 3,"12,75",1,"18,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467971170,Sailor Moon ET 4,"11,84",1,"18,95",,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467971187,Sailor Moon ET 5,"12,75",0,"18,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788419177872,Sailor Zombie 1,"7,37",1,"10,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788419306074,Sakamoto Days 1,"6,05",1,9,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788410061569,Sakamoto Days 10,"6,05",1,8,,Libros de cómics,MANGA,4,ASTURLIBROS
@@ -1117,8 +976,6 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788419916419,Sakamoto Days 8,"5,37",1,8,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788410007598,Sakamoto Days 9,"6,06",1,8,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467959727,Sayonara Mini Skirt PACK 1 y 2,"12,12",1,18,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467958454,Sekisei Inko 1,"10,77",0,16,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788467958461,Sekisei Inko 2,"10,77",0,16,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467938890,"Seraph of the end, guren ichinose 1","5,38",1,8,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788411015981,Sexy Cosplay Doll 3,"6,03",2,"8,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9791387831745,Shadow House 19,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
@@ -1193,7 +1050,6 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788419010032,Spy x Family 7,"5,38",1,8,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788419185600,Spy x Family 8,"5,38",1,8,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788419451064,Spy x Family 9,"5,38",1,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788410213487,Spy x Family Eyes Only Official Databook,"8,08",0,12,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788419177445,Steam Detectives 1,"23,56",1,35,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788416352609,Steins Gate 1,"5,72",1,8,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788418612749,Stellar Demon Guitar,"6,7",1,"9,95",,Libros de cómics,MANGA,4,UDL
@@ -1231,28 +1087,21 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788409523023,The Horizon 1,"10,74",1,"15,95",,Libros de cómics,MANGA,4,AZETA
 9788409540969,The Horizon 2,"9,76",0,"14,5",,Libros de cómics,MANGA,4,AZETA
 9788409562084,The Horizon 3,"9,76",1,"14,5",,Libros de cómics,MANGA,4,AZETA
-9788467918540,The Seven Deadly Sins 4,"5,38",1,8,,Libros de cómics,MANGA,4,ASTURLIBROS
 9791388055003,Therapy Restart 5,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
 9788410515864,Thunder 3 ED 1,"7,71",1,"12,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9791387831677,To your eternity 23,"5,72",1,"8,5",,Libros de cómics,MANGA,4,AZETA
 9791388055072,To your eternity 24,"5,72",1,"8,5",,Libros de cómics,MANGA,4,AZETA
 9791388055423,To your eternity 25,"5,72",1,"8,5",,Libros de cómics,MANGA,4,AZETA
 9788418309854,Todo Esta En Mis Manos,"16,16",1,24,,Libros de cómics,MANGA,4,UDL
-9788419177148,Tokko INT,"16,83",0,25,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788419177308,Tokko Zero 1,"6,39",1,"9,5",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788419177315,Tokko Zero 2,"6,39",1,"9,5",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788419177322,Tokko Zero 3,"6,39",1,"9,5",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788419177339,Tokko Zero 4,"8,04",0,"11,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9791387779474,Tomie 1,"16,1",1,25,,Libros de cómics,MANGA,4,PLANETA
 9791387919511,Tomie 2,"16,1",1,25,,Libros de cómics,MANGA,4,PLANETA
-9791387831172,Tomodachi Game 10,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
-9791387831493,Tomodachi Game 11,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
 9791387831752,Tomodachi Game 12,"5,72",1,"8,5",,Libros de cómics,MANGA,4,AZETA
 9791388055027,Tomodachi Game 13,"5,72",1,"8,5",,Libros de cómics,MANGA,4,AZETA
 9788416960170,Tomodachi Game 6,"5,72",1,"8,5",,Libros de cómics,MANGA,4,AZETA
-9791387506285,Tomodachi Game 7,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
-9791387506636,Tomodachi Game 8,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
-9791387506841,Tomodachi Game 9,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
 9788416960262,Tragones y mazmorras 1,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
 9788419195241,Tragones y mazmorras 10,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
 9788419195531,Tragones y mazmorras 11,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
@@ -1273,47 +1122,9 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9791387506155,Trump 3,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
 9791387506452,Trump 4,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
 9791387506773,Trump 5,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
-9788419177247,Ufo Grendizer,"10,74",0,"15,95",,Libros de cómics,MANGA,4,AZETA
 9791399042085,Urotsukidoji 1,"6,73",1,10,,Libros de cómics,MANGA,4,AZETA
 9791399179606,Urotsukidoji 2,"6,73",1,10,,Libros de cómics,MANGA,4,AZETA
 9788491465843,Uzumaki,"18,14",1,"26,95",,Libros de cómics,MANGA,4,PLANETA
-9788415922940,Vagabond 1,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416150069,Vagabond 10,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416150410,Vagabond 11,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416150427,Vagabond 12,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416150540,Vagabond 13,"5,7",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416150663,Vagabond 14,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416150670,Vagabond 15,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416150687,Vagabond 16,"5,77",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416243150,Vagabond 17,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416243167,Vagabond 18,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416243174,Vagabond 19,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788415922957,Vagabond 2,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416243426,Vagabond 20,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416243808,Vagabond 21,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416352005,Vagabond 22,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416352012,Vagabond 23,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416352029,Vagabond 24,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416352371,Vagabond 25,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416352388,Vagabond 26,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416352395,Vagabond 27,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416352906,Vagabond 28,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416352913,Vagabond 29,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788415922964,Vagabond 3,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416352920,Vagabond 30,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416512096,Vagabond 31,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416512263,Vagabond 32,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416512287,Vagabond 33,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788415922872,Vagabond 34,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416040285,Vagabond 35,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416040940,Vagabond 36,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416243662,Vagabond 37,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416040292,Vagabond 4,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416040384,Vagabond 5,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416040391,Vagabond 6,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416040636,Vagabond 7,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416150045,Vagabond 8,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
-9788416150052,Vagabond 9,"5,38",0,8,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788419536655,Verano Hikaru Murió 1,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
 9788419914095,Verano Hikaru Murió 2,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
 9788419914798,Verano Hikaru Murió 3,"6,06",0,9,,Libros de cómics,MANGA,4,AZETA
@@ -1323,41 +1134,15 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788416051816,Vinland Saga 1,"9,34",1,"12,95",,Libros de cómics,MANGA,4,PLANETA
 9788416816187,Vinland Saga 12,"8,72",1,"12,95",,Libros de cómics,MANGA,4,PLANETA
 9788416816385,Vinland Saga 14,"8,72",1,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788491460602,Vinland Saga 15,"8,72",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788491460657,Vinland Saga 16,"8,72",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788491461876,Vinland Saga 17,"8,72",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
 9788491730651,Vinland Saga 19,"8,72",1,"12,95",,Libros de cómics,MANGA,4,PLANETA
 9788416090266,Vinland Saga 2,"9,34",1,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788411401197,Vinland Saga 25,"9,34",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788411401203,Vinland Saga 26,"9,34",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788416090464,Vinland Saga 3,"9,34",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788416090600,Vinland Saga 4,"9,34",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
-9788416244492,Vinland Saga 5,"8,72",0,"12,95",,Libros de cómics,MANGA,4,PLANETA
 9788416244553,Vinland Saga 6,"8,72",1,"12,95",,Libros de cómics,MANGA,4,PLANETA
 9788416401277,Vinland Saga 7,"8,72",1,"12,95",,Libros de cómics,MANGA,4,PLANETA
 9788416476916,Vinland Saga 8,"8,72",1,"12,95",,Libros de cómics,MANGA,4,PLANETA
 9788467979367,Wild Strawberry 1,"3,12",1,"4,99",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788410450011,Wistoria 1,"5,31",3,"8,5",,Libros de cómics,MANGA,4,AZETA
-9788419195692,Witch Watch 1,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
-9788410223097,Witch Watch 10,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
-9788410223431,Witch Watch 11,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
-9788410223707,Witch Watch 12,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
-9791387506094,Witch Watch 13,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
-9791387506384,Witch Watch 14,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
-9791387506568,Witch Watch 15,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
-9791387506933,Witch Watch 16,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
-9791387831295,Witch Watch 17,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
-9791387831516,Witch Watch 18,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
 9791388055195,Witch Watch 19,"5,72",1,"8,5",,Libros de cómics,MANGA,4,AZETA
-9788419536075,Witch Watch 2,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
 9791388055379,Witch Watch 20,"5,72",1,"8,5",,Libros de cómics,MANGA,4,AZETA
-9788419536327,Witch Watch 3,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
-9788419536518,Witch Watch 4,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
-9788419536815,Witch Watch 5,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
-9788419914026,Witch Watch 6,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
-9788419914323,Witch Watch 7,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
-9788419914569,Witch Watch 8,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
-9788419914842,Witch Watch 9,"5,72",0,"8,5",,Libros de cómics,MANGA,4,AZETA
 9788467944327,Yo-KAI Watch 13,"6,06",1,9,,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467925913,Yo-Kai Watch 5,"5,35",1,"7,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788467925937,Yo-Kai Watch 7,"5,35",1,"7,95",,Libros de cómics,MANGA,4,ASTURLIBROS

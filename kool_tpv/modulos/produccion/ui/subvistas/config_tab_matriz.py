@@ -148,8 +148,8 @@ class ConfigTabMatriz:
             child.destroy()
         self._variante_widgets = {}
 
-        # Obtener variantes que requieren matriz
-        variantes = self.service.obtener_variantes_por_tipo(tipo_id, solo_matriz=True)
+        # Obtener todas las variantes del tipo para configurar su matriz
+        variantes = self.service.obtener_variantes_por_tipo(tipo_id, solo_matriz=False)
         
         if not variantes:
             self._variante_frame.pack_forget()

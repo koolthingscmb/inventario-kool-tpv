@@ -115,7 +115,7 @@ class ConfigTabVariantes:
             child.destroy()
         self._tipo_chips = {}
 
-        self._all_tipos = self.config_service.obtener_tipos_de_menus_ordenados()
+        self._all_tipos = self.config_service.obtener_tipos_de_menus_ordenados(solo_con_stock=False)
 
         if not self._all_tipos:
             tk.Label(self._tipos_scroll, text="No hay tipos en ningún menú",

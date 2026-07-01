@@ -10,7 +10,7 @@ class ProduccionMenuTiposRepository:
     def __init__(self, db: Database):
         self.db = db
 
-    def get_tipos_por_menu(self, menu_id: int) -> List[ProduccionTipo]:
+    def get_tipos_por_menu(self, menu_id: int, solo_con_stock: bool = True) -> List[ProduccionTipo]:
         """Obtener los tipos asignados a un menú."""
         query = """
             SELECT t.id, t.nombre, t.descripcion, t.color, t.icono,
@@ -19,9 +19,12 @@ class ProduccionMenuTiposRepository:
             FROM tipos t
             JOIN produccion_menu_tipos pmt ON t.id = pmt.tipo_id
             WHERE pmt.menu_id = ? AND t.activo = 1
-              AND t.id IN (SELECT DISTINCT tipo_id FROM produccion_stock_colores_tallas WHERE cantidad > 0)
-            ORDER BY t.orden
         """
+        if solo_con_stock:
+            query += " AND t.id IN (SELECT DISTINCT tipo_id FROM produccion_stock_colores_tallas WHERE cantidad > 0)"
+        
+        query += " ORDER BY t.orden"
+        
         rows = self.db.fetch_all(query, (menu_id,))
         return [
             ProduccionTipo(
@@ -49,7 +52,7 @@ class ProduccionMenuTiposRepository:
                 (menu_id, tid)
             )
 
-    def get_tipos_todos_menus_ordenados(self) -> List[ProduccionTipo]:
+    def get_tipos_todos_menus_ordenados(self, solo_con_stock: bool = True) -> List[ProduccionTipo]:
         """Obtener todos los tipos asociados a cualquier menú, ordenados por menú y luego por tipo."""
         query = """
             SELECT DISTINCT t.id, t.nombre, t.descripcion, t.color, t.icono,
@@ -59,9 +62,12 @@ class ProduccionMenuTiposRepository:
             JOIN produccion_menu_tipos pmt ON t.id = pmt.tipo_id
             JOIN produccion_menu m ON pmt.menu_id = m.id
             WHERE t.activo = 1 AND m.activo = 1
-              AND t.id IN (SELECT DISTINCT tipo_id FROM produccion_stock_colores_tallas WHERE cantidad > 0)
-            ORDER BY m.orden, t.orden
         """
+        if solo_con_stock:
+            query += " AND t.id IN (SELECT DISTINCT tipo_id FROM produccion_stock_colores_tallas WHERE cantidad > 0)"
+            
+        query += " ORDER BY m.orden, t.orden"
+        
         rows = self.db.fetch_all(query)
         return [
             ProduccionTipo(

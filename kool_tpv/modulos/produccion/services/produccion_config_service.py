@@ -150,9 +150,9 @@ class ProduccionConfigService:
         """Obtener todos los elementos del menú."""
         return self.menu_repo.get_todos()
 
-    def obtener_tipos_de_menus_ordenados(self) -> List[ProduccionTipo]:
+    def obtener_tipos_de_menus_ordenados(self, solo_con_stock: bool = True) -> List[ProduccionTipo]:
         """Obtener tipos asociados a cualquier menú, ordenados por menú y tipo."""
-        return self.menu_tipos_repo.get_tipos_todos_menus_ordenados()
+        return self.menu_tipos_repo.get_tipos_todos_menus_ordenados(solo_con_stock=solo_con_stock)
 
     def obtener_coste_medio_variante(self, tipo_id: int, variante_id: Optional[int] = None) -> float:
         """Obtener coste medio ponderado de una variante desde el stock."""

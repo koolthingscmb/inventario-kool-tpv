@@ -7,6 +7,7 @@ Diseño de alto rendimiento:
 - Compatible con la API original de NavList.
 """
 import logging
+import re
 import tkinter as tk
 import customtkinter as ctk
 from typing import List, Tuple, Callable, Optional, Any
@@ -108,6 +109,11 @@ class VirtualNavList(ctk.CTkFrame):
         self.selected_indices: set = set() # Para multi-select
         self._on_return_callback = None
         
+        # Estado de ordenación
+        self._sort_column = None  # Key de la columna ordenada
+        self._sort_direction = 'asc'  # 'asc' o 'desc'
+        self._header_labels = []  # Referencias a los labels del header para actualizar indicadores
+        
         # Virtualización
         self._visible_rows: List[dict] = [] # Referencias a los widgets de fila creados
         self._top_index = 0  # Índice del primer dato visible
@@ -142,11 +148,15 @@ class VirtualNavList(ctk.CTkFrame):
         self._header.pack(fill='x', padx=6, pady=(0, 2))
         self._header.pack_propagate(False)
         x = 10 # Margen inicial
-        for key, width, label in self.columns:
-            tk.Label(
+        self._header_labels = []
+        for i, (key, width, label) in enumerate(self.columns):
+            header_label = tk.Label(
                 self._header, text=label, font=self._font_header,
-                fg=secondary, bg=bg_dark, anchor='w'
-            ).place(x=x, y=8, width=width, height=_HEADER_HEIGHT - 16)
+                fg=secondary, bg=bg_dark, anchor='w', cursor='hand2'
+            )
+            header_label.place(x=x, y=8, width=width, height=_HEADER_HEIGHT - 16)
+            header_label.bind('<Button-1>', lambda e, col_idx=i: self._on_header_click(col_idx))
+            self._header_labels.append(header_label)
             x += width + 12 # Espaciado
 
         # 2. Contenedor de lista
@@ -359,6 +369,10 @@ class VirtualNavList(ctk.CTkFrame):
         self.selected_index = -1
         self.selected_indices.clear()
 
+        # Reaplicar ordenación si existe una columna activa
+        if self._sort_column:
+            self._sort_data()
+
         # Asegurar refresco visual
         self.update_idletasks()
         self._refresh_ui()
@@ -519,6 +533,82 @@ class VirtualNavList(ctk.CTkFrame):
             logger.exception("Error en destroy de VirtualNavList")
         finally:
             super().destroy()
+
+    # ------------------------------------------------------------------
+    # Ordenación por Cabecera
+    # ------------------------------------------------------------------
+
+    def _on_header_click(self, col_idx: int):
+        """Manejador de clic en cabecera para ordenar."""
+        key = self.columns[col_idx][0]  # La key de datos (ej: 'nombre', 'tipo')
+        
+        # Toggle dirección si clic en la misma columna
+        if self._sort_column == key:
+            self._sort_direction = 'desc' if self._sort_direction == 'asc' else 'asc'
+        else:
+            self._sort_column = key
+            self._sort_direction = 'asc'
+        
+        # Ordenar los datos
+        self._sort_data()
+        
+        # Actualizar indicadores visuales en cabeceras
+        self._update_header_indicators()
+        
+        # Refrescar UI
+        self._refresh_ui()
+
+    def _sort_data(self):
+        """Ordena _all_data según la columna y dirección actuales usando natural sort."""
+        if not self._sort_column:
+            return
+        
+        reverse = (self._sort_direction == 'desc')
+        
+        def natural_key(text):
+            """Convierte texto en lista para ordenación natural (ej: 'OP 10' -> ['OP ', 10])."""
+            if not isinstance(text, str):
+                # Si no es string, intentar convertir a número directamente
+                try:
+                    return [float(text)]
+                except (ValueError, TypeError):
+                    return [str(text)]
+            
+            # Separar texto y números usando regex
+            # Ejemplo: "OP 10" -> ['OP ', 10]
+            # Ejemplo: "Producto 2 A" -> ['Producto ', 2, ' A']
+            return [int(part) if part.isdigit() else part.lower() for part in re.split(r'(\d+)', text)]
+        
+        def sort_key(item):
+            value = item.get(self._sort_column, '')
+            
+            # Si es un número puro (int, float, Decimal), ordenar numéricamente
+            if isinstance(value, (int, float, Decimal)):
+                return [float(value)]
+            
+            # Si es string, intentar convertir a número primero
+            if isinstance(value, str):
+                # Intentar convertir a número puro (ej: "10.5" -> 10.5)
+                try:
+                    return [float(value)]
+                except ValueError:
+                    pass
+                # Si no es número puro, usar natural sort (ej: "OP 10" -> ['OP ', 10])
+                return natural_key(value)
+            
+            # Para cualquier otro tipo, convertir a string y usar natural sort
+            return natural_key(str(value))
+        
+        self._all_data.sort(key=sort_key, reverse=reverse)
+
+    def _update_header_indicators(self):
+        """Actualiza las flechas de ordenación en las cabeceras."""
+        for i, (key, width, label) in enumerate(self.columns):
+            if key == self._sort_column:
+                arrow = ' ▲' if self._sort_direction == 'asc' else ' ▼'
+                self._header_labels[i].configure(text=label + arrow)
+            else:
+                self._header_labels[i].configure(text=label)
 
     def _truncate(self, text: str, width_px: int) -> str:
         try:
