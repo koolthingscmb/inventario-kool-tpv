@@ -75,9 +75,7 @@ class TpvController:
     def _comprobar_productos_pendientes(self):
         """Busca productos en la categoría 'Incompleto' (ID 3) y avisa al usuario."""
         try:
-            cursor = self.db.cursor()
-            cursor.execute("SELECT count(*), id FROM productos WHERE categoria_id = 3")
-            row = cursor.fetchone()
+            row = self.db.fetch_one("SELECT count(*), id FROM productos WHERE categoria_id = 3")
             count = row[0] if row else 0
             
             if count > 0:
