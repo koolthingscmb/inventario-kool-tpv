@@ -75,7 +75,7 @@ class TpvController:
     def _comprobar_productos_pendientes(self):
         """Busca productos en la categoría 'Incompleto' (ID 3) y avisa al usuario."""
         try:
-            row = self.db.fetch_one("SELECT count(*), id FROM productos WHERE categoria_id = 3")
+            row = self.db.fetch_one("SELECT count(*), id FROM productos WHERE categoria = 3")
             count = row[0] if row else 0
             
             if count > 0:
@@ -194,29 +194,30 @@ class TpvController:
                 from kool_tpv.base_datos.producto_service import ProductoService
                 service = ProductoService(self.db)
                 
-                # Datos mínimos para la creación rápida
-                producto_id = service.crear_producto({
-                    'nombre': datos['nombre'],
-                    'categoria_id': 3,  # Incompleto
-                    'tipo_id': 1,       # General/Por defecto
-                    'proveedor_id': 1,  # General/Por defecto
-                    'descripcion': f"Alta rápida desde TPV (EAN: {datos['ean']})",
-                    'iva_id': 1,        # Asumimos IVA estándar inicial
-                    'stock': 1          # Empezamos con 1 ya que lo estamos vendiendo
-                })
+                # Datos mínimos para la creación rápida usando el repositorio
+                # guardar_producto_completo maneja la transacción y tablas relacionadas (precios, códigos)
+                producto_id = service.repo.guardar_producto_completo(
+                    nombre=datos['nombre'],
+                    nombre_boton='',
+                    sku=datos['ean'], # Usamos el EAN como SKU inicial
+                    categoria_id=3,   # Incompleto
+                    tipo_id=1,        # General
+                    proveedor_id=1,   # General
+                    iva=21,           # IVA estándar
+                    stock_actual=1,   # Empezamos con 1 ya que lo estamos vendiendo
+                    stock_min=0,
+                    activo=1,
+                    pvp=datos['pvp'],
+                    coste=Decimal('0.00'),
+                    codigos_barras=[datos['ean']]
+                )
                 
                 if not producto_id:
                     ToastWidget.show(self.view, "ERROR AL CREAR EL PRODUCTO", tipo='error')
                     return
 
-                # 2. Guardar el EAN
-                service.guardar_ean(producto_id, datos['ean'])
-                
-                # 3. Guardar el PVP
-                service.guardar_precio(producto_id, datos['pvp'])
-                
-                # 4. Obtener el objeto producto completo para el carrito
-                nuevo_producto = service.buscar_por_id(producto_id)
+                # 2. Obtener el objeto producto completo para el carrito
+                nuevo_producto = service.get_producto_para_carrito(producto_id)
                 if nuevo_producto:
                     # Añadir al carrito automáticamente
                     self.handle_add_product(nuevo_producto)
