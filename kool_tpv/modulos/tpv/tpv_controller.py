@@ -227,6 +227,9 @@ class TpvController:
                 logger.exception("Error en alta rápida de producto")
                 ToastWidget.show(self.view, "ERROR CRÍTICO EN ALTA RÁPIDA", tipo='error')
 
+        # Instanciar y mostrar el diálogo
+        EmergenciaProductoUI(self.view, ean=code, callback=on_saved)
+
 
     def handle_add_product(self, producto: dict):
         """Manejador unificado para añadir productos al carrito con chequeo de pvp_variable."""
