@@ -16,6 +16,7 @@ from kool_tpv.modulos.tpv.carrito.carrito_service import CarritoService
 
 # 2. IMPORTACIÓN EXACTA (SOLUCIÓN)
 from kool_tpv.modulos.tpv.actions.Favoritos.favoritos_subview import FavoritosSubView
+from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
 
 # --- RUTA CONFIG ---
 BASE_DIR = Path(__file__).resolve().parents[2] 
@@ -477,10 +478,17 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
             return False
 
     def _handle_power(self):
+        # 1. Prioridad: cerrar sub-vistas (favoritos, etc)
         if hasattr(self, "_subview_stack") and self._subview_stack:
             try:
                 self.pop_subview()
             except Exception:
                 pass
             return True
+
+        # 2. Bloqueo si hay carrito con productos
+        if hasattr(self, 'carrito_service') and not self.carrito_service.is_empty():
+            ToastWidget.show(self, "NO SE PUEDE SALIR DEL TPV CON UNA OPERACIÓN EN CURSO", tipo='error')
+            return True
+
         return False

@@ -67,7 +67,64 @@ class TpvController:
         self.setup_barcode()
         self._setup_keyboard_shortcuts()
 
+        # Comprobar productos pendientes (Incompletos)
+        self.view.after(1000, self._comprobar_productos_pendientes)
+
         logger.info('TpvController inicializado')
+
+    def _comprobar_productos_pendientes(self):
+        """Busca productos en la categoría 'Incompleto' (ID 3) y avisa al usuario."""
+        try:
+            cursor = self.db.cursor()
+            cursor.execute("SELECT count(*), id FROM productos WHERE categoria_id = 3")
+            row = cursor.fetchone()
+            count = row[0] if row else 0
+            
+            if count > 0:
+                first_id = row[1]
+                msg = f"TIENES {count} PRODUCTOS PENDIENTES DE COMPLETAR" if count > 1 else "TIENES 1 PRODUCTO PENDIENTE DE COMPLETAR"
+                
+                def ir_a_completar(confirmed):
+                    if confirmed:
+                        self._navegar_a_producto_pendiente(first_id if count == 1 else None)
+                
+                from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
+                ToastWidget.show(
+                    self.view, 
+                    msg, 
+                    tipo='info', 
+                    duracion_ms=0, # Persistente hasta clic en OK
+                    al_cerrar=ir_a_completar
+                )
+        except Exception:
+            logger.exception("Error comprobando productos pendientes")
+
+    def _navegar_a_producto_pendiente(self, producto_id=None):
+        """Navega al módulo de Almacén para completar un producto."""
+        # 1. Verificar si el TPV puede cerrarse (carrito vacío)
+        if not self.view.carrito_service.is_empty():
+            from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
+            ToastWidget.show(self.view, "VACÍA EL CARRITO PARA IR A COMPLETAR PRODUCTOS", tipo='warning')
+            return
+
+        try:
+            root = self.view.winfo_toplevel()
+            if hasattr(root, 'open_almacen'):
+                # Salir del TPV (simular click en Power pero forzando salida)
+                if hasattr(root, 'close_app'):
+                    root.close_app() # En TPV, close_app vuelve al menú
+                
+                # Abrir Almacén
+                root.open_almacen()
+                
+                # Si tenemos un ID específico, abrir su ficha
+                if producto_id and hasattr(root, 'almacen_view'):
+                    root.almacen_view.show_crear(producto_id=producto_id)
+                elif hasattr(root, 'almacen_view'):
+                    root.almacen_view.show_busqueda()
+                    
+        except Exception:
+            logger.exception("Error navegando a Almacén desde recordatorio")
 
     def setup_barcode(self):
         """Inicializar captura de código de barras."""
@@ -102,8 +159,22 @@ class TpvController:
             from kool_tpv.base_datos.producto_service import ProductoService
             producto_service = ProductoService(self.db)
             producto = producto_service.buscar_por_ean(code)
+            
             if producto is None:
-                ToastWidget.show(self.view, 'EL PRODUCTO NO EXISTE EN EL SISTEMA', tipo='error')
+                # Mostrar diálogo de "No encontrado" con opción de Alta Rápida
+                from kool_tpv.utils.custom_dialog import show_warning
+                
+                def on_dialog_closed(confirmed):
+                    if confirmed:
+                        self._mostrar_alta_rapida(code)
+                
+                show_warning(
+                    parent=self.view,
+                    titulo="PRODUCTO NO ENCONTRADO",
+                    mensaje=f"EL CÓDIGO {code} NO EXISTE.\n¿DESEAS HACER UN ALTA RÁPIDA?",
+                    confirm=True,
+                    callback=on_dialog_closed
+                )
                 return
             
             # Usar el manejador unificado para añadir productos
@@ -111,6 +182,52 @@ class TpvController:
             
         except Exception:
             logger.exception('Error procesando código de barras: %s', code)
+
+    def _mostrar_alta_rapida(self, code: str):
+        """Muestra el diálogo de alta rápida de producto."""
+        from kool_tpv.modulos.tpv.ui.emergencia_producto_ui import EmergenciaProductoUI
+        
+        def on_saved(datos):
+            if not datos:
+                return
+            
+            try:
+                # 1. Crear el producto en la BD (Categoría 3 = Incompleto)
+                from kool_tpv.base_datos.producto_service import ProductoService
+                service = ProductoService(self.db)
+                
+                # Datos mínimos para la creación rápida
+                producto_id = service.crear_producto({
+                    'nombre': datos['nombre'],
+                    'categoria_id': 3,  # Incompleto
+                    'tipo_id': 1,       # General/Por defecto
+                    'proveedor_id': 1,  # General/Por defecto
+                    'descripcion': f"Alta rápida desde TPV (EAN: {datos['ean']})",
+                    'iva_id': 1,        # Asumimos IVA estándar inicial
+                    'stock': 1          # Empezamos con 1 ya que lo estamos vendiendo
+                })
+                
+                if not producto_id:
+                    ToastWidget.show(self.view, "ERROR AL CREAR EL PRODUCTO", tipo='error')
+                    return
+
+                # 2. Guardar el EAN
+                service.guardar_ean(producto_id, datos['ean'])
+                
+                # 3. Guardar el PVP
+                service.guardar_precio(producto_id, datos['pvp'])
+                
+                # 4. Obtener el objeto producto completo para el carrito
+                nuevo_producto = service.buscar_por_id(producto_id)
+                if nuevo_producto:
+                    # Añadir al carrito automáticamente
+                    self.handle_add_product(nuevo_producto)
+                    ToastWidget.show(self.view, "PRODUCTO CREADO Y AÑADIDO", tipo='success')
+                    
+            except Exception:
+                logger.exception("Error en alta rápida de producto")
+                ToastWidget.show(self.view, "ERROR CRÍTICO EN ALTA RÁPIDA", tipo='error')
+
 
     def handle_add_product(self, producto: dict):
         """Manejador unificado para añadir productos al carrito con chequeo de pvp_variable."""
