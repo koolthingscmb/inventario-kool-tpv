@@ -76,10 +76,10 @@ class DisenoNuevoView:
 		self.frame = ctk.CTkFrame(parent, fg_color=self._bg)
 		self.frame.pack(fill="both", expand=True)
 
-		# Cargar datos para combos
-		self._colecciones = self._cargar_colecciones()
-		self._sufijos = self._cargar_sufijos()
-		self._tipos = self._cargar_tipos()
+		# Reutilizar caches ya construidas (evita 3 consultas duplicadas)
+		self._colecciones = list(self._colecciones_cache.values())
+		self._sufijos = list(self._sufijos_cache.values())
+		self._tipos = list(self._cache_tipos.items())
 
 		# UI
 		self._crear_formulario()
@@ -274,13 +274,13 @@ class DisenoNuevoView:
 		default_cfg = chips_cfg.get("default", {})
 		selected_cfg = chips_cfg.get("selected", {})
 
-		colecciones = self.colecciones_repo.get_activas()
+		colecciones_nombres = list(self._colecciones_cache.values())
 		
 		container = ctk.CTkFrame(self._frame_chips_colecciones, fg_color="transparent")
 		container.pack(fill="both", expand=True)
 
-		for c in colecciones:
-			is_selected = (c.nombre == self._coleccion_seleccionada)
+		for nombre in colecciones_nombres:
+			is_selected = (nombre == self._coleccion_seleccionada)
 			
 			bg_color = selected_cfg.get("bg", "#552583") if is_selected else default_cfg.get("bg", "#1a1a2e")
 			text_color = selected_cfg.get("text", "#ffffff") if is_selected else default_cfg.get("text", "#e0e0e0")
@@ -289,7 +289,7 @@ class DisenoNuevoView:
 
 			chip = ctk.CTkButton(
 				container,
-				text=c.nombre,
+				text=nombre,
 				width=0,
 				height=32,
 				corner_radius=16,
@@ -299,7 +299,7 @@ class DisenoNuevoView:
 				border_width=2 if is_selected else 1,
 				hover_color=hover_color,
 				font=self._get_font("button_small") if "button_small" in self.config.get("fonts", {}) else (None, 12),
-				command=lambda name=c.nombre: self._on_chip_coleccion_click(name)
+				command=lambda name=nombre: self._on_chip_coleccion_click(name)
 			)
 			chip.pack(side="left", padx=4, pady=4)
 
@@ -313,13 +313,13 @@ class DisenoNuevoView:
 		default_cfg = chips_cfg.get("default", {})
 		selected_cfg = chips_cfg.get("selected", {})
 
-		sufijos = self.sufijos_repo.get_activos()
+		sufijos_nombres = list(self._sufijos_cache.values())
 		
 		container = ctk.CTkFrame(self._frame_chips_sufijos, fg_color="transparent")
 		container.pack(fill="both", expand=True)
 
-		for s in sufijos:
-			is_selected = (s.nombre == self._sufijo_seleccionado)
+		for nombre in sufijos_nombres:
+			is_selected = (nombre == self._sufijo_seleccionado)
 			
 			bg_color = selected_cfg.get("bg", "#552583") if is_selected else default_cfg.get("bg", "#1a1a2e")
 			text_color = selected_cfg.get("text", "#ffffff") if is_selected else default_cfg.get("text", "#e0e0e0")
@@ -328,7 +328,7 @@ class DisenoNuevoView:
 
 			chip = ctk.CTkButton(
 				container,
-				text=s.nombre,
+				text=nombre,
 				width=0,
 				height=32,
 				corner_radius=16,
@@ -338,7 +338,7 @@ class DisenoNuevoView:
 				border_width=2 if is_selected else 1,
 				hover_color=hover_color,
 				font=self._get_font("button_small") if "button_small" in self.config.get("fonts", {}) else (None, 12),
-				command=lambda name=s.nombre: self._on_chip_sufijo_click(name)
+				command=lambda name=nombre: self._on_chip_sufijo_click(name)
 			)
 			chip.pack(side="left", padx=4, pady=4)
 
@@ -413,8 +413,6 @@ class DisenoNuevoView:
 		)
 		btn_add.grid(row=row, column=col, padx=10, pady=5, sticky="w")
 		
-		# Forzar refresco en Mac
-		self.frame.update_idletasks()
 
 	def _on_chip_coleccion_click(self, nombre):
 		"""Seleccionar/Deseleccionar chip de colección."""
@@ -471,8 +469,7 @@ class DisenoNuevoView:
 	def _on_comprobar(self):
 		"""Buscar diseños por el nombre introducido usando el componente paginado."""
 		nombre = self._entry_nombre.get().strip()
-		# Pre-cargar tipos para el map_function
-		self._cache_tipos = {t.id: t.nombre for t in self.tipos_service.obtener_activos()}
+		# _cache_tipos ya cargado en __init__
 		
 		# Al buscar de nuevo, reseteamos el estado de "diseño cargado" 
 		# para que el botón vuelva a "GUARDAR NUEVO"
