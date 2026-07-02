@@ -286,7 +286,7 @@ class TpvController:
                 ticket.update_carrito()
             
             # Si hay un callback on_add_callback en la subvista actual, llamarlo
-            # Esto es para que Favoritos o BuscarArticulo sepan que se añadió algo
+            # Esto es para que Favoritos sepa que se añadió algo
             try:
                 if hasattr(self.view, '_subview_stack') and self.view._subview_stack:
                     current_view = self.view._subview_stack[-1]["view"]

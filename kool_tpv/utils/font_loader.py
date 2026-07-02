@@ -14,6 +14,12 @@ from typing import Any, Dict, Optional, Tuple
 _FONT_CONFIG: Optional[Dict[str, Any]] = None
 
 
+def reload_font_cache() -> None:
+    """Invalidar cache de font_config para forzar recarga desde disco."""
+    global _FONT_CONFIG
+    _FONT_CONFIG = None
+
+
 def _get_config_path() -> Path:
     # kool_tpv/utils -> parents[1] == kool_tpv
     return Path(__file__).resolve().parents[1] / 'config' / 'font_config.json'

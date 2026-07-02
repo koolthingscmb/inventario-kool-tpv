@@ -1,10 +1,9 @@
 {
   "base": {
     "black_base": "#000000",
-    "black_soft": "#1a1a1a",
+    "black_soft": "#1A1A1A",
     "dark_panel": "#222831",
     "dark_sidebar": "#393E46"
-    
   },
   "neutral": {
     "white_base": "#FFFFFF",
@@ -17,7 +16,7 @@
     "blue_matrix": "#00A4DF",
     "orange_config": "#FF9800",
     "red_danger": "#FF0000",
-    "purple_special": "#9b59b6"
+    "purple_special": "#9B59B6"
   },
   "tpv_search_product": {
     "green_matrix_2": "#A6F76D",
@@ -26,13 +25,13 @@
     "green_matrix_5": "#A9D13B"
   },
   "state": {
-    "green_success": "#2ecc71",
-    "blue_action": "#3498db",
-    "red_soft": "#e74c3c",
-    "orange_hover": "#e67e22",
-    "blue_hover_strong": "#1f5f8f",
-    "green_hover_strong": "#1e8449",
-    "purple_hover_strong": "#6c3483"
-    ,"yellow_hover_strong": "#b7950b"
+    "green_success": "#2ECC71",
+    "blue_action": "#3498DB",
+    "red_soft": "#E74C3C",
+    "orange_hover": "#E67E22",
+    "blue_hover_strong": "#1F5F8F",
+    "green_hover_strong": "#1E8449",
+    "purple_hover_strong": "#6C3483",
+    "yellow_hover_strong": "#B7950B"
   }
 }

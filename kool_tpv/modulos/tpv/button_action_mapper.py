@@ -33,7 +33,6 @@ BUTTON_ACTIONS: Dict[str, Callable[[Any], None]] = {
     'TARJETA': lambda view: _activate_payment(view, 'tarjeta'),
     'CARD': lambda view: _activate_payment(view, 'tarjeta'),
     'WEB': lambda view: _activate_payment(view, 'web'),
-    'CONFIG': lambda view: _open_config(view),
     'PRESENCIA': lambda view: _open_presencia(view),
     'PRINT ON': lambda view: _toggle_print(view),
     'PRINT OFF': lambda view: _toggle_print(view),

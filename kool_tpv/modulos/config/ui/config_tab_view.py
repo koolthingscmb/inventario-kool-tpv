@@ -93,17 +93,29 @@ class ConfigTabView:
         if tab_name == "COLORES":
             from kool_tpv.modulos.config.ui.tabs.colors_tab import ColorsTab
             self._current_tab_obj = ColorsTab(self._content_frame, self.service)
+        elif tab_name == "TIPOGRAFÍA":
+            from kool_tpv.modulos.config.ui.tabs.typography_tab import TypographyTab
+            self._current_tab_obj = TypographyTab(self._content_frame, self.service)
+        elif tab_name == "BOTONES":
+            from kool_tpv.modulos.config.ui.tabs.buttons_tab import ButtonsTab
+            self._current_tab_obj = ButtonsTab(self._content_frame, self.service)
+        elif tab_name == "LAYOUT":
+            from kool_tpv.modulos.config.ui.tabs.layout_tab import LayoutTab
+            self._current_tab_obj = LayoutTab(self._content_frame, self.service)
+        elif tab_name == "DIÁLOGOS":
+            from kool_tpv.modulos.config.ui.tabs.dialogs_tab import DialogsTab
+            self._current_tab_obj = DialogsTab(self._content_frame, self.service)
+        elif tab_name == "TOASTS":
+            from kool_tpv.modulos.config.ui.tabs.toasts_tab import ToastsTab
+            self._current_tab_obj = ToastsTab(self._content_frame, self.service)
+        elif tab_name == "NAV LIST":
+            from kool_tpv.modulos.config.ui.tabs.nav_list_tab import NavListTab
+            self._current_tab_obj = NavListTab(self._content_frame, self.service)
+        elif tab_name == "SISTEMA":
+            from kool_tpv.modulos.config.ui.tabs.sistema_tab import SistemaTab
+            self._current_tab_obj = SistemaTab(self._content_frame, self.service)
         else:
-            placeholders = {
-                "TIPOGRAFÍA": "Editor de Tipografía",
-                "BOTONES": "Editor de Botones",
-                "LAYOUT": "Editor de Layout",
-                "DIÁLOGOS": "Editor de Diálogos",
-                "TOASTS": "Editor de Toasts",
-                "NAV LIST": "Editor de Nav List",
-                "SISTEMA": "Backups y Reset",
-            }
-            self._mostrar_placeholder(placeholders.get(tab_name, tab_name))
+            self._mostrar_placeholder(tab_name)
 
     def _mostrar_placeholder(self, texto: str):
         tk.Label(

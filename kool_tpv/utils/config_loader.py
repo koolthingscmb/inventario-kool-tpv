@@ -33,6 +33,24 @@ _layout_cache: Optional[Dict[str, Any]] = None
 _buttons_cache: Optional[Dict[str, Any]] = None
 
 
+def reload_config_cache(config_name: Optional[str] = None) -> None:
+    """Invalidar cache(s) de configuración para forzar recarga desde disco.
+
+    Args:
+        config_name: Nombre sin extensión (e.g. 'colors_config').
+                    Si es None, recarga todas.
+    """
+    global _colors_cache, _fonts_cache, _layout_cache, _buttons_cache
+    if config_name is None or config_name == 'colors_config':
+        _colors_cache = None
+    if config_name is None or config_name == 'font_config':
+        _fonts_cache = None
+    if config_name is None or config_name == 'layout_config':
+        _layout_cache = None
+    if config_name is None or config_name == 'buttons_actions_config':
+        _buttons_cache = None
+
+
 def _load_json(path: Path) -> Dict[str, Any]:
     try:
         if not path.exists():

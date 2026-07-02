@@ -23,6 +23,12 @@ _DEFAULTS = {
     'toast_animar_desaparicion': True,
     'toast_fade_step_ms': 20,
     'toast_max_opacity': 0.95,
+    'toast_icono_size': 40,
+    'toast_icono_padding': 8,
+    'toast_icono_success': 'dialog_success.png',
+    'toast_icono_info': 'dialog_info.png',
+    'toast_icono_warning': 'dialog_warning.png',
+    'toast_icono_error': 'dialog_error.png',
 }
 
 

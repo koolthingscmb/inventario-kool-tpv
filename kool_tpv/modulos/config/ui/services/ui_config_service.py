@@ -85,8 +85,24 @@ class UIConfigService:
     def aplicar_cambio(self, nombre: str, datos: dict) -> bool:
         ok = self.guardar_json(nombre, datos)
         if ok:
+            self._hot_reload(nombre)
             self._notificar(nombre, datos)
         return ok
+
+    def _hot_reload(self, nombre: str) -> None:
+        """Invalidar caches globales para que la app recargue config desde disco."""
+        stem = Path(nombre).stem
+        try:
+            from kool_tpv.utils.config_loader import reload_config_cache
+            reload_config_cache(stem)
+        except Exception:
+            pass
+        try:
+            from kool_tpv.utils.font_loader import reload_font_cache
+            if stem == 'font_config':
+                reload_font_cache()
+        except Exception:
+            pass
 
     def registrar_observer(self, nombre: str, callback: Callable[[dict], None]) -> None:
         nombre = Path(nombre).stem

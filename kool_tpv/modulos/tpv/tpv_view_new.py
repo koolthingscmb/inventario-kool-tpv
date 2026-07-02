@@ -175,9 +175,9 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
             columnspan = btn_data.get("colspan", 1)
             rowspan = btn_data.get("rowspan", 1)
 
-            # preserve command mapping for buscar_articulo
+            # preserve command mapping for favoritos
             cmd_name = btn_data.get("command")
-            cmd = self._mostrar_favoritos if cmd_name == "buscar_articulo" else None
+            cmd = self._mostrar_favoritos if cmd_name == "favoritos" else None
             label = btn_data.get("label", "???")
             shortcut = btn_data.get("shortcut", "")
             display_text = f"{label}\n({shortcut})" if shortcut else label

@@ -610,6 +610,28 @@ class App(ctk.CTk):
         for widget in self.main_frame.winfo_children():
             widget.destroy()
 
+    def reload_configs(self, config_name: str = None):
+        """Recargar configuraciones desde disco tras un guardado en ConfigTabView.
+
+        Args:
+            config_name: Nombre sin extensión (e.g. 'colors_config').
+                         Si es None, recarga todas.
+        """
+        _map = {
+            'colors_config': 'colors_cfg',
+            'font_config': 'fonts_cfg',
+            'layout_config': 'layout_cfg',
+            'buttons_config': 'buttons_cfg',
+        }
+        if config_name and config_name in _map:
+            attr = _map[config_name]
+            setattr(self, attr, load_json_config(f"{config_name}.json"))
+            logging.info(f"App.reload_configs: {config_name} recargado")
+        elif config_name is None:
+            for cn, attr in _map.items():
+                setattr(self, attr, load_json_config(f"{cn}.json"))
+            logging.info("App.reload_configs: todas las configs recargadas")
+
     def reserve_power_space(self, container, margin=12):
         # Leer tamaño reservado desde layout_config.json -> global -> power
         power_cfg = self.layout_cfg.get("global", {}).get("power", {}) if getattr(self, 'layout_cfg', None) else {}

@@ -54,6 +54,7 @@
       {"id": "impresion", "text": "IMPRESIÓN", "action": "open_config_impresion"},
       {"id": "usuario", "text": "USUARIO", "action": "open_config_usuario"},
       {"id": "fidelizacion", "text": "FIDELIZACIÓN", "action": "open_config_fidelizacion"},
+      {"id": "diseno_ui", "text": "DISEÑO UI", "action": "show_diseno_ui"},
       {"id": "reset", "text": "RESET", "action": "open_config_reset"}
     ],
     "impresion_submenu": {

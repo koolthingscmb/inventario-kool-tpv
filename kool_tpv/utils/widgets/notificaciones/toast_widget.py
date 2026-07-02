@@ -20,7 +20,7 @@ _COLORES_BG = {
     'warning': 'toast_warning_bg',
     'error': 'toast_error_bg',
 }
-_ICONO_PATHS = {
+_ICONO_PATHS_DEFAULT = {
     'success': 'dialog_success.png',
     'info': 'dialog_info.png',
     'warning': 'dialog_warning.png',
@@ -174,10 +174,11 @@ class ToastWidget:
         self._win.geometry(f"{w}x{h}+{x}+{y}")
 
     def _cargar_icono(self, tipo: str, size: int):
-        """Cargar icono PNG redimensionado. Fallback a None si falla."""
+        """Cargar icono PNG redimensionado. Lee el nombre de config, fallback a default."""
         if Image is None or ImageTk is None:
             return None
-        filename = _ICONO_PATHS.get(tipo)
+        cfg = load_notificaciones_config()
+        filename = cfg.get(f'toast_icono_{tipo}') or _ICONO_PATHS_DEFAULT.get(tipo)
         if not filename:
             return None
         path = _ASSETS_DIR / filename

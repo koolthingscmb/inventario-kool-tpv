@@ -32,6 +32,7 @@ class ConfigView(BaseModuleView):
             'show_usuarios': getattr(self, 'show_usuarios', None),
             'open_config_fidelizacion': getattr(self, 'show_fidelizacion', None),
             'open_config_reset': getattr(self, 'show_reset', None),
+            'show_diseno_ui': getattr(self, 'show_diseno_ui', None),
             'show_fidelizacion_general': getattr(self, 'show_fidelizacion_general', None),
             'show_fidelizacion_categorias': getattr(self, 'show_fidelizacion_categorias', None),
             'show_fidelizacion_tipos': getattr(self, 'show_fidelizacion_tipos', None),
@@ -531,6 +532,30 @@ class ConfigView(BaseModuleView):
         except Exception:
             logging.exception('Error en show_plantillas_informes')
 
+    def show_diseno_ui(self):
+        """Abrir el panel de configuración UI (ConfigTabView)."""
+        try:
+            from kool_tpv.modulos.config.ui.config_tab_view import ConfigTabView
+            from kool_tpv.modulos.config.ui.services.ui_config_service import UIConfigService
+
+            service = UIConfigService()
+
+            root = self.parent
+            if hasattr(root, 'reload_configs'):
+                for cfg_name in ['colors_config', 'font_config', 'layout_config',
+                                 'buttons_config', 'notificaciones_config', 'ui_dialogs']:
+                    service.registrar_observer(cfg_name, lambda data, name=cfg_name: root.reload_configs(name))
+
+            ui = ConfigTabView(self.central_area, service)
+            if self.set_central_content(ui):
+                try:
+                    self.actualizar_ruta('CONFIG / DISEÑO UI', callbacks=self.breadcrumb_callbacks)
+                except Exception:
+                    pass
+                logging.info('Config: abriendo DISEÑO UI...')
+        except Exception:
+            logging.exception('Error en show_diseno_ui')
+
     def show_config_root(self):
         """Volver a vista raíz de Config (limpiar sidebar y central)."""
         try:
@@ -559,6 +584,7 @@ class ConfigView(BaseModuleView):
                 'open_config_usuario': self.show_usuario,
                 'show_usuarios': self.show_usuarios,
                 'open_config_fidelizacion': self.show_fidelizacion,
+                'show_diseno_ui': self.show_diseno_ui,
             }
 
             for b in buttons:

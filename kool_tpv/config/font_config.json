@@ -3,120 +3,329 @@
     "family": "Courier New",
     "size": 16,
     "weight": "normal",
-    "fallback": ["Courier New", "Menlo", "DejaVu Sans Mono"],
+    "fallback": [
+      "Courier New",
+      "Menlo",
+      "DejaVu Sans Mono"
+    ],
     "line_height": 1.2
   },
   "label": {
     "family": "Courier New",
     "size": 16,
     "weight": "normal",
-    "fallback": ["Courier New", "Menlo"]
+    "fallback": [
+      "Courier New",
+      "Menlo"
+    ]
   },
   "entry": {
     "family": "Courier New",
     "size": 14,
     "weight": "normal",
-    "fallback": ["Courier New", "Menlo"]
+    "fallback": [
+      "Courier New",
+      "Menlo"
+    ]
   },
   "title": {
     "family": "Courier New",
     "size": 22,
     "weight": "bold",
-    "fallback": ["Courier New"]
+    "fallback": [
+      "Courier New"
+    ]
   },
   "subtitle": {
     "family": "Courier New",
     "size": 20,
     "weight": "bold",
-    "fallback": ["Courier New"]
+    "fallback": [
+      "Courier New"
+    ]
   },
   "breadcrumb": {
     "family": "Courier New",
     "size": 20,
     "weight": "bold",
-    "fallback": ["Courier New"]
+    "fallback": [
+      "Courier New"
+    ]
   },
   "caption": {
     "family": "Courier New",
     "size": 12,
     "weight": "normal",
-    "fallback": ["Courier New"]
+    "fallback": [
+      "Courier New"
+    ]
   },
   "large": {
     "family": "Courier New",
     "size": 26,
     "weight": "bold",
-    "fallback": ["Courier New"]
+    "fallback": [
+      "Courier New"
+    ]
   },
   "button": {
     "family": "Courier New",
     "size": 16,
     "weight": "bold",
-    "fallback": ["Courier New"]
+    "fallback": [
+      "Courier New"
+    ]
   },
-
   "app": {
-    "base_font": { "family": "Courier New", "size": 18, "weight": "normal" },
-    "nav_button": { "family": "Courier New", "size": 24, "weight": "bold" },
-    "tpv_large": { "family": "Courier New", "size": 60, "weight": "bold" },
-    "print_on": { "family": "Courier New", "size": 12, "weight": "bold" }
-  },
-
-  "components": {
-    "action_button": { "family": "Courier New", "size": 20, "weight": "bold", "fallback": ["Courier New"] },
-    "dialog": {
-      "title": { "family": "Courier New", "size": 20, "weight": "bold", "fallback": ["Courier New"] },
-      "message": { "family": "Courier New", "size": 14, "weight": "bold", "fallback": ["Courier New"] },
-      "button": { "family": "Courier New", "size": 14, "weight": "bold", "fallback": ["Courier New"] },
-      "input": { "family": "Courier New", "size": 14, "weight": "normal", "fallback": ["Courier New", "Arial"] }
+    "base_font": {
+      "family": "Courier New",
+      "size": 18,
+      "weight": "normal"
     },
-    "nav_list": {
-      "header": { "family": "Courier New", "size": 12, "weight": "bold", "fallback": ["Courier New"] },
-      "row": { "family": "Courier New", "size": 10, "weight": "normal", "fallback": ["Courier New"] }
+    "nav_button": {
+      "family": "Courier New",
+      "size": 24,
+      "weight": "bold"
+    },
+    "tpv_large": {
+      "family": "Courier New",
+      "size": 60,
+      "weight": "bold"
+    },
+    "print_on": {
+      "family": "Courier New",
+      "size": 12,
+      "weight": "bold"
     }
   },
-
+  "components": {
+    "action_button": {
+      "family": "Courier New",
+      "size": 20,
+      "weight": "bold",
+      "fallback": [
+        "Courier New"
+      ]
+    },
+    "dialog": {
+      "title": {
+        "family": "Courier New",
+        "size": 20,
+        "weight": "bold",
+        "fallback": [
+          "Courier New"
+        ]
+      },
+      "message": {
+        "family": "Courier New",
+        "size": 14,
+        "weight": "bold",
+        "fallback": [
+          "Courier New"
+        ]
+      },
+      "button": {
+        "family": "Courier New",
+        "size": 14,
+        "weight": "bold",
+        "fallback": [
+          "Courier New"
+        ]
+      },
+      "input": {
+        "family": "Courier New",
+        "size": 14,
+        "weight": "normal",
+        "fallback": [
+          "Courier New",
+          "Arial"
+        ]
+      }
+    },
+    "nav_list": {
+      "header": {
+        "family": "Courier New",
+        "size": 15,
+        "weight": "bold",
+        "fallback": [
+          "Courier New"
+        ]
+      },
+      "row": {
+        "family": "Courier New",
+        "size": 12,
+        "weight": "normal",
+        "fallback": [
+          "Courier New"
+        ]
+      }
+    }
+  },
   "modules": {
     "config": {
-      "label": { "family": "Courier New", "size": 16, "weight": "normal" },
-      "entry": { "family": "Courier New", "size": 14, "weight": "normal" }
+      "label": {
+        "family": "Courier New",
+        "size": 16,
+        "weight": "normal"
+      },
+      "entry": {
+        "family": "Courier New",
+        "size": 14,
+        "weight": "normal"
+      }
     },
     "tpv": {
-      "search_button": { "family": "Courier New", "size": 24, "weight": "bold", "fallback": ["Courier New"] },
-      "grid_button": { "family": "Courier New", "size": 36, "weight": "bold", "fallback": ["Courier New"] },
-      "favorite_chip": { "family": "Courier New", "size": 18, "weight": "bold" },
+      "search_button": {
+        "family": "Courier New",
+        "size": 24,
+        "weight": "bold",
+        "fallback": [
+          "Courier New"
+        ]
+      },
+      "grid_button": {
+        "family": "Courier New",
+        "size": 36,
+        "weight": "bold",
+        "fallback": [
+          "Courier New"
+        ]
+      },
+      "favorite_chip": {
+        "family": "Courier New",
+        "size": 18,
+        "weight": "bold"
+      },
       "ticket_carrito": {
-        "header_info": { "family": "Courier New", "size": 14, "weight": "normal" },
-        "header_cliente": { "family": "Courier New", "size": 16, "weight": "bold" },
-        "body_header": { "family": "Courier New", "size": 12, "weight": "bold" },
-        "nav_producto": { "family": "Courier New", "size": 12, "weight": "normal" },
-        "footer_labels": { "family": "Courier New", "size": 14, "weight": "bold" },
-        "footer_totales": { "family": "Courier New", "size": 16, "weight": "bold" }
+        "header_info": {
+          "family": "Courier New",
+          "size": 14,
+          "weight": "normal"
+        },
+        "header_cliente": {
+          "family": "Courier New",
+          "size": 16,
+          "weight": "bold"
+        },
+        "body_header": {
+          "family": "Courier New",
+          "size": 12,
+          "weight": "bold"
+        },
+        "nav_producto": {
+          "family": "Courier New",
+          "size": 12,
+          "weight": "normal"
+        },
+        "footer_labels": {
+          "family": "Courier New",
+          "size": 14,
+          "weight": "bold"
+        },
+        "footer_totales": {
+          "family": "Courier New",
+          "size": 16,
+          "weight": "bold"
+        }
       },
       "payment_controllers": {
-        "titulo": { "family": "Courier New", "size": 20, "weight": "bold" },
-        "label": { "family": "Courier New", "size": 18, "weight": "bold" },
-        "entry": { "family": "Courier New", "size": 20, "weight": "normal" },
-        "cambio": { "family": "Courier New", "size": 18, "weight": "bold" },
-        "button": { "family": "Courier New", "size": 20, "weight": "bold" },
-        "error": { "family": "Courier New", "size": 20, "weight": "normal" }
+        "titulo": {
+          "family": "Courier New",
+          "size": 20,
+          "weight": "bold"
+        },
+        "label": {
+          "family": "Courier New",
+          "size": 18,
+          "weight": "bold"
+        },
+        "entry": {
+          "family": "Courier New",
+          "size": 20,
+          "weight": "normal"
+        },
+        "cambio": {
+          "family": "Courier New",
+          "size": 18,
+          "weight": "bold"
+        },
+        "button": {
+          "family": "Courier New",
+          "size": 20,
+          "weight": "bold"
+        },
+        "error": {
+          "family": "Courier New",
+          "size": 20,
+          "weight": "normal"
+        }
       },
       "buscar_overlay": {
-        "main_buttons": { "family": "Courier New", "size": 30, "weight": "bold", "fallback": ["Courier New"] },
-        "category_buttons": { "family": "Arial", "size": 18, "weight": "bold", "fallback": ["Arial"] },
-        "article_buttons": { "family": "Arial", "size": 18, "weight": "bold", "fallback": ["Arial"] }
+        "main_buttons": {
+          "family": "Courier New",
+          "size": 30,
+          "weight": "bold",
+          "fallback": [
+            "Courier New"
+          ]
+        },
+        "category_buttons": {
+          "family": "Arial",
+          "size": 18,
+          "weight": "bold",
+          "fallback": [
+            "Arial"
+          ]
+        },
+        "article_buttons": {
+          "family": "Arial",
+          "size": 18,
+          "weight": "bold",
+          "fallback": [
+            "Arial"
+          ]
+        }
       }
     },
     "presencia": {
-      "nombre": { "family": "Courier New", "size": 44, "weight": "bold" },
-      "accion": { "family": "Courier New", "size": 34, "weight": "bold" },
-      "estado": { "family": "Courier New", "size": 34, "weight": "bold" },
-      "desde": { "family": "Courier New", "size": 26, "weight": "normal" },
-      "historial_header": { "family": "Courier New", "size": 26, "weight": "bold" },
-      "historial_row": { "family": "Courier New", "size": 20, "weight": "normal" },
-      "placeholder": { "family": "Courier New", "size": 18, "weight": "normal" }
+      "nombre": {
+        "family": "Courier New",
+        "size": 44,
+        "weight": "bold"
+      },
+      "accion": {
+        "family": "Courier New",
+        "size": 34,
+        "weight": "bold"
+      },
+      "estado": {
+        "family": "Courier New",
+        "size": 34,
+        "weight": "bold"
+      },
+      "desde": {
+        "family": "Courier New",
+        "size": 26,
+        "weight": "normal"
+      },
+      "historial_header": {
+        "family": "Courier New",
+        "size": 26,
+        "weight": "bold"
+      },
+      "historial_row": {
+        "family": "Courier New",
+        "size": 20,
+        "weight": "normal"
+      },
+      "placeholder": {
+        "family": "Courier New",
+        "size": 18,
+        "weight": "normal"
+      }
     }
   },
-
-  "scale": { "global_factor": 1.0 }
+  "scale": {
+    "global_factor": 1.0
+  }
 }

@@ -27,8 +27,7 @@
         "grid": "transparent"
       },
       "zone_border_width": 3
-    }
-    ,
+    },
     "main_menu_layout": {
       "side": "top",
       "padx": 20,
@@ -103,20 +102,110 @@
           "min_button_size": 120,
           "max_button_size": 400,
           "buttons": [
-            {"label": "FAVORITOS", "command": "buscar_articulo", "row": 0, "col": 0, "colspan": 2, "style_key": "menu_almacen"},
-            {"label": "CASH", "shortcut": "Alt+1", "command": "Pagar en Efectivo", "row": 0, "col": 2, "colspan": 2, "style_key": "menu_almacen"},
-            {"label": "STOCK", "command": "stock", "row": 1, "col": 0, "style_key": "menu_almacen"},
-            {"label": "MULTI $", "shortcut": "Alt+4", "command": "Multicobro", "row": 1, "col": 1, "style_key": "menu_almacen"},
-            {"label": "WEB", "shortcut": "Alt+3", "command": "Pagar en Web", "row": 1, "col": 2, "style_key": "menu_almacen"},
-            {"label": "TARJETA", "shortcut": "Alt+2", "command": "Pagar con Tarjeta", "row": 1, "col": 3, "style_key": "menu_almacen"},
-            {"label": "DESCUENTO", "command": "Hacer dto directo o %", "row": 2, "col": 0, "style_key": "rosa_descuentos"},
-            {"label": "DEVOLUCIÓN", "command": "Realizar Devolución", "row": 2, "col": 1, "style_key": "rosa_descuentos"},
-            {"label": "CLIENTE", "command": "Asignar Cliente", "row": 2, "col": 2, "style_key": "menu_clientes"},
-            {"label": "CAJERO", "command": "Asignar Cajero", "row": 2, "col": 3, "style_key": "menu_clientes"},
-            {"label": "PRESENCIA", "command": "presencia", "row": 3, "col": 0, "style_key": "menu_config"},
-            {"label": "PRINT ON", "command": "toggle_print", "row": 3, "col": 1, "style_key": "blanco"},
-            {"label": "CIERRE", "command": "Cierres de caja", "row": 3, "col": 2, "style_key": "rojo_tickets"},
-            {"label": "TICKETS", "command": "Abrir Tickets", "row": 3, "col": 3, "style_key": "rojo_tickets"}
+            {
+              "label": "FAVORITOS",
+              "command": "favoritos",
+              "row": 0,
+              "col": 0,
+              "colspan": 2,
+              "style_key": "menu_almacen"
+            },
+            {
+              "label": "CASH",
+              "shortcut": "Alt+1",
+              "command": "Pagar en Efectivo",
+              "row": 0,
+              "col": 2,
+              "colspan": 2,
+              "style_key": "menu_almacen"
+            },
+            {
+              "label": "STOCK",
+              "command": "stock",
+              "row": 1,
+              "col": 0,
+              "style_key": "menu_almacen"
+            },
+            {
+              "label": "MULTI $",
+              "shortcut": "Alt+4",
+              "command": "Multicobro",
+              "row": 1,
+              "col": 1,
+              "style_key": "menu_almacen"
+            },
+            {
+              "label": "WEB",
+              "shortcut": "Alt+3",
+              "command": "Pagar en Web",
+              "row": 1,
+              "col": 2,
+              "style_key": "menu_almacen"
+            },
+            {
+              "label": "TARJETA",
+              "shortcut": "Alt+2",
+              "command": "Pagar con Tarjeta",
+              "row": 1,
+              "col": 3,
+              "style_key": "menu_almacen"
+            },
+            {
+              "label": "DESCUENTO",
+              "command": "Hacer dto directo o %",
+              "row": 2,
+              "col": 0,
+              "style_key": "rosa_descuentos"
+            },
+            {
+              "label": "DEVOLUCIÓN",
+              "command": "Realizar Devolución",
+              "row": 2,
+              "col": 1,
+              "style_key": "rosa_descuentos"
+            },
+            {
+              "label": "CLIENTE",
+              "command": "Asignar Cliente",
+              "row": 2,
+              "col": 2,
+              "style_key": "menu_clientes"
+            },
+            {
+              "label": "CAJERO",
+              "command": "Asignar Cajero",
+              "row": 2,
+              "col": 3,
+              "style_key": "menu_clientes"
+            },
+            {
+              "label": "PRESENCIA",
+              "command": "presencia",
+              "row": 3,
+              "col": 0,
+              "style_key": "menu_config"
+            },
+            {
+              "label": "PRINT ON",
+              "command": "toggle_print",
+              "row": 3,
+              "col": 1,
+              "style_key": "blanco"
+            },
+            {
+              "label": "CIERRE",
+              "command": "Cierres de caja",
+              "row": 3,
+              "col": 2,
+              "style_key": "rojo_tickets"
+            },
+            {
+              "label": "TICKETS",
+              "command": "Abrir Tickets",
+              "row": 3,
+              "col": 3,
+              "style_key": "rojo_tickets"
+            }
           ]
         }
       },
