@@ -50,6 +50,9 @@ class ProduccionConfigService:
         return self.tallas_repo.get_todas()
 
     def guardar_talla(self, nombre: str, orden: int, activo: int = 1, talla_id: Optional[int] = None) -> bool:
+        if not talla_id:
+            tallas = self.tallas_repo.get_todas()
+            orden = max((t.orden for t in tallas), default=-1) + 1
         talla = ProduccionTalla(id=talla_id, nombre=nombre, orden=orden, activo=activo)
         if talla_id:
             return self.tallas_repo.actualizar(talla)

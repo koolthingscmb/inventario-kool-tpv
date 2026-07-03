@@ -486,20 +486,32 @@ class ResetService:
         try:
             conn = self.db.connection
             cur = conn.cursor()
-            cur.execute("PRAGMA foreign_keys = ON")
+            cur.execute("PRAGMA foreign_keys = OFF")
 
+            # Borrar en orden: hijos antes que padres
+            # Devoluciones y líneas hijas
             cur.execute("DELETE FROM devoluciones")
             logging.warning('RESET COMPLETO: devoluciones borradas')
 
+            # Líneas de tickets antes que tickets
+            cur.execute("DELETE FROM payments")
+            cur.execute("DELETE FROM ticket_lines")
+            cur.execute("DELETE FROM stock_movements")
             cur.execute("DELETE FROM tickets")
-            logging.warning('RESET COMPLETO: tickets borrados (CASCADE ticket_lines/movimientos)')
+            logging.warning('RESET COMPLETO: tickets, pagos, líneas y movimientos borrados')
 
+            # Cierres y sus líneas
+            cur.execute("DELETE FROM cierres_lineas")
             cur.execute("DELETE FROM cierres")
             logging.warning('RESET COMPLETO: cierres borrados')
 
+            # Albaranes y sus líneas
+            cur.execute("DELETE FROM albaran_lines")
             cur.execute("DELETE FROM albaranes")
             logging.warning('RESET COMPLETO: albaranes borrados')
 
+            # Facturas y sus líneas
+            cur.execute("DELETE FROM facturas_lines")
             cur.execute("DELETE FROM facturas")
             logging.warning('RESET COMPLETO: facturas borradas')
 
@@ -531,13 +543,16 @@ class ResetService:
 
             # Producción — cada DELETE en su propio try/except por si alguna tabla no existe
             _tablas_prod = [
+                'produccion_disenos_ventas',
+                'produccion_disenos_metodos',
                 'produccion_lineas', 'produccion_ordenes', 'produccion_disenos_stock',
                 'produccion_disenos_tipos', 'produccion_disenos_costes',
-                'produccion_disenos_ventas', 'produccion_disenos',
+                'produccion_disenos',
                 'produccion_stock_colores_tallas', 'produccion_tipo_color_tallas',
                 'produccion_menu_tipos', 'produccion_menu',
                 'produccion_genero_colores', 'produccion_genero_color_tallas',
-                'produccion_estados'
+                'produccion_estados',
+                'produccion_variantes_productos', 'tipos_variantes'
             ]
             for tbl in _tablas_prod:
                 try:
@@ -545,11 +560,12 @@ class ResetService:
                 except Exception:
                     pass
             try:
-                cur.execute("DELETE FROM sqlite_sequence WHERE name IN ('produccion_ordenes', 'produccion_lineas', 'produccion_disenos_stock', 'produccion_stock_colores_tallas', 'produccion_tipo_color_tallas', 'produccion_disenos', 'produccion_menu', 'categorias', 'tipos', 'productos', 'precios', 'descuentos', 'proveedores')")
+                cur.execute("DELETE FROM sqlite_sequence WHERE name IN ('tickets', 'ticket_lines', 'payments', 'cierres', 'cierres_lineas', 'albaranes', 'albaran_lines', 'facturas', 'facturas_lines', 'devoluciones', 'stock_movements', 'produccion_ordenes', 'produccion_lineas', 'produccion_disenos_stock', 'produccion_stock_colores_tallas', 'produccion_tipo_color_tallas', 'produccion_disenos', 'produccion_menu', 'categorias', 'tipos', 'productos', 'precios', 'descuentos', 'proveedores', 'favoritos', 'produccion_variantes_productos', 'tipos_variantes')")
             except Exception:
                 pass
             logging.warning('RESET COMPLETO: datos de producción y catálogo borrados, contadores reseteados')
 
+            cur.execute("PRAGMA foreign_keys = ON")
             conn.commit()
             logging.warning('⚠️⚠️⚠️ RESET COMPLETO EJECUTADO ⚠️⚠️⚠️')
             return True

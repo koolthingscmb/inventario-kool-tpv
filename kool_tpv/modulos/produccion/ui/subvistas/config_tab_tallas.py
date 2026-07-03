@@ -73,8 +73,18 @@ class ConfigTabTallas:
                       command=self._guardar).pack(side=tk.LEFT, padx=(0, 5), expand=True, fill=tk.X)
         ctk.CTkButton(frame_btns, text="NUEVO", fg_color="#2980b9", hover_color="#3498db",
                       command=self._limpiar).pack(side=tk.LEFT, padx=(5, 0), expand=True, fill=tk.X)
-        ctk.CTkButton(frame_btns, text="ELIMINAR", fg_color="#e74c3c", hover_color="#c0392b",
-                      command=self._eliminar).pack(side=tk.LEFT, padx=(5, 0), expand=True, fill=tk.X)
+
+        ctk.CTkButton(frame_form, text="ELIMINAR", fg_color="#e74c3c", hover_color="#c0392b",
+                      command=self._eliminar, width=250).pack(pady=(0, 10), padx=20, fill=tk.X)
+
+        # --- Añadir múltiples tallas ---
+        tk.Label(frame_form, text="Añadir varias (separadas por coma):",
+                 font=get_font(self.config, "small"), fg=self._text, bg="#34495e").pack(pady=(5, 2), padx=20, anchor="w")
+        self._entry_bulk = ctk.CTkEntry(frame_form, placeholder_text="S, M, L, XL, XXL...", width=250)
+        self._entry_bulk.pack(pady=2, padx=20, fill=tk.X)
+        self._entry_bulk.bind('<Return>', lambda e: self._anadir_bulk())
+        ctk.CTkButton(frame_form, text="AÑADIR VARIAS", fg_color="#8e44ad", hover_color="#9b59b6",
+                      command=self._anadir_bulk, width=250).pack(pady=(2, 15), padx=20, fill=tk.X)
 
         self._cargar_lista()
 
@@ -123,6 +133,19 @@ class ConfigTabTallas:
         self._talla_id_edit = None
         self._entry_nombre.delete(0, tk.END)
         self._var_activo.set(1)
+
+    def _anadir_bulk(self):
+        texto = self._entry_bulk.get().strip()
+        if not texto:
+            return
+        nombres = [n.strip().upper() for n in texto.split(",") if n.strip()]
+        if not nombres:
+            return
+        for nombre in nombres:
+            self.service.guardar_talla(nombre, 0, 1, None)
+        self._entry_bulk.delete(0, tk.END)
+        self._limpiar()
+        self._cargar_lista()
 
     def _eliminar(self):
         if self._talla_id_edit:
