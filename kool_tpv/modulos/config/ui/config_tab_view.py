@@ -14,7 +14,7 @@ class ConfigTabView:
     """Vista con tabs para gestionar colores, tipografía, botones, layout, etc."""
 
     _MAIN_TABS = [
-        "COLORES", "TIPOGRAFÍA", "BOTONES", "LAYOUT",
+        "COLORES", "TIPOGRAFÍA", "BOTONES",
         "DIÁLOGOS", "TOASTS", "NAV LIST", "SISTEMA"
     ]
     _TAB_BG_NORMAL = "#34495e"
@@ -99,9 +99,6 @@ class ConfigTabView:
         elif tab_name == "BOTONES":
             from kool_tpv.modulos.config.ui.tabs.buttons_tab import ButtonsTab
             self._current_tab_obj = ButtonsTab(self._content_frame, self.service)
-        elif tab_name == "LAYOUT":
-            from kool_tpv.modulos.config.ui.tabs.layout_tab import LayoutTab
-            self._current_tab_obj = LayoutTab(self._content_frame, self.service)
         elif tab_name == "DIÁLOGOS":
             from kool_tpv.modulos.config.ui.tabs.dialogs_tab import DialogsTab
             self._current_tab_obj = DialogsTab(self._content_frame, self.service)

@@ -41,9 +41,13 @@ class TypographyTab:
 
         self._render_preview_panel(right)
 
+    _SKIP_KEYS = {"components", "modules", "scale"}
+
     def _render_tokens(self, parent, data: Dict[str, Any], prefix: str = ""):
         """Renderiza recursivamente todos los tokens de fuente encontrados."""
         for key, value in data.items():
+            if key in self._SKIP_KEYS:
+                continue
             full_key = f"{prefix}.{key}" if prefix else key
 
             if isinstance(value, dict):
@@ -80,16 +84,35 @@ class TypographyTab:
 
     _WEIGHTS = ["normal", "bold"]
 
+    _TOKEN_DESC = {
+        "default": "Fuente base de toda la app. Si cambias esta, se refleja en todos los textos que no tengan un token específico.",
+        "label": "Etiquetas de formularios en todos los módulos (Almacén, Clientes, Config...). Ej: 'Nombre', 'SKU', 'Precio'.",
+        "entry": "Campos de entrada de texto en formularios. Ej: donde escribes el nombre de un producto o cliente.",
+        "title": "Títulos principales de cada vista. Ej: 'ALMACÉN', 'CLIENTES', 'TPV' en la cabecera.",
+        "subtitle": "Subtítulos de sección dentro de las vistas. Ej: 'Crear producto', 'Búsqueda avanzada'.",
+        "breadcrumb": "Migas de pan de navegación. Ej: 'Inicio > TPV > Buscar artículo'.",
+        "caption": "Texto pequeño de ayuda o notas informativas bajo campos y botones.",
+        "large": "Texto grande destacado. Ej: mensajes de confirmación, totales en informes.",
+        "button": "Texto de botones genéricos en toda la app. Ej: 'Guardar', 'Cancelar', 'Aceptar'.",
+        "app.base_font": "Fuente base de la app (override del default). Afecta a todos los textos generales.",
+        "app.nav_button": "Botones de navegación lateral (barra izquierda). Ej: 'TPV', 'ALMACÉN', 'CONFIG'.",
+        "app.tpv_large": "Número grande del total en el TPV. Ej: '60,00 €' en el ticket.",
+        "app.print_on": "Texto del botón 'IMPRIMIR' en el TPV.",
+    }
+
     def _font_row(self, parent, key: str, font_data: Dict[str, Any]):
         family = font_data.get("family", "Courier New")
         size = font_data.get("size", 14)
         weight = font_data.get("weight", "normal")
 
-        row = tk.Frame(parent, bg=self._bg)
-        row.pack(fill="x", padx=10, pady=3)
+        container = tk.Frame(parent, bg=self._bg)
+        container.pack(fill="x", padx=10, pady=5)
+
+        row = tk.Frame(container, bg=self._bg)
+        row.pack(fill="x")
 
         tk.Label(
-            row, text=key, font=("Helvetica", 10), fg=self._fg,
+            row, text=key, font=("Helvetica", 10, "bold"), fg="#3498db",
             bg=self._bg, width=35, anchor="w"
         ).pack(side="left", padx=(0, 8))
 
@@ -117,6 +140,14 @@ class TypographyTab:
 
         preview_lbl = tk.Label(row, text="AaBbCc", fg=self._fg, bg=self._bg, width=12)
         preview_lbl.pack(side="left")
+
+        desc = self._TOKEN_DESC.get(key, "")
+        if desc:
+            tk.Label(
+                container, text=desc,
+                font=("Helvetica", 9), fg="#95a5a6", bg=self._bg,
+                anchor="w", justify="left", wraplength=520
+            ).pack(fill="x", padx=(0, 5), pady=(2, 0))
 
         def _update_preview(*_):
             f = fam_var.get()
@@ -153,40 +184,6 @@ class TypographyTab:
         "app.nav_button": "NAVEGACIÓN",
         "app.tpv_large": "60€",
         "app.print_on": "IMPRIMIR",
-        "components.action_button": "ACCIÓN",
-        "components.dialog.title": "Diálogo",
-        "components.dialog.message": "Mensaje del diálogo",
-        "components.dialog.button": "Aceptar",
-        "components.dialog.input": "Escriba aquí...",
-        "components.nav_list.header": "Cabecera lista",
-        "components.nav_list.row": "Fila de la lista",
-        "modules.config.label": "Config label",
-        "modules.config.entry": "Config entry",
-        "modules.tpv.search_button": "BUSCAR",
-        "modules.tpv.grid_button": "PRODUCTO",
-        "modules.tpv.favorite_chip": "★ Favorito",
-        "modules.tpv.ticket_carrito.header_info": "Ticket #1234",
-        "modules.tpv.ticket_carrito.header_cliente": "Cliente: Anónimo",
-        "modules.tpv.ticket_carrito.body_header": "Cant  Producto  Total",
-        "modules.tpv.ticket_carrito.nav_producto": "2x Camiseta  20.00€",
-        "modules.tpv.ticket_carrito.footer_labels": "TOTAL",
-        "modules.tpv.ticket_carrito.footer_totales": "45.00€",
-        "modules.tpv.payment_controllers.titulo": "PAGO EN EFECTIVO",
-        "modules.tpv.payment_controllers.label": "Importe recibido:",
-        "modules.tpv.payment_controllers.entry": "0.00€",
-        "modules.tpv.payment_controllers.cambio": "Cambio: 5.00€",
-        "modules.tpv.payment_controllers.button": "CONFIRMAR",
-        "modules.tpv.payment_controllers.error": "Importe insuficiente",
-        "modules.tpv.buscar_overlay.main_buttons": "CATEGORÍAS",
-        "modules.tpv.buscar_overlay.category_buttons": "Camisetas",
-        "modules.tpv.buscar_overlay.article_buttons": "Camiseta Negra XL",
-        "modules.presencia.nombre": "EGON",
-        "modules.presencia.accion": "ENTRADA",
-        "modules.presencia.estado": "ACTIVO",
-        "modules.presencia.desde": "Desde 09:15",
-        "modules.presencia.historial_header": "Historial",
-        "modules.presencia.historial_row": "09:15 - Entrada",
-        "modules.presencia.placeholder": "Selecciona un empleado",
     }
 
     def _render_preview_panel(self, parent):

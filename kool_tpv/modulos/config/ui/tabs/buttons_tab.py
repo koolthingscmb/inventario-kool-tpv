@@ -1,16 +1,16 @@
 """Tab BOTONES del panel de configuración UI."""
 import tkinter as tk
-from tkinter import colorchooser
 from typing import Any, Dict, List
 
 import customtkinter as ctk
 
 from kool_tpv.modulos.config.ui.services.ui_config_service import UIConfigService
-from kool_tpv.modulos.config.ui.config_tab_helper import section_title
 
 
 class ButtonsTab:
     """Muestra y edita los estilos de botones desde button_styles.json y buttons_config.json."""
+
+    _SUBTABS = ["ESTILOS", "MENÚ PRINCIPAL", "BOTONES GLOBALES"]
 
     def __init__(self, parent, service: UIConfigService):
         self.parent = parent
@@ -24,8 +24,14 @@ class ButtonsTab:
         self._preview_btns: Dict[str, ctk.CTkButton] = {}
         self._style_rows: Dict[str, tk.Frame] = {}
         self._system_styles: set = set()
-        self._preview_test_btn: ctk.CTkButton = None
+        self._current_subtab: str = ""
+        self._subtab_btns: Dict[str, tk.Label] = {}
+        self._status_label: tk.Label = None
         self._preview_style_var = None
+        self._preview_test_btn = None
+        self._styles_container = None
+        self._estilo_editor_frame = None
+        self._estilo_var = None
         self._build()
 
     def _build(self):
@@ -34,63 +40,127 @@ class ButtonsTab:
         self._tokens = self._load_tokens()
         self._system_styles = self._load_system_styles()
 
-        main = tk.Frame(self.parent, bg=self._bg)
-        main.pack(fill=tk.BOTH, expand=True)
+        self.main_container = tk.Frame(self.parent, bg=self._bg)
+        self.main_container.pack(fill=tk.BOTH, expand=True)
 
-        left = ctk.CTkScrollableFrame(main, fg_color=self._bg, width=550)
+        # 1. Barra de subpestañas
+        self.tab_bar = tk.Frame(self.main_container, bg="#1a1a1a", height=45)
+        self.tab_bar.pack(fill="x", side=tk.TOP)
+        self.tab_bar.pack_propagate(False)
+        self._render_subtabs()
+
+        # 2. Contenedor de contenido
+        self.content_container = tk.Frame(self.main_container, bg=self._bg)
+        self.content_container.pack(fill=tk.BOTH, expand=True)
+
+        # 3. Barra inferior APLICAR
+        self._render_save_bar(self.main_container)
+
+        self._switch_subtab("ESTILOS")
+
+    def _render_subtabs(self):
+        for label in self._SUBTABS:
+            btn = tk.Label(
+                self.tab_bar, text=label,
+                font=("Helvetica", 10, "bold"),
+                fg="#7f8c8d", bg="#1a1a1a",
+                padx=20, cursor="hand2"
+            )
+            btn.pack(side=tk.LEFT, fill="y")
+            btn.bind("<Button-1>", lambda e, c=label: self._switch_subtab(c))
+            self._subtab_btns[label] = btn
+
+    def _switch_subtab(self, code: str):
+        for c, btn in self._subtab_btns.items():
+            if c == code:
+                btn.configure(fg="#3498db", bg="#2c3e50")
+            else:
+                btn.configure(fg="#7f8c8d", bg="#1a1a1a")
+        self._current_subtab = code
+
+        for w in self.content_container.winfo_children():
+            w.destroy()
+        self._values.clear()
+        self._preview_btns.clear()
+        self._style_rows.clear()
+
+        if code == "ESTILOS":
+            self._render_estilos_subtab()
+        elif code == "MENÚ PRINCIPAL":
+            self._render_menu_subtab()
+        elif code == "BOTONES GLOBALES":
+            self._render_globales_subtab()
+
+    # ── Subpestaña ESTILOS ──────────────────────────────────────────
+
+    def _render_estilos_subtab(self):
+        left = ctk.CTkScrollableFrame(self.content_container, fg_color=self._bg)
         left.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        right = tk.Frame(main, bg=self._bg, width=300)
+        right = tk.Frame(self.content_container, bg=self._bg, width=300)
         right.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0))
         right.pack_propagate(False)
 
-        header_frame = tk.Frame(left, bg=self._bg)
-        header_frame.pack(fill="x", padx=10, pady=(10, 5))
+        header = tk.Frame(left, bg=self._bg)
+        header.pack(fill="x", padx=10, pady=(10, 5))
 
-        section_title(header_frame, "Botones — button_styles.json", self._bg).pack(
-            side="left"
-        )
+        tk.Label(
+            header, text="Estilos de botón — button_styles.json",
+            font=("Helvetica", 14, "bold"), fg="#ecf0f1", bg=self._bg
+        ).pack(side="left")
 
         ctk.CTkButton(
-            header_frame, text="+ NUEVO ESTILO", width=120, height=28,
+            header, text="+ NUEVO ESTILO", width=120, height=28,
             fg_color="#2ecc71", hover_color="#27ae60",
             font=("Helvetica", 11, "bold"),
             command=self._nuevo_estilo
         ).pack(side="right")
 
+        # Combobox para seleccionar estilo
+        combo_frame = tk.Frame(left, bg=self._bg)
+        combo_frame.pack(fill="x", padx=10, pady=(5, 10))
+
+        tk.Label(
+            combo_frame, text="Selecciona un estilo:", font=("Helvetica", 10),
+            fg=self._fg, bg=self._bg, anchor="w"
+        ).pack(fill="x", pady=(0, 2))
+
+        style_names = sorted(self._data_styles.keys())
+        self._estilo_var = tk.StringVar(value=style_names[0] if style_names else "")
+
+        ctk.CTkOptionMenu(
+            combo_frame, variable=self._estilo_var,
+            values=style_names, width=300,
+            command=self._on_estilo_selected
+        ).pack(fill="x")
+
+        # Contenedor para el editor del estilo seleccionado
         self._styles_container = left
-        self._render_styles(left)
+        self._estilo_editor_frame = tk.Frame(left, bg=self._bg)
+        self._estilo_editor_frame.pack(fill="x", padx=10, pady=5)
 
-        self._separator(left)
-
-        section_title(left, "Configuración — buttons_config.json", self._bg).pack(
-            fill="x", pady=(10, 5), padx=10
-        )
-
-        self._render_config(left)
+        # Renderizar el primer estilo
+        if style_names:
+            self._on_estilo_selected(style_names[0])
 
         self._render_preview_panel(right)
 
-    def _load_tokens(self) -> Dict[str, str]:
-        tokens_data = self.service.cargar_json("design_tokens")
-        flat: Dict[str, str] = {}
-        self._flatten_tokens(flat, "", tokens_data)
-        return flat
-
-    def _flatten_tokens(self, out: Dict[str, str], prefix: str, data: Dict[str, Any]):
-        for key, value in data.items():
-            full = f"{prefix}.{key}" if prefix else key
-            if isinstance(value, str) and value.startswith("#"):
-                out[key] = value
-            elif isinstance(value, dict):
-                self._flatten_tokens(out, full, value)
+    def _on_estilo_selected(self, name: str):
+        if not name or name not in self._data_styles:
+            return
+        for w in self._estilo_editor_frame.winfo_children():
+            w.destroy()
+        # Limpiar values del estilo anterior
+        keys_to_remove = [k for k in self._values if "." in k and k.split(".")[0] not in ("main_menu", "global_buttons")]
+        for k in keys_to_remove:
+            self._values.pop(k, None)
+        self._style_row(self._estilo_editor_frame, name, self._data_styles[name])
 
     def _render_preview_panel(self, parent):
-        self._render_save_bar(parent)
-
-        section_title(parent, "PREVIEW DE BOTÓN", self._bg).pack(
-            fill="x", pady=(10, 5), padx=10
-        )
+        tk.Label(
+            parent, text="PREVIEW DE BOTÓN",
+            font=("Helvetica", 14, "bold"), fg="#ecf0f1", bg=self._bg
+        ).pack(fill="x", pady=(10, 5), padx=10)
 
         tk.Label(
             parent, text="Selecciona un estilo:", font=("Helvetica", 10),
@@ -148,43 +218,6 @@ class ButtonsTab:
         text_var.trace_add("write", _update_text)
         _refresh_preview()
 
-    def _render_save_bar(self, parent):
-        bar = tk.Frame(parent, bg=self._bg)
-        bar.pack(fill="x", side=tk.BOTTOM, padx=10, pady=10)
-
-        self._status_label = tk.Label(
-            bar, text="", font=("Helvetica", 10),
-            fg=self._fg, bg=self._bg, anchor="w"
-        )
-        self._status_label.pack(side=tk.LEFT, padx=(0, 8))
-
-        ctk.CTkButton(
-            bar, text="APLICAR", width=100, height=32,
-            fg_color="#2ecc71", hover_color="#27ae60",
-            command=self._on_aplicar
-        ).pack(side=tk.RIGHT)
-
-    def _on_aplicar(self):
-        for key, var in self._values.items():
-            parts = key.split(".")
-            style_name = parts[0]
-            field = parts[-1]
-            if style_name not in self._data_styles:
-                continue
-            new_val = var.get().strip()
-            if field in ["width", "height", "corner_radius", "border_width", "font_size"]:
-                try:
-                    new_val = int(float(new_val))
-                except ValueError:
-                    continue
-            elif field in ["bg_token", "text_token", "hover_token", "border_token"]:
-                if not new_val:
-                    new_val = None
-            if field in self._data_styles[style_name] or new_val is not None:
-                self._data_styles[style_name][field] = new_val
-        self.service.aplicar_cambio("button_styles", self._data_styles)
-        self._status_label.configure(text="✓ Guardado", fg="#2ecc71")
-
     def _update_test_preview(self, name: str):
         btn = self._preview_test_btn
         if not btn:
@@ -237,33 +270,135 @@ class ButtonsTab:
         except tk.TclError:
             pass
 
+    def _load_tokens(self) -> Dict[str, str]:
+        tokens_data = self.service.cargar_json("design_tokens")
+        flat: Dict[str, str] = {}
+        self._flatten_tokens(flat, "", tokens_data)
+        return flat
+
+    def _flatten_tokens(self, out: Dict[str, str], prefix: str, data: Dict[str, Any]):
+        for key, value in data.items():
+            full = f"{prefix}.{key}" if prefix else key
+            if isinstance(value, str) and value.startswith("#"):
+                out[key] = value
+            elif isinstance(value, dict):
+                self._flatten_tokens(out, full, value)
+
     def _load_system_styles(self) -> set:
         refs = set()
         cfg = self._data_config
-        for section in ["buttons", "main_menu", "global_buttons"]:
+        for section in ["main_menu", "global_buttons"]:
             items = cfg.get(section, [])
             if isinstance(items, list):
                 for item in items:
                     sk = item.get("style_key") or item.get("color_key")
                     if sk:
                         refs.add(sk)
-        buscar = cfg.get("buscar_overlay", {})
-        for k, v in buscar.items():
-            if isinstance(v, list):
-                for item in v:
-                    sk = item.get("style_key") or item.get("color_key")
-                    if sk:
-                        refs.add(sk)
         return refs
+
+    def _render_save_bar(self, parent):
+        bar = tk.Frame(parent, bg=self._bg)
+        bar.pack(fill="x", side=tk.BOTTOM, padx=10, pady=10)
+
+        self._status_label = tk.Label(
+            bar, text="", font=("Helvetica", 10),
+            fg=self._fg, bg=self._bg, anchor="w"
+        )
+        self._status_label.pack(side=tk.LEFT, padx=(0, 8))
+
+        ctk.CTkButton(
+            bar, text="APLICAR", width=100, height=32,
+            fg_color="#2ecc71", hover_color="#27ae60",
+            command=self._on_aplicar
+        ).pack(side=tk.RIGHT)
+
+    def _on_aplicar(self):
+        if self._current_subtab == "ESTILOS":
+            for key, var in self._values.items():
+                parts = key.split(".")
+                style_name = parts[0]
+                field = parts[-1]
+                if style_name not in self._data_styles:
+                    continue
+                new_val = var.get().strip()
+                if field in ["width", "height", "corner_radius", "border_width", "font_size"]:
+                    try:
+                        new_val = int(float(new_val))
+                    except ValueError:
+                        continue
+                elif field in ["bg_token", "text_token", "hover_token", "border_token"]:
+                    if not new_val:
+                        new_val = None
+                if field in self._data_styles[style_name] or new_val is not None:
+                    self._data_styles[style_name][field] = new_val
+            self.service.aplicar_cambio("button_styles", self._data_styles)
+
+        elif self._current_subtab in ("MENÚ PRINCIPAL", "BOTONES GLOBALES"):
+            section = "main_menu" if self._current_subtab == "MENÚ PRINCIPAL" else "global_buttons"
+            items = self._data_config.get(section, [])
+            for key, var in self._values.items():
+                parts = key.split(".")
+                if len(parts) >= 3 and parts[0] == section:
+                    idx = int(parts[1])
+                    field = parts[2]
+                    if idx < len(items):
+                        items[idx][field] = var.get().strip()
+            self.service.aplicar_cambio("buttons_config", self._data_config)
+
+        self._status_label.configure(text="✓ Guardado", fg="#2ecc71")
+
+    # ── Subpestaña MENÚ PRINCIPAL ───────────────────────────────────
+
+    def _render_menu_subtab(self):
+        scroll = ctk.CTkScrollableFrame(self.content_container, fg_color=self._bg)
+        scroll.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(
+            scroll, text="Menú Principal — buttons_config.json → main_menu",
+            font=("Helvetica", 14, "bold"), fg="#ecf0f1", bg=self._bg
+        ).pack(fill="x", padx=10, pady=(10, 8))
+
+        tk.Label(
+            scroll, text="Estos son los botones de la barra lateral de navegación. "
+                         "Cada uno usa un estilo (style_key) definido en la subpestaña ESTILOS.",
+            font=("Helvetica", 10), fg="#95a5a6", bg=self._bg,
+            anchor="w", justify="left", wraplength=600
+        ).pack(fill="x", padx=10, pady=(0, 10))
+
+        items = self._data_config.get("main_menu", [])
+        style_names = sorted(self._data_styles.keys())
+
+        for i, item in enumerate(items):
+            self._config_row(scroll, item, i, style_names, "main_menu")
+
+    # ── Subpestaña BOTONES GLOBALES ─────────────────────────────────
+
+    def _render_globales_subtab(self):
+        scroll = ctk.CTkScrollableFrame(self.content_container, fg_color=self._bg)
+        scroll.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(
+            scroll, text="Botones Globales — buttons_config.json → global_buttons",
+            font=("Helvetica", 14, "bold"), fg="#ecf0f1", bg=self._bg
+        ).pack(fill="x", padx=10, pady=(10, 8))
+
+        tk.Label(
+            scroll, text="Botones especiales disponibles en toda la app. "
+                         "Ej: botón de power (apagar/cerrar), PRINT ON (activar impresión automática).",
+            font=("Helvetica", 10), fg="#95a5a6", bg=self._bg,
+            anchor="w", justify="left", wraplength=600
+        ).pack(fill="x", padx=10, pady=(0, 10))
+
+        items = self._data_config.get("global_buttons", [])
+        style_names = sorted(self._data_styles.keys())
+
+        for i, item in enumerate(items):
+            self._config_row(scroll, item, i, style_names, "global_buttons")
 
     def _token_color(self, token_name: str) -> str:
         if token_name and token_name in self._tokens:
             return self._tokens[token_name]
         return "#444444"
-
-    def _render_styles(self, parent):
-        for name, style in self._data_styles.items():
-            self._style_row(parent, name, style)
 
     def _nuevo_estilo(self):
         dialog = ctk.CTkToplevel(self.parent)
@@ -306,7 +441,10 @@ class ButtonsTab:
                 "font_size": 14,
             }
             self.service.aplicar_cambio("button_styles", self._data_styles)
-            self._style_row(self._styles_container, nombre, self._data_styles[nombre])
+            # Actualizar combobox y seleccionar el nuevo estilo
+            style_names = sorted(self._data_styles.keys())
+            if hasattr(self, '_estilo_var'):
+                self._estilo_var.set(nombre)
             dialog.destroy()
 
         def _on_enter(e):
@@ -417,7 +555,7 @@ class ButtonsTab:
                 self._update_test_preview(name)
         for v in [type_var]:
             v.trace_add("write", _update_preview)
-        for fk in [f"{name}.{k}" for k, _ in color_fields] + [f"{name}.{k}" for k, _ in num_fields]:
+        for fk in [f"{name}.{k}" for k, *_ in color_fields] + [f"{name}.{k}" for k, _ in num_fields]:
             sv = self._values.get(fk)
             if sv:
                 sv.trace_add("write", _update_preview)
@@ -459,6 +597,12 @@ class ButtonsTab:
             if row:
                 row.destroy()
             self.service.aplicar_cambio("button_styles", self._data_styles)
+            # Limpiar editor y seleccionar otro estilo
+            for w in self._estilo_editor_frame.winfo_children():
+                w.destroy()
+            remaining = sorted(self._data_styles.keys())
+            if remaining and hasattr(self, '_estilo_var'):
+                self._estilo_var.set(remaining[0])
             dialog.destroy()
 
         ctk.CTkButton(
@@ -525,73 +669,90 @@ class ButtonsTab:
         except tk.TclError:
             pass
 
-    def _render_config(self, parent):
-        for section_name in ["buttons", "main_menu", "global_buttons"]:
-            if section_name not in self._data_config:
-                continue
-            tk.Label(
-                parent, text=f"[{section_name}]",
-                font=("Helvetica", 11, "bold"),
-                fg="#3498db", bg=self._bg, anchor="w"
-            ).pack(fill="x", padx=10, pady=(8, 2))
-
-            items = self._data_config[section_name]
-            if isinstance(items, list):
-                for item in items:
-                    self._config_item_row(parent, item)
-            elif isinstance(items, dict):
-                for k, v in items.items():
-                    tk.Label(
-                        parent, text=f"  {k}: {v}",
-                        font=("Helvetica", 10), fg=self._fg, bg=self._bg, anchor="w"
-                    ).pack(fill="x", padx=10, pady=1)
-
-        buscar = self._data_config.get("buscar_overlay", {})
-        if buscar:
-            tk.Label(
-                parent, text="[buscar_overlay]",
-                font=("Helvetica", 11, "bold"),
-                fg="#3498db", bg=self._bg, anchor="w"
-            ).pack(fill="x", padx=10, pady=(8, 2))
-            for k, v in buscar.items():
-                if isinstance(v, list):
-                    for item in v:
-                        self._config_item_row(parent, item)
-                else:
-                    tk.Label(
-                        parent, text=f"  {k}: {v}",
-                        font=("Helvetica", 10), fg=self._fg, bg=self._bg, anchor="w"
-                    ).pack(fill="x", padx=10, pady=1)
-
-    def _config_item_row(self, parent, item: Dict[str, Any]):
+    def _config_row(self, parent, item: Dict[str, Any], index: int,
+                     style_names: List[str], section: str):
         label = item.get("label", item.get("text", item.get("id", "?")))
         style_key = item.get("style_key", item.get("color_key", ""))
         command = item.get("command", "")
-        grid = item.get("grid", {})
 
-        row = tk.Frame(parent, bg=self._bg)
-        row.pack(fill="x", padx=10, pady=1)
+        outer = tk.Frame(parent, bg=self._bg)
+        outer.pack(fill="x", padx=10, pady=4)
 
-        tk.Label(
-            row, text=f"  {label}", font=("Helvetica", 10),
-            fg=self._fg, bg=self._bg, anchor="w", width=20
-        ).pack(side="left", padx=(0, 6))
+        row = tk.Frame(outer, bg=self._bg)
+        row.pack(fill="x")
 
         tk.Label(
-            row, text=f"style: {style_key}", font=("Helvetica", 9),
-            fg="#95a5a6", bg=self._bg, anchor="w", width=20
-        ).pack(side="left", padx=(0, 6))
-
-        if grid:
-            tk.Label(
-                row, text=f"grid: r{grid.get('row','?')},c{grid.get('col','?')}",
-                font=("Helvetica", 9), fg="#7f8c8d", bg=self._bg, anchor="w"
-            ).pack(side="left", padx=(0, 6))
+            row, text=label, font=("Helvetica", 11, "bold"),
+            fg="#3498db", bg=self._bg, anchor="w", width=20
+        ).pack(side="left", padx=(0, 8))
 
         tk.Label(
             row, text=f"cmd: {command}", font=("Helvetica", 9),
             fg="#7f8c8d", bg=self._bg, anchor="w"
-        ).pack(side="left")
+        ).pack(side="left", padx=(0, 12))
 
-    def _separator(self, parent):
-        tk.Frame(parent, bg="#555555", height=2).pack(fill="x", padx=10, pady=15)
+        style_var = tk.StringVar(value=str(style_key) if style_key else "")
+        self._values[f"{section}.{index}.style_key"] = style_var
+
+        tk.Label(
+            row, text="estilo:", font=("Helvetica", 9),
+            fg="#95a5a6", bg=self._bg, anchor="w"
+        ).pack(side="left", padx=(0, 4))
+
+        ctk.CTkOptionMenu(
+            row, variable=style_var, values=style_names, width=180
+        ).pack(side="left", padx=(0, 8))
+
+        # Preview del botón con el estilo seleccionado
+        preview_btn = ctk.CTkButton(outer, text=label)
+        preview_btn.pack(side="left", pady=(2, 0))
+        self._preview_btns[f"{section}.{index}"] = preview_btn
+
+        def _update_preview(*_):
+            sk = style_var.get()
+            if sk and sk in self._data_styles:
+                self._apply_style_to_btn(preview_btn, sk)
+
+        style_var.trace_add("write", _update_preview)
+        _update_preview()
+
+    def _apply_style_to_btn(self, btn: ctk.CTkButton, style_name: str):
+        style = self._data_styles.get(style_name, {})
+        bg = self._token_color(style.get("bg_token", ""))
+        fg = self._token_color(style.get("text_token", ""))
+        hover = self._token_color(style.get("hover_token", ""))
+        border_tok = style.get("border_token")
+        border = self._token_color(border_tok) if border_tok else bg
+
+        try:
+            w = min(int(style.get("width", style.get("min_width", 100))), 200)
+        except (ValueError, TypeError):
+            w = 100
+        try:
+            h = min(int(style.get("height", 36)), 60)
+        except (ValueError, TypeError):
+            h = 36
+        try:
+            cr = int(style.get("corner_radius", 8))
+        except (ValueError, TypeError):
+            cr = 8
+        try:
+            bw = int(style.get("border_width", 0))
+        except (ValueError, TypeError):
+            bw = 0
+        try:
+            fs = min(int(style.get("font_size", 14)), 18)
+        except (ValueError, TypeError):
+            fs = 14
+
+        try:
+            btn.configure(
+                width=w, height=h, corner_radius=cr,
+                fg_color=bg, text_color=fg,
+                border_width=bw if border_tok else 0,
+                border_color=border,
+                hover_color=hover,
+                font=("Courier New", fs, "bold")
+            )
+        except tk.TclError:
+            pass

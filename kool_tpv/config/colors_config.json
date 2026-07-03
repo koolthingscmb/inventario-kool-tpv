@@ -11,7 +11,7 @@
     "bg_sidebar": "#AA7941",
     "bg_dark": "#0D0D0D",
     "bg_medium": "#2A2A2A",
-    "text_matrix": "#00FF00",
+    "text_matrix": "#C4EFC2",
     "text_white": "#FFFFFF",
     "text_gray": "#CCCCCC",
     "text_disabled": "#666666",
@@ -217,11 +217,11 @@
   },
   "almacen": {
     "primary": "#00FF00",
-    "secondary": "#32CD32",
+    "secondary": "#C2FF35",
     "accent": "#DAFCCF",
     "light": "#99FF52",
     "border": "#91FF00",
-    "text": "#00FF00",
+    "text": "#D2F3D2",
     "background": "#000000",
     "bg_dark": "#0D0D0D",
     "bg_medium": "#1A1A1A",
@@ -506,9 +506,9 @@
     "grid_buttons": {
       "buscar_articulo": {
         "bg": "#000000",
-        "hover": "#025736",
-        "text": "#00FF9D",
-        "border": "#00FF9D",
+        "hover": "#00FCFF",
+        "text": "#437DFF",
+        "border": "#437DFF",
         "border_width": 5
       },
       "print_on": {
@@ -597,7 +597,7 @@
       },
       "cash": {
         "bg": "#000000",
-        "hover": "#035C03",
+        "hover": "#81B915",
         "text": "#00FF00",
         "border": "#00FF00",
         "border_width": 5

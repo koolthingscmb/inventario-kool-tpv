@@ -9,14 +9,18 @@ from typing import Callable, Dict, List, Optional
 class UIConfigService:
     """Gestiona lectura/escritura de config UI desde JSON. Sin BD."""
 
-    CONFIG_DIR = Path("/Volumes/ALMACEN/KOOL_THINGS/KOOL_TPV_V2/kool_tpv/config")
+    # Determinar ruta config de forma relativa
+    BASE_DIR = Path(__file__).resolve().parents[4]
+    CONFIG_DIR = BASE_DIR / "config"
     BACKUP_DIR = CONFIG_DIR / "backups"
+    
+    # Observadores compartidos entre instancias (estático)
+    _observers: Dict[str, List[Callable]] = {}
 
     def __init__(self, config_dir: Optional[str] = None):
         self.config_dir = Path(config_dir) if config_dir else self.CONFIG_DIR
         self.backup_dir = self.config_dir / "backups"
         self.backup_dir.mkdir(parents=True, exist_ok=True)
-        self._observers: Dict[str, List[Callable]] = {}
 
     def _ruta(self, nombre: str) -> Path:
         if not nombre.endswith(".json"):
@@ -106,21 +110,21 @@ class UIConfigService:
 
     def registrar_observer(self, nombre: str, callback: Callable[[dict], None]) -> None:
         nombre = Path(nombre).stem
-        if nombre not in self._observers:
-            self._observers[nombre] = []
-        if callback not in self._observers[nombre]:
-            self._observers[nombre].append(callback)
+        if nombre not in UIConfigService._observers:
+            UIConfigService._observers[nombre] = []
+        if callback not in UIConfigService._observers[nombre]:
+            UIConfigService._observers[nombre].append(callback)
 
     def eliminar_observer(self, nombre: str, callback: Callable[[dict], None]) -> None:
         nombre = Path(nombre).stem
-        if nombre in self._observers:
-            self._observers[nombre] = [
-                cb for cb in self._observers[nombre] if cb is not callback
+        if nombre in UIConfigService._observers:
+            UIConfigService._observers[nombre] = [
+                cb for cb in UIConfigService._observers[nombre] if cb is not callback
             ]
 
     def _notificar(self, nombre: str, datos: dict) -> None:
         nombre = Path(nombre).stem
-        for cb in self._observers.get(nombre, []):
+        for cb in UIConfigService._observers.get(nombre, []):
             try:
                 cb(datos)
             except Exception:

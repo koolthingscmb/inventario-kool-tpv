@@ -26,6 +26,7 @@ CONFIG_DIR = BASE_DIR / "config"
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.keyboard_nav_mixin import KeyboardNavigableMixin
 from kool_tpv.utils.scale_manager import get_scale_manager
+from kool_tpv.utils.config_loader import load_colors
 
 def load_config(filename: str) -> dict:
     try:
@@ -61,6 +62,14 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
         ctk.CTkFrame.__init__(self, parent)
         KeyboardNavigableMixin.__init_keyboard_mixin__(self)
         self.db = db
+
+        # Referencia al servicio de configuración para observar cambios
+        try:
+            from kool_tpv.modulos.config.ui.services.ui_config_service import UIConfigService
+            self.ui_config_service = UIConfigService()
+            self.ui_config_service.registrar_observer("colors_config", self._on_colors_changed)
+        except Exception:
+            self.ui_config_service = None
 
         # Referencia al contenedor para diálogos (requerido por TpvController)
         self.container = self
@@ -166,6 +175,9 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
         for i in range(cols): self.grid_frame.grid_columnconfigure(i, weight=1)
         for i in range(rows): self.grid_frame.grid_rowconfigure(i, weight=1)
 
+        # Cargar colores de TPV
+        tpv_colors = load_colors('tpv').get('grid_buttons', {})
+
         # Read buttons from layout_config.json -> modules.tpv.center.grid.buttons
         buttons = self.layout_cfg.get("modules", {}).get("tpv", {}).get("center", {}).get("grid", {}).get("buttons", [])
 
@@ -181,11 +193,40 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
             label = btn_data.get("label", "???")
             shortcut = btn_data.get("shortcut", "")
             display_text = f"{label}\n({shortcut})" if shortcut else label
+
+            # Determinar overrides de color desde colors_config.json
+            color_key = cmd_name if cmd_name else label.lower().replace(" ", "_")
+            # Mapeos especiales si el command no coincide con la clave en colors_config
+            if color_key == "favoritos": color_key = "buscar_articulo"
+            elif color_key == "Pagar en Efectivo": color_key = "cash"
+            elif color_key == "Pagar con Tarjeta": color_key = "tarjeta"
+            elif color_key == "Pagar en Web": color_key = "web"
+            elif color_key == "Multicobro": color_key = "multi"
+            elif color_key == "Cierres de caja": color_key = "cierre"
+            elif color_key == "Hacer dto directo o %": color_key = "descuento"
+            elif color_key == "Realizar Devolución": color_key = "devolucion"
+            elif color_key == "Asignar Cajero": color_key = "cajero"
+            elif color_key == "Asignar Cliente": color_key = "cliente"
+            elif color_key == "Abrir Tickets": color_key = "tickets"
+            
+            # Limpiar color_key por si acaso
+            color_key = color_key.lower().replace(" ", "_")
+            
+            spec = tpv_colors.get(color_key, {})
+            
+            overrides = {}
+            if spec.get("bg"): overrides["color"] = spec["bg"]
+            if spec.get("text"): overrides["text_color"] = spec["text"]
+            if spec.get("hover"): overrides["hover_color"] = spec["hover"]
+            if spec.get("border"): overrides["border_color"] = spec["border"]
+            if spec.get("border_width") is not None: overrides["border_width"] = spec["border_width"]
+
             btn = ButtonFactory.create_button(
                 parent=self.grid_frame,
                 text=display_text,
                 command=cmd,
-                style_key=btn_data.get("style_key")
+                style_key=btn_data.get("style_key"),
+                **overrides
             )
 
             btn.grid(row=row, column=col, columnspan=columnspan, rowspan=rowspan, padx=10, pady=10, sticky="nsew")
@@ -215,7 +256,31 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
         except Exception:
             pass
 
+    def _on_colors_changed(self, data: dict):
+        """Callback cuando cambian los colores en la configuración."""
+        try:
+            # Re-construir los botones del grid con los nuevos colores
+            self.clear_grid()
+            self._build_grid_buttons()
+            self._setup_grid_keyboard_navigation()
+            
+            # Rebind de comandos (el controlador se encarga de esto normalmente)
+            if self.controller:
+                from kool_tpv.modulos.tpv.button_action_mapper import rebind_buttons
+                rebind_buttons(self)
+                
+            logger.info("Botones del TPV actualizados por cambio de configuración")
+        except Exception:
+            logger.exception("Error actualizando botones del TPV tras cambio de colores")
+
     def teardown(self):
+        # Desvincular observer
+        if self.ui_config_service:
+            try:
+                self.ui_config_service.eliminar_observer("colors_config", self._on_colors_changed)
+            except Exception:
+                pass
+
         try:
             if self.controller and hasattr(self.controller, '_barcode_service') and self.controller._barcode_service:
                 self.controller._barcode_service.detach()

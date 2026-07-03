@@ -5,11 +5,16 @@ from typing import Any, Dict
 import customtkinter as ctk
 
 from kool_tpv.modulos.config.ui.services.ui_config_service import UIConfigService
-from kool_tpv.modulos.config.ui.config_tab_helper import section_title
 
 
 class DialogsTab:
     """Muestra y edita la configuración de diálogos desde ui_dialogs.json."""
+
+    _SUBTABS = ["PASSWORD", "INPUT"]
+    _TYPE_META = {
+        "password": {"color": "#9b59b6", "icon": "🔒"},
+        "input": {"color": "#2ecc71", "icon": "✎"},
+    }
 
     def __init__(self, parent, service: UIConfigService):
         self.parent = parent
@@ -18,47 +23,69 @@ class DialogsTab:
         self._fg = "#ecf0f1"
         self._data: Dict[str, Any] = {}
         self._values: Dict[str, tk.StringVar] = {}
+        self._current_subtab: str = ""
+        self._subtab_btns: Dict[str, tk.Label] = {}
+        self._status_label: tk.Label = None
         self._build()
 
     def _build(self):
         self._data = self.service.cargar_json("ui_dialogs")
 
-        scroll = ctk.CTkScrollableFrame(self.parent, fg_color=self._bg)
+        self.main_container = tk.Frame(self.parent, bg=self._bg)
+        self.main_container.pack(fill=tk.BOTH, expand=True)
+
+        # 1. Barra de subpestañas
+        self.tab_bar = tk.Frame(self.main_container, bg="#1a1a1a", height=45)
+        self.tab_bar.pack(fill="x", side=tk.TOP)
+        self.tab_bar.pack_propagate(False)
+        self._render_subtabs()
+
+        # 2. Contenedor de contenido
+        self.content_container = tk.Frame(self.main_container, bg=self._bg)
+        self.content_container.pack(fill=tk.BOTH, expand=True)
+
+        # 3. Barra inferior APLICAR
+        self._render_save_bar(self.main_container)
+
+        self._switch_subtab("PASSWORD")
+
+    def _render_subtabs(self):
+        for label in self._SUBTABS:
+            btn = tk.Label(
+                self.tab_bar, text=label,
+                font=("Helvetica", 10, "bold"),
+                fg="#7f8c8d", bg="#1a1a1a",
+                padx=20, cursor="hand2"
+            )
+            btn.pack(side=tk.LEFT, fill="y")
+            btn.bind("<Button-1>", lambda e, c=label: self._switch_subtab(c))
+            self._subtab_btns[label] = btn
+
+    def _switch_subtab(self, code: str):
+        for c, btn in self._subtab_btns.items():
+            if c == code:
+                btn.configure(fg="#3498db", bg="#2c3e50")
+            else:
+                btn.configure(fg="#7f8c8d", bg="#1a1a1a")
+        self._current_subtab = code
+
+        for w in self.content_container.winfo_children():
+            w.destroy()
+        self._values.clear()
+
+        dlg_key = code.lower()
+        dialogs = self._data.get("dialogs", {})
+        dlg_config = dialogs.get(dlg_key, {})
+        meta = self._TYPE_META.get(dlg_key, {"color": "#3498db", "icon": "?"})
+
+        scroll = ctk.CTkScrollableFrame(self.content_container, fg_color=self._bg)
         scroll.pack(fill=tk.BOTH, expand=True)
 
-        section_title(scroll, "Diálogos — ui_dialogs.json", self._bg).pack(
-            fill="x", pady=(10, 5), padx=10
-        )
-
-        dialogs = self._data.get("dialogs", {})
-        type_colors = {
-            "info": "#3498db",
-            "warning": "#f39c12",
-            "error": "#e74c3c",
-            "success": "#2ecc71",
-            "password": "#9b59b6",
-            "input": "#2ecc71",
-        }
-        type_icons = {
-            "info": "ℹ",
-            "warning": "⚠",
-            "error": "✕",
-            "success": "✓",
-            "password": "🔒",
-            "input": "✎",
-        }
-
-        for dlg_type, dlg_config in dialogs.items():
-            color = type_colors.get(dlg_type, "#3498db")
-            icon = type_icons.get(dlg_type, "?")
-            self._render_dialog(scroll, dlg_type, dlg_config, color, icon)
-            self._separator(scroll)
-
-        self._render_save_bar(scroll)
+        self._render_dialog(scroll, dlg_key, dlg_config, meta["color"], meta["icon"])
 
     def _render_save_bar(self, parent):
         bar = tk.Frame(parent, bg=self._bg)
-        bar.pack(fill="x", padx=10, pady=10)
+        bar.pack(fill="x", side=tk.BOTTOM, padx=10, pady=10)
 
         self._status_label = tk.Label(
             bar, text="", font=("Helvetica", 10),
@@ -122,16 +149,40 @@ class DialogsTab:
 
         prefix = f"dialogs.{dlg_type}"
 
+        # Grid de 3 columnas para aprovechar horizontal
+        grid = tk.Frame(outer, bg=self._bg)
+        grid.pack(fill="x", pady=4)
+        for c in range(3):
+            grid.grid_columnconfigure(c, weight=1, uniform="col")
+
+        # WINDOW a ancho completo (fila 0, colspan 3)
         if "window" in config:
-            self._render_window_section(outer, f"{prefix}.window", config["window"], accent_color)
+            win_frame = tk.Frame(grid, bg=self._bg)
+            win_frame.grid(row=0, column=0, columnspan=3, sticky="ew", padx=4)
+            self._render_window_section(win_frame, f"{prefix}.window", config["window"], accent_color)
+
+        # Resto de secciones en columnas (fila 1)
+        other_sections = []
         if "colors" in config:
-            self._render_colors_section(outer, f"{prefix}.colors", config["colors"], accent_color)
+            other_sections.append(("colors", config["colors"]))
         if "fonts" in config:
-            self._render_fonts_section(outer, f"{prefix}.fonts", config["fonts"], accent_color)
+            other_sections.append(("fonts", config["fonts"]))
         if "spacing" in config:
-            self._render_spacing_section(outer, f"{prefix}.spacing", config["spacing"], accent_color)
+            other_sections.append(("spacing", config["spacing"]))
         if "buttons" in config:
-            self._render_buttons_section(outer, f"{prefix}.buttons", config["buttons"], accent_color)
+            other_sections.append(("buttons", config["buttons"]))
+
+        renderers = {
+            "colors": self._render_colors_section,
+            "fonts": self._render_fonts_section,
+            "spacing": self._render_spacing_section,
+            "buttons": self._render_buttons_section,
+        }
+
+        for i, (sec_name, sec_data) in enumerate(other_sections):
+            col_frame = tk.Frame(grid, bg=self._bg)
+            col_frame.grid(row=1, column=i % 3, sticky="nsew", padx=4)
+            renderers[sec_name](col_frame, f"{prefix}.{sec_name}", sec_data, accent_color)
 
     def _test_dialog(self, dlg_type: str, accent: str):
         p = f"dialogs.{dlg_type}"
@@ -258,7 +309,7 @@ class DialogsTab:
     def _section_header(self, parent, label: str, accent: str):
         tk.Label(
             parent, text=f"  [{label}]",
-            font=("Helvetica", 10, "bold"),
+            font=("Helvetica", 11, "bold"),
             fg=accent, bg=self._bg, anchor="w"
         ).pack(fill="x", padx=10, pady=(6, 2))
 
@@ -286,12 +337,12 @@ class DialogsTab:
             col.grid(row=0, column=i, padx=3, sticky="w")
 
             tk.Label(
-                col, text=label, font=("Helvetica", 8),
+                col, text=label, font=("Helvetica", 10),
                 fg="#95a5a6", bg=self._bg, anchor="w"
             ).pack(anchor="w")
             tk.Spinbox(
                 col, from_=0, to=1000, increment=1,
-                textvariable=var, width=5, font=("Helvetica", 10), justify="right"
+                textvariable=var, width=5, font=("Helvetica", 11), justify="right"
             ).pack(anchor="w", pady=(2, 0))
 
     def _render_colors_section(self, parent, prefix: str, data: Dict[str, Any], accent: str):
@@ -301,11 +352,11 @@ class DialogsTab:
                 continue
             full_key = f"{prefix}.{key}"
             row = tk.Frame(parent, bg=self._bg)
-            row.pack(fill="x", padx=20, pady=1)
+            row.pack(fill="x", padx=4, pady=1)
 
             tk.Label(
-                row, text=key, font=("Helvetica", 10),
-                fg=self._fg, bg=self._bg, anchor="w", width=22
+                row, text=key, font=("Helvetica", 11),
+                fg=self._fg, bg=self._bg, anchor="w", width=18
             ).pack(side="left", padx=(0, 4))
 
             var = tk.StringVar(value=str(value))
@@ -335,11 +386,11 @@ class DialogsTab:
             if not isinstance(font_data, dict):
                 continue
             row = tk.Frame(parent, bg=self._bg)
-            row.pack(fill="x", padx=20, pady=2)
+            row.pack(fill="x", padx=4, pady=2)
 
             tk.Label(
-                row, text=font_key, font=("Helvetica", 10, "bold"),
-                fg="#95a5a6", bg=self._bg, anchor="w", width=12
+                row, text=font_key, font=("Helvetica", 11, "bold"),
+                fg="#95a5a6", bg=self._bg, anchor="w", width=10
             ).pack(side="left", padx=(0, 4))
 
             for field, default in [("family", "Courier New"), ("size", 14), ("weight", "bold")]:
@@ -348,15 +399,15 @@ class DialogsTab:
                 self._values[f"{prefix}.{font_key}.{field}"] = var
 
                 if field == "family":
-                    ctk.CTkEntry(row, textvariable=var, width=120).pack(side="left", padx=(0, 4))
+                    ctk.CTkEntry(row, textvariable=var, width=100).pack(side="left", padx=(0, 4))
                 elif field == "size":
                     tk.Spinbox(
                         row, from_=6, to=72, increment=1,
-                        textvariable=var, width=4, font=("Helvetica", 10), justify="right"
+                        textvariable=var, width=4, font=("Helvetica", 11), justify="right"
                     ).pack(side="left", padx=(0, 4))
                 elif field == "weight":
                     ctk.CTkOptionMenu(
-                        row, variable=var, values=["normal", "bold"], width=80
+                        row, variable=var, values=["normal", "bold"], width=70
                     ).pack(side="left", padx=(0, 4))
 
     def _render_spacing_section(self, parent, prefix: str, data: Dict[str, Any], accent: str):
@@ -379,12 +430,12 @@ class DialogsTab:
             col.grid(row=0, column=i, padx=3, sticky="w")
 
             tk.Label(
-                col, text=label, font=("Helvetica", 8),
+                col, text=label, font=("Helvetica", 10),
                 fg="#95a5a6", bg=self._bg, anchor="w"
             ).pack(anchor="w")
             tk.Spinbox(
                 col, from_=0, to=200, increment=1,
-                textvariable=var, width=5, font=("Helvetica", 10), justify="right"
+                textvariable=var, width=5, font=("Helvetica", 11), justify="right"
             ).pack(anchor="w", pady=(2, 0))
 
     def _render_buttons_section(self, parent, prefix: str, data: Dict[str, Any], accent: str):
@@ -395,11 +446,11 @@ class DialogsTab:
                 continue
 
             row = tk.Frame(parent, bg=self._bg)
-            row.pack(fill="x", padx=20, pady=2)
+            row.pack(fill="x", padx=4, pady=2)
 
             tk.Label(
-                row, text=btn_key.upper(), font=("Helvetica", 9, "bold"),
-                fg=accent, bg=self._bg, anchor="w", width=10
+                row, text=btn_key.upper(), font=("Helvetica", 11, "bold"),
+                fg=accent, bg=self._bg, anchor="w", width=8
             ).pack(side="left", padx=(0, 4))
 
             for field, label in [
@@ -417,12 +468,12 @@ class DialogsTab:
                 col.pack(side="left", padx=2)
 
                 tk.Label(
-                    col, text=label, font=("Helvetica", 7),
+                    col, text=label, font=("Helvetica", 9),
                     fg="#95a5a6", bg=self._bg, anchor="w"
                 ).pack(anchor="w")
                 tk.Spinbox(
                     col, from_=0, to=500, increment=1,
-                    textvariable=var, width=4, font=("Helvetica", 9), justify="right"
+                    textvariable=var, width=4, font=("Helvetica", 11), justify="right"
                 ).pack(anchor="w", pady=(1, 0))
 
             if "style_key" in btn_data:
@@ -436,5 +487,3 @@ class DialogsTab:
                 ).pack(anchor="w")
                 ctk.CTkEntry(col, textvariable=sk_var, width=100).pack(anchor="w", pady=(1, 0))
 
-    def _separator(self, parent):
-        tk.Frame(parent, bg="#555555", height=2).pack(fill="x", padx=10, pady=10)
