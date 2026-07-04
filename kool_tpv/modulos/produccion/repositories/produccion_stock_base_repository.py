@@ -103,7 +103,7 @@ class ProduccionStockBaseRepository:
 		"""
 		try:
 			rows = self.db.fetch_all(query, (tipo_id, variante_id, color_id))
-			return {r[0]: r[1] for r in rows if r[0]}
+			return {(r[0] or "").strip().upper(): r[1] for r in rows if r[0]}
 		except Exception:
 			logger.exception("Error obteniendo stock por tipo+color")
 			return {}

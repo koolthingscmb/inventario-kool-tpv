@@ -53,6 +53,10 @@ class ProduccionConfigService:
         if not talla_id:
             tallas = self.tallas_repo.get_todas()
             orden = max((t.orden for t in tallas), default=-1) + 1
+        else:
+            existente = self.tallas_repo.get_por_id(talla_id)
+            if existente:
+                orden = existente.orden
         talla = ProduccionTalla(id=talla_id, nombre=nombre, orden=orden, activo=activo)
         if talla_id:
             return self.tallas_repo.actualizar(talla)

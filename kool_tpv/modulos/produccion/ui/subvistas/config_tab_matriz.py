@@ -319,7 +319,7 @@ class ConfigTabMatriz:
     def _refresh_tallas(self):
         for tid, chip in self._talla_chips.items():
             talla = self._all_tallas[tid]
-            stock = self._stock_actual.get(talla.nombre, 0)
+            stock = self._stock_actual.get(talla.nombre.strip().upper(), 0)
             if tid in self._tallas_state:
                 chip.configure(text=f"{talla.nombre} [{stock}]", bg=self._CHIP_SELECTED, fg=self._text)
             else:
