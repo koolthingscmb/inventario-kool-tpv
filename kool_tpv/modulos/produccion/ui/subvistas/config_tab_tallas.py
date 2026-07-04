@@ -141,10 +141,8 @@ class ConfigTabTallas:
         self._talla_id_edit = talla_id
         talla = self._tallas.get(talla_id)
         if talla:
-            self._entry_nombre.configure(state="normal")
             self._entry_nombre.delete(0, tk.END)
             self._entry_nombre.insert(0, talla.nombre)
-            self._entry_nombre.configure(state="disabled")
             self._var_activo.set(talla.activo)
 
         # Actualizar estilos de chips sin recargar (evita recursión infinita)
@@ -171,7 +169,6 @@ class ConfigTabTallas:
             self._cargar_chips(select_id=talla_id)
 
     def _guardar(self):
-        self._entry_nombre.configure(state="normal")
         nombre = self._entry_nombre.get().strip()
         if not nombre:
             return
@@ -183,7 +180,6 @@ class ConfigTabTallas:
 
     def _limpiar(self):
         self._talla_id_edit = None
-        self._entry_nombre.configure(state="normal")
         self._entry_nombre.delete(0, tk.END)
         self._var_activo.set(1)
         chips_cfg = self.config.get("chips", {})

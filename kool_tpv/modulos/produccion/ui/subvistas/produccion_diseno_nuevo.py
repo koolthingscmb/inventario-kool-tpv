@@ -264,8 +264,10 @@ class DisenoNuevoView:
 		self._frame_chips_sufijos = ctk.CTkFrame(col_right, fg_color="transparent")
 		self._frame_chips_sufijos.pack(fill="both", expand=True)
 
+	COL_COLS = 6
+
 	def _render_chips_colecciones(self):
-		"""Renderizar chips de colecciones activas."""
+		"""Renderizar chips de colecciones activas en grid de 10 columnas."""
 		for w in self._frame_chips_colecciones.winfo_children():
 			w.destroy()
 
@@ -275,13 +277,18 @@ class DisenoNuevoView:
 		selected_cfg = chips_cfg.get("selected", {})
 
 		colecciones_nombres = list(self._colecciones_cache.values())
-		
+
 		container = ctk.CTkFrame(self._frame_chips_colecciones, fg_color="transparent")
 		container.pack(fill="both", expand=True)
 
-		for nombre in colecciones_nombres:
+		for c in range(self.COL_COLS):
+			container.grid_columnconfigure(c, weight=1)
+
+		for i, nombre in enumerate(colecciones_nombres):
 			is_selected = (nombre == self._coleccion_seleccionada)
-			
+			row = i // self.COL_COLS
+			col = i % self.COL_COLS
+
 			bg_color = selected_cfg.get("bg", "#552583") if is_selected else default_cfg.get("bg", "#1a1a2e")
 			text_color = selected_cfg.get("text", "#ffffff") if is_selected else default_cfg.get("text", "#e0e0e0")
 			border_color = selected_cfg.get("border", "#C77BFF") if is_selected else default_cfg.get("border", "#552583")
@@ -301,10 +308,13 @@ class DisenoNuevoView:
 				font=self._get_font("button_small") if "button_small" in self.config.get("fonts", {}) else (None, 12),
 				command=lambda name=nombre: self._on_chip_coleccion_click(name)
 			)
-			chip.pack(side="left", padx=4, pady=4)
+			chip.grid(row=row, column=col, padx=3, pady=3, sticky="ew")
+			chip.bind("<Double-Button-1>", lambda e, name=nombre: self._on_chip_coleccion_doble_click(name))
+
+	SUF_COLS = 10
 
 	def _render_chips_sufijos(self):
-		"""Renderizar chips de sufijos activos."""
+		"""Renderizar chips de sufijos activos en grid de 12 columnas."""
 		for w in self._frame_chips_sufijos.winfo_children():
 			w.destroy()
 
@@ -314,13 +324,18 @@ class DisenoNuevoView:
 		selected_cfg = chips_cfg.get("selected", {})
 
 		sufijos_nombres = list(self._sufijos_cache.values())
-		
+
 		container = ctk.CTkFrame(self._frame_chips_sufijos, fg_color="transparent")
 		container.pack(fill="both", expand=True)
 
-		for nombre in sufijos_nombres:
+		for c in range(self.SUF_COLS):
+			container.grid_columnconfigure(c, weight=1)
+
+		for i, nombre in enumerate(sufijos_nombres):
 			is_selected = (nombre == self._sufijo_seleccionado)
-			
+			row = i // self.SUF_COLS
+			col = i % self.SUF_COLS
+
 			bg_color = selected_cfg.get("bg", "#552583") if is_selected else default_cfg.get("bg", "#1a1a2e")
 			text_color = selected_cfg.get("text", "#ffffff") if is_selected else default_cfg.get("text", "#e0e0e0")
 			border_color = selected_cfg.get("border", "#C77BFF") if is_selected else default_cfg.get("border", "#552583")
@@ -340,7 +355,54 @@ class DisenoNuevoView:
 				font=self._get_font("button_small") if "button_small" in self.config.get("fonts", {}) else (None, 12),
 				command=lambda name=nombre: self._on_chip_sufijo_click(name)
 			)
-			chip.pack(side="left", padx=4, pady=4)
+			chip.grid(row=row, column=col, padx=3, pady=3, sticky="ew")
+			chip.bind("<Double-Button-1>", lambda e, name=nombre: self._on_chip_sufijo_doble_click(name))
+
+	def _on_chip_coleccion_doble_click(self, nombre):
+		"""Doble clic en chip de colección: renombrar."""
+		from kool_tpv.utils.dialogs import InputDialog
+		col = self.colecciones_repo.get_por_nombre(nombre)
+		if not col:
+			return
+
+		def on_rename(nuevo_nombre):
+			if nuevo_nombre and nuevo_nombre.strip():
+				self.colecciones_repo.actualizar(col.id, nuevo_nombre.strip(), 1)
+				self._colecciones_cache = {c.id: c.nombre for c in self.colecciones_repo.get_activas()}
+				self._colecciones = list(self._colecciones_cache.values())
+				self._render_chips_colecciones()
+				ToastWidget.show(self.frame, "Colección renombrada", tipo='success')
+
+		InputDialog(
+			self.frame,
+			titulo="RENOMBRAR COLECCIÓN",
+			mensaje=f"NOMBRE ACTUAL: {nombre}",
+			valor_defecto=nombre,
+			callback=on_rename
+		)
+
+	def _on_chip_sufijo_doble_click(self, nombre):
+		"""Doble clic en chip de sufijo: renombrar."""
+		from kool_tpv.utils.dialogs import InputDialog
+		suf = self.sufijos_repo.get_por_nombre(nombre)
+		if not suf:
+			return
+
+		def on_rename(nuevo_nombre):
+			if nuevo_nombre and nuevo_nombre.strip():
+				self.sufijos_repo.actualizar(suf.id, nuevo_nombre.strip(), 1)
+				self._sufijos_cache = {s.id: s.nombre for s in self.sufijos_repo.get_activos()}
+				self._sufijos = list(self._sufijos_cache.values())
+				self._render_chips_sufijos()
+				ToastWidget.show(self.frame, "Sufijo renombrado", tipo='success')
+
+		InputDialog(
+			self.frame,
+			titulo="RENOMBRAR SUFIJO",
+			mensaje=f"NOMBRE ACTUAL: {nombre}",
+			valor_defecto=nombre,
+			callback=on_rename
+		)
 
 	def _render_rejilla_metodos(self):
 		"""Renderizar rejilla de métodos de producción con sus costes usando widgets CTk."""

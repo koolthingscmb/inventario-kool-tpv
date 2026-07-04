@@ -102,12 +102,12 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788416636532,BDZ Rivals Forts CAT,"7,07",0,"10,5",,Libros de cómics,MANGA,4,PLANETA
 9791388055140,Beat Motion 6,"8,08",1,12,,Libros de cómics,MANGA,4,AZETA
 9788467977097,Become Lord Elden Ring 1,"10,74",1,"15,95",,Libros de cómics,MANGA,4,ASTURLIBROS
-8424248924911,Berserk Mazimum 21 Postales,"14,78",4,"21,95",,Libros de cómics,MANGA,4,ASTURLIBROS
+8424248924911,Berserk Maximum 21 Postales,"14,78",4,"21,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788411015035,Berserk Maximum 1,"11,41",0,"16,95",,Libros de cómics,MANGA,4,ASTURLIBROS
-9788411017732,Berserk Maximum 10,"11,41",1,"16,95",,Libros de cómics,MANGA,4,ASTURLIBROS
-9788411500906,Berserk Maximum 11,"11,41",1,"16,95",,Libros de cómics,MANGA,4,ASTURLIBROS
-9788411500913,Berserk Maximum 12,"11,41",1,"16,95",,Libros de cómics,MANGA,4,ASTURLIBROS
-9788411500920,Berserk Maximum 13,"11,41",1,"16,95",,Libros de cómics,MANGA,4,ASTURLIBROS
+9788411017732,Berserk Maximum 10,"11,41",0,"16,95",,Libros de cómics,MANGA,4,ASTURLIBROS
+9788411500906,Berserk Maximum 11,"11,41",0,"16,95",,Libros de cómics,MANGA,4,ASTURLIBROS
+9788411500913,Berserk Maximum 12,"11,41",0,"16,95",,Libros de cómics,MANGA,4,ASTURLIBROS
+9788411500920,Berserk Maximum 13,"11,41",0,"16,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788411019415,Berserk Maximum 14,"11,41",1,"16,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788411017015,Berserk Maximum 15,"11,41",1,"16,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9788411017022,Berserk Maximum 16,"11,41",1,"16,95",,Libros de cómics,MANGA,4,ASTURLIBROS
@@ -267,7 +267,7 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788413416700,DB Super 11,"5,72",1,"8,5",,Libros de cómics,MANGA,4,PLANETA
 9788413416717,DB Super 12,"5,72",0,"8,5",,Libros de cómics,MANGA,4,PLANETA
 9788491730316,DB Super 13,"5,35",0,"8,5",,Libros de cómics,MANGA,4,PLANETA
-9788491746423,DB Super 14,"5,72",1,"8,5",,Libros de cómics,MANGA,4,PLANETA
+9788491746423,DB Super 14,"5,72",0,"8,5",,Libros de cómics,MANGA,4,PLANETA
 9788491746430,DB Super 15,"5,72",0,"8,5",,Libros de cómics,MANGA,4,PLANETA
 9788491746447,DB Super 16,"5,72",1,"8,5",,Libros de cómics,MANGA,4,PLANETA
 9788491746454,DB Super 17,"5,72",0,"8,5",,Libros de cómics,MANGA,4,PLANETA
@@ -801,9 +801,9 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788411619264,One Piece 3en1 11 CAT,"11,4",2,"16,95",,Libros de cómics,MANGA,4,PLANETA
 9788410492653,One Piece 3en1 12,"11,41",2,"16,95",,Libros de cómics,MANGA,4,PLANETA
 9788410492677,One Piece 3en1 12 CAT,"11,41",2,"16,95",,Libros de cómics,MANGA,4,PLANETA
-9791387780258,One Piece 3en1 13,"11,4",1,"16,95",,Libros de cómics,MANGA,4,PLANETA
+9791387780258,One Piece 3en1 13,"11,4",0,"16,95",,Libros de cómics,MANGA,4,PLANETA
 9791387780562,One Piece 3en1 13 CAT,"11,4",3,"16,95",,Libros de cómics,MANGA,4,PLANETA
-9791387920098,One Piece 3en1 14,"11,41",4,"16,95",,Libros de cómics,MANGA,4,PLANETA
+9791387920098,One Piece 3en1 14,"11,41",3,"16,95",,Libros de cómics,MANGA,4,PLANETA
 9791387920166,One Piece 3en1 14 CAT,"11,4",2,"16,95",,Libros de cómics,MANGA,4,PLANETA
 9788411406727,One Piece 3en1 2,"11,4",2,"16,95",,Libros de cómics,MANGA,4,PLANETA
 9788411406765,One Piece 3en1 2 CAT,"11,4",2,"16,95",,Libros de cómics,MANGA,4,PLANETA
@@ -1088,7 +1088,6 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788409540969,The Horizon 2,"9,76",0,"14,5",,Libros de cómics,MANGA,4,AZETA
 9788409562084,The Horizon 3,"9,76",1,"14,5",,Libros de cómics,MANGA,4,AZETA
 9791388055003,Therapy Restart 5,"6,06",1,9,,Libros de cómics,MANGA,4,AZETA
-9788410515864,Thunder 3 ED 1,"7,71",1,"12,95",,Libros de cómics,MANGA,4,ASTURLIBROS
 9791387831677,To your eternity 23,"5,72",1,"8,5",,Libros de cómics,MANGA,4,AZETA
 9791388055072,To your eternity 24,"5,72",1,"8,5",,Libros de cómics,MANGA,4,AZETA
 9791388055423,To your eternity 25,"5,72",1,"8,5",,Libros de cómics,MANGA,4,AZETA
