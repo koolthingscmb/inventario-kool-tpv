@@ -143,7 +143,7 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 		self.lbl_total.pack(pady=(0, 10))
 
 	def _crear_botones_cantidad(self):
-		"""Crear los botones +1, +5, +10."""
+		"""Crear los botones -1, +1, +5, +10."""
 		frame_cant = ctk.CTkFrame(self.frame, fg_color=self._bg)
 		frame_cant.pack(pady=(10, 10))
 
@@ -155,6 +155,27 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 		chip_height = self._chip_cfg.get("height", 48)
 
 		self._btns_cantidad = []
+		
+		# Botón -1 (Naranja/Rojo para diferenciar)
+		btn_minus = ctk.CTkButton(
+			master=frame_cant,
+			text="-1",
+			fg_color="#d35400", # Naranja oscuro
+			text_color="#ffffff",
+			border_color="#e67e22",
+			hover_color="#e67e22",
+			border_width=style.get("border_width", 2),
+			corner_radius=corner_radius,
+			height=chip_height,
+			width=100,
+			font=chip_font,
+			cursor="hand2"
+		)
+		btn_minus.pack(side=tk.LEFT, padx=12)
+		btn_minus.bind("<Button-1>", lambda e, b=btn_minus: self._on_cantidad_btn(b))
+		setattr(btn_minus, "_incremento", -1)
+		self._btns_cantidad.append(btn_minus)
+
 		for label in ("+1", "+5", "+10"):
 			btn = ctk.CTkButton(
 				master=frame_cant,
@@ -166,7 +187,7 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 				border_width=style.get("border_width", 2),
 				corner_radius=corner_radius,
 				height=chip_height,
-				width=120,
+				width=100,
 				font=chip_font,
 				cursor="hand2"
 			)
@@ -297,13 +318,19 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 	# --- Lógica ---
 
 	def _on_cantidad_btn(self, btn):
-		"""Incrementar la cantidad según el botón pulsado, respetando el stock disponible."""
+		"""Incrementar/Decrementar la cantidad según el botón pulsado, respetando el stock disponible."""
 		incremento = getattr(btn, "_incremento", 0)
 		nueva_cantidad = self.cantidad + incremento
-		if self.stock_disponible > 0 and nueva_cantidad > self.stock_disponible:
+		
+		# Validar mínimo 0
+		if nueva_cantidad < 0:
+			nueva_cantidad = 0
+			
+		if incremento > 0 and self.stock_disponible > 0 and nueva_cantidad > self.stock_disponible:
 			from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
 			ToastWidget.show(self.frame, f"Stock insuficiente (máx {self.stock_disponible} uds)", tipo="error")
 			return
+			
 		self.cantidad = nueva_cantidad
 		self.lbl_total.configure(text=f"TOTAL: {self.cantidad}")
 

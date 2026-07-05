@@ -103,7 +103,8 @@ class ProduccionStockBaseRepository:
 		"""
 		try:
 			rows = self.db.fetch_all(query, (tipo_id, variante_id, color_id))
-			return {(r[0] or "").strip().upper(): r[1] for r in rows if r[0]}
+			# Usamos una clave especial (cadena vacía) si la talla es NULL
+			return {(r[0] or "").strip().upper(): r[1] for r in rows}
 		except Exception:
 			logger.exception("Error obteniendo stock por tipo+color")
 			return {}
@@ -158,7 +159,7 @@ class ProduccionStockBaseRepository:
 		"""Obtener la cantidad disponible para una variante específica."""
 		query = """
 			SELECT cantidad FROM produccion_stock_colores_tallas 
-			WHERE tipo_id = ? AND variante_id IS ? AND color_id IS ? AND talla = ?
+			WHERE tipo_id = ? AND variante_id IS ? AND color_id IS ? AND talla IS ?
 		"""
 		try:
 			res = self.db.fetch_all(query, (tipo_id, variante_id, color_id, talla))
@@ -189,7 +190,7 @@ class ProduccionStockBaseRepository:
 		query = """
 			UPDATE produccion_stock_colores_tallas 
 			SET cantidad = cantidad + ?
-			WHERE tipo_id = ? AND variante_id IS ? AND color_id IS ? AND talla = ?
+			WHERE tipo_id = ? AND variante_id IS ? AND color_id IS ? AND talla IS ?
 		"""
 		try:
 			self.db.execute_query(query, (delta, tipo_id, variante_id, color_id, talla))

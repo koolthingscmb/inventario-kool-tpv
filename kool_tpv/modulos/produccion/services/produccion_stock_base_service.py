@@ -42,6 +42,15 @@ class ProduccionStockBaseService:
 		"""Obtener el coste medio ponderado de una variante desde el stock."""
 		return self.repo.get_coste_medio_variante(tipo_id, variante_id)
 
+	def obtener_cantidad(self, tipo_id: int, color_id: Optional[int], talla: str, 
+	                     variante_id: Optional[int] = None) -> int:
+		"""Obtener la cantidad exacta de stock disponible."""
+		# Normalizar talla: si es vacío o None, usar None para que el repo use IS NULL
+		talla_norm = (talla or "").strip().upper()
+		if not talla_norm:
+			talla_norm = None
+		return self.repo.obtener_cantidad(tipo_id, color_id, talla_norm, variante_id)
+
 	def importar_stock(self, tipo_id: int, color_id: int, talla: str, 
 	                   cantidad_nueva: int, coste_nuevo_eur: float,
 	                   variante_id: Optional[int] = None,

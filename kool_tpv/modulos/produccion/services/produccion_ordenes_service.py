@@ -34,6 +34,7 @@ class ItemProduccion:
     variante_nombre: Optional[str] = None
     variante_id: Optional[int] = None
     diseno_coleccion: Optional[str] = None
+    coleccion_id: Optional[int] = None
     diseno_sufijo: Optional[str] = None
     metodo_id: Optional[int] = None
     metodo_nombre: Optional[str] = None
@@ -122,27 +123,38 @@ class ProduccionOrdenesService:
             return False
 
     def _actualizar_stock_diseno(self, item: ItemProduccion):
-        """Actualizar la tabla produccion_disenos_stock incluyendo variante_id."""
+        """Actualizar la tabla produccion_disenos_stock manejando correctamente los NULLs."""
         try:
-            # Intentar insertar o actualizar incluyendo variante_id para no mezclar stocks
-            query = """
-                INSERT INTO produccion_disenos_stock 
-                (diseno_codigo, tipo_id, color_id, talla, cantidad, variante_id)
-                VALUES (?, ?, ?, ?, ?, ?)
-                ON CONFLICT(diseno_codigo, tipo_id, color_id, talla, variante_id) 
-                DO UPDATE SET cantidad = cantidad + excluded.cantidad
+            # SQLite no considera NULL = NULL en ON CONFLICT, así que usamos un Upsert manual robusto
+            check_query = """
+                SELECT id FROM produccion_disenos_stock 
+                WHERE diseno_codigo = ? AND tipo_id = ? AND color_id IS ? AND talla IS ? AND variante_id IS ?
             """
-            self.db.execute_query(query, (
+            row = self.db.fetch_one(check_query, (
                 item.diseno_codigo, item.tipo_id, item.color_id, 
-                item.talla, item.cantidad, item.variante_id
+                item.talla, item.variante_id
             ))
+
+            if row:
+                update_query = "UPDATE produccion_disenos_stock SET cantidad = cantidad + ? WHERE id = ?"
+                self.db.execute_query(update_query, (item.cantidad, row[0]))
+            else:
+                insert_query = """
+                    INSERT INTO produccion_disenos_stock 
+                    (diseno_codigo, tipo_id, color_id, talla, cantidad, variante_id)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """
+                self.db.execute_query(insert_query, (
+                    item.diseno_codigo, item.tipo_id, item.color_id, 
+                    item.talla, item.cantidad, item.variante_id
+                ))
         except Exception:
             self.logger.exception(f"Error actualizando stock para diseño {item.diseno_codigo}")
 
     def _actualizar_stock_tpv_vinculado(self, item: ItemProduccion):
         """Si la variante está vinculada a un producto TPV, sumar el stock correspondiente."""
         try:
-            link = self.link_service.get_por_variante(item.variante_id)
+            link = self.link_service.get_por_combinacion(item.variante_id, extra_id=item.extra_id, coleccion_id=item.coleccion_id)
             if link and link.producto_id:
                 # Calcular cantidad a sumar según el ratio (por defecto 1)
                 ratio = link.ratio if link.ratio and link.ratio > 0 else 1

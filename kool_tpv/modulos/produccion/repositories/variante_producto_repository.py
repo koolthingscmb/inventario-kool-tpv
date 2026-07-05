@@ -88,8 +88,16 @@ class VarianteProductoRepository:
         rows = self.db.fetch_all(query)
         return [self._row_to_link(row) for row in rows]
 
-    def get_por_variante(self, variante_id: int) -> Optional[VarianteProductoLink]:
-        """Obtener el mapeo para una variante específica (con nombres vía JOIN)."""
+    def get_por_combinacion(self, variante_id: int, extra_id: Optional[int] = None, 
+                           coleccion_id: Optional[int] = None) -> Optional[VarianteProductoLink]:
+        """Obtener el mapeo para una combinación de variante, extra y colección.
+        
+        Sigue un orden de prioridad:
+        1. Combinación exacta (variante + extra + colección)
+        2. Variante + Extra (colección global)
+        3. Variante + Colección (extra global)
+        4. Variante global (extra y colección NULL)
+        """
         query = """
             SELECT l.id, l.variante_id, l.producto_id, l.extra_id, l.coleccion_id, l.ratio, l.activo, l.created_at, l.updated_at,
                    v.nombre as variante_nombre, p.nombre as producto_nombre,
@@ -99,12 +107,48 @@ class VarianteProductoRepository:
             JOIN productos p ON l.producto_id = p.id
             LEFT JOIN produccion_extras e ON l.extra_id = e.id
             LEFT JOIN produccion_colecciones c ON l.coleccion_id = c.id
-            WHERE l.variante_id = ? AND l.activo = 1
+            WHERE l.variante_id = ? 
+              AND (l.extra_id IS ? OR l.extra_id IS NULL)
+              AND (l.coleccion_id IS ? OR l.coleccion_id IS NULL)
+              AND l.activo = 1
+            ORDER BY 
+                (l.extra_id IS ?) DESC, 
+                (l.coleccion_id IS ?) DESC,
+                l.id DESC
+            LIMIT 1
         """
-        rows = self.db.fetch_all(query, (variante_id,))
+        # Repetimos extra_id y coleccion_id para los parámetros de ordenación
+        params = (variante_id, extra_id, coleccion_id, extra_id, coleccion_id)
+        rows = self.db.fetch_all(query, params)
         if not rows:
             return None
         return self._row_to_link(rows[0])
+
+    def get_filtrados(self, tipo_id: Optional[int] = None, variante_id: Optional[int] = None) -> List[VarianteProductoLink]:
+        """Obtener vinculaciones filtradas por tipo o variante."""
+        query = """
+            SELECT l.id, l.variante_id, l.producto_id, l.extra_id, l.coleccion_id, l.ratio, l.activo, l.created_at, l.updated_at,
+                   v.nombre as variante_nombre, p.nombre as producto_nombre,
+                   e.nombre as extra_nombre, c.nombre as coleccion_nombre
+            FROM produccion_variantes_productos l
+            JOIN tipos_variantes v ON l.variante_id = v.id
+            JOIN productos p ON l.producto_id = p.id
+            LEFT JOIN produccion_extras e ON l.extra_id = e.id
+            LEFT JOIN produccion_colecciones c ON l.coleccion_id = c.id
+            WHERE 1=1
+        """
+        params = []
+        if variante_id:
+            query += " AND l.variante_id = ?"
+            params.append(variante_id)
+        elif tipo_id:
+            query += " AND v.tipo_id = ?"
+            params.append(tipo_id)
+            
+        query += " ORDER BY p.nombre ASC"
+        rows = self.db.fetch_all(query, tuple(params))
+        return [self._row_to_link(row) for row in rows]
+
 
     def crear(self, link: VarianteProductoLink) -> Optional[int]:
         """Crear un nuevo mapeo."""

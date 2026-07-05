@@ -214,6 +214,37 @@ class ConfigTabMatriz:
         if self._selected_id is None:
             return
 
+        # Comprobar si requiere color/talla
+        tipo = self.service.obtener_por_id(self._selected_id)
+        requiere_color = 1
+        requiere_talla = 1
+        
+        if self._selected_variante_id:
+            vars = self.service.obtener_variantes_por_tipo(self._selected_id)
+            v_obj = next((v for v in vars if v.id == self._selected_variante_id), None)
+            if v_obj:
+                requiere_color = v_obj.requiere_color
+                requiere_talla = v_obj.requiere_talla
+        elif tipo:
+            requiere_color = tipo.requiere_color
+            requiere_talla = tipo.requiere_talla
+
+        # Si no requiere nada, mostrar stock simple
+        if requiere_color == 0 and requiere_talla == 0:
+            cant = self.service.obtener_stock_especifico(self._selected_id, None, "", self._selected_variante_id)
+            
+            f_stock = tk.Frame(self._colores_scroll, bg="#1a1a2e", bd=2, relief="groove")
+            f_stock.pack(fill="x", padx=10, pady=20)
+            
+            tk.Label(f_stock, text="PRODUCTO SIN TALLA NI COLOR", 
+                     font=get_font(self.config, "label_small"),
+                     fg="#95a5a6", bg="#1a1a2e").pack(pady=(10, 0))
+            
+            tk.Label(f_stock, text=f"CANTIDAD: {cant} unidades", 
+                     font=("Courier New", 18, "bold"),
+                     fg="#2ecc71", bg="#1a1a2e").pack(pady=(5, 15))
+            return
+
         for cid in sorted(self._colores_asignados, key=lambda c: self._all_colores[c].nombre if c in self._all_colores else ""):
             if cid not in self._all_colores: continue
             color = self._all_colores[cid]
@@ -245,10 +276,8 @@ class ConfigTabMatriz:
         # Cargar tallas
         self._tallas_state = self.service.obtener_tallas_tipo_color_3d(self._selected_id, color_id, self._selected_variante_id)
         
-        # Cargar stock disponible para esta combinación
-        from kool_tpv.modulos.produccion.services.produccion_stock_base_service import ProduccionStockBaseService
-        stock_svc = ProduccionStockBaseService(self.service.db)
-        self._stock_actual = stock_svc.obtener_stock_por_tipo_color(self._selected_id, color_id, self._selected_variante_id)
+        # Cargar stock disponible para esta combinación usando el servicio
+        self._stock_actual = self.service.obtener_stock_por_tipo_color(self._selected_id, color_id, self._selected_variante_id)
         
         tipo = self.service.obtener_por_id(self._selected_id)
         tn = tipo.nombre if tipo else "TIPO"
@@ -271,6 +300,39 @@ class ConfigTabMatriz:
             child.destroy()
         self._talla_chips = {}
         self._talla_order = []
+
+        # Comprobar si requiere talla
+        tipo = self.service.obtener_por_id(self._selected_id)
+        requiere_talla = 1
+        if self._selected_variante_id:
+            vars = self.service.obtener_variantes_por_tipo(self._selected_id)
+            v_obj = next((v for v in vars if v.id == self._selected_variante_id), None)
+            if v_obj:
+                requiere_talla = v_obj.requiere_talla
+        elif tipo:
+            requiere_talla = tipo.requiere_talla
+
+        # Si NO requiere talla, mostrar stock para el color seleccionado (si existe)
+        if requiere_talla == 0:
+            stock = 0
+            if self._selected_color:
+                # El stock para productos sin talla está bajo la clave "" o None en el dict
+                stock = self._stock_actual.get("", 0)
+                if stock == 0:
+                    stock = self._stock_actual.get(None, 0)
+            
+            f_stock = tk.Frame(self._tallas_scroll, bg="#1a1a2e", bd=2, relief="groove")
+            f_stock.pack(fill="x", padx=10, pady=20)
+            
+            tk.Label(f_stock, text="COLOR SIN TALLAS", 
+                     font=get_font(self.config, "label_small"),
+                     fg="#95a5a6", bg="#1a1a2e").pack(pady=(10, 0))
+            
+            tk.Label(f_stock, text=f"CANTIDAD: {stock} unidades", 
+                     font=("Courier New", 18, "bold"),
+                     fg="#2ecc71", bg="#1a1a2e").pack(pady=(5, 15))
+            return
+
         tallas_orden = sorted(self._all_tallas.keys(),
                               key=lambda t: self._all_tallas[t].orden)
         cols = 6

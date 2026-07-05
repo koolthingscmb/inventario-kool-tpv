@@ -38,6 +38,8 @@ class Importador:
         self._var = {(v.tipo_id, v.nombre.strip().upper()): v.id for v in self.sv.obtener_todos()}
 
     def _color(self, n):
+        if not n or not n.strip():
+            return None
         k = n.strip().upper()
         if k in self._col:
             return self._col[k]
@@ -50,6 +52,8 @@ class Importador:
         return None
 
     def _talla(self, n):
+        if not n or not n.strip():
+            return None
         k = n.strip().upper()
         if k in self._tal:
             return self._tal[k]
@@ -62,14 +66,15 @@ class Importador:
             return tid
         return None
 
-    def _variante(self, tid, n, cost):
+    def _variante(self, tid, n, cost, req_tal=1, req_col=1):
         k = (tid, n.strip().upper())
         if k in self._var:
+            # Si ya existe, podríamos actualizar los requerimientos si fuera necesario
             return self._var[k]
-        vid = self.sv.crear(tipo_id=tid, nombre=n.strip(), coste_base=cost, requiere_talla=1, requiere_color=1)
+        vid = self.sv.crear(tipo_id=tid, nombre=n.strip(), coste_base=cost, requiere_talla=req_tal, requiere_color=req_col)
         if vid:
             self._var[k] = vid
-            log.info(f"Variante creada: {n}")
+            log.info(f"Variante creada: {n} (Req Talla:{req_tal}, Color:{req_col})")
             return vid
         return None
 
@@ -86,30 +91,42 @@ class Importador:
                 vnom = r.get('VARIANTE', '').strip()
                 uds = r.get('UNIDADES (stock_actual)', '0').strip()
                 cost = _cents(r.get('COSTE', '0'))
+                
                 tid = self._tipos.get(tnom.upper())
                 if not tid:
                     log.error(f"F{i}: tipo '{tnom}' no encontrado")
                     err += 1
                     continue
+
+                # Determinar si requiere talla/color por presencia en CSV
+                req_col = 1 if cnom else 0
+                req_tal = 1 if talla else 0
+                
                 cid = self._color(cnom)
-                if not cid:
-                    err += 1
-                    continue
                 talid = self._talla(talla)
-                if not talid:
-                    err += 1
-                    continue
-                vid = self._variante(tid, vnom, cost)
+                
+                vid = self._variante(tid, vnom, cost, req_tal, req_col)
                 if not vid:
                     err += 1
                     continue
-                sku = f"{_csku(tnom)[:3]}-{_csku(vnom)[:3]}-{_csku(cnom)[:3]}-{_csku(talla)}"
+
+                # Construcción de SKU inteligente
+                sku_parts = [_csku(tnom)[:3], _csku(vnom)[:3]]
+                if cnom:
+                    sku_parts.append(_csku(cnom)[:3])
+                if talla:
+                    sku_parts.append(_csku(talla))
+                sku = "-".join(sku_parts)
+
                 try:
                     uds_i = int(uds)
                 except ValueError:
                     uds_i = 0
-                self.ss.repo.crear_o_actualizar(tid, cid, talla.upper(), sku, uds_i, cost, vid, talid)
+                
+                # cid y talid pueden ser None si no son requeridos
+                self.ss.repo.crear_o_actualizar(tid, cid, (talla.upper() if talla else None), sku, uds_i, cost, vid, talid)
                 self.rr.asegurar_relacion(tid, cid, talid, vid)
+                
                 ok += 1
                 log.info(f"F{i}: OK {sku}")
         log.info(f"--- {ok} OK, {err} errores, {sk} skip ---")

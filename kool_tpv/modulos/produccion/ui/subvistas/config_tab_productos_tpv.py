@@ -47,412 +47,388 @@ class ConfigTabProductosTpv:
         self._variante_selected_id = None
         self._extra_selected_id = None
         self._coleccion_selected_id = None
+        self._producto_selected_data = None  # Almacena el producto del TPV seleccionado
         self._link_actual = None
+        
         self._tipo_chips = {}
         self._variante_chips = {}
         self._extra_chips = {}
         self._coleccion_chips = {}
 
-        # Configuración de chips (reutilizando estilo de diseno)
+        # Configuración de chips
         self._chip_cfg = self.config.get("chips", {}).get("diseno", {})
         
         self.build()
 
     def build(self):
-        content = tk.Frame(self.parent, bg=self._bg)
-        content.pack(fill=tk.BOTH, expand=True)
+        self.main_container = tk.Frame(self.parent, bg=self._bg)
+        self.main_container.pack(fill=tk.BOTH, expand=True)
 
-        # --- IZQUIERDA: Selección (40%) ---
-        self.frame_left = tk.Frame(content, bg="#34495e", bd=0, highlightthickness=0)
-        self.frame_left.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 6))
-
-        # 1. Chips de Tipos
-        tk.Label(self.frame_left, text="1. SELECCIONA TIPO", font=get_font(self.config, "label"),
-                 fg="#FFD700", bg="#34495e").pack(pady=(8, 4))
+        # 1. COLUMNA IZQUIERDA: VINCULACIONES (30%)
+        self.frame_links = tk.Frame(self.main_container, bg="#1a1a2e", bd=0)
+        self.frame_links.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 4))
         
-        self._tipos_scroll = ctk.CTkScrollableFrame(self.frame_left, fg_color="#2c3e50", height=120)
-        self._tipos_scroll.pack(fill="x", padx=6, pady=(0, 6))
+        tk.Label(self.frame_links, text="VINCULACIONES ACTUALES", font=get_font(self.config, "label_bold"),
+                 fg="#FFD700", bg="#1a1a2e").pack(pady=(12, 8))
 
-        # 2. Chips de Variantes
-        tk.Label(self.frame_left, text="2. SELECCIONA VARIANTE", font=get_font(self.config, "label"),
-                 fg="#FFD700", bg="#34495e").pack(pady=(8, 4))
-        
-        self._variantes_scroll = ctk.CTkScrollableFrame(self.frame_left, fg_color="#2c3e50", height=120)
-        self._variantes_scroll.pack(fill="x", padx=6, pady=(0, 6))
-
-        # 3. Chips de Extras (fila compacta)
-        tk.Label(self.frame_left, text="3. SELECCIONA EXTRA", font=get_font(self.config, "label"),
-                 fg="#FFD700", bg="#34495e").pack(pady=(8, 4))
-        
-        self._extras_frame = tk.Frame(self.frame_left, bg="#2c3e50", height=50)
-        self._extras_frame.pack(fill="x", padx=6, pady=(0, 6))
-        self._extras_frame.pack_propagate(False)
-
-        # 4. Chips de Colecciones (resto espacio)
-        tk.Label(self.frame_left, text="4. SELECCIONA COLECCIÓN", font=get_font(self.config, "label"),
-                 fg="#FFD700", bg="#34495e").pack(pady=(8, 4))
-        
-        self._colecciones_scroll = ctk.CTkScrollableFrame(self.frame_left, fg_color="#2c3e50")
-        self._colecciones_scroll.pack(fill=tk.BOTH, expand=True, padx=6, pady=(0, 6))
-
-        # Footer Izquierda: Botón eliminar
-        self.footer_left = tk.Frame(self.frame_left, bg="#34495e", height=50)
-        self.footer_left.pack(side=tk.BOTTOM, fill="x", padx=6, pady=10)
-        
-        self.btn_eliminar = ctk.CTkButton(
-            self.footer_left, text="ELIMINAR VINCULACIÓN",
-            fg_color="#e74c3c", hover_color="#c0392b",
-            font=get_font(self.config, "button"),
-            command=self._on_eliminar_link
+        self.btn_nuevo = ctk.CTkButton(
+            self.frame_links, text="+ NUEVA VINCULACIÓN",
+            fg_color="#34495e", hover_color="#2c3e50",
+            font=get_font(self.config, "button_small"), height=30,
+            command=self._on_nueva_vinculacion
         )
-        self.btn_eliminar.pack(fill="x")
+        self.btn_nuevo.pack(fill="x", padx=10, pady=(0, 10))
 
-        # --- DERECHA: Buscador y Vinculación (60%) ---
-        frame_right = tk.Frame(content, bg="#34495e", bd=0, highlightthickness=0)
-        frame_right.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(6, 0))
-        
-        # Configurar grid para 50/50
-        frame_right.rowconfigure(0, weight=0) # Buscador
-        frame_right.rowconfigure(1, weight=1) # Lista + Vinculación
-        frame_right.columnconfigure(0, weight=1)
-
-        # Cabecera Derecha: Buscador
-        header_right = tk.Frame(frame_right, bg="#34495e")
-        header_right.grid(row=0, column=0, sticky="ew", padx=10, pady=(8, 4))
-        
-        tk.Label(header_right, text="BUSCAR PRODUCTO TPV", font=get_font(self.config, "label"),
-                 fg="#FFD700", bg="#34495e").pack(side=tk.LEFT)
-
-        self._search_entry = ctk.CTkEntry(
-            header_right, placeholder_text="Nombre, EAN o SKU...",
-            font=get_font(self.config, "entry")
-        )
-        self._search_entry.pack(side=tk.LEFT, fill="x", expand=True, padx=(10, 0), pady=5)
-        self._search_entry.bind("<Return>", lambda e: self._on_search())
-
-        # Fila inferior: Lista (50%) + Vinculación (50%)
-        bottom_frame = tk.Frame(frame_right, bg="#34495e")
-        bottom_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
-        bottom_frame.columnconfigure(0, weight=1) # Lista
-        bottom_frame.columnconfigure(1, weight=1) # Vinculación
-        bottom_frame.rowconfigure(0, weight=1)
-
-        # Lista de Productos TPV (50%)
-        columns = [
-            ("sku", 100, "SKU"),
-            ("nombre", 200, "Producto"),
-            ("pvp", 60, "PVP"),
-            ("stock_actual", 60, "Stock")
+        # Lista de vinculaciones existentes
+        cols_links = [
+            ("producto", 250, "Producto TPV"),
+            ("produccion", 200, "Configuración")
         ]
-        
-        self._nav_list = VirtualNavList(
-            bottom_frame,
-            columns=columns,
+        self._links_list = VirtualNavList(
+            self.frame_links,
+            columns=cols_links,
             module_name="produccion",
             keyboard_manager=self._km,
-            on_double_click=self._on_producto_double_click,
+            on_double_click=self._on_link_double_click,
             layout_config=self._layout_config
         )
-        self._nav_list.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
+        self._links_list.pack(fill=tk.BOTH, expand=True, padx=6, pady=5)
 
-        # Vinculación Actual (50%)
-        self._vinculacion_frame = tk.Frame(bottom_frame, bg="#2c3e50")
-        self._vinculacion_frame.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
+        # 2. COLUMNA CENTRAL: PRODUCTO & TIPO (35%)
+        self.frame_center = tk.Frame(self.main_container, bg="#2c3e50", bd=0)
+        self.frame_center.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=4)
         
-        tk.Label(self._vinculacion_frame, text="VINCULACIÓN ACTUAL", font=get_font(self.config, "label"),
+        # PASO 1: BUSCADOR TPV
+        tk.Label(self.frame_center, text="PASO 1: BUSCA UN PRODUCTO", font=get_font(self.config, "label_bold"),
+                 fg="#FFD700", bg="#2c3e50").pack(pady=(12, 4))
+        
+        self._search_entry = ctk.CTkEntry(
+            self.frame_center, placeholder_text="Nombre o SKU + ENTER...",
+            font=get_font(self.config, "entry"),
+            height=35
+        )
+        self._search_entry.pack(fill="x", padx=10, pady=5)
+        self._search_entry.bind("<Return>", lambda e: self._on_search())
+
+        self._tpv_list = VirtualNavList(
+            self.frame_center,
+            columns=[("nombre", 200, "Producto"), ("stock", 60, "Stock")],
+            module_name="produccion",
+            keyboard_manager=self._km,
+            on_double_click=self._on_producto_select,
+            layout_config=self._layout_config
+        )
+        self._tpv_list.pack(fill=tk.BOTH, expand=True, padx=6, pady=5)
+
+        # ZONA DE SELECCIONADO Y GUARDADO
+        self.selection_status_frame = tk.Frame(self.frame_center, bg="#1a1a2e", height=100)
+        self.selection_status_frame.pack(fill="x", padx=6, pady=5)
+        self.selection_status_frame.pack_propagate(False)
+        
+        self.lbl_prod_sel = tk.Label(self.selection_status_frame, text="Ningún producto seleccionado", 
+                                     font=get_font(self.config, "label_small"), fg="#95a5a6", bg="#1a1a2e")
+        self.lbl_prod_sel.pack(pady=10)
+        
+        self.btn_guardar = ctk.CTkButton(
+            self.selection_status_frame, text="GUARDAR VINCULACIÓN",
+            fg_color="#27ae60", hover_color="#2ecc71",
+            font=get_font(self.config, "button"), height=40,
+            command=self._on_guardar_click,
+            state="disabled"
+        )
+        self.btn_guardar.pack(fill="x", padx=20, pady=(0, 10))
+
+        # PASO 2: SELECCIONA UN TIPO (Debajo del buscador)
+        tk.Label(self.frame_center, text="PASO 2: SELECCIONA UN TIPO", font=get_font(self.config, "label_bold"),
+                 fg="#FFD700", bg="#2c3e50").pack(pady=(10, 4))
+        
+        self._tipos_scroll = ctk.CTkScrollableFrame(self.frame_center, fg_color="#34495e", height=150)
+        self._tipos_scroll.pack(fill="x", padx=6, pady=5)
+
+        # 3. COLUMNA DERECHA: PASOS 3, 4, 5 (35%)
+        self.frame_right = tk.Frame(self.main_container, bg="#2c3e50", bd=0)
+        self.frame_right.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(4, 0))
+
+        # PASO 3: VARIANTES (40%)
+        tk.Label(self.frame_right, text="PASO 3: SELECCIONA UNA VARIANTE", font=get_font(self.config, "label_bold"),
+                 fg="#FFD700", bg="#2c3e50").pack(pady=(12, 4))
+        self._variantes_scroll = ctk.CTkScrollableFrame(self.frame_right, fg_color="#34495e", height=200)
+        self._variantes_scroll.pack(fill="x", padx=6, pady=5)
+
+        # PASO 4: EXTRAS (20%)
+        tk.Label(self.frame_right, text="PASO 4: SELECCIONA UN EXTRA", font=get_font(self.config, "label_bold"),
                  fg="#FFD700", bg="#2c3e50").pack(pady=(8, 4))
-        
-        self._resultado_container = tk.Frame(self._vinculacion_frame, bg="#2c3e50")
-        self._resultado_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
-        
-        self._render_link_actual()
+        self._extras_frame = tk.Frame(self.frame_right, bg="#34495e", height=80)
+        self._extras_frame.pack(fill="x", padx=6, pady=5)
+        self._extras_frame.pack_propagate(False)
+
+        # PASO 5: COLECCIONES (Resto)
+        tk.Label(self.frame_right, text="PASO 5: SELECCIONA UNA COLECCIÓN", font=get_font(self.config, "label_bold"),
+                 fg="#FFD700", bg="#2c3e50").pack(pady=(8, 4))
+        self._colecciones_scroll = ctk.CTkScrollableFrame(self.frame_right, fg_color="#34495e")
+        self._colecciones_scroll.pack(fill=tk.BOTH, expand=True, padx=6, pady=5)
+
+        # Botón Eliminar en el footer derecho
+        self.btn_eliminar = ctk.CTkButton(
+            self.frame_right, text="ELIMINAR VINCULACIÓN ACTUAL",
+            fg_color="#e74c3c", hover_color="#c0392b",
+            font=get_font(self.config, "button_small"), height=35,
+            command=self._on_eliminar_link,
+            state="disabled"
+        )
+        self.btn_eliminar.pack(fill="x", padx=20, pady=15)
 
         # Cargar datos iniciales
+        self._cargar_vinculaciones()
         self._cargar_tipos()
         self._cargar_extras()
         self._cargar_colecciones()
 
+    def _cargar_vinculaciones(self):
+        """Cargar la lista de vinculaciones existentes, filtrando si hay selección."""
+        items = self.link_service.get_filtrados(
+            tipo_id=self._tipo_selected_id,
+            variante_id=self._variante_selected_id
+        )
+        
+        rows = []
+        for it in items:
+            prod_info = it.producto_nombre
+            # Construir resumen de producción
+            partes = [it.variante_nombre]
+            if it.extra_nombre: partes.append(f"+{it.extra_nombre}")
+            if it.coleccion_nombre: partes.append(f"({it.coleccion_nombre})")
+            
+            rows.append({
+                "id": it.id,
+                "producto": prod_info,
+                "produccion": " ".join(partes),
+                "_raw": it
+            })
+        self._links_list.set_items(rows)
+
     def _cargar_tipos(self):
-        """Renderizar chips de tipos de producción."""
         for child in self._tipos_scroll.winfo_children():
             child.destroy()
         self._tipo_chips = {}
-
         tipos = self.config_service.obtener_tipos_de_menus_ordenados(solo_con_stock=False)
-        if not tipos:
-            tk.Label(self._tipos_scroll, text="No hay tipos configurados", bg="#2c3e50", fg=self._text_sec).pack(pady=20)
-            return
-
-        cols = 3
-        default_cfg = self._chip_cfg.get("default", {})
-        selected_cfg = self._chip_cfg.get("selected", {})
         
+        cols = 2
         for idx, t in enumerate(tipos):
-            is_selected = (t.id == self._tipo_selected_id)
-            bg = selected_cfg.get("bg", "#552583") if is_selected else default_cfg.get("bg", "#1a1a2e")
-            
+            is_sel = (t.id == self._tipo_selected_id)
             chip = ctk.CTkButton(
-                self._tipos_scroll, text=t.nombre,
-                width=0, height=32, corner_radius=16,
-                fg_color=bg,
+                self._tipos_scroll, text=t.nombre, height=32, corner_radius=16,
+                fg_color=self._get_chip_color(is_sel),
                 command=lambda tid=t.id: self._on_tipo_click(tid)
             )
-            row = idx // cols
-            col = idx % cols
+            row, col = divmod(idx, cols)
             chip.grid(row=row, column=col, padx=4, pady=4, sticky="ew")
             self._tipo_chips[t.id] = chip
-
-        for i in range(cols):
-            self._tipos_scroll.columnconfigure(i, weight=1)
+        for i in range(cols): self._tipos_scroll.columnconfigure(i, weight=1)
 
     def _on_tipo_click(self, tipo_id):
         self._tipo_selected_id = tipo_id
         self._variante_selected_id = None
         self._link_actual = None
-        
-        # Actualizar colores de chips de tipos
-        default_cfg = self._chip_cfg.get("default", {})
-        selected_cfg = self._chip_cfg.get("selected", {})
-        for tid, chip in self._tipo_chips.items():
-            bg = selected_cfg.get("bg", "#552583") if tid == tipo_id else default_cfg.get("bg", "#1a1a2e")
-            chip.configure(fg_color=bg)
-
+        self._actualizar_chips_seleccion(self._tipo_chips, tipo_id)
         self._cargar_variantes(tipo_id)
-        self._render_link_actual()
+        self._cargar_vinculaciones()
+        self._check_ready_to_save()
+
+    def _cargar_variantes(self, tipo_id):
+        for child in self._variantes_scroll.winfo_children():
+            child.destroy()
+        self._variante_chips = {}
+        variantes = self.variantes_service.obtener_por_tipo(tipo_id, solo_activos=True)
+        
+        cols = 2
+        for idx, v in enumerate(variantes):
+            is_sel = (v.id == self._variante_selected_id)
+            chip = ctk.CTkButton(
+                self._variantes_scroll, text=v.nombre, height=32, corner_radius=16,
+                fg_color=self._get_chip_color(is_sel),
+                command=lambda vid=v.id: self._on_variante_click(vid)
+            )
+            row, col = divmod(idx, cols)
+            chip.grid(row=row, column=col, padx=4, pady=4, sticky="ew")
+            self._variante_chips[v.id] = chip
+        for i in range(cols): self._variantes_scroll.columnconfigure(i, weight=1)
+
+    def _on_variante_click(self, variante_id):
+        self._variante_selected_id = variante_id
+        self._actualizar_chips_seleccion(self._variante_chips, variante_id)
+        self._check_ready_to_save()
+        self._cargar_vinculaciones()
 
     def _cargar_extras(self):
-        """Renderizar chips de extras en una fila compacta."""
-        for child in self._extras_frame.winfo_children():
-            child.destroy()
+        for child in self._extras_frame.winfo_children(): child.destroy()
         self._extra_chips = {}
-
         extras = self.extras_service.get_todos(solo_activos=True)
-        if not extras:
-            tk.Label(self._extras_frame, text="Sin extras", bg="#2c3e50", fg=self._text_sec, font=get_font(self.config, "label")).pack(expand=True)
-            return
-
-        default_cfg = self._chip_cfg.get("default", {})
-        selected_cfg = self._chip_cfg.get("selected", {})
-        font_family = get_font(self.config, self._chip_cfg.get("font_key", "label"))
-        chip_font = (font_family[0], 10, font_family[2])
-
-        for idx, extra in enumerate(extras):
-            is_selected = (extra.id == self._extra_selected_id)
-            bg = selected_cfg.get("bg", "#552583") if is_selected else default_cfg.get("bg", "#1a1a2e")
-            
+        for extra in extras:
+            is_sel = (extra.id == self._extra_selected_id)
             chip = ctk.CTkButton(
-                self._extras_frame, text=extra.nombre,
-                width=80, height=28, corner_radius=14,
-                font=chip_font,
-                fg_color=bg,
+                self._extras_frame, text=extra.nombre, width=80, height=28, corner_radius=14,
+                fg_color=self._get_chip_color(is_sel),
                 command=lambda eid=extra.id: self._on_extra_click(eid)
             )
             chip.pack(side=tk.LEFT, padx=3, pady=5)
             self._extra_chips[extra.id] = chip
 
     def _on_extra_click(self, extra_id):
-        self._extra_selected_id = extra_id
-        
-        default_cfg = self._chip_cfg.get("default", {})
-        selected_cfg = self._chip_cfg.get("selected", {})
-        for eid, chip in self._extra_chips.items():
-            bg = selected_cfg.get("bg", "#552583") if eid == extra_id else default_cfg.get("bg", "#1a1a2e")
-            chip.configure(fg_color=bg)
-        
-        self._render_link_actual()
+        # Toggle selection
+        if self._extra_selected_id == extra_id: self._extra_selected_id = None
+        else: self._extra_selected_id = extra_id
+        self._actualizar_chips_seleccion(self._extra_chips, self._extra_selected_id)
+        self._check_ready_to_save()
 
     def _cargar_colecciones(self):
-        """Renderizar chips de colecciones."""
-        for child in self._colecciones_scroll.winfo_children():
-            child.destroy()
+        for child in self._colecciones_scroll.winfo_children(): child.destroy()
         self._coleccion_chips = {}
-
         colecciones = self.colecciones_service.obtener_colecciones()
-        if not colecciones:
-            tk.Label(self._colecciones_scroll, text="Sin colecciones", bg="#2c3e50", fg=self._text_sec, font=get_font(self.config, "label")).pack(pady=20)
-            return
-
-        cols = 3
-        default_cfg = self._chip_cfg.get("default", {})
-        selected_cfg = self._chip_cfg.get("selected", {})
-
-        for idx, col in enumerate(colecciones):
-            is_selected = (col.id == self._coleccion_selected_id)
-            bg = selected_cfg.get("bg", "#552583") if is_selected else default_cfg.get("bg", "#1a1a2e")
-            
+        cols = 2
+        for idx, col_item in enumerate(colecciones):
+            is_sel = (col_item.id == self._coleccion_selected_id)
             chip = ctk.CTkButton(
-                self._colecciones_scroll, text=col.nombre,
-                width=0, height=32, corner_radius=16,
-                fg_color=bg,
-                command=lambda cid=col.id: self._on_coleccion_click(cid)
+                self._colecciones_scroll, text=col_item.nombre, height=32, corner_radius=16,
+                fg_color=self._get_chip_color(is_sel),
+                command=lambda cid=col_item.id: self._on_coleccion_click(cid)
             )
-            row = idx // cols
-            col_idx = idx % cols
+            row, col_idx = divmod(idx, cols)
             chip.grid(row=row, column=col_idx, padx=4, pady=4, sticky="ew")
-            self._coleccion_chips[col.id] = chip
-
-        for i in range(cols):
-            self._colecciones_scroll.columnconfigure(i, weight=1)
+            self._coleccion_chips[col_item.id] = chip
+        for i in range(cols): self._colecciones_scroll.columnconfigure(i, weight=1)
 
     def _on_coleccion_click(self, coleccion_id):
-        self._coleccion_selected_id = coleccion_id
-        
-        default_cfg = self._chip_cfg.get("default", {})
-        selected_cfg = self._chip_cfg.get("selected", {})
-        for cid, chip in self._coleccion_chips.items():
-            bg = selected_cfg.get("bg", "#552583") if cid == coleccion_id else default_cfg.get("bg", "#1a1a2e")
-            chip.configure(fg_color=bg)
-        
-        self._render_link_actual()
-
-    def _cargar_variantes(self, tipo_id):
-        """Renderizar chips de variantes del tipo seleccionado."""
-        for child in self._variantes_scroll.winfo_children():
-            child.destroy()
-        self._variante_chips = {}
-
-        variantes = self.variantes_service.obtener_por_tipo(tipo_id, solo_activos=True)
-        if not variantes:
-            tk.Label(self._variantes_scroll, text="No hay variantes activas", bg="#2c3e50", fg=self._text_sec).pack(pady=20)
-            return
-
-        cols = 3
-        default_cfg = self._chip_cfg.get("default", {})
-        selected_cfg = self._chip_cfg.get("selected", {})
-
-        for idx, v in enumerate(variantes):
-            is_selected = (v.id == self._variante_selected_id)
-            bg = selected_cfg.get("bg", "#552583") if is_selected else default_cfg.get("bg", "#1a1a2e")
-            
-            chip = ctk.CTkButton(
-                self._variantes_scroll, text=v.nombre,
-                width=0, height=32, corner_radius=16,
-                fg_color=bg,
-                command=lambda vid=v.id: self._on_variante_click(vid)
-            )
-            row = idx // cols
-            col = idx % cols
-            chip.grid(row=row, column=col, padx=4, pady=4, sticky="ew")
-            self._variante_chips[v.id] = chip
-
-        for i in range(cols):
-            self._variantes_scroll.columnconfigure(i, weight=1)
-
-    def _on_variante_click(self, variante_id):
-        self._variante_selected_id = variante_id
-        
-        # Actualizar colores de chips de variantes
-        default_cfg = self._chip_cfg.get("default", {})
-        selected_cfg = self._chip_cfg.get("selected", {})
-        for vid, chip in self._variante_chips.items():
-            bg = selected_cfg.get("bg", "#552583") if vid == variante_id else default_cfg.get("bg", "#1a1a2e")
-            chip.configure(fg_color=bg)
-
-        # Buscar si ya tiene vinculación
-        self._link_actual = self.link_service.get_por_variante(variante_id)
-        self._render_link_actual()
-
-    def _render_link_actual(self):
-        """Muestra el chip del producto vinculado o un aviso."""
-        for child in self._resultado_container.winfo_children():
-            child.destroy()
-
-        if not self._variante_selected_id:
-            tk.Label(self._resultado_container, text="Selecciona una variante...", 
-                     bg="#2c3e50", fg=self._text_sec, font=get_font(self.config, "label")).pack(expand=True)
-            return
-
-        # Buscar si ya tiene vinculación con la combinación actual
-        self._link_actual = self.link_service.get_por_variante(self._variante_selected_id)
-        
-        if self._link_actual:
-            nombre = self._link_actual.producto_nombre or f"Producto ID {self._link_actual.producto_id}"
-            selected_cfg = self._chip_cfg.get("selected", {})
-            chip_bg = selected_cfg.get("bg", "#27ae60")
-            
-            # Construir texto con extra y colección si existen
-            texto = f"✓ {nombre}"
-            if self._link_actual.extra_nombre:
-                texto += f" + {self._link_actual.extra_nombre}"
-            if self._link_actual.coleccion_nombre:
-                texto += f" ({self._link_actual.coleccion_nombre})"
-            
-            chip = ctk.CTkButton(
-                self._resultado_container,
-                text=texto,
-                font=get_font(self.config, "label"),
-                fg_color=chip_bg,
-                hover_color="#e74c3c",
-                height=40,
-                corner_radius=20,
-                command=self._on_eliminar_link
-            )
-            chip.pack(expand=True, padx=10)
-            
-            chip.bind("<Enter>", lambda e: chip.configure(text=f"✕ DESVINCULAR"))
-            chip.bind("<Leave>", lambda e: chip.configure(text=texto))
-        else:
-            tk.Label(self._resultado_container, text="SIN VINCULACIÓN", 
-                     bg="#2c3e50", fg="#e67e22", font=get_font(self.config, "label")).pack(expand=True)
+        # Toggle selection
+        if self._coleccion_selected_id == coleccion_id: self._coleccion_selected_id = None
+        else: self._coleccion_selected_id = coleccion_id
+        self._actualizar_chips_seleccion(self._coleccion_chips, self._coleccion_selected_id)
+        self._check_ready_to_save()
 
     def _on_search(self):
         filtro = self._search_entry.get().strip()
         if not filtro:
-            self._nav_list.clear_items()
+            self._tpv_list.clear_items()
+            return
+        productos = self.tpv_service.listar_productos(filtro)
+        rows = [{"id": p['id'], "nombre": p['nombre'], "stock": p.get('stock_actual', 0)} for p in productos]
+        self._tpv_list.set_items(rows)
+
+    def _on_producto_select(self, item_data: dict):
+        """Paso 1: Seleccionar producto de la lista."""
+        self._producto_selected_data = item_data
+        self.lbl_prod_sel.configure(
+            text=f"PRODUCTO: {item_data['nombre']}", 
+            fg="#2ecc71"
+        )
+        self._check_ready_to_save()
+
+    def _on_guardar_click(self):
+        """Guardar la vinculación final."""
+        if not self._producto_selected_data or not self._variante_selected_id:
+            ToastWidget.show(self.parent, "SELECCIONA PRODUCTO Y VARIANTE", tipo="error")
             return
         
-        productos = self.tpv_service.listar_productos(filtro)
-        # Normalizar para VirtualNavList (que usa keys de dict)
-        items = []
-        for p in productos:
-            pvp_val = p.get('pvp', 0)
-            if hasattr(pvp_val, '__float__'):
-                pvp_str = f"{float(pvp_val):.2f}€"
-            else:
-                pvp_str = str(pvp_val)
-            items.append({
-                "id": p.get('id', ''),
-                "sku": p.get('sku', ''),
-                "nombre": p.get('nombre', ''),
-                "pvp": pvp_str,
-                "stock_actual": p.get('stock_actual', 0)
-            })
-        self._nav_list.set_items(items)
-
-    def _on_producto_double_click(self, item_data: dict):
-        """Vincular producto a la variante seleccionada (con optional extra y colección)."""
-        if not self._tipo_selected_id or not self._variante_selected_id:
-            ToastWidget.show(self.parent, "SELECCIONA TIPO Y VARIANTE PRIMERO", tipo="error")
-            return
-
-        producto_id = item_data["id"]
-        producto_nombre = item_data["nombre"]
-
         if self.link_service.guardar_mapeo(
             self._variante_selected_id, 
-            producto_id, 
-            extra_id=self._extra_selected_id,
+            self._producto_selected_data["id"], 
+            extra_id=self._extra_selected_id, 
             coleccion_id=self._coleccion_selected_id
         ):
-            ToastWidget.show(self.parent, f"VINCULADO A: {producto_nombre}", tipo="success")
-            self._link_actual = self.link_service.get_por_variante(self._variante_selected_id)
-            self._render_link_actual()
+            ToastWidget.show(self.parent, "VINCULACIÓN GUARDADA", tipo="success")
+            self._cargar_vinculaciones()
+            self._check_ready_to_save()
         else:
-            ToastWidget.show(self.parent, "ERROR AL VINCULAR PRODUCTO", tipo="error")
+            ToastWidget.show(self.parent, "ERROR AL GUARDAR", tipo="error")
+
+    def _on_link_double_click(self, item_data: dict):
+        """Cargar una vinculación existente en los chips y buscador."""
+        link = item_data["_raw"]
+        self._variante_selected_id = link.variante_id
+        self._extra_selected_id = link.extra_id
+        self._coleccion_selected_id = link.coleccion_id
+        
+        # Simular selección de producto
+        self._producto_selected_data = {"id": link.producto_id, "nombre": link.producto_nombre}
+        self.lbl_prod_sel.configure(text=f"PRODUCTO: {link.producto_nombre}", fg="#2ecc71")
+        
+        # Encontrar el tipo de la variante
+        var_obj = self.db.fetch_one("SELECT tipo_id FROM tipos_variantes WHERE id = ?", (link.variante_id,))
+        if var_obj:
+            self._tipo_selected_id = var_obj[0]
+            self._actualizar_chips_seleccion(self._tipo_chips, self._tipo_selected_id)
+            self._cargar_variantes(self._tipo_selected_id)
+            self._actualizar_chips_seleccion(self._variante_chips, self._variante_selected_id)
+            
+        self._actualizar_chips_seleccion(self._extra_chips, self._extra_selected_id)
+        self._actualizar_chips_seleccion(self._coleccion_chips, self._coleccion_selected_id)
+        
+        # Mostrar el producto vinculado en el buscador por si quiere cambiarlo
+        self._search_entry.delete(0, tk.END)
+        self._search_entry.insert(0, link.producto_nombre)
+        self._on_search()
+        self._check_ready_to_save()
+
+    def _on_nueva_vinculacion(self):
+        """Resetear selección para crear una nueva vinculación."""
+        self._tipo_selected_id = None
+        self._variante_selected_id = None
+        self._extra_selected_id = None
+        self._coleccion_selected_id = None
+        self._producto_selected_data = None
+        self._link_actual = None
+        
+        self.lbl_prod_sel.configure(text="Ningún producto seleccionado", fg="#95a5a6")
+        self._actualizar_chips_seleccion(self._tipo_chips, None)
+        for child in self._variantes_scroll.winfo_children(): child.destroy()
+        self._actualizar_chips_seleccion(self._extra_chips, None)
+        self._actualizar_chips_seleccion(self._coleccion_chips, None)
+        
+        self._search_entry.delete(0, tk.END)
+        self._tpv_list.clear_items()
+        self._cargar_vinculaciones()
+        self._check_ready_to_save()
+
+    def _check_ready_to_save(self):
+        """Verificar si se puede guardar y si ya existe la combinación."""
+        can_save = (self._producto_selected_data is not None and self._variante_selected_id is not None)
+        
+        if can_save:
+            self.btn_guardar.configure(state="normal")
+            # Verificar si ya existe esta combinación
+            self._link_actual = self.link_service.get_por_combinacion(
+                self._variante_selected_id, self._extra_selected_id, self._coleccion_selected_id
+            )
+            
+            if self._link_actual:
+                self.btn_guardar.configure(text="ACTUALIZAR VINCULACIÓN", fg_color="#3498db", hover_color="#2980b9")
+                self.btn_eliminar.configure(state="normal")
+            else:
+                self.btn_guardar.configure(text="GUARDAR NUEVA VINCULACIÓN", fg_color="#27ae60", hover_color="#2ecc71")
+                self.btn_eliminar.configure(state="disabled")
+        else:
+            self.btn_guardar.configure(state="disabled", text="GUARDAR VINCULACIÓN", fg_color="#27ae60")
+            self.btn_eliminar.configure(state="disabled")
 
     def _on_eliminar_link(self):
         """Eliminar la vinculación actual."""
-        if not self._link_actual:
-            ToastWidget.show(self.parent, "NO HAY VINCULACIÓN QUE ELIMINAR", tipo="warning")
-            return
+        if not self._link_actual: return
 
         if self.link_service.eliminar_mapeo(self._link_actual.id):
             ToastWidget.show(self.parent, "VINCULACIÓN ELIMINADA", tipo="success")
-            self._link_actual = None
-            self._render_link_actual()
+            self._on_nueva_vinculacion()
         else:
-            ToastWidget.show(self.parent, "ERROR AL ELIMINAR VINCULACIÓN", tipo="error")
+            ToastWidget.show(self.parent, "ERROR AL ELIMINAR", tipo="error")
 
-    def refresh_nav(self):
-        """Método requerido por ProduccionConfigView."""
-        pass
+    def _get_chip_color(self, is_selected):
+        default_cfg = self._chip_cfg.get("default", {})
+        selected_cfg = self._chip_cfg.get("selected", {})
+        return selected_cfg.get("bg", "#552583") if is_selected else default_cfg.get("bg", "#1a1a2e")
+
+    def _actualizar_chips_seleccion(self, chips_dict, selected_id):
+        for cid, chip in chips_dict.items():
+            chip.configure(fg_color=self._get_chip_color(cid == selected_id))
+
+    def refresh_nav(self): self._cargar_vinculaciones()
+
+    def destruir(self): self.main_container.destroy()

@@ -20,20 +20,26 @@ class VarianteProductoService:
         """Obtener todos los mapeos configurados."""
         return self.repo.get_todos()
 
-    def get_por_variante(self, variante_id: int) -> Optional[VarianteProductoLink]:
-        """Obtener el mapeo activo para una variante de producción."""
-        return self.repo.get_por_variante(variante_id)
+    def get_por_combinacion(self, variante_id: int, extra_id: Optional[int] = None, 
+                           coleccion_id: Optional[int] = None) -> Optional[VarianteProductoLink]:
+        """Obtener el mapeo activo para una combinación de producción."""
+        return self.repo.get_por_combinacion(variante_id, extra_id, coleccion_id)
+
+    def get_filtrados(self, tipo_id: Optional[int] = None, variante_id: Optional[int] = None) -> List[VarianteProductoLink]:
+        """Obtener vinculaciones filtradas."""
+        return self.repo.get_filtrados(tipo_id, variante_id)
 
     def guardar_mapeo(self, variante_id: int, producto_id: int, ratio: int = 1, 
-                     extra_id: Optional[int] = None, coleccion_id: Optional[int] = None,
-                     link_id: Optional[int] = None) -> bool:
-        """Crea o actualiza un mapeo.
+                     extra_id: Optional[int] = None, coleccion_id: Optional[int] = None) -> bool:
+        """Crea o actualiza un mapeo para una combinación exacta.
         
-        Permite vincular variante + optional extra + optional colección a un producto TPV.
+        Si ya existe una vinculación para esta combinación (variante+extra+colección), la actualiza.
         """
         try:
+            existente = self.get_por_combinacion(variante_id, extra_id, coleccion_id)
+            
             link = VarianteProductoLink(
-                id=link_id,
+                id=existente.id if existente else None,
                 variante_id=variante_id,
                 producto_id=producto_id,
                 extra_id=extra_id,
@@ -42,13 +48,14 @@ class VarianteProductoService:
                 activo=1
             )
 
-            if link_id:
+            if existente:
                 return self.repo.actualizar(link)
             else:
                 return self.repo.crear(link) is not None
         except Exception:
             logger.exception("Error en VarianteProductoService.guardar_mapeo")
             return False
+
 
     def eliminar_mapeo(self, link_id: int) -> bool:
         """Elimina un mapeo por su ID."""

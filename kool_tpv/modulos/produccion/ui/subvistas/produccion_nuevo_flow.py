@@ -295,9 +295,14 @@ class NuevoProduccionFlow:
                 on_confirmar=self._on_resumen_confirmar,
                 on_volver=lambda: self._mostrar_paso(PASO_CANTIDAD)
             )
-            # Si ya hay items (venimos de AÑADIR), cargarlos
+            # 1. Cargar ítems ya confirmados (si existen)
             for item in self._items:
                 self._vista_actual.anadir_item(item)
+            
+            # 2. Cargar el ítem que se acaba de configurar (el "pendiente")
+            item_actual = self._crear_item()
+            if item_actual:
+                self._vista_actual.anadir_item(item_actual)
 
     # --- Callbacks de cada paso ---
 
@@ -496,15 +501,16 @@ class NuevoProduccionFlow:
             self._mostrar_paso(PASO_DISENO)
 
     def _on_cantidad_siguiente(self, cantidad: CantidadSeleccion):
-        """Cantidad seleccionada → crear ítem y ir a resumen."""
+        """Cantidad seleccionada → ir a resumen."""
         self._cantidad = cantidad
-        self._crear_item()
         self._mostrar_paso(PASO_RESUMEN)
 
     def _on_cantidad_anadir(self, cantidad: CantidadSeleccion):
         """AÑADIR desde cantidad → crear ítem, resetear selección y volver al paso 1."""
         self._cantidad = cantidad
-        self._crear_item()
+        item = self._crear_item()
+        if item:
+            self._items.append(item)
         self._menu = None
         self._tipo = None
         self._variante = None
@@ -519,7 +525,9 @@ class NuevoProduccionFlow:
     def _on_cantidad_origen(self, cantidad: CantidadSeleccion):
         """ORIGEN desde cantidad → crear ítem, resetear selección y volver al paso origen."""
         self._cantidad = cantidad
-        self._crear_item()
+        item = self._crear_item()
+        if item:
+            self._items.append(item)
         self._menu = None
         self._tipo = None
         self._variante = None
@@ -532,7 +540,11 @@ class NuevoProduccionFlow:
         self._mostrar_paso(PASO_ORIGEN)
 
     def _on_resumen_anadir(self):
-        """AÑADIR desde resumen → resetear selección y volver al paso 1."""
+        """AÑADIR desde resumen → guardar el actual en la lista y volver al paso 1."""
+        item_actual = self._crear_item()
+        if item_actual:
+            self._items.append(item_actual)
+            
         self._menu = None
         self._tipo = None
         self._variante = None
@@ -544,16 +556,18 @@ class NuevoProduccionFlow:
         self._cantidad = None
         self._mostrar_paso(PASO_MENU)
 
-    def _on_resumen_confirmar(self, items: List[ItemProduccion]):
+    def _on_resumen_confirmar(self, items_resumen: List[ItemProduccion]):
         """CONFIRMAR desde resumen → guardar orden y cerrar flujo."""
-        self._items = items
+        # Nota: items_resumen ya incluye el ítem actual que se estaba configurando
+        # porque lo añadimos al mostrar el paso.
+        self._items = items_resumen
 
         # Guardar la orden en BD
-        ok = self._ordenes_service.guardar_orden(items, usuario_id=self._usuario_id)
+        ok = self._ordenes_service.guardar_orden(self._items, usuario_id=self._usuario_id)
 
         if ok:
             # Mostrar mensaje de éxito
-            total_uds = sum(item.cantidad for item in items)
+            total_uds = sum(item.cantidad for item in self._items)
             from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
             ToastWidget.show(self.parent, f"Guardada Producción de {total_uds} artículos", tipo="success")
 
@@ -570,10 +584,10 @@ class NuevoProduccionFlow:
 
     # --- Lógica de costes ---
 
-    def _crear_item(self):
+    def _crear_item(self) -> Optional[ItemProduccion]:
         """Crear un ItemProduccion con los datos acumulados y calcular costes."""
         if not self._tipo:
-            return
+            return None
 
         # 1. Coste base (coste medio del material en blanco)
         coste_base = 0.0
@@ -582,9 +596,9 @@ class NuevoProduccionFlow:
             query = """
                 SELECT coste_medio 
                 FROM produccion_stock_colores_tallas 
-                WHERE tipo_id = ? AND color_id = ? AND talla = ?
+                WHERE tipo_id = ? AND color_id IS ? AND talla IS ?
             """
-            params = [self._tipo.id, self._color.id if self._color else 0, self._talla or '']
+            params = [self._tipo.id, self._color.id if self._color else None, self._talla]
             if self._variante:
                 query += " AND variante_id = ?"
                 params.append(self._variante.id)
@@ -630,6 +644,7 @@ class NuevoProduccionFlow:
             diseno_codigo=self._diseno.codigo if self._diseno else None,
             diseno_nombre=self._diseno.nombre if self._diseno else None,
             diseno_coleccion=self._get_coleccion_nombre(self._diseno.coleccion_id) if self._diseno else None,
+            coleccion_id=self._diseno.coleccion_id if self._diseno else None,
             diseno_sufijo=self._get_sufijo_nombre(self._diseno.sufijo_id) if self._diseno else None,
             cantidad=cantidad,
             produccion_mixta=self._cantidad.produccion_mixta if self._cantidad else False,
@@ -643,7 +658,7 @@ class NuevoProduccionFlow:
             origen=self._origen,
             usuario_nombre=self._usuario_nombre
         )
-        self._items.append(item)
+        return item
 
     # --- Utilidades ---
 

@@ -165,6 +165,14 @@ class ProduccionConfigService:
         """Obtener coste medio ponderado de una variante desde el stock."""
         return self._stock_service.obtener_coste_medio_variante(tipo_id, variante_id)
 
+    def obtener_stock_especifico(self, tipo_id: int, color_id: Optional[int], talla: str, variante_id: Optional[int] = None) -> int:
+        """Obtener la cantidad de stock para una combinación exacta usando el servicio de stock."""
+        return self._stock_service.obtener_cantidad(tipo_id, color_id, talla, variante_id)
+
+    def obtener_stock_por_tipo_color(self, tipo_id: int, color_id: int, variante_id: Optional[int] = None) -> dict:
+        """Obtener el desglose de stock por tallas para un tipo y color específicos."""
+        return self._stock_service.obtener_stock_por_tipo_color(tipo_id, color_id, variante_id)
+
     def mover_menu(self, menu_id: int, direccion: int) -> bool:
         """Intercambiar el orden de un menú con su vecino.
         
