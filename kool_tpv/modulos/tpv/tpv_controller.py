@@ -1190,7 +1190,17 @@ class TpvController:
                 # Imprimir ticket en terminal/impresora (no bloquea si falla)
                 if self.tpv_service:
                     try:
-                        self.tpv_service._print_ticket(ticket_id)
+                        # Abrir cajón si hay pago en efectivo (incluye Multicobro con parte en efectivo)
+                        # forma_pago puede ser 'Efectivo', 'Tarjeta', 'Web', 'Multi', 'Vale'
+                        should_open = (forma_pago.lower() in ('efectivo', 'cash'))
+                        if not should_open and importe_efectivo:
+                            try:
+                                if float(importe_efectivo) > 0:
+                                    should_open = True
+                            except Exception:
+                                pass
+                        
+                        self.tpv_service._print_ticket(ticket_id, open_drawer=should_open)
                     except Exception:
                         logger.exception('Error imprimiendo ticket (no crítico)')
 
