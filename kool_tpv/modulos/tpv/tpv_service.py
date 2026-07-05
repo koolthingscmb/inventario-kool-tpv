@@ -143,18 +143,10 @@ class TpvService:
 
             # Imprimir ticket (no bloquea si falla)
             try:
-                self._print_ticket(ticket_id)
+                # Abrir cajón SIEMPRE por petición del usuario
+                self._print_ticket(ticket_id, open_drawer=True)
             except Exception:
                 logger.exception('Error imprimiendo ticket (no crítico)')
-
-            # Abrir cajón del dinero si el pago es en efectivo
-            forma_pago = ticket_data.get('forma_pago', '').lower()
-            if forma_pago in ('efectivo', 'cash'):
-                try:
-                    from kool_tpv.modulos.tpv.actions.cajon import abrir_cajon
-                    abrir_cajon(db=self.db)
-                except Exception:
-                    logger.exception('Error abriendo cajón del dinero (no crítico)')
 
             # Retornar éxito
             logger.info(f'TpvService: venta finalizada ticket_id={ticket_id} num={num_ticket}')
@@ -172,11 +164,12 @@ class TpvService:
                 'error': f'Error inesperado: {str(e)}'
             }
 
-    def _print_ticket(self, ticket_id: int) -> None:
+    def _print_ticket(self, ticket_id: int, open_drawer: bool = False) -> None:
         """Imprimir ticket físicamente usando ImpresoraService.
 
         Args:
             ticket_id: ID del ticket a imprimir
+            open_drawer: si True, solicita abrir el cajón al imprimir
         """
         try:
             # Leer configuración de impresión desde BD
@@ -226,7 +219,7 @@ class TpvService:
                     # Si es modo escpos, enviar a impresora física
                     if modo_impresion == 'escpos' and printer_name:
                         try:
-                            imp._imprimir_texto_generico(texto, {'num_ticket': ticket_id}, printer_name)
+                            imp._imprimir_texto_generico(texto, {'num_ticket': ticket_id}, printer_name, open_drawer=open_drawer)
                             logger.info('Ticket enviado a impresora física')
                         except Exception:
                             logger.exception('Error enviando a impresora física')

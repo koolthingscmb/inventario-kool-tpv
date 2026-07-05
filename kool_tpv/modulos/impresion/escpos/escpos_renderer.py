@@ -29,17 +29,24 @@ class EscPosRenderer:
         else:
             self.dump_directory = Path(dump_directory)
 
-    def render_text_ticket(self, text: str, cut: bool = True, logo_path: Optional[Path] = None, qr_data: Optional[str] = None) -> bytes:
+    def render_text_ticket(self, text: str, cut: bool = True, logo_path: Optional[Path] = None, qr_data: Optional[str] = None, open_drawer: bool = False) -> bytes:
         """Renderiza `text` a bytes ESC/POS.
 
         Args:
             text: ticket en texto plano (puede contener múltiples líneas).
             cut: si True, añade comando de corte parcial al final.
+            logo_path: ruta al logo opcional.
+            qr_data: datos para QR opcional.
+            open_drawer: si True, añade el comando para abrir el cajón al inicio.
 
         Returns:
             bytes listos para enviar a la impresora.
         """
         parts: list[bytes] = []
+
+        # 0) Abrir cajón si se solicita (ESC p 0 48 48)
+        if open_drawer:
+            parts.append(self.ESC + b"p\x00\x30\x30")
 
         # 1) Inicializar impresora (ESC @) + seleccionar codepage configurado
         try:

@@ -697,7 +697,7 @@ class ImpresoraService:
             self.logger.exception('Error generando cierre desde ID %s', cierre_id)
             return None
 
-    def _imprimir_texto_generico(self, texto: str, meta: dict, printer_name: Optional[str] = None):
+    def _imprimir_texto_generico(self, texto: str, meta: dict, printer_name: Optional[str] = None, open_drawer: bool = False):
         """Lógica común para imprimir un texto ya generado.
 
         - Maneja la simulación (logger)
@@ -710,8 +710,9 @@ class ImpresoraService:
             texto: contenido del ticket ya formateado
             meta: diccionario con metadatos (ej. {'num_ticket': ...}) usado solo para logs
             printer_name: nombre de impresora opcional
+            open_drawer: si True, solicita al renderer abrir el cajón
         """
-        logging.info(f"DEBUG _imprimir_generico: texto length={len(texto)}")
+        logging.info(f"DEBUG _imprimir_generico: texto length={len(texto)}, open_drawer={open_drawer}")
         logging.info(f"DEBUG _imprimir_generico: ¿Contiene 'TESORO'? {'TESORO' in texto}")
         logging.info(f"DEBUG _imprimir_generico: últimas 300 chars={texto[-300:]}")
         # Simulación mediante logging
@@ -786,7 +787,7 @@ class ImpresoraService:
                     qr_data = None
 
                 # Renderizar a bytes ESC/POS (incluye dump si debug activo)
-                data = self.esc_renderer.render_text_ticket(texto, cut=True, logo_path=logo_path, qr_data=qr_data)
+                data = self.esc_renderer.render_text_ticket(texto, cut=True, logo_path=logo_path, qr_data=qr_data, open_drawer=open_drawer)
 
                 # Enviar a impresora (nombre validado)
                 self.printer_adapter.send_to_printer(final_printer, data)
