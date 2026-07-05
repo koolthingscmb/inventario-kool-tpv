@@ -1190,19 +1190,26 @@ class TpvController:
                 # Imprimir ticket en terminal/impresora (no bloquea si falla)
                 if self.tpv_service:
                     try:
-                        # Abrir cajón si hay pago en efectivo (incluye Multicobro con parte en efectivo)
-                        # forma_pago puede ser 'Efectivo', 'Tarjeta', 'Web', 'Multi', 'Vale'
-                        should_open = (forma_pago.lower() in ('efectivo', 'cash'))
-                        if not should_open and importe_efectivo:
-                            try:
-                                if float(importe_efectivo) > 0:
-                                    should_open = True
-                            except Exception:
-                                pass
-                        
-                        self.tpv_service._print_ticket(ticket_id, open_drawer=should_open)
+                        self.tpv_service._print_ticket(ticket_id)
                     except Exception:
                         logger.exception('Error imprimiendo ticket (no crítico)')
+
+                # Abrir cajón si hay pago en efectivo (incluye Multicobro con parte en efectivo)
+                try:
+                    forma_pago_lower = forma_pago.lower()
+                    should_open = (forma_pago_lower in ('efectivo', 'cash'))
+                    if not should_open and importe_efectivo:
+                        try:
+                            if float(importe_efectivo) > 0:
+                                should_open = True
+                        except (ValueError, TypeError):
+                            pass
+                    
+                    if should_open:
+                        from kool_tpv.modulos.tpv.actions.cajon import abrir_cajon
+                        abrir_cajon(db=self.db)
+                except Exception:
+                    logger.exception('Error al abrir el cajón automáticamente')
 
                 # Mostrar resumen en payment_area (reemplaza show_success)
                 self._mostrar_resumen_ticket(resumen_data)

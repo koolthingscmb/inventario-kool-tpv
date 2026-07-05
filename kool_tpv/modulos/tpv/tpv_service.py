@@ -172,12 +172,11 @@ class TpvService:
                 'error': f'Error inesperado: {str(e)}'
             }
 
-    def _print_ticket(self, ticket_id: int, open_drawer: bool = False) -> None:
+    def _print_ticket(self, ticket_id: int) -> None:
         """Imprimir ticket físicamente usando ImpresoraService.
 
         Args:
             ticket_id: ID del ticket a imprimir
-            open_drawer: si True, solicita abrir el cajón al imprimir
         """
         try:
             # Leer configuración de impresión desde BD
@@ -227,7 +226,7 @@ class TpvService:
                     # Si es modo escpos, enviar a impresora física
                     if modo_impresion == 'escpos' and printer_name:
                         try:
-                            imp._imprimir_texto_generico(texto, {'num_ticket': ticket_id}, printer_name, open_drawer=open_drawer)
+                            imp._imprimir_texto_generico(texto, {'num_ticket': ticket_id}, printer_name)
                             logger.info('Ticket enviado a impresora física')
                         except Exception:
                             logger.exception('Error enviando a impresora física')
