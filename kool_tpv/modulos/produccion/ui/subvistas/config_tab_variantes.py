@@ -62,53 +62,104 @@ class ConfigTabVariantes:
         # --- DERECHA: variantes del tipo seleccionado (60%) ---
         frame_right = tk.Frame(content, bg="#34495e", bd=0, highlightthickness=0)
         frame_right.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(6, 0))
+        
+        # Configurar grid para las 3 zonas (35% / 30% / 35%)
+        frame_right.rowconfigure(0, weight=35) # Chips variantes
+        frame_right.rowconfigure(1, weight=30) # Formulario datos
+        frame_right.rowconfigure(2, weight=35) # Métodos impresión
+        frame_right.columnconfigure(0, weight=1)
 
-        # Cabecera derecha: título + botón añadir
-        header_right = tk.Frame(frame_right, bg="#34495e")
-        header_right.pack(fill="x", padx=10, pady=(8, 4))
-
-        self._lbl_tipo_nombre = tk.Label(header_right, text="Selecciona un tipo →",
+        # ZONA 1: Chips de variantes
+        self._zona_variantes = tk.Frame(frame_right, bg="#34495e")
+        self._zona_variantes.grid(row=0, column=0, sticky="nsew", padx=10, pady=5)
+        
+        header_v = tk.Frame(self._zona_variantes, bg="#34495e")
+        header_v.pack(fill="x", pady=(5, 2))
+        self._lbl_tipo_nombre = tk.Label(header_v, text="Selecciona un tipo →",
                                           font=get_font(self.config, "label"),
                                           fg="#FFD700", bg="#34495e")
         self._lbl_tipo_nombre.pack(side=tk.LEFT)
+        ctk.CTkButton(header_v, text="+ AÑADIR", fg_color="#2980b9", hover_color="#3498db",
+                      width=80, height=28, command=self._nuevo_registro).pack(side=tk.RIGHT)
 
-        ctk.CTkButton(header_right, text="+ AÑADIR", fg_color="#2980b9", hover_color="#3498db",
-                      width=100, command=self._mostrar_form_nuevo).pack(side=tk.RIGHT)
+        self._variantes_scroll = ctk.CTkScrollableFrame(self._zona_variantes, fg_color="#2c3e50")
+        self._variantes_scroll.pack(fill=tk.BOTH, expand=True, pady=(2, 5))
 
-        # Separador
-        sep = tk.Frame(frame_right, bg="#1a252f", height=2)
-        sep.pack(fill="x", padx=10, pady=4)
+        # ZONA 2: Formulario de datos
+        self._zona_form = tk.Frame(frame_right, bg="#1a252f", bd=1, relief="solid")
+        self._zona_form.grid(row=1, column=0, sticky="nsew", padx=10, pady=5)
+        
+        self._build_formulario()
 
-        # Lista de variantes (scrollable) - SIN expand para que no se coma el espacio de los métodos
-        self._variantes_scroll = ctk.CTkScrollableFrame(frame_right, fg_color="#2c3e50", height=200)
-        self._variantes_scroll.pack(fill=tk.BOTH, expand=False, padx=10, pady=(0, 4))
-
-        # --- SECCIÓN MÉTODOS (abajo de variantes) ---
+        # ZONA 3: Métodos de impresión
         self._frame_metodos = tk.Frame(frame_right, bg="#34495e")
-        self._frame_metodos.pack(fill="x", padx=10, pady=5) # Lo dejamos pack fijo para que se vea
+        self._frame_metodos.grid(row=2, column=0, sticky="nsew", padx=10, pady=5)
         
         tk.Label(self._frame_metodos, text="MÉTODOS DE IMPRESIÓN DISPONIBLES", 
                  font=get_font(self.config, "label"), fg="#FFD700", bg="#34495e").pack(pady=(8, 4))
         
         self._metodos_container = tk.Frame(self._frame_metodos, bg="#34495e")
-        self._metodos_container.pack(fill="x", padx=10, pady=5)
+        self._metodos_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
         self._lbl_no_variante = tk.Label(self._metodos_container, text="Selecciona una variante para asignar métodos",
                                          font=get_font(self.config, "label"), fg="#95a5a6", bg="#34495e")
-        self._lbl_no_variante.pack(pady=10)
-
-        # Frame para formulario de nueva variante (oculto inicialmente)
-        self._form_nuevo = None
-
-        # Botón guardar (para editar existentes)
-        self._btn_guardar = ctk.CTkButton(frame_right, text="GUARDAR CAMBIOS",
-                                          fg_color="#27ae60", hover_color="#2ecc71",
-                                          height=36, font=get_font(self.config, "button"),
-                                          command=self._guardar_edicion)
-        # No pack aún, se muestra al seleccionar una variante
+        self._lbl_no_variante.pack(pady=20)
 
         # Cargar tipos
         self._cargar_tipos()
+
+    def _build_formulario(self):
+        """Construye los widgets del formulario de edición/creación."""
+        container = tk.Frame(self._zona_form, bg="#1a252f", padx=15, pady=10)
+        container.pack(fill=tk.BOTH, expand=True)
+
+        # Fila 1: Nombre
+        f1 = tk.Frame(container, bg="#1a252f")
+        f1.pack(fill="x", pady=2)
+        tk.Label(f1, text="NOMBRE:", font=get_font(self.config, "label"), fg=self._text, bg="#1a252f", width=10, anchor="w").pack(side=tk.LEFT)
+        self._ent_nombre = ctk.CTkEntry(f1, placeholder_text="Nombre de la variante...", height=32)
+        self._ent_nombre.pack(side=tk.LEFT, fill="x", expand=True, padx=(5, 0))
+
+        # Fila 2: Coste y PVPR
+        f2 = tk.Frame(container, bg="#1a252f")
+        f2.pack(fill="x", pady=4)
+        
+        tk.Label(f2, text="COSTE (€):", font=get_font(self.config, "label"), fg=self._text, bg="#1a252f", width=10, anchor="w").pack(side=tk.LEFT)
+        self._ent_coste = ctk.CTkEntry(f2, placeholder_text="0.00", width=80, height=32)
+        self._ent_coste.pack(side=tk.LEFT, padx=(5, 15))
+        
+        tk.Label(f2, text="PVPR (€):", font=get_font(self.config, "label"), fg=self._text, bg="#1a252f", width=8, anchor="w").pack(side=tk.LEFT)
+        self._ent_pvp = ctk.CTkEntry(f2, placeholder_text="0.00", width=80, height=32)
+        self._ent_pvp.pack(side=tk.LEFT, padx=(5, 0))
+
+        # Fila 3: Checkboxes + Shopify
+        f3 = tk.Frame(container, bg="#1a252f")
+        f3.pack(fill="x", pady=4)
+        
+        self._var_talla = tk.BooleanVar()
+        self._chk_talla = ctk.CTkCheckBox(f3, text="REQ. TALLA", variable=self._var_talla, 
+                                          font=get_font(self.config, "label"), height=24, checkbox_width=20, checkbox_height=20)
+        self._chk_talla.pack(side=tk.LEFT, padx=(0, 15))
+        
+        self._var_color = tk.BooleanVar()
+        self._chk_color = ctk.CTkCheckBox(f3, text="REQ. COLOR", variable=self._var_color,
+                                          font=get_font(self.config, "label"), height=24, checkbox_width=20, checkbox_height=20)
+        self._chk_color.pack(side=tk.LEFT, padx=(0, 15))
+
+        self._ent_shopify = ctk.CTkEntry(f3, placeholder_text="Shopify ID...", height=30)
+        self._ent_shopify.pack(side=tk.LEFT, fill="x", expand=True)
+
+        # Fila 4: Botones
+        f4 = tk.Frame(container, bg="#1a252f")
+        f4.pack(fill="x", pady=(10, 0))
+        
+        self._btn_guardar = ctk.CTkButton(f4, text="GUARDAR", fg_color="#27ae60", hover_color="#2ecc71",
+                                          font=get_font(self.config, "button"), height=36, command=self._guardar_edicion)
+        self._btn_guardar.pack(side=tk.LEFT, fill="x", expand=True, padx=(0, 5))
+        
+        self._btn_eliminar = ctk.CTkButton(f4, text="ELIMINAR", fg_color="#e74c3c", hover_color="#c0392b",
+                                           font=get_font(self.config, "button"), height=36, command=self._confirmar_eliminar)
+        self._btn_eliminar.pack(side=tk.LEFT, fill="x", expand=True, padx=(5, 0))
 
     def _cargar_tipos(self):
         for child in self._tipos_scroll.winfo_children():
@@ -157,8 +208,14 @@ class ConfigTabVariantes:
             child.destroy()
         self._variante_rows = {}
         self._variante_id_edit = None
-        self._btn_guardar.pack_forget()
-        self._ocultar_form_nuevo()
+        
+        # Resetear formulario
+        self._ent_nombre.delete(0, tk.END)
+        self._ent_coste.delete(0, tk.END)
+        self._ent_pvp.delete(0, tk.END)
+        self._ent_shopify.delete(0, tk.END)
+        self._var_talla.set(False)
+        self._var_color.set(False)
 
         # Resetear sección de métodos al placeholder
         for child in self._metodos_container.winfo_children():
@@ -166,7 +223,7 @@ class ConfigTabVariantes:
         self._metodo_vars = {}
         self._lbl_no_variante = tk.Label(self._metodos_container, text="Selecciona una variante para asignar métodos",
                                          font=get_font(self.config, "label"), fg="#95a5a6", bg="#34495e")
-        self._lbl_no_variante.pack(pady=10)
+        self._lbl_no_variante.pack(pady=20)
 
         if not self._tipo_selected_id:
             self._lbl_tipo_nombre.configure(text="Selecciona un tipo →")
@@ -184,41 +241,116 @@ class ConfigTabVariantes:
                      fg="#95a5a6", bg="#2c3e50").pack(pady=20)
             return
 
-        for v in variantes:
-            coste_medio = self.config_service.obtener_coste_medio_variante(
-                self._tipo_selected_id, v.id if v.id else None)
-            coste_str = f"{read_from_db(coste_medio):.2f}€" if coste_medio > 0 else "-"
-            estado_str = "✓" if v.activo else "✗"
+        # Configuración de chips de variantes (6 columnas)
+        cols = 6
+        padx = 4
+        pady = 4
+        corner_radius = 8
+        
+        default_style = get_chip_style(self._chip_cfg, "default")
+        font_family = get_font(self.config, self._chip_cfg.get("font_key", "label"))
+        chip_font = (font_family[0], 11, font_family[2])
 
-            row_frame = tk.Frame(self._variantes_scroll, bg="#34495e", cursor="hand2")
-            row_frame.pack(fill="x", padx=4, pady=2)
+        grid_frame = tk.Frame(self._variantes_scroll, bg="#2c3e50")
+        grid_frame.pack(fill="x", expand=True)
 
-            txt = f"{v.nombre}  |  Coste: {coste_str}  |  {estado_str}"
-            lbl = tk.Label(row_frame, text=txt, font=get_font(self.config, "label"),
-                           fg=self._text, bg="#34495e", anchor="w", cursor="hand2")
-            lbl.pack(fill="x", padx=8, pady=6)
+        for i, v in enumerate(variantes):
+            btn = ctk.CTkButton(
+                grid_frame,
+                text=v.nombre,
+                width=80,
+                height=32,
+                corner_radius=corner_radius,
+                font=chip_font,
+                fg_color=default_style.get("bg", "#1a1a2e"),
+                text_color=default_style.get("text", "#e0e0e0"),
+                border_color=default_style.get("border", "#552583"),
+                border_width=1,
+                command=lambda vid=v.id: self._select_variante(vid)
+            )
+            row = i // cols
+            col = i % cols
+            btn.grid(row=row, column=col, padx=padx, pady=pady, sticky="ew")
+            self._variante_rows[v.id] = btn
 
-            lbl.bind("<Button-1>", lambda e, vid=v.id: self._select_variante(vid))
-            row_frame.bind("<Button-1>", lambda e, vid=v.id: self._select_variante(vid))
-            self._variante_rows[v.id] = (row_frame, lbl)
+        for j in range(cols):
+            grid_frame.columnconfigure(j, weight=1)
 
     def _select_variante(self, variante_id):
         self._variante_id_edit = variante_id
-        for vid, (rf, lbl) in self._variante_rows.items():
-            bg = "#1a5274" if vid == variante_id else "#34495e"
-            rf.configure(bg=bg)
-            lbl.configure(bg=bg)
         
+        selected_style = get_chip_style(self._chip_cfg, "selected")
+        default_style = get_chip_style(self._chip_cfg, "default")
+
+        for vid, btn in self._variante_rows.items():
+            is_sel = (vid == variante_id)
+            btn.configure(
+                fg_color=selected_style.get("bg", "#552583") if is_sel else default_style.get("bg", "#1a1a2e"),
+                border_color=selected_style.get("border", "#C77BFF") if is_sel else default_style.get("border", "#552583"),
+                border_width=2 if is_sel else 1
+            )
+        
+        # Cargar datos en el formulario
+        v = self.service.obtener_por_id(variante_id)
+        if v:
+            self._ent_nombre.delete(0, tk.END)
+            self._ent_nombre.insert(0, v.nombre)
+            
+            self._ent_coste.delete(0, tk.END)
+            self._ent_coste.insert(0, f"{read_from_db(v.coste_base):.2f}")
+            
+            self._ent_pvp.delete(0, tk.END)
+            self._ent_pvp.insert(0, f"{read_from_db(v.precio_recomendado):.2f}")
+            
+            self._ent_shopify.delete(0, tk.END)
+            self._ent_shopify.insert(0, v.shopify_variant_id or "")
+            
+            self._var_talla.set(bool(v.requiere_talla))
+            self._var_color.set(bool(v.requiere_color))
+
         # Ocultar label de aviso si existe y sigue vivo
         if hasattr(self, '_lbl_no_variante') and self._lbl_no_variante.winfo_exists():
             self._lbl_no_variante.pack_forget()
 
-        # Asegurar que la sección de métodos está visible
-        self._frame_metodos.pack(fill="x", padx=10, pady=5)
-
-        self._btn_guardar.pack(fill="x", padx=10, pady=(4, 8))
-        self._ocultar_form_nuevo()
         self._cargar_metodos_variante(variante_id)
+
+    def _nuevo_registro(self):
+        """Prepara el formulario para crear una nueva variante."""
+        if not self._tipo_selected_id:
+            ToastWidget.show(self.parent, "Selecciona un tipo primero", tipo="warning")
+            return
+            
+        self._variante_id_edit = None
+        # Deseleccionar chips
+        default_style = get_chip_style(self._chip_cfg, "default")
+        for btn in self._variante_rows.values():
+            btn.configure(
+                fg_color=default_style.get("bg", "#1a1a2e"),
+                border_color=default_style.get("border", "#552583"),
+                border_width=1
+            )
+            
+        # Limpiar formulario
+        self._ent_nombre.delete(0, tk.END)
+        self._ent_coste.delete(0, tk.END)
+        self._ent_pvp.delete(0, tk.END)
+        self._ent_shopify.delete(0, tk.END)
+        self._var_talla.set(False)
+        self._var_color.set(False)
+        
+        self._ent_nombre.focus_set()
+        ToastWidget.show(self.parent, "Introduce datos para nueva variante", tipo="info")
+
+    def _confirmar_eliminar(self):
+        if not self._variante_id_edit:
+            return
+            
+        if tk.messagebox.askyesno("Eliminar", "¿Estás seguro de eliminar esta variante?"):
+            if self.service.eliminar(self._variante_id_edit):
+                ToastWidget.show(self.parent, "Variante eliminada", tipo="success")
+                self._cargar_variantes()
+            else:
+                ToastWidget.show(self.parent, "Error al eliminar", tipo="error")
 
     def _cargar_metodos_variante(self, variante_id):
         """Cargar los métodos de la variante y mostrarlos como chips interactivos."""
@@ -303,119 +435,58 @@ class ConfigTabVariantes:
                 border_width=1
             )
 
-    def _mostrar_form_nuevo(self):
-        if not self._tipo_selected_id:
-            ToastWidget.show(self.parent, "Selecciona un tipo primero", tipo="warning")
-            return
-
-        self._ocultar_form_nuevo()
-        self._variante_id_edit = None
-        for vid, (rf, lbl) in self._variante_rows.items():
-            rf.configure(bg="#34495e")
-            lbl.configure(bg="#34495e")
-        self._btn_guardar.pack_forget()
-
-        # Resetear sección de métodos al placeholder
-        for child in self._metodos_container.winfo_children():
-            child.destroy()
-        self._metodo_states = {}
-        self._metodo_chips = {}
-        self._lbl_no_variante = tk.Label(self._metodos_container, text="Selecciona una variante para asignar métodos",
-                                         font=get_font(self.config, "label"), fg="#95a5a6", bg="#34495e")
-        self._lbl_no_variante.pack(pady=10)
-
-        self._form_nuevo = tk.Frame(self._variantes_scroll, bg="#1a252f", highlightbackground="#2980b9", highlightthickness=1)
-        self._form_nuevo.pack(fill="x", padx=4, pady=4)
-
-        tk.Label(self._form_nuevo, text="NUEVA VARIANTE", font=get_font(self.config, "label"),
-                 fg="#FFD700", bg="#1a252f").pack(anchor="w", padx=8, pady=(4, 2))
-
-        self._entry_nombre_nuevo = ctk.CTkEntry(self._form_nuevo, placeholder_text="Nombre variante...",
-                                                 width=200)
-        self._entry_nombre_nuevo.pack(fill="x", padx=8, pady=2)
-
-        row_precios = tk.Frame(self._form_nuevo, bg="#1a252f")
-        row_precios.pack(fill="x", padx=8, pady=2)
-
-        self._entry_precio_nuevo = ctk.CTkEntry(row_precios, placeholder_text="P. REC (€)", width=100)
-        self._entry_precio_nuevo.pack(side=tk.LEFT, padx=(0, 4))
-
-        self._entry_shopify_nuevo = ctk.CTkEntry(row_precios, placeholder_text="Shopify ID (opc.)", width=120)
-        self._entry_shopify_nuevo.pack(side=tk.LEFT)
-
-        row_btns = tk.Frame(self._form_nuevo, bg="#1a252f")
-        row_btns.pack(fill="x", padx=8, pady=(4, 8))
-
-        ctk.CTkButton(row_btns, text="CREAR", fg_color="#27ae60", hover_color="#2ecc71",
-                      width=80, command=self._crear_variante).pack(side=tk.LEFT, padx=(0, 4))
-        ctk.CTkButton(row_btns, text="CANCELAR", fg_color="#e74c3c", hover_color="#c0392b",
-                      width=80, command=self._ocultar_form_nuevo).pack(side=tk.LEFT)
-
-        self._entry_nombre_nuevo.focus_set()
-
-    def _ocultar_form_nuevo(self):
-        if self._form_nuevo:
-            self._form_nuevo.destroy()
-            self._form_nuevo = None
-
-    def _crear_variante(self):
+    def _guardar_edicion(self):
+        """Guarda los cambios de una variante existente o crea una nueva."""
         if not self._tipo_selected_id:
             return
-        nombre = self._entry_nombre_nuevo.get().strip()
+
+        nombre = self._ent_nombre.get().strip()
         if not nombre:
-            ToastWidget.show(self.parent, "Introduce un nombre", tipo="warning")
+            ToastWidget.show(self.parent, "El nombre es obligatorio", tipo="warning")
             return
 
         try:
-            precio_val = float(self._entry_precio_nuevo.get().replace(",", ".") or "0")
-            precio_cents = prepare_for_db(precio_val)
+            coste_val = float(self._ent_coste.get().replace(",", ".") or "0")
+            pvp_val = float(self._ent_pvp.get().replace(",", ".") or "0")
+            coste_cents = prepare_for_db(coste_val)
+            pvp_cents = prepare_for_db(pvp_val)
         except ValueError:
-            ToastWidget.show(self.parent, "Precio debe ser numérico", tipo="error")
+            ToastWidget.show(self.parent, "Coste y PVPR deben ser numéricos", tipo="error")
             return
 
-        shopify_id = self._entry_shopify_nuevo.get().strip() or None
+        shopify_id = self._ent_shopify.get().strip() or None
+        req_talla = 1 if self._var_talla.get() else 0
+        req_color = 1 if self._var_color.get() else 0
 
-        res = self.service.crear(self._tipo_selected_id, nombre, 0, precio_cents, shopify_id, 0, 0)
-        if res is not None:
-            ToastWidget.show(self.parent, "Variante creada", tipo="success")
-            self._ocultar_form_nuevo()
-            self._cargar_variantes()
+        if self._variante_id_edit:
+            # ACTUALIZAR EXISTENTE
+            ok = self.service.actualizar(
+                self._variante_id_edit, self._tipo_selected_id, nombre,
+                coste_cents, pvp_cents, 1, shopify_id, req_talla, req_color
+            )
+            
+            # Sincronizar métodos
+            metodos_seleccionados = [mid for mid, val in self._metodo_states.items() if val]
+            self.metodos_service.sincronizar_metodos(self._variante_id_edit, metodos_seleccionados)
+            
+            if ok:
+                ToastWidget.show(self.parent, "Variante actualizada", tipo="success")
+                self._cargar_variantes()
+                self._select_variante(self._variante_id_edit)
+            else:
+                ToastWidget.show(self.parent, "Error al actualizar", tipo="error")
         else:
-            ToastWidget.show(self.parent, "Error al crear variante", tipo="error")
-
-    def _guardar_edicion(self):
-        if not self._variante_id_edit:
-            return
-        
-        # Guardar ID actual para evitar que se pierda tras el refresh
-        variante_id = self._variante_id_edit
-        
-        variante = self.service.obtener_por_id(variante_id)
-        if not variante:
-            return
-
-        # 1. Guardar métodos seleccionados
-        metodos_seleccionados = [mid for mid, val in self._metodo_states.items() if val]
-        ok_metodos = self.metodos_service.sincronizar_metodos(variante_id, metodos_seleccionados)
-
-        # 2. Togglear activo/inactivo (esto se podría mejorar con un checkbox real en la UI)
-        # Por ahora lo dejamos como está o lo hacemos más explícito
-        nuevo_activo = variante.activo # No cambiar activo a menos que queramos
-        
-        ok_variante = self.service.actualizar(
-            variante_id, variante.tipo_id, variante.nombre,
-            variante.coste_base, variante.precio_recomendado,
-            nuevo_activo, variante.shopify_variant_id,
-            variante.requiere_talla, variante.requiere_color
-        )
-        
-        if ok_metodos and ok_variante:
-            ToastWidget.show(self.parent, "Variante y métodos actualizados", tipo="success")
-            # Recargar variantes pero re-seleccionar la actual
-            self._cargar_variantes()
-            self._select_variante(variante_id)
-        else:
-            ToastWidget.show(self.parent, "Error al actualizar", tipo="error")
+            # CREAR NUEVA
+            res_id = self.service.crear(
+                self._tipo_selected_id, nombre, coste_cents, pvp_cents,
+                shopify_id, req_talla, req_color
+            )
+            if res_id:
+                ToastWidget.show(self.parent, "Nueva variante creada", tipo="success")
+                self._cargar_variantes()
+                self._select_variante(res_id)
+            else:
+                ToastWidget.show(self.parent, "Error al crear variante", tipo="error")
 
     def refresh_nav(self):
         pass

@@ -95,9 +95,13 @@ class EscPosRenderer:
             except Exception:
                 self.logger.exception("Error añadiendo QR al ticket")
 
-        # Espacio antes del corte físico
+        # Espacio antes del corte físico (6 saltos de línea)
         parts.append(b"\n")
-        parts.append(b"\n\n")
+        parts.append(b"\n")
+        parts.append(b"\n")
+        parts.append(b"\n")
+        parts.append(b"\n")
+        parts.append(b"\n")
 
         # 4) Añadir comando de corte parcial (GS V 1)
         if cut:

@@ -147,6 +147,15 @@ class TpvService:
             except Exception:
                 logger.exception('Error imprimiendo ticket (no crítico)')
 
+            # Abrir cajón del dinero si el pago es en efectivo
+            forma_pago = ticket_data.get('forma_pago', '').lower()
+            if forma_pago in ('efectivo', 'cash'):
+                try:
+                    from kool_tpv.modulos.tpv.actions.cajon import abrir_cajon
+                    abrir_cajon(db=self.db)
+                except Exception:
+                    logger.exception('Error abriendo cajón del dinero (no crítico)')
+
             # Retornar éxito
             logger.info(f'TpvService: venta finalizada ticket_id={ticket_id} num={num_ticket}')
 
