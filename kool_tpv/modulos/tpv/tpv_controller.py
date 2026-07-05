@@ -1190,10 +1190,18 @@ class TpvController:
                 # Imprimir ticket en terminal/impresora (no bloquea si falla)
                 if self.tpv_service:
                     try:
-                        # Abrir cajón SIEMPRE en todas las ventas por petición del usuario
+                        # Abrir cajón SIEMPRE por petición del usuario (integradado en impresión)
                         self.tpv_service._print_ticket(ticket_id, open_drawer=True)
                     except Exception:
                         logger.exception('Error imprimiendo ticket (no crítico)')
+
+                # Abrir cajón SIEMPRE también por separado (para modo PRINT OFF)
+                # Esto garantiza que el cajón se abra incluso si la impresión está desactivada
+                try:
+                    from kool_tpv.modulos.tpv.actions.cajon import abrir_cajon
+                    abrir_cajon(db=self.db)
+                except Exception:
+                    logger.exception('Error abriendo cajón del dinero (no crítico)')
 
                 # Mostrar resumen en payment_area (reemplaza show_success)
                 self._mostrar_resumen_ticket(resumen_data)
