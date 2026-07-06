@@ -387,8 +387,12 @@ class TiposUI:
                 if new_id:
                     self.clear()
                     self._load_tipos()
-        except Exception:
+        except Exception as e:
             logging.exception('Error guardando tipo')
+            # Mostrar Toast warning si es error de UNIQUE constraint
+            if 'UNIQUE constraint failed' in str(e):
+                from kool_tpv.utils.widgets.notificaciones import ToastWidget
+                ToastWidget.show(self.container, 'Ya existe un tipo con ese nombre', tipo='warning')
 
     def _update_color_preview(self):
         """Actualizar el color del borde del entry para previsualizar el color."""

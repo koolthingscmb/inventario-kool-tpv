@@ -7,7 +7,8 @@
       {"id": "albaran", "text": "ALBARAN", "action": "show_albaranes"},
       {"id": "tipos", "text": "TIPOS", "action": "show_tipos"},
       {"id": "categorias", "text": "CATEGORÍAS", "action": "show_categorias"},
-      {"id": "proveedores", "text": "PROVEEDORES", "action": "show_proveedores"}
+      {"id": "proveedores", "text": "PROVEEDORES", "action": "show_proveedores"},
+      {"id": "menus", "text": "MENÚS", "action": "show_menus"}
     ]
   },
   "clientes": {

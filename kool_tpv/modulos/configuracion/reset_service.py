@@ -97,122 +97,70 @@ class ResetService:
             logging.exception('Error borrando ticket_lines')
             return False
 
-    def borrar_tickets(self, ticket_nums: Optional[List[int]] = None) -> bool:
+    def _enable_cascade(self, cur):
+        """Activar foreign keys para asegurar CASCADE DELETE."""
+        cur.execute("PRAGMA foreign_keys = ON")
+
+    def _reset_sequence(self, cur, table_names: List[str]):
+        """Reiniciar los contadores AUTOINCREMENT de las tablas dadas."""
+        placeholders = ','.join('?' * len(table_names))
+        cur.execute(f"DELETE FROM sqlite_sequence WHERE name IN ({placeholders})", table_names)
+
+    def borrar_tickets(self, ticket_nums: Optional[List[int]] = None, reset_counter: bool = False) -> bool:
         """Borrar tickets por num_ticket (CASCADE limpia movimientos y ticket_lines)."""
         try:
             conn = self.db.connection
             cur = conn.cursor()
-            cur.execute("PRAGMA foreign_keys = ON")
+            self._enable_cascade(cur)
+            
             if ticket_nums:
                 placeholders = ','.join('?' * len(ticket_nums))
-                # Eliminar stock_movements relacionados con las líneas de esos tickets
-                cur.execute(
-                    f"DELETE FROM stock_movements WHERE ticket_line_id IN (SELECT id FROM ticket_lines WHERE ticket_id IN (SELECT id FROM tickets WHERE num_ticket IN ({placeholders})))",
-                    ticket_nums,
-                )
-                # Eliminar points_movements relacionados con esos tickets
-                cur.execute(
-                    f"DELETE FROM points_movements WHERE ticket_id IN (SELECT id FROM tickets WHERE num_ticket IN ({placeholders}))",
-                    ticket_nums,
-                )
-                # devoluciones no tiene ON DELETE CASCADE, borrar manualmente
-                cur.execute(
-                    f"DELETE FROM devoluciones WHERE ticket_id IN "
-                    f"(SELECT id FROM tickets WHERE num_ticket IN ({placeholders}))",
-                    ticket_nums,
-                )
-                # Finalmente borrar los tickets
                 cur.execute(f"DELETE FROM tickets WHERE num_ticket IN ({placeholders})", ticket_nums)
                 logging.info('Tickets borrados: %s', ticket_nums)
             else:
-                # Borrado global: eliminar movimientos y referencias antes de tickets
-                cur.execute("DELETE FROM stock_movements")
-                cur.execute("DELETE FROM points_movements")
-                cur.execute("DELETE FROM devoluciones")
                 cur.execute("DELETE FROM tickets")
-                logging.warning('TODOS los tickets borrados (movimientos y referencias eliminados previamente)')
+                if reset_counter:
+                    self.reset_ticket_counter()
+                    self._reset_sequence(cur, ['tickets', 'ticket_lines', 'payments', 'devoluciones', 'points_movements'])
+                logging.warning('TODOS los tickets borrados')
 
             conn.commit()
             return True
-
         except Exception:
-            try:
-                self.db.connection.rollback()
-            except Exception:
-                pass
+            conn.rollback()
             logging.exception('Error borrando tickets')
             return False
 
-    def borrar_cierres(self) -> bool:
-        """Borrar todos los cierres de caja."""
+    def borrar_productos(self, producto_ids: Optional[List[int]] = None, reset_counter: bool = False) -> bool:
+        """Borrar productos (CASCADE borra precios, códigos de barras, etc)."""
         try:
             conn = self.db.connection
             cur = conn.cursor()
-            cur.execute("PRAGMA foreign_keys = ON")
+            self._enable_cascade(cur)
 
-            cur.execute("DELETE FROM cierres")
-            logging.warning('TODOS los cierres borrados')
-
-            conn.commit()
-            return True
-
-        except Exception:
-            try:
-                self.db.connection.rollback()
-            except Exception:
-                pass
-            logging.exception('Error borrando cierres')
-            return False
-
-    def borrar_albaranes(self, albaran_ids: Optional[List[int]] = None) -> bool:
-        """Borrar albaranes (CASCADE borra albaran_lines)."""
-        try:
-            conn = self.db.connection
-            cur = conn.cursor()
-            cur.execute("PRAGMA foreign_keys = ON")
-
-            if albaran_ids:
-                placeholders = ','.join('?' * len(albaran_ids))
-                cur.execute(f"DELETE FROM albaranes WHERE id IN ({placeholders})", albaran_ids)
-                logging.info('Albaranes borrados: %s', albaran_ids)
+            if producto_ids:
+                placeholders = ','.join('?' * len(producto_ids))
+                # Borrado manual preventivo por si fallara el cascade en algunas versiones de SQLite
+                cur.execute(f"DELETE FROM codigos_barras WHERE producto_id IN ({placeholders})", producto_ids)
+                cur.execute(f"DELETE FROM precios WHERE producto_id IN ({placeholders})", producto_ids)
+                cur.execute(f"DELETE FROM productos WHERE id IN ({placeholders})", producto_ids)
+                logging.info('Productos borrados (manual + cascade): %s', len(producto_ids))
             else:
-                cur.execute("DELETE FROM albaranes")
-                logging.warning('TODOS los albaranes borrados')
+                # Borrado total manual de tablas dependientes para asegurar limpieza absoluta
+                cur.execute("DELETE FROM codigos_barras")
+                cur.execute("DELETE FROM precios")
+                cur.execute("DELETE FROM favoritos")
+                cur.execute("DELETE FROM descuentos")
+                cur.execute("DELETE FROM productos")
+                
+                if reset_counter:
+                    self._reset_sequence(cur, ['productos', 'precios', 'codigos_barras', 'favoritos', 'descuentos'])
+                logging.warning('TODOS los productos y sus códigos de barras borrados')
 
             conn.commit()
             return True
-
         except Exception:
-            try:
-                self.db.connection.rollback()
-            except Exception:
-                pass
-            logging.exception('Error borrando albaranes')
-            return False
-
-    def borrar_productos(self, producto_ids: List[int]) -> bool:
-        """Borrar productos seleccionados (CASCADE borra precios)."""
-        if not producto_ids:
-            logging.warning('borrar_productos: lista vacía')
-            return False
-
-        try:
-            conn = self.db.connection
-            cur = conn.cursor()
-            cur.execute("PRAGMA foreign_keys = ON")
-
-            placeholders = ','.join('?' * len(producto_ids))
-            cur.execute(f"DELETE FROM productos WHERE id IN ({placeholders})", producto_ids)
-            logging.info('Productos borrados: %s', producto_ids)
-
-            conn.commit()
-            return True
-
-        except Exception:
-            try:
-                self.db.connection.rollback()
-            except Exception:
-                pass
+            conn.rollback()
             logging.exception('Error borrando productos')
             return False
 
@@ -328,30 +276,69 @@ class ResetService:
             logging.exception('Error reseteando contador de facturas')
             return False
 
-    def borrar_facturas(self, factura_ids: Optional[List[int]] = None) -> bool:
+    def borrar_albaranes(self, albaran_ids: Optional[List[int]] = None, reset_counter: bool = False) -> bool:
+        """Borrar albaranes (CASCADE borra albaran_lines)."""
+        try:
+            conn = self.db.connection
+            cur = conn.cursor()
+            self._enable_cascade(cur)
+
+            if albaran_ids:
+                placeholders = ','.join('?' * len(albaran_ids))
+                cur.execute(f"DELETE FROM albaranes WHERE id IN ({placeholders})", albaran_ids)
+            else:
+                cur.execute("DELETE FROM albaranes")
+                if reset_counter:
+                    self.reset_albaran_counter()
+                    self._reset_sequence(cur, ['albaranes', 'albaran_lines'])
+
+            conn.commit()
+            return True
+        except Exception:
+            conn.rollback()
+            logging.exception('Error borrando albaranes')
+            return False
+
+    def borrar_facturas(self, factura_ids: Optional[List[int]] = None, reset_counter: bool = False) -> bool:
         """Borrar facturas (CASCADE borra facturas_lines)."""
         try:
             conn = self.db.connection
             cur = conn.cursor()
-            cur.execute("PRAGMA foreign_keys = ON")
+            self._enable_cascade(cur)
 
             if factura_ids:
                 placeholders = ','.join('?' * len(factura_ids))
                 cur.execute(f"DELETE FROM facturas WHERE id IN ({placeholders})", factura_ids)
-                logging.info('Facturas borradas: %s', factura_ids)
             else:
                 cur.execute("DELETE FROM facturas")
-                logging.warning('TODAS las facturas borradas')
+                if reset_counter:
+                    self.reset_factura_counter()
+                    self._reset_sequence(cur, ['facturas', 'facturas_lines'])
 
             conn.commit()
             return True
-
         except Exception:
-            try:
-                self.db.connection.rollback()
-            except Exception:
-                pass
+            conn.rollback()
             logging.exception('Error borrando facturas')
+            return False
+
+    def borrar_cierres(self, reset_counter: bool = False) -> bool:
+        """Borrar todos los cierres de caja."""
+        try:
+            conn = self.db.connection
+            cur = conn.cursor()
+            self._enable_cascade(cur)
+
+            cur.execute("DELETE FROM cierres")
+            if reset_counter:
+                self.reset_cierre_counter()
+                self._reset_sequence(cur, ['cierres', 'cierres_lineas'])
+
+            conn.commit()
+            return True
+        except Exception:
+            conn.rollback()
+            logging.exception('Error borrando cierres')
             return False
 
     def borrar_points_movements(self) -> bool:
@@ -486,94 +473,70 @@ class ResetService:
         try:
             conn = self.db.connection
             cur = conn.cursor()
-            cur.execute("PRAGMA foreign_keys = OFF")
+            self._enable_cascade(cur)
 
-            # Borrar en orden: hijos antes que padres
-            # Devoluciones y líneas hijas
-            cur.execute("DELETE FROM devoluciones")
-            logging.warning('RESET COMPLETO: devoluciones borradas')
-
-            # Líneas de tickets antes que tickets
-            cur.execute("DELETE FROM payments")
+            # Borrado manual explícito de tablas HIJAS para evitar registros huérfanos
+            # si el CASCADE de SQLite no está activo en el entorno del usuario
+            
+            # 1. Ventas y Fiscal
             cur.execute("DELETE FROM ticket_lines")
-            cur.execute("DELETE FROM stock_movements")
+            cur.execute("DELETE FROM payments")
+            cur.execute("DELETE FROM devoluciones")
+            cur.execute("DELETE FROM points_movements")
             cur.execute("DELETE FROM tickets")
-            logging.warning('RESET COMPLETO: tickets, pagos, líneas y movimientos borrados')
-
-            # Cierres y sus líneas
+            
             cur.execute("DELETE FROM cierres_lineas")
             cur.execute("DELETE FROM cierres")
-            logging.warning('RESET COMPLETO: cierres borrados')
-
-            # Albaranes y sus líneas
+            
             cur.execute("DELETE FROM albaran_lines")
             cur.execute("DELETE FROM albaranes")
-            logging.warning('RESET COMPLETO: albaranes borrados')
-
-            # Facturas y sus líneas
+            
             cur.execute("DELETE FROM facturas_lines")
             cur.execute("DELETE FROM facturas")
-            logging.warning('RESET COMPLETO: facturas borradas')
-
-            year_actual = datetime.datetime.now().year
-
-            cur.execute("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('ticket_counter_value', '0')")
-            cur.execute("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('ticket_counter_year', ?)", (str(year_actual),))
-            cur.execute("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('cierre_counter_value', '0')")
-            cur.execute("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('cierre_counter_year', ?)", (str(year_actual),))
-            cur.execute("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('albaran_counter_value', '0')")
-            cur.execute("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('albaran_counter_year', ?)", (str(year_actual),))
-            cur.execute("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('factura_counter_value', '0')")
-            cur.execute("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('factura_counter_year', ?)", (str(year_actual),))
-            logging.warning('RESET COMPLETO: contadores reseteados')
-
-            cur.execute(f"UPDATE clientes {_CLIENTES_RESET_SET}")
-            logging.warning('RESET COMPLETO: estadísticas clientes reseteadas')
-
-            # Productos y catálogo
-            cur.execute("DELETE FROM productos")
+            
+            # 2. Catálogo (El problema reportado estaba aquí)
+            cur.execute("DELETE FROM codigos_barras")
             cur.execute("DELETE FROM precios")
             cur.execute("DELETE FROM favoritos")
-            cur.execute("DELETE FROM stock_movements")
             cur.execute("DELETE FROM descuentos")
-            cur.execute("DELETE FROM categorias WHERE id != 1")
-            cur.execute("DELETE FROM tipos WHERE id != 1")
+            cur.execute("DELETE FROM productos")
+            
             cur.execute("DELETE FROM proveedores")
-            logging.warning('RESET COMPLETO: productos, precios, favoritos, categorias, tipos extra y proveedores borrados')
+            cur.execute("DELETE FROM categorias WHERE id > 1")
+            cur.execute("DELETE FROM tipos WHERE id > 1")
+            
+            # 3. Producción
+            cur.execute("DELETE FROM produccion_lineas")
+            cur.execute("DELETE FROM produccion_ordenes")
+            cur.execute("DELETE FROM produccion_disenos")
+            cur.execute("DELETE FROM produccion_disenos_stock")
+            cur.execute("DELETE FROM produccion_stock_colores_tallas")
+            cur.execute("DELETE FROM produccion_tipo_color_tallas")
 
-            # Producción — cada DELETE en su propio try/except por si alguna tabla no existe
-            _tablas_prod = [
-                'produccion_disenos_ventas',
-                'produccion_disenos_metodos',
-                'produccion_lineas', 'produccion_ordenes', 'produccion_disenos_stock',
-                'produccion_disenos_tipos', 'produccion_disenos_costes',
-                'produccion_disenos',
-                'produccion_stock_colores_tallas', 'produccion_tipo_color_tallas',
-                'produccion_menu_tipos', 'produccion_menu',
-                'produccion_genero_colores', 'produccion_genero_color_tallas',
-                'produccion_estados',
-                'produccion_variantes_productos', 'tipos_variantes'
+            # Contadores fiscales
+            self.reset_ticket_counter()
+            self.reset_cierre_counter()
+            self.reset_albaran_counter()
+            self.reset_factura_counter()
+
+            # Clientes
+            cur.execute(f"UPDATE clientes {_CLIENTES_RESET_SET}")
+
+            # Limpiar todas las secuencias (autoincrement)
+            _tablas_seq = [
+                'tickets', 'ticket_lines', 'payments', 'devoluciones', 'points_movements',
+                'cierres', 'cierres_lineas', 'albaranes', 'albaran_lines', 
+                'facturas', 'facturas_lines', 'productos', 'precios', 'codigos_barras',
+                'favoritos', 'descuentos',
+                'produccion_ordenes', 'produccion_lineas', 'produccion_disenos',
+                'produccion_stock_colores_tallas', 'produccion_tipo_color_tallas'
             ]
-            for tbl in _tablas_prod:
-                try:
-                    cur.execute(f"DELETE FROM {tbl}")
-                except Exception:
-                    pass
-            try:
-                cur.execute("DELETE FROM sqlite_sequence WHERE name IN ('tickets', 'ticket_lines', 'payments', 'cierres', 'cierres_lineas', 'albaranes', 'albaran_lines', 'facturas', 'facturas_lines', 'devoluciones', 'stock_movements', 'produccion_ordenes', 'produccion_lineas', 'produccion_disenos_stock', 'produccion_stock_colores_tallas', 'produccion_tipo_color_tallas', 'produccion_disenos', 'produccion_menu', 'categorias', 'tipos', 'productos', 'precios', 'descuentos', 'proveedores', 'favoritos', 'produccion_variantes_productos', 'tipos_variantes')")
-            except Exception:
-                pass
-            logging.warning('RESET COMPLETO: datos de producción y catálogo borrados, contadores reseteados')
+            self._reset_sequence(cur, _tablas_seq)
 
-            cur.execute("PRAGMA foreign_keys = ON")
             conn.commit()
-            logging.warning('⚠️⚠️⚠️ RESET COMPLETO EJECUTADO ⚠️⚠️⚠️')
+            logging.warning('⚠️⚠️⚠️ RESET COMPLETO EJECUTADO (Borrados manuales exhaustivos) ⚠️⚠️⚠️')
             return True
-
         except Exception:
-            try:
-                self.db.connection.rollback()
-            except Exception:
-                pass
+            conn.rollback()
             logging.exception('Error en reset completo')
             return False

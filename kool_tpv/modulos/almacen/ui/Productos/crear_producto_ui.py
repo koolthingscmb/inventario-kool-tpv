@@ -32,6 +32,7 @@ from kool_tpv.utils.widgets.notificaciones import ToastWidget
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.modulos.almacen.producto_repository import ProductoRepository
 from kool_tpv.utils import barcode_gen_utils
+from kool_tpv.utils.sku_generator import generate_sku
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,7 @@ class CrearProductoUI:
         ctk.CTkLabel(self.general_frame, text="NOMBRE:", text_color=self.colors['text'], font=lbl_font).grid(row=0, column=2, sticky='w', padx=6, pady=6)
         self.e_nombre = ctk.CTkEntry(self.general_frame, placeholder_text="Nombre del producto", **entry_kwargs)
         self.e_nombre.grid(row=0, column=3, columnspan=5, sticky='ew', padx=6, pady=6)
+        self.e_nombre.bind('<FocusOut>', lambda e: self._auto_generate_sku())
 
         # Fila 2: SKU (4 col) | NOMBRE_BOTON (4 col)
         ctk.CTkLabel(self.general_frame, text="SKU:", text_color=self.colors['text'], font=lbl_font).grid(row=1, column=0, sticky='w', padx=6, pady=6)
@@ -361,17 +363,45 @@ class CrearProductoUI:
 
         # Trace category changes to update taxonomy (focusout and selection events)
         try:
-            self.cb_categoria.entry.bind('<FocusOut>', lambda e: (self._validate_combo_focus(self.cb_categoria), self._update_taxonomy_from_category()))
-            self.cb_categoria.entry.bind('<<SearchableComboSelected>>', lambda e: (self._on_combo_selected(self.cb_categoria), self._update_taxonomy_from_category()))
-            self.cb_categoria.entry.bind('<Return>', lambda e: (self._validate_combo_focus(self.cb_categoria), self._update_taxonomy_from_category()))
-            self.cb_tipo.entry.bind('<FocusOut>', lambda e: self._validate_combo_focus(self.cb_tipo))
-            self.cb_tipo.entry.bind('<<SearchableComboSelected>>', lambda e: self._on_combo_selected(self.cb_tipo))
-            self.cb_tipo.entry.bind('<Return>', lambda e: self._validate_combo_focus(self.cb_tipo))
+            self.cb_categoria.entry.bind('<FocusOut>', lambda e: (self._validate_combo_focus(self.cb_categoria), self._update_taxonomy_from_category(), self._auto_generate_sku()))
+            self.cb_categoria.entry.bind('<<SearchableComboSelected>>', lambda e: (self._on_combo_selected(self.cb_categoria), self._update_taxonomy_from_category(), self._auto_generate_sku()))
+            self.cb_categoria.entry.bind('<Return>', lambda e: (self._validate_combo_focus(self.cb_categoria), self._update_taxonomy_from_category(), self._auto_generate_sku()))
+            self.cb_tipo.entry.bind('<FocusOut>', lambda e: (self._validate_combo_focus(self.cb_tipo), self._auto_generate_sku()))
+            self.cb_tipo.entry.bind('<<SearchableComboSelected>>', lambda e: (self._on_combo_selected(self.cb_tipo), self._auto_generate_sku()))
+            self.cb_tipo.entry.bind('<Return>', lambda e: (self._validate_combo_focus(self.cb_tipo), self._auto_generate_sku()))
             self.cb_proveedor.entry.bind('<FocusOut>', lambda e: self._validate_combo_focus(self.cb_proveedor))
             self.cb_proveedor.entry.bind('<<SearchableComboSelected>>', lambda e: self._on_combo_selected(self.cb_proveedor))
             self.cb_proveedor.entry.bind('<Return>', lambda e: self._validate_combo_focus(self.cb_proveedor))
         except Exception:
             pass
+
+    def _auto_generate_sku(self):
+        """Genera automáticamente el SKU si el producto es nuevo y los campos base están presentes."""
+        # Solo auto-generar si es un producto nuevo (no tiene producto_id)
+        if self.producto_id is not None:
+            return
+
+        nombre = self.e_nombre.get().strip()
+        cat_nombre = self.cb_categoria._var.get().strip()
+        tipo_nombre = self.cb_tipo._var.get().strip()
+
+        # Solo si tenemos los 3 datos clave
+        if nombre and cat_nombre and tipo_nombre:
+            try:
+                # Si el campo SKU está vacío, lo generamos
+                current_sku = self.e_sku.get().strip()
+                # O si el SKU actual parece ser uno generado anteriormente (podemos ser más agresivos aquí si quieres)
+                # Por ahora, solo si está vacío o si quieres que se actualice siempre mientras no se guarde
+                
+                # Generamos el nuevo SKU
+                new_sku = generate_sku(self.db, cat_nombre, tipo_nombre, nombre)
+                
+                # Actualizamos el campo
+                self.e_sku.delete(0, 'end')
+                self.e_sku.insert(0, new_sku)
+                logger.debug(f"SKU auto-generado: {new_sku}")
+            except Exception:
+                logging.exception("Error auto-generando SKU")
 
     def _add_label_entry(self, parent, label, row, col, colspan, entry_kwargs, lbl_font, placeholder=''):
         ctk.CTkLabel(parent, text=f'{label}:', text_color=self.colors.get('text', COLOR_MATRIX), font=lbl_font).grid(row=row, column=col, sticky='w', padx=6, pady=6)

@@ -70,8 +70,8 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788492615452,Todo mal,"15,41",1,"22,9",,Libros de cómics,Cómic,4,UDL
 9788410446823,Kaijuland,"14,8",1,22,,Libros de cómics,Cómic,4,Asturlibros
 9788416428731,Elfos 3,"8,69",1,25,,Libros de cómics,Cómic,4,Azeta
-9788419266705,The Simpsons Casa Árbol 1,"33,6",1,"49,95",,Libros de cómics,Cómic,4,UDL
-9788419266712,The Simpsons Casa Árbol 2,"33,62",1,"49,95",,Libros de cómics,Cómic,4,UDL
+9788419266705,Simpson Casa Árbol,"33,6",1,"49,95",,Libros de cómics,Cómic,4,UDL
+9788419266712,Simpson 2 Casa Árbol,"33,62",1,"49,95",,Libros de cómics,Cómic,4,UDL
 9788410287433,Reinos Silenciosos,"13,46",1,20,,Libros de cómics,Cómic,4,UDL
 9788417989590,Telémaco URGH y la corona de huesos,"8,69",1,16,,Libros de cómics,Cómic,4,Asturlibros
 9788410287259,Villevermine,"15,63",1,25,,Libros de cómics,Cómic,4,Azeta
@@ -113,18 +113,17 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788467978810,Holly Roller,"23,22",1,"34,5",,Libros de cómics,Cómic,4,Asturlibros
 9788467959543,Umbrella Academy INT,"39,71",1,59,,Libros de cómics,Cómic,4,Asturlibros
 9788467970968,Sacrificadores 1,"15,63",1,25,,Libros de cómics,Cómic,4,Azeta
-9788467978858,Dune: Casa Harkonnen,"26,59",1,"39,5",,Libros de cómics,Cómic,4,Asturlibros
-9788467979855,Contrato con dios ,"18,84",1,28,,Libros de cómics,Cómic,4,Asturlibros
+9788467978858,Dune:Casa Harkonnen,"26,59",1,"39,5",,Libros de cómics,Cómic,4,Asturlibros
+9788467979855,Contrato con dios Otras Historias,"18,84",1,28,,Libros de cómics,Cómic,4,Asturlibros
 9788467979879,Ansia de vivir,"17,5",1,26,,Libros de cómics,Cómic,4,Asturlibros
 9788467979893,Avenida Dropsie,"18,17",1,27,,Libros de cómics,Cómic,4,Asturlibros
 9788467980141,Grommets,"18,17",1,27,,Libros de cómics,Cómic,4,Asturlibros
-9788467976700,No hay tumba,"17,5",1,26,,Libros de cómics,Cómic,4,Asturlibros
-9788467975031,Blacksad 1 25 aniversario,"21,87",1,35,,Libros de cómics,Cómic,4,Azeta
+9788467975031,Blacksad 1 25an,"21,87",1,35,,Libros de cómics,Cómic,4,Azeta
 9788467943818,"Cuphead 1, Lances cómicos y desatinos","6,7",1,"9,95",,Libros de cómics,Cómic,4,Asturlibros
 9788467948707,"Cuphead 2, Crónicas y calamidades caricatursecas","7,07",1,"10,5",,Libros de cómics,Cómic,4,Asturlibros
 9788467965087,"Blacksad 7, Todo cae 2","10,76",1,16,,Libros de cómics,Cómic,4,Azeta
 9788467951240,Nocturnos 1,"8,69",1,"49,95",,Libros de cómics,Cómic,4,Asturlibros
-9788467978636,Todo al Negro,"32,3",1,48,,Libros de cómics,Cómic,4,Asturlibros
+9788467978636,Todo al Negro ,"32,3",1,48,,Libros de cómics,Cómic,4,Asturlibros
 9788498475067,Hellboy 10,"8,69",1,18,,Libros de cómics,Cómic,4,Asturlibros
 9788467908039,Hellboy 15,"8,69",1,20,,Libros de cómics,Cómic,4,Asturlibros
 9788467957419,Hellboy 3 INT,"32,3",1,48,,Libros de cómics,Cómic,4,Asturlibros
@@ -133,9 +132,9 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788467951141,Un año sin Cthulhu,"20,96",1,"29,95",,Libros de cómics,Cómic,4,Asturlibros
 9788467959406,Post Americana,"8,69",1,28,,Libros de cómics,Cómic,4,Asturlibros
 9788467964608,Sexto revólver 6,"26,89",1,"39,95",,Libros de cómics,Cómic,4,Azeta
-9788467957389,Boys 1 INT,"30,96",1,46,,Libros de cómics,Cómic,4,Asturlibros
-9788467957396,Boys 2 INT ,"30,96",1,46,,Libros de cómics,Cómic,4,Asturlibros
-9788467957402,Boys 3 INT ,"32,3",1,48,,Libros de cómics,Cómic,4,Asturlibros
+9788467957389,Boys INT 1 ,"30,96",1,46,,Libros de cómics,Cómic,4,Asturlibros
+9788467957396,Boys INT 2 ,"30,96",1,46,,Libros de cómics,Cómic,4,Asturlibros
+9788467957402,Boys INT 3 ,"32,3",1,48,,Libros de cómics,Cómic,4,Asturlibros
 9788467973822,Somna,"23,55",1,35,,Libros de cómics,Cómic,4,Asturlibros
 9788467919509,"Clase Letal 1, Una juventud Reagan","12,12",1,18,,Libros de cómics,Cómic,4,Asturlibros
 9788467921106,"Clase Letal 2, Los niños del agujero negro","11,11",1,"16,5",,Libros de cómics,Cómic,4,Asturlibros
@@ -173,7 +172,7 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788418955624,Street Fighter 5,"14,13",1,"20,99",,Libros de cómics,Cómic,4,Asturlibros
 9788418955730,Street Fighter 6,"14,07",1,"20,9",,Libros de cómics,Cómic,4,Asturlibros
 9788410463967,TMNT 1,"13,39",1,"19,9",,Libros de cómics,Cómic,4,Asturlibros
-9791387953218,TMNT Ronin Años Perdidos,"15,41",1,"22,9",,Libros de cómics,Cómic,4,Asturlibros
+,,,,,,,,,
 9791387953256,TMNT Animadas 2,"12,72",1,"18,9",,Libros de cómics,Cómic,4,Asturlibros
 9788467963106,Do a Porwerbomb,"26,59",1,"39,5",,Libros de cómics,Cómic,4,Asturlibros
 9788467983265,El castillo de los animales 2,"23,5",1,35,,Libros de cómics,Cómic,4,Asturlibros
@@ -185,7 +184,6 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788412009231,CIeloalto,"10,77",1,16,,Libros de cómics,Cómic,4,Azeta
 9788412758573,Poli Raro,"12,12",1,18,,Libros de cómics,Cómic,4,Azeta
 9788412758597,Jaque Reina Supervillanos,"11,45",1,17,,Libros de cómics,Cómic,4,Azeta
-9788412992458,Pizza Goblin,"12,12",1,18,,Libros de cómics,Cómic,4,Azeta
 9788412992465,Sa Wala,"12,12",1,18,,Libros de cómics,Cómic,4,Azeta
 9788412992427,Receta de la magia,"12,12",1,18,,Libros de cómics,Cómic,4,Azeta
 9788412992434,Roncas,"11,45",1,17,,Libros de cómics,Cómic,4,Azeta
@@ -198,6 +196,7 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9791387689476,Dragonfall 1 Returns,"8,08",1,12,,Libros de cómics,Cómic,4,Asturlibros
 9788416436309,Historias de la puta mili 86-87,"16,79",1,"24,95",,Libros de cómics,Cómic,4,Asturlibros
 9791388074660,Alan Moore 2000AD 1,"26,86",1,"39,9",,Libros de cómics,Cómic,4,Asturlibros
+,,,,,,,,,
 9788419740212,Baños Pleamar ED,"23,49",1,"34,9",,Libros de cómics,Cómic,4,Asturlibros
 9788417255442,Tercera Ley Newton,"12,12",1,18,,Libros de cómics,Cómic,4,Azeta
 9788417255527,Dream Breaker,"12,12",1,18,,Libros de cómics,Cómic,4,Azeta
@@ -231,10 +230,10 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788410264182,Comfortless,"16,76",1,"24,9",,Libros de cómics,Cómic,4,UDL
 9788416400843,El último Zap,"12,12",1,18,,Libros de cómics,Cómic,4,UDL
 9788410264144,Palomar 2,"18,51",1,"27,5",,Libros de cómics,Cómic,4,UDL
-9788418809101,Balas Perdidas 1,"13,8",1,"20,5",,Libros de cómics,Cómic,4,UDL
-9788418809699,Balas Perdidas 2,"14,07",1,"20,9",,Libros de cómics,Cómic,4,UDL
-9788418809972,Balas Perdidas 3,"14,07",1,"20,9",,Libros de cómics,Cómic,4,UDL
-9788410264113,Balas Perdidas 4,"14,07",1,"20,9",,Libros de cómics,Cómic,4,UDL
+9788418809101,Balas Perdidas S&R 1,"13,8",1,"20,5",,Libros de cómics,Cómic,4,UDL
+9788418809699,Balas Perdidas S&R 2,"14,07",1,"20,9",,Libros de cómics,Cómic,4,UDL
+9788418809972,Balas Perdidas S&R 3,"14,07",1,"20,9",,Libros de cómics,Cómic,4,UDL
+9788410264113,Balas Perdidas S&R 4,"14,07",1,"20,9",,Libros de cómics,Cómic,4,UDL
 9788410264434,Rio Veneno,"16,76",1,"24,9",,Libros de cómics,Cómic,4,UDL
 9788410264410,Laberinto Cuco,"16,16",1,24,,Libros de cómics,Cómic,4,UDL
 9788410264489,Tedward,"18,17",1,27,,Libros de cómics,Cómic,4,UDL
@@ -266,8 +265,8 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788491740667,Paper Girls 5,"8,69",1,"16,95",,Libros de cómics,Cómic,4,Planeta
 9788413411279,Paper Girls 6,"8,69",1,"16,95",,Libros de cómics,Cómic,4,Planeta
 9791387878160,Valentina de Montblanc,"16,79",1,"24,95",,Libros de cómics,Cómic,4,Azeta
-9788410203198,Transmetropolitan 1 Pocket,"6,7",1,"9,95",,Libros de cómics,Cómic,4,Asturlibros
-9788410203181,Harley Quinn Caballero Blanco,"6,7",1,"9,95",,Libros de cómics,Cómic,4,Asturlibros
+9788410203198,PK 118 Transmetropolitan 1,"6,7",1,"9,95",,Libros de cómics,Cómic,4,Asturlibros
+9788410203181,PK 117 Harley Quinn Caballero Blanco,"6,7",1,"9,95",,Libros de cómics,Cómic,4,Asturlibros
 9788418120220,JLA: La nueva frontera Bilioteca BL,"8,69",1,48,,Libros de cómics,Cómic,4,Asturlibros
 9788417106065,Harley Quinn 4 La llamada del deber,"8,69",1,"17,95",,Libros de cómics,Cómic,4,Asturlibros
 9788418293115,Sweet Tooth INT 2,"8,69",1,46,,Libros de cómics,Cómic,4,Asturlibros
@@ -275,9 +274,9 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788418931567,Fábulas ED 3,"8,69",1,25,,Libros de cómics,Cómic,4,Asturlibros
 9788418026928,Watchmen Deluxe B/N,"28,13",1,40,,Libros de cómics,Cómic,4,Asturlibros
 9788417509910,Predicador 1 CV,"8,79",1,"12,99",,Libros de cómics,Cómic,4,Asturlibros
-9788410134317,Leones de Bagdad Pocket,7,1,"9,95",,Libros de cómics,Cómic,4,Asturlibros
+9788410134317,PK 110 Leones de Bagdad,7,1,"9,95",,Libros de cómics,Cómic,4,Asturlibros
 9788412849240,Cruzando Bosque,"20,16",1,"29,95",,Libros de cómics,Cómic,4,Azeta
-9788410519640,DC Fin Batman Año 1 y 2,"31,22",1,"49,95",,Libros de cómics,Cómic,4,Azeta
+9788410519640,Batman Año 1 y 2 DCFinest,"31,22",1,"49,95",,Libros de cómics,Cómic,4,Azeta
 9788410519978,DC Compact 1 Superman Cuatro Estaciones,"7,4",1,"10,99",,Libros de cómics,Cómic,4,Asturlibros
 9791370134846,DC Compact 9 Superman Otro Clavo,"6,73",1,"9,99",,Libros de cómics,Cómic,4,Azeta
 9791370131036,DC x Sonic 1,"6,7",1,"9,95",,Libros de cómics,Cómic,4,Asturlibros
@@ -285,7 +284,7 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788410497344,DC Superman Grant Morrison,"49,13",1,73,,Libros de cómics,Cómic,4,Asturlibros
 9791370130152,DC MH 1 All Star Superman,"16,83",1,25,,Libros de cómics,Cómic,4,Asturlibros
 9791370130930,Nice House Lake,"32,3",1,48,,Libros de cómics,Cómic,4,Asturlibros
-9791370131555,Cosa Pantano 1,"33,66",1,50,,Libros de cómics,Cómic,4,Asturlibros
+9791370131555,La cosa del pantano 1,"33,66",1,50,,Libros de cómics,Cómic,4,Asturlibros
 9791370134464,DC Elseworld 3 Caballeros Oscuros Acero,"32,3",1,48,,Libros de cómics,Cómic,4,Asturlibros
 9788411017398,MH P Vengadores 1 La iniciativa Ultrón,"8,69",1,18,,Libros de cómics,Cómic,4,Asturlibros
 9788411015172,MH 17 El Castigador Bienvenido Frank,"8,69",1,18,,Libros de cómics,Cómic,4,Asturlibros
@@ -299,15 +298,8 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788411507844,MH 85 Vengadores Edad Heroica,"16,83",1,25,,Libros de cómics,Cómic,4,Asturlibros
 9788410516236,MH 98 Lobezno Retorno,"13,46",1,20,,Libros de cómics,Cómic,4,Azeta
 9791370133115,MH 108 Inhumanos vs Patrulla X,"13,47",1,20,,Libros de cómics,Cómic,4,Asturlibros
-9788411501569," Secret Wars, Integral, Marvel Now!","28,27",1,42,,Libros de cómics,Cómic,4,Asturlibros
-9788410517462,Locke Key Master 2,"37,2",1,55,,Libros de cómics,Cómic,4,Asturlibros
-9788410518933,Locke Key Master 3,"23,56",1,35,,Libros de cómics,Cómic,4,Asturlibros
+9788411501569,"Secret Wars, Integral, Marvel Now!","28,27",1,42,,Libros de cómics,Cómic,4,Asturlibros
 8424248924362,Pack Espada Conan Color,"20,19",1,30,,Libros de cómics,Cómic,4,Asturlibros
-9788411018135,"Veneno, desencadenado, Premiere","7,41",1,11,,Libros de cómics,Cómic,4,Asturlibros
-9788411018890,"Los Vengadores, La guerra de los reinos, Premiere","6,73",1,10,,Libros de cómics,Cómic,4,Asturlibros
-9788411015851,"Doctor Extraño, Sangre en el éter, Premiere","7,41",1,11,,Libros de cómics,Cómic,4,Asturlibros
-9788411503563,"Los vengadores 6, El renacimiento de Marca Estelar, Premiere","7,41",1,11,,Libros de cómics,Cómic,4,Asturlibros
-9788411502764,"Veneno 6, Matanza absoluta los cruces,Premiere","7,41",1,11,,Libros de cómics,Cómic,4,Asturlibros
 9788411504218,"Predator, La Etapa Original, Omnibus","47,12",1,70,,Libros de cómics,Cómic,4,Asturlibros
 9788410513266,Essentials 1 Vengadores Desunidos,"6,73",1,"9,99",,Libros de cómics,Cómic,4,Asturlibros
 9788410513655,Essentials 4 Masacre,"6,73",1,"9,99",,Libros de cómics,Cómic,4,Asturlibros
@@ -324,7 +316,6 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788410512924,Masacre vs. 3 Matanza,"4,03",1,"5,99",,Libros de cómics,Cómic,4,Asturlibros
 9788410512900,Masacre vs. 5 Ojo Halcón,"4,03",1,"5,99",,Libros de cómics,Cómic,4,Asturlibros
 9788410512894,Masacre vs. 6 Viejo Logan,"4,03",1,"5,99",,Libros de cómics,Cómic,4,Asturlibros
-9788410512887,Masacre vs. 7 Castigador,"4,03",1,"5,99",,Libros de cómics,Cómic,4,Asturlibros
 9788410512870,Masacre vs. 8 Thanos,"4,03",1,"5,99",,Libros de cómics,Cómic,4,Asturlibros
 9788410512863,Masacre vs. 9 X-Force,"4,03",1,"5,99",,Libros de cómics,Cómic,4,Asturlibros
 9788410512931,Masacre vs. Pantera Negra,"4,03",1,"5,99",,Libros de cómics,Cómic,4,Asturlibros
@@ -347,7 +338,7 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9788412678420,"Solo 4, Mundo caníbal","20,12",1,"29,9",,Libros de cómics,Cómic,4,Asturlibros
 9788412328073,"Solo 5, Legatus","12,12",1,18,,Libros de cómics,Cómic,4,Asturlibros
 9788412678413,"Solo 7, El final de un círculo infinito","21,56",1,"29,9",,Libros de cómics,Cómic,4,Asturlibros
-9788412678451,"Solo Alphas, Crónicas salvajes","14,06",1,"19,5",,Libros de cómics,Cómic,4,Asturlibros
+9788412678451," Solo Alphas, Crónicas salvajes","14,06",1,"19,5",,Libros de cómics,Cómic,4,Asturlibros
 9788412947793,Solo Buscando Perdón,"15,48",1,23,,Libros de cómics,Cómic,4,Asturlibros
 9788412522341,Solo Caminos 2,"12,12",1,18,,Libros de cómics,Cómic,4,Asturlibros
 9788412678482,"Solo, cuando no sabía que exisitías","14,8",1,22,,Libros de cómics,Cómic,4,Asturlibros
@@ -361,7 +352,7 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 9791370137557,MH 8 Spider-Man Miles Morales Origen,"13,46",1,20,,Libros de cómics,Cómic,4,Asturlibros
 9788410516274,Premiere 116 Asombroso Spiderman Regreso Ben Reilly,"11,11",1,"16,5",,Libros de cómics,Cómic,4,Asturlibros
 9791370134402,MH 110 Veneno vs. Matanza ,"10,77",1,16,,Libros de cómics,Cómic,4,Asturlibros
-9791370132279,Asombroso Spiderman 14 Biblio Marvel,"9,39",1,"13,95",,Libros de cómics,Cómic,4,Asturlibros
+9791370132279,Asombroso Spiderman 14 Biblio,"9,39",1,"13,95",,Libros de cómics,Cómic,4,Asturlibros
 9788410516007,Spiderman Sombra Duende Verde ,"14,8",1,22,,Libros de cómics,Cómic,4,Asturlibros
 9791370136352,DCMH 11 Superman/Batman: Supergirl,"13,46",1,20,,Libros de cómics,Cómic,4,Asturlibros
 9791370137267,DCMH 12 Superman Hilo Rojo,"13,46",1,20,,Libros de cómics,Cómic,4,Asturlibros

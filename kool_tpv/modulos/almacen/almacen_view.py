@@ -72,6 +72,7 @@ class AlmacenView(BaseModuleView):
             'show_proveedores': self.show_proveedores,
             'show_entrada_manual': self.show_entrada_manual,
             'show_consultar': self.show_consultar,
+            'show_menus': self.show_menus,
         }
 
         # Iterate over configured buttons and rebind matching buttons in the UI
@@ -181,6 +182,8 @@ class AlmacenView(BaseModuleView):
             'ENTRADA MANUAL': self.show_entrada_manual,
             'SALIDA MANUAL': self.show_salida_manual,
             'DEVOLUCIÓN': self.show_devolucion,
+            'MENUS': self.show_menus,
+            'MENÚS': self.show_menus,
         }
 
     def _on_power(self):
@@ -501,6 +504,20 @@ class AlmacenView(BaseModuleView):
         except Exception:
             logging.exception('Error abriendo consultar en AlmacenView')
     
+    def show_menus(self):
+        """Mostrar UI de gestión de menús."""
+        try:
+            from .ui.Productos.menus_ui import MenusUI
+            try:
+                menus_ui = MenusUI(self.central_area, db=self.db, owner=self, keyboard_manager=self.keyboard_mgr)
+                if self.set_central_content(menus_ui):
+                    self.actualizar_ruta('ALMACEN / MENÚS')
+                    logging.info('Abriendo gestión de menús...')
+            except Exception:
+                logging.exception('Error instanciando MenusUI en show_menus')
+        except Exception:
+            logging.exception('Error abriendo menus en AlmacenView')
+
     def attach_to_nav(self, nav_frame, button_config: dict):
         """Adjunta el botón del módulo al frame de navegación usando ButtonFactory."""
         try:

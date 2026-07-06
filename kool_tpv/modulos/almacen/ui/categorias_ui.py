@@ -177,9 +177,12 @@ class CategoriasUI:
                 except Exception:
                     pass
             cats = self.service.get_all()
+            # Configurar 8 columnas con weight=1 para que ocupen todo el ancho
+            for c in range(8):
+                self.chips_frame.grid_columnconfigure(c, weight=1)
             for i, c in enumerate(cats):
-                row = i // 6
-                col = i % 6
+                row = i // 8
+                col = i % 8
                 name = c.get('nombre') or ''
                 btn = ButtonFactory.create_button(
                     parent=self.chips_frame,
@@ -187,7 +190,7 @@ class CategoriasUI:
                     command=None,
                     style_key="chip_default"
                 )
-                btn.grid(row=row, column=col, padx=5, pady=5, sticky='w')
+                btn.grid(row=row, column=col, padx=5, pady=5, sticky='nsew')
                 btn.bind('<Button-1>', lambda e, btn=btn: self._select_chip(btn))
                 btn.bind('<Double-Button-1>', lambda e, cat=c: self._load_categoria_into_form(cat))
                 setattr(btn, '_cat_data', c)
@@ -324,8 +327,12 @@ class CategoriasUI:
                 if new_id:
                     self.clear()
                     self._load_categorias()
-        except Exception:
+        except Exception as e:
             logging.exception('Error guardando categoría')
+            # Mostrar Toast warning si es error de UNIQUE constraint
+            if 'UNIQUE constraint failed' in str(e):
+                from kool_tpv.utils.widgets.notificaciones import ToastWidget
+                ToastWidget.show(self.container, 'Ya existe una categoría con ese nombre', tipo='warning')
 
     def _update_color_preview(self):
         """Actualizar el color del borde del entry para previsualizar el color."""

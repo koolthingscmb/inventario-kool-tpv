@@ -15,6 +15,7 @@ from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
 from kool_tpv.modulos.almacen.ui.albaranes.albaran_borrador import AlbaranBorradorService
+from kool_tpv.utils.sku_generator import generate_sku
 
 logger = logging.getLogger(__name__)
 
@@ -553,6 +554,7 @@ class ImportarAlbaranUI:
         ctk.CTkLabel(row2, text='Nombre:', font=(label_font['family'], label_font['size']), width=80, anchor='e').pack(side='left')
         self.entry_nombre = ctk.CTkEntry(row2, font=(entry_font['family'], entry_font['size']), width=400)
         self.entry_nombre.pack(side='left', padx=5, fill='x', expand=True)
+        self.entry_nombre.bind('<FocusOut>', lambda e: self._auto_generate_sku())
         self.entry_nombre.bind('<Return>', self._on_guardar_producto)
         self.entry_nombre.bind('<KP_Enter>', self._on_guardar_producto)
 
@@ -578,6 +580,8 @@ class ImportarAlbaranUI:
         )
         self.combo_categoria.pack(side='left', padx=5)
         try:
+            self.combo_categoria.entry.bind('<FocusOut>', lambda e: self._auto_generate_sku())
+            self.combo_categoria.entry.bind('<<SearchableComboSelected>>', lambda e: self._auto_generate_sku())
             self.combo_categoria.entry.bind('<Return>', self._on_guardar_producto)
             self.combo_categoria.entry.bind('<KP_Enter>', self._on_guardar_producto)
         except Exception:
@@ -596,6 +600,8 @@ class ImportarAlbaranUI:
         )
         self.combo_tipo.pack(side='left', padx=5)
         try:
+            self.combo_tipo.entry.bind('<FocusOut>', lambda e: self._auto_generate_sku())
+            self.combo_tipo.entry.bind('<<SearchableComboSelected>>', lambda e: self._auto_generate_sku())
             self.combo_tipo.entry.bind('<Return>', self._on_guardar_producto)
             self.combo_tipo.entry.bind('<KP_Enter>', self._on_guardar_producto)
         except Exception:
@@ -690,6 +696,25 @@ class ImportarAlbaranUI:
 
         # Seleccionar primer producto
         self._seleccionar_producto_por_idx(0)
+
+    def _auto_generate_sku(self):
+        """Genera automáticamente el SKU si faltan campos base y el producto es nuevo."""
+        nombre = self.entry_nombre.get().strip()
+        cat_nombre = self.combo_categoria._var.get().strip()
+        tipo_nombre = self.combo_tipo._var.get().strip()
+
+        # Solo si tenemos los 3 datos clave
+        if nombre and cat_nombre and tipo_nombre:
+            try:
+                # Generamos el nuevo SKU
+                new_sku = generate_sku(self.db, cat_nombre, tipo_nombre, nombre)
+                
+                # Actualizamos el campo
+                self.entry_sku.delete(0, 'end')
+                self.entry_sku.insert(0, new_sku)
+                logger.debug(f"SKU auto-generado (albarán): {new_sku}")
+            except Exception:
+                logging.exception("Error auto-generando SKU en albarán")
 
     def _cargar_tabla_productos_nuevos(self):
         """Cargar productos nuevos en la tabla de creación."""

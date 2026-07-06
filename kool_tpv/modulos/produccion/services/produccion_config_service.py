@@ -181,6 +181,14 @@ class ProduccionConfigService:
             direccion: -1 para subir, +1 para bajar.
         """
         menus = self.menu_repo.get_todos()
+        
+        # Si detectamos que hay órdenes duplicados o todos son 0, reasignamos secuencialmente
+        ordenes = [m.orden for m in menus]
+        if len(set(ordenes)) < len(menus) or all(o == 0 for o in ordenes):
+            for i, m in enumerate(menus):
+                self.menu_repo.actualizar_orden(m.id, i)
+                m.orden = i
+        
         idx = None
         for i, m in enumerate(menus):
             if m.id == menu_id:
@@ -200,6 +208,17 @@ class ProduccionConfigService:
     def guardar_menu(self, nombre: str, sistema_produccion: str, orden: int,
                      activo: int, tipo_id: int, menu_id: Optional[int] = None) -> bool:
         """Crear o actualizar un elemento del menú."""
+        if not menu_id:
+            # Si es nuevo, calcular el siguiente orden
+            menus = self.menu_repo.get_todos()
+            orden = max((m.orden for m in menus), default=-1) + 1
+        else:
+            # Si es edición, si el orden es 0 o None, intentar mantener el actual
+            if not orden:
+                existente = self.menu_repo.get_por_id(menu_id)
+                if existente:
+                    orden = existente.orden
+
         item = ProduccionMenuItem(
             id=menu_id or 0,
             nombre=nombre,

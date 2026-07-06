@@ -169,6 +169,17 @@ class SearchableCombo(ctk.CTkFrame):
             logging.exception('Error en SearchableCombo.get_id')
             return None
 
+    def set_by_id(self, item_id: int):
+        """Seleccionar un elemento por su ID (modo options con tuplas)."""
+        try:
+            if self._opts:
+                for (_id, name) in self._opts:
+                    if _id == item_id:
+                        self._var.set(name)
+                        return
+        except Exception:
+            logging.exception('Error en SearchableCombo.set_by_id')
+
     def set_options(self, options: List[Tuple[int, str]]):
         """Actualizar opciones (modo tuplas con IDs)."""
         try:

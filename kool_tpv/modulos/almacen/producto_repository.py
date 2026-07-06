@@ -115,6 +115,11 @@ class ProductoRepository:
             return None
         return dict(row)
 
+    def sku_existe(self, sku: str) -> bool:
+        """Verifica si un SKU ya existe en la base de datos."""
+        row = self.db.fetch_one("SELECT 1 FROM productos WHERE sku = ?", (sku,))
+        return row is not None
+
     def get_pvps_by_ids(self, producto_ids: List[int]) -> Dict[int, float]:
         """Obtener PVP activo para una lista de producto_ids en una sola query.
 

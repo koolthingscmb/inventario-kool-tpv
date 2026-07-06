@@ -1,21 +1,20 @@
 EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Proveedor
-5010996239013,Duskmourn SJ,"3,65",19,"6,7",,Juegos de cartas,TCG,21,TCG Factory
+5010996239013,Duskmourn SJ,"3,65",18,"6,7",,Juegos de cartas,TCG,21,TCG Factory
 195166250939,Hydra Secret Lair,"27,5",1,"49,95",,Juegos de cartas,TCG,21,Devir
-5010996245618,Cimientos SJ,"3,39",27,"6,5",,Juegos de cartas,TCG,21,TCG Factory
+5010996245618,Cimientos SJ,"3,39",22,"6,5",,Juegos de cartas,TCG,21,TCG Factory
 850060996023,Token Dice Green Mana Pack,"36,85",1,60,,Juegos de cartas,Accejuego,21,Heo GmbH
 630509987283,Midnight Hunt Collector,"13,7",4,"27,9",,Juegos de cartas,TCG,21,Devir
 195166279169,Aetherdrift Prerelease,"19,11",2,36,,Juegos de cartas,TCG,21,Devir
-,Second Life Commander,10,2,34,,Juegos de cartas,Second Life,21,Kool Production
 5010996316370,Avatar Caja Principiante,"19,6",1,"33,9",,Juegos de cartas,TCG,21,Devir
 5010996267986,Final Fantasy Commander,"38,5",2,"69,9",,Juegos de cartas,TCG,21,Devir
-5010996359421,Super Heroes SJ,"4,03",19,7,,Juegos de cartas,TCG,21,Devir
+5010996359421,Super Heroes SJ,"4,03",18,7,,Juegos de cartas,TCG,21,Devir
 195166313597,Super Heroes BP ENG,"4,03",10,7,,Juegos de cartas,TCG,21,Devir
 5706569131234,Perfect Fit 100 Sideload Smoke,"2,85",5,6,,Juegos de cartas,Accejuego,21,TCG Factory
 4012927180808,Yugi Set Principiante,"10,92",2,"16,9",,Juegos de cartas,TCG,21,Devir
 4012927193723,Yugi Phantom Revenge,2,22,4,,Juegos de cartas,TCG,21,Devir
 4012927197530,Yugi Legendary Kaiba,"14,7",1,30,,Juegos de cartas,TCG,21,Devir
-4050368982438,LORCANA Rise of the Floodborn Booster,"3,63",2,5,,Juegos de cartas,TCG,21,TCG Factory
-4050368982865,LORCANA Into the Inklands Booster,"3,63",4,5,,Juegos de cartas,TCG,21,TCG Factory
+4050368982438,LORCANA Rise of the Floodborn Booster,"3,63",1,5,,Juegos de cartas,TCG,21,TCG Factory
+4050368982865,LORCANA Into the Inklands Booster,"3,63",3,5,,Juegos de cartas,TCG,21,TCG Factory
 841333127077,SWU Sombras Galaxia Caja Inicio,"24,06",1,"34,95",,Juegos de cartas,TCG,21,Azeta
 8436017227321,Lost Cities Exploradores,"13,38",1,"21,9",,Juegos de mesa,Juego de mesa,21,Devir
 8437016958513,Aristeia! All-in-one,"52,9",1,"84,99",,Juegos de mesa,Juego de mesa,21,TCG Factory
@@ -67,6 +66,7 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 8436607940593,The White Castle,"19,4",1,"34,9",,Juegos de mesa,Juego de mesa,21,Azeta
 810083044699,El bien contra el mal Exploding Kittens,"13,63",1,"24,95",,Juegos de mesa,Juego de mesa,21,Asturlibros
 3760269592926,Kids Express,"18,59",1,"33,95",,Juegos de mesa,Juego de mesa,21,Asturlibros
+3558380108856,Skyrim Juego Aventuras,"80,57",1,130,,Juegos de mesa,Juego de mesa,21,Asturlibros
 8425402885673,Valkirias,"20,22",1,"34,9",,Juegos de mesa,Juego de mesa,21,Tranjis Games
 8495390897477,Side Quest,"9,8",1,"17,95",,Juegos de mesa,Juego de mesa,21,Tranjis Games
 8425402886359,Cubonejos,"8,65",1,"15,95",,Juegos de mesa,Juego de mesa,21,Tranjis Games
@@ -75,16 +75,17 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 8435450254895,Haunted Lands,"28,9",1,"49,95",,Juegos de mesa,Juego de mesa,21,Asturlibros
 8435407650237,Nova Era,"21,69",1,"37,9",,Juegos de mesa,Juego de mesa,21,Asturlibros
 8412906000107,Naruto Combate de Ninjas,"7,64",1,30,,Juegos de mesa,Juego de mesa,21,Heo GmbH
-8435407650022,Dceased Invasión Gotham,"30,98",1,"52,9",,Juegos de mesa,Juego de mesa,21,Asturlibros
+8435407650022,Dceased Gotham,"30,98",1,"52,9",,Juegos de mesa,Juego de mesa,21,Asturlibros
 8435407650770,Bang Explosión Dados,"24,79",1,"41,9",,Juegos de mesa,Juego de mesa,21,Asturlibros
 5407009610240,Duck & Cover,"9,28",1,"17,9",,Juegos de mesa,Juego de mesa,21,Asturlibros
 8437027027048,Pelusas Revolution,"8,76",2,"15,9",,Juegos de mesa,Juego de mesa,21,Azeta
 8436607944096,Dim Sum Sushi Go,"16,82",1,"29,9",,Juegos de mesa,Juego de mesa,21,Devir
+8435407604742,Star Wars Imperial Assault,"68,17",1,115,,Juegos de mesa,Juego de mesa,21,Asturlibros
 3558380129158,SW Batalla Hoth,"30,98",1,"52,9",,Juegos de mesa,Juego de mesa,21,Asturlibros
 841333133771,Hobbit Historia Ida Vuelta,"20,62",1,"34,9",,Juegos de mesa,Juego de mesa,21,Asturlibros
 3760089893029,OP Asalto Marineford,"12,39",1,30,,Juegos de mesa,Juego de mesa,21,Asturlibros
 3760089894118,Combo,"9,29",1,"17,9",,Juegos de mesa,Juego de mesa,21,Asturlibros
-810171412058,Exploding Kittens Aniversario,"12,39",1,"22,9",,Juegos de mesa,Juego de mesa,21,Asturlibros
+810171412058,Exploding Kittens ED Aniversario,"12,39",1,"22,9",,Juegos de mesa,Juego de mesa,21,Asturlibros
 3760089894217,Lucky Saloon,"9,29",1,"18,9",,Juegos de mesa,Juego de mesa,21,Asturlibros
 8435450255045,Dorf Romantik Sakura,26,1,"49,9",,Juegos de mesa,Juego de mesa,21,Asturlibros
 4005556268283,Push,0,1,"13,9",,Juegos de mesa,Juego de mesa,21,Asturlibros
@@ -96,7 +97,7 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 8436607949831,Circos Artistas Carcassonne,"11,25",1,"19,9",,Juegos de mesa,Juego de mesa,21,Azeta
 8436607948827,Nacidos de la Bruma,"24,99",1,"41,9",,Juegos de mesa,Juego de mesa,21,Azeta
 8437027014758,Teto,"9,84",1,"19,9",,Juegos de mesa,Juego de mesa,21,Azeta
-824968208366,Aventureros Tren Leyendas Oeste ,"68,71",1,110,,Juegos de mesa,Juego de mesa,21,Asturlibros
+824968208366,Aventureros Tren Leyendas Oeste,"68,71",1,110,,Juegos de mesa,Juego de mesa,21,Asturlibros
 3664824001581,Potion House,"13,63",1,"24,95",,Juegos de mesa,Juego de mesa,21,Asturlibros
 3664824002328,Out of Sock,"12,39",1,"22,95",,Juegos de mesa,Juego de mesa,21,Asturlibros
 5906954790347,Pérgola,"20,02",1,"44,95",,Juegos de mesa,Juego de mesa,21,Asturlibros
@@ -122,7 +123,7 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 4012426884337,The Mind,"7,42",2,"14,9",,Juegos de mesa,Juego de mesa,21,Azeta
 4012426884368,The Game,"7,2",1,"14,9",,Juegos de mesa,Juego de mesa,21,Azeta
 8436621891642,Kawaii Chef,"8,07",1,"14,9",,Juegos de mesa,Juego de mesa,21,Azeta
-854941007631,Uno Miniatura,"5,37",1,10,,Juegos de mesa,Juego de mesa,21,Azeta
+,,,,,,,,,
 810010993625,Tetris Miniatura,"5,37",1,10,,Juegos de mesa,Juego de mesa,21,Azeta
 8436578813728,Pistas Cruzadas,"9,69",1,"16,9",,Juegos de mesa,Juego de mesa,21,Azeta
 8710126199565,Hister Temazos,"19,24",1,"27,9",,Juegos de mesa,Juego de mesa,21,Azeta
@@ -136,7 +137,7 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 74427811266,Funda standard Ultra pro,"0,82",47,"2,5",,Juegos de cartas,Accejuego,21,TCG Factory
 ,Caja almacenaje 500 cartas,"0,58",2,"1,9",,Juegos de cartas,Accejuego,21,TCG Factory
 ,Caja almacenaje 4000 cartas,"4,02",8,"9,95",,Juegos de cartas,Accejuego,21,TCG Factory
-,Dado de rol,"0,22",100,1,,Juegos de cartas,Accejuego,21,Kool Things
+,Dado de rol,"0,24",100,1,,Juegos de cartas,Accejuego,21,Kool Things
 74427814427,Ultra Pro Silver Pocket Pages,"0,07",37,"0,25",,Juegos de cartas,Accejuego,21,TCG Factory
 ,Caja almacenaje 1000 cartas,"1,13",6,"2,95",,Juegos de cartas,Accejuego,21,TCG Factory
 8435407634329,Historias del bucle Caja inicio,"16,82",1,"27,9",,Juegos de mesa,Rol,4,Asturlibros
@@ -145,12 +146,12 @@ EAN,NOMBRE,COSTE,UNIDADES (stock_actual),PVP,SKU,Categoría,TIPO,TIPO_IVA,Provee
 8436607941026,ESDLA Libro Básico,"27,69",1,"39,95",,Juegos de mesa,Rol,4,Devir
 8436589620728,Starfinder Libro Básico,"13,85",1,"23,9",,Juegos de mesa,Rol,4,Devir
 8436017227338,ESDLA Aventuras en la Tierra Media,"20,77",1,"29,95",,Juegos de mesa,Rol,4,Devir
-3558380116905,Arkham Manual Basico,"30,98",1,48,,Juegos de mesa,Rol,4,Asturlibros
-,A por el Rey ,2,4,6,,Juegos de mesa,Kool Game,21,Kool Things
-,Dice Sauce,,3,25,,Juegos de mesa,Kool Game,21,Kool Things
-,Magos peleones ,2,2,7,,Juegos de mesa,Kool Game,21,Kool Things
-,Dados de rol ,"3,66",3,9,,Juegos de mesa,Kool Game,21,Kool Things
-,Clutch Festival Triples,0,2,18,,Juegos de mesa,Kool Game,21,Kool Things
-,Clutch Batalla Pintura,0,2,18,,Juegos de mesa,Kool Game,21,Kool Things
-,Clutch Duelo Banquillos,0,4,18,,Juegos de mesa,Kool Game,21,Kool Things
-,Fast Flick,0,5,9,,Juegos de mesa,Kool Game,21,Kool Things
+3558380116905,Arkham Manual Básico,"30,98",1,48,,Juegos de mesa,Rol,4,Asturlibros
+,A por el Rey Kool Game,2,4,6,,Juegos de mesa,Kool Game,21,Kool Things
+,Dice Sauce,11,3,25,,Juegos de mesa,Kool Game,21,Kool Things
+,Magos peleones Kool Game,2,2,7,,Juegos de mesa,Kool Game,21,Kool Things
+,Dados de rol Kool Game,"3,66",3,9,,Juegos de mesa,Kool Game,21,Kool Things
+,Clutch Festival Triples,"5,84",2,18,,Juegos de mesa,Kool Game,21,Kool Things
+,Clutch Batalla Pintura,"5,84",1,18,,Juegos de mesa,Kool Game,21,Kool Things
+,Clutch Duelo Banquillos,"5,84",4,18,,Juegos de mesa,Kool Game,21,Kool Things
+,Fast Flick,"3,5",5,9,,Juegos de mesa,Kool Game,21,Kool Things
