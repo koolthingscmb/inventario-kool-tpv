@@ -88,6 +88,20 @@ class VentaProcessor(TicketProcessor):
                             logger.exception('Error updating stock and recording movement for producto_id=%s in ticket=%s', prod_id, ticket_id)
                             raise
 
+                        # Si el producto es un menú, descontar stock de sus componentes
+                        if it.get('line_tipo', 'venta') == 'venta':
+                            try:
+                                from kool_tpv.modulos.almacen.menu_repository import MenuRepository
+                                menu_repo = MenuRepository(self.db)
+                                if menu_repo.get_es_menu(prod_id, cur=cur):
+                                    from kool_tpv.modulos.almacen.services.menu_service import MenuService
+                                    menu_svc = MenuService(self.db)
+                                    unidades = int(it.get('cantidad', 0))
+                                    menu_svc.descontar_componentes_stock(prod_id, unidades, ticket_id, cur=cur)
+                            except Exception:
+                                logger.exception('Error descontando componentes de menú para producto_id=%s in ticket=%s', prod_id, ticket_id)
+                                raise
+
                 pagos = kwargs.get('pagos', [])
                 for metodo, importe_cents in pagos:
                     self.repo.insert_payment(ticket_id, metodo, importe_cents, kwargs.get('created_at'), cur=cur)

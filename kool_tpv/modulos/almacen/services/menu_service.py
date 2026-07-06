@@ -119,6 +119,31 @@ class MenuService:
             logger.exception("Error eliminando menú id=%s", producto_id)
             return False
 
+    def descontar_componentes_stock(self, producto_id: int, unidades: int, ticket_id: int, cur=None) -> None:
+        """Descuenta el stock de los componentes de un menú al venderlo.
+
+        Args:
+            producto_id: ID del producto-menú vendido.
+            unidades: Unidades vendidas del menú.
+            ticket_id: ID del ticket (para registrar el motivo del movimiento).
+            cur: Cursor de transacción activa (obligatorio para integridad).
+        """
+        try:
+            componentes = self.menu_repo.get_componentes_para_venta(producto_id, cur=cur)
+            for componente_id, cantidad in componentes:
+                stock_change = -(cantidad * unidades)
+                cur.execute(
+                    'UPDATE productos SET stock_actual = COALESCE(stock_actual, 0) + ? WHERE id = ?',
+                    (stock_change, componente_id)
+                )
+                cur.execute(
+                    'INSERT INTO stock_movements (producto_id, cantidad, motivo, ticket_line_id) VALUES (?, ?, ?, ?)',
+                    (componente_id, stock_change, f'menu:{ticket_id}', None)
+                )
+        except Exception:
+            logger.exception("Error descontando componentes del menú id=%s", producto_id)
+            raise
+
     def validar_stock_menu(self, producto_id: int, cantidad: int = 1) -> Tuple[bool, str]:
         """Verifica si hay stock suficiente de todos los componentes.
         
