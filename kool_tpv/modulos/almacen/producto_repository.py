@@ -365,12 +365,12 @@ WHERE 1=1
                 producto_id = cur.lastrowid
             else:
                 cur.execute(
-                    '''UPDATE productos SET nombre=?, nombre_boton=?, categoria=?, tipo=?,
+                    '''UPDATE productos SET nombre=?, nombre_boton=?, sku=?, categoria=?, tipo=?,
                         proveedor_id=?, shopify_taxonomy=?, tipo_iva=?, stock_actual=?,
                         stock_minimo=?, activo=?, pvp_variable=?, descripcion_shopify=?, titulo=?,
                         seo_title=?, seo_description=?, tipo_shop=?, etiquetas=?,
-                        shop_link=? WHERE id=?''',
-                    (nombre, nombre_boton, categoria_id, tipo_id, proveedor_id,
+                        shop_link=?, pending_sync=1 WHERE id=?''',
+                    (nombre, nombre_boton, sku, categoria_id, tipo_id, proveedor_id,
                      shopify_taxonomy, iva, stock_actual, stock_min, activo, pvp_variable,
                      descripcion_shopify, titulo, seo_title, seo_description, tipo_shop,
                      etiquetas, shop_link, producto_id),

@@ -41,6 +41,35 @@ class MigradorTienda6:
             logger.warning(f"{tipo_dato} '{nombre}' no encontrado en la base de datos.")
         return res
 
+    def _generar_sku_automatico(self, categoria: str, tipo: str, nombre: str) -> str:
+        """Genera un SKU único basado en categoría, tipo y nombre.
+        
+        Formato: XXYY-NOMBRE-SUF
+        - XX: 2 primeras letras de categoría
+        - YY: 2 primeras letras de tipo
+        - NOMBRE: primeras 10 letras del nombre (sin espacios ni caracteres especiales)
+        - SUF: sufijo numérico único
+        """
+        # Normalizar y obtener prefijos
+        cat_prefix = ''.join(c for c in categoria.strip().upper() if c.isalnum())[:2] if categoria else 'XX'
+        tipo_prefix = ''.join(c for c in tipo.strip().upper() if c.isalnum())[:2] if tipo else 'YY'
+        
+        # Normalizar nombre (quitar espacios y caracteres especiales)
+        nombre_clean = ''.join(c for c in nombre.strip().upper() if c.isalnum())[:10]
+        
+        # Base del SKU
+        sku_base = f"{cat_prefix}{tipo_prefix}-{nombre_clean}"
+        
+        # Buscar si ya existe un SKU similar y generar sufijo único
+        counter = 1
+        while True:
+            sku_candidato = f"{sku_base}-{counter:03d}"
+            # Verificar si existe en BD
+            rows = self.db.fetch_all("SELECT id FROM productos WHERE sku = ?", (sku_candidato,))
+            if not rows:
+                return sku_candidato
+            counter += 1
+
     def migrar(self, csv_path: str):
         if not os.path.exists(csv_path):
             logger.error(f"Archivo no encontrado: {csv_path}")
@@ -61,8 +90,23 @@ class MigradorTienda6:
                 try:
                     ean = row['EAN'].strip()
                     nombre = row['NOMBRE'].strip()
-                    sku = row.get('SKU', '').strip() or ean  # Si no hay SKU, usamos EAN
-                    
+                    categoria = row.get('Categoría', '').strip()
+                    tipo = row.get('TIPO', '').strip()
+
+                    # Validar que el nombre no esté vacío
+                    if not nombre:
+                        logger.error(f"Fila saltada (nombre vacío): {ean}")
+                        errores += 1
+                        continue
+
+                    # Intentar obtener SKU del CSV, si no hay, usar EAN
+                    sku = row.get('SKU', '').strip() or ean
+
+                    # Si no hay SKU ni EAN, generar uno automático
+                    if not sku:
+                        sku = self._generar_sku_automatico(categoria, tipo, nombre)
+                        logger.info(f"SKU generado automáticamente: {sku} para {nombre}")
+
                     # Costes y PVP (Decimal)
                     coste = Decimal(row['COSTE'].replace(',', '.')) if row['COSTE'] else Decimal('0')
                     pvp = Decimal(row['PVP'].replace(',', '.')) if row['PVP'] else Decimal('0')
@@ -99,7 +143,7 @@ class MigradorTienda6:
                         activo=1,
                         pvp=pvp,
                         coste=coste,
-                        codigos_barras=[ean]
+                        codigos_barras=[ean] if ean else []
                     )
                     
                     exitos += 1
