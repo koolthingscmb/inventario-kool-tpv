@@ -61,6 +61,7 @@ class EntradaManualUI:
                  font=get_font('label', module=self.module_name)).pack(side='left', padx=(0, 6))
         self.e_num_albaran = ctk.CTkEntry(header_frame, width=100, **default_entry_kw)
         self.e_num_albaran.pack(side='left', padx=(0, 6))
+        self.e_num_albaran.configure(state='readonly')
 
         btn_siguiente = ButtonFactory.create_button(
             parent=header_frame,
@@ -418,8 +419,10 @@ class EntradaManualUI:
     def _set_next_num(self):
         try:
             next_num = self.albaran_service.get_next_num_albaran()
+            self.e_num_albaran.configure(state='normal')
             self.e_num_albaran.delete(0, 'end')
             self.e_num_albaran.insert(0, str(next_num))
+            self.e_num_albaran.configure(state='readonly')
         except Exception:
             logging.exception('Error obteniendo siguiente num_albaran')
 
@@ -714,6 +717,7 @@ class EntradaManualUI:
 
             # Cabecera: num_albaran (readonly en edición)
             try:
+                self.e_num_albaran.configure(state='normal')
                 self.e_num_albaran.delete(0, 'end')
                 self.e_num_albaran.insert(0, str(albaran.get('num_albaran', '')))
                 self.e_num_albaran.configure(state='readonly')
