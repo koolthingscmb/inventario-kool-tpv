@@ -359,15 +359,6 @@ class TpvController:
             logger.exception('Error creando DescuentoAction')
             self.descuento_action = None
 
-        # DevolucionAction
-        try:
-            from kool_tpv.modulos.tpv.actions.devolucion import DevolucionAction
-            self._devolucion_action = DevolucionAction(self.view, self.db, carrito_service)
-            logger.debug('DevolucionAction creado')
-        except Exception:
-            logger.exception('Error creando DevolucionAction')
-            self._devolucion_action = None
-
         # StockSubView: provide a proxy so it's created only on demand
         try:
             class _StockUIProxy:
@@ -1177,15 +1168,6 @@ class TpvController:
                 ticket_carrito = getattr(self.view, 'ticket_carrito', None)
                 if ticket_carrito:
                     ticket_carrito.update_carrito()
-
-                # Finalizar devolución si activa
-                if self._devolucion_action:
-                    devol_service = getattr(self._devolucion_action, 'devolucion_service', None)
-                    if devol_service:
-                        try:
-                            devol_service.end_devolucion()
-                        except Exception:
-                            pass
 
                 # Imprimir ticket en terminal/impresora (no bloquea si falla)
                 if self.tpv_service:

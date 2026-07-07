@@ -406,39 +406,6 @@ def _open_devolucion_subview(view):
         logger.exception('Error en _open_devolucion_subview')
 
 
-def _attempt_devolucion(view):
-    """Intentar abrir devolución con validación de venta activa."""
-    try:
-        from kool_tpv.utils.widgets.notificaciones import ToastWidget
-
-        sale_active = False
-        try:
-            carrito = getattr(view, 'carrito_service', None)
-            if carrito is not None and hasattr(carrito, 'get_items'):
-                for item in (carrito.get_items() or []):
-                    try:
-                        line_tipo = str(item.get('line_tipo', 'venta')).lower()
-                        cantidad = int(item.get('cantidad', 0))
-                        if line_tipo != 'devolucion' and cantidad > 0:
-                            sale_active = True
-                            break
-                    except Exception:
-                        continue
-        except Exception:
-            sale_active = False
-
-        if sale_active:
-            try:
-                ToastWidget.show(view, 'NO SE PUEDE DEVOLVER SI HAY UNA VENTA EN CURSO', tipo='error')
-            except Exception:
-                logger.exception('Error mostrando diálogo devolucion bloqueada')
-            return
-
-        _execute_action(view, '_devolucion_action', 'ejecutar')
-    except Exception:
-        logger.exception('Error en _attempt_devolucion')
-
-
 def rebind_buttons(view):
     """Rebind todos los botones del grid según BUTTON_ACTIONS.
 
