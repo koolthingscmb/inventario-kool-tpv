@@ -175,6 +175,8 @@ class ProduccionInformesService:
                 r['sufijo'],
                 r['tipo_nombre'],
                 r['variante'],
+                r['talla'],
+                r['color'],
                 r['metodo'],
                 r['unidades'],
                 f"{read_from_db(r['coste_total']):.2f} €"
@@ -182,7 +184,7 @@ class ProduccionInformesService:
 
         report["sections"].append({
             "type": "table",
-            "headers": ["Diseño", "Col.", "Suf.", "Tipo", "Variante", "Impresión", "Uds", "Coste"],
+            "headers": ["Diseño", "Col.", "Suf.", "Tipo", "Variante", "Talla", "Color", "Impresión", "Uds", "Coste"],
             "rows": rows
         })
 
@@ -190,6 +192,6 @@ class ProduccionInformesService:
         report["titulo"] = report["title"]
         report["fecha_generacion"] = report["generated_at"]
         report["resumen"] = {"Unidades": total_uds, "Coste Total": f"{read_from_db(total_coste):.2f} €"}
-        report["headers"] = ["Diseño", "Col.", "Suf.", "Tipo", "Var.", "Mét.", "Uds", "Coste"]
+        report["headers"] = ["Diseño", "Col.", "Suf.", "Tipo", "Var.", "Talla", "Color", "Mét.", "Uds", "Coste"]
         report["items"] = rows
         return report

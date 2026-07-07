@@ -109,6 +109,8 @@ class ProduccionInformesRepository:
                         l.tipo_id,
                         t.nombre as tipo_nombre,
                         COALESCE(v.nombre, '-') as variante,
+                        COALESCE(l.talla, '-') as talla,
+                        COALESCE(col.nombre, '-') as color,
                         COALESCE(m.nombre, '-') as metodo,
                         SUM(l.cantidad) as unidades,
                         SUM(l.coste_total) as coste_total
@@ -119,6 +121,7 @@ class ProduccionInformesRepository:
                        LEFT JOIN produccion_colecciones c ON c.id = d.coleccion_id
                        LEFT JOIN produccion_sufijos s ON s.id = d.sufijo_id
                        LEFT JOIN tipos_variantes v ON v.id = l.variante_id
+                       LEFT JOIN produccion_colores col ON col.id = l.color_id
                        LEFT JOIN produccion_metodos m ON m.id = l.metodo_id
                        WHERE o.fecha_hora BETWEEN ? AND ?
                     """
@@ -134,7 +137,7 @@ class ProduccionInformesRepository:
                 query += f" AND d.sufijo_id IN ({placeholders})"
                 params.extend(sufijo_ids)
                 
-            query += """ GROUP BY l.diseno_codigo, l.variante_id, l.metodo_id 
+            query += """ GROUP BY l.diseno_codigo, l.variante_id, l.talla, l.color_id, l.metodo_id 
                          ORDER BY c.nombre, d.nombre, l.cantidad DESC"""
             
             rows = self.db.fetch_all(query, tuple(params))
@@ -146,9 +149,11 @@ class ProduccionInformesRepository:
                 'tipo_id': r[4],
                 'tipo_nombre': r[5],
                 'variante': r[6],
-                'metodo': r[7],
-                'unidades': int(r[8]),
-                'coste_total': int(r[9])
+                'talla': r[7],
+                'color': r[8],
+                'metodo': r[9],
+                'unidades': int(r[10]),
+                'coste_total': int(r[11])
             } for r in rows or []]
         except Exception:
             logging.exception('Error en get_produccion_detallada_disenos')
