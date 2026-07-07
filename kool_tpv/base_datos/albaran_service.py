@@ -66,6 +66,15 @@ class AlbaranService:
         try:
             tipo = tipo or 'ENTRADA'
 
+            # Verificar que no exista ya un albarán con el mismo número
+            existente = self.db.fetch_one(
+                "SELECT id FROM albaranes WHERE num_albaran = ? AND tipo = ?",
+                (num_albaran, tipo)
+            )
+            if existente:
+                logging.warning(f'Albarán {num_albaran} ({tipo}) ya existe con ID {existente[0]}')
+                return None
+
             # Calcular totales y preparar líneas procesadas
             total_neto = Decimal('0.0')
             total_iva_4 = Decimal('0.0')

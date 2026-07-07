@@ -781,6 +781,8 @@ class EntradaManualUI:
                 logging.info(f'Albarán guardado: {albaran_id}')
                 ToastWidget.show(self.container, f'Albarán {albaran_id} guardado', tipo='success')
                 self._cancel()
+            else:
+                ToastWidget.show(self.container, 'NO SE PUDO GUARDAR EL ALBARÁN', tipo='error')
         except Exception:
             logging.exception('Error guardando albarán')
 
