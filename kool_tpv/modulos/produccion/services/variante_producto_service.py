@@ -36,7 +36,12 @@ class VarianteProductoService:
         Si ya existe una vinculación para esta combinación (variante+extra+colección), la actualiza.
         """
         try:
-            existente = self.get_por_combinacion(variante_id, extra_id, coleccion_id)
+            existe = self.existe_combinacion_exacta(variante_id, extra_id, coleccion_id)
+            
+            if existe:
+                existente = self.get_por_combinacion(variante_id, extra_id, coleccion_id)
+            else:
+                existente = None
             
             link = VarianteProductoLink(
                 id=existente.id if existente else None,
@@ -60,6 +65,11 @@ class VarianteProductoService:
     def eliminar_mapeo(self, link_id: int) -> bool:
         """Elimina un mapeo por su ID."""
         return self.repo.eliminar(link_id)
+
+    def existe_combinacion_exacta(self, variante_id: int, extra_id: Optional[int] = None,
+                                  coleccion_id: Optional[int] = None) -> bool:
+        """Comprobar si existe una vinculación con coincidencia exacta (sin fallback)."""
+        return self.repo.existe_combinacion_exacta(variante_id, extra_id, coleccion_id)
 
     def vincular_variante_con_producto(self, variante_id: int, producto_id: int, ratio: int = 1) -> bool:
         """Método de conveniencia para vinculación rápida."""

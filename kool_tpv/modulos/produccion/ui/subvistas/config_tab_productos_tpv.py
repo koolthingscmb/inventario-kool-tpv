@@ -185,11 +185,8 @@ class ConfigTabProductosTpv:
         self._cargar_colecciones()
 
     def _cargar_vinculaciones(self):
-        """Cargar la lista de vinculaciones existentes, filtrando si hay selección."""
-        items = self.link_service.get_filtrados(
-            tipo_id=self._tipo_selected_id,
-            variante_id=self._variante_selected_id
-        )
+        """Cargar la lista de vinculaciones existentes (siempre todas)."""
+        items = self.link_service.get_todos()
         
         rows = []
         for it in items:
@@ -232,7 +229,6 @@ class ConfigTabProductosTpv:
         self._link_actual = None
         self._actualizar_chips_seleccion(self._tipo_chips, tipo_id)
         self._cargar_variantes(tipo_id)
-        self._cargar_vinculaciones()
         self._check_ready_to_save()
 
     def _cargar_variantes(self, tipo_id):
@@ -258,7 +254,6 @@ class ConfigTabProductosTpv:
         self._variante_selected_id = variante_id
         self._actualizar_chips_seleccion(self._variante_chips, variante_id)
         self._check_ready_to_save()
-        self._cargar_vinculaciones()
 
     def _cargar_extras(self):
         for child in self._extras_frame.winfo_children(): child.destroy()
@@ -395,15 +390,20 @@ class ConfigTabProductosTpv:
         
         if can_save:
             self.btn_guardar.configure(state="normal")
-            # Verificar si ya existe esta combinación
-            self._link_actual = self.link_service.get_por_combinacion(
+            # Verificar si ya existe la combinación exacta (sin fallback)
+            existe = self.link_service.existe_combinacion_exacta(
                 self._variante_selected_id, self._extra_selected_id, self._coleccion_selected_id
             )
-            
-            if self._link_actual:
+
+            if existe:
+                # Cargar el link existente para poder eliminarlo si hace falta
+                self._link_actual = self.link_service.get_por_combinacion(
+                    self._variante_selected_id, self._extra_selected_id, self._coleccion_selected_id
+                )
                 self.btn_guardar.configure(text="ACTUALIZAR VINCULACIÓN", fg_color="#3498db", hover_color="#2980b9")
                 self.btn_eliminar.configure(state="normal")
             else:
+                self._link_actual = None
                 self.btn_guardar.configure(text="GUARDAR NUEVA VINCULACIÓN", fg_color="#27ae60", hover_color="#2ecc71")
                 self.btn_eliminar.configure(state="disabled")
         else:

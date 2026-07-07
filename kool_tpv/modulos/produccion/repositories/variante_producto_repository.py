@@ -150,6 +150,17 @@ class VarianteProductoRepository:
         return [self._row_to_link(row) for row in rows]
 
 
+    def existe_combinacion_exacta(self, variante_id: int, extra_id: Optional[int] = None,
+                                  coleccion_id: Optional[int] = None) -> bool:
+        """Comprobar si existe una vinculación con coincidencia exacta (sin fallback)."""
+        query = """
+            SELECT 1 FROM produccion_variantes_productos
+            WHERE variante_id = ? AND extra_id IS ? AND coleccion_id IS ? AND activo = 1
+            LIMIT 1
+        """
+        rows = self.db.fetch_all(query, (variante_id, extra_id, coleccion_id))
+        return len(rows) > 0
+
     def crear(self, link: VarianteProductoLink) -> Optional[int]:
         """Crear un nuevo mapeo."""
         try:
