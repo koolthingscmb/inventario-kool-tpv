@@ -282,6 +282,7 @@ class NuevoProduccionFlow:
                 on_siguiente=self._on_cantidad_siguiente,
                 on_volver=self._on_cantidad_volver,
                 on_anadir=self._on_cantidad_anadir,
+                on_lote=self._on_cantidad_lote,
                 on_origen=self._on_cantidad_origen,
                 mostrar_mixta=mostrar_mixta,
                 diseno_nombre=resumen_completo,
@@ -486,6 +487,19 @@ class NuevoProduccionFlow:
 
     def _on_metodo_volver(self):
         """Volver desde método → ir a diseño."""
+        self._mostrar_paso(PASO_DISENO)
+
+    def _on_cantidad_lote(self, seleccion: CantidadSeleccion):
+        """AÑADIR LOTE desde cantidad → guardar el actual y volver al paso de diseño."""
+        self._cantidad = seleccion
+        item_actual = self._crear_item()
+        if item_actual:
+            self._items.append(item_actual)
+            
+        # Limpiar solo lo específico del diseño para permitir elegir otro para la misma prenda
+        self._diseno = None
+        self._metodo = None
+        self._cantidad = None
         self._mostrar_paso(PASO_DISENO)
 
     def _on_cantidad_volver(self):
