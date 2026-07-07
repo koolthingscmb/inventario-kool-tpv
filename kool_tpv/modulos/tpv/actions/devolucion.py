@@ -157,10 +157,30 @@ class DevolucionesPanel(SelectionOverlayTemplate):
             # Disable real-time search and use Enter instead
             if hasattr(self, 'search_entry'):
                 try:
+                    # Template binds KeyRelease in __init__
                     self.search_entry.unbind("<KeyRelease>")
                 except Exception:
                     pass
-                self.search_entry.bind("<Return>", lambda e: self._load_and_render(self.search_var.get()))
+                # Bind Enter key to search
+                self.search_entry.bind("<Return>", lambda e: self._do_manual_search())
+        except Exception:
+            pass
+
+    def _do_manual_search(self):
+        """Ejecuta la búsqueda manualmente al pulsar Enter."""
+        try:
+            termino = self.search_var.get()
+            logging.info(f"DevolucionesPanel: buscando '{termino}'")
+            self._load_and_render(termino)
+        except Exception:
+            logging.exception("Error en búsqueda manual de DevolucionesPanel")
+
+    def show(self) -> None:
+        """Override show para asegurar el focus en el buscador."""
+        super().show()
+        try:
+            # Forzar focus en el entry después de un pequeño delay
+            self.after(200, lambda: self.search_entry.focus_set())
         except Exception:
             pass
 
