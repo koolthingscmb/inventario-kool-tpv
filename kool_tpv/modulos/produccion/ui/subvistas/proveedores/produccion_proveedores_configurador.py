@@ -74,7 +74,10 @@ class ProduccionProveedoresConfigurador:
         menu_frame = ctk.CTkFrame(self.container, fg_color='transparent')
         menu_frame.grid(row=1, column=0, sticky='ew', padx=20, pady=(0, 10))
         
-        self.tabs = ['CSV', 'VARIANTES', 'COLORES', 'TALLAS']
+        if self.module_name == 'almacen':
+            self.tabs = ['CSV']
+        else:
+            self.tabs = ['CSV', 'VARIANTES', 'COLORES', 'TALLAS']
         self.tab_buttons = {}
         for tab in self.tabs:
             btn = ctk.CTkButton(menu_frame, text=tab, width=100, height=32,
