@@ -234,11 +234,11 @@ class ProductoRepository:
         LEFT JOIN categorias c ON p.categoria = c.id
         LEFT JOIN tipos t ON p.tipo = t.id
         LEFT JOIN precios pr ON pr.producto_id = p.id AND pr.activo = 1
-        WHERE p.nombre LIKE ?
+        WHERE p.nombre LIKE ? OR p.sku LIKE ? OR EXISTS (SELECT 1 FROM codigos_barras cb WHERE cb.producto_id = p.id AND cb.ean LIKE ?)
         ORDER BY p.id
         """
         termino_like = f'%{termino}%'
-        rows = self.db.fetch_all(query, (termino_like,))
+        rows = self.db.fetch_all(query, (termino_like, termino_like, termino_like))
         if not rows:
             return []
         return [dict(row) for row in rows]

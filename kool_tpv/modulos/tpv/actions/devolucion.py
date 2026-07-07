@@ -45,8 +45,8 @@ class DevolucionesPanel(SelectionOverlayTemplate):
 
         # instantiate producto service
         try:
-            db_handle = getattr(self.root, 'db', None) if getattr(self, 'root', None) is not None else db
-            self.producto_service = ProductoService(db_handle) if db_handle is not None else None
+            # Prefer passed db directly as it is more reliable than root attribute
+            self.producto_service = ProductoService(db)
         except Exception:
             logging.exception('Error instanciando ProductoService en DevolucionesPanel')
             self.producto_service = None
@@ -153,6 +153,14 @@ class DevolucionesPanel(SelectionOverlayTemplate):
             self._on_add = self._on_add_override
             self._on_row_double_click = self._on_row_double_click_override
             self._on_accept = self._on_accept_override
+            
+            # Disable real-time search and use Enter instead
+            if hasattr(self, 'search_entry'):
+                try:
+                    self.search_entry.unbind("<KeyRelease>")
+                except Exception:
+                    pass
+                self.search_entry.bind("<Return>", lambda e: self._load_and_render(self.search_var.get()))
         except Exception:
             pass
 
