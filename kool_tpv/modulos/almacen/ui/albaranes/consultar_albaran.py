@@ -213,12 +213,14 @@ class ConsultarAlbaranUI(KeyboardNavigableMixin):
             )
 
             # Renderizar filas en NavList
-            for i, alb in enumerate(albaranes):
+            rows = []
+            for alb in albaranes:
                 try:
                     mapped = self._map_albaran_to_row(alb)
-                    self.nav_list.add_item(mapped)
+                    rows.append(mapped)
                 except Exception:
-                    logging.exception('Error añadiendo albarán a NavList')
+                    logging.exception('Error mapeando albarán a fila')
+            self.nav_list.set_items(rows)
 
         except Exception:
             logging.exception('Error aplicando filtros albaranes')
@@ -227,7 +229,9 @@ class ConsultarAlbaranUI(KeyboardNavigableMixin):
         """Compat wrapper: añade albarán a NavList."""
         try:
             mapped = self._map_albaran_to_row(albaran)
-            self.nav_list.add_item(mapped)
+            current = list(getattr(self.nav_list, '_all_data', []))
+            current.append(mapped)
+            self.nav_list.set_items(current)
         except Exception:
             logging.exception('Error añadiendo fila a NavList (append)')
         return
