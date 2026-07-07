@@ -44,7 +44,7 @@ class ProduccionProveedoresConfigurador:
         self.content_area = ctk.CTkFrame(self.container, fg_color='transparent')
         self.content_area.grid(row=2, column=0, sticky='nsew', padx=20, pady=(0, 20))
         
-        self._esc_handler = lambda e: self._on_volver()
+        self._esc_handler = lambda e=None: self._on_volver()
         self._bind_esc_recursive(self.container)
         
         self.current_tab = None
@@ -138,10 +138,12 @@ class ProduccionProveedoresConfigurador:
         self._add_form_row(scroll, "Saltar Filas:", "skip_rows", str(mapeo.get('skip_rows', 0)), self.csv_entries)
         
         self._add_section_header(scroll, "COLUMNAS DEL CSV")
-        for label, key in [("Nombre:", "columna_nombre"), ("Cantidad:", "columna_cantidad"), 
-                           ("Color:", "columna_color"), ("Talla:", "columna_talla"),
-                           ("Precio Base:", "columna_precio_base"), ("Coste:", "columna_coste"),
-                           ("Dto:", "columna_descuento"), ("IVA:", "columna_iva"), ("PVPR:", "columna_pvpr")]:
+        columnas = [("EAN:", "columna_ean"), ("Nombre:", "columna_nombre"), ("Cantidad:", "columna_cantidad")]
+        if self.module_name != 'almacen':
+            columnas += [("Color:", "columna_color"), ("Talla:", "columna_talla")]
+        columnas += [("Precio Base:", "columna_precio_base"), ("Coste:", "columna_coste"),
+                     ("Dto:", "columna_descuento"), ("IVA:", "columna_iva"), ("PVPR:", "columna_pvpr")]
+        for label, key in columnas:
             self._add_form_row(scroll, label, key, mapeo.get(key, ''), self.csv_entries)
             
         self._add_section_header(scroll, "CÁLCULOS")
