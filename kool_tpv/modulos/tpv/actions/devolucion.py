@@ -1,10 +1,10 @@
-"""Panel overlay para Devoluciones — Reescrito sin SelectionOverlayTemplate.
+"""Panel overlay para Devoluciones - Reescrito sin SelectionOverlayTemplate.
 
-Este módulo define DevolucionesPanel (interfaz) y DevolucionAction.
+Este modulo define DevolucionesPanel (interfaz) y DevolucionAction.
 Usa SearchablePaginatedNavList para garantizar el mismo comportamiento que StockSubView.
 """
 from __future__ import annotations
-from typing import Any, Optional, Dict, List
+from typing import Any, Optional, Dict, List, Callable
 import logging
 
 import customtkinter as ctk
@@ -15,179 +15,252 @@ from kool_tpv.base_datos.producto_service import ProductoService
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.tpv.devoluciones_service import DevolucionesService
 from kool_tpv.utils.widgets.searchable_paginated_navlist import SearchablePaginatedNavList
-from kool_tpv.utils.factories.button_factory import ButtonFactory
 
 
 class DevolucionesPanel(ctk.CTkFrame):
-    """Overlay específico para de"""Panel overlay para Devoluciones — Reescrito sin SelectionOverlayTemplate.
+    """Overlay especifico para devoluciones usando componentes estandar."""
 
-Este módulo define DevolucionesPanel (interfaz) y DevolucionAction.
-Usa SearchablePaginatedNavList para gaNo
-Este módulo define DevolucionesPanel (interfaz) y DevolucionAction.
-Usa Sea   Usa SearchablePaginatedNavList para garantizar el mismo comportamiewi"""
-from __future__ import annotations
-from typing import Any, Optionalot
-        super()fr_ifrom typing import Any, Optional,a"import logging
-
-import customtkinter as ctk = db
-        selfimport tkinter as tk
-from n_from tkinter import  
-from kool_tpv.base_daFalfrom kool_tpv.base_datos.db_wrapper import Database
-from kool_t  from kool_tpv.modulos.tpv.devoluciones_service iductfrom kool_tpv.utils.widgets.searchable_paginated_navlist import Searchabrofrom kool_tpv.utils.factories.button_flucionesPanel')
-            self.producto_service = N
-
-class DevolucionesPanel(ctk.CTkFrame):
-    """Overlay específ"""C    """Overlinterfaz manualmente."""
-  
-Este módulo define DevolucionesPanel (interfaz) y DevolucionAction.
-Usa SearchablePaginatedNavList para gaNo
-)
- Usa SearchablePaginatedNavList para gaNo
-Este módulo define DevolupaEste módulo define DevolucionesPanel (  Usa Sea   Usa SearchablePaginatedNavList para garantizar el mismo c
- from __future__ import annotations
-from typing import Any, O 34, "bold"),
-         from typing import Any, Optionalo          super()fr_ifrom typing imto
-import customtkinter as ctk =        # Subtítulo
-        self.subtit        selfimport tkinter as t  from n_from tkinter impor
-       from kool_tpv.basuce EAN o nofrom kool_t  from kool_tpv.modulos.tpv.devoluciones_service iductfrom koollo            self.producto_service = N
-
-class DevolucionesPanel(ctk.CTkFrame):
-    """Overlay específ"""C    """Overlinterfaz manualmente."""
-  
-Este módulo define DevolucionesPanel (interfama
-class DevolucionesPanel(cansparent")
-     """Overlay específ"""C    """Ove"t  
-Este módulo define DevolucionesPanel (interfaz) y DevolucisearcUsa SearchablePaginatedNavList para gaNo
-)
- Usa SearchablePaginated  )
- Usa SearchablePaginatedNavList para    tEste módulo define DevolupaEste módulo   from __future__ import annotations
-from typing import Any, O 34, "bold"),
-         from typing import Any, Optionalo          super()ff.from typing import Any, O 34, "bolx=         from typing import Any, Optialimport customtkinter as ctk =        # Subtítulo
-        self.subtit        sej        self.subtit        selfimport tkinter acep       from koelf.aceptar_btn = ctk.CTkButton(
-            self.controls_frame
-class DevolucionesPanel(ctk.CTkFrame):
-    """Overlay específ"""C    """Overlinterfaz manualmente."""
-  
-Este módulo define DevolucionesPanel (in       font=("Roboto", 16, "bold"),
+    def __init__(self, view_or_action_panel: Any, db: Database, on_selection_callback: Optional[Callable] = None):
+        # Determinar el parent para el overlay (el toplevel de la app)
+        self.view = view_or_action_panel
+        self.root = self.view.winfo_toplevel()
         
-Este módulo define DevolucionesPanel (interfama
-class Devoeptarclass DevolucionesPanel(cansparent")
-     """Ovn      """Overlay específ"""C    """ctEste módulo define DevolucionesPanel (inam)
- Usa SearchablePaginated  )
- Usa SearchablePaginatedNavList para    tEste módulo define DevolupaEste400" Usa Se       hover_color="#from typing import Any, O 34, "bold"),
-         from typing import Any, Optionalo          super()ff.from typing impont         from typing import Any, Optn.p        self.subtit        sej        self.subtit        selfimport tkinter acep       from koelf.aceptar_btn = ctk.CTkButton(
-            self.controls_frame
-class DevolucionesPanel(ctob            self.controls_frame
-class DevolucionesPanel(ctk.CTkFrame):
-    """Overlay específ"""C    """Overlinterfaz manualreclass DevolucionesPanel(ctk.CTav    "
+        # Inicializar como CTkFrame sobre el root
+        super().__init__(self.root, fg_color="#1a1a1a", corner_radius=0)
+        
+        self.db = db
+        self.on_selection_callback = on_selection_callback
+        self._visible = False
+        self._items = []
+        self.devoluciones_service = None
+
+        # Servicio de productos
+        try:
+            self.producto_service = ProductoService(db)
+        except Exception:
+            logging.exception('Error instanciando ProductoService en DevolucionesPanel')
+            self.producto_service = None
+
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Construye la interfaz manualmente."""
+        # Contenedor principal con margen
+        self.main_container = ctk.CTkFrame(self, fg_color="transparent")
+        self.main_container.pack(fill="both", expand=True, padx=40, pady=40)
+
+        # Header: Titulo
+        self.title_label = ctk.CTkLabel(
+            self.main_container, 
+            text="DEVOLUCIONES", 
+            font=("Roboto", 34, "bold"),
+            text_color="white"
+        )
+        self.title_label.pack(side="top", anchor="w", pady=(0, 5))
+
+        # Subtitulo
+        self.subtitle_label = ctk.CTkLabel(
+            self.main_container, 
+            text="Introduce EAN o nombre del articulo", 
+            font=("Roboto", 16),
+            text_color="#aaaaaa"
+        )
+        self.subtitle_label.pack(side="top", anchor="w", pady=(0, 20))
+
+        # Fila de Controles (Buscador + Botones)
+        self.controls_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
+        self.controls_frame.pack(side="top", fill="x", pady=(0, 20))
+
+        # Buscador
+        self.search_entry = ctk.CTkEntry(
+            self.controls_frame, 
+            width=400,
+            height=45,
+            placeholder_text="EAN o nombre...",
+            font=("Roboto", 16)
+        )
+        self.search_entry.pack(side="left", padx=(0, 20))
+        # BIND DE ENTER EXACTO COMO EN STOCKSUBVIEW
+        self.search_entry.bind("<Return>", lambda e: self.search_list.search(self.search_entry.get()))
+
+        # Boton Anadir (Aceptar)
+        self.aceptar_btn = ctk.CTkButton(
+            self.controls_frame,
+            text="Anadir",
+            width=140,
+            height=45,
+            fg_color="#2ecc71",
+            hover_color="#27ae60",
+            font=("Roboto", 16, "bold"),
+            command=self._on_aceptar_click
+        )
+        self.aceptar_btn.pack(side="left", padx=5)
+
+        # Boton Cliente
+        self.cliente_btn = ctk.CTkButton(
+            self.controls_frame,
+            text="Cliente",
+            width=140,
+            height=45,
+            fg_color="#FFD400",
+            hover_color="#e6be00",
+            text_color="black",
+            font=("Roboto", 16, "bold"),
+            command=self._open_clientes
+        )
+        self.cliente_btn.pack(side="left", padx=5)
+
+        # Boton Cerrar (X) arriba a la derecha
+        from kool_tpv.utils.global_buttons import create_global_close_button
+        self.close_btn = create_global_close_button(self, command=self.hide)
+        self.close_btn.place(relx=0.97, rely=0.03, anchor="ne")
+
+        # Lista de resultados
         columns = [
-            (  
-Este módulo define DevolucionesPan, 400, "Nombre"),
-        E          
-Este módulo define DevolucionesPanel (interfama
-class Dev),
-       Este m?tclass Devoeptarclass DevolucionesPanel(cansparefr     """Ovn      """Overlay específ"""C    """ctE_c Usa SearchablePaginated  )
- Usa SearchablePaginatedNavList para    tEste módulo define Devte Usa SearchablePaginatedNant         from typing import Any, Optionalo          super()ff.from typing impont         from typing import Any, Optn.p        self.subtit    pr            self.controls_frame
-class DevolucionesPanel(ctob            self.controls_frame
-class DevolucionesPanel(ctk.CTkFrame):
-    """Overlay específ"""C    """Overlinterfaz manualreclass DevolucionesPanel(ctk.CTav    "
-        columns = [taclass DevolucionesPanel(ctob  anclass DevolucionesPanel(ctk.CTkFrame):
-    """Overlay espeo     """Overlay específ"""C    """Oveng        columns = [
-            (  
-Este módulo define DevolucionesPan, 400, "Nombre"),
-   ar     xto)
+            ("id", 80, "ID"),
+            ("nombre", 400, "Nombre"),
+            ("categoria", 180, "Categoria"),
+            ("tipo", 140, "Tipo"),
+            ("stock_actual", 100, "Stock"),
+        ]
 
-    def _Este módulo dos        E          
-Este módulo define Devolucioneservicio de productos class Dev),
-       Este m?tclass Devoeptarclas         Estt  Usa.producto_service:
+        from kool_tpv.utils.config_loader import load_layout_config
+        layout_cfg = load_layout_config()
+
+        self.search_list = SearchablePaginatedNavList(
+            parent=self.main_container,
+            columns=columns,
+            search_function=self._buscar_productos_api,
+            map_function=self._map_producto_fila,
+            module_name="tpv",
+            page_limit=25,
+            on_double_click=self._on_row_double_click,
+            layout_config=layout_cfg
+        )
+        self.search_list.pack(fill="both", expand=True)
+
+    def _ejecutar_busqueda(self):
+        texto = self.search_var.get()
+        logging.info(f"DevolucionesPanel: buscando '{texto}'")
+        self.search_list.search(texto)
+
+    def _buscar_productos_api(self, texto: str):
+        if not self.producto_service:
             return []
-        # Usamos listar_productos que ya tiene el fix de EAN/SKU en el repo
-        return self.prodclass DevolucionesPanel(ctob            self.controls_frame
-class DevolucionesPanel(ctk.CTkFrame):
-    """Overlay específ"""C    """Overlinterfaz manualreclass DevolucionesPanel(ctk.CTav    "
-        columns = [taclass DevolucionesPanel(ctob  anclass Devoluc         "cclass DevolucionesPanel(ctk.CTkFrame):
-    """Overlay espembre') or '',
-            "tipo": item.ge        columns = [taclass DevolucionesPanel(ctob  anclass DevolucionesPanel(ctk.CTkFrame):
-al    """Overlay espeo     """Overlay específ"""C    """Oveng        columns = [
-          ho            (  
-Este módulo define DevolucionesPan, 400, "Nombre"),
-   ar    reEste módulo dei   ar     xto)
+        return self.producto_service.listar_productos(texto or "")
 
-    def _Este      self._visible = Tr
-    def _EstCarEste módulo define Devolucioneservicio dr_bu       Este m?tclass Devoeptarclas         Estt  Usa.producto_ l            return []
-        # Usamos listar_productos que ya tiene eer        # Usamos lisha        return self.prodclass DevolucionesPanel(ctob            self.contr_pclass DevolucionesPanel(ctk.CTkFrame
+    def _map_producto_fila(self, item: dict):
+        return {
+            "id": item.get('id'),
+            "nombre": item.get('nombre', ''),
+            "categoria": item.get('categoria') or item.get('categoria_nombre') or '',
+            "tipo": item.get('tipo') or item.get('tipo_nombre') or '',
+            "stock_actual": item.get('stock_actual') if item.get('stock_actual') is not None else item.get('stock', '')
+        }
+
+    def show(self):
+        self.place(relx=0, rely=0, relwidth=1, relheight=1)
+        self.lift()
+        self._visible = True
+        
+        # Cargar datos iniciales (vacio)
+        try:
+            self.search_list.search("")
+        except: pass
+        
+        # Focus garantizado
+        self.after(200, lambda: self.search_entry.focus_set())
+        
+        if hasattr(self.root, 'register_power_handler'):
+            self.root.register_power_handler(self.hide, owner=self)
+
     def hide(self):
-        """Oculta el overla    """Overlay específ"""C    """Ove          columns = [taclass DevolucionesPanel(ctob  anclass Devoluc         "cclass Dev            """Overlay espembre') or '',
-            "tipo": item.ge        columns = [taclass DevolucionesPanel(ctob  ancbl            "tipo": item.ge      al    """Overlay espeo     """Overlay específ"""C    """Oveng        columns = [
-            """Al pulsar el botón A?         ho            (  
-Este módulo define DevolucionesPan, 400, "Nombre"),  Este módulo define Devoluse   ar d_to_devolucion(selected)
+        self.place_forget()
+        self._visible = False
+        if hasattr(self.root, 'unregister_power_handler'):
+            self.root.unregister_power_handler(owner=self)
 
-    def _add_to_devo
-    def _Este      self._visible = Tr
- óg    def _EstCarEste módulo define Do         # Usamos listar_productos que ya tiene eer        # Usamos lisha        return self.prodclass DevolucionesPanel(ctob            self.cont')    def hide(self):
-        """Oculta el overla    """Overlay específ"""C    """Ove          columns = [taclass DevolucionesPanel(ctob  anclass Devoluc         "cclass Dev           AL      r.pvp,0.0) AS             "tipo": item.ge        columns = [taclass DevolucionesPanel(ctob  ancbl            "tipo": item.ge      al    """Overlay espeo     """Overlay específ"""C    """Oveng        colum              """Al pulsar el botón A?         ho            (  
-Este módulo define DevolucionesPan, 400, "Nombre"),  Este módulo define Devoluse   ar d_to_devolucion(selected)
+    def _on_row_double_click(self, data):
+        if data:
+            self._add_to_devolucion(data)
 
-    def _add_to_roEste módulo define DevolucionesPan, 400, "Nombre"),  E)
-        
-    def _add_to_devo
-    def _Este      self._v         full_prod = product_data
+    def _on_aceptar_click(self):
+        selected = self.search_list.nav_list.get_selected_data()
+        if selected:
+            self._add_to_devolucion(selected)
 
-            if hasattr(self, 'de    def _Este      )  óg    def _EstCarEste módulo defi          """Oculta el overla    """Overlay específ"""C    """Ove          columns = [taclass DevolucionesPanel(ctob  anclass Devoluc         "cclass Dev           AL      r.pvp,0.0) AS             "tipo": itf Este módulo define DevolucionesPan, 400, "Nombre"),  Este módulo define Devoluse   ar d_to_devolucion(selected)
-
-    def _add_to_roEste módulo define DevolucionesPan, 400, "Nombre"),  E)
-        
-    def _add_to_devo
-    def _Este      self._v         full_prod = product_data
-
-            if hasattr(self, 'de    def _Este      )  óg    def _EstCarEste módulo defi          """Oculta el overla    """Overlay específ"""C    """Ove     
- 
-    def _add_to_roEste módulo define DevolucionesPan, Error añadiendo item a devolución")
-
-    def _open_client        
-    def _add_to_devo
-    def clientes."""
+    def _add_to_devolucion(self, product_data):
         try:
-               defat    def _Este      en
-            if hasattr(self, 'de    def _Este             se
-    def _add_to_roEste módulo define DevolucionesPan, 400, "Nombre"),  E)
-        
-    def _add_to_devo
-    def _Este      self._v         full_prod = product_data
+            pid = product_data.get('id')
+            q = """
+            SELECT p.id, p.nombre, COALESCE(pr.pvp,0.0) AS pvp, COALESCE(p.tipo_iva,21) AS tipo_iva
+            FROM productos p
+            LEFT JOIN precios pr ON pr.producto_id = p.id AND pr.activo = 1
+            WHERE p.id = ?
+            """
+            row = self.db.fetch_one(q, (pid,))
+            if row:
+                full_prod = {
+                    'id': row[0],
+                    'nombre': row[1],
+                    'pvp': str(row[2]),
+                    'tipo_iva': int(row[3] or 21)
+                }
+            else:
+                full_prod = product_data
 
-            if hasattr(self, 'de    def _Este      )  óg    def _EstCarEste módulo defi          """Oculta el overla    """Overlay específ"""C    """Ove     
- 
-    def _add_to_roEste módulo define DevolucionesPan, Error añadiendo item a devErr        
-    def _add_to_devo
-    def _Este      self._v         full_pro""Acción q    def el panel de d
-            if hasattr(self, 'de    def _Este      )  ógaba 
-    def _add_to_roEste módulo define DevolucionesPan, Error añadiendo item a devolución")
+            if self.devoluciones_service:
+                self.devoluciones_service.add_devolucion_item(full_prod, cantidad=1)
+                top = self.root
+                if hasattr(top, 'carrito_ui') and top.carrito_ui:
+                    top.carrito_ui.update_display()
+                elif hasattr(self.view, 'carrito_ui') and self.view.carrito_ui:
+                    self.view.carrito_ui.update_display()
+            else:
+                logging.error("No hay DevolucionesService vinculado al panel")
+        except Exception:
+            logging.exception("Error anadiendo item a devolucion")
 
-    def _open_client        
-    def _add_to_devo
-    def cliennesP
-    def _open_client        
-    def _add_to_devo
-    def clientes."""
+    def _open_clientes(self):
         try:
-             def _add_toool_tpv.modulo    defctions.permiso        try:
-      is                         if hasattr(self, 'de    def          if not check_permiso(self.carrito_service, 'permiso_de        
-    def _add_to_devo
-    def _Este      self._v         full_pro N    def      def _Este      an
-            if hasattr(self, 'de    def _Este             se 
-    def _add_to_roEste módulo define DevolucionesPan, Error añadiendo item a devErr        
-    def _add_to_devo
-    def _Este      self._v         full_pr        def _add_to_devo
-    def _Este      self._v         full_pro""Acción q    def el panel  A    def _Este      li            if hasattr(self, 'de    def _Este      )  ógaba 
-    def           def ide_wrapper():
+            if hasattr(self.view, '_cliente_action') and self.view._cliente_action:
+                self.view._cliente_action.ejecutar()
+            else:
+                from kool_tpv.modulos.tpv.actions.cliente import ClienteAction
+                carrito = getattr(self.view, 'carrito_service', None)
+                action = ClienteAction(self.view, self.db, carrito)
+                action.ejecutar()
+        except Exception:
+            logging.exception("Error abriendo clientes desde devoluciones")
+
+
+class DevolucionAction:
+    def __init__(self, view: Any, db: Database, carrito_service: Any):
+        self.view = view
+        self.db = db
+        self.carrito_service = carrito_service
+        self._panel: Optional[DevolucionesPanel] = None
+
+    def ejecutar(self) -> None:
+        try:
+            from kool_tpv.modulos.tpv.actions.permisos import check_permiso
+            parent = self.view.winfo_toplevel()
+            if not check_permiso(self.carrito_service, 'permiso_devolucion', parent):
+                return
+
+            if self._panel is None:
+                self._panel = DevolucionesPanel(self.view, self.db)
+                self._panel.devoluciones_service = DevolucionesService(self.db, self.carrito_service)
+                self._panel.devoluciones_service.start_devolucion()
+                
+                original_hide = self._panel.hide
+                def _hide_wrapper():
                     try:
-              
-    def _open_client        
-    def _add_to_devo
-    def cliennesP
-    def _open_client  s
-     def _ad        original_h    def cliennesP
-       def _open_cle     def _add_to_devo
-    de      ._panel.show()
-          try:
-      io               logging.exception('DevolucionAction: error al ejecutar')
+                        self._panel.devoluciones_service.end_devolucion()
+                    except: pass
+                    original_hide()
+                self._panel.hide = _hide_wrapper
+
+            self._panel.show()
+        except Exception:
+            logging.exception('DevolucionAction: error al ejecutar')
