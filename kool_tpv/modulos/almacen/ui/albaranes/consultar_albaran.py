@@ -81,7 +81,8 @@ class ConsultarAlbaranUI(KeyboardNavigableMixin):
             row,
             module_name=self.module_name,
             width=140,
-            allow_future=False
+            allow_future=False,
+            default_mode='first_day_of_month'
         )
         self.date_desde.pack(side='left', padx=4)
 
@@ -97,7 +98,8 @@ class ConsultarAlbaranUI(KeyboardNavigableMixin):
             row,
             module_name=self.module_name,
             width=140,
-            allow_future=False
+            allow_future=False,
+            default_mode='today'
         )
         self.date_hasta.pack(side='left', padx=4)
 
