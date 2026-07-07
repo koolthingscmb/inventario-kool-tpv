@@ -41,7 +41,8 @@ class DevolucionSubView(CTkFrame):
         )
         self.search_entry.pack(side="left", padx=10)
 
-        # Bind will be set after search_list exists
+        # Bind Enter key to search (same as StockSubView)
+        self.search_entry.bind("<Return>", lambda e: self.search_list.search(self.search_entry.get()))
 
         self.btn_ver_vales.pack(side="right", padx=10)
         self.btn_cliente.pack(side="right", padx=10)
@@ -151,6 +152,9 @@ class DevolucionSubView(CTkFrame):
                 pass
         except Exception:
             self.devoluciones_service = None
+
+        # Focus focus on search entry (same as StockSubView)
+        self.after(100, self.search_entry.focus_set)
 
     def _on_ver_vales(self):
         try:
