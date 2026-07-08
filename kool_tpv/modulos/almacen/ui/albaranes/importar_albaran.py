@@ -718,7 +718,7 @@ class ImportarAlbaranUI:
 
     def _cargar_tabla_productos_nuevos(self):
         """Cargar productos nuevos en la tabla de creación."""
-        self.nav_list_crear.clear_items()
+        rows = []
 
         for ean, data in self._productos_data.items():
             if data['completado']:
@@ -731,7 +731,9 @@ class ImportarAlbaranUI:
                 'NOMBRE': data['nombre'][:40],
                 'ESTADO': estado
             }
-            self.nav_list_crear.add_item(row)
+            rows.append(row)
+
+        self.nav_list_crear.set_items(rows)
 
     def _on_seleccionar_producto(self, row_data):
         """Seleccionar producto de la tabla para editar.
@@ -1067,7 +1069,7 @@ class ImportarAlbaranUI:
 
     def _cargar_lineas_albaran_preview(self):
         """Cargar las líneas del CSV en la tabla de vista previa."""
-        self.nav_list_albaran.clear_items()
+        rows = []
 
         for linea in self.parse_result.lineas:
             coste = linea.coste_cents / 100
@@ -1086,7 +1088,9 @@ class ImportarAlbaranUI:
                 'PVPR': pvpr_str,
                 'TOTAL': f'{total:.2f}'
             }
-            self.nav_list_albaran.add_item(row_data)
+            rows.append(row_data)
+
+        self.nav_list_albaran.set_items(rows)
 
     def _mostrar_ui_guardar_albaran(self):
         """Mostrar UI final cuando no hay productos nuevos (todos existen)."""
