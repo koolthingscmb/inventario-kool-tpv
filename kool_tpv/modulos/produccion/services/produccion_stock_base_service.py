@@ -32,6 +32,10 @@ class ProduccionStockBaseService:
 		"""Obtener la lista completa de stock base."""
 		return self.repo.get_todos()
 
+	def obtener_tipos_con_stock(self) -> List[int]:
+		"""Obtener IDs de tipos que tienen al menos un registro de stock base."""
+		return self.repo.get_tipos_con_stock()
+
 	def obtener_stock_por_tipo_color(self, tipo_id: int, color_id: int,
 	                                 variante_id: Optional[int] = None) -> Dict[str, int]:
 		"""Obtener dict {talla: cantidad} para una combinación tipo+color+variante."""

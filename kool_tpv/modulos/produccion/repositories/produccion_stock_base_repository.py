@@ -20,6 +20,16 @@ class ProduccionStockBaseRepository:
 	def __init__(self, db: Database):
 		self.db = db
 
+	def get_tipos_con_stock(self) -> List[int]:
+		"""Obtener IDs de tipos que tienen al menos un registro de stock base."""
+		query = "SELECT DISTINCT tipo_id FROM produccion_stock_colores_tallas"
+		try:
+			rows = self.db.fetch_all(query)
+			return [r[0] for r in rows if r[0] is not None]
+		except Exception:
+			logger.exception("Error obteniendo tipos con stock")
+			return []
+
 	def get_todos(self) -> List[Dict[str, Any]]:
 		"""Obtener todo el stock de bases con nombres legibles.
 
