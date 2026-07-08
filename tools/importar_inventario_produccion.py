@@ -81,7 +81,12 @@ class Importador:
     def importar(self, csv_path):
         ok, err, sk = 0, 0, 0
         with open(csv_path, 'r', encoding='utf-8-sig') as f:
-            for i, r in enumerate(csv.DictReader(f), 2):
+            # Detectar delimitador (coma o punto y coma)
+            content = f.read(1024)
+            f.seek(0)
+            delimiter = ';' if ';' in content else ','
+            
+            for i, r in enumerate(csv.DictReader(f, delimiter=delimiter), 2):
                 if not (r.get('NOMBRE') or '').strip():
                     sk += 1
                     continue
