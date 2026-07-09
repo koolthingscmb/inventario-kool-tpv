@@ -11,7 +11,7 @@ class AlbaranRepository:
         self.db = db
 
     def guardar_albaran_completo(
-        self, num_albaran, proveedor_id, fecha, tipo, lineas, totales
+        self, num_albaran, proveedor_id, fecha, tipo, lineas, totales, cur=None
     ) -> int:
         """Guarda albarán COMPLETO (cabecera + líneas + stock) en una transacción atómica.
 
@@ -24,6 +24,7 @@ class AlbaranRepository:
                              coste (Decimal), descuento (Decimal),
                              importe (Decimal), tipo_iva (int)}
             totales: {total_neto, total_iva_4, total_iva_10, total_iva_21, total} (Decimal)
+            cur: cursor de transacción externa (opcional). Si es None, crea su propia transacción.
 
         Returns:
             albaran_id (int)
@@ -32,8 +33,10 @@ class AlbaranRepository:
         """
         try:
             tipo = tipo or 'ENTRADA'
-            cur = self.db.connection.cursor()
-            cur.execute('BEGIN')
+            use_external_cursor = cur is not None
+            if not use_external_cursor:
+                cur = self.db.connection.cursor()
+                cur.execute('BEGIN')
 
             cur.execute(
                 """
@@ -107,12 +110,14 @@ class AlbaranRepository:
                         except Exception as e:
                             logger.warning('Error actualizando precio producto %s: %s', line['producto_id'], e)
 
-            self.db.connection.commit()
+            if not use_external_cursor:
+                self.db.connection.commit()
             logger.info('Albarán %s guardado con id=%s', num_albaran, albaran_id)
             return albaran_id
 
         except Exception:
-            self.db.connection.rollback()
+            if not use_external_cursor:
+                self.db.connection.rollback()
             logger.exception('Error guardando albarán completo num=%s', num_albaran)
             raise
 

@@ -57,42 +57,7 @@ class ProduccionInformesRepository:
             logging.exception('Error en get_produccion_por_tipo')
             return []
 
-    # ── 3. STOCK POR TIPO ────────────────────────────────────────────────────
-
-    def get_stock_por_tipo(self) -> list:
-        try:
-            query = """SELECT t.nombre, COALESCE(SUM(s.cantidad), 0),
-                        COALESCE(SUM(s.cantidad * s.coste_medio), 0), COUNT(*)
-                       FROM produccion_stock_colores_tallas s
-                       JOIN tipos t ON t.id = s.tipo_id
-                       GROUP BY s.tipo_id ORDER BY t.nombre ASC"""
-            rows = self.db.fetch_all(query)
-            return [{'tipo_nombre': r[0] or '', 'total_unidades': int(r[1]),
-                     'valor_stock': int(r[2]), 'num_referencias': int(r[3])} for r in rows or []]
-        except Exception:
-            logging.exception('Error en get_stock_por_tipo')
-            return []
-
-    # ── 4. STOCK POR VARIANTE ────────────────────────────────────────────────
-
-    def get_stock_por_variante(self) -> list:
-        try:
-            query = """SELECT t.nombre, COALESCE(v.nombre, 'SIN VARIANTE'),
-                        COALESCE(SUM(s.cantidad), 0), COALESCE(SUM(s.cantidad * s.coste_medio), 0), COUNT(*)
-                       FROM produccion_stock_colores_tallas s
-                       JOIN tipos t ON t.id = s.tipo_id
-                       LEFT JOIN tipos_variantes v ON v.id = s.variante_id
-                       GROUP BY t.id, s.variante_id
-                       ORDER BY t.nombre ASC, v.nombre ASC"""
-            rows = self.db.fetch_all(query)
-            return [{'tipo_nombre': r[0] or '', 'variante_nombre': r[1] or 'SIN VARIANTE',
-                     'total_unidades': int(r[2]), 'valor_stock': int(r[3]),
-                     'num_referencias': int(r[4])} for r in rows or []]
-        except Exception:
-            logging.exception('Error en get_stock_por_variante')
-            return []
-
-    # ── 5. PRODUCCIÓN DETALLADA DE DISEÑOS ───────────────────────────────────
+    # ── 3. PRODUCCIÓN DETALLADA DE DISEÑOS ───────────────────────────────────
 
     def get_produccion_detallada_disenos(self, fecha_inicio: str, fecha_fin: str, 
                                         coleccion_ids: list = None, 

@@ -120,8 +120,17 @@ class ProduccionProveedoresConfigurador:
         key = self.current_tab.upper().replace('É', 'E').replace('Ó', 'O')
         data = {}
         for item_nom, entry in self.mapping_entries.items():
-            val = entry.get().strip()
-            data[item_nom] = [k.strip() for k in val.split(",") if k.strip()]
+            if isinstance(entry, dict) and 'incluye' in entry and 'excluye' in entry:
+                # Variantes: formato dual horizontal
+                inc_val = entry['incluye'].get().strip() if hasattr(entry['incluye'], 'get') else ""
+                exc_val = entry['excluye'].get().strip() if hasattr(entry['excluye'], 'get') else ""
+                inc_list = [k.strip() for k in inc_val.split(",") if k.strip()]
+                exc_list = [k.strip() for k in exc_val.split(",") if k.strip()]
+                data[item_nom] = {"incluye": inc_list, "excluye": exc_list}
+            else:
+                # Colores / Tallas (formato lista simple)
+                val = entry.get().strip() if hasattr(entry, 'get') else str(entry)
+                data[item_nom] = [k.strip() for k in val.split(",") if k.strip()]
         self.temp_mapeo_datos[key] = data
 
     def _build_csv_tab(self):
@@ -198,7 +207,12 @@ class ProduccionProveedoresConfigurador:
         scroll = ctk.CTkScrollableFrame(container, fg_color='#111111')
         scroll.pack(fill='both', expand=True)
         self._add_section_header(scroll, f"PALABRAS CLAVE: {tab_key}")
-        
+
+        if mapping_type == 'variantes':
+            note = ctk.CTkLabel(scroll, text="Incluye: palabras que identifican la variante. Excluye: palabras que la descartan (prioridad). Separa por coma.",
+                                font=('Courier New', 9), text_color='#888888')
+            note.pack(anchor='w', padx=10, pady=(0, 4))
+
         self.mapping_entries = {}
         items = []
         if mapping_type == 'variantes':
@@ -209,10 +223,20 @@ class ProduccionProveedoresConfigurador:
         else:
             svc_colores = ProduccionColoresService(self.db)
             items = [c.nombre for c in svc_colores.obtener_activos()]
+
         for item in items:
             val = mapeo_actual.get(item, [])
-            self._add_form_row(scroll, item, item, ", ".join(val) if isinstance(val, list) else str(val), self.mapping_entries)
-            
+            if mapping_type == 'variantes':
+                if isinstance(val, dict):
+                    inc = ", ".join(str(x) for x in val.get('incluye', []))
+                    exc = ", ".join(str(x) for x in val.get('excluye', []))
+                else:
+                    inc = ", ".join(str(x) for x in val) if isinstance(val, list) else str(val or "")
+                    exc = ""
+                self._add_variant_mapping_row(scroll, item, item, inc, exc, self.mapping_entries)
+            else:
+                self._add_form_row(scroll, item, item, ", ".join(val) if isinstance(val, list) else str(val), self.mapping_entries)
+
         ButtonFactory.create_button(scroll, f'GUARDAR MAPEO {tab_key}', lambda: self._save_mapping(mapping_type), style_key='action_success').pack(pady=20)
         return container
 
@@ -235,6 +259,28 @@ class ProduccionProveedoresConfigurador:
         entry.pack(side='left', fill='x', expand=True, padx=5)
         entry.insert(0, str(value))
         storage[key] = entry
+
+    def _add_variant_mapping_row(self, parent, label, key, incluye_val, excluye_val, storage):
+        """Horizontal layout for variants: label | Incluye entry | Excluye entry (same row, uses horizontal space)."""
+        row = ctk.CTkFrame(parent, fg_color='transparent')
+        row.pack(fill='x', padx=10, pady=3)
+
+        # Variant label (left)
+        ctk.CTkLabel(row, text=label, width=200, anchor='w', font=('Courier New', 11)).pack(side='left')
+
+        # Incluye (left side of the pair)
+        ctk.CTkLabel(row, text="Incluye:", width=55, anchor='w', font=('Courier New', 10)).pack(side='left', padx=(4, 0))
+        inc_entry = ctk.CTkEntry(row, font=('Courier New', 12), height=26)
+        inc_entry.pack(side='left', fill='x', expand=True, padx=4)
+        inc_entry.insert(0, str(incluye_val))
+
+        # Excluye (right side of the pair)
+        ctk.CTkLabel(row, text="Excluye:", width=55, anchor='w', font=('Courier New', 10)).pack(side='left', padx=(8, 0))
+        exc_entry = ctk.CTkEntry(row, font=('Courier New', 12), height=26)
+        exc_entry.pack(side='left', fill='x', expand=True, padx=4)
+        exc_entry.insert(0, str(excluye_val))
+
+        storage[key] = {"incluye": inc_entry, "excluye": exc_entry}
 
     def _add_check_row(self, parent, label, key, value, storage):
         row = ctk.CTkFrame(parent, fg_color='transparent')

@@ -30,6 +30,9 @@ logger = logging.getLogger(__name__)
 class ProduccionImportarAlbaran:
     """UI para importar albaranes de bases textiles en el taller."""
 
+    # Valores de proveedor que equivalen a "sin talla" (talla única / one size)
+    TALLAS_UNICAS = {'one size', 'onesize', 'talla unica', 'talla única', 'unica', 'única', 'u', 'os', 'unique'}
+
     def __init__(self, parent, db=None, proveedor_id=None, proveedor_nombre='', owner=None):
         self.parent = parent
         self.db = db
@@ -174,10 +177,10 @@ class ProduccionImportarAlbaran:
 
         # TABLA PREVIEW
         self.columns = [
-            ('PRODUCTO CSV', 180), ('VARIANTE KOOL', 140),
-            ('COLOR PROV', 110), ('COLOR KOOL', 100), 
+            ('PRODUCTO CSV', 260), ('VARIANTE KOOL', 160),
+            ('COLOR PROV', 130), ('COLOR KOOL', 120),
             ('TALLA PROV', 80), ('TALLA KOOL', 80),
-            ('UDS', 50), ('COSTE', 70), ('ESTADO', 120)
+            ('UDS', 60), ('COSTE', 90), ('ESTADO', 150)
         ]
         self.nav_list = VirtualNavList(self.container, columns=self.columns, module_name='produccion')
         self.nav_list.pack(fill='both', expand=True, padx=20, pady=10)
@@ -252,6 +255,29 @@ class ProduccionImportarAlbaran:
         texto = re.sub(r'\s+', ' ', texto).strip()
         return texto
 
+    @staticmethod
+    def _extraer_incluye_excluye(entry) -> tuple:
+        """Normaliza entrada de mapeo de variantes a (incluye, excluye).
+        Soporta:
+          - Formato antiguo: ["E190", "Original"]
+          - Formato nuevo: {"incluye": [...], "excluye": [...]}
+        Devuelve listas normalizadas (lowercase, sin tildes) o listas vacías.
+        """
+        incluye = []
+        excluye = []
+        if isinstance(entry, list):
+            for item in entry:
+                if item:
+                    incluye.append(ProduccionImportarAlbaran._normalizar(str(item)))
+        elif isinstance(entry, dict):
+            for item in entry.get('incluye', []) or []:
+                if item:
+                    incluye.append(ProduccionImportarAlbaran._normalizar(str(item)))
+            for item in entry.get('excluye', []) or []:
+                if item:
+                    excluye.append(ProduccionImportarAlbaran._normalizar(str(item)))
+        return incluye, excluye
+
     def _procesar_lineas(self):
         """Aplicar mapeos y validaciones a los datos brutos."""
         self.lineas_procesadas = []
@@ -264,6 +290,9 @@ class ProduccionImportarAlbaran:
             nombre_csv = fila.get('nombre', '').strip()
             col_prov = fila.get('color', '').strip()
             talla_prov = fila.get('talla', '').strip()
+            # Si el proveedor indica talla única, tratar como sin talla
+            if self._normalizar(talla_prov) in self.TALLAS_UNICAS:
+                talla_prov = ''
             uds = fila.get('cantidad', 0)
             coste = fila.get('coste', 0.0)
             
@@ -273,18 +302,25 @@ class ProduccionImportarAlbaran:
             variante_label = '???'
             nombre_norm = self._normalizar(nombre_csv)
             
-            # Recorrer el diccionario: "Tipo / Variante" -> [Lista de Keywords]
+            # Recorrer el diccionario: "Tipo / Variante" -> lista o {"incluye": [...], "excluye": [...]}
             if isinstance(self.mapeo_variantes, dict):
-                for v_label, keywords in self.mapeo_variantes.items():
-                    if isinstance(keywords, list):
-                        for kw in keywords:
-                            if self._normalizar(kw) in nombre_norm:
-                                lookup = self.variantes_lookup.get(v_label)
-                                if lookup:
-                                    variante_id, tipo_id = lookup
-                                    variante_label = v_label
-                                break
-                    if variante_id: break
+                for v_label, entry in self.mapeo_variantes.items():
+                    incluye, excluye = self._extraer_incluye_excluye(entry)
+                    if not incluye:
+                        continue
+                    # Si coincide alguna palabra de excluye, descartar esta variante
+                    if any(ex in nombre_norm for ex in excluye):
+                        continue
+                    # Buscar match en incluye
+                    for kw in incluye:
+                        if kw in nombre_norm:
+                            lookup = self.variantes_lookup.get(v_label)
+                            if lookup:
+                                variante_id, tipo_id = lookup
+                                variante_label = v_label
+                            break
+                    if variante_id:
+                        break
 
             # 2. Mapeo de COLOR
             # Recorrer el diccionario: ColorInterno -> [Lista de Colores Proveedor]
@@ -328,9 +364,9 @@ class ProduccionImportarAlbaran:
             estado = '✓ OK'
             if not variante_id:
                 estado = '⚠ Falta Variante'
-            elif not color_id:
+            elif col_prov and not color_id:
                 estado = '⚠ Color desconocido'
-            elif not talla_id:
+            elif talla_prov and not talla_id:
                 estado = '⚠ Talla desconocida'
             elif uds <= 0:
                 estado = '⚠ Cantidad 0'
@@ -342,9 +378,9 @@ class ProduccionImportarAlbaran:
                 'variante_nombre': variante_label,
                 'color_id': color_id,
                 'color_prov': col_prov,
-                'color_interno': color_mapeado or '???',
+                'color_interno': color_mapeado or '—',
                 'talla_prov': talla_prov,
-                'talla_kool': talla_mapeada or '???',
+                'talla_kool': talla_mapeada or '',
                 'talla_id': talla_id,
                 'uds': uds,
                 'coste': coste,
@@ -388,7 +424,7 @@ class ProduccionImportarAlbaran:
             self.btn_importar.configure(state='disabled')
 
     def _on_importar_click(self):
-        """Guardar albarán y actualizar stock con coste medio."""
+        """Guardar albarán y actualizar stock con coste medio en una sola transacción."""
         if not self.lineas_procesadas: return
         
         num_albaran = self.entry_num.get().strip()
@@ -405,7 +441,7 @@ class ProduccionImportarAlbaran:
             lineas_albaran = []
             for p in self.lineas_procesadas:
                 lineas_albaran.append({
-                    'producto_id': None, # No es un producto de la tabla 'productos'
+                    'producto_id': None,
                     'ean': '',
                     'nombre': f"{p['variante_nombre']} - {p['color_interno']} ({p['talla_kool']})",
                     'cantidad': p['uds'],
@@ -414,37 +450,40 @@ class ProduccionImportarAlbaran:
                     'es_producto_nuevo': False
                 })
             
-            # 2. Guardar albarán
+            # 2. Calcular totales
             totales = {
                 'total_neto': sum(p['total'] for p in self.lineas_procesadas),
                 'total_iva_4': 0, 'total_iva_10': 0, 'total_iva_21': 0,
                 'total': sum(p['total'] for p in self.lineas_procesadas) * 1.21
             }
-            # Simplificamos IVAs para este módulo
             totales['total_iva_21'] = totales['total_neto'] * 0.21
             
             from datetime import date
-            repo_albaran.guardar_albaran_completo(
-                num_albaran=num_albaran,
-                proveedor_id=self.proveedor_id,
-                fecha=date.today().strftime('%Y-%m-%d'),
-                tipo='ENTRADA',
-                lineas=lineas_albaran,
-                totales=totales
-            )
             
-            # 3. Actualizar Stock y Coste Medio usando el servicio
-            for p in self.lineas_procesadas:
-                stock_service.importar_stock(
-                    tipo_id=p['tipo_id'],
-                    color_id=p['color_id'],
-                    talla=p['talla_kool'],
-                    cantidad_nueva=p['uds'],
-                    coste_nuevo_eur=p['coste'],
-                    variante_id=p.get('variante_id'),
-                    talla_id=p.get('talla_id')
+            # 3. Transacción unificada: albarán + stock en una sola operación atómica
+            with self.db.transaction() as cur:
+                repo_albaran.guardar_albaran_completo(
+                    num_albaran=num_albaran,
+                    proveedor_id=self.proveedor_id,
+                    fecha=date.today().strftime('%Y-%m-%d'),
+                    tipo='ENTRADA',
+                    lineas=lineas_albaran,
+                    totales=totales,
+                    cur=cur
                 )
                 
+                for p in self.lineas_procesadas:
+                    stock_service.importar_stock(
+                        tipo_id=p['tipo_id'],
+                        color_id=p['color_id'],
+                        talla=p['talla_kool'],
+                        cantidad_nueva=p['uds'],
+                        coste_nuevo_eur=p['coste'],
+                        variante_id=p.get('variante_id'),
+                        talla_id=p.get('talla_id'),
+                        cur=cur
+                    )
+            
             ToastWidget.show(self.container, "Albarán procesado y stock actualizado", tipo='success')
             self._on_volver_click()
             

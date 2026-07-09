@@ -101,22 +101,48 @@ class MigradorTienda6:
                         errores += 1
                         continue
 
-                    # Guardar producto completo
-                    self.repo.guardar_producto_completo(
-                        nombre=nombre,
-                        nombre_boton=nombre[:20],
-                        sku=sku,
-                        categoria_id=cat_id,
-                        tipo_id=tipo_id,
-                        proveedor_id=prov_id,
-                        iva=iva,
-                        stock_actual=stock,
-                        stock_min=0,
-                        activo=1,
-                        pvp=pvp,
-                        coste=coste,
-                        codigos_barras=[ean] if ean else []
-                    )
+                    # Verificar si el producto ya existe
+                    cur = self.db.connection.cursor()
+                    producto_id = None
+
+                    # 1. Si tiene EAN, buscar en tabla codigos_barras
+                    if ean:
+                        cur.execute('SELECT producto_id FROM codigos_barras WHERE ean = ?', (ean,))
+                        r = cur.fetchone()
+                        if r and r[0]:
+                            producto_id = int(r[0])
+                            logger.info(f"Producto encontrado por EAN: {ean} -> ID {producto_id}")
+
+                    # 2. Si no se encontró por EAN, buscar por nombre
+                    if not producto_id:
+                        cur.execute('SELECT id FROM productos WHERE nombre = ?', (nombre,))
+                        r = cur.fetchone()
+                        if r and r[0]:
+                            producto_id = int(r[0])
+                            logger.info(f"Producto encontrado por nombre: {nombre} -> ID {producto_id}")
+
+                    if producto_id:
+                        # Producto existe: actualizar solo stock
+                        cur.execute('UPDATE productos SET stock_actual = ? WHERE id = ?', (stock, producto_id))
+                        self.db.connection.commit()
+                        logger.info(f"Stock actualizado: ID {producto_id} -> {stock} uds")
+                    else:
+                        # Producto no existe: insertar completo
+                        self.repo.guardar_producto_completo(
+                            nombre=nombre,
+                            nombre_boton=nombre[:20],
+                            sku=sku,
+                            categoria_id=cat_id,
+                            tipo_id=tipo_id,
+                            proveedor_id=prov_id,
+                            iva=iva,
+                            stock_actual=stock,
+                            stock_min=0,
+                            activo=1,
+                            pvp=pvp,
+                            coste=coste,
+                            codigos_barras=[ean] if ean else []
+                        )
                     
                     exitos += 1
                     if exitos % 100 == 0:

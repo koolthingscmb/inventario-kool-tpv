@@ -63,8 +63,6 @@ class ProduccionInformesView:
         self.report_types = [
             "Resumen de producción",
             "Producción por tipo",
-            "Stock por Tipo",
-            "Stock por Variante",
             "Producción de diseños"
         ]
         
@@ -243,10 +241,6 @@ class ProduccionInformesView:
                 report_data = self.service.get_informe_resumen_produccion(fi, ff)
             elif tipo == "Producción por tipo":
                 report_data = self.service.get_informe_produccion_por_tipo(fi, ff)
-            elif tipo == "Stock por Tipo":
-                report_data = self.service.get_informe_stock_por_tipo()
-            elif tipo == "Stock por Variante":
-                report_data = self.service.get_informe_stock_por_variante()
             elif tipo == "Producción de diseños":
                 report_data = self.service.get_informe_produccion_detallada_disenos(
                     fi, ff, 
@@ -267,35 +261,35 @@ class ProduccionInformesView:
             logging.exception("Error generando informe de producción")
             
     def _render_report(self, report_data):
-        """Renderizar el informe en el textbox."""
+        """Renderizar el informe como lista legible (formato bloques)."""
         self.result_textbox.delete('1.0', 'end')
-        
-        # Título y Fecha
+
+        # Cabecera
         self.result_textbox.insert('end', f"{report_data['titulo']}\n")
-        self.result_textbox.insert('end', f"Generado: {report_data['fecha_generacion']}\n")
-        self.result_textbox.insert('end', "=" * 60 + "\n\n")
-        
-        # Resumen (si existe)
+        self.result_textbox.insert('end', f"Generado: {report_data['fecha_generacion']}\n\n")
+
+        # Items como bloques: primera columna = nombre, resto = atributos
+        headers = report_data.get('headers', [])
+        items = report_data.get('items', [])
+
+        for row in items:
+            name = str(row[0]) if row else ''
+            self.result_textbox.insert('end', f"  '{name}':\n")
+            attrs = []
+            for i, h in enumerate(headers[1:], start=1):
+                if i < len(row):
+                    attrs.append(f"{h}: {row[i]}")
+            if attrs:
+                self.result_textbox.insert('end', f"    {'  |  '.join(attrs)}\n")
+            self.result_textbox.insert('end', '\n')
+
+        # Resumen al final
         resumen = report_data.get('resumen')
         if resumen:
+            self.result_textbox.insert('end', "─" * 50 + "\n")
             self.result_textbox.insert('end', "RESUMEN:\n")
             for k, v in resumen.items():
-                self.result_textbox.insert('end', f"  {k:<20}: {v}\n")
-            self.result_textbox.insert('end', "-" * 60 + "\n\n")
-            
-        # Tabla (Cabeceras)
-        headers = report_data.get('headers', [])
-        if headers:
-            header_str = " | ".join(headers)
-            self.result_textbox.insert('end', f"{header_str}\n")
-            self.result_textbox.insert('end', "-" * len(header_str) + "\n")
-            
-        # Tabla (Filas)
-        for row in report_data.get('items', []):
-            row_str = " | ".join(str(x) for x in row)
-            self.result_textbox.insert('end', f"{row_str}\n")
-            
-        self.result_textbox.insert('end', "\n\n" + "." * 60 + "\n Fin del informe.")
+                self.result_textbox.insert('end', f"  {k}: {v}\n")
 
     def _exportar(self, formato):
         if not self.current_report_data:

@@ -542,11 +542,18 @@ class App(ctk.CTk):
                             if hasattr(view, 'sidebar'): view.sidebar.pack_forget()
                             if hasattr(view, 'main_frame'): view.main_frame.pack_forget()
                         except Exception: pass
-                        
-                        # Volver al TPV
+
+                        # Volver al TPV: re-empaquetar el tpv_view existente para no perder el cajero
                         self.nav_frame.pack(side="left", fill="y")
                         self.main_frame.pack(side="right", fill="both", expand=True)
-                        self.load_tpv()
+                        try:
+                            if hasattr(self, 'tpv_view') and self.tpv_view:
+                                self.tpv_view.pack(fill="both", expand=True)
+                                self.current_view = "tpv"
+                            else:
+                                self.load_tpv()
+                        except Exception:
+                            self.load_tpv()
                         return
 
                     # Ocultar frames del módulo (NO destruir - handler permanece en stack)

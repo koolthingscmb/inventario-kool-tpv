@@ -107,12 +107,14 @@ class CsvParser:
         required = ['cantidad']
         missing = [r for r in required if r not in self.mapped_headers]
         
-        # Debe tener EAN o (Color y Talla)
-        has_id_cols = 'ean' in self.mapped_headers or ('color' in self.mapped_headers and 'talla' in self.mapped_headers)
+        # Debe tener EAN, o (Color y Talla), o al menos Nombre (para producción sin color/talla)
+        has_id_cols = ('ean' in self.mapped_headers 
+                        or ('color' in self.mapped_headers and 'talla' in self.mapped_headers)
+                        or 'nombre' in self.mapped_headers)
         
         if missing or not has_id_cols:
             if not has_id_cols:
-                missing.append('ean o (color y talla)')
+                missing.append('ean o (color y talla) o nombre')
             errors.append(f"Columnas requeridas no encontradas: {missing}. Headers detectados: {self.headers}")
             return [], errors
 
@@ -286,11 +288,14 @@ class CsvParser:
         result['color'] = str(result.get('color', '')).strip()
         result['talla'] = str(result.get('talla', '')).strip()
 
-        # Retornar si tiene EAN O (color y talla) para soportar albaranes de producción
+        # Retornar si tiene EAN, o (color y talla), o al menos nombre y cantidad
+        # Esto permite importar productos sin talla (gorras, riñoneras) o sin color ni talla (láminas)
         tiene_ean = bool(result.get('ean'))
         tiene_color_talla = bool(result.get('color')) and bool(result.get('talla'))
-        
-        return result if (tiene_ean or tiene_color_talla) else None
+        tiene_nombre = bool(result.get('nombre'))
+        tiene_cantidad = result.get('cantidad', 0) != 0
+
+        return result if (tiene_ean or tiene_color_talla or (tiene_nombre and tiene_cantidad)) else None
 
     def get_column_info(self) -> Dict[str, Any]:
         """Retorna información sobre las columnas detectadas."""

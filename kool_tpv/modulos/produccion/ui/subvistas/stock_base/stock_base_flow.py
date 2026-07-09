@@ -97,9 +97,13 @@ class StockBaseFlow:
         tipo_id = item.get("tipo_id")
         variante_id = item.get("variante_id")
         color_id = item.get("color_id")
-        self._talla = item.get("talla") or ""
+        # El repo get_todos() muestra '-' cuando no hay talla, pero internamente es ''.
+        # Normalizar a cadena vacía para que la búsqueda/actualización por talla funcione.
+        talla_raw = item.get("talla") or ""
+        self._talla = "" if talla_raw == "-" else talla_raw
         self._sku_edit = item.get("sku") or ""
         self._cantidad_edit = item.get("cantidad") or 0
+        self._coste_medio_edit = item.get("coste_medio") or 0
 
         if tipo_id:
             self._tipo = self._tipos_service.obtener_por_id(tipo_id)
@@ -329,6 +333,7 @@ class StockBaseFlow:
         variante_id = self._variante.id if self._variante else None
         color_id = self._color.id if self._color else None
         talla = self._talla or ""
+        coste_medio = getattr(self, '_coste_medio_edit', 0)
 
         ok = self._stock_service.guardar_variante(
             tipo_id=tipo_id,
@@ -336,7 +341,8 @@ class StockBaseFlow:
             talla=talla,
             sku=sku,
             cantidad=cantidad,
-            variante_id=variante_id
+            variante_id=variante_id,
+            coste_medio=coste_medio
         )
 
         if ok:
@@ -358,6 +364,7 @@ class StockBaseFlow:
         self._talla = None
         self._sku_edit = None
         self._cantidad_edit = None
+        self._coste_medio_edit = 0
         self._mostrar_paso(PASO_MENU)
 
     def _on_volver_flow(self):

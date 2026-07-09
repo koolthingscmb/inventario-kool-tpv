@@ -774,11 +774,10 @@ class EntradaManualUI:
             prov_id = self.cb_proveedor.get_id()
             fecha = self.e_fecha.get()
 
-            # Validar proveedor solo si el tipo lo requiere
-            if self.tipo in ['ENTRADA', 'DEVOLUCION']:
-                if not prov_id:
-                    ToastWidget.show(self.container, f'DEBE SELECCIONAR UN PROVEEDOR PARA ALBARANES DE TIPO {self.tipo}', tipo='error')
-                    return
+            # Validar proveedor obligatorio
+            if not prov_id:
+                ToastWidget.show(self.container, f'DEBE SELECCIONAR UN PROVEEDOR PARA ALBARANES DE TIPO {self.tipo}', tipo='error')
+                return
 
             albaran_id = self.albaran_service.save_albaran(num, prov_id, fecha, self.lines, tipo=self.tipo)
             if albaran_id:

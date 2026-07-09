@@ -58,11 +58,12 @@ class ProduccionStockBaseService:
 	def importar_stock(self, tipo_id: int, color_id: int, talla: str, 
 	                   cantidad_nueva: int, coste_nuevo_eur: float,
 	                   variante_id: Optional[int] = None,
-	                   talla_id: Optional[int] = None) -> bool:
+	                   talla_id: Optional[int] = None,
+	                   cur=None) -> bool:
 		"""Procesa la entrada de stock calculando coste medio y generando SKU si es necesario."""
 		try:
 			# 1. Obtener datos actuales
-			stock_actual = self.repo.get_by_params(tipo_id, color_id, talla, variante_id)
+			stock_actual = self.repo.get_by_params(tipo_id, color_id, talla, variante_id, cur=cur)
 			
 			cant_previa = 0
 			coste_medio_previo = 0
@@ -98,7 +99,8 @@ class ProduccionStockBaseService:
 				cantidad=cant_total,
 				coste_medio=nuevo_coste_medio,
 				variante_id=variante_id,
-				talla_id=talla_id
+				talla_id=talla_id,
+				cur=cur
 			)
 			
 			# 5. Auto-poblar la matriz si la combinación no existe
@@ -172,6 +174,10 @@ class ProduccionStockBaseService:
 		
 		# Limpiar strings
 		talla = (talla or "").strip().upper()
+		# Unificar ausencia de talla a None: el repo trata NULL y '' como equivalentes,
+		# pero almacena None para mantener consistencia con el script de importación.
+		if not talla or talla == "-":
+			talla = None
 		sku = (sku or "").strip().upper()
 		
 		return self.repo.crear_o_actualizar(tipo_id, color_id, talla, sku, cantidad, coste_medio, variante_id)

@@ -15,6 +15,7 @@ log = logging.getLogger(__name__)
 
 def _csku(s):
     s = unicodedata.normalize('NFD', s.upper()).encode('ascii', 'ignore').decode('ascii')
+    s = s.replace('+', 'P')
     return re.sub(r'[^A-Z0-9]', '', s)
 
 def _cents(v):

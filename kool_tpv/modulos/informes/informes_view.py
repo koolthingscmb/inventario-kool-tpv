@@ -120,6 +120,11 @@ class InformesView(BaseModuleView):
     def get_widget(self):
         return self
 
+    def _on_power(self):
+        """El generador de informes es la vista principal, no una sub-vista.
+        Cerrar el módulo directamente al pulsar ESC/X."""
+        return False
+
     def _force_initial_focus(self):
         try:
             self.focus_set()

@@ -103,53 +103,7 @@ class ProduccionInformesService:
         report["items"] = rows
         return report
 
-    # ── 3. STOCK POR TIPO ────────────────────────────────────────────────────
-
-    def get_informe_stock_por_tipo(self) -> dict:
-        """Informe de stock actual de bases por tipo."""
-        data = self.repo.get_stock_por_tipo()
-        report = self._get_base_report("INFORME DE STOCK POR TIPO (BASES)")
-        
-        total_uds = sum(r['total_unidades'] for r in data)
-        valor_total = sum(r['valor_stock'] for r in data)
-
-        report["sections"].append({
-            "type": "summary",
-            "headers": ["Total Unidades", "Valor Total"],
-            "rows": [[total_uds, f"{read_from_db(valor_total):.2f} €"]]
-        })
-
-        rows = [[r['tipo_nombre'], r['total_unidades'], f"{read_from_db(r['valor_stock']):.2f} €", r['num_referencias']] for r in data]
-        report["sections"].append({
-            "type": "table",
-            "headers": ["Tipo Producto", "Stock Actual", "Valor Stock", "Num. Refs"],
-            "rows": rows
-        })
-
-        report["titulo"] = report["title"]; report["fecha_generacion"] = report["generated_at"]
-        report["resumen"] = {"Stock Total": total_uds, "Valor Total": f"{read_from_db(valor_total):.2f} €"}
-        report["headers"] = ["Tipo", "Stock", "Valor", "Refs"]; report["items"] = rows
-        return report
-
-    # ── 4. STOCK POR VARIANTE ────────────────────────────────────────────────
-
-    def get_informe_stock_por_variante(self) -> dict:
-        """Informe de stock actual de bases desglosado por variante."""
-        data = self.repo.get_stock_por_variante()
-        report = self._get_base_report("INFORME DE STOCK POR VARIANTE (BASES)")
-        
-        rows = [[r['tipo_nombre'], r['variante_nombre'], r['total_unidades'], f"{read_from_db(r['valor_stock']):.2f} €", r['num_referencias']] for r in data]
-        report["sections"].append({
-            "type": "table",
-            "headers": ["Tipo", "Variante", "Stock", "Valor", "Refs"],
-            "rows": rows
-        })
-
-        report["titulo"] = report["title"]; report["fecha_generacion"] = report["generated_at"]
-        report["headers"] = ["Tipo", "Variante", "Stock", "Valor", "Refs"]; report["items"] = rows
-        return report
-
-    # ── 5. PRODUCCIÓN DE DISEÑOS ─────────────────────────────────────────────
+    # ── 3. PRODUCCIÓN DE DISEÑOS ─────────────────────────────────────────────
 
     def get_informe_produccion_detallada_disenos(self, fecha_inicio: str, fecha_fin: str,
                                               coleccion_ids: list = None,

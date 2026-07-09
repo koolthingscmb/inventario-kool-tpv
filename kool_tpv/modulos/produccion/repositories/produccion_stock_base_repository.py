@@ -78,7 +78,7 @@ class ProduccionStockBaseRepository:
 			return []
 
 	def get_by_params(self, tipo_id: int, color_id: Optional[int], talla: str, 
-	                  variante_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
+	                  variante_id: Optional[int] = None, cur=None) -> Optional[Dict[str, Any]]:
 		"""Obtener un registro específico por sus parámetros identificadores."""
 		query = """
 			SELECT id, tipo_id, variante_id, color_id, talla, sku, cantidad, coste_medio, talla_id
@@ -86,7 +86,11 @@ class ProduccionStockBaseRepository:
 			WHERE tipo_id = ? AND variante_id IS ? AND color_id IS ? AND talla = ?
 		"""
 		try:
-			row = self.db.fetch_one(query, (tipo_id, variante_id, color_id, talla))
+			if cur:
+				cur.execute(query, (tipo_id, variante_id, color_id, talla))
+				row = cur.fetchone()
+			else:
+				row = self.db.fetch_one(query, (tipo_id, variante_id, color_id, talla))
 			if row:
 				return {
 					"id": row[0],
@@ -123,15 +127,20 @@ class ProduccionStockBaseRepository:
 	                      color_id: Optional[int], talla: str, sku: str, 
 	                      cantidad: int, coste_medio: int = 0,
 	                      variante_id: Optional[int] = None,
-	                      talla_id: Optional[int] = None) -> bool:
+	                      talla_id: Optional[int] = None,
+	                      cur=None) -> bool:
 		"""Insertar o actualizar una variante de stock base (Upsert manual).
 		
 		Usa SELECT + UPDATE/INSERT en vez de ON CONFLICT porque SQLite
 		no considera NULL = NULL en la resolución de conflictos.
 		"""
+		# Normalizar talla: el UI puede enviar '-' o '' para ausencia, el script de importación envía None.
+		# Unificar a None para que NULL y '' se traten como la misma talla.
+		if not talla or talla == '-':
+			talla = None
 		check_query = """
 			SELECT id FROM produccion_stock_colores_tallas 
-			WHERE tipo_id = ? AND variante_id IS ? AND color_id IS ? AND talla = ?
+			WHERE tipo_id = ? AND variante_id IS ? AND color_id IS ? AND COALESCE(talla, '') = COALESCE(?, '')
 		"""
 		update_query = """
 			UPDATE produccion_stock_colores_tallas 
@@ -144,11 +153,19 @@ class ProduccionStockBaseRepository:
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		"""
 		try:
-			existing = self.db.fetch_all(check_query, (tipo_id, variante_id, color_id, talla))
-			if existing:
-				self.db.execute_query(update_query, (sku, cantidad, coste_medio, talla_id, existing[0][0]))
+			if cur:
+				cur.execute(check_query, (tipo_id, variante_id, color_id, talla))
+				existing = cur.fetchall()
+				if existing:
+					cur.execute(update_query, (sku, cantidad, coste_medio, talla_id, existing[0][0]))
+				else:
+					cur.execute(insert_query, (tipo_id, variante_id, color_id, talla, sku, cantidad, coste_medio, talla_id))
 			else:
-				self.db.execute_query(insert_query, (tipo_id, variante_id, color_id, talla, sku, cantidad, coste_medio, talla_id))
+				existing = self.db.fetch_all(check_query, (tipo_id, variante_id, color_id, talla))
+				if existing:
+					self.db.execute_query(update_query, (sku, cantidad, coste_medio, talla_id, existing[0][0]))
+				else:
+					self.db.execute_query(insert_query, (tipo_id, variante_id, color_id, talla, sku, cantidad, coste_medio, talla_id))
 			return True
 		except Exception:
 			logger.exception(f"Error en upsert stock base: tipo={tipo_id}, sku={sku}")
