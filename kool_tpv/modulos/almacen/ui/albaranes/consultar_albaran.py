@@ -114,8 +114,8 @@ class ConsultarAlbaranUI(KeyboardNavigableMixin):
 
         # Crear NavList para mostrar resultados (reemplaza header + data_frame)
         self.columns = [
-            ('ID', 50), ('FECHA', 100), ('PROVEEDOR', 180),
-            ('TIPO', 80), ('CANT. PROD.', 80), ('TOTAL NETO', 90), ('TOTAL IVA', 90), ('TOTAL', 90)
+            ('ID', 50), ('FECHA', 100), ('PROVEEDOR', 360),
+            ('TIPO', 80), ('CANT. PROD.', 160), ('TOTAL NETO', 180), ('TOTAL IVA', 180), ('TOTAL', 180)
         ]
 
         self.nav_list = VirtualNavList(

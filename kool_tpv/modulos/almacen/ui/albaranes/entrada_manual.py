@@ -100,7 +100,7 @@ class EntradaManualUI:
         body_frame.pack(fill='both', expand=True, padx=6, pady=2)
 
         # --- Panel IZQUIERDO: buscador de productos ---
-        left_panel = ctk.CTkFrame(body_frame, fg_color=self.colors.get('bg_dark', '#1a1a1a'), width=320)
+        left_panel = ctk.CTkFrame(body_frame, fg_color=self.colors.get('bg_dark', '#1a1a1a'), width=400)
         left_panel.pack(side='left', fill='y', padx=(0, 6), pady=0)
         left_panel.pack_propagate(False)
 
@@ -142,7 +142,7 @@ class EntradaManualUI:
         right_panel.pack(side='left', fill='both', expand=True)
 
         # Cabecera de columnas
-        self.col_widths = [160, 240, 70, 80, 50, 70, 90]
+        self.col_widths = [160, 480, 70, 80, 50, 70, 90]
         col_widths = self.col_widths
         headers_input = ['EAN', 'NOMBRE', 'CANTIDAD', 'COSTE', '%IVA', 'IVA', 'TOTAL']
 
@@ -255,7 +255,7 @@ class EntradaManualUI:
 
         # Área de líneas añadidas
         self.columns_lines = [
-            ('EAN', 160), ('NOMBRE', 220), ('UDS', 60), ('COSTE', 75), ('%IVA', 45), ('IVA', 65), ('PVP', 75), ('TOTAL', 85)
+            ('EAN', 160), ('NOMBRE', 440), ('UDS', 60), ('COSTE', 75), ('%IVA', 45), ('IVA', 65), ('PVP', 75), ('TOTAL', 85)
         ]
         self.nav_list = VirtualNavList(
             right_panel,
@@ -340,6 +340,7 @@ class EntradaManualUI:
         try:
             return {
                 'id': producto.get('id'),
+                'nombre_display': producto.get('nombre_display', ''),
                 'nombre': producto.get('nombre', ''),
                 'stock_actual': producto.get('stock_actual', ''),
                 '_ean': producto.get('ean', ''),

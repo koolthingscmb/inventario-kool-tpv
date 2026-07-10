@@ -53,12 +53,14 @@ class VistaFiltros(ctk.CTkFrame, KeyboardNavigableMixin):
         """Construir interfaz de filtros."""
         self.configure(fg_color=self.colors.get('background', '#2B2B2B'))
 
-        # Layout
+        # Layout vertical: título, fechas, proveedor label, chips, botones
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=0)  # Título
-        self.grid_rowconfigure(1, weight=0)  # Filtros
-        self.grid_rowconfigure(2, weight=0)  # Botones
-        self.grid_rowconfigure(3, weight=1)  # Espacio
+        self.grid_rowconfigure(1, weight=0)  # Fechas
+        self.grid_rowconfigure(2, weight=0)  # Label proveedor
+        self.grid_rowconfigure(3, weight=0)  # Chips proveedores
+        self.grid_rowconfigure(4, weight=0)  # Botones
+        self.grid_rowconfigure(5, weight=1)  # Espacio
 
         # Título
         title_font = self.fonts.get('title', {})
@@ -74,15 +76,6 @@ class VistaFiltros(ctk.CTkFrame, KeyboardNavigableMixin):
         )
         self.lbl_titulo.grid(row=0, column=0, pady=(20, 30), padx=20)
 
-        # Frame filtros
-        self.frame_filtros = ctk.CTkFrame(
-            self,
-            fg_color=self.colors.get('surface', '#333333')
-        )
-        self.frame_filtros.grid(row=1, column=0, padx=40, pady=10, sticky='ew')
-        self.frame_filtros.grid_columnconfigure(0, weight=1)
-        self.frame_filtros.grid_columnconfigure(1, weight=2)
-
         # Label font
         label_font = self.fonts.get('body', {})
         label_font_tuple = (
@@ -91,63 +84,66 @@ class VistaFiltros(ctk.CTkFrame, KeyboardNavigableMixin):
             label_font.get('weight', 'normal')
         )
 
-        # Fechas (columna derecha)
+        # --- Fila de fechas: Desde y Hasta en la misma fila ---
+        self.frame_fechas = ctk.CTkFrame(self, fg_color='transparent')
+        self.frame_fechas.grid(row=1, column=0, padx=40, pady=(10, 5), sticky='ew')
+
         self.lbl_desde = ctk.CTkLabel(
-            self.frame_filtros,
+            self.frame_fechas,
             text="Desde:",
             font=label_font_tuple,
             text_color=self.colors.get('text', '#FFFFFF')
         )
-        self.lbl_desde.grid(row=0, column=0, padx=15, pady=(15, 5), sticky='w')
+        self.lbl_desde.pack(side='left', padx=(0, 5))
 
         self.entry_desde = DatePickerEntry(
-            self.frame_filtros,
+            self.frame_fechas,
             width=150,
             height=35
         )
-        self.entry_desde.grid(row=1, column=0, padx=15, pady=(0, 10), sticky='w')
+        self.entry_desde.pack(side='left', padx=(0, 30))
         fecha_desde_default = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
         self.entry_desde.set(fecha_desde_default)
 
         self.lbl_hasta = ctk.CTkLabel(
-            self.frame_filtros,
+            self.frame_fechas,
             text="Hasta:",
             font=label_font_tuple,
             text_color=self.colors.get('text', '#FFFFFF')
         )
-        self.lbl_hasta.grid(row=2, column=0, padx=15, pady=(5, 5), sticky='w')
+        self.lbl_hasta.pack(side='left', padx=(0, 5))
 
         self.entry_hasta = DatePickerEntry(
-            self.frame_filtros,
+            self.frame_fechas,
             width=150,
             height=35
         )
-        self.entry_hasta.grid(row=3, column=0, padx=15, pady=(0, 15), sticky='w')
+        self.entry_hasta.pack(side='left')
         fecha_hasta_default = datetime.now().strftime('%Y-%m-%d')
         self.entry_hasta.set(fecha_hasta_default)
 
-        # Chips de proveedor (columna derecha)
+        # --- Chips de proveedor a todo el ancho ---
         self.lbl_proveedor = ctk.CTkLabel(
-            self.frame_filtros,
+            self,
             text="Proveedor:",
             font=label_font_tuple,
             text_color=self.colors.get('text', '#FFFFFF')
         )
-        self.lbl_proveedor.grid(row=0, column=1, padx=15, pady=(15, 5), sticky='w')
+        self.lbl_proveedor.grid(row=2, column=0, padx=40, pady=(10, 5), sticky='w')
 
         self.chips_frame = ctk.CTkScrollableFrame(
-            self.frame_filtros,
+            self,
             fg_color=self.colors.get('surface', '#333333'),
             height=100
         )
-        self.chips_frame.grid(row=1, column=1, rowspan=3, padx=15, pady=(0, 15), sticky='nsew')
+        self.chips_frame.grid(row=3, column=0, padx=40, pady=(0, 15), sticky='ew')
 
         # Frame botones
         self.frame_botones = ctk.CTkFrame(
             self,
             fg_color='transparent'
         )
-        self.frame_botones.grid(row=2, column=0, pady=30)
+        self.frame_botones.grid(row=4, column=0, pady=30)
 
         # Botón BUSCAR - usando ButtonFactory
         self.btn_buscar = self.button_factory.create_button(

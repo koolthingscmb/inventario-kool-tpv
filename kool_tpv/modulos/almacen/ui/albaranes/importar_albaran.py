@@ -151,7 +151,7 @@ class ImportarAlbaranUI:
 
         # Tabla NavList para preview de líneas (todas las columnas de BD + ESTADO)
         self.columns = [
-            ('EAN', 120), ('NOMBRE', 200), ('ESTADO', 80), ('UDS', 50),
+            ('EAN', 120), ('NOMBRE', 600), ('ESTADO', 80), ('UDS', 50),
             ('COSTE', 80), ('%IVA', 45), ('IVA', 70), ('PVPR', 80), ('TOTAL', 80)
         ]
 
@@ -527,7 +527,7 @@ class ImportarAlbaranUI:
         # Tabla de productos
         self.nav_list_crear = VirtualNavList(
             self.container,
-            columns=[('EAN', 120), ('NOMBRE', 300), ('ESTADO', 100)],
+            columns=[('EAN', 120), ('NOMBRE', 900), ('ESTADO', 100)],
             module_name=self.module_name,
             keyboard_manager=None,
             on_select=self._on_seleccionar_producto,

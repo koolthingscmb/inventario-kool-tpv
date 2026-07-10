@@ -433,7 +433,8 @@ class AlbaranService:
                COALESCE(pr.coste, 0.0) AS coste,
                p.tipo_iva,
                (SELECT cb.ean FROM codigos_barras cb WHERE cb.producto_id = p.id LIMIT 1) AS ean,
-               COALESCE(pr.pvp, 0.0) AS pvp
+               COALESCE(pr.pvp, 0.0) AS pvp,
+               COALESCE(p.stock_actual, 0) AS stock_actual
         FROM productos p
         LEFT JOIN precios pr ON pr.producto_id = p.id AND pr.activo = 1
         WHERE p.activo = 1 AND p.nombre LIKE ?
@@ -449,6 +450,7 @@ class AlbaranService:
                 nombre_display = f"{r[1]} ({r[2]})" if r[2] else r[1]
                 coste_val = read_from_db(int(r[3] or 0))
                 pvp_val = read_from_db(int(r[6] or 0))
+                stock_val = int(r[7] or 0)
                 # Si no hay coste activo, intentar fallback a cualquier precio histórico
                 if coste_val == 0.0:
                     try:
@@ -475,7 +477,8 @@ class AlbaranService:
                     'coste': coste_val,
                     'tipo_iva': int(r[4] or 21),
                     'ean': r[5] or '',
-                    'pvp': pvp_val
+                    'pvp': pvp_val,
+                    'stock_actual': stock_val
                 })
 
             return resultados
