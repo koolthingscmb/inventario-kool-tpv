@@ -376,7 +376,7 @@ class CategoriasUI:
 
         try:
             # Asegurar que la carpeta existe
-            dest_dir = Path("/Volumes/ALMACEN/KOOL_THINGS/KOOL_TPV_V2/kool_tpv/assets/iconos")
+            dest_dir = Path(__file__).resolve().parent.parent.parent / "assets" / "iconos"
             dest_dir.mkdir(parents=True, exist_ok=True)
 
             # Nombre destino: id_nombre.ext o solo nombre.ext si es nuevo

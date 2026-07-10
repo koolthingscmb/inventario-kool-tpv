@@ -36,7 +36,7 @@ class FavoritosSubView(ctk.CTkFrame, KeyboardNavigableMixin):
         self._filter_buttons = {} # Botones de filtro por ID de tipo
         
         self._icon_cache: Dict[str, ctk.CTkImage] = {}
-        self._icons_dir = Path("/Volumes/ALMACEN/KOOL_THINGS/KOOL_TPV_V2/kool_tpv/assets/iconos")
+        self._icons_dir = Path(__file__).resolve().parent.parent.parent.parent / "assets" / "iconos"
         
         self._setup_ui()
         self.cargar_favoritos()
