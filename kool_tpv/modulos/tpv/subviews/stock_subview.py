@@ -49,7 +49,7 @@ class StockSubView(CTkFrame):
 
         columns = [
             ("id", 60, "ID"),
-            ("nombre", 240, "Nombre Producto"),
+            ("nombre", 600, "Nombre Producto"),
             ("stock_actual", 80, "Stock"),
             ("ventas", 80, "Ventas"),
             ("pvp", 120, "PVP"),

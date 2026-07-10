@@ -129,7 +129,7 @@ class BusquedaUI:
         columns = [
             ('id', 50, 'ID'),
             ('sku', 140, 'SKU'),
-            ('nombre', 280, 'NOMBRE'),
+            ('nombre', 560, 'NOMBRE'),
             ('categoria', 140, 'CATEGORÍA'),
             ('tipo', 110, 'TIPO'),
             ('pvp', 85, 'PVP'),

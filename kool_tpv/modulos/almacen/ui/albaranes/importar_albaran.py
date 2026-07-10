@@ -698,7 +698,15 @@ class ImportarAlbaranUI:
         self._seleccionar_producto_por_idx(0)
 
     def _auto_generate_sku(self):
-        """Genera automáticamente el SKU si faltan campos base y el producto es nuevo."""
+        """Genera automáticamente el SKU: EAN si existe, si no generate_sku."""
+        # Si hay EAN, usarlo como SKU directamente
+        ean = self.entry_ean.get().strip()
+        if ean:
+            self.entry_sku.delete(0, 'end')
+            self.entry_sku.insert(0, ean)
+            logger.debug(f"SKU = EAN (albarán): {ean}")
+            return
+
         nombre = self.entry_nombre.get().strip()
         cat_nombre = self.combo_categoria._var.get().strip()
         tipo_nombre = self.combo_tipo._var.get().strip()
@@ -770,10 +778,11 @@ class ImportarAlbaranUI:
         self.entry_nombre.delete(0, 'end')
         self.entry_nombre.insert(0, data['nombre'])
 
-        # SKU
+        # SKU: usar EAN si existe, si no el sku guardado
         self.entry_sku.delete(0, 'end')
-        if data.get('sku'):
-            self.entry_sku.insert(0, data['sku'])
+        sku_value = ean if ean else data.get('sku', '')
+        if sku_value:
+            self.entry_sku.insert(0, sku_value)
 
         # Categoría - SearchableCombo usa entry con texto
         if data['categoria']:
@@ -956,11 +965,21 @@ class ImportarAlbaranUI:
                     # Obtener proveedor_id de la cabecera
                     proveedor_id = getattr(self, '_cabecera_data', {}).get('proveedor_id')
 
-                    # Usar guardar_producto_completo del repository
+                    # SKU: usar EAN si existe (único worldwide), si no generar al guardar
+                    ean = data.get('ean', '').strip()
+                    if ean:
+                        sku_final = ean
+                    else:
+                        # Generar SKU ahora (en BD) para que vea los anteriores ya insertados
+                        cat_nombre = next((c[1] for c in self._categorias if c[0] == data['categoria']), '')
+                        tipo_nombre = next((t[1] for t in self._tipos if t[0] == data['tipo']), '')
+                        sku_final = generate_sku(self.db, cat_nombre, tipo_nombre, data['nombre'])
+
+                    # Usar guardar_producto_completo del repository con force_insert
                     producto_id = repo.guardar_producto_completo(
                         nombre=data['nombre'],
                         nombre_boton=data['nombre'][:20],
-                        sku=data.get('sku', ''),
+                        sku=sku_final,
                         categoria_id=data['categoria'],
                         tipo_id=data['tipo'],
                         proveedor_id=proveedor_id,
@@ -971,6 +990,7 @@ class ImportarAlbaranUI:
                         pvp=data.get('pvp', 0),
                         coste=data.get('coste', 0),
                         codigos_barras=[data['ean']],
+                        force_insert=True,
                     )
                     # Guardar el ID del producto creado para las líneas del albarán
                     data['producto_id'] = producto_id
@@ -978,6 +998,7 @@ class ImportarAlbaranUI:
                     logger.info(f'Producto creado: {data["ean"]} -> ID {producto_id}')
                 except Exception as e:
                     logger.error(f'Error creando producto {data["ean"]}: {e}')
+                    ToastWidget.show(self.container, f'Error creando {data["ean"]}: {e}', tipo='error')
 
             if creados == len(completados):
                 ToastWidget.show(self.container, f'{creados} productos creados', tipo='success')

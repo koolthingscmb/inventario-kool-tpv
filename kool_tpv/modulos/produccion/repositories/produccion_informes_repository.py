@@ -77,11 +77,14 @@ class ProduccionInformesRepository:
                         COALESCE(l.talla, '-') as talla,
                         COALESCE(col.nombre, '-') as color,
                         COALESCE(m.nombre, '-') as metodo,
-                        SUM(l.cantidad) as unidades,
-                        SUM(l.coste_total) as coste_total
+                        l.cantidad as unidades,
+                        l.coste_total as coste_total,
+                        o.fecha_hora,
+                        COALESCE(u.nombre, '-') as usuario
                        FROM produccion_lineas l
                        JOIN produccion_ordenes o ON o.id = l.orden_id
                        JOIN tipos t ON t.id = l.tipo_id
+                       LEFT JOIN usuarios u ON u.id = o.usuario_id
                        LEFT JOIN produccion_disenos d ON d.codigo = l.diseno_codigo
                        LEFT JOIN produccion_colecciones c ON c.id = d.coleccion_id
                        LEFT JOIN produccion_sufijos s ON s.id = d.sufijo_id
@@ -102,8 +105,7 @@ class ProduccionInformesRepository:
                 query += f" AND d.sufijo_id IN ({placeholders})"
                 params.extend(sufijo_ids)
                 
-            query += """ GROUP BY l.diseno_codigo, l.variante_id, l.talla, l.color_id, l.metodo_id 
-                         ORDER BY c.nombre, d.nombre, l.cantidad DESC"""
+            query += """ ORDER BY o.fecha_hora DESC, c.nombre, d.nombre"""
             
             rows = self.db.fetch_all(query, tuple(params))
             return [{
@@ -118,7 +120,9 @@ class ProduccionInformesRepository:
                 'color': r[8],
                 'metodo': r[9],
                 'unidades': int(r[10]),
-                'coste_total': int(r[11])
+                'coste_total': int(r[11]),
+                'fecha': r[12],
+                'usuario': r[13]
             } for r in rows or []]
         except Exception:
             logging.exception('Error en get_produccion_detallada_disenos')

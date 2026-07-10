@@ -123,6 +123,8 @@ class ProduccionInformesService:
 
         rows = []
         for r in data:
+            fecha_raw = r.get('fecha', '')
+            fecha_str = str(fecha_raw)[:16] if fecha_raw else '-'
             rows.append([
                 r['diseno_nombre'],
                 r['coleccion'],
@@ -133,12 +135,14 @@ class ProduccionInformesService:
                 r['color'],
                 r['metodo'],
                 r['unidades'],
-                f"{read_from_db(r['coste_total']):.2f} €"
+                f"{read_from_db(r['coste_total']):.2f} €",
+                fecha_str,
+                r.get('usuario', '-')
             ])
 
         report["sections"].append({
             "type": "table",
-            "headers": ["Diseño", "Col.", "Suf.", "Tipo", "Variante", "Talla", "Color", "Impresión", "Uds", "Coste"],
+            "headers": ["Diseño", "Col.", "Suf.", "Tipo", "Variante", "Talla", "Color", "Impresión", "Uds", "Coste", "Fecha", "Usuario"],
             "rows": rows
         })
 
@@ -146,6 +150,6 @@ class ProduccionInformesService:
         report["titulo"] = report["title"]
         report["fecha_generacion"] = report["generated_at"]
         report["resumen"] = {"Unidades": total_uds, "Coste Total": f"{read_from_db(total_coste):.2f} €"}
-        report["headers"] = ["Diseño", "Col.", "Suf.", "Tipo", "Var.", "Talla", "Color", "Mét.", "Uds", "Coste"]
+        report["headers"] = ["Diseño", "Col.", "Suf.", "Tipo", "Var.", "Talla", "Color", "Mét.", "Uds", "Coste", "Fecha", "Usuario"]
         report["items"] = rows
         return report

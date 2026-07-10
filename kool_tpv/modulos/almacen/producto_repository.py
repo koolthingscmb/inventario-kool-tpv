@@ -325,6 +325,7 @@ WHERE 1=1
         pvp_variable: int = 0,
         codigos_barras: Optional[List[str]] = None,
         producto_id: Optional[int] = None,
+        force_insert: bool = False,
         shopify_taxonomy: str = '',
         descripcion_shopify: str = '',
         titulo: str = '',
@@ -352,6 +353,11 @@ WHERE 1=1
                 cur.execute('SELECT id FROM productos WHERE sku = ?', (sku,))
                 r = cur.fetchone()
                 if r and r[0]:
+                    if force_insert:
+                        raise ValueError(
+                            f'SKU duplicado al crear producto nuevo: "{sku}" '
+                            f'ya existe con id={r[0]}. Use force_insert=False para actualizar.'
+                        )
                     producto_id = int(r[0])
 
             # 2. INSERT o UPDATE producto
