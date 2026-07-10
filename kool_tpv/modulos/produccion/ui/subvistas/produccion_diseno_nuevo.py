@@ -217,14 +217,29 @@ class DisenoNuevoView:
 		self._frame_metodos.pack(fill="x", pady=(0, 10))
 		self._render_rejilla_metodos()
 
+		buttons_row = ctk.CTkFrame(self.bottom_frame, fg_color="transparent")
+		buttons_row.pack(fill="x", pady=10)
+
+		self.btn_cancelar = ctk.CTkButton(
+			buttons_row,
+			text="CANCELAR",
+			width=150,
+			height=50,
+			font=self._get_font("button"),
+			fg_color=self.config.get("colors", {}).get("buttons", {}).get("cancelar", {}).get("bg", "#e74c3c"),
+			hover_color=self.config.get("colors", {}).get("buttons", {}).get("cancelar", {}).get("hover", "#c0392b"),
+			command=self._on_cancelar
+		)
+		self.btn_cancelar.pack(side="left", padx=(0, 10))
+
 		self.btn_accion_principal = ctk.CTkButton(
-			self.bottom_frame,
+			buttons_row,
 			text="GUARDAR NUEVO DISEÑO",
 			height=50,
 			font=self._get_font("button"),
 			command=self._on_accion_principal
 		)
-		self.btn_accion_principal.pack(fill="x", pady=10)
+		self.btn_accion_principal.pack(side="left", fill="x", expand=True)
 		self._update_main_button()
 
 	def _crear_chips_section(self, parent):
@@ -592,6 +607,11 @@ class DisenoNuevoView:
 				fg_color=self.config.get("colors", {}).get("buttons", {}).get("confirmar", {}).get("bg", "#27ae60"),
 				hover_color=self.config.get("colors", {}).get("buttons", {}).get("confirmar", {}).get("hover", "#2ecc71")
 			)
+
+	def _on_cancelar(self):
+		"""Cancelar y volver a la vista anterior sin guardar."""
+		if self.on_cerrar:
+			self.on_cerrar(None)
 
 	def _on_accion_principal(self):
 		"""Lógica del botón principal: Guardar o Modificar."""
