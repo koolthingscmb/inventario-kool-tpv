@@ -108,24 +108,25 @@ class KeyboardNavigableMixin:
     def _restore_original_border(self, widget):
         """Restaurar el borde original de un widget."""
         try:
-            normal_width = _KEYBOARD_NAV_CONFIG.get("normal_border_width", 2)
-            original_color = getattr(widget, '_original_border_color', None)
-            if original_color:
-                widget.configure(border_width=normal_width, border_color=original_color)
-            else:
-                widget.configure(border_width=normal_width)
+            orig_width = getattr(widget, '_original_border_width', None)
+            orig_color = getattr(widget, '_original_border_color', None)
+            if orig_width is not None:
+                widget.configure(border_width=orig_width)
+            if orig_color is not None:
+                widget.configure(border_color=orig_color)
         except Exception:
             pass
 
     def _apply_focus_border(self, widget):
         """Aplicar borde de foco a un widget."""
         try:
-            # Guardar color original si no está guardado
-            if not hasattr(widget, '_original_border_color'):
-                try:
-                    widget._original_border_color = widget.cget("border_color") if hasattr(widget, "cget") else None
-                except Exception:
-                    widget._original_border_color = None
+            # Guardar estado actual ANTES de modificar
+            try:
+                widget._original_border_width = widget.cget("border_width")
+                widget._original_border_color = widget.cget("border_color")
+            except Exception:
+                widget._original_border_width = 0
+                widget._original_border_color = None
 
             focus_color = _KEYBOARD_NAV_CONFIG.get("focus_border_color", "#FFD700")
             focus_width = _KEYBOARD_NAV_CONFIG.get("focus_border_width", 3)
@@ -161,32 +162,12 @@ class KeyboardNavigableMixin:
         if not (0 <= self._nav_focused_index < len(self._navigable_buttons)):
             return # No bloquear el Enter si no hay un botón seleccionado por navegación
 
-        # Verificar que el foco real está dentro del widget navegable activo.
-        # CTkButton es un contenedor compuesto: focus_get() devuelve un widget
-        # hijo interno (canvas/entry), no el CTkButton en sí. Por eso usamos
-        # winfo_containing o comprobamos descendencia en lugar de igualdad directa.
-        current_focus = self._nav_toplevel.focus_get() if self._nav_toplevel else None
-        if current_focus is None:
-            return "break"
-
         widget, callback = self._navigable_buttons[self._nav_focused_index]
-
-        # Comprobar si current_focus ES el widget o un descendiente suyo
-        def _is_descendant(child, ancestor):
-            try:
-                w = child
-                while w is not None:
-                    if w == ancestor:
-                        return True
-                    w = w.master
-            except Exception:
-                pass
-            return False
-
-        if _is_descendant(current_focus, widget) and callable(callback):
+        if callable(callback):
             callback()
-            return "break" # Solo bloquear si realmente hemos ejecutado una acción
-        return # Dejar pasar el evento si no es para nosotros
+            widget.focus_set()
+            return "break"
+        return
 
     def clear_keyboard_navigation(self):
         """Limpiar estado de navegación. Útil al destruir o reconstruir widgets."""

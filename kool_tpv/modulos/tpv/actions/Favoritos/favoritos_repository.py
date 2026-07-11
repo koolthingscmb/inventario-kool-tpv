@@ -24,6 +24,8 @@ class FavoritosRepository:
             p.categoria as categoria_id,
             c.nombre as categoria_nombre,
             COALESCE(t.color, c.color, '#333333') as color,
+            t.color as tipo_color,
+            c.color as categoria_color,
             COALESCE(t.icono, c.icono) as icono
         FROM favoritos f
         JOIN productos p ON f.producto_id = p.id

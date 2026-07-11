@@ -31,9 +31,11 @@ class FavoritosSubView(ctk.CTkFrame, KeyboardNavigableMixin):
         self.producto_service = ProductoService(self.db)
         
         # Variables de filtrado
-        self._tipo_filtro = None # ID del tipo seleccionado (None = Todos)
-        self._full_items = []    # Cache de todos los favoritos cargados
-        self._filter_buttons = {} # Botones de filtro por ID de tipo
+        self._categoria_filtro = None  # ID de la categoría seleccionada (None = Todas)
+        self._tipo_filtro = None      # ID del tipo seleccionado (None = Todos)
+        self._full_items = []         # Cache de todos los favoritos cargados
+        self._filter_buttons = {}     # Botones de filtro por ID de tipo
+        self._categoria_buttons = {}  # Botones de filtro por ID de categoría
         
         self._icon_cache: Dict[str, ctk.CTkImage] = {}
         self._icons_dir = Path(__file__).resolve().parent.parent.parent.parent / "assets" / "iconos"
@@ -49,15 +51,11 @@ class FavoritosSubView(ctk.CTkFrame, KeyboardNavigableMixin):
         self.grid_rowconfigure(1, weight=1) # El grid de favoritos expande
         
         # 1. Header con botón de configuración y filtros
-        header_frame = ctk.CTkFrame(self, fg_color="transparent", height=60)
+        header_frame = ctk.CTkFrame(self, fg_color="transparent", height=120)
         header_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
         header_frame.grid_propagate(False)
-        
-        # Contenedor para botones de filtro (izquierda)
-        self.filter_container = ctk.CTkFrame(header_frame, fg_color="transparent")
-        self.filter_container.pack(side="left", fill="both", expand=True)
-        
-        # Botón CONFIG para editar favoritos
+
+        # Botón CONFIG para editar favoritos (arriba a la derecha)
         self.btn_edit = ButtonFactory.create_button(
             parent=header_frame,
             text="⚙️ CONFIG",
@@ -66,7 +64,15 @@ class FavoritosSubView(ctk.CTkFrame, KeyboardNavigableMixin):
             width=120,
             height=40
         )
-        self.btn_edit.pack(side="right", padx=5)
+        self.btn_edit.pack(side="top", anchor="e", padx=5, pady=(0, 5))
+
+        # Fila de categorías (arriba)
+        self.categoria_container = ctk.CTkFrame(header_frame, fg_color="transparent")
+        self.categoria_container.pack(side="top", fill="x", pady=(0, 5))
+
+        # Fila de tipos (abajo)
+        self.filter_container = ctk.CTkFrame(header_frame, fg_color="transparent")
+        self.filter_container.pack(side="top", fill="x")
 
         # 2. Área de Grid (Scrollable por si hay muchos, aunque planeamos 30)
         self.scroll_container = ctk.CTkScrollableFrame(self, fg_color="transparent")
@@ -84,12 +90,15 @@ class FavoritosSubView(ctk.CTkFrame, KeyboardNavigableMixin):
         # Cargar datos si es necesario
         if reset_cache or not self._full_items:
             self._full_items = self.favoritos_service.listar_favoritos()
+            self._crear_botones_categoria()
             self._crear_botones_filtro()
             
-        # Aplicar filtro
+        # Aplicar filtros (categoría + tipo)
         items = self._full_items
+        if self._categoria_filtro is not None:
+            items = [i for i in items if i.get('categoria_id') == self._categoria_filtro]
         if self._tipo_filtro is not None:
-            items = [i for i in self._full_items if i.get('tipo_id') == self._tipo_filtro]
+            items = [i for i in items if i.get('tipo_id') == self._tipo_filtro]
             
         # Cargar configs
         font_cfg = load_font_config()
@@ -123,8 +132,15 @@ class FavoritosSubView(ctk.CTkFrame, KeyboardNavigableMixin):
         for i in range(cols):
             self.scroll_container.grid_columnconfigure(i, weight=1)
 
-        # Limpiar navegación anterior (excepto filtros que se recrean en _crear_botones_filtro)
+        # Limpiar navegación anterior
         self._navigable_buttons = []
+
+        # Añadir botones de categoría primero (arriba)
+        for cid, btn in self._categoria_buttons.items():
+            self._navigable_buttons.append((btn, lambda b=btn: self._execute_btn_command(b)))
+        # Añadir botones de tipo segundo (medio)
+        for tid, btn in self._filter_buttons.items():
+            self._navigable_buttons.append((btn, lambda b=btn: self._execute_btn_command(b)))
 
         for item in items:
             # Crear el Chip de favorito
@@ -149,9 +165,11 @@ class FavoritosSubView(ctk.CTkFrame, KeyboardNavigableMixin):
                 font=fav_font,
                 fg_color=color,
                 hover_color=self._adjust_color_brightness(color, 0.2),
-                text_color="white",
+                text_color=self._get_text_color_for_bg(color),
                 height=chip_h, 
                 corner_radius=8,
+                border_width=0,
+                border_color="#00FF00",
                 image=ctk_img,
                 compound="left", # Icono a la izquierda
                 command=lambda p=item: self._add_to_cart(p)
@@ -165,10 +183,6 @@ class FavoritosSubView(ctk.CTkFrame, KeyboardNavigableMixin):
             if col >= cols:
                 col = 0
                 row += 1
-
-        # Añadir botones de filtro a la navegación (al final, después de los chips)
-        for tid, btn in self._filter_buttons.items():
-            self._navigable_buttons.append((btn, lambda b=btn: self._execute_btn_command(b)))
 
         # Activar navegación por teclado
         self._setup_keyboard_navigation()
@@ -187,7 +201,8 @@ class FavoritosSubView(ctk.CTkFrame, KeyboardNavigableMixin):
         self.clear_keyboard_navigation()
 
     def _crear_botones_filtro(self):
-        """Crea dinámicamente los botones de filtro por tipo en el header."""
+        """Crea dinámicamente los botones de filtro por tipo en el header.
+        Si hay categoría seleccionada, solo muestra los tipos de esa categoría."""
         # Limpiar botones anteriores
         for widget in self.filter_container.winfo_children():
             widget.destroy()
@@ -196,14 +211,20 @@ class FavoritosSubView(ctk.CTkFrame, KeyboardNavigableMixin):
         if not self._full_items:
             return
 
-        # Extraer tipos únicos
+        # Filtrar items por categoría si hay una seleccionada
+        items_filtrados = self._full_items
+        if self._categoria_filtro is not None:
+            items_filtrados = [i for i in self._full_items if i.get('categoria_id') == self._categoria_filtro]
+
+        # Extraer tipos únicos de los items filtrados
         tipos_dict = {}
-        for item in self._full_items:
+        for item in items_filtrados:
             t_id = item.get('tipo_id')
             if t_id and t_id not in tipos_dict:
                 tipos_dict[t_id] = {
                     "nombre": item.get('tipo_nombre', "Sin Tipo"),
-                    "icono": item.get('icono') # Usamos el icono que ya trae el item
+                    "icono": item.get('icono'),
+                    "color": item.get('tipo_color') or "#333333"
                 }
 
         # Botón "TODOS"
@@ -214,6 +235,8 @@ class FavoritosSubView(ctk.CTkFrame, KeyboardNavigableMixin):
             height=54, # 40 * 1.35
             font=("Courier New", 14, "bold"),
             fg_color="#333333",
+            text_color=self._get_text_color_for_bg("#333333"),
+            border_width=0,
             border_color="#00FF00",
             command=lambda: self._aplicar_filtro(None)
         )
@@ -232,7 +255,9 @@ class FavoritosSubView(ctk.CTkFrame, KeyboardNavigableMixin):
                 width=68,  # 50 * 1.35
                 height=54, # 40 * 1.35
                 font=("Courier New", 12, "bold"),
-                fg_color="#333333",
+                fg_color=t_info["color"],
+                text_color=self._get_text_color_for_bg(t_info["color"]),
+                border_width=0,
                 border_color="#00FF00",
                 command=lambda tid=t_id: self._aplicar_filtro(tid)
             )
@@ -242,18 +267,89 @@ class FavoritosSubView(ctk.CTkFrame, KeyboardNavigableMixin):
         self._resaltar_filtro_activo()
 
     def _aplicar_filtro(self, tipo_id):
-        """Aplica el filtro y repinta el grid."""
+        """Aplica el filtro de tipo y repinta el grid."""
         self._tipo_filtro = tipo_id
         self.cargar_favoritos(reset_cache=False)
         self._resaltar_filtro_activo()
 
+    def _aplicar_filtro_categoria(self, categoria_id):
+        """Aplica el filtro de categoría, resetea el de tipo y repinta."""
+        self._categoria_filtro = categoria_id
+        self._tipo_filtro = None  # Resetear filtro de tipo al cambiar categoría
+        self._crear_botones_filtro()  # Recrear tipos para la nueva categoría
+        self.cargar_favoritos(reset_cache=False)
+        self._resaltar_categoria_activa()
+
     def _resaltar_filtro_activo(self):
-        """Resalta el botón activo con un borde verde."""
+        """Resalta el botón de tipo activo con un borde verde, manteniendo su color original."""
         for tid, btn in self._filter_buttons.items():
             if tid == self._tipo_filtro:
-                btn.configure(border_width=3, fg_color="#444444")
+                btn.configure(border_width=3, border_color="#00FF00")
             else:
-                btn.configure(border_width=0, fg_color="#333333")
+                btn.configure(border_width=0)
+
+    def _resaltar_categoria_activa(self):
+        """Resalta el botón de categoría activo con un borde verde, manteniendo su color original."""
+        for cid, btn in self._categoria_buttons.items():
+            if cid == self._categoria_filtro:
+                btn.configure(border_width=3, border_color="#00FF00")
+            else:
+                btn.configure(border_width=0)
+
+    def _crear_botones_categoria(self):
+        """Crea dinámicamente los botones de filtro por categoría en el header."""
+        # Limpiar botones anteriores
+        for widget in self.categoria_container.winfo_children():
+            widget.destroy()
+        self._categoria_buttons = {}
+
+        if not self._full_items:
+            return
+
+        # Extraer categorías únicas
+        cats_dict = {}
+        for item in self._full_items:
+            c_id = item.get('categoria_id')
+            if c_id and c_id not in cats_dict:
+                cats_dict[c_id] = {
+                    "nombre": item.get('categoria_nombre', "Sin Categoría"),
+                    "color": item.get('categoria_color') or "#333333"
+                }
+
+        # Botón "TODAS"
+        btn_todas = ctk.CTkButton(
+            self.categoria_container,
+            text="TODAS",
+            width=108,
+            height=40,
+            font=("Courier New", 14, "bold"),
+            fg_color="#333333",
+            text_color=self._get_text_color_for_bg("#333333"),
+            border_width=0,
+            border_color="#00FF00",
+            command=lambda: self._aplicar_filtro_categoria(None)
+        )
+        btn_todas.pack(side="left", padx=5)
+        self._categoria_buttons[None] = btn_todas
+
+        # Botones por categoría
+        for c_id, c_info in cats_dict.items():
+            btn = ctk.CTkButton(
+                self.categoria_container,
+                text=c_info["nombre"],
+                width=100,
+                height=40,
+                font=("Courier New", 12, "bold"),
+                fg_color=c_info["color"],
+            text_color=self._get_text_color_for_bg(c_info["color"]),
+                border_width=0,
+                border_color="#00FF00",
+                command=lambda cid=c_id: self._aplicar_filtro_categoria(cid)
+            )
+            btn.pack(side="left", padx=2)
+            self._categoria_buttons[c_id] = btn
+
+        self._resaltar_categoria_activa()
 
     def _get_icon_image(self, icon_name: str, size: int) -> Optional[ctk.CTkImage]:
         """Obtener y cachear la imagen del icono."""
@@ -331,6 +427,17 @@ class FavoritosSubView(ctk.CTkFrame, KeyboardNavigableMixin):
                     self.on_add_callback()
         except Exception:
             logger.exception("Error añadiendo favorito al carrito")
+
+    def _get_text_color_for_bg(self, hex_color):
+        """Devuelve 'black' o 'white' según la luminancia del color de fondo."""
+        try:
+            hex_color = hex_color.lstrip('#')
+            r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+            # Fórmula de luminancia relativa (ITU-R BT.601)
+            luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+            return "black" if luminance > 0.6 else "white"
+        except Exception:
+            return "white"
 
     def _adjust_color_brightness(self, hex_color, factor):
         """Ajustar el brillo de un color hex para el efecto hover."""
