@@ -83,7 +83,7 @@ class ProduccionStockBaseRepository:
 		query = """
 			SELECT id, tipo_id, variante_id, color_id, talla, sku, cantidad, coste_medio, talla_id
 			FROM produccion_stock_colores_tallas
-			WHERE tipo_id = ? AND variante_id IS ? AND color_id IS ? AND talla = ?
+			WHERE tipo_id = ? AND variante_id IS ? AND color_id IS ? AND COALESCE(talla, '') = COALESCE(?, '')
 		"""
 		try:
 			if cur:
