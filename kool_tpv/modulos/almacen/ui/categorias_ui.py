@@ -348,18 +348,17 @@ class CategoriasUI:
             pass
 
     def _open_color_picker(self):
-        """Abrir el diálogo de selección de color."""
-        from kool_tpv.utils.dialogs.color_picker import ColorPickerDialog
-        
+        """Abrir el selector de color del sistema (rueda completa)."""
+        from tkinter import colorchooser
         current = self.e_color.get().strip() or "#333333"
-        
-        def on_color_selected(color):
-            if color:
+        try:
+            result = colorchooser.askcolor(initialcolor=current, title="Seleccionar color")
+            if result and result[1]:
                 self.e_color.delete(0, 'end')
-                self.e_color.insert(0, color)
+                self.e_color.insert(0, result[1].upper())
                 self._update_color_preview()
-
-        ColorPickerDialog(self.container, initial_color=current, callback=on_color_selected)
+        except Exception:
+            logging.exception("Error abriendo selector de color")
 
     def _subir_icono(self):
         """Abrir diálogo para subir un icono y copiarlo a assets."""
