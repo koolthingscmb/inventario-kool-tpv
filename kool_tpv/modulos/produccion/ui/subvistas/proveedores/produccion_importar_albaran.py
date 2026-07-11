@@ -177,9 +177,9 @@ class ProduccionImportarAlbaran:
 
         # TABLA PREVIEW
         self.columns = [
-            ('PRODUCTO CSV', 260), ('VARIANTE KOOL', 160),
-            ('COLOR PROV', 130), ('COLOR KOOL', 120),
-            ('TALLA PROV', 80), ('TALLA KOOL', 80),
+            ('PRODUCTO', 390), ('VARIANTE KOOL', 224),
+            ('COLOR', 130), ('COLOR KOOL', 120),
+            ('TALLA', 146), ('TALLA KOOL', 112),
             ('UDS', 60), ('COSTE', 90), ('ESTADO', 150)
         ]
         self.nav_list = VirtualNavList(self.container, columns=self.columns, module_name='produccion')
@@ -399,11 +399,11 @@ class ProduccionImportarAlbaran:
         
         for p in self.lineas_procesadas:
             rows.append({
-                'PRODUCTO CSV': p['nombre_csv'],
+                'PRODUCTO': p['nombre_csv'],
                 'VARIANTE KOOL': p['variante_nombre'],
-                'COLOR PROV': p['color_prov'],
+                'COLOR': p['color_prov'],
                 'COLOR KOOL': p['color_interno'],
-                'TALLA PROV': p['talla_prov'],
+                'TALLA': p['talla_prov'],
                 'TALLA KOOL': p['talla_kool'],
                 'UDS': str(p['uds']),
                 'COSTE': f"{p['coste']:.2f}€",
