@@ -456,6 +456,12 @@ class VentaTicketGenerator(BaseTicketGenerator):
                 lines.append(self._format_line_lr("Tesoro ganado:", self._format_currency(ganado)))
                 lines.append(self._format_line_lr("Tesoro Total:", self._format_currency(total_tesoro)))
 
+        # Texto de cuidado camisetas (solo si está presente en config)
+        camisetas_text = config.get('ticket_cuidado_camisetas')
+        if camisetas_text:
+            lines.append(self.DIVIDER)
+            lines.extend(self._render_template(camisetas_text, context))
+
         # Pie: soporte footer por tipo con fallback al footer genérico
         footer_val = config.get(footer_key)
         if footer_val:

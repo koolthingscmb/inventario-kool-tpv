@@ -159,6 +159,25 @@ class TextosPlantillaUI(PaginaConVisor):
         )
         self.entry_footer.pack(fill='both', expand=True)
 
+        # Label + Entry Cuidado Camisetas (solo para venta)
+        self.label_camisetas = ctk.CTkLabel(
+            grid_content,
+            text='CUIDADO CAMISETAS (aparece solo si hay camisetas):',
+            font=get_font('label', module='config'),
+            text_color=self.colors.get('text')
+        )
+        self.entry_camisetas = ctk.CTkTextbox(
+            grid_content,
+            width=400,
+            height=100,
+            fg_color=self.colors.get('background'),
+            text_color=self.colors.get('text'),
+            border_color=self.colors.get('primary'),
+            border_width=2,
+            font=get_font('entry', module='config')
+        )
+        # No empaquetar aún, se muestra/oculta según el tipo
+
         # Cargar valores iniciales
         try:
             self._cargar_valores()
@@ -197,13 +216,14 @@ class TextosPlantillaUI(PaginaConVisor):
             logging.exception('Error actualizando label_seleccionado en _on_tipo_change')
 
     def _cargar_valores(self):
-        """Cargar header y footer desde BD según tipo seleccionado."""
+        """Cargar header, footer y cuidado camisetas desde BD según tipo seleccionado."""
         tipo = self.combo_tipo.get()
         header_key = f"ticket_header_{tipo}"
         footer_key = f"ticket_footer_{tipo}"
 
         header_val = ""
         footer_val = ""
+        camisetas_val = ""
 
         if self.db:
             try:
@@ -226,21 +246,46 @@ class TextosPlantillaUI(PaginaConVisor):
             except Exception:
                 pass
 
+            try:
+                row = self.db.fetch_one(
+                    "SELECT valor FROM configuracion WHERE clave = ?",
+                    ('ticket_cuidado_camisetas',)
+                )
+                if row and row[0]:
+                    camisetas_val = str(row[0])
+            except Exception:
+                pass
+
         try:
             self.entry_header.delete('1.0', 'end')
             self.entry_header.insert('1.0', header_val)
 
             self.entry_footer.delete('1.0', 'end')
             self.entry_footer.insert('1.0', footer_val)
+
+            self.entry_camisetas.delete('1.0', 'end')
+            self.entry_camisetas.insert('1.0', camisetas_val)
         except Exception:
             logging.exception('Error actualizando widgets en _cargar_valores')
 
+        # Mostrar/ocultar campo camisetas según tipo
+        try:
+            if tipo == 'venta':
+                self.label_camisetas.pack(anchor='w', pady=(20, 6))
+                self.entry_camisetas.pack(fill='both', expand=True, pady=(0, 0))
+            else:
+                self.label_camisetas.pack_forget()
+                self.entry_camisetas.pack_forget()
+        except Exception:
+            pass
+
     def _on_guardar(self):
-        """Guardar header y/o footer en BD."""
+        """Guardar header, footer y cuidado camisetas en BD."""
         header_text = self.entry_header.get('1.0', 'end').rstrip('\n')
         footer_text = self.entry_footer.get('1.0', 'end').rstrip('\n')
+        camisetas_text = self.entry_camisetas.get('1.0', 'end').rstrip('\n')
 
-        if not header_text and not footer_text:
+        if not header_text and not footer_text and not camisetas_text:
             from kool_tpv.utils.widgets.notificaciones import show_warning
             show_warning(self.container, 'No hay información para guardar')
             return
@@ -262,6 +307,12 @@ class TextosPlantillaUI(PaginaConVisor):
                     (footer_key, footer_text)
                 )
 
+            # Guardar cuidado camisetas (clave global, no por tipo)
+            self.db.execute_query(
+                "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES (?, ?)",
+                ('ticket_cuidado_camisetas', camisetas_text)
+            )
+
             ToastWidget.show(self.parent, 'Textos guardados', tipo='success')
         except Exception:
             logging.exception('Error guardando textos')
@@ -273,6 +324,7 @@ class TextosPlantillaUI(PaginaConVisor):
         tipo = self.combo_tipo.get()
         header_text = self.entry_header.get('1.0', 'end').rstrip('\n')
         footer_text = self.entry_footer.get('1.0', 'end').rstrip('\n')
+        camisetas_text = self.entry_camisetas.get('1.0', 'end').rstrip('\n')
 
         header_key = f"ticket_header_{tipo}"
         footer_key = f"ticket_footer_{tipo}"
@@ -281,6 +333,10 @@ class TextosPlantillaUI(PaginaConVisor):
             header_key: header_text,
             footer_key: footer_text
         }
+
+        # Incluir texto de camisetas en el preview de venta
+        if tipo == 'venta' and camisetas_text:
+            config_preview['ticket_cuidado_camisetas'] = camisetas_text
 
         # Contexto mock
         mock = {

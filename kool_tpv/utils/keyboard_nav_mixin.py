@@ -165,7 +165,11 @@ class KeyboardNavigableMixin:
         widget, callback = self._navigable_buttons[self._nav_focused_index]
         if callable(callback):
             callback()
-            widget.focus_set()
+            try:
+                if widget.winfo_exists():
+                    widget.focus_set()
+            except Exception:
+                pass
             return "break"
         return
 

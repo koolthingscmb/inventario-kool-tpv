@@ -164,6 +164,17 @@ class ImpresoraService:
         except Exception:
             logging.exception('Error cargando headers/footers dinámicos')
 
+        # Cargar texto de cuidado camisetas
+        try:
+            row = self.db.fetch_one(
+                "SELECT valor FROM configuracion WHERE clave = ?",
+                ('ticket_cuidado_camisetas',)
+            )
+            if row and row[0]:
+                config['ticket_cuidado_camisetas'] = str(row[0])
+        except Exception:
+            pass
+
         return config
 
     def imprimir_ticket(self, ticket_data, items, cliente_data=None, printer_name: Optional[str] = None):
@@ -173,7 +184,32 @@ class ImpresoraService:
         - En `escpos` se renderiza a ESC/POS y se intenta enviar a la impresora
           mediante el adapter Windows (si está disponible).
         """
-        texto = self.ticket_generator.generate(self.config, ticket_data, items, cliente_data)
+        # Detectar si hay camisetas en el ticket
+        has_camisetas = False
+        try:
+            from kool_tpv.modulos.almacen.producto_repository import ProductoRepository
+            from kool_tpv.modulos.almacen.tipo_repository import TipoRepository
+            producto_repo = ProductoRepository(self.db)
+            tipo_repo = TipoRepository(self.db)
+            for it in items:
+                sku = it.get('sku')
+                if not sku:
+                    continue
+                prod = producto_repo.get_by_sku(sku)
+                if prod and prod.get('tipo'):
+                    tipo_info = tipo_repo.get_by_id(prod['tipo'])
+                    if tipo_info and tipo_info.get('nombre', '').lower() == 'camiseta':
+                        has_camisetas = True
+                        break
+        except Exception:
+            logging.exception('Error detectando camisetas en imprimir_ticket')
+
+        # Preparar config: incluir cuidado camisetas solo si hay
+        gen_config = dict(self.config)
+        if not has_camisetas:
+            gen_config.pop('ticket_cuidado_camisetas', None)
+
+        texto = self.ticket_generator.generate(gen_config, ticket_data, items, cliente_data)
 
         # Reutilizar la lógica común de impresión (texto/escpos/simulación)
         return self._imprimir_texto_generico(texto, {'num_ticket': ticket_data.get('num_ticket')}, printer_name)
@@ -540,10 +576,35 @@ class ImpresoraService:
 
             # No prints here: generador recibe `items` con `Decimal` en pvp/total
 
+            # Detectar si hay camisetas en el ticket para incluir texto de cuidado
+            has_camisetas = False
+            try:
+                from kool_tpv.modulos.almacen.producto_repository import ProductoRepository
+                from kool_tpv.modulos.almacen.tipo_repository import TipoRepository
+                producto_repo = ProductoRepository(self.db)
+                tipo_repo = TipoRepository(self.db)
+                for it in items:
+                    sku = it.get('sku')
+                    if not sku:
+                        continue
+                    prod = producto_repo.get_by_sku(sku)
+                    if prod and prod.get('tipo'):
+                        tipo_info = tipo_repo.get_by_id(prod['tipo'])
+                        if tipo_info and tipo_info.get('nombre', '').lower() == 'camiseta':
+                            has_camisetas = True
+                            break
+            except Exception:
+                logging.exception('Error detectando camisetas en ticket')
+
+            # Preparar config para el generador (incluir cuidado camisetas solo si hay)
+            gen_config = dict(self.config)
+            if not has_camisetas:
+                gen_config.pop('ticket_cuidado_camisetas', None)
+
             # Generar ticket: usar generador específico según tipo
             is_devolucion = any(str(it.get('line_tipo', '')).lower() == 'devolucion' for it in items)
             generator = self.devolucion_ticket_generator if is_devolucion else self.ticket_generator
-            ticket_text = generator.generate(self.config, ticket_data, items, cliente_data)
+            ticket_text = generator.generate(gen_config, ticket_data, items, cliente_data)
 
             # IMPRIME EN CONSOLA si está configurado
             if self.imprimir_en_consola and ticket_text:
