@@ -42,7 +42,7 @@ class ProduccionStockBaseRepository:
 				t.nombre AS tipo_nombre,
 				v.nombre AS variante_nombre,
 				c.nombre AS color_nombre,
-				psbt.talla,
+				COALESCE(pt.nombre, psbt.talla) AS talla,
 				psbt.sku,
 				psbt.cantidad,
 				psbt.tipo_id,
@@ -53,7 +53,8 @@ class ProduccionStockBaseRepository:
 			JOIN tipos t ON psbt.tipo_id = t.id
 			LEFT JOIN tipos_variantes v ON psbt.variante_id = v.id
 			LEFT JOIN produccion_colores c ON psbt.color_id = c.id
-			ORDER BY t.nombre, v.nombre, c.nombre, psbt.talla
+			LEFT JOIN produccion_tallas pt ON psbt.talla_id = pt.id
+			ORDER BY t.nombre, v.nombre, c.nombre, COALESCE(pt.nombre, psbt.talla)
 		"""
 		try:
 			rows = self.db.fetch_all(query)
@@ -112,8 +113,10 @@ class ProduccionStockBaseRepository:
 	                             variante_id: Optional[int] = None) -> Dict[str, int]:
 		"""Obtener un dict {talla: cantidad} para un tipo+color+variante dados."""
 		query = """
-			SELECT talla, cantidad FROM produccion_stock_colores_tallas
-			WHERE tipo_id = ? AND variante_id IS ? AND color_id = ?
+			SELECT COALESCE(pt.nombre, psbt.talla) AS talla, psbt.cantidad 
+			FROM produccion_stock_colores_tallas psbt
+			LEFT JOIN produccion_tallas pt ON psbt.talla_id = pt.id
+			WHERE psbt.tipo_id = ? AND psbt.variante_id IS ? AND psbt.color_id = ?
 		"""
 		try:
 			rows = self.db.fetch_all(query, (tipo_id, variante_id, color_id))

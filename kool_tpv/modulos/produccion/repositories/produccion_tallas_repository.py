@@ -23,7 +23,7 @@ class ProduccionTallasRepository:
 			query = """
 				SELECT t.id, t.nombre, t.orden, t.activo
 				FROM produccion_tallas t
-				JOIN produccion_stock_colores_tallas s ON t.nombre = s.talla
+				JOIN produccion_stock_colores_tallas s ON t.id = s.talla_id
 				WHERE s.tipo_id = ? AND s.variante_id = ? AND s.color_id = ? AND s.cantidad > 0 AND t.activo = 1
 				ORDER BY t.orden
 			"""
@@ -32,7 +32,7 @@ class ProduccionTallasRepository:
 			query = """
 				SELECT t.id, t.nombre, t.orden, t.activo
 				FROM produccion_tallas t
-				JOIN produccion_stock_colores_tallas s ON t.nombre = s.talla
+				JOIN produccion_stock_colores_tallas s ON t.id = s.talla_id
 				WHERE s.tipo_id = ? AND s.variante_id IS NULL AND s.color_id = ? AND s.cantidad > 0 AND t.activo = 1
 				ORDER BY t.orden
 			"""
