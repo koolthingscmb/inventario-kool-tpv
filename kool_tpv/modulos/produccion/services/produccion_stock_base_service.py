@@ -116,12 +116,17 @@ class ProduccionStockBaseService:
 		"""Auto-poblar la matriz produccion_tipo_color_tallas al importar stock."""
 		try:
 			repo_tallas = ProduccionTallasRepository(self.db)
-			talla_obj = repo_tallas.get_por_nombre(talla)
-			if not talla_obj:
-				logger.warning(f"Auto-matriz: talla '{talla}' no encontrada en BD, saltando")
-				return
+			talla_norm = (talla or "").strip().upper()
+			talla_id = None
+			if talla_norm:
+				talla_obj = repo_tallas.get_por_nombre(talla_norm)
+				if talla_obj:
+					talla_id = talla_obj.id
+				else:
+					logger.warning(f"Auto-matriz: talla '{talla_norm}' no encontrada en BD, se insertará como NULL")
+
 			repo_rel = ProduccionRelacionesRepository(self.db)
-			repo_rel.asegurar_relacion(tipo_id, color_id, talla_obj.id, variante_id)
+			repo_rel.asegurar_relacion(tipo_id, color_id, talla_id, variante_id)
 		except Exception:
 			logger.exception("Error auto-poblando matriz")
 

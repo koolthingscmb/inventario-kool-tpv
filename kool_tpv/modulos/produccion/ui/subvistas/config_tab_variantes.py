@@ -181,26 +181,48 @@ class ConfigTabVariantes:
         chip_height = self._chip_cfg.get("height", 40)
         corner_radius = self._chip_cfg.get("corner_radius", 8)
 
+        grid_frame = tk.Frame(self._tipos_scroll, bg="#2c3e50")
+        grid_frame.pack(fill="x", expand=True)
+
         for idx, tipo in enumerate(self._all_tipos):
-            chip = tk.Label(
-                self._tipos_scroll, text=tipo.nombre,
-                font=chip_font, fg=self._text,
-                bg=self._CHIP_NORMAL,
-                padx=10, pady=5, cursor="hand2"
+            is_selected = tipo.id == self._tipo_selected_id
+            chip = ctk.CTkButton(
+                grid_frame,
+                text=tipo.nombre,
+                width=100,
+                height=32,
+                corner_radius=8,
+                font=chip_font,
+                fg_color=default_style.get("bg", "#1a1a2e"),
+                text_color=default_style.get("text", "#e0e0e0"),
+                border_color=default_style.get("border", "#552583"),
+                border_width=1,
+                hover_color=default_style.get("hover", "#C77BFF"),
+                command=lambda tid=tipo.id: self._select_tipo(tid)
             )
             row = idx // cols
             col = idx % cols
-            chip.grid(row=row, column=col, padx=3, pady=3, sticky="ew")
-            chip.bind("<Button-1>", lambda e, tid=tipo.id: self._select_tipo(tid))
+            chip.grid(row=row, column=col, padx=4, pady=4, sticky="ew")
             self._tipo_chips[tipo.id] = chip
+
+        for j in range(cols):
+            grid_frame.columnconfigure(j, weight=1)
 
         for i in range(cols):
             self._tipos_scroll.columnconfigure(i, weight=1)
 
     def _select_tipo(self, tipo_id):
         self._tipo_selected_id = tipo_id
+        default_style = get_chip_style(self._chip_cfg, "default")
+        selected_style = get_chip_style(self._chip_cfg, "selected")
         for tid, chip in self._tipo_chips.items():
-            chip.configure(bg=self._CHIP_SELECTED if tid == tipo_id else self._CHIP_NORMAL)
+            is_sel = (tid == tipo_id)
+            chip.configure(
+                fg_color=selected_style.get("bg", "#552583") if is_sel else default_style.get("bg", "#1a1a2e"),
+                text_color=selected_style.get("text", "#ffffff") if is_sel else default_style.get("text", "#e0e0e0"),
+                border_color=selected_style.get("border", "#C77BFF") if is_sel else default_style.get("border", "#552583"),
+                border_width=2 if is_sel else 1
+            )
         self._cargar_variantes()
 
     def _cargar_variantes(self):

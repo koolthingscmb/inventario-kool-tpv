@@ -117,7 +117,7 @@ class Importador:
                     continue
 
                 # Construcción de SKU inteligente
-                sku_parts = [_csku(tnom)[:3], _csku(vnom)[:3]]
+                sku_parts = [_csku(tnom)[:3], _csku(vnom)[:5]]
                 if cnom:
                     sku_parts.append(_csku(cnom)[:3])
                 if talla:

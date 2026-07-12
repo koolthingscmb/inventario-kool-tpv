@@ -2,15 +2,12 @@
 import tkinter as tk
 import customtkinter as ctk
 
-from kool_tpv.modulos.produccion.ui.subvistas.config_helper import get_font
+from kool_tpv.modulos.produccion.ui.subvistas.config_helper import get_font, get_chip_config, get_chip_style
 from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 
 
 class ConfigTabMenu:
     """Pestaña MENÚ: 50% nav_list de menús | 50% chips de tipos."""
-
-    _CHIP_NORMAL = "#34495e"
-    _CHIP_SELECTED = "#27ae60"
 
     def __init__(self, parent, service, config, colors, km, layout_config):
         self.parent = parent
@@ -26,6 +23,7 @@ class ConfigTabMenu:
         self._tipos_chips = {}
         self._tipos_selected = set()
         self._all_tipos = []
+        self._chip_cfg = get_chip_config(config, "producto")
         self.build()
 
     def build(self):
@@ -98,8 +96,8 @@ class ConfigTabMenu:
         self._tipos_scroll = ctk.CTkScrollableFrame(frame_right, fg_color="#2c3e50")
         self._tipos_scroll.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 8))
 
-        # Cargar todos los tipos activos
-        self._all_tipos = self.service.tipos_repo.get_activos()
+        # Cargar todos los tipos activos, ordenados alfabéticamente
+        self._all_tipos = sorted(self.service.tipos_repo.get_activos(), key=lambda t: t.nombre.lower())
         self._rebuild_tipos_chips()
 
         self._cargar_lista()
@@ -133,35 +131,62 @@ class ConfigTabMenu:
             child.destroy()
         self._tipos_chips = {}
 
-        cols = 3
+        cols = 5
+        padx = 4
+        pady = 4
+        chip_height = 32
+        corner_radius = 8
+
+        default_style = get_chip_style(self._chip_cfg, "default")
+        selected_style = get_chip_style(self._chip_cfg, "selected")
+        font_family = get_font(self.config, self._chip_cfg.get("font_key", "label"))
+        chip_font = (font_family[0], 12, font_family[2])
+
+        grid_frame = tk.Frame(self._tipos_scroll, bg="#2c3e50")
+        grid_frame.pack(fill="x", expand=True)
+
         for idx, tipo in enumerate(self._all_tipos):
-            chip = tk.Label(
-                self._tipos_scroll, text=tipo.nombre,
-                font=get_font(self.config, "label"),
-                fg=self._text,
-                bg=self._CHIP_NORMAL,
-                padx=10, pady=5, cursor="hand2"
+            is_selected = tipo.id in self._tipos_selected
+            chip = ctk.CTkButton(
+                grid_frame,
+                text=tipo.nombre,
+                width=100,
+                height=chip_height,
+                corner_radius=corner_radius,
+                font=chip_font,
+                fg_color=selected_style.get("bg", "#552583") if is_selected else default_style.get("bg", "#1a1a2e"),
+                text_color=selected_style.get("text", "#ffffff") if is_selected else default_style.get("text", "#e0e0e0"),
+                border_color=selected_style.get("border", "#C77BFF") if is_selected else default_style.get("border", "#552583"),
+                border_width=2 if is_selected else 1,
+                hover_color=selected_style.get("hover", "#8e44ad") if is_selected else default_style.get("hover", "#C77BFF"),
+                command=lambda tid=tipo.id: self._toggle_tipo(tid)
             )
             row = idx // cols
             col = idx % cols
-            chip.grid(row=row, column=col, padx=3, pady=3, sticky="ew")
-            chip.bind("<Button-1>", lambda e, tid=tipo.id: self._toggle_tipo(tid))
+            chip.grid(row=row, column=col, padx=padx, pady=pady, sticky="ew")
             self._tipos_chips[tipo.id] = chip
 
-        self._refresh_tipos_chips()
+        for j in range(cols):
+            grid_frame.columnconfigure(j, weight=1)
 
     def _refresh_tipos_chips(self):
+        default_style = get_chip_style(self._chip_cfg, "default")
+        selected_style = get_chip_style(self._chip_cfg, "selected")
         for tid, chip in self._tipos_chips.items():
-            chip.configure(bg=self._CHIP_SELECTED if tid in self._tipos_selected else self._CHIP_NORMAL)
+            is_selected = tid in self._tipos_selected
+            chip.configure(
+                fg_color=selected_style.get("bg", "#552583") if is_selected else default_style.get("bg", "#1a1a2e"),
+                text_color=selected_style.get("text", "#ffffff") if is_selected else default_style.get("text", "#e0e0e0"),
+                border_color=selected_style.get("border", "#C77BFF") if is_selected else default_style.get("border", "#552583"),
+                border_width=2 if is_selected else 1
+            )
 
     def _toggle_tipo(self, tipo_id):
         if tipo_id in self._tipos_selected:
             self._tipos_selected.discard(tipo_id)
         else:
             self._tipos_selected.add(tipo_id)
-        chip = self._tipos_chips.get(tipo_id)
-        if chip:
-            chip.configure(bg=self._CHIP_SELECTED if tipo_id in self._tipos_selected else self._CHIP_NORMAL)
+        self._refresh_tipos_chips()
 
     def _mover(self, direccion: int):
         if not self._menu_id_edit:

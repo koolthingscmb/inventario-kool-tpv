@@ -2,17 +2,11 @@
 import tkinter as tk
 import customtkinter as ctk
 
-from kool_tpv.modulos.produccion.ui.subvistas.config_helper import get_font
+from kool_tpv.modulos.produccion.ui.subvistas.config_helper import get_font, get_chip_config, get_chip_style
 
 
 class ConfigTabMatriz:
     """Pestaña MATRIZ: gestiona relaciones género+color+talla."""
-
-    _CHIP_NORMAL = "#34495e"
-    _CHIP_SELECTED = "#27ae60"
-    _CHIP_COLOR_SEL = "#3498db"
-    _CHIP_NO_STOCK = "#2c2c2c"
-    _CHIP_NO_STOCK_FG = "#666666"
 
     def __init__(self, parent, service, config, colors, km, layout_config):
         self.parent = parent
@@ -23,6 +17,8 @@ class ConfigTabMatriz:
         self._text = colors.get("text", "#ecf0f1")
         self._km = km
         self._layout_config = layout_config
+        
+        self._chip_cfg = get_chip_config(config, "producto")
         self.build()
 
     def build(self):
@@ -49,7 +45,7 @@ class ConfigTabMatriz:
 
         # Scroll de Chips
         self._chips_scroll = ctk.CTkScrollableFrame(
-            self._header, fg_color=self._bg, height=45, orientation="horizontal"
+            self._header, fg_color=self._bg, height=55, orientation="horizontal"
         )
         self._chips_scroll.pack(side="left", fill="x", expand=True)
 
@@ -58,7 +54,7 @@ class ConfigTabMatriz:
         # Se empaqueta inicialmente para reservar el sitio, luego se oculta si no hace falta
         self._variante_frame.pack(fill="x", padx=10, pady=(0, 5))
         self._variante_scroll = ctk.CTkScrollableFrame(
-            self._variante_frame, fg_color=self._bg, height=40, orientation="horizontal"
+            self._variante_frame, fg_color=self._bg, height=50, orientation="horizontal"
         )
         self._variante_scroll.pack(fill="x", expand=True)
         self._variante_frame.pack_forget() 
@@ -111,16 +107,31 @@ class ConfigTabMatriz:
 
         items = self.service.obtener_tipos_para_matriz()
 
+        default_style = get_chip_style(self._chip_cfg, "default")
+        selected_style = get_chip_style(self._chip_cfg, "selected")
+        font_family = get_font(self.config, self._chip_cfg.get("font_key", "label"))
+        chip_font = (font_family[0], 12, font_family[2])
+
         for item in items:
-            chip = tk.Label(
-                self._chips_scroll, text=item.nombre, font=get_font(self.config, "label"),
-                fg=self._text, bg=self._CHIP_NORMAL, padx=12, pady=4, cursor="hand2"
+            is_selected = item.id == self._selected_id
+            chip = ctk.CTkButton(
+                self._chips_scroll,
+                text=item.nombre,
+                width=100,
+                height=32,
+                corner_radius=8,
+                font=chip_font,
+                fg_color=selected_style.get("bg", "#552583") if is_selected else default_style.get("bg", "#1a1a2e"),
+                text_color=selected_style.get("text", "#ffffff") if is_selected else default_style.get("text", "#e0e0e0"),
+                border_color=selected_style.get("border", "#C77BFF") if is_selected else default_style.get("border", "#552583"),
+                border_width=2 if is_selected else 1,
+                hover_color=selected_style.get("hover", "#8e44ad") if is_selected else default_style.get("hover", "#C77BFF"),
+                command=lambda i=item.id: self._select_item(i)
             )
-            chip.pack(side="left", padx=(0, 4))
-            chip.bind("<Button-1>", lambda e, i=item.id: self._select_item(i))
+            chip.pack(side="left", padx=(0, 6), pady=6)
             self._chip_widgets[item.id] = chip
 
-        if items:
+        if items and self._selected_id is None:
             self._select_item(items[0].id)
 
     def _select_item(self, item_id):
@@ -129,8 +140,17 @@ class ConfigTabMatriz:
         self._selected_variante_id = None
         self._selected_color = None
         
+        default_style = get_chip_style(self._chip_cfg, "default")
+        selected_style = get_chip_style(self._chip_cfg, "selected")
+
         for i_id, chip in self._chip_widgets.items():
-            chip.configure(bg=self._CHIP_SELECTED if i_id == item_id else self._CHIP_NORMAL)
+            is_sel = (i_id == item_id)
+            chip.configure(
+                fg_color=selected_style.get("bg", "#552583") if is_sel else default_style.get("bg", "#1a1a2e"),
+                text_color=selected_style.get("text", "#ffffff") if is_sel else default_style.get("text", "#e0e0e0"),
+                border_color=selected_style.get("border", "#C77BFF") if is_sel else default_style.get("border", "#552583"),
+                border_width=2 if is_sel else 1
+            )
         
         # Cargar variantes
         self._rebuild_variante_chips(item_id)
@@ -158,24 +178,49 @@ class ConfigTabMatriz:
         # IMPORTANTE: Asegurar que se empaqueta justo debajo de la cabecera
         self._variante_frame.pack(fill="x", padx=10, pady=(0, 5), after=self._header)
         
+        default_style = get_chip_style(self._chip_cfg, "default")
+        selected_style = get_chip_style(self._chip_cfg, "selected")
+        font_family = get_font(self.config, self._chip_cfg.get("font_key", "label"))
+        chip_font = (font_family[0], 12, font_family[2])
+
         # Chip para "SIN VARIANTE" o "GENERAL" si el tipo también lo requiere
         tipo = self.service.obtener_por_id(tipo_id)
         if tipo and (tipo.requiere_color == 1 or tipo.requiere_talla == 1):
-            v_chip = tk.Label(
-                self._variante_scroll, text="[ GENERAL ]", font=get_font(self.config, "label"),
-                fg=self._text, bg=self._CHIP_SELECTED, padx=10, pady=2, cursor="hand2"
+            is_sel = self._selected_variante_id is None
+            v_chip = ctk.CTkButton(
+                self._variante_scroll,
+                text="[ GENERAL ]",
+                width=100,
+                height=30,
+                corner_radius=8,
+                font=chip_font,
+                fg_color=selected_style.get("bg", "#552583") if is_sel else default_style.get("bg", "#1a1a2e"),
+                text_color=selected_style.get("text", "#ffffff") if is_sel else default_style.get("text", "#e0e0e0"),
+                border_color=selected_style.get("border", "#C77BFF") if is_sel else default_style.get("border", "#552583"),
+                border_width=2 if is_sel else 1,
+                hover_color=selected_style.get("hover", "#8e44ad") if is_sel else default_style.get("hover", "#C77BFF"),
+                command=lambda: self._select_variante(None)
             )
-            v_chip.pack(side="left", padx=(0, 4))
-            v_chip.bind("<Button-1>", lambda e: self._select_variante(None))
+            v_chip.pack(side="left", padx=(0, 6), pady=4)
             self._variante_widgets[None] = v_chip
 
         for v in variantes:
-            v_chip = tk.Label(
-                self._variante_scroll, text=v.nombre, font=get_font(self.config, "label"),
-                fg=self._text, bg=self._CHIP_NORMAL, padx=10, pady=2, cursor="hand2"
+            is_sel = v.id == self._selected_variante_id
+            v_chip = ctk.CTkButton(
+                self._variante_scroll,
+                text=v.nombre,
+                width=100,
+                height=30,
+                corner_radius=8,
+                font=chip_font,
+                fg_color=selected_style.get("bg", "#552583") if is_sel else default_style.get("bg", "#1a1a2e"),
+                text_color=selected_style.get("text", "#ffffff") if is_sel else default_style.get("text", "#e0e0e0"),
+                border_color=selected_style.get("border", "#C77BFF") if is_sel else default_style.get("border", "#552583"),
+                border_width=2 if is_sel else 1,
+                hover_color=selected_style.get("hover", "#8e44ad") if is_sel else default_style.get("hover", "#C77BFF"),
+                command=lambda vid=v.id: self._select_variante(vid)
             )
-            v_chip.pack(side="left", padx=(0, 4))
-            v_chip.bind("<Button-1>", lambda e, vid=v.id: self._select_variante(vid))
+            v_chip.pack(side="left", padx=(0, 6), pady=4)
             self._variante_widgets[v.id] = v_chip
         
         # Si no hay ninguno seleccionado (por el GENERAL), seleccionar el primero
@@ -188,8 +233,17 @@ class ConfigTabMatriz:
         self._selected_variante_id = variante_id
         self._selected_color = None
         
+        default_style = get_chip_style(self._chip_cfg, "default")
+        selected_style = get_chip_style(self._chip_cfg, "selected")
+
         for vid, chip in self._variante_widgets.items():
-            chip.configure(bg=self._CHIP_SELECTED if vid == variante_id else self._CHIP_NORMAL)
+            is_sel = (vid == variante_id)
+            chip.configure(
+                fg_color=selected_style.get("bg", "#552583") if is_sel else default_style.get("bg", "#1a1a2e"),
+                text_color=selected_style.get("text", "#ffffff") if is_sel else default_style.get("text", "#e0e0e0"),
+                border_color=selected_style.get("border", "#C77BFF") if is_sel else default_style.get("border", "#552583"),
+                border_width=2 if is_sel else 1
+            )
             
         # Actualizar colores de la variante
         self._colores_asignados = self.service.obtener_colores_tipo_3d(self._selected_id, variante_id)
@@ -268,8 +322,12 @@ class ConfigTabMatriz:
     def _select_color(self, color_id):
         self._save_tallas_if_dirty()
         self._selected_color = color_id
+        
+        selected_style = get_chip_style(self._chip_cfg, "selected")
+        
         for cid, w in self._color_rows.items():
-            bg = self._CHIP_COLOR_SEL if cid == color_id else "#34495e"
+            is_sel = (cid == color_id)
+            bg = "#3498db" if is_sel else "#34495e" # Azul para resaltar selección de fila
             w["row"].configure(bg=bg)
             w["lbl"].configure(bg=bg)
             
@@ -335,19 +393,44 @@ class ConfigTabMatriz:
 
         tallas_orden = sorted(self._all_tallas.keys(),
                               key=lambda t: self._all_tallas[t].orden)
-        cols = 6
+        
+        default_style = get_chip_style(self._chip_cfg, "default")
+        selected_style = get_chip_style(self._chip_cfg, "selected")
+        font_family = get_font(self.config, self._chip_cfg.get("font_key", "label"))
+        chip_font = (font_family[0], 11, font_family[2])
+        
+        cols = 5
+        grid_frame = tk.Frame(self._tallas_scroll, bg="#34495e")
+        grid_frame.pack(fill="x", expand=True)
+
         for idx, tid in enumerate(tallas_orden):
             talla = self._all_tallas[tid]
-            chip = tk.Label(self._tallas_scroll, text=talla.nombre,
-                            font=get_font(self.config, "label"),
-                            fg=self._text, bg=self._CHIP_NORMAL,
-                            padx=12, pady=5, cursor="hand2")
+            is_selected = tid in self._tallas_state
+            
+            stock = self._stock_actual.get(talla.nombre.strip().upper(), 0)
+            display_text = f"{talla.nombre} [{stock}]"
+            
+            chip = ctk.CTkButton(
+                grid_frame,
+                text=display_text,
+                width=80,
+                height=32,
+                corner_radius=8,
+                font=chip_font,
+                fg_color=selected_style.get("bg", "#552583") if is_selected else "#2c2c2c",
+                text_color=selected_style.get("text", "#ffffff") if is_selected else "#666666",
+                border_color=selected_style.get("border", "#C77BFF") if is_selected else "#444444",
+                border_width=2 if is_selected else 1,
+                command=lambda t=tid, i=idx: self._on_talla_click(None, t, i)
+            )
             row = idx // cols
             col = idx % cols
-            chip.grid(row=row, column=col, padx=4, pady=4, sticky="w")
-            chip.bind("<Button-1>", lambda e, t=tid, i=idx: self._on_talla_click(e, t, i))
+            chip.grid(row=row, column=col, padx=3, pady=3, sticky="ew")
             self._talla_chips[tid] = chip
             self._talla_order.append(tid)
+
+        for j in range(cols):
+            grid_frame.columnconfigure(j, weight=1)
         self._refresh_tallas()
 
     def _clear_tallas(self):
@@ -362,7 +445,13 @@ class ConfigTabMatriz:
     def _on_talla_click(self, event, talla_id, idx):
         if not self._selected_color:
             return
-        if event.state & 0x1 and self._last_talla_idx is not None:
+        
+        # Detectar shift si viene de un evento (Label) o ignorar si es None (CTkButton)
+        is_shift = False
+        if event is not None and hasattr(event, "state"):
+            is_shift = bool(event.state & 0x0001)
+
+        if is_shift and self._last_talla_idx is not None:
             lo = min(self._last_talla_idx, idx)
             hi = max(self._last_talla_idx, idx)
             for i in range(lo, hi + 1):
@@ -379,13 +468,19 @@ class ConfigTabMatriz:
         self._last_talla_idx = idx
 
     def _refresh_tallas(self):
+        selected_style = get_chip_style(self._chip_cfg, "selected")
         for tid, chip in self._talla_chips.items():
             talla = self._all_tallas[tid]
             stock = self._stock_actual.get(talla.nombre.strip().upper(), 0)
-            if tid in self._tallas_state:
-                chip.configure(text=f"{talla.nombre} [{stock}]", bg=self._CHIP_SELECTED, fg=self._text)
-            else:
-                chip.configure(text=f"{talla.nombre} [{stock}]", bg=self._CHIP_NO_STOCK, fg=self._CHIP_NO_STOCK_FG)
+            is_selected = tid in self._tallas_state
+            
+            chip.configure(
+                text=f"{talla.nombre} [{stock}]",
+                fg_color=selected_style.get("bg", "#552583") if is_selected else "#2c2c2c",
+                text_color=selected_style.get("text", "#ffffff") if is_selected else "#666666",
+                border_color=selected_style.get("border", "#C77BFF") if is_selected else "#444444",
+                border_width=2 if is_selected else 1
+            )
 
     def _add_color_dialog(self):
         if not self._selected_id:

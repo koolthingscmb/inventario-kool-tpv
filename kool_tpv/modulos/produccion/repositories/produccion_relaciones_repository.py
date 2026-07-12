@@ -68,10 +68,10 @@ class ProduccionRelacionesRepository:
         Returns True si se insertó, False si ya existía.
         """
         if variante_id:
-            check = "SELECT 1 FROM produccion_tipo_color_tallas WHERE tipo_id = ? AND variante_id = ? AND color_id = ? AND talla_id = ?"
+            check = "SELECT 1 FROM produccion_tipo_color_tallas WHERE tipo_id = ? AND variante_id = ? AND color_id = ? AND talla_id IS ?"
             row = self.db.fetch_all(check, (tipo_id, variante_id, color_id, talla_id))
         else:
-            check = "SELECT 1 FROM produccion_tipo_color_tallas WHERE tipo_id = ? AND variante_id IS NULL AND color_id = ? AND talla_id = ?"
+            check = "SELECT 1 FROM produccion_tipo_color_tallas WHERE tipo_id = ? AND variante_id IS NULL AND color_id = ? AND talla_id IS ?"
             row = self.db.fetch_all(check, (tipo_id, color_id, talla_id))
         
         if row:
