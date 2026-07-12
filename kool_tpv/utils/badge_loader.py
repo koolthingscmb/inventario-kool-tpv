@@ -39,7 +39,13 @@ def load_badge_image(filename: str, size: tuple = (64, 64)) -> ctk.CTkImage:
             return None
             
         img = Image.open(img_path).convert('RGBA')
-        ctk_img = ctk.CTkImage(img, size=size)
+        
+        # Crear un fondo blanco del mismo tamaño
+        fondo_blanco = Image.new('RGBA', img.size, (255, 255, 255, 255))
+        # Componer la imagen sobre el fondo blanco
+        img_final = Image.alpha_composite(fondo_blanco, img)
+        
+        ctk_img = ctk.CTkImage(img_final, size=size)
         return ctk_img
         
     except Exception:

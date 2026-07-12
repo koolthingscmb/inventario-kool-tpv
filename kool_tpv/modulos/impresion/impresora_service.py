@@ -915,6 +915,20 @@ class ImpresoraService:
 
         texto = None
         meta = {}
+        badge_path = None
+
+        # Detectar badge del cliente si hay cliente_data
+        if cliente_data:
+            try:
+                badge_file = cliente_data.get('grafismo') or cliente_data.get('nivel_grafismo') or ''
+                if badge_file:
+                    base_dir = Path(__file__).resolve().parents[2]
+                    candidate = base_dir / "assets" / "badges" / badge_file
+                    if candidate.exists():
+                        badge_path = candidate
+                        self.logger.info(f"ImpresoraService.imprimir: badge detectado: {badge_file}")
+            except Exception:
+                self.logger.exception('Error detectando badge del cliente en imprimir')
 
         if ticket_type == TicketType.VENTA:
             texto = self.ticket_generator.generate(self.config, data, items or [], cliente_data)
@@ -943,4 +957,4 @@ class ImpresoraService:
         else:
             raise ValueError(f"Unsupported ticket_type: {ticket_type}")
 
-        return self._imprimir_texto_generico(texto, meta, printer_name)
+        return self._imprimir_texto_generico(texto, meta, printer_name, badge_path=badge_path)
