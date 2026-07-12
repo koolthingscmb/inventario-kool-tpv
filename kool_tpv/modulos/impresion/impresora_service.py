@@ -204,6 +204,22 @@ class ImpresoraService:
         except Exception:
             logging.exception('Error detectando camisetas en imprimir_ticket')
 
+        # Detectar badge del cliente si hay cliente_data
+        badge_path = None
+        if cliente_data:
+            try:
+                # cliente_data puede traer 'grafismo' (generar_ticket_desde_id)
+                # o 'nivel_grafismo' (cliente_service.get_cliente)
+                badge_file = cliente_data.get('grafismo') or cliente_data.get('nivel_grafismo') or ''
+                if badge_file:
+                    base_dir = Path(__file__).resolve().parents[2]
+                    candidate = base_dir / "assets" / "badges" / badge_file
+                    if candidate.exists():
+                        badge_path = candidate
+                        self.logger.info(f"Badge encontrado para cliente: {badge_file}")
+            except Exception:
+                self.logger.exception('Error detectando badge del cliente')
+
         # Preparar config: incluir cuidado camisetas solo si hay
         gen_config = dict(self.config)
         if not has_camisetas:
@@ -212,7 +228,7 @@ class ImpresoraService:
         texto = self.ticket_generator.generate(gen_config, ticket_data, items, cliente_data)
 
         # Reutilizar la lógica común de impresión (texto/escpos/simulación)
-        return self._imprimir_texto_generico(texto, {'num_ticket': ticket_data.get('num_ticket')}, printer_name)
+        return self._imprimir_texto_generico(texto, {'num_ticket': ticket_data.get('num_ticket')}, printer_name, badge_path=badge_path)
 # Servicio para gestión de la impresora y envío de trabajos de impresión
 # Placeholder para integración con impresoras térmicas u otros dispositivos.
 
@@ -758,7 +774,7 @@ class ImpresoraService:
             self.logger.exception('Error generando cierre desde ID %s', cierre_id)
             return None
 
-    def _imprimir_texto_generico(self, texto: str, meta: dict, printer_name: Optional[str] = None, open_drawer: bool = False):
+    def _imprimir_texto_generico(self, texto: str, meta: dict, printer_name: Optional[str] = None, badge_path: Optional[Path] = None, open_drawer: bool = False):
         """Lógica común para imprimir un texto ya generado.
 
         - Maneja la simulación (logger)
@@ -771,6 +787,7 @@ class ImpresoraService:
             texto: contenido del ticket ya formateado
             meta: diccionario con metadatos (ej. {'num_ticket': ...}) usado solo para logs
             printer_name: nombre de impresora opcional
+            badge_path: ruta al badge del cliente opcional.
             open_drawer: si True, solicita al renderer abrir el cajón
         """
         logging.info(f"DEBUG _imprimir_generico: texto length={len(texto)}, open_drawer={open_drawer}")
@@ -848,7 +865,7 @@ class ImpresoraService:
                     qr_data = None
 
                 # Renderizar a bytes ESC/POS (incluye dump si debug activo)
-                data = self.esc_renderer.render_text_ticket(texto, cut=True, logo_path=logo_path, qr_data=qr_data, open_drawer=open_drawer)
+                data = self.esc_renderer.render_text_ticket(texto, cut=True, logo_path=logo_path, qr_data=qr_data, badge_path=badge_path, open_drawer=open_drawer)
 
                 # Enviar a impresora (nombre validado)
                 self.printer_adapter.send_to_printer(final_printer, data)

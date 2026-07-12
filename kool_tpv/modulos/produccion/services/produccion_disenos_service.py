@@ -160,3 +160,11 @@ class ProduccionDisenosService:
 			Diccionario {codigo: {total_producido: int, costes_metodos: list}}
 		"""
 		return self.repository.get_estadisticas_disenos(codigos)
+
+	def obtener_por_coleccion(self, coleccion_id: int) -> List[ProduccionDiseno]:
+		"""Obtener diseños activos por ID de colección."""
+		return self.repository.get_por_coleccion(coleccion_id)
+
+	def obtener_por_sufijo(self, sufijo_id: int) -> List[ProduccionDiseno]:
+		"""Obtener diseños activos por ID de sufijo."""
+		return self.repository.get_por_sufijo(sufijo_id)

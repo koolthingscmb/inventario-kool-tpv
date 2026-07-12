@@ -171,6 +171,29 @@ class DisenoNuevoView:
 		)
 		self._btn_add_sufijo.pack(side="left")
 
+		# Botones Eliminar y Mostrar
+		self._btn_eliminar = ctk.CTkButton(
+			controls_row,
+			text="ELIMINAR",
+			width=100,
+			font=self._get_font("button"),
+			fg_color=self.config.get("colors", {}).get("buttons", {}).get("cancelar", {}).get("bg", "#e74c3c"),
+			hover_color=self.config.get("colors", {}).get("buttons", {}).get("cancelar", {}).get("hover", "#c0392b"),
+			command=self._on_eliminar
+		)
+		self._btn_eliminar.pack(side="left", padx=(20, 10))
+
+		self._btn_mostrar = ctk.CTkButton(
+			controls_row,
+			text="MOSTRAR",
+			width=100,
+			font=self._get_font("button"),
+			fg_color=self.config.get("colors", {}).get("buttons", {}).get("nuevo", {}).get("bg", "#3498db"),
+			hover_color=self.config.get("colors", {}).get("buttons", {}).get("nuevo", {}).get("hover", "#2980b9"),
+			command=self._on_mostrar
+		)
+		self._btn_mostrar.pack(side="left")
+
 		# 2. FRAME DE LISTA (VirtualNavList) - El que se expande
 		self.list_frame = ctk.CTkFrame(self.frame, fg_color="transparent")
 		self.list_frame.pack(side="top", fill="both", padx=40, pady=5)
@@ -507,6 +530,86 @@ class DisenoNuevoView:
 			self._sufijo_seleccionado = nombre
 		self._render_chips_sufijos()
 
+	def _on_eliminar(self):
+		"""Lógica para eliminar la colección o sufijo seleccionado."""
+		if not self._coleccion_seleccionada and not self._sufijo_seleccionado:
+			ToastWidget.show(self.frame, "Selecciona una colección o sufijo para eliminar", tipo="warning")
+			return
+
+		# Caso 1: Eliminar Colección
+		if self._coleccion_seleccionada:
+			col_obj = self.colecciones_repo.get_por_nombre(self._coleccion_seleccionada)
+			if not col_obj:
+				return
+			
+			# Check dependencias
+			disenos = self.service.obtener_por_coleccion(col_obj.id)
+			if disenos:
+				nombres = ", ".join([d.nombre for d in disenos[:5]])
+				if len(disenos) > 5:
+					nombres += "..."
+				ToastWidget.show(
+					self.frame, 
+					f"Error: {len(disenos)} diseños usan esta colección ({nombres})", 
+					tipo="error"
+				)
+				return
+			
+			# Eliminar
+			if self.colecciones_repo.eliminar(col_obj.id):
+				self._coleccion_seleccionada = None
+				self._colecciones_cache = {c.id: c.nombre for c in self.colecciones_repo.get_activas()}
+				self._colecciones = list(self._colecciones_cache.values())
+				self._render_chips_colecciones()
+				ToastWidget.show(self.frame, "Colección eliminada", tipo="success")
+			else:
+				ToastWidget.show(self.frame, "Error al eliminar colección", tipo="error")
+			return
+
+		# Caso 2: Eliminar Sufijo
+		if self._sufijo_seleccionado:
+			suf_obj = self.sufijos_repo.get_por_nombre(self._sufijo_seleccionado)
+			if not suf_obj:
+				return
+			
+			# Check dependencias
+			disenos = self.service.obtener_por_sufijo(suf_obj.id)
+			if disenos:
+				nombres = ", ".join([d.nombre for d in disenos[:5]])
+				if len(disenos) > 5:
+					nombres += "..."
+				ToastWidget.show(
+					self.frame, 
+					f"Error: {len(disenos)} diseños usan este sufijo ({nombres})", 
+					tipo="error"
+				)
+				return
+			
+			# Eliminar
+			if self.sufijos_repo.eliminar(suf_obj.id):
+				self._sufijo_seleccionado = None
+				self._sufijos_cache = {s.id: s.nombre for s in self.sufijos_repo.get_activos()}
+				self._sufijos = list(self._sufijos_cache.values())
+				self._render_chips_sufijos()
+				ToastWidget.show(self.frame, "Sufijo eliminado", tipo="success")
+			else:
+				ToastWidget.show(self.frame, "Error al eliminar sufijo", tipo="error")
+			return
+
+	def _on_mostrar(self):
+		"""Filtrar la lista de diseños por la colección o sufijo seleccionado."""
+		if not self._coleccion_seleccionada and not self._sufijo_seleccionado:
+			# Si no hay nada seleccionado, mostramos todos (limpiar filtro)
+			self._paginated_list.search("")
+			return
+
+		# La búsqueda actual usa un filtro de texto. Necesitamos que soporte filtrar por ID de colección/sufijo
+		# o simplemente pasar el nombre al search si el repo ya lo soporta.
+		# Mirando el repo, el método 'buscar' busca por nombre. 
+		# Podríamos inyectar una lógica de filtro en _buscar_disenos_paginado.
+		
+		self._paginated_list.search("") # Forzar refresco con los seleccionados
+
 	def _on_tab_next(self, event):
 		"""Tab: mover foco al siguiente widget."""
 		widgets = [
@@ -562,8 +665,30 @@ class DisenoNuevoView:
 
 	def _buscar_disenos_paginado(self, filtro: str) -> List[ProduccionDiseno]:
 		"""Función de búsqueda para SearchablePaginatedNavList."""
+		# Caso 1: Filtro de texto (prioritario)
 		if filtro.strip():
 			disenos = self.service.buscar(filtro.strip())
+		# Caso 2: Filtros por chips (si hay seleccionados y no hay texto)
+		elif self._coleccion_seleccionada or self._sufijo_seleccionado:
+			col_id = None
+			if self._coleccion_seleccionada:
+				col_obj = self.colecciones_repo.get_por_nombre(self._coleccion_seleccionada)
+				col_id = col_obj.id if col_obj else None
+			
+			suf_id = None
+			if self._sufijo_seleccionado:
+				suf_obj = self.sufijos_repo.get_por_nombre(self._sufijo_seleccionado)
+				suf_id = suf_obj.id if suf_obj else None
+			
+			# Filtrar activos
+			todos = self.service.obtener_activos()
+			disenos = []
+			for d in todos:
+				match_col = (col_id is None or d.coleccion_id == col_id)
+				match_suf = (suf_id is None or d.sufijo_id == suf_id)
+				if match_col and match_suf:
+					disenos.append(d)
+		# Caso 3: Todos
 		else:
 			disenos = self.service.obtener_activos()
 		

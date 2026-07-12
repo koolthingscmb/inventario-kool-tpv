@@ -29,7 +29,7 @@ class EscPosRenderer:
         else:
             self.dump_directory = Path(dump_directory)
 
-    def render_text_ticket(self, text: str, cut: bool = True, logo_path: Optional[Path] = None, qr_data: Optional[str] = None, open_drawer: bool = False) -> bytes:
+    def render_text_ticket(self, text: str, cut: bool = True, logo_path: Optional[Path] = None, qr_data: Optional[str] = None, badge_path: Optional[Path] = None, open_drawer: bool = False) -> bytes:
         """Renderiza `text` a bytes ESC/POS.
 
         Args:
@@ -37,6 +37,7 @@ class EscPosRenderer:
             cut: si True, añade comando de corte parcial al final.
             logo_path: ruta al logo opcional.
             qr_data: datos para QR opcional.
+            badge_path: ruta al badge del cliente opcional.
             open_drawer: si True, añade el comando para abrir el cajón al inicio.
 
         Returns:
@@ -66,6 +67,17 @@ class EscPosRenderer:
                             parts.append(b"\n\n")
             except Exception:
                 self.logger.exception("Error generando bytes de logo desde %s", str(logo_path))
+
+        # 2b) Insertar badge si procede (left-aligned, sin centrar)
+        if badge_path is not None:
+            try:
+                if isinstance(badge_path, Path) and badge_path.exists():
+                    badge_bytes = self.render_badge(badge_path)
+                    if badge_bytes:
+                        parts.append(badge_bytes)
+                        parts.append(b" ")
+            except Exception:
+                self.logger.exception("Error generando bytes de badge desde %s", str(badge_path))
 
         # 3) Normalizar saltos de línea, sanitizar caracteres Unicode y codificar
         if text is None:
@@ -321,6 +333,73 @@ class EscPosRenderer:
             return centered
         except Exception:
             self.logger.exception("Error procesando imagen para logo: %s", str(image_path))
+            return b""
+
+    def render_badge(self, image_path: Path) -> bytes:
+        """Genera bytes ESC/POS (raster GS v 0) para un badge/icono pequeño.
+
+        - Optimizado para iconos de ~48px (no redimensiona agresivamente)
+        - Left-aligned (sin centrado)
+        - Convierte a 1-bit monocromo
+        """
+        try:
+            from PIL import Image
+        except Exception:
+            self.logger.exception("Pillow no está disponible para renderizar badge")
+            return b""
+
+        try:
+            img_path = Path(image_path)
+            if not img_path.exists():
+                self.logger.warning("Badge no encontrado: %s", str(img_path))
+                return b""
+
+            img = Image.open(img_path).convert("L")
+
+            # Para badges: tamaño máximo 64px, mantener proporción
+            max_size = 64
+            width, height = img.size
+            if width > max_size or height > max_size:
+                # Redimensionar manteniendo proporción
+                ratio = min(max_size / width, max_size / height)
+                new_w = int(width * ratio)
+                new_h = int(height * ratio)
+                img = img.resize((new_w, new_h), Image.LANCZOS)
+                width, height = img.size
+
+            # Convertir a modo 1 (1-bit)
+            img = img.convert("1")
+
+            # Preparar datos raster
+            bytes_per_row = (width + 7) // 8
+            raster_data = bytearray()
+            for y in range(height):
+                byte = 0
+                bits_filled = 0
+                for x in range(width):
+                    pixel = img.getpixel((x, y))
+                    bit = 1 if pixel == 0 else 0
+                    byte = (byte << 1) | bit
+                    bits_filled += 1
+                    if bits_filled == 8:
+                        raster_data.append(byte & 0xFF)
+                        byte = 0
+                        bits_filled = 0
+                if bits_filled > 0:
+                    byte = byte << (8 - bits_filled)
+                    raster_data.append(byte & 0xFF)
+
+            xL = bytes_per_row & 0xFF
+            xH = (bytes_per_row >> 8) & 0xFF
+            yL = height & 0xFF
+            yH = (height >> 8) & 0xFF
+
+            # GS v 0 m xL xH yL yH [data] (m=0, left-aligned)
+            m = 0
+            header = self.GS + b"v" + b"0" + bytes([m, xL, xH, yL, yH])
+            return header + bytes(raster_data)
+        except Exception:
+            self.logger.exception("Error procesando badge: %s", str(image_path))
             return b""
 
     # Preparado para futuras extensiones (no implementadas)

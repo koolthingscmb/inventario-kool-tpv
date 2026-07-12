@@ -362,3 +362,57 @@ class ProduccionDisenosRepository:
 				"costes_metodos": costes_map.get(cod, [])
 			}
 		return stats
+
+	def get_por_coleccion(self, coleccion_id: int) -> List[ProduccionDiseno]:
+		"""Obtener diseños activos por ID de colección."""
+		query = """
+			SELECT d.codigo, d.coleccion_id, d.nombre, d.sufijo_id, d.activo
+			FROM produccion_disenos d
+			WHERE d.coleccion_id = ? AND d.activo = 1
+		"""
+		rows = self.db.fetch_all(query, (coleccion_id,))
+		if not rows:
+			return []
+
+		codigos = [r[0] for r in rows]
+		tipos_map = self._get_tipos_para_disenos(codigos)
+
+		disenos: List[ProduccionDiseno] = []
+		for row in rows:
+			(codigo, coleccion_id, nombre, sufijo_id, activo) = row
+			disenos.append(ProduccionDiseno(
+				codigo=codigo,
+				coleccion_id=coleccion_id or 0,
+				nombre=nombre,
+				sufijo_id=sufijo_id,
+				tipos=tipos_map.get(codigo, []),
+				activo=activo
+			))
+		return disenos
+
+	def get_por_sufijo(self, sufijo_id: int) -> List[ProduccionDiseno]:
+		"""Obtener diseños activos por ID de sufijo."""
+		query = """
+			SELECT d.codigo, d.coleccion_id, d.nombre, d.sufijo_id, d.activo
+			FROM produccion_disenos d
+			WHERE d.sufijo_id = ? AND d.activo = 1
+		"""
+		rows = self.db.fetch_all(query, (sufijo_id,))
+		if not rows:
+			return []
+
+		codigos = [r[0] for r in rows]
+		tipos_map = self._get_tipos_para_disenos(codigos)
+
+		disenos: List[ProduccionDiseno] = []
+		for row in rows:
+			(codigo, coleccion_id, nombre, sufijo_id, activo) = row
+			disenos.append(ProduccionDiseno(
+				codigo=codigo,
+				coleccion_id=coleccion_id or 0,
+				nombre=nombre,
+				sufijo_id=sufijo_id,
+				tipos=tipos_map.get(codigo, []),
+				activo=activo
+			))
+		return disenos

@@ -1,4 +1,7 @@
 import logging
+import os
+import shutil
+from pathlib import Path
 import customtkinter as ctk
 from kool_tpv.utils.config_loader import load_colors, create_action_button
 from kool_tpv.utils.font_loader import get_font
@@ -74,7 +77,45 @@ class FidelizacionNivelesUI:
         ).grid(row=1, column=0, sticky='w', padx=6, pady=6)
 
         self.entry_grafismo = ctk.CTkEntry(self.header_frame, **entry_kw)
-        self.entry_grafismo.grid(row=1, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
+        self.entry_grafismo.grid(row=1, column=1, columnspan=2, sticky='ew', padx=(6, 2), pady=6)
+        self.entry_grafismo.configure(state='disabled')
+
+        # Botones para badge
+        badge_btn_frame = ctk.CTkFrame(self.header_frame, fg_color='transparent')
+        badge_btn_frame.grid(row=1, column=3, sticky='w', padx=(0, 6), pady=6)
+
+        self.btn_subir_badge = ctk.CTkButton(
+            badge_btn_frame,
+            text='📁',
+            width=40,
+            height=32,
+            fg_color=self.colors.get('primary', '#FF9800'),
+            hover_color=self.colors.get('primary_hover', '#F57C00'),
+            command=self._subir_badge
+        )
+        self.btn_subir_badge.pack(side='left', padx=2)
+
+        self.btn_limpiar_badge = ctk.CTkButton(
+            badge_btn_frame,
+            text='🗑️',
+            width=40,
+            height=32,
+            fg_color='#e74c3c',
+            hover_color='#c0392b',
+            command=self._limpiar_badge
+        )
+        self.btn_limpiar_badge.pack(side='left', padx=2)
+
+        # Preview del badge
+        self.badge_preview = ctk.CTkLabel(
+            badge_btn_frame,
+            text='',
+            width=36,
+            height=36,
+            fg_color='#FFFFFF',
+            corner_radius=4
+        )
+        self.badge_preview.pack(side='left', padx=(6, 2))
 
         ctk.CTkLabel(
             self.header_frame,
@@ -188,8 +229,11 @@ class FidelizacionNivelesUI:
             self.entry_nombre.delete(0, 'end')
             self.entry_nombre.insert(0, data.get('nombre_nivel', ''))
 
+            self.entry_grafismo.configure(state='normal')
             self.entry_grafismo.delete(0, 'end')
             self.entry_grafismo.insert(0, data.get('grafismo_nivel', ''))
+            self.entry_grafismo.configure(state='disabled')
+            self._actualizar_preview_badge(data.get('grafismo_nivel', ''))
 
             self.entry_puntos.delete(0, 'end')
             self.entry_puntos.insert(0, data.get('tesoro_minimo', ''))  # ya viene en euros desde _load_niveles
@@ -216,7 +260,10 @@ class FidelizacionNivelesUI:
         self.entry_level.insert(0, str(siguiente_level))
 
         self.entry_nombre.delete(0, 'end')
+        self.entry_grafismo.configure(state='normal')
         self.entry_grafismo.delete(0, 'end')
+        self.entry_grafismo.configure(state='disabled')
+        self._actualizar_preview_badge('')
         self.entry_puntos.delete(0, 'end')
         self.combo_tipo_recompensa.set('')
         self.entry_detalle.delete(0, 'end')
@@ -304,3 +351,69 @@ class FidelizacionNivelesUI:
             f'¿Eliminar nivel {self.selected_nivel.get("level")} - {self.selected_nivel.get("nombre_nivel")}?',
             callback=_confirmar_eliminar
         )
+
+    def _subir_badge(self):
+        """Abrir diálogo para subir un badge y copiarlo a assets/badges."""
+        from tkinter import filedialog
+        
+        level = self.entry_level.get().strip()
+        if not level:
+            ToastWidget.show(self.container, 'PRIMERO ASIGNA UN NÚMERO DE NIVEL', tipo='warning')
+            return
+
+        file_types = [('Imágenes PNG', '*.png')]
+        file_path = filedialog.askopenfilename(title="Seleccionar Badge (48x48 PNG)", filetypes=file_types)
+        
+        if not file_path:
+            return
+
+        try:
+            # Ruta relativa robusta a assets/badges
+            dest_dir = Path(__file__).resolve().parent.parent.parent.parent / "assets" / "badges"
+            dest_dir.mkdir(parents=True, exist_ok=True)
+
+            ext = os.path.splitext(file_path)[1].lower()
+            dest_filename = f"badge_level_{level}{ext}"
+            dest_path = dest_dir / dest_filename
+
+            # Copiar archivo
+            shutil.copy2(file_path, dest_path)
+
+            # Actualizar entry
+            self.entry_grafismo.configure(state='normal')
+            self.entry_grafismo.delete(0, 'end')
+            self.entry_grafismo.insert(0, dest_filename)
+            self.entry_grafismo.configure(state='disabled')
+            self._actualizar_preview_badge(dest_filename)
+
+            ToastWidget.show(self.container, f'BADGE GUARDADO: {dest_filename}', tipo='success')
+
+        except Exception:
+            logging.exception("Error subiendo badge")
+            ToastWidget.show(self.container, 'NO SE PUDO SUBIR EL BADGE', tipo='error')
+
+    def _limpiar_badge(self):
+        """Limpiar el badge seleccionado."""
+        self.entry_grafismo.configure(state='normal')
+        self.entry_grafismo.delete(0, 'end')
+        self.entry_grafismo.configure(state='disabled')
+        self._actualizar_preview_badge('')
+
+    def _actualizar_preview_badge(self, filename):
+        """Actualizar la imagen de preview del badge."""
+        if not filename:
+            self.badge_preview.configure(image='')
+            return
+        try:
+            badge_dir = Path(__file__).resolve().parent.parent.parent.parent / "assets" / "badges"
+            img_path = badge_dir / filename
+            if img_path.exists():
+                from PIL import Image
+                pil_img = Image.open(img_path)
+                ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(32, 32))
+                self.badge_preview.configure(image=ctk_img)
+            else:
+                self.badge_preview.configure(image='')
+        except Exception:
+            logging.exception('Error cargando preview de badge')
+            self.badge_preview.configure(image='')
