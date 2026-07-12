@@ -17,6 +17,7 @@ from kool_tpv.utils.widgets.payment_controllers.payment_controller_simple import
 from kool_tpv.utils.widgets.payment_controllers.payment_controller_efectivo import PaymentControllerEfectivo
 from kool_tpv.utils.widgets.payment_controllers.payment_controller_multi import PaymentControllerMulti
 from kool_tpv.utils.factories.button_factory import ButtonFactory
+from kool_tpv.utils.badge_loader import load_badge_image
 
 def load_config(config_name: str) -> dict:
     """Cargar archivo de configuración."""
@@ -639,13 +640,20 @@ class TicketCarrito(ctk.CTkFrame):
                     self.cliente_nombre_label.configure(text=nombre)
 
                     if nivel and nivel_nombre:
-                        nivel_texto = f"Lv {nivel} - {nivel_nombre} {grafismo}"
+                        nivel_texto = f"Lv {nivel} - {nivel_nombre}"
                     else:
                         nivel_texto = ""
 
                     # Actualizar label de nivel separado
                     try:
                         self.cliente_nivel_label.configure(text=nivel_texto)
+                        # Cargar y mostrar badge al lado del texto
+                        badge_img = load_badge_image(grafismo, size=(24, 24))
+                        if badge_img:
+                            self.cliente_nivel_label.configure(image=badge_img, compound="right", padx=10)
+                            self.cliente_nivel_label._img_ref = badge_img
+                        else:
+                            self.cliente_nivel_label.configure(image=None)
                     except Exception:
                         # En caso de que el label no exista aún, ignorar
                         pass
@@ -655,7 +663,7 @@ class TicketCarrito(ctk.CTkFrame):
             else:
                 self.cliente_nombre_label.configure(text="SELECCIONAR CLIENTE...")
                 try:
-                    self.cliente_nivel_label.configure(text="")
+                    self.cliente_nivel_label.configure(text="", image=None)
                 except Exception:
                     pass
                 self.tesoro_label.configure(text="0 pts")

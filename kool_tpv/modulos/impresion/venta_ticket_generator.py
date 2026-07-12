@@ -423,15 +423,9 @@ class VentaTicketGenerator(BaseTicketGenerator):
             if len(fame) > self.WIDTH:
                 fame = fame[: self.WIDTH]
             lines.append(fame.center(self.WIDTH))
-            # Línea 2: grafismo (izq) + nombre_nivel (der)
-            grafismo = cliente_data.get('grafismo', '')
-            if grafismo or nivel:
-                left_part = grafismo or ''
-                right_part = nivel or ''
-                espacios = self.WIDTH - len(left_part) - len(right_part)
-                if espacios < 0:
-                    espacios = 0
-                nivel_line = left_part + (' ' * espacios) + right_part
+            # Línea 2: nombre_nivel (derecha)
+            if nivel:
+                nivel_line = nivel.rjust(self.WIDTH)
                 lines.append(nivel_line[: self.WIDTH])
 
             # tesoro lines

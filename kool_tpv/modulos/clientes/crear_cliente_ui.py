@@ -23,6 +23,7 @@ from kool_tpv.utils.config_loader import create_action_button, load_colors
 from kool_tpv.utils.custom_dialog import show_input_dialog, show_password_dialog
 from kool_tpv.utils.auth_service import AuthService
 from kool_tpv.modulos.clientes.clientes_tickets import ClientesTicketsUI
+from kool_tpv.utils.badge_loader import load_badge_image
 
 logger = logging.getLogger(__name__)
 
@@ -633,7 +634,15 @@ class CrearClienteUI:
                 pass
 
             try:
-                self.lbl_grafismo.configure(text=cliente.get('nivel_grafismo', '~'))
+                # self.lbl_grafismo.configure(text=cliente.get('nivel_grafismo', '~'))
+                # Reemplazar texto por imagen usando badge_loader
+                badge_file = cliente.get('nivel_grafismo')
+                badge_img = load_badge_image(badge_file, size=(80, 80))
+                if badge_img:
+                    self.lbl_grafismo.configure(image=badge_img, text="")
+                    self.lbl_grafismo._img_ref = badge_img # Mantener referencia
+                else:
+                    self.lbl_grafismo.configure(image=None, text=cliente.get('nivel_grafismo', '~'))
             except Exception:
                 pass
 
@@ -872,7 +881,7 @@ class CrearClienteUI:
                 self.lbl_titulo_tesoro.configure(text='TESORO DE')
                 self.lbl_level.configure(text='1')
                 self.lbl_nombre_nivel.configure(text='Forastero')
-                self.lbl_grafismo.configure(text='~')
+                self.lbl_grafismo.configure(image=None, text='~')
             except Exception:
                 pass
 
