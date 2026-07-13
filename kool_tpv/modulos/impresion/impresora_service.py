@@ -965,6 +965,7 @@ class ImpresoraService:
         # 1. Cargar configuración fresca
         self.config = self._load_config_from_db()
         modo = self.config.get('modo_impresion', 'escpos')
+        self.modo_impresion = modo  # <--- ESTA ES LA LÍNEA CRÍTICA
         codepage = self.config.get('printer_codepage', 'cp858')
         
         # 2. Si estamos en modo físico, asegurar que los motores (renderer/adapter) estén arrancados
