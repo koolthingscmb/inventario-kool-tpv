@@ -955,34 +955,39 @@ class ImpresoraService:
         return False
 
     def imprimir_ticket_nivel(self, nivel_data: dict, printer_name: Optional[str] = None):
-        """Genera e imprime un ticket de subida de nivel usando el generador específico."""
+        """Genera e imprime un ticket de subida de nivel usando el generador específico.
+
+        Este método asegura que se cree una instancia fresca de los componentes de impresión
+        física (ESC/POS) si el modo está activado, similar a cómo funciona el ticket de venta.
+        """
         self.logger.info(f"DEBUG: Iniciando imprimir_ticket_nivel para {nivel_data.get('cliente')}")
         
-        # Recargar configuración completa para asegurar modo y parámetros actualizados
-        try:
-            self.config = self._load_config_from_db()
-            self.modo_impresion = self.config.get('modo_impresion', 'escpos')
-            self.imprimir_en_consola = self.config.get('imprimir_en_consola', '0') == '1'
-            self.logger.info(f"DEBUG: Modo impresión nivel: {self.modo_impresion}")
-        except Exception:
-            self.logger.exception('Error recargando modo de impresión para nivel')
+        # 1. Cargar configuración fresca
+        self.config = self._load_config_from_db()
+        modo = self.config.get('modo_impresion', 'escpos')
+        codepage = self.config.get('printer_codepage', 'cp858')
+        
+        # 2. Si estamos en modo físico, asegurar que los motores (renderer/adapter) estén arrancados
+        if modo == 'escpos':
+            if self.esc_renderer is None and EscPosRenderer is not None:
+                debug_dump = str(self.config.get('debug_dump_escpos', '0')) == '1'
+                self.esc_renderer = EscPosRenderer(encoding=codepage, debug_dump=debug_dump)
+            if self.printer_adapter is None and WindowsPrinterAdapter is not None:
+                self.printer_adapter = WindowsPrinterAdapter()
 
+        # 3. Generar el texto
         texto = self.nivel_ticket_generator.generate(self.config, nivel_data)
         
-        # Preparar logo específico de nivel si existe
+        # 4. Preparar logo y badge
         logo_path = None
-        try:
-            enabled = str(self.config.get('logo_nivel_enabled', '0')) == '1'
-            filename = self.config.get('logo_nivel_filename')
-            if enabled and filename:
-                base_dir = Path(__file__).resolve().parents[2]
-                candidate = base_dir / "assets" / "logo" / filename
-                if candidate.exists():
-                    logo_path = candidate
-        except Exception:
-            pass
+        enabled = str(self.config.get('logo_nivel_enabled', '0')) == '1'
+        filename = self.config.get('logo_nivel_filename')
+        if enabled and filename:
+            base_dir = Path(__file__).resolve().parents[2]
+            candidate = base_dir / "assets" / "logo" / filename
+            if candidate.exists():
+                logo_path = candidate
             
-        # Detectar badge
         badge_path = None
         grafismo = nivel_data.get('grafismo')
         if grafismo:
@@ -991,7 +996,7 @@ class ImpresoraService:
             if candidate.exists():
                 badge_path = candidate
 
-        # Usar el cliente o algún identificador como metadato para logs
+        # 5. Imprimir
         meta = {'num_ticket': nivel_data.get('cliente', '')}
         return self._imprimir_texto_generico(texto, meta, printer_name, badge_path=badge_path, logo_path_override=logo_path)
 
