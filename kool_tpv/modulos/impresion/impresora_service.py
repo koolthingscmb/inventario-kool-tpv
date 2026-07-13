@@ -941,21 +941,14 @@ class ImpresoraService:
         """Genera e imprime un ticket de subida de nivel usando el generador específico."""
         self.logger.info(f"DEBUG: Iniciando imprimir_ticket_nivel para {nivel_data.get('cliente')}")
         
-        # Si no nos pasan impresora, intentar obtener la de tickets por defecto (clave: printer_name)
-        if not printer_name:
-            try:
-                self.config = self._load_config_from_db()
-                printer_name = self.config.get('printer_name')
-                self.logger.info(f"DEBUG: Usando impresora por defecto para nivel: {printer_name}")
-            except Exception:
-                pass
-
-        # Ensure latest config from DB
+        # Recargar configuración completa para asegurar modo y parámetros actualizados
         try:
             self.config = self._load_config_from_db()
-            self.logger.info('ImpresoraService: recargada configuración desde BD antes de generar ticket nivel')
+            self.modo_impresion = self.config.get('modo_impresion', 'escpos')
+            self.imprimir_en_consola = self.config.get('imprimir_en_consola', '0') == '1'
+            self.logger.info(f"DEBUG: Modo impresión nivel: {self.modo_impresion}")
         except Exception:
-            self.logger.exception('ImpresoraService: error recargando config antes de generar ticket nivel')
+            self.logger.exception('Error recargando modo de impresión para nivel')
 
         texto = self.nivel_ticket_generator.generate(self.config, nivel_data)
         
