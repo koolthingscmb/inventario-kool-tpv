@@ -938,13 +938,19 @@ class ImpresoraService:
         return False
 
     def imprimir_ticket_nivel(self, nivel_data: dict, printer_name: Optional[str] = None):
-        """Genera e imprime un ticket de subida de nivel usando el generador específico.
-
-        Reutiliza la lógica de impresión común para mantener compatibilidad con
-        `imprimir_ticket` (simulación, modo texto/escpos, logo, dump).
-        """
+        """Genera e imprime un ticket de subida de nivel usando el generador específico."""
         self.logger.info(f"DEBUG: Iniciando imprimir_ticket_nivel para {nivel_data.get('cliente')}")
-        # Ensure latest config from DB before generating nivel ticket
+        
+        # Si no nos pasan impresora, intentar obtener la de tickets por defecto
+        if not printer_name:
+            try:
+                self.config = self._load_config_from_db()
+                printer_name = self.config.get('impresora_tickets')
+                self.logger.info(f"DEBUG: Usando impresora por defecto para nivel: {printer_name}")
+            except Exception:
+                pass
+
+        # Ensure latest config from DB
         try:
             self.config = self._load_config_from_db()
             self.logger.info('ImpresoraService: recargada configuración desde BD antes de generar ticket nivel')
