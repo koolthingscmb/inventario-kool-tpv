@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 class VentaFidelizacionProcessor(VentaProcessor):
     def process(self, **kwargs):
+        logger.info("!!! DEBUG: ENTRANDO EN VENTAFIDELIZACIONPROCESSOR.PROCESS !!!")
         proc_res = super().process(**kwargs)
         if isinstance(proc_res, (tuple, list)):
             ticket_id = proc_res[0]
@@ -41,9 +42,10 @@ class VentaFidelizacionProcessor(VentaProcessor):
             logger.info(f"DEBUG res_nivel: {res_nivel}")
             logger.info(f"DEBUG impresora_service: {self.impresora_service is not None}")
 
-            # Si subió de nivel y tenemos impresora, lanzar ticket
-            if res_nivel.get('subida_nivel') and self.impresora_service:
-                logger.info(f"DEBUG detectada subida de nivel para cliente {cliente_id}")
+            # MODO FORZADO PARA PRUEBAS: Imprimir ticket de nivel SIEMPRE que haya cliente
+            # (Incluso si res_nivel.get('subida_nivel') es False)
+            if self.impresora_service:
+                logger.info(f"!!! DEBUG MODO FORZADO: Lanzando ticket de nivel para cliente {cliente_id} !!!")
                 try:
                     from datetime import datetime
                     from kool_tpv.modulos.fidelizacion.niveles_repository import NivelesRepository
