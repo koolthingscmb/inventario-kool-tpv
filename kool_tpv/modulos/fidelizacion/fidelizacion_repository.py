@@ -234,6 +234,8 @@ class FidelizacionRepository:
             nivel_nuevo_id = row_nuevo[0] if row_nuevo else None
             tesoro_historico = row_nuevo[1] if row_nuevo else 0
 
+            logger.info(f"DEBUG actualizar_loyalty: cliente_id={cliente_id}, nivel_ant={nivel_anterior_id}, nivel_nue={nivel_nuevo_id}, tesoro_hist={tesoro_historico}")
+
             if not in_tx:
                 self.db.connection.commit()
 

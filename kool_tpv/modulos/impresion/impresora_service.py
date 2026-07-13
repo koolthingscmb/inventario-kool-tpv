@@ -943,6 +943,7 @@ class ImpresoraService:
         Reutiliza la lógica de impresión común para mantener compatibilidad con
         `imprimir_ticket` (simulación, modo texto/escpos, logo, dump).
         """
+        self.logger.info(f"DEBUG: Iniciando imprimir_ticket_nivel para {nivel_data.get('cliente')}")
         # Ensure latest config from DB before generating nivel ticket
         try:
             self.config = self._load_config_from_db()
