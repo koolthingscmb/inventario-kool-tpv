@@ -368,7 +368,8 @@ class VentaTicketGenerator(BaseTicketGenerator):
 
         lines.append(self.DOUBLE_DIVIDER)
         total = ticket_data.get('total', 0)
-        lines.append(self._format_line_lr("TOTAL:", self._format_currency(total)))
+        total_line = self._format_line_lr("TOTAL:", self._format_currency(total))
+        lines.append('{{BOLD_ON}}' + total_line + '{{BOLD_OFF}}')
         lines.append(self.DOUBLE_DIVIDER)
 
         # Formato simplificado de pago (reemplaza la tabla antigua)
@@ -452,12 +453,24 @@ class VentaTicketGenerator(BaseTicketGenerator):
         camisetas_text = config.get('ticket_cuidado_camisetas')
         if camisetas_text:
             lines.append(self.DIVIDER)
-            lines.extend(self._render_template(camisetas_text, context))
+            camisetas_lines = self._render_template(camisetas_text, context)
+            if camisetas_lines:
+                # Primera línea en negrita
+                lines.append('{{BOLD_ON}}' + camisetas_lines[0] + '{{BOLD_OFF}}')
+                lines.extend(camisetas_lines[1:])
+            else:
+                lines.extend(camisetas_lines)
 
         # Pie: soporte footer por tipo con fallback al footer genérico
         footer_val = config.get(footer_key)
         if footer_val:
-            lines.extend(self._render_template(footer_val, context))
+            footer_lines = self._render_template(footer_val, context)
+            if footer_lines:
+                # Primera línea en negrita
+                lines.append('{{BOLD_ON}}' + footer_lines[0] + '{{BOLD_OFF}}')
+                lines.extend(footer_lines[1:])
+            else:
+                lines.extend(footer_lines)
         else:
             lines.extend(self._format_footer(config))
 
