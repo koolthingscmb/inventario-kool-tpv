@@ -12,6 +12,7 @@ __pycache__/
 kool_tpv/base_datos/*.test.db
 # Ignore any local DB snapshots
 kool_tpv/base_datos/kool_bd.*.db
+kool_tpv/base_datos/*.db
 # Ignore DB backups
 *.bak
 *.bak_*
