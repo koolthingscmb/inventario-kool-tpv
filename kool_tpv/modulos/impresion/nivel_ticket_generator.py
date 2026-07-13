@@ -78,9 +78,6 @@ class NivelTicketGenerator(BaseTicketGenerator):
         if lvl_line:
             lines.append(lvl_line.center(self.WIDTH))
 
-        if grafismo:
-            lines.append(str(grafismo).center(self.WIDTH))
-
         # Total acumulado
         if total_acumulado:
             left = 'Total acumulado:'
