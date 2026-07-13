@@ -68,17 +68,6 @@ class EscPosRenderer:
             except Exception:
                 self.logger.exception("Error generando bytes de logo desde %s", str(logo_path))
 
-        # 2b) Insertar badge si procede (left-aligned, sin centrar)
-        if badge_path is not None:
-            try:
-                if isinstance(badge_path, Path) and badge_path.exists():
-                    badge_bytes = self.render_badge(badge_path)
-                    if badge_bytes:
-                        parts.append(badge_bytes)
-                        parts.append(b" ")
-            except Exception:
-                self.logger.exception("Error generando bytes de badge desde %s", str(badge_path))
-
         # 3) Normalizar saltos de línea, sanitizar caracteres Unicode y codificar
         if text is None:
             text = ""
@@ -93,13 +82,42 @@ class EscPosRenderer:
 
         # Codificar todo el texto plano sin modificaciones ni estilos especiales
         # El formato completo debe venir del generator (separación de responsabilidades)
-        try:
-            parts.append(normalized.encode(self.encoding))
-        except Exception:
-            # Fallback: seguir usando el encoding configurado pero reemplazando
-            # los caracteres no soportados con '?' en vez de pasar a UTF-8
-            # (UTF-8 haría que € pase de 1 byte a 3 bytes, rompiendo la impresión)
-            parts.append(normalized.encode(self.encoding, errors="replace"))
+        # Si hay badge, sustituir el placeholder {{BADGE}} por los bytes raster
+        if badge_path is not None and '{{BADGE}}' in normalized:
+            try:
+                if isinstance(badge_path, Path) and badge_path.exists():
+                    badge_bytes = self.render_badge(badge_path)
+                    if badge_bytes:
+                        # Dividir el texto en torno al placeholder
+                        before, after = normalized.split('{{BADGE}}', 1)
+                        # Codificar lo anterior al badge
+                        if before.strip():
+                            parts.append(before.encode(self.encoding, errors="replace"))
+                        # Insertar badge centrado
+                        parts.append(badge_bytes)
+                        parts.append(b"\n")
+                        # Codificar lo posterior al badge
+                        if after.strip():
+                            parts.append(after.encode(self.encoding, errors="replace"))
+                    else:
+                        # Badge no se pudo renderizar, eliminar placeholder
+                        normalized = normalized.replace('{{BADGE}}\n', '').replace('{{BADGE}}', '')
+                        parts.append(normalized.encode(self.encoding, errors="replace"))
+                else:
+                    normalized = normalized.replace('{{BADGE}}\n', '').replace('{{BADGE}}', '')
+                    parts.append(normalized.encode(self.encoding, errors="replace"))
+            except Exception:
+                self.logger.exception("Error sustituyendo badge en placeholder")
+                normalized = normalized.replace('{{BADGE}}\n', '').replace('{{BADGE}}', '')
+                parts.append(normalized.encode(self.encoding, errors="replace"))
+        else:
+            # Sin badge: eliminar placeholder si existe y codificar normalmente
+            if '{{BADGE}}' in normalized:
+                normalized = normalized.replace('{{BADGE}}\n', '').replace('{{BADGE}}', '')
+            try:
+                parts.append(normalized.encode(self.encoding))
+            except Exception:
+                parts.append(normalized.encode(self.encoding, errors="replace"))
 
         # 4) Añadir una línea extra de separación (antes del corte)
 
@@ -361,8 +379,8 @@ class EscPosRenderer:
             fondo_blanco = Image.new("RGBA", img.size, (255, 255, 255, 255))
             img = Image.alpha_composite(fondo_blanco, img).convert("L")
 
-            # Para badges: tamaño máximo 64px, mantener proporción
-            max_size = 64
+            # Para badges: tamaño máximo 512px de ancho (impresora 80mm = 576px)
+            max_size = 512
             width, height = img.size
             if width > max_size or height > max_size:
                 # Redimensionar manteniendo proporción
@@ -399,10 +417,11 @@ class EscPosRenderer:
             yL = height & 0xFF
             yH = (height >> 8) & 0xFF
 
-            # GS v 0 m xL xH yL yH [data] (m=0, left-aligned)
+            # GS v 0 m xL xH yL yH [data] (m=0, centrado)
             m = 0
             header = self.GS + b"v" + b"0" + bytes([m, xL, xH, yL, yH])
-            return header + bytes(raster_data)
+            centered = self.ESC + b"a" + b"\x01" + header + bytes(raster_data) + self.ESC + b"a" + b"\x00"
+            return centered
         except Exception:
             self.logger.exception("Error procesando badge: %s", str(image_path))
             return b""

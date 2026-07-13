@@ -637,7 +637,7 @@ class CrearClienteUI:
                 # self.lbl_grafismo.configure(text=cliente.get('nivel_grafismo', '~'))
                 # Reemplazar texto por imagen usando badge_loader
                 badge_file = cliente.get('nivel_grafismo')
-                badge_img = load_badge_image(badge_file, size=(80, 80))
+                badge_img = load_badge_image(badge_file, size=(120, 19))
                 if badge_img:
                     self.lbl_grafismo.configure(image=badge_img, text="")
                     self.lbl_grafismo._img_ref = badge_img # Mantener referencia

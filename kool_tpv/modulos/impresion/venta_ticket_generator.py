@@ -414,19 +414,13 @@ class VentaTicketGenerator(BaseTicketGenerator):
             nombre_cliente = cliente_data.get('nombre', '')
             nivel = cliente_data.get('nivel', '')
             lines.append(self.DIVIDER)
-            # Línea 1: nombre + Lv.X (centrado)
-            level_num = cliente_data.get('level_num', '')
-            if level_num:
-                fame = f"<<<<<<<<<< {nombre_cliente} Lv.{level_num} >>>>>>>>>"
-            else:
-                fame = f"<<<<<<<<<< {nombre_cliente} >>>>>>>>>"
-            if len(fame) > self.WIDTH:
-                fame = fame[: self.WIDTH]
-            lines.append(fame.center(self.WIDTH))
-            # Línea 2: nombre_nivel (derecha)
-            if nivel:
-                nivel_line = nivel.rjust(self.WIDTH)
-                lines.append(nivel_line[: self.WIDTH])
+            # Cabecera: El Tesoro de: Nombre Cliente
+            tesoro_header = f"El Tesoro de: {nombre_cliente}"
+            if len(tesoro_header) > self.WIDTH:
+                tesoro_header = tesoro_header[: self.WIDTH]
+            lines.append(tesoro_header)
+            # Placeholder para el badge (lo sustituye el renderer ESC/POS)
+            lines.append('{{BADGE}}')
 
             # tesoro lines
             gasto_hoy = ticket_data.get('tesoro_data', {}).get('gastado', 0)
@@ -445,7 +439,10 @@ class VentaTicketGenerator(BaseTicketGenerator):
                     lines.append(self._format_line_lr("Tesoro perdido:", self._format_currency(ganado)))
                 lines.append(self._format_line_lr("Tesoro Total:", self._format_currency(total_tesoro)))
             else:
-                lines.append(self._format_line_lr("Tesoro gastado hoy:", '-' + self._format_currency(gasto_hoy)))
+                gasto_str = self._format_currency(gasto_hoy)
+                if gasto_hoy and gasto_hoy != 0:
+                    gasto_str = '-' + gasto_str
+                lines.append(self._format_line_lr("Tesoro gastado hoy:", gasto_str))
                 lines.append(self._format_line_lr("Tesoro acumulado:", self._format_currency(acumulado)))
                 lines.append(self._format_line_lr("Tesoro ganado:", self._format_currency(ganado)))
                 lines.append(self._format_line_lr("Tesoro Total:", self._format_currency(total_tesoro)))

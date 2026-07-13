@@ -648,7 +648,7 @@ class TicketCarrito(ctk.CTkFrame):
                     try:
                         self.cliente_nivel_label.configure(text=nivel_texto)
                         # Cargar y mostrar badge al lado del texto
-                        badge_img = load_badge_image(grafismo, size=(24, 24))
+                        badge_img = load_badge_image(grafismo, size=(100, 16))
                         if badge_img:
                             self.cliente_nivel_label.configure(image=badge_img, compound="right", padx=10)
                             self.cliente_nivel_label._img_ref = badge_img
