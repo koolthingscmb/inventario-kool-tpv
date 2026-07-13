@@ -173,8 +173,7 @@ class FidelizacionNivelesUI:
             columns=[
                 ('level', 80, 'Level'),
                 ('nombre_nivel', 200, 'Nombre'),
-                ('grafismo_nivel', 150, 'Grafismo'),
-                ('tesoro_minimo', 150, 'Puntos Mín.')
+                ('tesoro_minimo', 150, 'Puntos Mín. (€)')
             ],
             on_select=self._on_nivel_select,
             module_name=module_name,
