@@ -664,6 +664,8 @@ class TicketCarrito(ctk.CTkFrame):
                 self.cliente_nombre_label.configure(text="SELECCIONAR CLIENTE...")
                 try:
                     self.cliente_nivel_label.configure(text="", image=None)
+                    if hasattr(self.cliente_nivel_label, '_img_ref'):
+                        self.cliente_nivel_label._img_ref = None
                 except Exception:
                     pass
                 self.tesoro_label.configure(text="0 pts")
