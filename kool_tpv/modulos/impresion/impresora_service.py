@@ -860,19 +860,36 @@ class ImpresoraService:
             self.logger.info("%s", sep)
 
         # Comportamiento según modo
+        if self.modo_impresion == "escpos":
+            # Asegurar inicialización de componentes si se cambió el modo dinámicamente
+            if self.esc_renderer is None and EscPosRenderer is not None:
+                try:
+                    debug_dump = str(self.config.get('debug_dump_escpos', '0')) == '1'
+                    self.esc_renderer = EscPosRenderer(encoding=self.codepage, debug_dump=debug_dump)
+                    self.logger.info("EscPosRenderer inicializado bajo demanda")
+                except Exception:
+                    self.logger.exception("No se pudo instanciar EscPosRenderer bajo demanda")
+            
+            if self.printer_adapter is None and WindowsPrinterAdapter is not None:
+                try:
+                    self.printer_adapter = WindowsPrinterAdapter()
+                    self.logger.info("WindowsPrinterAdapter inicializado bajo demanda")
+                except Exception:
+                    self.logger.exception("No se pudo instanciar WindowsPrinterAdapter bajo demanda")
+
+            if self.esc_renderer is not None and self.printer_adapter is not None:
+                # Continuar con la impresión ESC/POS
+                pass
+            else:
+                self.logger.warning("Modo 'escpos' solicitado pero componentes no disponibles, usando modo texto")
+                self.modo_impresion = "texto"
+
         if self.modo_impresion == "texto":
             self.logger.info("Ticket impreso (simulado) num_ticket=%s", meta.get("num_ticket"))
             return True
 
-        # modo escpos
+        # modo escpos (ya validado arriba)
         if self.modo_impresion == "escpos":
-            if self.esc_renderer is None:
-                self.logger.error("Modo 'escpos' solicitado pero EscPosRenderer no está disponible")
-                return
-            if self.printer_adapter is None:
-                self.logger.error("Modo 'escpos' solicitado pero WindowsPrinterAdapter no está disponible")
-                return
-
             # Validar nombre de impresora: NO permitir vacío. Si no se pasó, intentar leer de BD.
             final_printer = None
             if printer_name and str(printer_name).strip():
