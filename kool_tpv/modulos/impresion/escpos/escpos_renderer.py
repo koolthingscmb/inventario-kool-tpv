@@ -82,6 +82,10 @@ class EscPosRenderer:
 
         # Codificar todo el texto plano sin modificaciones ni estilos especiales
         # El formato completo debe venir del generator (separación de responsabilidades)
+        # Sustituir placeholders de negrita {{BOLD_ON}}/{{BOLD_OFF}} por comandos ESC/POS
+        bold_on = self.ESC + b"E" + b"\x01"
+        bold_off = self.ESC + b"E" + b"\x00"
+
         # Si hay badge, sustituir el placeholder {{BADGE}} por los bytes raster
         if badge_path is not None and '{{BADGE}}' in normalized:
             try:
@@ -90,34 +94,35 @@ class EscPosRenderer:
                     if badge_bytes:
                         # Dividir el texto en torno al placeholder
                         before, after = normalized.split('{{BADGE}}', 1)
-                        # Codificar lo anterior al badge
+                        # Quitar saltos de línea extra después del badge
+                        after = after.lstrip('\n')
+                        # Codificar lo anterior al badge (con placeholders de negrita)
                         if before.strip():
-                            parts.append(before.encode(self.encoding, errors="replace"))
+                            before_bytes = self._encode_with_bold(before, bold_on, bold_off)
+                            parts.append(before_bytes)
                         # Insertar badge centrado
                         parts.append(badge_bytes)
                         parts.append(b"\n")
                         # Codificar lo posterior al badge
                         if after.strip():
-                            parts.append(after.encode(self.encoding, errors="replace"))
+                            after_bytes = self._encode_with_bold(after, bold_on, bold_off)
+                            parts.append(after_bytes)
                     else:
                         # Badge no se pudo renderizar, eliminar placeholder
                         normalized = normalized.replace('{{BADGE}}\n', '').replace('{{BADGE}}', '')
-                        parts.append(normalized.encode(self.encoding, errors="replace"))
+                        parts.append(self._encode_with_bold(normalized, bold_on, bold_off))
                 else:
                     normalized = normalized.replace('{{BADGE}}\n', '').replace('{{BADGE}}', '')
-                    parts.append(normalized.encode(self.encoding, errors="replace"))
+                    parts.append(self._encode_with_bold(normalized, bold_on, bold_off))
             except Exception:
                 self.logger.exception("Error sustituyendo badge en placeholder")
                 normalized = normalized.replace('{{BADGE}}\n', '').replace('{{BADGE}}', '')
-                parts.append(normalized.encode(self.encoding, errors="replace"))
+                parts.append(self._encode_with_bold(normalized, bold_on, bold_off))
         else:
             # Sin badge: eliminar placeholder si existe y codificar normalmente
             if '{{BADGE}}' in normalized:
                 normalized = normalized.replace('{{BADGE}}\n', '').replace('{{BADGE}}', '')
-            try:
-                parts.append(normalized.encode(self.encoding))
-            except Exception:
-                parts.append(normalized.encode(self.encoding, errors="replace"))
+            parts.append(self._encode_with_bold(normalized, bold_on, bold_off))
 
         # 4) Añadir una línea extra de separación (antes del corte)
 
@@ -216,6 +221,58 @@ class EscPosRenderer:
         except Exception:
             self.logger.exception("Error generando QR code")
             return b""
+
+    def _encode_with_bold(self, text: str, bold_on: bytes, bold_off: bytes) -> bytes:
+        """Codificar texto sustituyendo placeholders de negrita por comandos ESC/POS.
+
+        Args:
+            text: texto con posibles placeholders {{BOLD_ON}}/{{BOLD_OFF}}
+            bold_on: bytes ESC/POS para activar negrita
+            bold_off: bytes ESC/POS para desactivar negrita
+
+        Returns:
+            bytes codificados con comandos de negrita insertados
+        """
+        if '{{BOLD_ON}}' not in text and '{{BOLD_OFF}}' not in text:
+            try:
+                return text.encode(self.encoding)
+            except Exception:
+                return text.encode(self.encoding, errors="replace")
+
+        result = bytearray()
+        segments = text.split('{{BOLD_ON}}')
+        # First segment (before any bold) is always normal
+        if segments[0]:
+            try:
+                result.extend(segments[0].encode(self.encoding, errors="replace"))
+            except Exception:
+                result.extend(segments[0].encode(self.encoding, errors="replace"))
+
+        for seg in segments[1:]:
+            # Each segment starts with bold text until {{BOLD_OFF}}
+            if '{{BOLD_OFF}}' in seg:
+                bold_text, rest = seg.split('{{BOLD_OFF}}', 1)
+                result.extend(bold_on)
+                try:
+                    result.extend(bold_text.encode(self.encoding, errors="replace"))
+                except Exception:
+                    result.extend(bold_text.encode(self.encoding, errors="replace"))
+                result.extend(bold_off)
+                if rest:
+                    try:
+                        result.extend(rest.encode(self.encoding, errors="replace"))
+                    except Exception:
+                        result.extend(rest.encode(self.encoding, errors="replace"))
+            else:
+                # No closing tag, treat rest as bold
+                result.extend(bold_on)
+                try:
+                    result.extend(seg.encode(self.encoding, errors="replace"))
+                except Exception:
+                    result.extend(seg.encode(self.encoding, errors="replace"))
+                result.extend(bold_off)
+
+        return bytes(result)
 
     def _sanitize_text(self, text: str) -> str:
         """Reemplaza caracteres Unicode problemáticos por equivalentes ASCII seguros.

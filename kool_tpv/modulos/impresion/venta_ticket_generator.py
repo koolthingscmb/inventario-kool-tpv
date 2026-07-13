@@ -414,11 +414,12 @@ class VentaTicketGenerator(BaseTicketGenerator):
             nombre_cliente = cliente_data.get('nombre', '')
             nivel = cliente_data.get('nivel', '')
             lines.append(self.DIVIDER)
-            # Cabecera: El Tesoro de: Nombre Cliente
-            tesoro_header = f"El Tesoro de: {nombre_cliente}"
+            # Cabecera: EL TESORO DE: Nombre Cliente (centrado + negrita)
+            tesoro_header = f"El Tesoro de: {nombre_cliente}".upper()
             if len(tesoro_header) > self.WIDTH:
                 tesoro_header = tesoro_header[: self.WIDTH]
-            lines.append(tesoro_header)
+            tesoro_header = tesoro_header.center(self.WIDTH)
+            lines.append('{{BOLD_ON}}' + tesoro_header + '{{BOLD_OFF}}')
             # Placeholder para el badge (lo sustituye el renderer ESC/POS)
             lines.append('{{BADGE}}')
 
