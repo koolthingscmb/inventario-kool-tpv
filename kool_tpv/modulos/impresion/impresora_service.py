@@ -205,20 +205,7 @@ class ImpresoraService:
             logging.exception('Error detectando camisetas en imprimir_ticket')
 
         # Detectar badge del cliente si hay cliente_data
-        badge_path = None
-        if cliente_data:
-            try:
-                # cliente_data puede traer 'grafismo' (generar_ticket_desde_id)
-                # o 'nivel_grafismo' (cliente_service.get_cliente)
-                badge_file = cliente_data.get('grafismo') or cliente_data.get('nivel_grafismo') or ''
-                if badge_file:
-                    base_dir = Path(__file__).resolve().parents[2]
-                    candidate = base_dir / "assets" / "badges" / badge_file
-                    if candidate.exists():
-                        badge_path = candidate
-                        self.logger.info(f"Badge encontrado para cliente: {badge_file}")
-            except Exception:
-                self.logger.exception('Error detectando badge del cliente')
+        badge_path = self.detectar_badge_path(cliente_data) if cliente_data else None
 
         # Preparar config: incluir cuidado camisetas solo si hay
         gen_config = dict(self.config)
@@ -229,6 +216,70 @@ class ImpresoraService:
 
         # Reutilizar la lógica común de impresión (texto/escpos/simulación)
         return self._imprimir_texto_generico(texto, {'num_ticket': ticket_data.get('num_ticket')}, printer_name, badge_path=badge_path)
+
+    def detectar_badge_path(self, cliente_data: dict) -> Optional[Path]:
+        """Detectar la ruta del badge del cliente desde cliente_data.
+
+        Args:
+            cliente_data: dict con 'grafismo' o 'nivel_grafismo' (filename del badge)
+
+        Returns:
+            Path al archivo de badge, o None si no se encuentra
+        """
+        if not cliente_data:
+            return None
+        try:
+            badge_file = cliente_data.get('grafismo') or cliente_data.get('nivel_grafismo') or ''
+            if badge_file:
+                base_dir = Path(__file__).resolve().parents[2]
+                candidate = base_dir / "assets" / "badges" / badge_file
+                if candidate.exists():
+                    self.logger.info(f"Badge encontrado para cliente: {badge_file}")
+                    return candidate
+        except Exception:
+            self.logger.exception('Error detectando badge del cliente')
+        return None
+
+    def get_badge_path_for_ticket(self, ticket_id: int) -> Optional[Path]:
+        """Obtener la ruta del badge del cliente asociado a un ticket.
+
+        Consulta el cliente_id del ticket y luego el grafismo_nivel
+        de su nivel de fidelidad.
+
+        Args:
+            ticket_id: ID del ticket
+
+        Returns:
+            Path al archivo de badge, o None si no hay cliente o no se encuentra
+        """
+        try:
+            row = self.db.fetch_one(
+                "SELECT cliente_id FROM tickets WHERE id = ?",
+                (ticket_id,)
+            )
+            if not row or not row[0]:
+                return None
+
+            cliente_id = row[0]
+            row2 = self.db.fetch_one(
+                """SELECT n.grafismo_nivel
+                   FROM clientes c
+                   LEFT JOIN niveles_fidelidad n ON c.id_nivel = n.id
+                   WHERE c.id = ?""",
+                (cliente_id,)
+            )
+            if not row2 or not row2[0]:
+                return None
+
+            badge_file = row2[0]
+            base_dir = Path(__file__).resolve().parents[2]
+            candidate = base_dir / "assets" / "badges" / badge_file
+            if candidate.exists():
+                self.logger.info(f"Badge encontrado para ticket {ticket_id}: {badge_file}")
+                return candidate
+        except Exception:
+            self.logger.exception(f'Error obteniendo badge para ticket {ticket_id}')
+        return None
 # Servicio para gestión de la impresora y envío de trabajos de impresión
 # Placeholder para integración con impresoras térmicas u otros dispositivos.
 
@@ -918,17 +969,7 @@ class ImpresoraService:
         badge_path = None
 
         # Detectar badge del cliente si hay cliente_data
-        if cliente_data:
-            try:
-                badge_file = cliente_data.get('grafismo') or cliente_data.get('nivel_grafismo') or ''
-                if badge_file:
-                    base_dir = Path(__file__).resolve().parents[2]
-                    candidate = base_dir / "assets" / "badges" / badge_file
-                    if candidate.exists():
-                        badge_path = candidate
-                        self.logger.info(f"ImpresoraService.imprimir: badge detectado: {badge_file}")
-            except Exception:
-                self.logger.exception('Error detectando badge del cliente en imprimir')
+        badge_path = self.detectar_badge_path(cliente_data) if cliente_data else None
 
         if ticket_type == TicketType.VENTA:
             texto = self.ticket_generator.generate(self.config, data, items or [], cliente_data)

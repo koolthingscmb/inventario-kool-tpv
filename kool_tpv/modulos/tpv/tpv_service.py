@@ -219,7 +219,8 @@ class TpvService:
                     # Si es modo escpos, enviar a impresora física
                     if modo_impresion == 'escpos' and printer_name:
                         try:
-                            imp._imprimir_texto_generico(texto, {'num_ticket': ticket_id}, printer_name, open_drawer=open_drawer)
+                            badge_path = imp.get_badge_path_for_ticket(ticket_id)
+                            imp._imprimir_texto_generico(texto, {'num_ticket': ticket_id}, printer_name, open_drawer=open_drawer, badge_path=badge_path)
                             logger.info('Ticket enviado a impresora física')
                         except Exception:
                             logger.exception('Error enviando a impresora física')
