@@ -941,11 +941,11 @@ class ImpresoraService:
         """Genera e imprime un ticket de subida de nivel usando el generador específico."""
         self.logger.info(f"DEBUG: Iniciando imprimir_ticket_nivel para {nivel_data.get('cliente')}")
         
-        # Si no nos pasan impresora, intentar obtener la de tickets por defecto
+        # Si no nos pasan impresora, intentar obtener la de tickets por defecto (clave: printer_name)
         if not printer_name:
             try:
                 self.config = self._load_config_from_db()
-                printer_name = self.config.get('impresora_tickets')
+                printer_name = self.config.get('printer_name')
                 self.logger.info(f"DEBUG: Usando impresora por defecto para nivel: {printer_name}")
             except Exception:
                 pass
