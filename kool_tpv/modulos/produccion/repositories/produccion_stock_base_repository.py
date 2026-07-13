@@ -141,13 +141,24 @@ class ProduccionStockBaseRepository:
 		# Unificar a None para que NULL y '' se traten como la misma talla.
 		if not talla or talla == '-':
 			talla = None
-		check_query = """
-			SELECT id FROM produccion_stock_colores_tallas 
-			WHERE tipo_id = ? AND variante_id IS ? AND color_id IS ? AND COALESCE(talla, '') = COALESCE(?, '')
-		"""
+			
+		# Si hay talla_id, intentar buscar por ID en lugar de por nombre string
+		if talla_id:
+			check_query = """
+				SELECT id FROM produccion_stock_colores_tallas 
+				WHERE tipo_id = ? AND variante_id IS ? AND color_id IS ? AND talla_id = ?
+			"""
+			check_params = (tipo_id, variante_id, color_id, talla_id)
+		else:
+			check_query = """
+				SELECT id FROM produccion_stock_colores_tallas 
+				WHERE tipo_id = ? AND variante_id IS ? AND color_id IS ? AND COALESCE(talla, '') = COALESCE(?, '')
+			"""
+			check_params = (tipo_id, variante_id, color_id, talla)
+
 		update_query = """
 			UPDATE produccion_stock_colores_tallas 
-			SET sku = ?, cantidad = ?, coste_medio = ?, talla_id = ?
+			SET sku = ?, cantidad = ?, coste_medio = ?, talla_id = ?, talla = ?
 			WHERE id = ?
 		"""
 		insert_query = """
@@ -157,16 +168,16 @@ class ProduccionStockBaseRepository:
 		"""
 		try:
 			if cur:
-				cur.execute(check_query, (tipo_id, variante_id, color_id, talla))
+				cur.execute(check_query, check_params)
 				existing = cur.fetchall()
 				if existing:
-					cur.execute(update_query, (sku, cantidad, coste_medio, talla_id, existing[0][0]))
+					cur.execute(update_query, (sku, cantidad, coste_medio, talla_id, talla, existing[0][0]))
 				else:
 					cur.execute(insert_query, (tipo_id, variante_id, color_id, talla, sku, cantidad, coste_medio, talla_id))
 			else:
-				existing = self.db.fetch_all(check_query, (tipo_id, variante_id, color_id, talla))
+				existing = self.db.fetch_all(check_query, check_params)
 				if existing:
-					self.db.execute_query(update_query, (sku, cantidad, coste_medio, talla_id, existing[0][0]))
+					self.db.execute_query(update_query, (sku, cantidad, coste_medio, talla_id, talla, existing[0][0]))
 				else:
 					self.db.execute_query(insert_query, (tipo_id, variante_id, color_id, talla, sku, cantidad, coste_medio, talla_id))
 			return True

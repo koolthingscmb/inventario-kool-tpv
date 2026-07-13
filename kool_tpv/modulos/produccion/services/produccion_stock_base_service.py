@@ -168,7 +168,8 @@ class ProduccionStockBaseService:
 
 	def guardar_variante(self, tipo_id: int,
 	                     color_id: Optional[int], talla: str, sku: str, cantidad: int,
-	                     variante_id: Optional[int] = None, coste_medio: int = 0) -> bool:
+	                     variante_id: Optional[int] = None, coste_medio: int = 0,
+	                     talla_id: Optional[int] = None) -> bool:
 		"""Guardar o actualizar una variante de stock.
 		
 		Valida que los datos mínimos estén presentes.
@@ -185,7 +186,7 @@ class ProduccionStockBaseService:
 			talla = None
 		sku = (sku or "").strip().upper()
 		
-		return self.repo.crear_o_actualizar(tipo_id, color_id, talla, sku, cantidad, coste_medio, variante_id)
+		return self.repo.crear_o_actualizar(tipo_id, color_id, talla, sku, cantidad, coste_medio, variante_id, talla_id)
 
 	def eliminar_variante(self, id_stock: int) -> bool:
 		"""Eliminar un registro de stock."""
