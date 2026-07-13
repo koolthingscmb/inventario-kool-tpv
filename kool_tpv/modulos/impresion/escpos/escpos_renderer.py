@@ -354,7 +354,12 @@ class EscPosRenderer:
                 self.logger.warning("Badge no encontrado: %s", str(img_path))
                 return b""
 
-            img = Image.open(img_path).convert("L")
+            img = Image.open(img_path).convert("RGBA")
+
+            # Componer sobre fondo blanco para eliminar transparencia
+            # (los píxeles transparentes se convierten en negro si no se hace)
+            fondo_blanco = Image.new("RGBA", img.size, (255, 255, 255, 255))
+            img = Image.alpha_composite(fondo_blanco, img).convert("L")
 
             # Para badges: tamaño máximo 64px, mantener proporción
             max_size = 64
