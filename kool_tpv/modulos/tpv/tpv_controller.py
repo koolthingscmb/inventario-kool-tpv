@@ -1108,13 +1108,13 @@ class TpvController:
                 from kool_tpv.modulos.ticket import VentaProcessor, VentaFidelizacionProcessor, DevolucionProcessor
 
                 if tipo_ticket == 'venta':
-                    processor = VentaProcessor(self.db)
+                    processor = VentaProcessor(self.db, self.impresora_service)
                 elif tipo_ticket == 'venta_fidelizacion':
-                    processor = VentaFidelizacionProcessor(self.db)
+                    processor = VentaFidelizacionProcessor(self.db, self.impresora_service)
                 elif tipo_ticket == 'devolucion':
-                    processor = DevolucionProcessor(self.db)
+                    processor = DevolucionProcessor(self.db, self.impresora_service)
                 else:
-                    processor = VentaProcessor(self.db)
+                    processor = VentaProcessor(self.db, self.impresora_service)
             except Exception:
                 logger.exception('Error creando processor para tipo %s', tipo_ticket)
                 raise

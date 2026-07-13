@@ -164,15 +164,28 @@ class FidelizacionRepository:
         total_ticket_cents: int,
         unidades_vendidas: int,
         fecha: str,
-    ) -> None:
+    ) -> dict:
         """
         Actualiza los campos de loyalty del cliente y recalcula su nivel
         dentro de una única transacción atómica.
+        
+        Returns:
+            dict: {
+                'subida_nivel': bool,
+                'nivel_anterior_id': int,
+                'nivel_nuevo_id': int,
+                'tesoro_historico': int (céntimos)
+            }
         """
         try:
+            # 1. Obtener nivel actual antes de actualizar
+            cur = self.db.connection.cursor()
+            cur.execute("SELECT id_nivel, tesoro_historico FROM clientes WHERE id = ?", (cliente_id,))
+            row = cur.fetchone()
+            nivel_anterior_id = row[0] if row else None
+
             # If we're already inside a transaction, reuse it; otherwise start one.
             in_tx = getattr(self.db.connection, 'in_transaction', False)
-            cur = self.db.connection.cursor()
             if not in_tx:
                 cur.execute('BEGIN')
 
@@ -215,8 +228,21 @@ class FidelizacionRepository:
                 (cliente_id, cliente_id),
             )
 
+            # 2. Obtener nivel nuevo y tesoro actualizado
+            cur.execute("SELECT id_nivel, tesoro_historico FROM clientes WHERE id = ?", (cliente_id,))
+            row_nuevo = cur.fetchone()
+            nivel_nuevo_id = row_nuevo[0] if row_nuevo else None
+            tesoro_historico = row_nuevo[1] if row_nuevo else 0
+
             if not in_tx:
                 self.db.connection.commit()
+
+            return {
+                'subida_nivel': (nivel_nuevo_id != nivel_anterior_id) and nivel_nuevo_id is not None,
+                'nivel_anterior_id': nivel_anterior_id,
+                'nivel_nuevo_id': nivel_nuevo_id,
+                'tesoro_historico': tesoro_historico
+            }
 
         except Exception:
             try:
@@ -284,6 +310,20 @@ class FidelizacionRepository:
         except Exception:
             logger.exception('Error leyendo tesoro del cliente %s', cliente_id)
             raise
+
+    def get_cliente_info(self, cliente_id: int) -> Optional[Dict[str, Any]]:
+        """Obtiene información básica del cliente."""
+        query = "SELECT id, nombre, apellidos FROM clientes WHERE id = ?"
+        row = self.db.fetch_one(query, (cliente_id,))
+        if row:
+            nombre_completo = f"{row[1]} {row[2] or ''}".strip()
+            return {
+                'id': row[0],
+                'nombre': row[1],
+                'apellidos': row[2],
+                'nombre_completo': nombre_completo
+            }
+        return None
 
     def actualizar_fidelizacion_categoria(self, categoria_id: int, fide_porcentaje: float) -> None:
         """Actualiza el porcentaje de fidelización de una categoría."""

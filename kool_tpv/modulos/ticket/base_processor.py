@@ -13,8 +13,9 @@ logger = logging.getLogger(__name__)
 class TicketProcessor:
     """Base processor interface."""
 
-    def __init__(self, db: Any):
+    def __init__(self, db: Any, impresora_service: Any = None):
         self.db = db
+        self.impresora_service = impresora_service
         self.repo = TicketRepository(db)
         self.fidel_repo = FidelizacionRepository(db)
         self.fidel_service = FidelizacionService(db)

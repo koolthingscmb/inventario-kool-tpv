@@ -113,8 +113,13 @@ class ImpresoraService:
             }
 
             # Añadir claves para logo
-            claves = claves + ['logo_enabled', 'logo_filename']
-            mapeo.update({'logo_enabled': 'logo_enabled', 'logo_filename': 'logo_filename'})
+            claves = claves + ['logo_enabled', 'logo_filename', 'logo_nivel_enabled', 'logo_nivel_filename']
+            mapeo.update({
+                'logo_enabled': 'logo_enabled',
+                'logo_filename': 'logo_filename',
+                'logo_nivel_enabled': 'logo_nivel_enabled',
+                'logo_nivel_filename': 'logo_nivel_filename'
+            })
 
             for clave_bd in claves:
                 try:
@@ -825,7 +830,7 @@ class ImpresoraService:
             self.logger.exception('Error generando cierre desde ID %s', cierre_id)
             return None
 
-    def _imprimir_texto_generico(self, texto: str, meta: dict, printer_name: Optional[str] = None, badge_path: Optional[Path] = None, open_drawer: bool = False):
+    def _imprimir_texto_generico(self, texto: str, meta: dict, printer_name: Optional[str] = None, badge_path: Optional[Path] = None, open_drawer: bool = False, logo_path_override: Optional[Path] = None):
         """Lógica común para imprimir un texto ya generado.
 
         - Maneja la simulación (logger)
@@ -840,6 +845,7 @@ class ImpresoraService:
             printer_name: nombre de impresora opcional
             badge_path: ruta al badge del cliente opcional.
             open_drawer: si True, solicita al renderer abrir el cajón
+            logo_path_override: si se pasa, usa este logo en lugar del general
         """
         logging.info(f"DEBUG _imprimir_generico: texto length={len(texto)}, open_drawer={open_drawer}")
         logging.info(f"DEBUG _imprimir_generico: ¿Contiene 'TESORO'? {'TESORO' in texto}")
@@ -892,7 +898,10 @@ class ImpresoraService:
             try:
                 # Preparar parámetro de logo si está habilitado (usar ruta absoluta)
                 logo_path = None
-                if getattr(self, 'logo_enabled', False) and getattr(self, 'logo_filename', ''):
+                
+                if logo_path_override:
+                    logo_path = logo_path_override
+                elif getattr(self, 'logo_enabled', False) and getattr(self, 'logo_filename', ''):
                     # Construcción de ruta absoluta desde ubicación del módulo
                     base_dir = Path(__file__).resolve().parents[2]
                     candidate = base_dir / "assets" / "logo" / self.logo_filename
@@ -942,9 +951,32 @@ class ImpresoraService:
             self.logger.exception('ImpresoraService: error recargando config antes de generar ticket nivel')
 
         texto = self.nivel_ticket_generator.generate(self.config, nivel_data)
+        
+        # Preparar logo específico de nivel si existe
+        logo_path = None
+        try:
+            enabled = str(self.config.get('logo_nivel_enabled', '0')) == '1'
+            filename = self.config.get('logo_nivel_filename')
+            if enabled and filename:
+                base_dir = Path(__file__).resolve().parents[2]
+                candidate = base_dir / "assets" / "logo" / filename
+                if candidate.exists():
+                    logo_path = candidate
+        except Exception:
+            pass
+            
+        # Detectar badge
+        badge_path = None
+        grafismo = nivel_data.get('grafismo')
+        if grafismo:
+            base_dir = Path(__file__).resolve().parents[2]
+            candidate = base_dir / "assets" / "badges" / grafismo
+            if candidate.exists():
+                badge_path = candidate
+
         # Usar el cliente o algún identificador como metadato para logs
         meta = {'num_ticket': nivel_data.get('cliente', '')}
-        return self._imprimir_texto_generico(texto, meta, printer_name)
+        return self._imprimir_texto_generico(texto, meta, printer_name, badge_path=badge_path, logo_path_override=logo_path)
 
     def imprimir(self, ticket_type: 'TicketType', data: dict, items: Optional[list] = None, cliente_data: Optional[dict] = None, printer_name: Optional[str] = None, print_options: Optional[dict] = None):
         """API unificada para imprimir distintos tipos de tickets.

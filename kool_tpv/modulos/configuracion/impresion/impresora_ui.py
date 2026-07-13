@@ -239,9 +239,49 @@ class ImpresoraUI:
 
             # Variable interna para filename
             self.logo_filename = None
+
+            # --- Fila 7-8: Logo Level Up ---
+            lbl_logo_nivel = ctk.CTkLabel(
+                self.impresora_frame,
+                text='Logo Level Up',
+                text_color=self.colors.get('text', COLOR_MATRIX),
+                font=get_font('label', module=module_name)
+            )
+            lbl_logo_nivel.grid(row=7, column=0, sticky='w', padx=6, pady=6)
+
+            self.switch_logo_nivel = ctk.CTkSwitch(
+                self.impresora_frame,
+                text='Activar',
+                fg_color=self.colors.get('primary', '#FF9800'),
+                font=get_font('label', module=module_name)
+            )
+            self.switch_logo_nivel.grid(row=7, column=1, sticky='w', padx=6, pady=6)
+
+            btn_seleccionar_nivel = ButtonFactory.create_button(
+                parent=self.impresora_frame,
+                text='SELECCIONAR LOGO NIVEL',
+                command=self._seleccionar_logo_nivel,
+                style_key='mini_action'
+            )
+            btn_seleccionar_nivel.grid(row=8, column=1, sticky='w', padx=6, pady=6)
+
+            self.logo_nivel_preview_label = ctk.CTkLabel(
+                self.impresora_frame,
+                text='Sin logo nivel',
+                text_color=self.colors.get('text', COLOR_MATRIX),
+                font=get_font('label', module=module_name),
+                width=200,
+                height=150,
+                fg_color=self.colors.get('bg_dark', '#0d0d0d'),
+                corner_radius=8
+            )
+            self.logo_nivel_preview_label.grid(row=9, column=0, columnspan=4, sticky='w', padx=6, pady=12)
+
+            self.logo_nivel_filename = None
+
         except Exception:
             logging.exception('Error creando controles de logo en ImpresoraUI')
-        # --- Fila 7-8: QR en ticket (activar + URL) ---
+        # --- Fila 10-11: QR en ticket (activar + URL) ---
         try:
             lbl_qr = ctk.CTkLabel(
                 self.impresora_frame,
@@ -249,7 +289,7 @@ class ImpresoraUI:
                 text_color=self.colors.get('text', COLOR_MATRIX),
                 font=get_font('label', module=module_name)
             )
-            lbl_qr.grid(row=7, column=0, sticky='w', padx=6, pady=6)
+            lbl_qr.grid(row=10, column=0, sticky='w', padx=6, pady=6)
 
             self.switch_qr = ctk.CTkSwitch(
                 self.impresora_frame,
@@ -257,7 +297,7 @@ class ImpresoraUI:
                 fg_color=self.colors.get('primary', '#FF9800'),
                 font=get_font('label', module=module_name)
             )
-            self.switch_qr.grid(row=7, column=1, sticky='w', padx=6, pady=6)
+            self.switch_qr.grid(row=10, column=1, sticky='w', padx=6, pady=6)
 
             lbl_qr_url = ctk.CTkLabel(
                 self.impresora_frame,
@@ -265,14 +305,14 @@ class ImpresoraUI:
                 text_color=self.colors.get('text', COLOR_MATRIX),
                 font=get_font('label', module=module_name)
             )
-            lbl_qr_url.grid(row=8, column=0, sticky='w', padx=6, pady=6)
+            lbl_qr_url.grid(row=11, column=0, sticky='w', padx=6, pady=6)
 
             self.entry_qr_url = ctk.CTkEntry(
                 self.impresora_frame,
                 placeholder_text='https://tutienda.com',
                 **combo_kwargs
             )
-            self.entry_qr_url.grid(row=8, column=1, columnspan=7, sticky='we', padx=6, pady=6)
+            self.entry_qr_url.grid(row=11, column=1, columnspan=7, sticky='we', padx=6, pady=6)
         except Exception:
             logging.exception('Error creando controles de QR en ImpresoraUI')
 
@@ -438,6 +478,31 @@ class ImpresoraUI:
             except Exception:
                 pass
 
+            # Cargar logo_nivel_enabled
+            try:
+                row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'logo_nivel_enabled'")
+                if row and row[0] == '1':
+                    self.switch_logo_nivel.select()
+                else:
+                    self.switch_logo_nivel.deselect()
+            except Exception:
+                pass
+
+            # Cargar logo_nivel_filename y mostrar preview
+            try:
+                row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'logo_nivel_filename'")
+                if row and row[0]:
+                    self.logo_nivel_filename = row[0]
+                    base_dir = Path(__file__).resolve().parents[3]
+                    logo_path = base_dir / 'assets' / 'logo' / self.logo_nivel_filename
+                    if logo_path.exists():
+                        try:
+                            self._mostrar_preview_nivel(logo_path)
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
             # Cargar qr_enabled
             try:
                 row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'qr_enabled'")
@@ -508,6 +573,19 @@ class ImpresoraUI:
             try:
                 if self.logo_filename:
                     cambios['logo_filename'] = self.logo_filename
+            except Exception:
+                pass
+
+            # logo_nivel_enabled
+            try:
+                cambios['logo_nivel_enabled'] = '1' if self.switch_logo_nivel.get() else '0'
+            except Exception:
+                cambios['logo_nivel_enabled'] = '0'
+
+            # logo_nivel_filename
+            try:
+                if self.logo_nivel_filename:
+                    cambios['logo_nivel_filename'] = self.logo_nivel_filename
             except Exception:
                 pass
 
@@ -634,6 +712,53 @@ class ImpresoraUI:
             from kool_tpv.utils.custom_dialog import show_error
             show_error(self.container, 'Error', 'No se pudo cargar el logo')
 
+    def _seleccionar_logo_nivel(self):
+        """Abrir diálogo, copiar imagen a assets/logo/ y mostrar preview."""
+        try:
+            filepath = filedialog.askopenfilename(
+                title='Seleccionar logo Level Up',
+                filetypes=[
+                    ('Imágenes PNG', '*.png'),
+                    ('Todas las imágenes', '*.png *.jpg *.jpeg')
+                ]
+            )
+
+            if not filepath:
+                return
+
+            # Validar que sea imagen
+            try:
+                img_test = Image.open(filepath)
+                img_test.close()
+            except Exception:
+                from kool_tpv.utils.custom_dialog import show_error
+                show_error(self.container, 'Error', 'Archivo no válido')
+                return
+
+            # Crear carpeta assets/logo si no existe
+            base_dir = Path(__file__).resolve().parents[3]
+            logo_dir = base_dir / 'assets' / 'logo'
+            logo_dir.mkdir(parents=True, exist_ok=True)
+
+            # Copiar archivo con nombre fijo
+            dest_path = logo_dir / 'logo_nivel.png'
+
+            import shutil
+            shutil.copy2(filepath, dest_path)
+
+            # Guardar filename internamente
+            self.logo_nivel_filename = 'logo_nivel.png'
+
+            # Mostrar preview
+            self._mostrar_preview_nivel(dest_path)
+
+            ToastWidget.show(self.parent, 'Logo Level Up cargado', tipo='success')
+
+        except Exception:
+            logging.exception('Error seleccionando logo nivel')
+            from kool_tpv.utils.custom_dialog import show_error
+            show_error(self.container, 'Error', 'No se pudo cargar el logo de nivel')
+
     def _mostrar_preview(self, image_path):
         """Mostrar preview del logo en el label."""
         try:
@@ -651,6 +776,24 @@ class ImpresoraUI:
 
         except Exception:
             logging.exception('Error mostrando preview logo')
+
+    def _mostrar_preview_nivel(self, image_path):
+        """Mostrar preview del logo nivel en el label."""
+        try:
+            img = Image.open(image_path)
+
+            # Redimensionar manteniendo proporción (máx 180x120)
+            img.thumbnail((180, 120), Image.LANCZOS)
+
+            # Convertir a PhotoImage
+            photo = ImageTk.PhotoImage(img)
+
+            # Actualizar label
+            self.logo_nivel_preview_label.configure(image=photo, text='')
+            self.logo_nivel_preview_label.image = photo  # Mantener referencia
+
+        except Exception:
+            logging.exception('Error mostrando preview logo nivel')
 
     def _get_fecha_actual(self):
         """Obtener fecha/hora actual formateada."""

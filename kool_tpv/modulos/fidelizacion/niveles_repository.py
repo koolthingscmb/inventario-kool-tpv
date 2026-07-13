@@ -128,3 +128,20 @@ class NivelesRepository:
             "SELECT id FROM niveles_fidelidad ORDER BY tesoro_minimo ASC LIMIT 1"
         )
         return row[0] if row else None
+
+    def get_nivel_por_id(self, nivel_id: int) -> Optional[Dict[str, Any]]:
+        """Obtiene un nivel por su ID."""
+        if nivel_id is None:
+            return None
+        query = "SELECT id, level, nombre_nivel, grafismo_nivel, tesoro_minimo, detalle_recompensa FROM niveles_fidelidad WHERE id = ?"
+        row = self.db.fetch_one(query, (nivel_id,))
+        if row:
+            return {
+                'id': row[0],
+                'level': row[1],
+                'nombre_nivel': row[2],
+                'grafismo_nivel': row[3],
+                'tesoro_minimo': row[4],
+                'detalle_recompensa': row[5]
+            }
+        return None
