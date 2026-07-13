@@ -110,8 +110,8 @@ class FidelizacionNivelesUI:
         self.badge_preview = ctk.CTkLabel(
             badge_btn_frame,
             text='',
-            width=36,
-            height=36,
+            width=120,
+            height=24,
             fg_color='#FFFFFF',
             corner_radius=4
         )
@@ -410,7 +410,7 @@ class FidelizacionNivelesUI:
             if img_path.exists():
                 from PIL import Image
                 pil_img = Image.open(img_path)
-                ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(32, 32))
+                ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(120, 19))
                 self.badge_preview.configure(image=ctk_img)
             else:
                 self.badge_preview.configure(image='')
