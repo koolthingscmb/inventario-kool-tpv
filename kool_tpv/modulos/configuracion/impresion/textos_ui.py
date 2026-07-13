@@ -28,9 +28,7 @@ class TextosPlantillaUI(PaginaConVisor):
         "forma_pago",
         "nivel_anterior",
         "nivel_nuevo",
-        "recompensa",
         "total_acumulado",
-        "BADGE",
     }
 
     def __init__(self, parent, db, module_name: str = 'config'):
@@ -386,7 +384,6 @@ class TextosPlantillaUI(PaginaConVisor):
                     'cliente': mock['cliente'],
                     'nivel_anterior': mock['nivel_anterior'],
                     'nivel_nuevo': mock['nivel_nuevo'],
-                    'recompensa': 'UNA POSTAL DE REGALO',
                     'grafismo': '',
                     'total_acumulado': mock['total_acumulado']
                 }

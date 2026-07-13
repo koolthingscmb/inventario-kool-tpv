@@ -27,7 +27,6 @@ class NivelTicketGenerator(BaseTicketGenerator):
         cliente = nivel_data.get('cliente', '')
         nivel_anterior = nivel_data.get('nivel_anterior', '')
         nivel_nuevo = nivel_data.get('nivel_nuevo', '')
-        recompensa = nivel_data.get('recompensa', '')
         grafismo = nivel_data.get('grafismo', '')
         total_acumulado_raw = nivel_data.get('total_acumulado', '')
 
@@ -44,9 +43,7 @@ class NivelTicketGenerator(BaseTicketGenerator):
             'cliente': cliente,
             'nivel_anterior': nivel_anterior,
             'nivel_nuevo': nivel_nuevo,
-            'recompensa': recompensa,
             'total_acumulado': total_acumulado,
-            'BADGE': '{{BADGE}}'
         }
 
         # Header por tipo con fallback
@@ -77,6 +74,9 @@ class NivelTicketGenerator(BaseTicketGenerator):
         lvl_line = f"{nivel_anterior} -> {nivel_nuevo}" if (nivel_anterior or nivel_nuevo) else ''
         if lvl_line:
             lines.append(lvl_line.center(self.WIDTH))
+
+        if grafismo:
+            lines.append(str(grafismo).center(self.WIDTH))
 
         # Total acumulado
         if total_acumulado:

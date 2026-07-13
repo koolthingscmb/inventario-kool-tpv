@@ -322,8 +322,6 @@ INSERT OR IGNORE INTO configuracion (clave, valor) VALUES ('ticket_nombre_negoci
 INSERT OR IGNORE INTO configuracion (clave, valor) VALUES ('ticket_direccion', 'Dirección');
 INSERT OR IGNORE INTO configuracion (clave, valor) VALUES ('ticket_nif', '');
 INSERT OR IGNORE INTO configuracion (clave, valor) VALUES ('ticket_pie_texto', 'Gracias por su compra');
-INSERT OR IGNORE INTO configuracion (clave, valor) VALUES ('logo_nivel_enabled', '0');
-INSERT OR IGNORE INTO configuracion (clave, valor) VALUES ('logo_nivel_filename', '');
 
 
 -- Tabla para almacenar códigos de barras (EAN) por producto

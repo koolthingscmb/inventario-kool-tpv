@@ -974,8 +974,14 @@ class TpvController:
         importe_tarjeta=None,
         importe_web=None,
     ):
-        """Finalizar venta: preparar datos y delegar a TpvService."""
-        logger.info("!!! DEBUG: INICIANDO FINALIZE_SALE !!!")
+        """Finalizar venta: preparar datos y delegar a TpvService.
+
+        Args:
+            efectivo: Cantidad pagada (Decimal o float)
+            forma_pago: Método de pago
+            importe_efectivo: Desglose efectivo
+            importe_tarjeta: Desglose tarjeta
+        """
         try:
             carrito_service = getattr(self.view, 'carrito_service', None)
             if not carrito_service:

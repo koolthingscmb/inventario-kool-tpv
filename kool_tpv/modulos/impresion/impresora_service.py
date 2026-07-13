@@ -113,13 +113,8 @@ class ImpresoraService:
             }
 
             # Añadir claves para logo
-            claves = claves + ['logo_enabled', 'logo_filename', 'logo_nivel_enabled', 'logo_nivel_filename']
-            mapeo.update({
-                'logo_enabled': 'logo_enabled',
-                'logo_filename': 'logo_filename',
-                'logo_nivel_enabled': 'logo_nivel_enabled',
-                'logo_nivel_filename': 'logo_nivel_filename'
-            })
+            claves = claves + ['logo_enabled', 'logo_filename']
+            mapeo.update({'logo_enabled': 'logo_enabled', 'logo_filename': 'logo_filename'})
 
             for clave_bd in claves:
                 try:
@@ -830,7 +825,7 @@ class ImpresoraService:
             self.logger.exception('Error generando cierre desde ID %s', cierre_id)
             return None
 
-    def _imprimir_texto_generico(self, texto: str, meta: dict, printer_name: Optional[str] = None, badge_path: Optional[Path] = None, open_drawer: bool = False, logo_path_override: Optional[Path] = None):
+    def _imprimir_texto_generico(self, texto: str, meta: dict, printer_name: Optional[str] = None, badge_path: Optional[Path] = None, open_drawer: bool = False):
         """Lógica común para imprimir un texto ya generado.
 
         - Maneja la simulación (logger)
@@ -845,7 +840,6 @@ class ImpresoraService:
             printer_name: nombre de impresora opcional
             badge_path: ruta al badge del cliente opcional.
             open_drawer: si True, solicita al renderer abrir el cajón
-            logo_path_override: si se pasa, usa este logo en lugar del general
         """
         logging.info(f"DEBUG _imprimir_generico: texto length={len(texto)}, open_drawer={open_drawer}")
         logging.info(f"DEBUG _imprimir_generico: ¿Contiene 'TESORO'? {'TESORO' in texto}")
@@ -860,36 +854,19 @@ class ImpresoraService:
             self.logger.info("%s", sep)
 
         # Comportamiento según modo
-        if self.modo_impresion == "escpos":
-            # Asegurar inicialización de componentes si se cambió el modo dinámicamente
-            if self.esc_renderer is None and EscPosRenderer is not None:
-                try:
-                    debug_dump = str(self.config.get('debug_dump_escpos', '0')) == '1'
-                    self.esc_renderer = EscPosRenderer(encoding=self.codepage, debug_dump=debug_dump)
-                    self.logger.info("EscPosRenderer inicializado bajo demanda")
-                except Exception:
-                    self.logger.exception("No se pudo instanciar EscPosRenderer bajo demanda")
-            
-            if self.printer_adapter is None and WindowsPrinterAdapter is not None:
-                try:
-                    self.printer_adapter = WindowsPrinterAdapter()
-                    self.logger.info("WindowsPrinterAdapter inicializado bajo demanda")
-                except Exception:
-                    self.logger.exception("No se pudo instanciar WindowsPrinterAdapter bajo demanda")
-
-            if self.esc_renderer is not None and self.printer_adapter is not None:
-                # Continuar con la impresión ESC/POS
-                pass
-            else:
-                self.logger.warning("Modo 'escpos' solicitado pero componentes no disponibles, usando modo texto")
-                self.modo_impresion = "texto"
-
         if self.modo_impresion == "texto":
             self.logger.info("Ticket impreso (simulado) num_ticket=%s", meta.get("num_ticket"))
             return True
 
-        # modo escpos (ya validado arriba)
+        # modo escpos
         if self.modo_impresion == "escpos":
+            if self.esc_renderer is None:
+                self.logger.error("Modo 'escpos' solicitado pero EscPosRenderer no está disponible")
+                return
+            if self.printer_adapter is None:
+                self.logger.error("Modo 'escpos' solicitado pero WindowsPrinterAdapter no está disponible")
+                return
+
             # Validar nombre de impresora: NO permitir vacío. Si no se pasó, intentar leer de BD.
             final_printer = None
             if printer_name and str(printer_name).strip():
@@ -915,10 +892,7 @@ class ImpresoraService:
             try:
                 # Preparar parámetro de logo si está habilitado (usar ruta absoluta)
                 logo_path = None
-                
-                if logo_path_override:
-                    logo_path = logo_path_override
-                elif getattr(self, 'logo_enabled', False) and getattr(self, 'logo_filename', ''):
+                if getattr(self, 'logo_enabled', False) and getattr(self, 'logo_filename', ''):
                     # Construcción de ruta absoluta desde ubicación del módulo
                     base_dir = Path(__file__).resolve().parents[2]
                     candidate = base_dir / "assets" / "logo" / self.logo_filename
@@ -957,49 +931,20 @@ class ImpresoraService:
     def imprimir_ticket_nivel(self, nivel_data: dict, printer_name: Optional[str] = None):
         """Genera e imprime un ticket de subida de nivel usando el generador específico.
 
-        Este método asegura que se cree una instancia fresca de los componentes de impresión
-        física (ESC/POS) si el modo está activado, similar a cómo funciona el ticket de venta.
+        Reutiliza la lógica de impresión común para mantener compatibilidad con
+        `imprimir_ticket` (simulación, modo texto/escpos, logo, dump).
         """
-        self.logger.info(f"DEBUG: Iniciando imprimir_ticket_nivel para {nivel_data.get('cliente')}")
-        
-        # 1. Cargar configuración fresca
-        self.config = self._load_config_from_db()
-        modo = self.config.get('modo_impresion', 'escpos')
-        self.modo_impresion = modo  # <--- ESTA ES LA LÍNEA CRÍTICA
-        codepage = self.config.get('printer_codepage', 'cp858')
-        
-        # 2. Si estamos en modo físico, asegurar que los motores (renderer/adapter) estén arrancados
-        if modo == 'escpos':
-            if self.esc_renderer is None and EscPosRenderer is not None:
-                debug_dump = str(self.config.get('debug_dump_escpos', '0')) == '1'
-                self.esc_renderer = EscPosRenderer(encoding=codepage, debug_dump=debug_dump)
-            if self.printer_adapter is None and WindowsPrinterAdapter is not None:
-                self.printer_adapter = WindowsPrinterAdapter()
+        # Ensure latest config from DB before generating nivel ticket
+        try:
+            self.config = self._load_config_from_db()
+            self.logger.info('ImpresoraService: recargada configuración desde BD antes de generar ticket nivel')
+        except Exception:
+            self.logger.exception('ImpresoraService: error recargando config antes de generar ticket nivel')
 
-        # 3. Generar el texto
         texto = self.nivel_ticket_generator.generate(self.config, nivel_data)
-        
-        # 4. Preparar logo y badge
-        logo_path = None
-        enabled = str(self.config.get('logo_nivel_enabled', '0')) == '1'
-        filename = self.config.get('logo_nivel_filename')
-        if enabled and filename:
-            base_dir = Path(__file__).resolve().parents[2]
-            candidate = base_dir / "assets" / "logo" / filename
-            if candidate.exists():
-                logo_path = candidate
-            
-        badge_path = None
-        grafismo = nivel_data.get('grafismo')
-        if grafismo:
-            base_dir = Path(__file__).resolve().parents[2]
-            candidate = base_dir / "assets" / "badges" / grafismo
-            if candidate.exists():
-                badge_path = candidate
-
-        # 5. Imprimir
+        # Usar el cliente o algún identificador como metadato para logs
         meta = {'num_ticket': nivel_data.get('cliente', '')}
-        return self._imprimir_texto_generico(texto, meta, printer_name, badge_path=badge_path, logo_path_override=logo_path)
+        return self._imprimir_texto_generico(texto, meta, printer_name)
 
     def imprimir(self, ticket_type: 'TicketType', data: dict, items: Optional[list] = None, cliente_data: Optional[dict] = None, printer_name: Optional[str] = None, print_options: Optional[dict] = None):
         """API unificada para imprimir distintos tipos de tickets.

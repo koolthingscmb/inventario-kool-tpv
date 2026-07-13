@@ -234,8 +234,6 @@ class FidelizacionRepository:
             nivel_nuevo_id = row_nuevo[0] if row_nuevo else None
             tesoro_historico = row_nuevo[1] if row_nuevo else 0
 
-            logger.info(f"DEBUG actualizar_loyalty: cliente_id={cliente_id}, nivel_ant={nivel_anterior_id}, nivel_nue={nivel_nuevo_id}, tesoro_hist={tesoro_historico}")
-
             if not in_tx:
                 self.db.connection.commit()
 
@@ -315,18 +313,16 @@ class FidelizacionRepository:
 
     def get_cliente_info(self, cliente_id: int) -> Optional[Dict[str, Any]]:
         """Obtiene información básica del cliente."""
-        try:
-            # En la BD actual el nombre completo suele estar en la columna 'nombre'
-            query = "SELECT id, nombre FROM clientes WHERE id = ?"
-            row = self.db.fetch_one(query, (cliente_id,))
-            if row:
-                return {
-                    'id': row[0],
-                    'nombre': row[1],
-                    'nombre_completo': row[1]
-                }
-        except Exception:
-            logger.exception('Error leyendo info del cliente %s', cliente_id)
+        query = "SELECT id, nombre, apellidos FROM clientes WHERE id = ?"
+        row = self.db.fetch_one(query, (cliente_id,))
+        if row:
+            nombre_completo = f"{row[1]} {row[2] or ''}".strip()
+            return {
+                'id': row[0],
+                'nombre': row[1],
+                'apellidos': row[2],
+                'nombre_completo': nombre_completo
+            }
         return None
 
     def actualizar_fidelizacion_categoria(self, categoria_id: int, fide_porcentaje: float) -> None:
