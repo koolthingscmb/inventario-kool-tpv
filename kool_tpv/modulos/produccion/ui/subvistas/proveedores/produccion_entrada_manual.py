@@ -36,6 +36,7 @@ class ProduccionEntradaManualUI:
         self.owner = owner
 
         self.lineas = [] # List[Dict] con las líneas del albarán
+        self._editing_index = None # Índice de la línea en edición
         
         # Servicios
         self.albaran_service = AlbaranService(db)
@@ -55,10 +56,14 @@ class ProduccionEntradaManualUI:
         
         self._setup_ui()
         self._cargar_combos_iniciales()
+        self._setup_tab_navigation()
         
         # Handler para ESC
         self._esc_handler = lambda e: self._on_volver_click()
         self._bind_esc_recursive(self.container)
+        
+        # Foco inicial en Tipo
+        self.container.after(100, lambda: self.combo_tipo.entry.focus_set())
 
     def _setup_ui(self):
         font_config = load_font_config()
@@ -69,8 +74,8 @@ class ProduccionEntradaManualUI:
         # Título
         lbl_titulo = ctk.CTkLabel(
             self.container, 
-            text=f'ENTRADA MANUAL DE MATERIAS PRIMAS: {self.proveedor_nombre.upper()}',
-            text_color=self.colors.get('text', COLOR_MATRIX),
+            text=f"CREANDO ALBARÁN PARA EL PROVEEDOR: {self.proveedor_nombre.upper()}",
+            text_color=self.colors.get('primary', COLOR_MATRIX),
             font=(self.title_font['family'], self.title_font['size'], self.title_font.get('weight', 'normal'))
         )
         lbl_titulo.pack(pady=(15, 10))
@@ -144,7 +149,12 @@ class ProduccionEntradaManualUI:
         self.columns = [
             ('MATERIA PRIMA', 450), ('CANT', 80), ('COSTE UN.', 100), ('TOTAL', 120)
         ]
-        self.nav_list = VirtualNavList(self.container, columns=self.columns, module_name='produccion')
+        self.nav_list = VirtualNavList(
+            self.container, 
+            columns=self.columns, 
+            module_name='produccion',
+            on_double_click=self._on_linea_double_click
+        )
         self.nav_list.pack(fill='both', expand=True, padx=20, pady=10)
 
         # RESUMEN PANEL
@@ -176,44 +186,54 @@ class ProduccionEntradaManualUI:
     # --- LÓGICA DE DATOS Y COMBOS ---
 
     def _cargar_combos_iniciales(self):
-        """Carga la lista de tipos y colores."""
-        tipos = self.tipos_service.obtener_activos()
-        self.tipo_map = {t.nombre: t.id for t in tipos}
-        self.combo_tipo.set_options(list(self.tipo_map.keys()))
+        """Carga la lista de tipos, colores y todas las tallas del sistema."""
+        self._tipos_data = {t.id: t for t in self.tipos_service.obtener_activos()}
+        self.tipo_map = {t.nombre: t.id for t in self._tipos_data.values()}
+        self.combo_tipo.set_options([(t.id, t.nombre) for t in self._tipos_data.values()])
         
         colores = self.colores_service.obtener_activos()
         self.color_map = {c.nombre: c.id for c in colores}
-        self.combo_color.set_options(list(self.color_map.keys()))
+        self.combo_color.set_options([(c.id, c.nombre) for c in colores])
+
+        tallas = self.tallas_service.obtener_todas()
+        self.combo_talla.set_options([(t.id, t.nombre) for t in tallas])
 
     def _on_tipo_change(self, nombre_tipo):
-        """Al cambiar el tipo, cargar variantes asociadas."""
+        """Al cambiar el tipo, cargar variantes asociadas y configurar requisitos."""
         self.combo_variante.clear()
-        self.combo_talla.clear()
         
         tipo_id = self.tipo_map.get(nombre_tipo)
         if not tipo_id: return
         
+        tipo = self._tipos_data.get(tipo_id)
+        
+        # 1. Configurar requisitos visuales y de validación
+        req_talla = getattr(tipo, 'requiere_talla', 0) == 1
+        req_color = getattr(tipo, 'requiere_color', 0) == 1
+        
+        if not req_color:
+            self.combo_color.set('')
+            
+        if not req_talla:
+            self.combo_talla.set('')
+
+        # 2. Sugerir coste base
+        coste_base = getattr(tipo, 'coste_base', 0.0)
+        self.entry_coste.delete(0, 'end')
+        self.entry_coste.insert(0, f"{coste_base:.2f}")
+
+        # 3. Cargar variantes
         variantes = self.variantes_service.obtener_por_tipo(tipo_id, solo_activos=True)
         self.variante_map = {v.nombre: v.id for v in variantes}
-        self.combo_variante.set_options(list(self.variante_map.keys()))
-        
-        # También cargar tallas si el tipo requiere talla y no hay variantes todavía
-        # (algunos tipos podrían no tener variantes pero sí tallas)
-        self._cargar_tallas_disponibles(tipo_id)
+        self.combo_variante.set_options([(v.id, v.nombre) for v in variantes])
 
     def _on_variante_change(self, nombre_var):
         """Al cambiar la variante, podríamos filtrar tallas o colores si fuera necesario."""
         pass
 
     def _on_color_change(self, nombre_color):
-        """Al cambiar el color, no solemos filtrar nada en entrada manual (queremos poder añadir cualquier talla)."""
+        """Al cambiar el color, no solemos filtrar nada en entrada manual."""
         pass
-
-    def _cargar_tallas_disponibles(self, tipo_id: int):
-        """Cargar todas las tallas del sistema como opciones."""
-        tallas = self.tallas_service.obtener_todas()
-        self.talla_options = [t.nombre for t in tallas]
-        self.combo_talla.set_options(self.talla_options)
 
     # --- ACCIONES ---
 
@@ -224,6 +244,25 @@ class ProduccionEntradaManualUI:
         col_nom = self.combo_color.get()
         talla_nom = self.combo_talla.get()
         
+        if not tipo_nom:
+            ToastWidget.show(self.container, 'SELECCIONA UN TIPO', tipo='error')
+            return
+
+        tipo_id = self.tipo_map.get(tipo_nom)
+        tipo = self._tipos_data.get(tipo_id)
+        
+        # Validar requisitos según tipo
+        req_color = getattr(tipo, 'requiere_color', 0) == 1
+        req_talla = getattr(tipo, 'requiere_talla', 0) == 1
+        
+        if req_color and not col_nom:
+            ToastWidget.show(self.container, f'EL TIPO {tipo_nom} REQUIERE COLOR', tipo='error')
+            return
+            
+        if req_talla and not talla_nom:
+            ToastWidget.show(self.container, f'EL TIPO {tipo_nom} REQUIERE TALLA', tipo='error')
+            return
+
         try:
             cant = int(self.entry_cant.get())
             coste = Decimal(self.entry_coste.get().replace(',', '.'))
@@ -231,32 +270,33 @@ class ProduccionEntradaManualUI:
             ToastWidget.show(self.container, 'CANTIDAD O COSTE INVÁLIDOS', tipo='error')
             return
 
-        if not tipo_nom or not col_nom:
-            ToastWidget.show(self.container, 'SELECCIONA AL MENOS TIPO Y COLOR', tipo='error')
-            return
-
-        tipo_id = self.tipo_map.get(tipo_nom)
         var_id = self.variante_map.get(var_nom) if var_nom else None
-        col_id = self.color_map.get(col_nom)
+        col_id = self.color_map.get(col_nom) if col_nom else None
         
-        # Crear descripción para la línea
+        # Crear descripción para la línea (solo lo seleccionado)
         desc = f"{tipo_nom}"
         if var_nom: desc += f" / {var_nom}"
-        desc += f" - {col_nom}"
+        if col_nom: desc += f" - {col_nom}"
         if talla_nom: desc += f" ({talla_nom})"
 
         nueva_linea = {
             'tipo_id': tipo_id,
             'variante_id': var_id,
             'color_id': col_id,
-            'talla': talla_nom,
+            'talla': talla_nom if talla_nom else "",
             'nombre': desc,
             'cantidad': cant,
             'coste': coste,
             'total': cant * coste
         }
         
-        self.lineas.append(nueva_linea)
+        if self._editing_index is not None:
+            self.lineas[self._editing_index] = nueva_linea
+            self._editing_index = None
+            self.btn_anadir.configure(text='AÑADIR LÍNEA')
+        else:
+            self.lineas.append(nueva_linea)
+            
         self._actualizar_tabla()
         self._limpiar_campos_entrada()
 
@@ -285,9 +325,60 @@ class ProduccionEntradaManualUI:
             self.btn_guardar.configure(state='disabled')
 
     def _limpiar_campos_entrada(self):
-        # Mantenemos tipo/variante/color para facilitar entrada múltiple
+        """Limpia todos los campos y resetea el estado de edición."""
+        self.combo_tipo.set('')
+        self.combo_variante.clear()
+        self.combo_talla.clear()
+        self.combo_color.set('')
         self.entry_cant.delete(0, 'end')
         self.entry_cant.insert(0, '1')
+        self.entry_coste.delete(0, 'end')
+        self.entry_coste.insert(0, '0.00')
+        self._editing_index = None
+        self.btn_anadir.configure(text='AÑADIR LÍNEA')
+        self.combo_tipo.entry.focus_set()
+
+    def _on_linea_double_click(self, item_data):
+        """Al hacer doble clic en una línea, cargarla para editar."""
+        idx = self.nav_list.selected_index
+        if idx is not None and 0 <= idx < len(self.lineas):
+            linea = self.lineas[idx]
+            self._editing_index = idx
+            
+            # 1. Cargar Tipo y disparar su lógica (variantes, requisitos, coste base)
+            tipo_id = linea['tipo_id']
+            tipo = self._tipos_data.get(tipo_id)
+            if tipo:
+                self.combo_tipo.set(tipo.nombre)
+                self._on_tipo_change(tipo.nombre)
+            
+            # 2. Cargar Variante
+            if linea['variante_id']:
+                # Buscar nombre por ID en el mapa recién cargado por _on_tipo_change
+                for name, vid in self.variante_map.items():
+                    if vid == linea['variante_id']:
+                        self.combo_variante.set(name)
+                        break
+            
+            # 3. Cargar Color
+            if linea['color_id']:
+                for name, cid in self.color_map.items():
+                    if cid == linea['color_id']:
+                        self.combo_color.set(name)
+                        break
+            
+            # 4. Cargar Talla y otros campos
+            self.combo_talla.set(linea['talla'])
+            self.entry_cant.delete(0, 'end')
+            self.entry_cant.insert(0, str(linea['cantidad']))
+            self.entry_coste.delete(0, 'end')
+            self.entry_coste.insert(0, f"{linea['coste']:.2f}")
+            
+            # 5. Cambiar modo visual y dar foco
+            self.btn_anadir.configure(text='ACTUALIZAR LÍNEA')
+            self.combo_tipo.entry.focus_set()
+            try: self.combo_tipo.entry._entry.selection_range(0, 'end')
+            except: pass
 
     def _on_eliminar_linea_click(self):
         idx = self.nav_list.get_selected_index()
@@ -304,6 +395,10 @@ class ProduccionEntradaManualUI:
         
         if not num_albaran:
             ToastWidget.show(self.container, 'Nº ALBARÁN OBLIGATORIO', tipo='error')
+            return
+
+        if not self.proveedor_id:
+            ToastWidget.show(self.container, 'ERROR: NO SE HA DETECTADO EL PROVEEDOR', tipo='error')
             return
 
         try:
@@ -331,6 +426,9 @@ class ProduccionEntradaManualUI:
             
             # 3. Transacción atómica
             with self.db.transaction() as cur:
+                # Verificar que el proveedor existe o al menos registrar el ID que llega
+                logger.info(f"Guardando albarán manual {num_albaran} para proveedor_id={self.proveedor_id}")
+                
                 self.albaran_repo.guardar_albaran_completo(
                     num_albaran=num_albaran,
                     proveedor_id=self.proveedor_id,
@@ -352,12 +450,108 @@ class ProduccionEntradaManualUI:
                         cur=cur
                     )
             
-            ToastWidget.show(self.container, "ALBARÁN GUARDADO Y STOCK ACTUALIZADO", tipo='success')
+            ToastWidget.show(
+                self.container, 
+                f"ALBARÁN '{num_albaran}' GUARDADO Y STOCK ACTUALIZADO", 
+                tipo='success'
+            )
             self._on_volver_click()
 
         except Exception:
             logger.exception("Error guardando albarán manual")
             ToastWidget.show(self.container, "ERROR AL GUARDAR EL ALBARÁN", tipo='error')
+
+    def _setup_tab_navigation(self):
+        """Configura navegación manual con Tab/Shift+Tab entre los campos en orden lógico."""
+        self._tab_order = [
+            self.entry_num,
+            self.entry_fecha,
+            self.combo_tipo,
+            self.combo_variante,
+            self.combo_color,
+            self.combo_talla,
+            self.entry_cant,
+            self.entry_coste,
+            self.btn_anadir,
+            self.btn_guardar,
+            self.btn_eliminar,
+            self.btn_volver,
+        ]
+        
+        # Mapear los widgets reales de tkinter a sus objetos CTK o envoltorios
+        # CTkButton tiene _canvas y _text_label internos que reciben los eventos
+        self._widget_map = {}
+        for w in self._tab_order:
+            if hasattr(w, 'entry') and hasattr(w.entry, '_entry'): # SearchableCombo
+                self._widget_map[str(w.entry._entry)] = w
+            elif hasattr(w, '_entry'): # CTKEntry
+                self._widget_map[str(w._entry)] = w
+            elif hasattr(w, '_canvas'): # CTkButton
+                self._widget_map[str(w._canvas)] = w
+                if hasattr(w, '_text_label'):
+                    self._widget_map[str(w._text_label)] = w
+            else: # Fallback
+                self._widget_map[str(w)] = w
+
+        def on_tab(event):
+            current_tk = str(event.widget)
+            current_obj = self._widget_map.get(current_tk)
+            
+            if current_obj in self._tab_order:
+                idx = self._tab_order.index(current_obj)
+                
+                # Si es un combo y hay algo escrito, intentar validar antes de saltar
+                if hasattr(current_obj, '_on_focus_out'):
+                    current_obj._on_focus_out(event)
+
+                if event.state & 0x1:  # Shift presionado
+                    next_idx = (idx - 1) % len(self._tab_order)
+                else:
+                    next_idx = (idx + 1) % len(self._tab_order)
+                
+                next_obj = self._tab_order[next_idx]
+                
+                # Dar foco al widget real (o su entry si es combo)
+                if hasattr(next_obj, 'entry'):
+                    next_obj.entry.focus_set()
+                    try: next_obj.entry._entry.selection_range(0, 'end')
+                    except: pass
+                elif hasattr(next_obj, '_entry'):
+                    next_obj.focus_set()
+                    try: next_obj._entry.selection_range(0, 'end')
+                    except: pass
+                else:
+                    next_obj.focus_set()
+                
+                return 'break'
+            return None
+        
+        # Vincular a todos los widgets internos para capturar el Tab
+        for w in self._tab_order:
+            if hasattr(w, 'entry'): # SearchableCombo → bind su entry interno
+                w.entry._entry.bind('<Tab>', on_tab)
+                w.entry._entry.bind('<Shift-Tab>', on_tab)
+            elif hasattr(w, '_entry'): # CTKEntry → bind su entry interno
+                w._entry.bind('<Tab>', on_tab)
+                w._entry.bind('<Shift-Tab>', on_tab)
+            elif hasattr(w, '_canvas'): # CTkButton → bind canvas + text_label
+                w._canvas.bind('<Tab>', on_tab)
+                w._canvas.bind('<Shift-Tab>', on_tab)
+                if hasattr(w, '_text_label'):
+                    w._text_label.bind('<Tab>', on_tab)
+                    w._text_label.bind('<Shift-Tab>', on_tab)
+            else:
+                w.bind('<Tab>', on_tab)
+                w.bind('<Shift-Tab>', on_tab)
+
+        # Desactivar takefocus en todos los frames para que Tab no se pierda en ellos
+        def disable_frame_focus(parent):
+            for child in parent.winfo_children():
+                if isinstance(child, (ctk.CTkFrame, tk.Frame)):
+                    try: child.configure(takefocus=0)
+                    except: pass
+                    disable_frame_focus(child)
+        disable_frame_focus(self.container)
 
     def _on_volver_click(self):
         if self.owner and hasattr(self.owner, 'show_proveedores'):

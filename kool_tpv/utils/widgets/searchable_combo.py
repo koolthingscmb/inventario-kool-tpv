@@ -406,6 +406,13 @@ class SearchableCombo(ctk.CTkFrame):
 
     def _on_focus_out(self, event=None):
         try:
+            # Si el texto actual coincide exactamente con una opción, disparar el comando
+            txt = self.get().strip()
+            if self._mapping and txt in self._mapping:
+                if callable(self._command):
+                    try: self._command(txt)
+                    except: pass
+            
             self.after(120, self._delay_hide_if_focus_outside)
         except Exception:
             pass

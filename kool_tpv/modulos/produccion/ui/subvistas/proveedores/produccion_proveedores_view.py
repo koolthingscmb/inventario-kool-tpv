@@ -189,6 +189,12 @@ class ProduccionProveedoresView:
 
     def _load_proveedor_into_form(self, prov: dict):
         try:
+            # Seleccionar visualmente el chip correspondiente si existe
+            for child in self.chips_frame.winfo_children():
+                if hasattr(child, '_prov_data') and child._prov_data.get('id') == prov.get('id'):
+                    self._select_chip(child)
+                    break
+            
             self.e_id.configure(state='normal')
             self.e_id.delete(0, 'end')
             self.e_id.insert(0, str(prov.get('id') or ''))
@@ -289,7 +295,11 @@ class ProduccionProveedoresView:
     def _importar_albaran(self):
         try:
             id_text = self.e_id.get().strip()
-            prov_id = int(id_text) if id_text else None
+            if not id_text:
+                from kool_tpv.utils.widgets.notificaciones import ToastWidget
+                ToastWidget.show(self.container, 'SELECCIONA UN PROVEEDOR PRIMERO', tipo='error')
+                return
+            prov_id = int(id_text)
             nombre_prov = self.e_nombre.get().strip() or ''
             if getattr(self, 'owner', None) and hasattr(self.owner, 'show_importar_albaran'):
                 self.owner.show_importar_albaran(prov_id, nombre_prov)
@@ -302,7 +312,11 @@ class ProduccionProveedoresView:
     def _entrada_manual_albaran(self):
         try:
             id_text = self.e_id.get().strip()
-            prov_id = int(id_text) if id_text else None
+            if not id_text:
+                from kool_tpv.utils.widgets.notificaciones import ToastWidget
+                ToastWidget.show(self.container, 'SELECCIONA UN PROVEEDOR PRIMERO', tipo='error')
+                return
+            prov_id = int(id_text)
             nombre_prov = self.e_nombre.get().strip() or ''
             if getattr(self, 'owner', None) and hasattr(self.owner, 'show_entrada_manual_produccion'):
                 self.owner.show_entrada_manual_produccion(prov_id, nombre_prov)
