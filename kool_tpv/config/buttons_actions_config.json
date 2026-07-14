@@ -23,6 +23,7 @@
   "exportar": {"text": "EXPORTAR", "style": "info"},
   "nuevo_nivel": {"text": "NUEVO NIVEL", "style": "warning"},
   "configurar_mapeos": {"text": "CONFIGURAR MAPEOS", "style": "special"},
-  "mapeo_generos": {"text": "MAPEO GÉNEROS", "style": "special"}
+  "mapeo_generos": {"text": "MAPEO GÉNEROS", "style": "special"},
+  "entrada_manual_albaran": {"text": "ENTRADA MANUAL", "style": "primary"}
   ,"x": {"text": "X", "style": "header_neutral_small", "min_width": 40}
 }

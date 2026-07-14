@@ -65,6 +65,7 @@ class ProduccionView(BaseModuleView):
 			'show_diseno_nuevo': self.show_diseno_nuevo,
 			'show_config': self.show_config,
 			'show_colores': self.show_proveedores,
+			'show_entrada_manual_produccion': self.show_entrada_manual_produccion,
 			'show_stock': self.show_stock,
 			'show_informes': self.show_informes,
 		}
@@ -327,6 +328,28 @@ class ProduccionView(BaseModuleView):
 			logging.info(f'Abriendo importador de albarán (proveedor {proveedor_id})...')
 		except Exception:
 			logging.exception('Error abriendo importador de albarán en ProduccionView')
+
+	def show_entrada_manual_produccion(self, proveedor_id=None, proveedor_nombre=''):
+		"""Mostrar entrada manual de albarán para producción."""
+		try:
+			from kool_tpv.modulos.produccion.ui.subvistas.proveedores.produccion_entrada_manual import ProduccionEntradaManualUI
+			for w in list(self.central_area.winfo_children()):
+				w.destroy()
+			
+			entrada_ui = ProduccionEntradaManualUI(
+				self.central_area,
+				db=self.db,
+				proveedor_id=proveedor_id,
+				proveedor_nombre=proveedor_nombre,
+				owner=self
+			)
+			widget = entrada_ui.get_widget()
+			widget._volver = entrada_ui._on_volver_click
+			widget.pack(fill='both', expand=True)
+			self.actualizar_ruta('PRODUCCIÓN / PROVEEDORES / ENTRADA MANUAL')
+			logging.info(f'Abriendo entrada manual de albarán (proveedor {proveedor_id})...')
+		except Exception:
+			logging.exception('Error abriendo entrada manual de albarán en ProduccionView')
 
 	def show_proveedores_with_id(self, proveedor_id=None):
 		"""Volver a la vista de proveedores seleccionando uno concreto."""

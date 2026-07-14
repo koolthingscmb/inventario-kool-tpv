@@ -118,6 +118,9 @@ class ProduccionProveedoresView:
         self.btn_config_mapeos = create_action_button(self.footer, 'configurar_mapeos', self._abrir_configurador_mapeos)
         self.btn_config_mapeos.pack(side='left', padx=8)
 
+        self.btn_entrada_manual = create_action_button(self.footer, 'entrada_manual_albaran', self._entrada_manual_albaran)
+        self.btn_entrada_manual.pack(side='left', padx=8)
+
         self.btn_importar = create_action_button(self.footer, 'importar_albaran', self._importar_albaran)
         self.btn_importar.pack(side='right', padx=8)
 
@@ -295,3 +298,16 @@ class ProduccionProveedoresView:
                 ToastWidget.show(self.container, 'NO SE PUEDE ABRIR EL IMPORTADOR DE ALBARANES', tipo='error')
         except Exception:
             logging.exception('Error en _importar_albaran')
+
+    def _entrada_manual_albaran(self):
+        try:
+            id_text = self.e_id.get().strip()
+            prov_id = int(id_text) if id_text else None
+            nombre_prov = self.e_nombre.get().strip() or ''
+            if getattr(self, 'owner', None) and hasattr(self.owner, 'show_entrada_manual_produccion'):
+                self.owner.show_entrada_manual_produccion(prov_id, nombre_prov)
+            else:
+                from kool_tpv.utils.widgets.notificaciones import ToastWidget
+                ToastWidget.show(self.container, 'NO SE PUEDE ABRIR LA ENTRADA MANUAL DE ALBARANES', tipo='error')
+        except Exception:
+            logging.exception('Error en _entrada_manual_albaran')
