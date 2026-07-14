@@ -107,10 +107,14 @@ class ProduccionStockBaseView:
 			("CANTIDAD", 100)
 		]
 		
+		root = lista_frame.winfo_toplevel()
+		km = getattr(root, 'keyboard_manager', None)
+
 		self.tabla = VirtualNavList(
 			lista_frame,
 			columns=columnas,
 			module_name="produccion",
+			keyboard_manager=km,
 			on_double_click=self._on_item_double_click
 		)
 		self.tabla.pack(fill="both", expand=True, padx=20, pady=10)

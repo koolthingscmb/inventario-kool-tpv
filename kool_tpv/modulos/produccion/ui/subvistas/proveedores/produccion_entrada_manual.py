@@ -149,10 +149,13 @@ class ProduccionEntradaManualUI:
         self.columns = [
             ('MATERIA PRIMA', 450), ('CANT', 80), ('COSTE UN.', 100), ('TOTAL', 120)
         ]
+        root = self.container.winfo_toplevel()
+        km = getattr(root, 'keyboard_manager', None)
         self.nav_list = VirtualNavList(
             self.container, 
             columns=self.columns, 
             module_name='produccion',
+            keyboard_manager=km,
             on_double_click=self._on_linea_double_click
         )
         self.nav_list.pack(fill='both', expand=True, padx=20, pady=10)

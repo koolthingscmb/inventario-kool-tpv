@@ -182,7 +182,9 @@ class ProduccionImportarAlbaran:
             ('TALLA', 146), ('TALLA KOOL', 112),
             ('UDS', 60), ('COSTE', 90), ('ESTADO', 150)
         ]
-        self.nav_list = VirtualNavList(self.container, columns=self.columns, module_name='produccion')
+        root = self.container.winfo_toplevel()
+        km = getattr(root, 'keyboard_manager', None)
+        self.nav_list = VirtualNavList(self.container, columns=self.columns, module_name='produccion', keyboard_manager=km)
         self.nav_list.pack(fill='both', expand=True, padx=20, pady=10)
 
         # RESUMEN PANEL
