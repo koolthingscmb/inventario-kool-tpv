@@ -7,6 +7,34 @@ from typing import List, Dict, Any, Optional, Tuple
 logger = logging.getLogger(__name__)
 
 
+def normalizar_nombre_producto(nombre: str) -> str:
+    """Normaliza nombres de productos que vienen en MAYÚSCULAS del CSV del proveedor.
+
+    Si el nombre ya viene con capitalización normal (mixto), se devuelve tal cual.
+    Si viene TODO EN MAYÚSCULAS, se capitaliza palabra a palabra.
+
+    Usa capitalize() por palabra en vez de str.title() para evitar el quirk de
+    title() con apóstrofes (ej: "MARVEL'S" -> "Marvel's" en vez de "Marvel'S").
+
+    Ejemplos:
+        >>> normalizar_nombre_producto('MARVEL ESSENTIALS 26. DOCTOR MUERTE')
+        'Marvel Essentials 26. Doctor Muerte'
+        >>> normalizar_nombre_producto('Funda Silicona Iphone 13')
+        'Funda Silicona Iphone 13'
+        >>> normalizar_nombre_producto('')
+        ''
+    """
+    if not nombre:
+        return nombre
+    nombre = nombre.strip()
+    if not nombre:
+        return nombre
+    # Solo normalizar si está TODO en mayúsculas
+    if nombre != nombre.upper():
+        return nombre
+    return ' '.join(word.capitalize() for word in nombre.split())
+
+
 class CsvParser:
     """Parser CSV que detecta encoding y delimitador automáticamente."""
 
@@ -237,7 +265,7 @@ class CsvParser:
         # Limpiar EAN: solo dígitos (eliminar caracteres corruptos como BOM o símbolos extra)
         ean_raw = str(result.get('ean', '')).strip()
         result['ean'] = ''.join(c for c in ean_raw if c.isdigit())
-        result['nombre'] = str(result.get('nombre', '')).strip()
+        result['nombre'] = normalizar_nombre_producto(str(result.get('nombre', '')).strip())
 
         # Cantidad (int)
         try:

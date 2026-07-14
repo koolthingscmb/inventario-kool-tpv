@@ -220,9 +220,11 @@ class ProveedoresUI:
                     pass
                 return
 
+            for c in range(8):
+                self.chips_frame.grid_columnconfigure(c, weight=1)
             for i, p in enumerate(provs):
-                row = i // 6
-                col = i % 6
+                row = i // 8
+                col = i % 8
                 name = p.get('nombre') or ''
                 btn = ButtonFactory.create_button(
                     parent=self.chips_frame,
@@ -230,7 +232,7 @@ class ProveedoresUI:
                     command=None,
                     style_key="chip_default"
                 )
-                btn.grid(row=row, column=col, padx=5, pady=5, sticky='w')
+                btn.grid(row=row, column=col, padx=5, pady=5, sticky='nsew')
                 btn.bind('<Button-1>', lambda e, btn=btn: self._select_chip(btn))
                 btn.bind('<Double-Button-1>', lambda e, prov=p: self._load_proveedor_into_form(prov))
                 setattr(btn, '_prov_data', p)
