@@ -61,7 +61,7 @@ class ProduccionRelacionesRepository:
                 )
 
     def asegurar_relacion(self, tipo_id: int, color_id: int, talla_id: int,
-                          variante_id: Optional[int] = None) -> bool:
+                          variante_id: Optional[int] = None, cur=None) -> bool:
         """Asegurar que una combinación tipo+variante+color+talla existe en la matriz.
         
         Si no existe, la inserta. Si ya existe, no hace nada.
@@ -69,19 +69,29 @@ class ProduccionRelacionesRepository:
         """
         if variante_id:
             check = "SELECT 1 FROM produccion_tipo_color_tallas WHERE tipo_id = ? AND variante_id = ? AND color_id = ? AND talla_id IS ?"
-            row = self.db.fetch_all(check, (tipo_id, variante_id, color_id, talla_id))
+            params = (tipo_id, variante_id, color_id, talla_id)
         else:
             check = "SELECT 1 FROM produccion_tipo_color_tallas WHERE tipo_id = ? AND variante_id IS NULL AND color_id = ? AND talla_id IS ?"
-            row = self.db.fetch_all(check, (tipo_id, color_id, talla_id))
+            params = (tipo_id, color_id, talla_id)
         
-        if row:
+        try:
+            if cur:
+                cur.execute(check, params)
+                row = cur.fetchone()
+            else:
+                row = self.db.fetch_one(check, params)
+            
+            if row:
+                return False
+            
+            insert = "INSERT INTO produccion_tipo_color_tallas (tipo_id, variante_id, color_id, talla_id) VALUES (?, ?, ?, ?)"
+            if cur:
+                cur.execute(insert, (tipo_id, variante_id, color_id, talla_id))
+            else:
+                self.db.execute_query(insert, (tipo_id, variante_id, color_id, talla_id))
+            return True
+        except Exception:
             return False
-        
-        self.db.execute_query(
-            "INSERT INTO produccion_tipo_color_tallas (tipo_id, variante_id, color_id, talla_id) VALUES (?, ?, ?, ?)",
-            (tipo_id, variante_id, color_id, talla_id)
-        )
-        return True
 
     def remove_color_de_tipo_3d(self, tipo_id: int, color_id: int, variante_id: Optional[int] = None):
         """Eliminar un color y todas sus tallas de un tipo o variante."""

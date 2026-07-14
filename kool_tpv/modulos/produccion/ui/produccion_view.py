@@ -329,7 +329,7 @@ class ProduccionView(BaseModuleView):
 		except Exception:
 			logging.exception('Error abriendo importador de albarán en ProduccionView')
 
-	def show_entrada_manual_produccion(self, proveedor_id=None, proveedor_nombre=''):
+	def show_entrada_manual_produccion(self, proveedor_id=None, proveedor_nombre='', albaran_id=None):
 		"""Mostrar entrada manual de albarán para producción."""
 		try:
 			from kool_tpv.modulos.produccion.ui.subvistas.proveedores.produccion_entrada_manual import ProduccionEntradaManualUI
@@ -341,15 +341,42 @@ class ProduccionView(BaseModuleView):
 				db=self.db,
 				proveedor_id=proveedor_id,
 				proveedor_nombre=proveedor_nombre,
-				owner=self
+				owner=self,
+				albaran_id=albaran_id
 			)
 			widget = entrada_ui.get_widget()
 			widget._volver = entrada_ui._on_volver_click
 			widget.pack(fill='both', expand=True)
-			self.actualizar_ruta('PRODUCCIÓN / PROVEEDORES / ENTRADA MANUAL')
-			logging.info(f'Abriendo entrada manual de albarán (proveedor {proveedor_id})...')
+			
+			ruta = 'PRODUCCIÓN / PROVEEDORES / ENTRADA MANUAL'
+			if albaran_id:
+				ruta = f'PRODUCCIÓN / PROVEEDORES / EDITAR ALBARÁN {albaran_id}'
+			self.actualizar_ruta(ruta)
+			
+			logging.info(f'Abriendo entrada manual de albarán (proveedor {proveedor_id}, albaran {albaran_id})...')
 		except Exception:
 			logging.exception('Error abriendo entrada manual de albarán en ProduccionView')
+
+	def show_consultar_albaranes(self, proveedor_id, proveedor_nombre):
+		"""Mostrar listado de albaranes de un proveedor."""
+		try:
+			from kool_tpv.modulos.produccion.ui.subvistas.proveedores.produccion_consultar_albaranes import ProduccionConsultarAlbaranesUI
+			for w in list(self.central_area.winfo_children()):
+				w.destroy()
+			
+			consultar_ui = ProduccionConsultarAlbaranesUI(
+				self.central_area,
+				db=self.db,
+				proveedor_id=proveedor_id,
+				proveedor_nombre=proveedor_nombre,
+				owner=self
+			)
+			widget = consultar_ui.get_widget()
+			widget.pack(fill='both', expand=True)
+			self.actualizar_ruta(f'PRODUCCIÓN / PROVEEDORES / ALBARANES: {proveedor_nombre}')
+			logging.info(f'Consultando albaranes de proveedor {proveedor_id} ({proveedor_nombre})...')
+		except Exception:
+			logging.exception('Error abriendo consulta de albaranes en ProduccionView')
 
 	def show_proveedores_with_id(self, proveedor_id=None):
 		"""Volver a la vista de proveedores seleccionando uno concreto."""

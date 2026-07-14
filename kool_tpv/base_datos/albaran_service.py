@@ -110,6 +110,7 @@ class AlbaranService:
                     'coste': coste_dec,
                     'tipo_iva': tipo_iva,
                     'pvpr_cents': int(line.get('pvpr_cents', 0)),
+                    'sku': line.get('sku', '')
                 })
 
             total = total_neto + total_iva_4 + total_iva_10 + total_iva_21
@@ -303,7 +304,7 @@ class AlbaranService:
 
             # Líneas
             query_lines = """
-        SELECT id, producto_id, ean, nombre, cantidad, coste, tipo_iva, pvpr_cents
+        SELECT id, producto_id, ean, nombre, cantidad, coste, tipo_iva, pvpr_cents, sku
         FROM albaran_lines
         WHERE albaran_id = ?
         ORDER BY id ASC
@@ -320,6 +321,7 @@ class AlbaranService:
                     'coste': read_from_db(int(rl[5] or 0)),
                     'tipo_iva': int(rl[6] or 21),
                     'pvpr_cents': int(rl[7] or 0),
+                    'sku': rl[8] or ''
                 })
 
             return {'albaran': albaran, 'lines': lines}
@@ -328,7 +330,7 @@ class AlbaranService:
             logging.exception('Error obteniendo detalle de albarán')
             return None
 
-    def update_albaran_with_new_lines(self, albaran_id, all_lines):
+    def update_albaran_with_new_lines(self, albaran_id, all_lines, cur=None):
         """Actualizar albarán con nuevas líneas añadidas y recalcular totales.
 
         Args:
@@ -336,6 +338,7 @@ class AlbaranService:
             all_lines (list): TODAS las líneas actuales del albarán (viejas con 'id' + nuevas sin 'id')
                              Cada línea debe tener: {producto_id, ean, nombre, cantidad, coste, descuento, tipo_iva}
                              Las líneas existentes tienen además: {'id': line_id}
+            cur: cursor de transacción externa (opcional)
 
         Returns:
             bool: True si OK, False si error
@@ -396,10 +399,11 @@ class AlbaranService:
                     'coste': coste_dec,
                     'tipo_iva': int(line.get('tipo_iva', 21)),
                     'pvpr_cents': int(line.get('pvpr_cents', 0)),
+                    'sku': line.get('sku', '')
                 })
 
             # 3. Delegar escritura al repo
-            self.repo.actualizar_albaran_con_lineas(albaran_id, nuevas_lineas_procesadas, totales)
+            self.repo.actualizar_albaran_con_lineas(albaran_id, nuevas_lineas_procesadas, totales, cur=cur)
             logging.info(f'Albarán {albaran_id} actualizado: {len(new_lines)} líneas añadidas, totales recalculados')
             return True
 

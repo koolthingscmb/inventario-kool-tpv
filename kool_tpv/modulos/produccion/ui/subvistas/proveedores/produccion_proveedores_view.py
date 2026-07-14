@@ -290,7 +290,21 @@ class ProduccionProveedoresView:
             logging.exception('Error abriendo web')
 
     def _mostrar_albaranes(self):
-        logging.info('CONSULTAR ALBARANES - pendiente implementar')
+        try:
+            id_text = self.e_id.get().strip()
+            if not id_text:
+                from kool_tpv.utils.widgets.notificaciones import ToastWidget
+                ToastWidget.show(self.container, 'SELECCIONA UN PROVEEDOR PRIMERO', tipo='error')
+                return
+            prov_id = int(id_text)
+            nombre_prov = self.e_nombre.get().strip() or ''
+            if getattr(self, 'owner', None) and hasattr(self.owner, 'show_consultar_albaranes'):
+                self.owner.show_consultar_albaranes(prov_id, nombre_prov)
+            else:
+                from kool_tpv.utils.widgets.notificaciones import ToastWidget
+                ToastWidget.show(self.container, 'NO SE PUEDE ABRIR LA CONSULTA DE ALBARANES', tipo='error')
+        except Exception:
+            logging.exception('Error en _mostrar_albaranes')
 
     def _importar_albaran(self):
         try:

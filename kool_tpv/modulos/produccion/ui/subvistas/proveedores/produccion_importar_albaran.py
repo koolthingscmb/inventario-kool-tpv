@@ -442,6 +442,14 @@ class ProduccionImportarAlbaran:
             # 1. Preparar líneas para AlbaranRepository (registro histórico)
             lineas_albaran = []
             for p in self.lineas_procesadas:
+                # Generar SKU para el histórico y stock
+                sku = stock_service.generar_sku(
+                    tipo_id=p['tipo_id'],
+                    color_id=p['color_id'],
+                    talla=p['talla_kool'],
+                    variante_id=p.get('variante_id')
+                )
+                
                 lineas_albaran.append({
                     'producto_id': None,
                     'ean': '',
@@ -449,7 +457,8 @@ class ProduccionImportarAlbaran:
                     'cantidad': p['uds'],
                     'coste': p['coste'],
                     'tipo_iva': 21,
-                    'es_producto_nuevo': False
+                    'es_producto_nuevo': False,
+                    'sku': sku
                 })
             
             # 2. Calcular totales
@@ -474,7 +483,7 @@ class ProduccionImportarAlbaran:
                     cur=cur
                 )
                 
-                for p in self.lineas_procesadas:
+                for idx, p in enumerate(self.lineas_procesadas):
                     stock_service.importar_stock(
                         tipo_id=p['tipo_id'],
                         color_id=p['color_id'],
@@ -483,6 +492,7 @@ class ProduccionImportarAlbaran:
                         coste_nuevo_eur=p['coste'],
                         variante_id=p.get('variante_id'),
                         talla_id=p.get('talla_id'),
+                        sku_manual=lineas_albaran[idx]['sku'],
                         cur=cur
                     )
             

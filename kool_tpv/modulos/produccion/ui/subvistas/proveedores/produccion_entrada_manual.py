@@ -28,12 +28,13 @@ logger = logging.getLogger(__name__)
 class ProduccionEntradaManualUI:
     """UI para introducir manualmente albaranes de materias primas."""
 
-    def __init__(self, parent, db=None, proveedor_id=None, proveedor_nombre='', owner=None):
+    def __init__(self, parent, db=None, proveedor_id=None, proveedor_nombre='', owner=None, albaran_id=None):
         self.parent = parent
         self.db = db
         self.proveedor_id = proveedor_id
         self.proveedor_nombre = proveedor_nombre
         self.owner = owner
+        self.albaran_id = albaran_id
 
         self.lineas = [] # List[Dict] con las líneas del albarán
         self._editing_index = None # Índice de la línea en edición
@@ -58,6 +59,9 @@ class ProduccionEntradaManualUI:
         self._cargar_combos_iniciales()
         self._setup_tab_navigation()
         
+        if self.albaran_id:
+            self._cargar_albaran_existente()
+        
         # Handler para ESC
         self._esc_handler = lambda e: self._on_volver_click()
         self._bind_esc_recursive(self.container)
@@ -72,13 +76,17 @@ class ProduccionEntradaManualUI:
         self.entry_font = font_config.get('entry', {'family': 'Courier New', 'size': 14})
 
         # Título
-        lbl_titulo = ctk.CTkLabel(
+        txt_titulo = f"CREANDO ALBARÁN PARA EL PROVEEDOR: {self.proveedor_nombre.upper()}"
+        if self.albaran_id:
+            txt_titulo = f"EDITANDO ALBARÁN {self.albaran_id} - PROVEEDOR: {self.proveedor_nombre.upper()}"
+
+        self.lbl_titulo = ctk.CTkLabel(
             self.container, 
-            text=f"CREANDO ALBARÁN PARA EL PROVEEDOR: {self.proveedor_nombre.upper()}",
+            text=txt_titulo,
             text_color=self.colors.get('primary', COLOR_MATRIX),
             font=(self.title_font['family'], self.title_font['size'], self.title_font.get('weight', 'normal'))
         )
-        lbl_titulo.pack(pady=(15, 10))
+        self.lbl_titulo.pack(pady=(15, 10))
 
         # PANEL SUPERIOR: Cabecera Albarán
         top_panel = ctk.CTkFrame(self.container, fg_color='#1a1a1a')
@@ -122,20 +130,26 @@ class ProduccionEntradaManualUI:
         self.combo_color.pack(side='left', padx=5)
         
         ctk.CTkLabel(row2, text='Talla:', width=80, anchor='w').pack(side='left', padx=(20, 5))
-        self.combo_talla = SearchableCombo(row2, width=250, placeholder='Selecciona talla...')
+        self.combo_talla = SearchableCombo(row2, width=250, placeholder='Selecciona talla...', command=self._on_talla_change)
         self.combo_talla.pack(side='left', padx=5)
 
-        # Fila 3: Cantidad y Coste
+        # Fila 3: SKU, Cantidad y Coste
         row3 = ctk.CTkFrame(search_panel, fg_color='transparent')
         row3.pack(fill='x', padx=10, pady=(5, 10))
         
-        ctk.CTkLabel(row3, text='Cantidad:', width=80, anchor='w').pack(side='left', padx=5)
+        ctk.CTkLabel(row3, text='SKU:', width=60, anchor='w').pack(side='left', padx=5)
+        self.entry_sku = ctk.CTkEntry(row3, width=180, font=(self.entry_font['family'], self.entry_font['size']), fg_color='#2b2b2b')
+        self.entry_sku.pack(side='left', padx=5)
+        self.entry_sku.insert(0, '')
+        self.entry_sku.configure(state='readonly')
+
+        ctk.CTkLabel(row3, text='Cantidad:', width=80, anchor='w').pack(side='left', padx=(20, 5))
         self.entry_cant = ctk.CTkEntry(row3, width=80, font=(self.entry_font['family'], self.entry_font['size']))
         self.entry_cant.pack(side='left', padx=5)
         self.entry_cant.insert(0, '1')
 
         ctk.CTkLabel(row3, text='Coste Un.:', width=80, anchor='w').pack(side='left', padx=(20, 5))
-        self.entry_coste = ctk.CTkEntry(row3, width=100, font=(self.entry_font['family'], self.entry_font['size']))
+        self.entry_coste = ctk.CTkEntry(row3, width=80, font=(self.entry_font['family'], self.entry_font['size']))
         self.entry_coste.pack(side='left', padx=5)
         self.entry_coste.insert(0, '0.00')
         ctk.CTkLabel(row3, text='€').pack(side='left')
@@ -147,7 +161,7 @@ class ProduccionEntradaManualUI:
 
         # TABLA DE LÍNEAS
         self.columns = [
-            ('MATERIA PRIMA', 450), ('CANT', 80), ('COSTE UN.', 100), ('TOTAL', 120)
+            ('SKU', 150), ('MATERIA PRIMA', 350), ('CANT', 80), ('COSTE UN.', 100), ('TOTAL', 120)
         ]
         root = self.container.winfo_toplevel()
         km = getattr(root, 'keyboard_manager', None)
@@ -201,6 +215,56 @@ class ProduccionEntradaManualUI:
         tallas = self.tallas_service.obtener_todas()
         self.combo_talla.set_options([(t.id, t.nombre) for t in tallas])
 
+    def _cargar_albaran_existente(self):
+        """Carga los datos de un albarán existente para su edición."""
+        try:
+            detalle = self.albaran_service.get_albaran_detalle(self.albaran_id)
+            if not detalle:
+                ToastWidget.show(self.container, "NO SE ENCONTRÓ EL ALBARÁN", tipo='error')
+                return
+
+            alb = detalle['albaran']
+            self.entry_num.delete(0, 'end')
+            self.entry_num.insert(0, str(alb.get('num_albaran', '')))
+            self.entry_fecha.delete(0, 'end')
+            self.entry_fecha.insert(0, str(alb.get('fecha', '')))
+
+            # Mapear líneas del albarán al formato interno de producción
+            # NOTA: Como en producción no guardamos el tipo_id/color_id en albaran_lines directamente
+            # (solo guardamos el 'nombre' descriptivo), esto es complicado de reconstruir perfectamente
+            # para volver a editar cada campo. 
+            # Sin embargo, si el usuario solo quiere VER y añadir líneas, podemos cargar las líneas
+            # tal cual vienen del detalle.
+            
+            self.lineas = []
+            for l in detalle['lines']:
+                # Intentar parsear el nombre para recuperar datos si es posible (formato: "Tipo / Variante - Color (Talla)")
+                # Pero de momento cargamos como líneas de "solo lectura" en la tabla.
+                
+                # Intentar obtener el SKU si existe en la línea (aunque albaran_lines no lo tenga, 
+                # podríamos buscarlo si tuviéramos los IDs, pero aquí cargamos de albarán general)
+                sku = l.get('sku', '')
+                
+                self.lineas.append({
+                    'id': l['id'], # Importante para saber que ya existe en la BD
+                    'tipo_id': None, # No lo tenemos fácil
+                    'variante_id': None,
+                    'color_id': None,
+                    'talla': '',
+                    'sku': sku,
+                    'nombre': l['nombre'],
+                    'cantidad': l['cantidad'],
+                    'coste': l['coste'],
+                    'total': Decimal(str(l['cantidad'])) * l['coste']
+                })
+            
+            self._actualizar_tabla()
+            self.btn_guardar.configure(text='ACTUALIZAR ALBARÁN')
+
+        except Exception:
+            logger.exception(f"Error cargando albarán {self.albaran_id}")
+            ToastWidget.show(self.container, "ERROR AL CARGAR EL ALBARÁN", tipo='error')
+
     def _on_tipo_change(self, nombre_tipo):
         """Al cambiar el tipo, cargar variantes asociadas y configurar requisitos."""
         self.combo_variante.clear()
@@ -229,14 +293,50 @@ class ProduccionEntradaManualUI:
         variantes = self.variantes_service.obtener_por_tipo(tipo_id, solo_activos=True)
         self.variante_map = {v.nombre: v.id for v in variantes}
         self.combo_variante.set_options([(v.id, v.nombre) for v in variantes])
+        
+        self._actualizar_sku_preview()
 
     def _on_variante_change(self, nombre_var):
-        """Al cambiar la variante, podríamos filtrar tallas o colores si fuera necesario."""
-        pass
+        """Al cambiar la variante, recalcular SKU."""
+        self._actualizar_sku_preview()
 
     def _on_color_change(self, nombre_color):
-        """Al cambiar el color, no solemos filtrar nada en entrada manual."""
-        pass
+        """Al cambiar el color, recalcular SKU."""
+        self._actualizar_sku_preview()
+
+    def _on_talla_change(self, nombre_talla):
+        """Al cambiar la talla, recalcular SKU."""
+        self._actualizar_sku_preview()
+
+    def _actualizar_sku_preview(self):
+        """Calcula y muestra el SKU generado según la selección actual."""
+        tipo_nom = self.combo_tipo.get()
+        var_nom = self.combo_variante.get()
+        col_nom = self.combo_color.get()
+        talla_nom = self.combo_talla.get()
+        
+        tipo_id = self.tipo_map.get(tipo_nom)
+        if not tipo_id:
+            self._set_sku_text("")
+            return
+            
+        var_id = self.variante_map.get(var_nom) if var_nom else None
+        col_id = self.color_map.get(col_nom) if col_nom else None
+        
+        sku = self.stock_service.generar_sku(
+            tipo_id=tipo_id,
+            color_id=col_id,
+            talla=talla_nom,
+            variante_id=var_id
+        )
+        
+        self._set_sku_text(sku)
+
+    def _set_sku_text(self, text):
+        self.entry_sku.configure(state='normal')
+        self.entry_sku.delete(0, 'end')
+        self.entry_sku.insert(0, text)
+        self.entry_sku.configure(state='readonly')
 
     # --- ACCIONES ---
 
@@ -275,6 +375,7 @@ class ProduccionEntradaManualUI:
 
         var_id = self.variante_map.get(var_nom) if var_nom else None
         col_id = self.color_map.get(col_nom) if col_nom else None
+        sku = self.entry_sku.get()
         
         # Crear descripción para la línea (solo lo seleccionado)
         desc = f"{tipo_nom}"
@@ -287,6 +388,7 @@ class ProduccionEntradaManualUI:
             'variante_id': var_id,
             'color_id': col_id,
             'talla': talla_nom if talla_nom else "",
+            'sku': sku,
             'nombre': desc,
             'cantidad': cant,
             'coste': coste,
@@ -312,6 +414,7 @@ class ProduccionEntradaManualUI:
         total_acum = Decimal('0.00')
         for l in self.lineas:
             rows.append({
+                'SKU': l.get('sku', ''),
                 'MATERIA PRIMA': l['nombre'],
                 'CANT': str(l['cantidad']),
                 'COSTE UN.': f"{l['coste']:.2f}€",
@@ -333,6 +436,7 @@ class ProduccionEntradaManualUI:
         self.combo_variante.clear()
         self.combo_talla.clear()
         self.combo_color.set('')
+        self._set_sku_text("")
         self.entry_cant.delete(0, 'end')
         self.entry_cant.insert(0, '1')
         self.entry_coste.delete(0, 'end')
@@ -372,6 +476,7 @@ class ProduccionEntradaManualUI:
             
             # 4. Cargar Talla y otros campos
             self.combo_talla.set(linea['talla'])
+            self._set_sku_text(linea.get('sku', ''))
             self.entry_cant.delete(0, 'end')
             self.entry_cant.insert(0, str(linea['cantidad']))
             self.entry_coste.delete(0, 'end')
@@ -390,7 +495,7 @@ class ProduccionEntradaManualUI:
             self._actualizar_tabla()
 
     def _on_guardar_click(self):
-        """Guarda el albarán completo y actualiza stock."""
+        """Guarda el albarán completo (nuevo o actualización) y actualiza stock."""
         if not self.lineas: return
         
         num_albaran = self.entry_num.get().strip()
@@ -405,59 +510,102 @@ class ProduccionEntradaManualUI:
             return
 
         try:
-            # 1. Preparar líneas para AlbaranRepository
-            lineas_albaran = []
-            for l in self.lineas:
-                lineas_albaran.append({
-                    'producto_id': None,
-                    'ean': '',
-                    'nombre': l['nombre'],
-                    'cantidad': l['cantidad'],
-                    'coste': l['coste'],
-                    'tipo_iva': 21,
-                    'es_producto_nuevo': False
-                })
-            
-            # 2. Calcular totales (neto + 21% IVA)
-            total_neto = sum(l['total'] for l in self.lineas)
-            total_iva = total_neto * Decimal('0.21')
-            totales = {
-                'total_neto': total_neto,
-                'total_iva_4': 0, 'total_iva_10': 0, 'total_iva_21': total_iva,
-                'total': total_neto + total_iva
-            }
-            
-            # 3. Transacción atómica
-            with self.db.transaction() as cur:
-                # Verificar que el proveedor existe o al menos registrar el ID que llega
-                logger.info(f"Guardando albarán manual {num_albaran} para proveedor_id={self.proveedor_id}")
+            if self.albaran_id:
+                # MODO ACTUALIZACIÓN
+                # Solo podemos actualizar si usamos update_albaran_with_new_lines, 
+                # que inserta líneas nuevas y recalcula totales.
                 
-                self.albaran_repo.guardar_albaran_completo(
-                    num_albaran=num_albaran,
-                    proveedor_id=self.proveedor_id,
-                    fecha=fecha,
-                    tipo='ENTRADA_PROD',
-                    lineas=lineas_albaran,
-                    totales=totales,
-                    cur=cur
-                )
-                
+                # Preparar todas las líneas (nuevas y viejas)
+                all_lines = []
+                nuevas_para_stock = []
                 for l in self.lineas:
-                    self.stock_service.importar_stock(
-                        tipo_id=l['tipo_id'],
-                        color_id=l['color_id'],
-                        talla=l['talla'],
-                        cantidad_nueva=l['cantidad'],
-                        coste_nuevo_eur=float(l['coste']),
-                        variante_id=l['variante_id'],
+                    line_data = {
+                        'producto_id': None,
+                        'ean': '',
+                        'nombre': l['nombre'],
+                        'cantidad': l['cantidad'],
+                        'coste': l['coste'],
+                        'tipo_iva': 21,
+                        'sku': l.get('sku', '')
+                    }
+                    if 'id' in l and l['id']:
+                        line_data['id'] = l['id']
+                    else:
+                        # Es nueva, hay que sumar stock
+                        nuevas_para_stock.append(l)
+                    all_lines.append(line_data)
+
+                with self.db.transaction() as cur:
+                    # 1. Actualizar albarán (cabecera + líneas nuevas)
+                    self.albaran_service.update_albaran_with_new_lines(self.albaran_id, all_lines, cur=cur)
+                    
+                    # 2. Actualizar stock SOLO de las líneas nuevas
+                    for l in nuevas_para_stock:
+                        if l.get('tipo_id'): # Solo si tenemos los IDs (líneas añadidas ahora)
+                            self.stock_service.importar_stock(
+                                tipo_id=l['tipo_id'],
+                                color_id=l['color_id'],
+                                talla=l['talla'],
+                                cantidad_nueva=l['cantidad'],
+                                coste_nuevo_eur=float(l['coste']),
+                                variante_id=l['variante_id'],
+                                sku_manual=l.get('sku'),
+                                cur=cur
+                            )
+                
+                ToastWidget.show(self.container, f"ALBARÁN '{num_albaran}' ACTUALIZADO", tipo='success')
+            else:
+                # MODO NUEVO (Código original)
+                lineas_albaran = []
+                for l in self.lineas:
+                    lineas_albaran.append({
+                        'producto_id': None,
+                        'ean': '',
+                        'nombre': l['nombre'],
+                        'cantidad': l['cantidad'],
+                        'coste': l['coste'],
+                        'tipo_iva': 21,
+                        'es_producto_nuevo': False,
+                        'sku': l.get('sku', '')
+                    })
+                
+                total_neto = sum(l['total'] for l in self.lineas)
+                total_iva = total_neto * Decimal('0.21')
+                totales = {
+                    'total_neto': total_neto,
+                    'total_iva_4': 0, 'total_iva_10': 0, 'total_iva_21': total_iva,
+                    'total': total_neto + total_iva
+                }
+                
+                with self.db.transaction() as cur:
+                    self.albaran_repo.guardar_albaran_completo(
+                        num_albaran=num_albaran,
+                        proveedor_id=self.proveedor_id,
+                        fecha=fecha,
+                        tipo='ENTRADA_PROD',
+                        lineas=lineas_albaran,
+                        totales=totales,
                         cur=cur
                     )
+                    
+                    for l in self.lineas:
+                        self.stock_service.importar_stock(
+                            tipo_id=l['tipo_id'],
+                            color_id=l['color_id'],
+                            talla=l['talla'],
+                            cantidad_nueva=l['cantidad'],
+                            coste_nuevo_eur=float(l['coste']),
+                            variante_id=l['variante_id'],
+                            sku_manual=l.get('sku'),
+                            cur=cur
+                        )
+                
+                ToastWidget.show(
+                    self.container, 
+                    f"ALBARÁN '{num_albaran}' GUARDADO Y STOCK ACTUALIZADO", 
+                    tipo='success'
+                )
             
-            ToastWidget.show(
-                self.container, 
-                f"ALBARÁN '{num_albaran}' GUARDADO Y STOCK ACTUALIZADO", 
-                tipo='success'
-            )
             self._on_volver_click()
 
         except Exception:
@@ -473,6 +621,7 @@ class ProduccionEntradaManualUI:
             self.combo_variante,
             self.combo_color,
             self.combo_talla,
+            self.entry_sku,
             self.entry_cant,
             self.entry_coste,
             self.btn_anadir,

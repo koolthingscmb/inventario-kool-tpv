@@ -59,6 +59,7 @@ class ProduccionStockBaseService:
 	                   cantidad_nueva: int, coste_nuevo_eur: float,
 	                   variante_id: Optional[int] = None,
 	                   talla_id: Optional[int] = None,
+	                   sku_manual: Optional[str] = None,
 	                   cur=None) -> bool:
 		"""Procesa la entrada de stock calculando coste medio y generando SKU si es necesario."""
 		try:
@@ -67,12 +68,13 @@ class ProduccionStockBaseService:
 			
 			cant_previa = 0
 			coste_medio_previo = 0
-			sku = ""
+			sku = sku_manual or ""
 			
 			if stock_actual:
 				cant_previa = stock_actual['cantidad'] or 0
 				coste_medio_previo = stock_actual['coste_medio'] or 0
-				sku = stock_actual['sku'] or ""
+				if not sku:
+					sku = stock_actual['sku'] or ""
 				if not talla_id:
 					talla_id = stock_actual.get('talla_id')
 			
@@ -116,14 +118,14 @@ class ProduccionStockBaseService:
 			
 			# 5. Auto-poblar la matriz si la combinación no existe
 			if ok:
-				self._asegurar_matriz(tipo_id, color_id, talla, variante_id)
+				self._asegurar_matriz(tipo_id, color_id, talla, variante_id, cur=cur)
 			
 			return ok
 		except Exception:
 			logger.exception("Error en importar_stock del servicio")
 			return False
 
-	def _asegurar_matriz(self, tipo_id: int, color_id: int, talla: str, variante_id: Optional[int] = None):
+	def _asegurar_matriz(self, tipo_id: int, color_id: int, talla: str, variante_id: Optional[int] = None, cur=None):
 		"""Auto-poblar la matriz produccion_tipo_color_tallas al importar stock."""
 		try:
 			repo_tallas = ProduccionTallasRepository(self.db)
@@ -137,11 +139,11 @@ class ProduccionStockBaseService:
 					logger.warning(f"Auto-matriz: talla '{talla_norm}' no encontrada en BD, se insertará como NULL")
 
 			repo_rel = ProduccionRelacionesRepository(self.db)
-			repo_rel.asegurar_relacion(tipo_id, color_id, talla_id, variante_id)
+			repo_rel.asegurar_relacion(tipo_id, color_id, talla_id, variante_id, cur=cur)
 		except Exception:
 			logger.exception("Error auto-poblando matriz")
 
-	def generar_sku(self, tipo_id: int, color_id: int, talla: str, variante_id: Optional[int] = None) -> str:
+	def generar_sku(self, tipo_id: int, color_id: Optional[int], talla: str, variante_id: Optional[int] = None) -> str:
 		"""Genera un SKU único basado en el patrón TIPO-VAR-COLOR-TALLA."""
 		try:
 			svc_tipos = ProduccionTiposService(self.db)
@@ -149,30 +151,45 @@ class ProduccionStockBaseService:
 			svc_variantes = ProduccionTiposVariantesService(self.db)
 			
 			tipo = svc_tipos.obtener_por_id(tipo_id)
-			color = svc_colores.obtener_por_id(color_id)
-			
-			if not tipo or not color:
+			if not tipo:
 				return ""
 				
 			def clean(s): 
 				import unicodedata
 				import re
+				if not s: return ""
 				s = s.upper()
 				s = unicodedata.normalize('NFD', s).encode('ascii', 'ignore').decode('ascii')
 				s = re.sub(r'[^A-Z0-9]', '', s)
 				return s
 
-			t = clean(tipo.nombre)[:3]
-			c = clean(color.nombre)[:3]
+			t = clean(tipo.nombre)[:4]
 			s = clean(talla)
 			
 			v = ""
 			if variante_id:
 				variante = svc_variantes.obtener_por_id(variante_id)
 				if variante:
-					v = clean(variante.nombre)[:3]
+					v = clean(variante.nombre)[:4]
 			
-			return f"{t}-{v}-{c}-{s}" if v else f"{t}-{c}-{s}"
+			c = ""
+			if color_id:
+				color = svc_colores.obtener_por_id(color_id)
+				if color:
+					c = clean(color.nombre)[:3]
+			
+			# Construir partes filtrando vacíos
+			parts = [t]
+			if v: parts.append(v)
+			if c: parts.append(c)
+			if s: parts.append(s)
+			
+			sku_base = "-".join(parts)
+			
+			# Verificar colisión global (opcional pero recomendado)
+			# Por ahora simplemente devolvemos la base mejorada
+			return sku_base
+
 		except Exception:
 			logger.exception("Error generando SKU")
 			return ""
