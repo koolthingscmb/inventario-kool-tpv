@@ -1,7 +1,7 @@
 """Lógica de negocio para el mapeo entre variantes de producción y productos del TPV.
 """
 import logging
-from typing import List, Optional
+from typing import List, Optional, Set, Tuple
 
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.produccion.models.variante_producto_link import VarianteProductoLink
@@ -28,6 +28,63 @@ class VarianteProductoService:
     def get_filtrados(self, tipo_id: Optional[int] = None, variante_id: Optional[int] = None) -> List[VarianteProductoLink]:
         """Obtener vinculaciones filtradas."""
         return self.repo.get_filtrados(tipo_id, variante_id)
+
+    def get_por_producto_combinacion(self, producto_id: int, extra_id: Optional[int] = None, 
+                                     coleccion_id: Optional[int] = None) -> List[VarianteProductoLink]:
+        """Obtener todas las variantes vinculadas a un producto TPV para una combinación."""
+        return self.repo.get_por_producto_combinacion(producto_id, extra_id, coleccion_id)
+
+    def sincronizar_vinculaciones(self, producto_id: int, variante_ids: Set[int], 
+                                  extra_id: Optional[int] = None, 
+                                  coleccion_id: Optional[int] = None) -> Tuple[int, int]:
+        """Sincroniza vinculaciones: elimina las que no están en el set e inserta las nuevas.
+        
+        Devuelve (insertadas, eliminadas).
+        """
+        try:
+            # 1. Obtener vinculaciones actuales para esta combinación
+            actuales = self.get_por_producto_combinacion(producto_id, extra_id, coleccion_id)
+            actuales_ids = {a.variante_id for a in actuales}
+            
+            # 2. Calcular diferencias
+            a_eliminar = actuales_ids - variante_ids
+            a_insertar = variante_ids - actuales_ids
+            
+            if not a_eliminar and not a_insertar:
+                return 0, 0
+                
+            with self.db.transaction() as cur:
+                # 3. Eliminar las que ya no están
+                if a_eliminar:
+                    # En SQLite no podemos hacer DELETE WHERE v_id IN (...) AND extra IS ?
+                    # de forma eficiente para el batch, así que lo hacemos uno a uno 
+                    # o borramos todo y re-insertamos. Por robustez, borramos todo y re-insertamos
+                    # lo que queremos mantener + lo nuevo.
+                    self.repo.eliminar_por_producto_combinacion(producto_id, extra_id, coleccion_id, cur=cur)
+                    # Al borrar todo, ahora todas las variante_ids son "a insertar"
+                    final_insertar = variante_ids
+                else:
+                    final_insertar = a_insertar
+                
+                # 4. Insertar las necesarias
+                if final_insertar:
+                    links = [
+                        VarianteProductoLink(
+                            variante_id=vid,
+                            producto_id=producto_id,
+                            extra_id=extra_id,
+                            coleccion_id=coleccion_id,
+                            ratio=1,
+                            activo=1
+                        ) for vid in final_insertar
+                    ]
+                    self.repo.crear_batch(links, cur=cur)
+            
+            return len(final_insertar), len(a_eliminar)
+            
+        except Exception:
+            logger.exception(f"Error sincronizando vinculaciones para producto {producto_id}")
+            return 0, 0
 
     def guardar_mapeo(self, variante_id: int, producto_id: int, ratio: int = 1, 
                      extra_id: Optional[int] = None, coleccion_id: Optional[int] = None) -> bool:

@@ -149,6 +149,24 @@ class VarianteProductoRepository:
         rows = self.db.fetch_all(query, tuple(params))
         return [self._row_to_link(row) for row in rows]
 
+    def get_por_producto_combinacion(self, producto_id: int, extra_id: Optional[int] = None, 
+                                     coleccion_id: Optional[int] = None) -> List[VarianteProductoLink]:
+        """Obtener todas las variantes vinculadas a un producto TPV para una combinación de extra/colección."""
+        query = """
+            SELECT l.id, l.variante_id, l.producto_id, l.extra_id, l.coleccion_id, l.ratio, l.activo, l.created_at, l.updated_at,
+                   v.nombre as variante_nombre, p.nombre as producto_nombre,
+                   e.nombre as extra_nombre, c.nombre as coleccion_nombre
+            FROM produccion_variantes_productos l
+            JOIN tipos_variantes v ON l.variante_id = v.id
+            JOIN productos p ON l.producto_id = p.id
+            LEFT JOIN produccion_extras e ON l.extra_id = e.id
+            LEFT JOIN produccion_colecciones c ON l.coleccion_id = c.id
+            WHERE l.producto_id = ? AND l.extra_id IS ? AND l.coleccion_id IS ?
+            ORDER BY v.nombre ASC
+        """
+        rows = self.db.fetch_all(query, (producto_id, extra_id, coleccion_id))
+        return [self._row_to_link(row) for row in rows]
+
 
     def existe_combinacion_exacta(self, variante_id: int, extra_id: Optional[int] = None,
                                   coleccion_id: Optional[int] = None) -> bool:
@@ -197,4 +215,38 @@ class VarianteProductoRepository:
             return True
         except Exception:
             logger.exception(f"Error al eliminar mapeo {link_id}")
+            return False
+
+    def eliminar_por_producto_combinacion(self, producto_id: int, extra_id: Optional[int] = None, 
+                                          coleccion_id: Optional[int] = None, cur=None) -> bool:
+        """Eliminar todas las vinculaciones de un producto TPV para una combinación de extra/colección."""
+        try:
+            query = "DELETE FROM produccion_variantes_productos WHERE producto_id = ? AND extra_id IS ? AND coleccion_id IS ?"
+            if cur:
+                cur.execute(query, (producto_id, extra_id, coleccion_id))
+            else:
+                self.db.execute_query(query, (producto_id, extra_id, coleccion_id))
+            return True
+        except Exception:
+            logger.exception(f"Error al eliminar vinculaciones del producto {producto_id}")
+            return False
+
+    def crear_batch(self, links: List[VarianteProductoLink], cur=None) -> bool:
+        """Crear múltiples mapeos en una sola operación (transaccional)."""
+        if not links: return True
+        try:
+            query = """
+                INSERT INTO produccion_variantes_productos (variante_id, producto_id, extra_id, coleccion_id, ratio, activo)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """
+            params = [(l.variante_id, l.producto_id, l.extra_id, l.coleccion_id, l.ratio, l.activo) for l in links]
+            
+            if cur:
+                cur.executemany(query, params)
+            else:
+                with self.db.transaction() as c:
+                    c.executemany(query, params)
+            return True
+        except Exception:
+            logger.exception("Error en crear_batch de VarianteProductoRepository")
             return False

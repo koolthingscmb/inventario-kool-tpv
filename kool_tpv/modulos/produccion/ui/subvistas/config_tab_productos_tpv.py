@@ -44,7 +44,7 @@ class ConfigTabProductosTpv:
 
         # Estado
         self._tipo_selected_id = None
-        self._variante_selected_id = None
+        self._variantes_selected_ids = set() # Soporta selección múltiple
         self._extra_selected_id = None
         self._coleccion_selected_id = None
         self._producto_selected_data = None  # Almacena el producto del TPV seleccionado
@@ -225,7 +225,7 @@ class ConfigTabProductosTpv:
 
     def _on_tipo_click(self, tipo_id):
         self._tipo_selected_id = tipo_id
-        self._variante_selected_id = None
+        self._variantes_selected_ids = set()
         self._link_actual = None
         self._actualizar_chips_seleccion(self._tipo_chips, tipo_id)
         self._cargar_variantes(tipo_id)
@@ -239,7 +239,7 @@ class ConfigTabProductosTpv:
         
         cols = 2
         for idx, v in enumerate(variantes):
-            is_sel = (v.id == self._variante_selected_id)
+            is_sel = (v.id in self._variantes_selected_ids)
             chip = ctk.CTkButton(
                 self._variantes_scroll, text=v.nombre, height=32, corner_radius=16,
                 fg_color=self._get_chip_color(is_sel),
@@ -251,8 +251,13 @@ class ConfigTabProductosTpv:
         for i in range(cols): self._variantes_scroll.columnconfigure(i, weight=1)
 
     def _on_variante_click(self, variante_id):
-        self._variante_selected_id = variante_id
-        self._actualizar_chips_seleccion(self._variante_chips, variante_id)
+        # Toggle selection (multi-select)
+        if variante_id in self._variantes_selected_ids:
+            self._variantes_selected_ids.remove(variante_id)
+        else:
+            self._variantes_selected_ids.add(variante_id)
+            
+        self._actualizar_chips_seleccion(self._variante_chips, self._variantes_selected_ids)
         self._check_ready_to_save()
 
     def _cargar_extras(self):
@@ -320,40 +325,47 @@ class ConfigTabProductosTpv:
 
     def _on_guardar_click(self):
         """Guardar la vinculación final."""
-        if not self._producto_selected_data or not self._variante_selected_id:
-            ToastWidget.show(self.parent, "SELECCIONA PRODUCTO Y VARIANTE", tipo="error")
+        if not self._producto_selected_data or not self._variantes_selected_ids:
+            ToastWidget.show(self.parent, "SELECCIONA PRODUCTO Y AL MENOS UNA VARIANTE", tipo="error")
             return
         
-        if self.link_service.guardar_mapeo(
-            self._variante_selected_id, 
-            self._producto_selected_data["id"], 
-            extra_id=self._extra_selected_id, 
+        ins, els = self.link_service.sincronizar_vinculaciones(
+            self._producto_selected_data["id"],
+            self._variantes_selected_ids,
+            extra_id=self._extra_selected_id,
             coleccion_id=self._coleccion_selected_id
-        ):
-            ToastWidget.show(self.parent, "VINCULACIÓN GUARDADA", tipo="success")
-            self._cargar_vinculaciones()
-            self._check_ready_to_save()
-        else:
-            ToastWidget.show(self.parent, "ERROR AL GUARDAR", tipo="error")
+        )
+        
+        msg = f"VINCULACIÓN ACTUALIZADA: {ins} nuevas"
+        if els: msg += f", {els} eliminadas"
+        ToastWidget.show(self.parent, msg, tipo="success")
+        
+        self._cargar_vinculaciones()
+        self._check_ready_to_save()
 
     def _on_link_double_click(self, item_data: dict):
         """Cargar una vinculación existente en los chips y buscador."""
         link = item_data["_raw"]
-        self._variante_selected_id = link.variante_id
+        
+        # 1. Identificar el producto y la combinación (extra/colección)
         self._extra_selected_id = link.extra_id
         self._coleccion_selected_id = link.coleccion_id
-        
-        # Simular selección de producto
         self._producto_selected_data = {"id": link.producto_id, "nombre": link.producto_nombre}
         self.lbl_prod_sel.configure(text=f"PRODUCTO: {link.producto_nombre}", fg="#2ecc71")
+
+        # 2. Buscar TODAS las variantes vinculadas a este producto con esta combinación
+        links_comb = self.link_service.get_por_producto_combinacion(
+            link.producto_id, link.extra_id, link.coleccion_id
+        )
+        self._variantes_selected_ids = {l.variante_id for l in links_comb}
         
-        # Encontrar el tipo de la variante
+        # 3. Encontrar el tipo de la variante que se ha pulsado (para cargar la lista de variantes)
         var_obj = self.db.fetch_one("SELECT tipo_id FROM tipos_variantes WHERE id = ?", (link.variante_id,))
         if var_obj:
             self._tipo_selected_id = var_obj[0]
             self._actualizar_chips_seleccion(self._tipo_chips, self._tipo_selected_id)
-            self._cargar_variantes(self._tipo_selected_id)
-            self._actualizar_chips_seleccion(self._variante_chips, self._variante_selected_id)
+            self._cargar_variantes(self._tipo_selected_id) # Esto ya usa self._variantes_selected_ids
+            self._actualizar_chips_seleccion(self._variante_chips, self._variantes_selected_ids)
             
         self._actualizar_chips_seleccion(self._extra_chips, self._extra_selected_id)
         self._actualizar_chips_seleccion(self._coleccion_chips, self._coleccion_selected_id)
@@ -367,7 +379,7 @@ class ConfigTabProductosTpv:
     def _on_nueva_vinculacion(self):
         """Resetear selección para crear una nueva vinculación."""
         self._tipo_selected_id = None
-        self._variante_selected_id = None
+        self._variantes_selected_ids = set()
         self._extra_selected_id = None
         self._coleccion_selected_id = None
         self._producto_selected_data = None
@@ -386,36 +398,38 @@ class ConfigTabProductosTpv:
 
     def _check_ready_to_save(self):
         """Verificar si se puede guardar y si ya existe la combinación."""
-        can_save = (self._producto_selected_data is not None and self._variante_selected_id is not None)
+        can_save = (self._producto_selected_data is not None and len(self._variantes_selected_ids) > 0)
         
         if can_save:
             self.btn_guardar.configure(state="normal")
-            # Verificar si ya existe la combinación exacta (sin fallback)
-            existe = self.link_service.existe_combinacion_exacta(
-                self._variante_selected_id, self._extra_selected_id, self._coleccion_selected_id
+            
+            # Buscamos si el producto ya tiene vinculaciones para esta combinación de extra/col
+            links_actuales = self.link_service.get_por_producto_combinacion(
+                self._producto_selected_data["id"], self._extra_selected_id, self._coleccion_selected_id
             )
-
-            if existe:
-                # Cargar el link existente para poder eliminarlo si hace falta
-                self._link_actual = self.link_service.get_por_combinacion(
-                    self._variante_selected_id, self._extra_selected_id, self._coleccion_selected_id
-                )
-                self.btn_guardar.configure(text="ACTUALIZAR VINCULACIÓN", fg_color="#3498db", hover_color="#2980b9")
+            
+            if links_actuales:
+                self._link_actual = links_actuales[0] # Referencia para el ID si hiciera falta (eliminar total)
+                self.btn_guardar.configure(text=f"ACTUALIZAR VINCULACIÓN ({len(self._variantes_selected_ids)} vars)", 
+                                           fg_color="#3498db", hover_color="#2980b9")
                 self.btn_eliminar.configure(state="normal")
             else:
                 self._link_actual = None
-                self.btn_guardar.configure(text="GUARDAR NUEVA VINCULACIÓN", fg_color="#27ae60", hover_color="#2ecc71")
+                self.btn_guardar.configure(text=f"GUARDAR VINCULACIÓN ({len(self._variantes_selected_ids)} vars)", 
+                                           fg_color="#27ae60", hover_color="#2ecc71")
                 self.btn_eliminar.configure(state="disabled")
         else:
             self.btn_guardar.configure(state="disabled", text="GUARDAR VINCULACIÓN", fg_color="#27ae60")
             self.btn_eliminar.configure(state="disabled")
 
     def _on_eliminar_link(self):
-        """Eliminar la vinculación actual."""
-        if not self._link_actual: return
+        """Eliminar todas las vinculaciones del producto para esta combinación."""
+        if not self._producto_selected_data: return
 
-        if self.link_service.eliminar_mapeo(self._link_actual.id):
-            ToastWidget.show(self.parent, "VINCULACIÓN ELIMINADA", tipo="success")
+        if self.link_service.repo.eliminar_por_producto_combinacion(
+            self._producto_selected_data["id"], self._extra_selected_id, self._coleccion_selected_id
+        ):
+            ToastWidget.show(self.parent, "VINCULACIONES ELIMINADAS", tipo="success")
             self._on_nueva_vinculacion()
         else:
             ToastWidget.show(self.parent, "ERROR AL ELIMINAR", tipo="error")
@@ -425,9 +439,13 @@ class ConfigTabProductosTpv:
         selected_cfg = self._chip_cfg.get("selected", {})
         return selected_cfg.get("bg", "#552583") if is_selected else default_cfg.get("bg", "#1a1a2e")
 
-    def _actualizar_chips_seleccion(self, chips_dict, selected_id):
+    def _actualizar_chips_seleccion(self, chips_dict, selected):
         for cid, chip in chips_dict.items():
-            chip.configure(fg_color=self._get_chip_color(cid == selected_id))
+            if isinstance(selected, (set, list)):
+                is_sel = cid in selected
+            else:
+                is_sel = (cid == selected)
+            chip.configure(fg_color=self._get_chip_color(is_sel))
 
     def refresh_nav(self): self._cargar_vinculaciones()
 
