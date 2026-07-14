@@ -157,12 +157,6 @@ class BaseTicketGenerator(ABC):
             # Centrar cada línea según ancho definido
             lines.append(ln.center(self.WIDTH))
 
-        try:
-            logging.info(f"DEBUG TEMPLATE IN: {template[:50]}")
-            logging.info(f"DEBUG TEMPLATE OUT: {lines}")
-        except Exception:
-            pass
-
         return lines
 
     @abstractmethod

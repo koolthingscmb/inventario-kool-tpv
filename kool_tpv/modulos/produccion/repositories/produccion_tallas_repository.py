@@ -18,21 +18,23 @@ class ProduccionTallasRepository:
 		return [ProduccionTalla(id=r[0], nombre=r[1], orden=r[2], activo=r[3]) for r in rows]
 
 	def get_por_tipo_color_3d(self, tipo_id: int, color_id: int, variante_id: Optional[int] = None) -> List[ProduccionTalla]:
-		"""Obtener tallas con stock disponible para una combinación tipo+color o variante+color."""
+		"""Obtener tallas con stock disponible para una combinación tipo+color o variante+color.
+		Es robusto: busca tanto por talla_id como por coincidencia de nombre de talla.
+		"""
 		if variante_id:
 			query = """
-				SELECT t.id, t.nombre, t.orden, t.activo
+				SELECT DISTINCT t.id, t.nombre, t.orden, t.activo
 				FROM produccion_tallas t
-				JOIN produccion_stock_colores_tallas s ON t.id = s.talla_id
+				LEFT JOIN produccion_stock_colores_tallas s ON (t.id = s.talla_id OR t.nombre = s.talla)
 				WHERE s.tipo_id = ? AND s.variante_id = ? AND s.color_id = ? AND s.cantidad > 0 AND t.activo = 1
 				ORDER BY t.orden
 			"""
 			params = (tipo_id, variante_id, color_id)
 		else:
 			query = """
-				SELECT t.id, t.nombre, t.orden, t.activo
+				SELECT DISTINCT t.id, t.nombre, t.orden, t.activo
 				FROM produccion_tallas t
-				JOIN produccion_stock_colores_tallas s ON t.id = s.talla_id
+				LEFT JOIN produccion_stock_colores_tallas s ON (t.id = s.talla_id OR t.nombre = s.talla)
 				WHERE s.tipo_id = ? AND s.variante_id IS NULL AND s.color_id = ? AND s.cantidad > 0 AND t.activo = 1
 				ORDER BY t.orden
 			"""

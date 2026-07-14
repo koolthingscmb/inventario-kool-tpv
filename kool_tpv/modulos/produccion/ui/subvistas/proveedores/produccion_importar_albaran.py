@@ -466,7 +466,7 @@ class ProduccionImportarAlbaran:
                     num_albaran=num_albaran,
                     proveedor_id=self.proveedor_id,
                     fecha=date.today().strftime('%Y-%m-%d'),
-                    tipo='ENTRADA',
+                    tipo='ENTRADA_PROD',
                     lineas=lineas_albaran,
                     totales=totales,
                     cur=cur

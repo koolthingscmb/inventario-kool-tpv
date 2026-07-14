@@ -113,7 +113,9 @@ class TicketDisplay(ctk.CTkFrame):
             self.textbox.delete('1.0', 'end')
 
             if contenido and contenido.strip():
-                self.textbox.insert('1.0', contenido)
+                # Limpiar etiquetas de impresión para visualización
+                clean_content = (contenido or '').replace('{{BOLD_ON}}', '').replace('{{BOLD_OFF}}', '').replace('{{BADGE}}', '')
+                self.textbox.insert('1.0', clean_content)
             else:
                 self._set_placeholder()
                 return

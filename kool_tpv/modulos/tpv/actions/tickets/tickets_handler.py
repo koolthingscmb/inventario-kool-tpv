@@ -233,8 +233,9 @@ class TicketsHandler:
 						parent._visor_negro.set_font_size(13)
 					except Exception:
 						pass
+					clean_text = (ticket_text or '').replace('{{BOLD_ON}}', '').replace('{{BOLD_OFF}}', '').replace('{{BADGE}}', '')
 					try:
-						parent._visor_negro.set_text(ticket_text or '')
+						parent._visor_negro.set_text(clean_text)
 					except Exception:
 						parent._visor_negro.set_text(str(ticket_text))
 					try:

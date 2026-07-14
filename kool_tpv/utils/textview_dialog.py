@@ -161,7 +161,9 @@ class TextViewDialog(ctk.CTkToplevel):
 
         # Insertar texto
         try:
-            self.text_widget.insert('1.0', texto or '')
+            # Limpiar etiquetas de impresión para visualización
+            clean_text = (texto or '').replace('{{BOLD_ON}}', '').replace('{{BOLD_OFF}}', '').replace('{{BADGE}}', '')
+            self.text_widget.insert('1.0', clean_text)
             self.text_widget.configure(state='disabled')
         except Exception:
             logging.exception('Error insertando texto en TextViewDialog')

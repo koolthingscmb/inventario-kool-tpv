@@ -58,7 +58,9 @@ class VisorNegro:
             self._text_widget.delete('1.0', tk.END)
             if text:
                 try:
-                    self._text_widget.insert('1.0', text)
+                    # Limpiar etiquetas de impresión para visualización
+                    clean_text = str(text).replace('{{BOLD_ON}}', '').replace('{{BOLD_OFF}}', '').replace('{{BADGE}}', '')
+                    self._text_widget.insert('1.0', clean_text)
                 except Exception:
                     self._text_widget.insert('1.0', str(text))
             self._text_widget.configure(state='disabled')

@@ -76,6 +76,17 @@ class ProduccionStockBaseService:
 				if not talla_id:
 					talla_id = stock_actual.get('talla_id')
 			
+			# Intentar resolver talla_id si sigue siendo None pero hay nombre de talla
+			if not talla_id and talla:
+				try:
+					from kool_tpv.modulos.produccion.repositories.produccion_tallas_repository import ProduccionTallasRepository
+					repo_t = ProduccionTallasRepository(self.db)
+					t_obj = repo_t.get_por_nombre(talla.strip().upper())
+					if t_obj:
+						talla_id = t_obj.id
+				except Exception:
+					pass
+			
 			# 2. Calcular nuevo coste medio ponderado (en céntimos)
 			cant_total = cant_previa + cantidad_nueva
 			coste_nuevo_cents = prepare_for_db(coste_nuevo_eur)

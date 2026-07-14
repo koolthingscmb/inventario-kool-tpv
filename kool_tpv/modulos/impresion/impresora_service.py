@@ -292,14 +292,6 @@ class ImpresoraService:
         Returns:
             Texto del ticket formateado, o None si no existe
         """
-        # Debug: mostrar estado de la configuración en memoria antes de generar
-        try:
-            logging.info(f"DEBUG CONFIG KEYS: {list(self.config.keys())}")
-            logging.info(f"DEBUG ticket_header_venta: {self.config.get('ticket_header_venta')}")
-            logging.info(f"DEBUG ticket_footer_venta: {self.config.get('ticket_footer_venta')}")
-        except Exception:
-            pass
-
         try:
             from decimal import Decimal
 

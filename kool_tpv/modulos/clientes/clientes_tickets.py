@@ -497,6 +497,8 @@ class ClientesTicketsUI(PaginaConVisor):
                 except Exception:
                     display_text = 'No se pudo generar ticket'
 
+            # Limpiar etiquetas de impresión para visualización
+            display_text = (display_text or '').replace('{{BOLD_ON}}', '').replace('{{BOLD_OFF}}', '').replace('{{BADGE}}', '')
             self.update_visor(display_text or 'Ticket sin contenido')
             logger.debug(f'Ticket {ticket_id} mostrado en visor')
 

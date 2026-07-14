@@ -402,7 +402,8 @@ class SelectionOverlayVisor:
                     except Exception:
                         pass
                     try:
-                        parent._visor_negro.set_text(record_text)
+                        clean_text = (record_text or '').replace('{{BOLD_ON}}', '').replace('{{BOLD_OFF}}', '').replace('{{BADGE}}', '')
+                        parent._visor_negro.set_text(clean_text)
                     except Exception:
                         parent._visor_negro.set_text(str(record_text))
                     try:
