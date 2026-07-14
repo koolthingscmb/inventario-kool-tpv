@@ -19,6 +19,12 @@ class ClienteSubView(CTkFrame):
         self.header_frame.pack(side="top", fill="x", padx=20, pady=10)
 
         from kool_tpv.utils.factories.button_factory import ButtonFactory
+        self.btn_crear = ButtonFactory.create_button(
+            parent=self.header_frame,
+            text="+ CLIENTE",
+            style_key="mini_outline_clientes",
+            command=self._on_crear_cliente
+        )
         self.btn_editar = ButtonFactory.create_button(
             parent=self.header_frame,
             text="EDITAR",
@@ -34,6 +40,7 @@ class ClienteSubView(CTkFrame):
         self.search_entry.pack(side="left", padx=10)
         self.search_entry.bind("<Return>", lambda e: self.search_list.search(self.search_entry.get()))
 
+        self.btn_crear.pack(side="right", padx=10)
         self.btn_editar.pack(side="right", padx=10)
 
         # Lista
@@ -96,6 +103,43 @@ class ClienteSubView(CTkFrame):
             data = nav.get_selected_data()
             if data:
                 self._on_cliente_seleccionado(data)
+
+    def _on_crear_cliente(self):
+        """Abrir UI para crear nuevo cliente."""
+        try:
+            from kool_tpv.modulos.clientes.crear_cliente_ui import CrearClienteUI
+            
+            def on_cliente_creado(cliente_id: int):
+                """Callback tras crear cliente: cierra formulario, busca y selecciona el cliente."""
+                try:
+                    # Cerrar el formulario de creación
+                    self.view.pop_subview()
+                    # Refrescar la lista para que aparezca el nuevo cliente
+                    self.search_list.search("")
+                    # Buscar y seleccionar el cliente nuevo
+                    nav = getattr(self.search_list, 'nav_list', None)
+                    if nav:
+                        # Buscar en los datos cargados el cliente con el ID
+                        for i, item in enumerate(nav.data):
+                            if item.get('id') == cliente_id:
+                                nav.select_index(i)
+                                # Asignar automáticamente al carrito
+                                self._on_cliente_seleccionado(item)
+                                break
+                except Exception:
+                    logger.exception("Error en callback on_cliente_creado")
+            
+            crear_ui = CrearClienteUI(
+                parent=self.view.center_area,
+                db=self.db,
+                cliente_id=None,  # Modo creación
+                module_name="clientes",
+                on_save_callback=on_cliente_creado
+            )
+            widget = crear_ui.get_widget()
+            self.view.push_subview(widget, "NUEVO CLIENTE")
+        except Exception:
+            logger.exception("Error abriendo creación de cliente")
 
     def _on_editar_cliente(self):
         try:

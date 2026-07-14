@@ -151,7 +151,7 @@ class ClienteService:
 	def save_cliente(self, nombre: str, telefono: str = '', email: str = '', 
 				dni: str = '', direccion: str = '', ciudad: str = '', 
 				cp: str = '', pais: str = '', fecha_nacimiento: str = None,
-				tags: str = '', fidelidad_activa: int = 1) -> bool:
+				tags: str = '', fidelidad_activa: int = 1) -> Optional[int]:
 		"""Crear nuevo cliente.
 
 		Args:
@@ -162,7 +162,7 @@ class ClienteService:
 			fidelidad_activa: 1=activado, 0=desactivado
 
 		Returns:
-			bool: True si OK, False si error
+			Optional[int]: ID del cliente creado si OK, None si error
 		"""
 		try:
 			nivel_base_id = self._niveles_repo.obtener_nivel_base()
@@ -172,15 +172,16 @@ class ClienteService:
 				 fecha_nacimiento, tags, fidelidad_activa, id_nivel)
 				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			"""
-			self.db.execute_query(query, (
+			cursor = self.db.execute_query(query, (
 				nombre, telefono, email, dni, direccion, ciudad, cp, pais,
 				fecha_nacimiento, tags, fidelidad_activa, nivel_base_id
 			))
-			logging.info(f'Cliente {nombre} creado correctamente')
-			return True
+			cliente_id = cursor.lastrowid if cursor else None
+			logging.info(f'Cliente {nombre} creado con ID {cliente_id}')
+			return cliente_id
 		except Exception:
 			logging.exception('Error guardando cliente')
-			return False
+			return None
 
 	def update_cliente(self, cliente_id: int, nombre: str, telefono: str = '', 
 				   email: str = '', dni: str = '', direccion: str = '', 

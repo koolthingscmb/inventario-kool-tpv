@@ -31,11 +31,12 @@ logger = logging.getLogger(__name__)
 class CrearClienteUI:
     """Ficha completa de cliente con tesoro y niveles (sección datos básicos)."""
 
-    def __init__(self, parent, db: Optional[Database] = None, cliente_id: Optional[int] = None, module_name: str = 'clientes'):
+    def __init__(self, parent, db: Optional[Database] = None, cliente_id: Optional[int] = None, module_name: str = 'clientes', on_save_callback: Optional[callable] = None):
         self.parent = parent
         self.db = db
         self.cliente_id = cliente_id
         self.module_name = module_name
+        self.on_save_callback = on_save_callback
         # try to load module color palette; fall back to COLOR_MATRIX if loader fails
         try:
             self.colors = load_colors(self.module_name)
@@ -686,7 +687,6 @@ class CrearClienteUI:
             fidelidad_activa = 1 if getattr(self.chk_tesoro, 'get', lambda: 1)() else 0
 
             # Guardar o actualizar
-            ok = False
             if self.cliente_id:
                 # Actualizar cliente existente
                 ok = self.cliente_service.update_cliente(
@@ -700,22 +700,30 @@ class CrearClienteUI:
                         self._cargar_cliente()
                     except Exception:
                         logger.exception('Error recargando cliente tras update')
+                else:
+                    ToastWidget.show(self.container, 'NO SE PUDO ACTUALIZAR EL CLIENTE', tipo='error')
             else:
                 # Crear nuevo cliente
-                ok = self.cliente_service.save_cliente(
+                cliente_id = self.cliente_service.save_cliente(
                     nombre, telefono, email, dni, direccion, ciudad, cp, pais,
                     fecha_nac, tags, fidelidad_activa
                 )
-                if ok:
+                if cliente_id:
                     ToastWidget.show(self.container, f'Cliente {nombre} creado', tipo='success')
-                    # Limpiar formulario para siguiente alta
-                    try:
-                        self._limpiar_formulario()
-                    except Exception:
-                        logger.exception('Error limpiando formulario tras save')
-
-            if not ok:
-                ToastWidget.show(self.container, 'NO SE PUDO GUARDAR EL CLIENTE', tipo='error')
+                    # Si hay callback, llamarlo con el ID del cliente nuevo
+                    if self.on_save_callback:
+                        try:
+                            self.on_save_callback(cliente_id)
+                        except Exception:
+                            logger.exception('Error ejecutando on_save_callback')
+                    else:
+                        # Limpiar formulario para siguiente alta (comportamiento original)
+                        try:
+                            self._limpiar_formulario()
+                        except Exception:
+                            logger.exception('Error limpiando formulario tras save')
+                else:
+                    ToastWidget.show(self.container, 'NO SE PUDO GUARDAR EL CLIENTE', tipo='error')
 
         except Exception:
             logger.exception('Error guardando cliente')
