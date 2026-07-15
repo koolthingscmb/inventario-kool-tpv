@@ -410,6 +410,136 @@ class TicketRepository:
             logger.exception('Error listando tickets pendientes')
             return []
 
+    def listar_tickets_por_dia(self, fecha: str, solo_pendientes: bool = False) -> list:
+        """Listar tickets de un día concreto.
+
+        Args:
+            fecha: 'YYYY-MM-DD'
+            solo_pendientes: si True, filtra solo tickets con cierre_id IS NULL
+
+        Returns:
+            Lista de dicts con: id, num_ticket, created_at, total (Decimal),
+            cajero, cliente, forma_pago, cierre_id, ticket_text,
+            descuento_euros, descuento_tipo, descuento_valor, dto_aplicado_id
+        """
+        try:
+            fecha_inicio_sql = f"{fecha} 00:00:00"
+            fecha_fin_sql = f"{fecha} 23:59:59"
+
+            if solo_pendientes:
+                query = (
+                    "SELECT id, num_ticket, created_at, total, cajero, cliente, forma_pago, cierre_id, ticket_text, descuento_euros, descuento_tipo, descuento_valor, dto_aplicado_id "
+                    "FROM tickets "
+                    "WHERE created_at BETWEEN ? AND ? AND cierre_id IS NULL "
+                    "ORDER BY created_at DESC"
+                )
+            else:
+                query = (
+                    "SELECT id, num_ticket, created_at, total, cajero, cliente, forma_pago, cierre_id, ticket_text, descuento_euros, descuento_tipo, descuento_valor, dto_aplicado_id "
+                    "FROM tickets "
+                    "WHERE created_at BETWEEN ? AND ? "
+                    "ORDER BY created_at DESC"
+                )
+
+            rows = self.db.fetch_all(query, (fecha_inicio_sql, fecha_fin_sql))
+
+            results = []
+            for r in rows or []:
+                try:
+                    row = dict(r)
+                except Exception:
+                    row = {
+                        'id': r[0],
+                        'num_ticket': r[1],
+                        'created_at': r[2],
+                        'total': r[3],
+                        'cajero': r[4],
+                        'cliente': r[5],
+                        'forma_pago': r[6],
+                        'cierre_id': r[7] if len(r) > 7 else None,
+                        'ticket_text': r[8] if len(r) > 8 else None,
+                        'descuento_euros': read_from_db(r[9]) if len(r) > 9 and r[9] is not None else None,
+                        'descuento_tipo': r[10] if len(r) > 10 else None,
+                        'descuento_valor': r[11] if len(r) > 11 else None,
+                        'dto_aplicado_id': r[12] if len(r) > 12 else None,
+                    }
+
+                try:
+                    row['total'] = read_from_db(row.get('total'))
+                except Exception:
+                    row['total'] = read_from_db(0)
+
+                try:
+                    row['descuento_euros'] = read_from_db(row.get('descuento_euros')) if row.get('descuento_euros') is not None else None
+                except Exception:
+                    row['descuento_euros'] = None
+
+                results.append(row)
+
+            return results
+        except Exception:
+            logger.exception('Error listando tickets por día')
+            return []
+
+    def listar_tickets_por_cierre(self, cierre_id: int) -> list:
+        """Listar tickets asociados a un cierre concreto.
+
+        Args:
+            cierre_id: ID del cierre
+
+        Returns:
+            Lista de dicts con: id, num_ticket, created_at, total (Decimal),
+            cajero, cliente, forma_pago, cierre_id, ticket_text,
+            descuento_euros, descuento_tipo, descuento_valor, dto_aplicado_id
+        """
+        try:
+            query = (
+                "SELECT id, num_ticket, created_at, total, cajero, cliente, forma_pago, cierre_id, ticket_text, descuento_euros, descuento_tipo, descuento_valor, dto_aplicado_id "
+                "FROM tickets "
+                "WHERE cierre_id = ? "
+                "ORDER BY created_at DESC"
+            )
+
+            rows = self.db.fetch_all(query, (cierre_id,))
+
+            results = []
+            for r in rows or []:
+                try:
+                    row = dict(r)
+                except Exception:
+                    row = {
+                        'id': r[0],
+                        'num_ticket': r[1],
+                        'created_at': r[2],
+                        'total': r[3],
+                        'cajero': r[4],
+                        'cliente': r[5],
+                        'forma_pago': r[6],
+                        'cierre_id': r[7] if len(r) > 7 else None,
+                        'ticket_text': r[8] if len(r) > 8 else None,
+                        'descuento_euros': read_from_db(r[9]) if len(r) > 9 and r[9] is not None else None,
+                        'descuento_tipo': r[10] if len(r) > 10 else None,
+                        'descuento_valor': r[11] if len(r) > 11 else None,
+                        'dto_aplicado_id': r[12] if len(r) > 12 else None,
+                    }
+
+                try:
+                    row['total'] = read_from_db(row.get('total'))
+                except Exception:
+                    row['total'] = read_from_db(0)
+
+                try:
+                    row['descuento_euros'] = read_from_db(row.get('descuento_euros')) if row.get('descuento_euros') is not None else None
+                except Exception:
+                    row['descuento_euros'] = None
+
+                results.append(row)
+
+            return results
+        except Exception:
+            logger.exception('Error listando tickets por cierre')
+            return []
+
     def get_ventas_por_cajero(self, fecha_inicio: str, fecha_fin: str) -> list:
         """Ventas agregadas por cajero en el rango de fechas.
 

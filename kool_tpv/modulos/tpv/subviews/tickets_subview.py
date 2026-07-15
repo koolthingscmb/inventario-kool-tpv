@@ -1,6 +1,6 @@
-from customtkinter import CTkFrame
+from customtkinter import CTkFrame, CTkLabel, CTkButton
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
 
 logger = logging.getLogger(__name__)
@@ -79,15 +79,45 @@ class TicketsSubView(CTkFrame):
 
         
 
+        # --- Barra de navegación día a día ---
+        self._fecha_actual = datetime.now().strftime('%Y-%m-%d')
+        self._cierre_actual_id = None
+
+        self.nav_frame = CTkFrame(self)
+        self.nav_frame.grid(row=1, column=0, columnspan=2, sticky='ew', padx=20, pady=(0, 4))
+
+        from kool_tpv.utils.factories.button_factory import ButtonFactory
+
+        self.btn_fecha_prev = ButtonFactory.create_button(
+            parent=self.nav_frame,
+            text="\u2190",
+            command=self._on_fecha_anterior,
+            width=40,
+            style_key="mini_action"
+        )
+        self.btn_fecha_prev.pack(side='left', padx=(0, 8))
+
+        self.lbl_fecha = CTkLabel(self.nav_frame, text="")
+        self.lbl_fecha.pack(side='left', padx=4, fill='x', expand=True)
+
+        self.btn_fecha_next = ButtonFactory.create_button(
+            parent=self.nav_frame,
+            text="\u2192",
+            command=self._on_fecha_siguiente,
+            width=40,
+            style_key="mini_action"
+        )
+        self.btn_fecha_next.pack(side='left', padx=(8, 0))
+
         # Content area: left = list, right = ticket display
         self.list_frame = CTkFrame(self)
-        self.list_frame.grid(row=1, column=0, sticky='nsew', padx=(20, 6), pady=10)
+        self.list_frame.grid(row=2, column=0, sticky='nsew', padx=(20, 6), pady=(4, 10))
 
         # We don't instantiate a local TicketDisplay here; the controller
         # provides a global overlayvisor so the NavList can use the full width.
         try:
             self.grid_columnconfigure(0, weight=1)
-            self.grid_rowconfigure(1, weight=1)
+            self.grid_rowconfigure(2, weight=1)
         except Exception:
             pass
 
@@ -97,6 +127,13 @@ class TicketsSubView(CTkFrame):
             self.repo = TicketRepository(self.db)
         except Exception:
             self.repo = None
+
+        # CierreService para obtener último cierre
+        try:
+            from kool_tpv.base_datos.cierre_service import CierreService
+            self.cierre_service = CierreService(self.db)
+        except Exception:
+            self.cierre_service = None
 
         # Mode: if pending_only, list only tickets with cierre_id IS NULL
         self.pending_only = bool(pending_only)
@@ -179,6 +216,132 @@ class TicketsSubView(CTkFrame):
             lambda e: self.search_list.set_search_text(self.search_entry.get())
         )
 
+        # Carga inicial: tickets del día actual (pendientes) o último cierre
+        self._cargar_tickets_del_dia()
+
+    def _cargar_tickets_del_dia(self):
+        """Cargar tickets del día actual en la nav_list.
+
+        Si es hoy y no hay tickets pendientes, carga los del último cierre.
+        Actualiza el label de fecha con el cierre_id si aplica.
+        """
+        try:
+            fecha = self._fecha_actual
+            hoy = datetime.now().strftime('%Y-%m-%d')
+            es_hoy = (fecha == hoy)
+
+            rows = []
+            if self.repo:
+                rows = self.repo.listar_tickets_por_dia(fecha, solo_pendientes=es_hoy)
+
+            # Si es hoy y no hay pendientes, cargar último cierre
+            if es_hoy and not rows and self.cierre_service:
+                cierre = self.cierre_service.get_ultimo_cierre()
+                if cierre and cierre.get('id'):
+                    self._cierre_actual_id = cierre.get('id')
+                    if self.repo:
+                        rows = self.repo.listar_tickets_por_cierre(self._cierre_actual_id)
+                else:
+                    self._cierre_actual_id = None
+            else:
+                if rows and rows[0].get('cierre_id'):
+                    self._cierre_actual_id = rows[0].get('cierre_id')
+                else:
+                    self._cierre_actual_id = None
+
+            # Mapear y cargar en nav_list
+            mapped = []
+            for itm in (rows or []):
+                try:
+                    mapped.append(self._map_ticket(itm))
+                except Exception:
+                    logger.exception('Error mapeando ticket en _cargar_tickets_del_dia')
+
+            try:
+                self.search_list.nav_list.set_items(mapped)
+            except Exception:
+                logger.exception('Error seteando items en nav_list')
+
+            self._actualizar_label_fecha()
+        except Exception:
+            logger.exception('Error en _cargar_tickets_del_dia')
+
+    def _actualizar_label_fecha(self):
+        """Actualizar el label de la barra de navegación con la fecha y cierre."""
+        try:
+            fecha_dt = datetime.strptime(self._fecha_actual, '%Y-%m-%d')
+            fecha_str = fecha_dt.strftime('%d/%m/%Y')
+            if self._cierre_actual_id:
+                self.lbl_fecha.configure(text=f"Tickets del día {fecha_str}  (Cierre: #{self._cierre_actual_id})")
+            else:
+                hoy = datetime.now().strftime('%Y-%m-%d')
+                if self._fecha_actual == hoy:
+                    self.lbl_fecha.configure(text=f"Tickets del día {fecha_str}  (Pendientes)")
+                else:
+                    self.lbl_fecha.configure(text=f"Tickets del día {fecha_str}")
+        except Exception:
+            logger.exception('Error actualizando label de fecha')
+
+    def _on_fecha_anterior(self):
+        """Navegar al día anterior."""
+        try:
+            fecha_dt = datetime.strptime(self._fecha_actual, '%Y-%m-%d')
+            self._fecha_actual = (fecha_dt - timedelta(days=1)).strftime('%Y-%m-%d')
+            self._cargar_tickets_del_dia()
+        except Exception:
+            logger.exception('Error en _on_fecha_anterior')
+
+    def _on_fecha_siguiente(self):
+        """Navegar al día siguiente (no permitir ir más allá de hoy)."""
+        try:
+            fecha_dt = datetime.strptime(self._fecha_actual, '%Y-%m-%d')
+            manana = (fecha_dt + timedelta(days=1)).strftime('%Y-%m-%d')
+            hoy = datetime.now().strftime('%Y-%m-%d')
+            if manana > hoy:
+                return
+            self._fecha_actual = manana
+            self._cargar_tickets_del_dia()
+        except Exception:
+            logger.exception('Error en _on_fecha_siguiente')
+
+    def _filtrar_por_fechas(self, rows):
+        """Filtrar rows por rango de fechas de los DatePickerEntry.
+
+        Cada row puede ser dict (con 'created_at') o tupla (índice 2).
+        Devuelve las rows que caen dentro del rango [date_from, date_to].
+        """
+        date_from = None
+        date_to = None
+        try:
+            if getattr(self, 'date_from', None):
+                date_from = self.date_from.get() or None
+        except Exception:
+            date_from = None
+        try:
+            if getattr(self, 'date_to', None):
+                date_to = self.date_to.get() or None
+        except Exception:
+            date_to = None
+
+        if not (date_from or date_to) or not rows:
+            return rows
+
+        filtered = []
+        for r in rows:
+            try:
+                created = r.get('created_at') if isinstance(r, dict) else (r[2] if len(r) > 2 else None)
+                if not created:
+                    continue
+                created_date = str(created).split(' ')[0]
+                if date_from and created_date < date_from:
+                    continue
+                if date_to and created_date > date_to:
+                    continue
+                filtered.append(r)
+            except Exception:
+                filtered.append(r)
+        return filtered
+
     def _buscar_tickets(self, texto):
         try:
             if not self.repo:
@@ -189,39 +352,7 @@ class TicketsSubView(CTkFrame):
             else:
                 rows = self.repo.listar_tickets(texto or '')
 
-            # aplicar filtro por rango de fechas si los date pickers existen
-            date_from = None
-            date_to = None
-            try:
-                if getattr(self, 'date_from', None):
-                    date_from = self.date_from.get() or None
-            except Exception:
-                date_from = None
-            try:
-                if getattr(self, 'date_to', None):
-                    date_to = self.date_to.get() or None
-            except Exception:
-                date_to = None
-
-            if (date_from or date_to) and rows:
-                filtered = []
-                for r in rows:
-                    try:
-                        created = r.get('created_at') if isinstance(r, dict) else (r[2] if len(r) > 2 else None)
-                        if not created:
-                            continue
-                        # created may be 'YYYY-MM-DD' or 'YYYY-MM-DD HH:MM:SS'
-                        created_date = str(created).split(' ')[0]
-                        if date_from and created_date < date_from:
-                            continue
-                        if date_to and created_date > date_to:
-                            continue
-                        filtered.append(r)
-                    except Exception:
-                        filtered.append(r)
-                return filtered
-
-            return rows
+            return self._filtrar_por_fechas(rows)
         except Exception:
             logger.exception('Error buscando tickets')
             return []
@@ -417,7 +548,12 @@ class TicketsSubView(CTkFrame):
         except Exception:
             logger.exception('Error en proceso de impresión (TicketsSubView)')
 
-    def _on_x_clicked(self):
+    def _cierre_z_check_permisos(self):
+        """Verificar permiso de cierre y obtener datos del cajero.
+        
+        Returns:
+            dict: {parent, carrito_service, usuario_id, cajero_nombre} o None si no autorizado
+        """
         try:
             parent = None
             try:
@@ -429,14 +565,32 @@ class TicketsSubView(CTkFrame):
             from kool_tpv.modulos.tpv.actions.permisos import check_permiso
             carrito_service = getattr(self.view, 'carrito_service', None) if self.view else None
             if not check_permiso(carrito_service, 'permiso_cierre', parent):
-                return
+                return None
 
             # --- AUTORIZADO: obtener datos del cajero logueado ---
             cajero = carrito_service.get_cajero() if carrito_service else {}
             usuario_id = cajero.get('id') if cajero else None
             cajero_nombre = cajero.get('nombre') if cajero else None
 
-            # --- AUTORIZADO: obtener tickets pendientes ---
+            logger.info("Cierre Z autorizado para cajero: %s", cajero_nombre or 'desconocido')
+            
+            return {
+                'parent': parent,
+                'carrito_service': carrito_service,
+                'usuario_id': usuario_id,
+                'cajero_nombre': cajero_nombre
+            }
+        except Exception:
+            logger.exception('Error en _cierre_z_check_permisos')
+            return None
+
+    def _cierre_z_obtener_tickets(self):
+        """Obtener tickets pendientes filtrados por fechas.
+        
+        Returns:
+            list: IDs de tickets pendientes (int) o None si no hay tickets
+        """
+        try:
             rows_preview = []
             try:
                 if getattr(self, 'repo', None) is not None:
@@ -444,36 +598,7 @@ class TicketsSubView(CTkFrame):
             except Exception:
                 rows_preview = []
 
-            # aplicar filtro por rango de fechas si los date pickers existen
-            date_from = None
-            date_to = None
-            try:
-                if getattr(self, 'date_from', None):
-                    date_from = self.date_from.get() or None
-            except Exception:
-                date_from = None
-            try:
-                if getattr(self, 'date_to', None):
-                    date_to = self.date_to.get() or None
-            except Exception:
-                date_to = None
-
-            if (date_from or date_to) and rows_preview:
-                filtered_preview = []
-                for r in rows_preview:
-                    try:
-                        created = r.get('created_at') if isinstance(r, dict) else (r[2] if len(r) > 2 else None)
-                        if not created:
-                            continue
-                        created_date = str(created).split(' ')[0]
-                        if date_from and created_date < date_from:
-                            continue
-                        if date_to and created_date > date_to:
-                            continue
-                        filtered_preview.append(r)
-                    except Exception:
-                        filtered_preview.append(r)
-                rows_preview = filtered_preview
+            rows_preview = self._filtrar_por_fechas(rows_preview)
 
             ticket_ids_preview = []
             for r in (rows_preview or []):
@@ -491,27 +616,26 @@ class TicketsSubView(CTkFrame):
             # Si no hay tickets pendientes: warning y salir
             if not ticket_ids_preview:
                 try:
+                    parent = self.winfo_toplevel()
                     from kool_tpv.utils.widgets.notificaciones import show_warning
                     show_warning(parent, 'No hay tickets para cerrar')
                 except Exception:
                     logger.info('No hay tickets para cerrar')
-                return
+                return None
 
-            # --- AUTORIZADO ---
-            logger.info("Cierre Z autorizado para cajero: %s", cajero_nombre or 'desconocido')
+            return ticket_ids_preview
+        except Exception:
+            logger.exception('Error en _cierre_z_obtener_tickets')
+            return None
 
-            # --- SEGUNDO: Preguntar opciones de impresión ---
-            try:
-                from kool_tpv.utils.dialogs.cierre_options_dialog import show_cierre_options_dialog
-                print_options = show_cierre_options_dialog(parent)
-                if print_options is None:
-                    logger.info("Cierre cancelado en el diálogo de opciones")
-                    return
-            except Exception:
-                logger.exception("Error mostrando diálogo de opciones de cierre, usando por defecto")
-                print_options = None
-
-            # --- OBTENER tickets pendientes ---
+    def _cierre_z_procesar(self, ticket_ids, usuario_id, cajero_nombre, print_options):
+        """Procesar el cierre con CierreCajaProcessor y generar texto.
+        
+        Returns:
+            dict: {resultado, texto} o None si error
+        """
+        try:
+            # --- OBTENER tickets pendientes (revalidación) ---
             rows_now = []
             try:
                 if getattr(self, 'repo', None) is not None:
@@ -519,36 +643,7 @@ class TicketsSubView(CTkFrame):
             except Exception:
                 rows_now = []
 
-            # aplicar filtro por rango de fechas si los date pickers existen
-            date_from = None
-            date_to = None
-            try:
-                if getattr(self, 'date_from', None):
-                    date_from = self.date_from.get() or None
-            except Exception:
-                date_from = None
-            try:
-                if getattr(self, 'date_to', None):
-                    date_to = self.date_to.get() or None
-            except Exception:
-                date_to = None
-
-            if (date_from or date_to) and rows_now:
-                filtered_now = []
-                for r in rows_now:
-                    try:
-                        created = r.get('created_at') if isinstance(r, dict) else (r[2] if len(r) > 2 else None)
-                        if not created:
-                            continue
-                        created_date = str(created).split(' ')[0]
-                        if date_from and created_date < date_from:
-                            continue
-                        if date_to and created_date > date_to:
-                            continue
-                        filtered_now.append(r)
-                    except Exception:
-                        filtered_now.append(r)
-                rows_now = filtered_now
+            rows_now = self._filtrar_por_fechas(rows_now)
 
             now_set = set()
             for r in (rows_now or []):
@@ -565,7 +660,7 @@ class TicketsSubView(CTkFrame):
 
             # Intersección con los ids mostrados en el preview
             try:
-                ticket_ids = [tid for tid in ticket_ids_preview if int(tid) in now_set]
+                ticket_ids = [tid for tid in ticket_ids if int(tid) in now_set]
             except Exception:
                 ticket_ids = list(now_set)
 
@@ -573,17 +668,17 @@ class TicketsSubView(CTkFrame):
 
             if not ticket_ids:
                 try:
+                    parent = self.winfo_toplevel()
                     from kool_tpv.utils.widgets.notificaciones import show_warning
                     show_warning(parent, 'No hay tickets pendientes para cerrar tras revalidación')
                 except Exception:
                     logger.info('No hay tickets a cerrar tras revalidación')
-                return
+                return None
 
             # --- PROCESAR CIERRE ---
             from kool_tpv.modulos.ticket.cierre_caja_processor import CierreCajaProcessor
 
             processor = CierreCajaProcessor(self.db)
-
             resultado = processor.process(
                 ticket_ids=ticket_ids, 
                 usuario_id=usuario_id, 
@@ -595,11 +690,12 @@ class TicketsSubView(CTkFrame):
 
             if not resultado or not resultado.get('success'):
                 try:
+                    parent = self.winfo_toplevel()
                     from kool_tpv.utils.widgets.notificaciones import show_warning
                     show_warning(parent, f"No se pudo generar el cierre: {resultado.get('error') if resultado else 'unknown'}")
                 except Exception:
                     logger.error('Fallo generando cierre: %s', resultado)
-                return
+                return None
 
             # --- GENERAR TEXTO del cierre para el visor ---
             try:
@@ -617,12 +713,27 @@ class TicketsSubView(CTkFrame):
             except Exception:
                 logger.exception('Error generando texto de cierre')
                 try:
+                    parent = self.winfo_toplevel()
                     from kool_tpv.utils.widgets.notificaciones import show_warning
                     show_warning(parent, 'Fallo generando preview del cierre')
                 except Exception:
                     pass
-                return
+                return None
 
+            return {'resultado': resultado, 'texto': texto}
+        except Exception:
+            logger.exception('Error en _cierre_z_procesar')
+            return None
+
+    def _cierre_z_mostrar_resultado(self, resultado, texto, parent):
+        """Mostrar resultado del cierre en visor global y mostrar toast.
+        
+        Args:
+            resultado: dict con resultado del processor
+            texto: string con texto del cierre
+            parent: widget parent para diálogos
+        """
+        try:
             # --- MOSTRAR EN VISOR GLOBAL ---
             ctrl = getattr(self.view, 'controller', None)
             if not ctrl:
@@ -683,6 +794,7 @@ class TicketsSubView(CTkFrame):
 
                 # Show success feedback
                 try:
+                    root = self.winfo_toplevel()
                     if cierre_id:
                         ToastWidget.show(root, f'Cierre #{cierre_id} impreso', tipo='success')
                     else:
@@ -710,6 +822,46 @@ class TicketsSubView(CTkFrame):
                 'Revisa el visor y pulsa OK para continuar.',
                 callback=lambda: _cerrar_y_continuar()
             )
+        except Exception:
+            logger.exception('Error en _cierre_z_mostrar_resultado')
+
+    def _on_x_clicked(self):
+        """Orquestador del proceso de Cierre Z."""
+        try:
+            # 1. Verificar permisos y obtener cajero
+            permisos = self._cierre_z_check_permisos()
+            if not permisos:
+                return
+            parent = permisos['parent']
+            usuario_id = permisos['usuario_id']
+            cajero_nombre = permisos['cajero_nombre']
+
+            # 2. Obtener tickets pendientes (preview)
+            ticket_ids_preview = self._cierre_z_obtener_tickets()
+            if not ticket_ids_preview:
+                return
+
+            # 3. Preguntar opciones de impresión
+            print_options = None
+            try:
+                from kool_tpv.utils.dialogs.cierre_options_dialog import show_cierre_options_dialog
+                print_options = show_cierre_options_dialog(parent)
+                if print_options is None:
+                    logger.info("Cierre cancelado en el diálogo de opciones")
+                    return
+            except Exception:
+                logger.exception("Error mostrando diálogo de opciones de cierre, usando por defecto")
+                print_options = None
+
+            # 4. Procesar cierre y generar texto
+            proceso = self._cierre_z_procesar(ticket_ids_preview, usuario_id, cajero_nombre, print_options)
+            if not proceso:
+                return
+            resultado = proceso['resultado']
+            texto = proceso['texto']
+
+            # 5. Mostrar resultado en visor
+            self._cierre_z_mostrar_resultado(resultado, texto, parent)
 
         except Exception:
             logger.exception('Error en _on_x_clicked')

@@ -109,6 +109,23 @@ class CierreService:
             logging.exception('Error insertando cierre')
             return None
 
+    def get_ultimo_cierre(self) -> Optional[Dict[str, Any]]:
+        """Obtener el cierre más reciente cronológicamente.
+
+        Returns:
+            Dict con los datos del cierre o None si no hay cierres.
+        """
+        sql = 'SELECT * FROM cierres ORDER BY fecha_hora DESC LIMIT 1'
+        try:
+            self.db.connect()
+            row = self.db.fetch_one(sql, None)
+            if not row:
+                return None
+            return self._row_to_dict(row)
+        except Exception:
+            logging.exception('Error obteniendo último cierre')
+            return None
+
     def obtener_cierre_por_id(self, cierre_id: int) -> Optional[Dict[str, Any]]:
         sql = 'SELECT * FROM cierres WHERE id = ?'
         try:
