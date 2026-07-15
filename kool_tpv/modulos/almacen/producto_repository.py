@@ -71,6 +71,8 @@ class ProductoRepository:
         p.stock_minimo,
         p.ventas_totales,
         p.pvp_variable,
+        p.fabricado_por_nosotros,
+        p.es_menu,
         p.descripcion_shopify,
         p.notas_internas,
         p.titulo,

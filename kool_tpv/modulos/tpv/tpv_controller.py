@@ -1189,6 +1189,9 @@ class TpvController:
                 self._mostrar_resumen_ticket(resumen_data)
 
                 logger.info(f'Venta finalizada exitosamente ticket_id={ticket_id}')
+
+                # Detectar productos para reposición (después de imprimir)
+                self._detectar_productos_producibles(ticket_id)
             else:
                 # Mostrar error
                 error_msg = result.get('error', 'Error desconocido')
@@ -1282,9 +1285,6 @@ class TpvController:
             except Exception:
                 pass
 
-            # Detectar productos para reposición (después de imprimir)
-            self._detectar_productos_producibles(ticket_id)
-
 
     def _detectar_productos_producibles(self, ticket_id: int):
         """Detecta productos producibles en el ticket y muestra toast para anotar reposición.
@@ -1347,41 +1347,73 @@ class TpvController:
         except Exception:
             logger.exception('Error detectando productos producibles')
     
+    def _abrir_formulario_reposicion(self, ticket_id: int, productos: List[Dict]):
+        """Inicia el flujo secuencial de formularios para anotar la reposición.
+        
+        Args:
+            ticket_id: ID del ticket
+            productos: Lista de productos producibles detectados
+        """
+        try:
+            if not productos:
+                return
+            
+            # TODO: Implementar la lógica para ir abriendo el formulario para cada producto
+            # Por ahora, simplemente intentamos importar e instanciar para el primero
+            from kool_tpv.modulos.tpv.subviews.reposicion_form_ui import ReposicionFormUI
+            
+            # Esta lógica se refinará para ser secuencial (un producto tras otro)
+            form = ReposicionFormUI(
+                parent=self.view.center_area,
+                db=self.db,
+                view=self.view,
+                ticket_id=ticket_id,
+                productos_pendientes=productos,
+                callback_finalizar=lambda: logger.info("Flujo de reposición finalizado")
+            )
+            self.view.push_subview(form, "REPOSICIÓN")
+            
+        except Exception:
+            logger.exception("Error abriendo formulario de reposición")
+
     def _mostrar_toast_reposicion(self, ticket_id: int, productos: list):
-        """Muestra toast preguntando si quiere anotar la reposición.
+        """Muestra un diálogo preguntando si quiere anotar la reposición.
         
         Args:
             ticket_id: ID del ticket
             productos: Lista de productos producibles
         """
         try:
+            from kool_tpv.utils.custom_dialog import CustomDialog
             from kool_tpv.modulos.tpv.services.reposicion_store import ReposicionStore
             
             # Construir mensaje con productos
             nombres = [f"{p['cantidad']}x {p['nombre']}" for p in productos]
-            mensaje = f"¿Quieres anotar la reposición?\n\n{', '.join(nombres)}"
+            mensaje = f"¿DESEAS ANOTAR LA REPOSICIÓN DE LOS PRODUCTOS FABRICADOS AHORA?\n\n{', '.join(nombres)}"
             
-            # Mostrar toast con botones Sí/No
-            def on_si():
-                # Usuario dijo Sí - TODO: abrir formulario secuencial
-                ToastWidget.show(self.view.container, "Abriendo formulario de reposición...", tipo='info')
-                # TODO: Implementar formulario secuencial
+            def on_confirm(result):
+                if result:
+                    # Usuario dijo Sí
+                    self._abrir_formulario_reposicion(ticket_id, productos)
+                else:
+                    # Usuario dijo No - guardar en archivo temporal
+                    store = ReposicionStore()
+                    store.guardar_pendientes_temp(ticket_id, productos)
+                    from kool_tpv.utils.widgets.notificaciones import show_success
+                    show_success(self.view, "PRODUCTOS GUARDADOS COMO PENDIENTES")
             
-            def on_no():
-                # Usuario dijo No - guardar en archivo temporal
-                store = ReposicionStore()
-                store.guardar_pendientes_temp(ticket_id, productos)
-                ToastWidget.show(self.view.container, "Productos guardados como pendientes", tipo='info')
-            
-            ToastWidget.show(
-                self.view.container, 
-                mensaje, 
+            CustomDialog(
+                self.view,
                 tipo='info',
-                buttons=[("Sí", on_si), ("No", on_no)]
+                titulo='REPOSICIÓN DE PRODUCCIÓN',
+                mensaje=mensaje,
+                btn_text='SÍ',
+                confirm=True,
+                callback=on_confirm
             )
                 
         except Exception:
-            logger.exception('Error mostrando toast de reposición')
+            logger.exception('Error mostrando diálogo de reposición')
 
 
 __all__ = ['TpvController']

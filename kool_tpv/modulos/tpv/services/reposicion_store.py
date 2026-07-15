@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import List, Dict, Optional, Any
 import logging
 
-from kool_tpv.utils.utils import prepare_for_db
+from kool_tpv.base_datos.money_adapter import prepare_for_db
 
 logger = logging.getLogger(__name__)
 

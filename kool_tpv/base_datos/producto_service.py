@@ -169,6 +169,8 @@ class ProductoService:
             p.stock_minimo,
             p.ventas_totales,
             p.pvp_variable,
+            p.fabricado_por_nosotros,
+            p.es_menu,
             p.descripcion_shopify,
             p.notas_internas,
             p.titulo,
@@ -199,49 +201,11 @@ class ProductoService:
 
             # Preferir obtener el registro RAW a través del repository
             if getattr(self, 'repo', None) is not None:
-                raw = self.repo.get_completo(producto_id)
+                return self.repo.get_completo(producto_id)
             else:
+                # fallback al query propio
                 raw_row = self.db.fetch_one(query, (producto_id,))
-                raw = dict(raw_row) if raw_row is not None else None
-
-            if not raw:
-                return None
-
-            # Construir la misma estructura de salida basada en claves del dict RAW
-            return {
-                'id': raw.get('id'),
-                'nombre': raw.get('nombre'),
-                'nombre_boton': raw.get('nombre_boton'),
-                'sku': raw.get('sku'),
-                'categoria_id': raw.get('categoria'),
-                'tipo_id': raw.get('tipo'),
-                'proveedor_id': raw.get('proveedor_id'),
-                'tipo_iva': int(raw.get('tipo_iva') or 21),
-                'stock_actual': int(raw.get('stock_actual') or 0),
-                'stock_minimo': int(raw.get('stock_minimo') or 0),
-                'ventas_totales': int(raw.get('ventas_totales') or 0),
-                'pvp_variable': int(raw.get('pvp_variable') or 0),
-                'descripcion_shopify': raw.get('descripcion_shopify'),
-                'notas_internas': raw.get('notas_internas'),
-                'titulo': raw.get('titulo'),
-                'activo': int(raw.get('activo') or 1),
-                'created_at': raw.get('created_at'),
-                'updated_at': raw.get('updated_at'),
-                'pending_sync': int(raw.get('pending_sync') or 0),
-                'seo_title': raw.get('seo_title'),
-                'seo_description': raw.get('seo_description'),
-                'tipo_shop': raw.get('tipo_shop'),
-                'etiquetas': raw.get('etiquetas'),
-                'shop_link': raw.get('shop_link'),
-                'shopify_taxonomy': raw.get('shopify_taxonomy'),
-                'categoria_nombre': raw.get('categoria_nombre'),
-                'tipo_nombre': raw.get('tipo_nombre'),
-                'proveedor_nombre': raw.get('proveedor_nombre'),
-                'pvp': _safe_decimal_from_db(raw.get('pvp')),
-                'coste': _safe_decimal_from_db(raw.get('coste')),
-                'ventas_tickets': int(raw.get('ventas_tickets') or 0),
-                'ean': raw.get('ean') or ''
-            }
+                return dict(raw_row) if raw_row is not None else None
 
         except sqlite3.DatabaseError as e:
             logging.exception('DB error obteniendo producto completo %s: %s', producto_id, e)
