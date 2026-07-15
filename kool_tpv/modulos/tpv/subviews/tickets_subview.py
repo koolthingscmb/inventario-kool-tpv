@@ -1,6 +1,6 @@
 from customtkinter import CTkFrame, CTkLabel, CTkButton
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
 
 logger = logging.getLogger(__name__)
@@ -79,9 +79,9 @@ class TicketsSubView(CTkFrame):
 
         
 
-        # --- Barra de navegación día a día ---
-        self._fecha_actual = datetime.now().strftime('%Y-%m-%d')
-        self._cierre_actual_id = None
+        # --- Barra de navegación por cierre ---
+        self._cierre_actual_id = None  # None = pendientes (sin cierre)
+        self._lista_cierres = []      # cache de cierres ordenados DESC
 
         self.nav_frame = CTkFrame(self)
         self.nav_frame.grid(row=1, column=0, columnspan=2, sticky='ew', padx=20, pady=(0, 4))
@@ -91,23 +91,23 @@ class TicketsSubView(CTkFrame):
         self.btn_fecha_prev = ButtonFactory.create_button(
             parent=self.nav_frame,
             text="\u2190",
-            command=self._on_fecha_anterior,
+            command=self._on_cierre_anterior,
             width=40,
             style_key="mini_action"
         )
-        self.btn_fecha_prev.pack(side='left', padx=(0, 8))
-
-        self.lbl_fecha = CTkLabel(self.nav_frame, text="")
-        self.lbl_fecha.pack(side='left', padx=4, fill='x', expand=True)
+        self.btn_fecha_prev.pack(side='left', padx=(0, 2))
 
         self.btn_fecha_next = ButtonFactory.create_button(
             parent=self.nav_frame,
             text="\u2192",
-            command=self._on_fecha_siguiente,
+            command=self._on_cierre_siguiente,
             width=40,
             style_key="mini_action"
         )
-        self.btn_fecha_next.pack(side='left', padx=(8, 0))
+        self.btn_fecha_next.pack(side='left', padx=(2, 10))
+
+        self.lbl_fecha = CTkLabel(self.nav_frame, text="")
+        self.lbl_fecha.pack(side='left', padx=4, fill='x', expand=True)
 
         # Content area: left = list, right = ticket display
         self.list_frame = CTkFrame(self)
@@ -216,38 +216,34 @@ class TicketsSubView(CTkFrame):
             lambda e: self.search_list.set_search_text(self.search_entry.get())
         )
 
-        # Carga inicial: tickets del día actual (pendientes) o último cierre
-        self._cargar_tickets_del_dia()
+        # Carga inicial: tickets pendientes o último cierre si no hay
+        self._cargar_vista_actual()
 
-    def _cargar_tickets_del_dia(self):
-        """Cargar tickets del día actual en la nav_list.
+    def _cargar_lista_cierres(self):
+        """Cargar/refresh la cache de cierres ordenados cronológicamente DESC."""
+        try:
+            if self.cierre_service:
+                self._lista_cierres = self.cierre_service.listar_cierres(limit=1000)
+            else:
+                self._lista_cierres = []
+        except Exception:
+            logger.exception('Error cargando lista de cierres')
+            self._lista_cierres = []
 
-        Si es hoy y no hay tickets pendientes, carga los del último cierre.
-        Actualiza el label de fecha con el cierre_id si aplica.
+    def _cargar_vista_actual(self):
+        """Cargar tickets según _cierre_actual_id en la nav_list.
+
+        Si _cierre_actual_id es None: tickets pendientes (cierre_id IS NULL).
+        Si tiene valor: tickets de ese cierre.
         """
         try:
-            fecha = self._fecha_actual
-            hoy = datetime.now().strftime('%Y-%m-%d')
-            es_hoy = (fecha == hoy)
-
             rows = []
-            if self.repo:
-                rows = self.repo.listar_tickets_por_dia(fecha, solo_pendientes=es_hoy)
-
-            # Si es hoy y no hay pendientes, cargar último cierre
-            if es_hoy and not rows and self.cierre_service:
-                cierre = self.cierre_service.get_ultimo_cierre()
-                if cierre and cierre.get('id'):
-                    self._cierre_actual_id = cierre.get('id')
-                    if self.repo:
-                        rows = self.repo.listar_tickets_por_cierre(self._cierre_actual_id)
-                else:
-                    self._cierre_actual_id = None
+            if self._cierre_actual_id is None:
+                if self.repo:
+                    rows = self.repo.listar_tickets_pendientes('')
             else:
-                if rows and rows[0].get('cierre_id'):
-                    self._cierre_actual_id = rows[0].get('cierre_id')
-                else:
-                    self._cierre_actual_id = None
+                if self.repo:
+                    rows = self.repo.listar_tickets_por_cierre(self._cierre_actual_id)
 
             # Mapear y cargar en nav_list
             mapped = []
@@ -255,54 +251,105 @@ class TicketsSubView(CTkFrame):
                 try:
                     mapped.append(self._map_ticket(itm))
                 except Exception:
-                    logger.exception('Error mapeando ticket en _cargar_tickets_del_dia')
+                    logger.exception('Error mapeando ticket en _cargar_vista_actual')
 
             try:
                 self.search_list.nav_list.set_items(mapped)
             except Exception:
                 logger.exception('Error seteando items en nav_list')
 
-            self._actualizar_label_fecha()
+            self._actualizar_label()
         except Exception:
-            logger.exception('Error en _cargar_tickets_del_dia')
+            logger.exception('Error en _cargar_vista_actual')
 
-    def _actualizar_label_fecha(self):
-        """Actualizar el label de la barra de navegación con la fecha y cierre."""
+    def _actualizar_label(self):
+        """Actualizar el label de la barra de navegación."""
         try:
-            fecha_dt = datetime.strptime(self._fecha_actual, '%Y-%m-%d')
-            fecha_str = fecha_dt.strftime('%d/%m/%Y')
-            if self._cierre_actual_id:
-                self.lbl_fecha.configure(text=f"Tickets del día {fecha_str}  (Cierre: #{self._cierre_actual_id})")
+            if self._cierre_actual_id is None:
+                self.lbl_fecha.configure(text="Tickets pendientes (sin cierre)")
             else:
-                hoy = datetime.now().strftime('%Y-%m-%d')
-                if self._fecha_actual == hoy:
-                    self.lbl_fecha.configure(text=f"Tickets del día {fecha_str}  (Pendientes)")
+                # Buscar datos del cierre actual en la cache
+                cierre_data = None
+                for c in self._lista_cierres:
+                    if c.get('id') == self._cierre_actual_id:
+                        cierre_data = c
+                        break
+                if cierre_data:
+                    fecha_hora = cierre_data.get('fecha_hora', '')
+                    self.lbl_fecha.configure(text=f"Tickets del cierre #{self._cierre_actual_id}  ({fecha_hora})")
                 else:
-                    self.lbl_fecha.configure(text=f"Tickets del día {fecha_str}")
+                    self.lbl_fecha.configure(text=f"Tickets del cierre #{self._cierre_actual_id}")
         except Exception:
-            logger.exception('Error actualizando label de fecha')
+            logger.exception('Error actualizando label')
 
-    def _on_fecha_anterior(self):
-        """Navegar al día anterior."""
-        try:
-            fecha_dt = datetime.strptime(self._fecha_actual, '%Y-%m-%d')
-            self._fecha_actual = (fecha_dt - timedelta(days=1)).strftime('%Y-%m-%d')
-            self._cargar_tickets_del_dia()
-        except Exception:
-            logger.exception('Error en _on_fecha_anterior')
+    def _on_cierre_anterior(self):
+        """Navegar al cierre anterior cronológicamente.
 
-    def _on_fecha_siguiente(self):
-        """Navegar al día siguiente (no permitir ir más allá de hoy)."""
+        Si estamos en pendientes (None) → ir al último cierre.
+        Si estamos en un cierre → ir al cierre anterior.
+        """
         try:
-            fecha_dt = datetime.strptime(self._fecha_actual, '%Y-%m-%d')
-            manana = (fecha_dt + timedelta(days=1)).strftime('%Y-%m-%d')
-            hoy = datetime.now().strftime('%Y-%m-%d')
-            if manana > hoy:
+            if not self._lista_cierres:
+                self._cargar_lista_cierres()
+
+            if not self._lista_cierres:
                 return
-            self._fecha_actual = manana
-            self._cargar_tickets_del_dia()
+
+            if self._cierre_actual_id is None:
+                # Estamos en pendientes → ir al último cierre (índice 0, DESC)
+                self._cierre_actual_id = self._lista_cierres[0].get('id')
+            else:
+                # Buscar índice actual y ir al siguiente en orden DESC
+                idx = None
+                for i, c in enumerate(self._lista_cierres):
+                    if c.get('id') == self._cierre_actual_id:
+                        idx = i
+                        break
+                if idx is not None and idx + 1 < len(self._lista_cierres):
+                    self._cierre_actual_id = self._lista_cierres[idx + 1].get('id')
+                else:
+                    # No hay más cierres anteriores
+                    return
+
+            self._cargar_vista_actual()
         except Exception:
-            logger.exception('Error en _on_fecha_siguiente')
+            logger.exception('Error en _on_cierre_anterior')
+
+    def _on_cierre_siguiente(self):
+        """Navegar al cierre siguiente cronológicamente.
+
+        Si estamos en un cierre → ir al siguiente (más reciente).
+        Si es el último cierre → ir a pendientes (None).
+        """
+        try:
+            if not self._lista_cierres:
+                self._cargar_lista_cierres()
+
+            if not self._lista_cierres:
+                return
+
+            if self._cierre_actual_id is None:
+                # Ya estamos en pendientes, no hay más adelante
+                return
+
+            # Buscar índice actual y ir al anterior en orden DESC (más reciente)
+            idx = None
+            for i, c in enumerate(self._lista_cierres):
+                if c.get('id') == self._cierre_actual_id:
+                    idx = i
+                    break
+
+            if idx is not None and idx > 0:
+                self._cierre_actual_id = self._lista_cierres[idx - 1].get('id')
+            elif idx == 0:
+                # Es el cierre más reciente → ir a pendientes
+                self._cierre_actual_id = None
+            else:
+                return
+
+            self._cargar_vista_actual()
+        except Exception:
+            logger.exception('Error en _on_cierre_siguiente')
 
     def _filtrar_por_fechas(self, rows):
         """Filtrar rows por rango de fechas de los DatePickerEntry.
