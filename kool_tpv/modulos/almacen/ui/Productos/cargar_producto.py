@@ -237,6 +237,26 @@ class CargarProductoUI:
                 logging.exception('Error aplicando pvp_variable')
 
             try:
+                fabricado = bool(int(data.get('fabricado_por_nosotros') or 0))
+                chk = getattr(ui_instance, 'chk_fabricado', None)
+                if chk is not None:
+                    try:
+                        if fabricado:
+                            chk.select()
+                        else:
+                            chk.deselect()
+                    except Exception:
+                        try:
+                            # fallback: try to set a variable if present
+                            var = getattr(ui_instance, 'chk_fabricado_var', None)
+                            if var is not None and hasattr(var, 'set'):
+                                var.set(fabricado)
+                        except Exception:
+                            pass
+            except Exception:
+                logging.exception('Error aplicando fabricado_por_nosotros')
+
+            try:
                 activo = bool(int(data.get('activo') or 0))
                 var = getattr(ui_instance, 'chk_activo_var', None)
                 if var is not None and hasattr(var, 'set'):

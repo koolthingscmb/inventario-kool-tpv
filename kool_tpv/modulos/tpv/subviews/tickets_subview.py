@@ -209,11 +209,11 @@ class TicketsSubView(CTkFrame):
         # Bind search entry to widget (on Enter only)
         self.search_entry.bind(
             "<Return>",
-            lambda e: self.search_list.set_search_text(self.search_entry.get())
+            lambda e: self.search_list.search(self.search_entry.get())
         )
         self.search_entry.bind(
             "<KP_Enter>",
-            lambda e: self.search_list.set_search_text(self.search_entry.get())
+            lambda e: self.search_list.search(self.search_entry.get())
         )
 
         # Carga inicial: tickets pendientes o último cierre si no hay
@@ -412,7 +412,7 @@ class TicketsSubView(CTkFrame):
             except Exception:
                 # fallback: set search text to re-trigger
                 try:
-                    self.search_list.set_search_text(self.search_entry.get())
+                    self.search_list.search(self.search_entry.get())
                 except Exception:
                     pass
         except Exception:
@@ -854,7 +854,7 @@ class TicketsSubView(CTkFrame):
                     self.search_list._on_search()
                 except Exception:
                     try:
-                        self.search_list.set_search_text(self.search_entry.get())
+                        self.search_list.search(self.search_entry.get())
                     except Exception:
                         pass
 

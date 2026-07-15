@@ -323,6 +323,7 @@ WHERE 1=1
         pvp,
         coste,
         pvp_variable: int = 0,
+        fabricado_por_nosotros: int = 0,
         codigos_barras: Optional[List[str]] = None,
         producto_id: Optional[int] = None,
         force_insert: bool = False,
@@ -365,11 +366,11 @@ WHERE 1=1
                 cur.execute(
                     '''INSERT INTO productos (nombre, nombre_boton, sku, categoria, tipo,
                         proveedor_id, shopify_taxonomy, tipo_iva, stock_actual, stock_minimo,
-                        activo, pvp_variable, descripcion_shopify, titulo, seo_title,
+                        activo, pvp_variable, fabricado_por_nosotros, descripcion_shopify, titulo, seo_title,
                         seo_description, tipo_shop, etiquetas, shop_link, pending_sync)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                     (nombre, nombre_boton, sku, categoria_id, tipo_id, proveedor_id,
-                     shopify_taxonomy, iva, stock_actual, stock_min, activo, pvp_variable,
+                     shopify_taxonomy, iva, stock_actual, stock_min, activo, pvp_variable, fabricado_por_nosotros,
                      descripcion_shopify, titulo, seo_title, seo_description, tipo_shop,
                      etiquetas, shop_link, 0),
                 )
@@ -378,11 +379,11 @@ WHERE 1=1
                 cur.execute(
                     '''UPDATE productos SET nombre=?, nombre_boton=?, sku=?, categoria=?, tipo=?,
                         proveedor_id=?, shopify_taxonomy=?, tipo_iva=?, stock_actual=?,
-                        stock_minimo=?, activo=?, pvp_variable=?, descripcion_shopify=?, titulo=?,
+                        stock_minimo=?, activo=?, pvp_variable=?, fabricado_por_nosotros=?, descripcion_shopify=?, titulo=?,
                         seo_title=?, seo_description=?, tipo_shop=?, etiquetas=?,
                         shop_link=?, pending_sync=1 WHERE id=?''',
                     (nombre, nombre_boton, sku, categoria_id, tipo_id, proveedor_id,
-                     shopify_taxonomy, iva, stock_actual, stock_min, activo, pvp_variable,
+                     shopify_taxonomy, iva, stock_actual, stock_min, activo, pvp_variable, fabricado_por_nosotros,
                      descripcion_shopify, titulo, seo_title, seo_description, tipo_shop,
                      etiquetas, shop_link, producto_id),
                 )

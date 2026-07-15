@@ -1282,5 +1282,106 @@ class TpvController:
             except Exception:
                 pass
 
+            # Detectar productos para reposición (después de imprimir)
+            self._detectar_productos_producibles(ticket_id)
+
+
+    def _detectar_productos_producibles(self, ticket_id: int):
+        """Detecta productos producibles en el ticket y muestra toast para anotar reposición.
+        
+        Args:
+            ticket_id: ID del ticket recién creado
+        """
+        try:
+            # Obtener líneas del ticket
+            query = """
+            SELECT tl.producto_id, tl.cantidad, p.nombre, p.es_menu, p.fabricado_por_nosotros
+            FROM ticket_lines tl
+            JOIN productos p ON tl.producto_id = p.id
+            WHERE tl.ticket_id = ?
+            """
+            lines = self.db.fetch_all(query, (ticket_id,))
+            
+            if not lines:
+                return
+            
+            productos_producibles = []
+            
+            for line in lines:
+                producto_id = line[0]
+                cantidad = line[1]
+                nombre = line[2]
+                es_menu = line[3]
+                fabricado = line[4]
+                
+                if es_menu:
+                    # Expandir componentes del menú
+                    menu_query = """
+                    SELECT pm.componente_id, pm.cantidad, p.nombre, p.fabricado_por_nosotros
+                    FROM productos_menu pm
+                    JOIN productos p ON pm.componente_id = p.id
+                    WHERE pm.producto_id = ?
+                    """
+                    componentes = self.db.fetch_all(menu_query, (producto_id,))
+                    
+                    for comp in componentes:
+                        if comp[3]:  # fabricado_por_nosotros = 1
+                            comp_cantidad = comp[1] * cantidad
+                            productos_producibles.append({
+                                'producto_id': comp[0],
+                                'nombre': comp[2],
+                                'cantidad': comp_cantidad
+                            })
+                elif fabricado:
+                    # Producto directo producible
+                    productos_producibles.append({
+                        'producto_id': producto_id,
+                        'nombre': nombre,
+                        'cantidad': cantidad
+                    })
+            
+            if productos_producibles:
+                # Mostrar toast para anotar reposición
+                self._mostrar_toast_reposicion(ticket_id, productos_producibles)
+                
+        except Exception:
+            logger.exception('Error detectando productos producibles')
+    
+    def _mostrar_toast_reposicion(self, ticket_id: int, productos: list):
+        """Muestra toast preguntando si quiere anotar la reposición.
+        
+        Args:
+            ticket_id: ID del ticket
+            productos: Lista de productos producibles
+        """
+        try:
+            from kool_tpv.modulos.tpv.services.reposicion_store import ReposicionStore
+            
+            # Construir mensaje con productos
+            nombres = [f"{p['cantidad']}x {p['nombre']}" for p in productos]
+            mensaje = f"¿Quieres anotar la reposición?\n\n{', '.join(nombres)}"
+            
+            # Mostrar toast con botones Sí/No
+            def on_si():
+                # Usuario dijo Sí - TODO: abrir formulario secuencial
+                ToastWidget.show(self.view.container, "Abriendo formulario de reposición...", tipo='info')
+                # TODO: Implementar formulario secuencial
+            
+            def on_no():
+                # Usuario dijo No - guardar en archivo temporal
+                store = ReposicionStore()
+                store.guardar_pendientes_temp(ticket_id, productos)
+                ToastWidget.show(self.view.container, "Productos guardados como pendientes", tipo='info')
+            
+            ToastWidget.show(
+                self.view.container, 
+                mensaje, 
+                tipo='info',
+                buttons=[("Sí", on_si), ("No", on_no)]
+            )
+                
+        except Exception:
+            logger.exception('Error mostrando toast de reposición')
+
 
 __all__ = ['TpvController']

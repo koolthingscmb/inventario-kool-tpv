@@ -118,29 +118,35 @@ class CrearProductoUI:
         self.e_coste = ctk.CTkEntry(self.general_frame, placeholder_text='0.00', **entry_kwargs)
         self.e_coste.grid(row=3, column=5, columnspan=3, sticky='ew', padx=6, pady=6)
 
-        # Fila 5: TIPO_IVA (4 col) | PVP_VARIABLE (4 col)
+        # Fila 5: TIPO_IVA (2 col) | PVP_VARIABLE (3 col) | FABRICADO_POR_NOSOTROS (3 col)
         ctk.CTkLabel(self.general_frame, text="TIPO_IVA:", text_color=self.colors['text'], font=lbl_font).grid(row=4, column=0, sticky='w', padx=6, pady=6)
         self.cb_iva = SearchableCombo(self.general_frame, placeholder='IVA (ej: 21)')
-        self.cb_iva.grid(row=4, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
+        self.cb_iva.grid(row=4, column=1, columnspan=1, sticky='ew', padx=6, pady=6)
 
         # Variable para PVP_VARIABLE
         self.chk_pvp_var_var = tk.BooleanVar(value=False)
 
-        ctk.CTkLabel(self.general_frame, text="PVP_VARIABLE:", text_color=self.colors['text'], font=lbl_font).grid(row=4, column=4, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.general_frame, text="PVP_VARIABLE:", text_color=self.colors['text'], font=lbl_font).grid(row=4, column=2, sticky='w', padx=6, pady=6)
         self.chk_pvp_var = ctk.CTkCheckBox(self.general_frame, text='', variable=self.chk_pvp_var_var, fg_color=self.colors['secondary'])
-        self.chk_pvp_var.grid(row=4, column=5, columnspan=3, sticky='w', padx=6, pady=6)
+        self.chk_pvp_var.grid(row=4, column=3, columnspan=1, sticky='w', padx=6, pady=6)
 
-        # Fila 6: STOCK_ACTUAL (4 col) | STOCK_MINIMO (4 col)
-        ctk.CTkLabel(self.general_frame, text="STOCK_ACTUAL:", text_color=self.colors['text'], font=lbl_font).grid(row=5, column=0, sticky='w', padx=6, pady=6)
+        # PRODUCCIÓN
+        self.chk_fabricado_var = tk.BooleanVar(value=False)
+        ctk.CTkLabel(self.general_frame, text="PRODUCCIÓN:", text_color=self.colors['text'], font=lbl_font).grid(row=4, column=4, sticky='w', padx=6, pady=6)
+        self.chk_fabricado = ctk.CTkCheckBox(self.general_frame, text='Producido internamente', variable=self.chk_fabricado_var, fg_color=self.colors['secondary'])
+        self.chk_fabricado.grid(row=4, column=5, columnspan=3, sticky='w', padx=6, pady=6)
+
+        # Fila 7: STOCK_ACTUAL (4 col) | STOCK_MINIMO (4 col)
+        ctk.CTkLabel(self.general_frame, text="STOCK_ACTUAL:", text_color=self.colors['text'], font=lbl_font).grid(row=6, column=0, sticky='w', padx=6, pady=6)
         self.e_stock_actual = ctk.CTkEntry(self.general_frame, placeholder_text='0', **entry_kwargs)
-        self.e_stock_actual.grid(row=5, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
+        self.e_stock_actual.grid(row=6, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
 
-        ctk.CTkLabel(self.general_frame, text="STOCK_MINIMO:", text_color=self.colors['text'], font=lbl_font).grid(row=5, column=4, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.general_frame, text="STOCK_MINIMO:", text_color=self.colors['text'], font=lbl_font).grid(row=6, column=4, sticky='w', padx=6, pady=6)
         self.e_stock_min = ctk.CTkEntry(self.general_frame, placeholder_text='0', **entry_kwargs)
-        self.e_stock_min.grid(row=5, column=5, columnspan=3, sticky='ew', padx=6, pady=6)
+        self.e_stock_min.grid(row=6, column=5, columnspan=3, sticky='ew', padx=6, pady=6)
 
-        # Fila 7: VENTAS (read-only 4 col) | ESTADO (4 col)
-        ctk.CTkLabel(self.general_frame, text="VENTAS:", text_color=self.colors['text'], font=lbl_font).grid(row=6, column=0, sticky='w', padx=6, pady=6)
+        # Fila 8: VENTAS (read-only 4 col) | ESTADO (4 col)
+        ctk.CTkLabel(self.general_frame, text="VENTAS:", text_color=self.colors['text'], font=lbl_font).grid(row=7, column=0, sticky='w', padx=6, pady=6)
         # Use a StringVar bound to the Entry so the UI can be updated even when readonly
         try:
             self.e_ventas_var = tk.StringVar(value='0')
@@ -157,7 +163,7 @@ class CrearProductoUI:
                 self.e_ventas = ctk.CTkEntry(self.general_frame, placeholder_text='0', state='disabled', fg_color=COLOR_BG_TERMINAL, text_color="#666666", border_color=self.colors['light'], border_width=2)
             except Exception:
                 self.e_ventas = tk.Entry(self.general_frame)
-        self.e_ventas.grid(row=6, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
+        self.e_ventas.grid(row=7, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
 
         # Use a BooleanVar to track activo state
         self.chk_activo_var = tk.BooleanVar(value=True)
@@ -165,7 +171,7 @@ class CrearProductoUI:
         # Place a small container in the same grid cell to hold the 'Activo' label and the checkbox
         try:
             self._activo_frame = ctk.CTkFrame(self.general_frame, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
-            self._activo_frame.grid(row=6, column=5, columnspan=2, sticky='w', padx=6, pady=6)
+            self._activo_frame.grid(row=7, column=5, columnspan=2, sticky='w', padx=6, pady=6)
             try:
                 ctk.CTkLabel(self._activo_frame, text='Activo', text_color=self.colors['text'], font=lbl_font).pack(side='left')
             except Exception:
@@ -186,19 +192,19 @@ class CrearProductoUI:
         except Exception:
             # Fallback: place checkbox in grid and a separate label if frame creation fails
             try:
-                ctk.CTkLabel(self.general_frame, text='Activo', text_color=self.colors['text'], font=lbl_font).grid(row=6, column=5, sticky='w', padx=6, pady=6)
+                ctk.CTkLabel(self.general_frame, text='Activo', text_color=self.colors['text'], font=lbl_font).grid(row=7, column=5, sticky='w', padx=6, pady=6)
             except Exception:
                 try:
-                    tk.Label(self.general_frame, text='Activo').grid(row=6, column=5, sticky='w', padx=6, pady=6)
+                    tk.Label(self.general_frame, text='Activo').grid(row=7, column=5, sticky='w', padx=6, pady=6)
                 except Exception:
                     pass
             try:
                 self.chk_activo = ctk.CTkCheckBox(self.general_frame, text='Producto activo', variable=self.chk_activo_var, fg_color=self.colors['secondary'], text_color=self.colors['secondary'])
-                self.chk_activo.grid(row=6, column=6, columnspan=1, sticky='w', padx=6, pady=6)
+                self.chk_activo.grid(row=7, column=6, columnspan=1, sticky='w', padx=6, pady=6)
             except Exception:
                 try:
                     self.chk_activo = tk.Checkbutton(self.general_frame, text='Producto activo', variable=self.chk_activo_var)
-                    self.chk_activo.grid(row=6, column=6, columnspan=1, sticky='w', padx=6, pady=6)
+                    self.chk_activo.grid(row=7, column=6, columnspan=1, sticky='w', padx=6, pady=6)
                 except Exception:
                     pass
 
@@ -214,11 +220,11 @@ class CrearProductoUI:
                 self.lbl_tesoro = ctk.CTkLabel(self.general_frame, text='Tesoro: -', text_color=self.colors['text'], font=lbl_font)
         except Exception:
             self.lbl_tesoro = tk.Label(self.general_frame, text='Tesoro: -')
-        self.lbl_tesoro.grid(row=6, column=7, sticky='w', padx=6, pady=6)
+        self.lbl_tesoro.grid(row=7, column=7, sticky='w', padx=6, pady=6)
 
-        # Fila 8: CÓDIGOS_DE_BARRAS (CSV separado por comas)
+        # Fila 9: CÓDIGOS_DE_BARRAS (CSV separado por comas)
         lbl_barras = ctk.CTkLabel(self.general_frame, text="CÓDIGOS_DE_BARRAS (CSV):", text_color=self.colors['text'], font=lbl_font)
-        lbl_barras.grid(row=7, column=0, sticky='w', padx=6, pady=6, columnspan=4)
+        lbl_barras.grid(row=8, column=0, sticky='w', padx=6, pady=6, columnspan=4)
         
         # Botón para generar código interno ⭐
         try:
@@ -228,7 +234,7 @@ class CrearProductoUI:
                 command=self._on_gen_barcode_interno,
                 style_key="mini_action"
             )
-            self.btn_gen_barcode.grid(row=7, column=4, columnspan=4, sticky='e', padx=6, pady=6)
+            self.btn_gen_barcode.grid(row=8, column=4, columnspan=4, sticky='e', padx=6, pady=6)
         except Exception:
             logger.exception('Error creando botón BARRAS')
 
@@ -236,10 +242,10 @@ class CrearProductoUI:
             self.e_codigos = ctk.CTkEntry(self.general_frame, placeholder_text='ean1,ean2,ean3', **entry_kwargs)
         except Exception:
             self.e_codigos = tk.Entry(self.general_frame)
-        self.e_codigos.grid(row=8, column=0, columnspan=8, sticky='nsew', padx=6, pady=6)
+        self.e_codigos.grid(row=9, column=0, columnspan=8, sticky='nsew', padx=6, pady=6)
 
         # Label separator for Shopify section (highlighted in yellow)
-        ctk.CTkLabel(self.general_frame, text='SHOPIFY', text_color=self.colors['secondary'], font=lbl_font).grid(row=9, column=0, columnspan=8, sticky='w', padx=6, pady=(12, 6))
+        ctk.CTkLabel(self.general_frame, text='SHOPIFY', text_color=self.colors['secondary'], font=lbl_font).grid(row=10, column=0, columnspan=8, sticky='w', padx=6, pady=(12, 6))
 
         # Load options from DB if available
         self._load_db_options()
@@ -784,6 +790,8 @@ class CrearProductoUI:
                 pass
             codes = [c.strip() for c in (codes_text or '').split(',') if c.strip()]
 
+            fabricado_por_nosotros = 1 if getattr(self, 'chk_fabricado_var', None) and self.chk_fabricado_var.get() else 0
+            
             prod_id = self.repo.guardar_producto_completo(
                 nombre=nombre,
                 nombre_boton=nombre_boton,
@@ -798,6 +806,7 @@ class CrearProductoUI:
                 pvp=pvp,
                 coste=coste,
                 pvp_variable=pvp_variable,
+                fabricado_por_nosotros=fabricado_por_nosotros,
                 codigos_barras=codes,
                 producto_id=self.producto_id,
                 shopify_taxonomy=shopify_taxonomy,
