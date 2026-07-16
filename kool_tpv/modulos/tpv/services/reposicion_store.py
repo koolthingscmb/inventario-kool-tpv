@@ -246,11 +246,10 @@ class ReposicionStore:
             return False
     
     def eliminar_coincidencia(self, tipo_id: int, variante_id: Optional[int],
-                              talla_id: Optional[int], color_id: Optional[int],
                               diseno_codigo: str) -> bool:
-        """Elimina la primera línea del JSON que coincida con todos los campos.
+        """Elimina la primera línea del JSON que coincida por tipo, variante y diseño.
 
-        Comparación pura de IDs (int==int, None==None).
+        No compara talla ni color: al reponer puede cambiarse esos atributos.
 
         Returns:
             True si se borró una línea, False si no había coincidencia.
@@ -260,8 +259,6 @@ class ReposicionStore:
             for i, linea in enumerate(lineas):
                 if (linea.get('tipo_id') == tipo_id and
                     linea.get('variante_id') == variante_id and
-                    linea.get('talla_id') == talla_id and
-                    linea.get('color_id') == color_id and
                     linea.get('diseno_codigo') == diseno_codigo):
                     del lineas[i]
                     return self.guardar(lineas)

@@ -582,11 +582,13 @@ class NuevoProduccionFlow:
         if result >= 0:
             # Mostrar mensaje de éxito
             total_uds = sum(item.cantidad for item in self._items)
-            from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
-            ToastWidget.show(self.parent, f"Guardada Producción de {total_uds} artículos", tipo="success")
-
+            msg = f"Guardada Producción de {total_uds} artículos"
+            
             if result > 0:
-                ToastWidget.show(self.parent, f"Se han borrado {result} líneas de la Reposición", tipo="success")
+                msg += f"  ·  {result} líneas de Reposición borradas"
+                
+            from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
+            ToastWidget.show(self.parent, msg, tipo="success")
 
             # Cerramos el flujo
             self._cerrar_flow()

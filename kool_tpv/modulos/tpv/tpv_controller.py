@@ -1327,11 +1327,12 @@ class TpvController:
                     for comp in componentes:
                         if comp[3]:  # fabricado_por_nosotros = 1
                             comp_cantidad = comp[1] * cantidad
-                            productos_producibles.append({
-                                'producto_id': comp[0],
-                                'nombre': comp[2],
-                                'cantidad': comp_cantidad
-                            })
+                            for _ in range(comp_cantidad):
+                                productos_producibles.append({
+                                    'producto_id': comp[0],
+                                    'nombre': comp[2],
+                                    'cantidad': 1
+                                })
                 elif fabricado:
                     # Producto directo producible
                     productos_producibles.append({

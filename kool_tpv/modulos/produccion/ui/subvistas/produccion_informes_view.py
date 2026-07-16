@@ -179,19 +179,28 @@ class ProduccionInformesView:
         f_col = ctk.CTkFrame(self.chips_frame_main, fg_color='transparent')
         f_col.pack(fill='x', pady=2)
         ctk.CTkLabel(f_col, text="Colecciones:", font=get_font('label_small'), text_color=self.colors.get('text_secondary')).pack(side='left', padx=5)
+        col_grid = ctk.CTkFrame(f_col, fg_color='transparent')
+        col_grid.pack(fill='x', side='left')
+        cols = 20
+        for c in range(cols):
+            col_grid.grid_columnconfigure(c, weight=1)
         
         # Contenedor para Sufijos
         f_suf = ctk.CTkFrame(self.chips_frame_main, fg_color='transparent')
         f_suf.pack(fill='x', pady=2)
-        ctk.CTkLabel(f_suf, text="Sufijos:", font=get_font('label_small'), text_color=self.colors.get('text_secondary')).pack(side='left', padx=5)
+        suf_grid = ctk.CTkFrame(f_suf, fg_color='transparent')
+        suf_grid.pack(fill='x', side='left')
+        for c in range(cols):
+            suf_grid.grid_columnconfigure(c, weight=1)
+        ctk.CTkLabel(suf_grid, text="Sufijos:", font=get_font('label_small'), text_color=self.colors.get('text_secondary')).grid(row=0, column=0, padx=5, sticky='w')
         
         # Pintar Colecciones
-        for c in self.colecciones_repo.get_activas():
+        for idx, c in enumerate(self.colecciones_repo.get_activas()):
             is_sel = c.id in self._filtros_diseno["coleccion_ids"]
             style = selected_cfg if is_sel else default_cfg
             
             btn = ctk.CTkButton(
-                f_col, text=c.nombre, width=0, height=chip_height, corner_radius=chip_radius,
+                col_grid, text=c.nombre, width=0, height=chip_height, corner_radius=chip_radius,
                 fg_color=style.get("bg", "#1a1a2e"),
                 text_color=style.get("text", "#e0e0e0"),
                 border_color=style.get("border", "#552583"),
@@ -200,15 +209,15 @@ class ProduccionInformesView:
                 font=chip_font,
                 command=lambda cid=c.id: self._toggle_filtro("coleccion_ids", cid)
             )
-            btn.pack(side='left', padx=chip_padx, pady=chip_pady)
+            btn.grid(row=idx // cols, column=idx % cols, padx=chip_padx, pady=chip_pady, sticky="ew")
             
         # Pintar Sufijos
-        for s in self.sufijos_repo.get_activos():
+        for idx, s in enumerate(self.sufijos_repo.get_activos()):
             is_sel = s.id in self._filtros_diseno["sufijo_ids"]
             style = selected_cfg if is_sel else default_cfg
             
             btn = ctk.CTkButton(
-                f_suf, text=s.nombre, width=0, height=chip_height, corner_radius=chip_radius,
+                suf_grid, text=s.nombre, width=0, height=chip_height, corner_radius=chip_radius,
                 fg_color=style.get("bg", "#1a1a2e"),
                 text_color=style.get("text", "#e0e0e0"),
                 border_color=style.get("border", "#552583"),
@@ -217,7 +226,9 @@ class ProduccionInformesView:
                 font=chip_font,
                 command=lambda sid=s.id: self._toggle_filtro("sufijo_ids", sid)
             )
-            btn.pack(side='left', padx=chip_padx, pady=chip_pady)
+            col = (idx % (cols - 1)) + 1
+            row = idx // (cols - 1)
+            btn.grid(row=row, column=col, padx=chip_padx, pady=chip_pady, sticky="ew")
 
     def _toggle_filtro(self, key, item_id):
         if item_id in self._filtros_diseno[key]:

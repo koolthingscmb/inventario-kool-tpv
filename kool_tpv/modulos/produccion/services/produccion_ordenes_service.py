@@ -184,22 +184,11 @@ class ProduccionOrdenesService:
             self.logger.exception(f"Error al actualizar stock TPV vinculado para variante {item.variante_id}")
 
     def _borrar_reposicion_coincidente(self, item: ItemProduccion) -> bool:
-        """Resolver talla texto→ID y borrar coincidencia del JSON de reposición."""
+        """Borrar coincidencia del JSON de reposición por tipo, variante y diseño."""
         try:
-            talla_id = None
-            if item.talla:
-                t = self.tallas_service.obtener_por_nombre(item.talla)
-                if t:
-                    talla_id = t.id
-                else:
-                    self.logger.warning(f"No se encontró talla '{item.talla}' en BD para reposición")
-                    return False
-
             return self.reposicion_store.eliminar_coincidencia(
                 tipo_id=item.tipo_id,
                 variante_id=item.variante_id,
-                talla_id=talla_id,
-                color_id=item.color_id,
                 diseno_codigo=item.diseno_codigo
             )
         except Exception:

@@ -84,11 +84,11 @@ class ReposicionFormUI(CTkFrame):
         self._cargar_siguiente_producto()
 
     def _setup_ui(self):
-        # ZONA 1: grid 4x1 - Producto + Tipo
+        # ZONA 1: grid 6x1 - Producto + Tipo + Encargo
         zona1 = CTkFrame(self.body_frame, fg_color="transparent")
         zona1.pack(fill="x", padx=10, pady=(5, 10))
-        for c in range(4):
-            zona1.grid_columnconfigure(c, weight=1 if c in (1, 3) else 0, minsize=80 if c in (0, 2) else 0)
+        for c in range(6):
+            zona1.grid_columnconfigure(c, weight=1 if c in (1, 3) else 0)
 
         CTkLabel(zona1, text="Producto", font=("Roboto", 14, "bold")).grid(row=0, column=0, padx=(0, 6), sticky="w")
         self.entry_producto = CTkEntry(zona1, height=32)
@@ -97,8 +97,12 @@ class ReposicionFormUI(CTkFrame):
 
         CTkLabel(zona1, text="Tipo", font=("Roboto", 14, "bold")).grid(row=0, column=2, padx=(0, 6), sticky="w")
         self.entry_tipo = CTkEntry(zona1, height=32)
-        self.entry_tipo.grid(row=0, column=3, padx=(0, 0), sticky="ew")
+        self.entry_tipo.grid(row=0, column=3, padx=(0, 12), sticky="ew")
         self.entry_tipo.configure(state="readonly")
+
+        CTkLabel(zona1, text="Encargo:", font=("Roboto", 14, "bold")).grid(row=0, column=4, padx=(0, 6), sticky="w")
+        self.check_encargo = ctk.CTkCheckBox(zona1, text="", width=24, height=24)
+        self.check_encargo.grid(row=0, column=5, padx=(0, 0), sticky="w")
 
         # ZONA 2: grid 6x1 - Variante + Talla + Color (condicionales)
         zona2 = CTkFrame(self.body_frame, fg_color="transparent")
@@ -307,6 +311,7 @@ class ReposicionFormUI(CTkFrame):
         self.entry_diseno.delete(0, "end")
         self.entry_diseno.configure(state="readonly")
         self.text_comentarios.delete("1.0", "end")
+        self.check_encargo.deselect()
 
         # Producto y Tipo vía servicios (sin queries directas aquí)
         prod_id = self.producto_actual.get('producto_id')
@@ -371,6 +376,12 @@ class ReposicionFormUI(CTkFrame):
 
         # Talla / Color condicionales + carga inicial (vacía hasta elegir variante)
         self._actualizar_opciones_tipo()
+
+        # Auto-selección de variante única (después de _actualizar_opciones_tipo para no borrar colores)
+        variantes_opciones = self.combo_variante._opts if hasattr(self.combo_variante, '_opts') else []
+        if len(variantes_opciones) == 1:
+            self.combo_variante.set_by_id(variantes_opciones[0][0])
+            self._on_variante_changed(variantes_opciones[0][1])
 
         # Cantidad
         self.entry_cantidad.delete(0, "end")
@@ -596,6 +607,7 @@ class ReposicionFormUI(CTkFrame):
             "diseno_codigo": diseno_codigo,
             "cantidad": cantidad,
             "comentarios": comentarios,
+            "encargo": bool(self.check_encargo.get()),
             "ticket_id": self.ticket_id,
         }
 

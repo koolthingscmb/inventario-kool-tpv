@@ -99,11 +99,11 @@ class ProduccionStockBaseView:
 
 		# Tabla de stock
 		columnas = [
-			("ARTÍCULO", 200),
-			("VARIANTE", 120),
+			("ARTÍCULO", 300),
+			("VARIANTE", 192),
 			("COLOR", 150),
 			("TALLA", 80),
-			("SKU SHOPIFY", 180),
+			("SKU SHOPIFY", 270),
 			("CANTIDAD", 100)
 		]
 		

@@ -82,5 +82,34 @@
     "ticket_id": 161,
     "id": "441a5a93-b760-4d63-b32f-3a8843285840",
     "fecha": "2026-07-16T11:25:02.453640"
+  },
+  {
+    "producto_id": 1920,
+    "nombre": "Lámina A4",
+    "tipo_id": 8,
+    "variante_id": 20,
+    "talla_id": null,
+    "color_id": null,
+    "diseno_codigo": "ANIME07",
+    "cantidad": 3,
+    "comentarios": "",
+    "ticket_id": 202,
+    "id": "212f531e-5b81-4b9b-81e4-f6a8b1a1d985",
+    "fecha": "2026-07-16T20:31:34.696591"
+  },
+  {
+    "producto_id": 1887,
+    "nombre": "Camiseta Adulto",
+    "tipo_id": 1,
+    "variante_id": 3,
+    "talla_id": 30,
+    "color_id": 23,
+    "diseno_codigo": "ANIME61",
+    "cantidad": 1,
+    "comentarios": "",
+    "encargo": false,
+    "ticket_id": 203,
+    "id": "37e73919-83e8-4a1d-bfa0-3f865eabd3d8",
+    "fecha": "2026-07-16T21:28:00.544456"
   }
 ]

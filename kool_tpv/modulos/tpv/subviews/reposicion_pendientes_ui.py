@@ -62,6 +62,7 @@ class ReposicionPendientesUI(ctk.CTkFrame):
             ("COLOR", 90),
             ("TALLA", 60),
             ("DISEÑO", 200),
+            ("ENC.", 60),
             ("CONF.", 60),
             ("PROD.", 60)
         ]
@@ -134,6 +135,7 @@ class ReposicionPendientesUI(ctk.CTkFrame):
                 "COLOR": c_nombre,
                 "TALLA": t_nombre,
                 "DISEÑO": d_nombre,
+                "ENC.": "📦" if p.get("encargo") else "",
                 "CONF.": "✓",
                 "PROD.": "○",
                 "_es_temp": False
@@ -170,6 +172,7 @@ class ReposicionPendientesUI(ctk.CTkFrame):
                 "COLOR": "",
                 "TALLA": "",
                 "DISEÑO": "",
+                "ENC.": "",
                 "CONF.": "✗",
                 "PROD.": "○",
                 "_es_temp": True
