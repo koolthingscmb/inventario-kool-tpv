@@ -201,11 +201,16 @@ class ProductoService:
 
             # Preferir obtener el registro RAW a través del repository
             if getattr(self, 'repo', None) is not None:
-                return self.repo.get_completo(producto_id)
+                data = self.repo.get_completo(producto_id)
             else:
                 # fallback al query propio
                 raw_row = self.db.fetch_one(query, (producto_id,))
-                return dict(raw_row) if raw_row is not None else None
+                data = dict(raw_row) if raw_row is not None else None
+
+            if data:
+                data['pvp'] = _safe_decimal_from_db(data.get('pvp', 0))
+                data['coste'] = _safe_decimal_from_db(data.get('coste', 0))
+            return data
 
         except sqlite3.DatabaseError as e:
             logging.exception('DB error obteniendo producto completo %s: %s', producto_id, e)

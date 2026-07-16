@@ -114,6 +114,8 @@ class SearchableCombo(ctk.CTkFrame):
         self.entry.bind('<Up>', self._on_up)
         self.entry.bind('<Return>', self._on_return_key)
         self.entry.bind('<FocusOut>', self._on_focus_out)
+        self.entry.bind('<FocusIn>', lambda e: self.after(50, self._on_click))
+        self.entry.bind('<Button-1>', lambda e: self.after(10, self._on_click))
 
     # --- Properties ---
     @property
@@ -210,6 +212,31 @@ class SearchableCombo(ctk.CTkFrame):
             return None
 
     # --- Event Handlers ---
+    def _on_click(self, event=None):
+        """Al hacer clic, mostrar dropdown si hay valores y no está visible."""
+        try:
+            if self._dropdown and getattr(self._dropdown, 'winfo_exists', lambda: False)() and self._dropdown.winfo_viewable():
+                return
+            
+            txt = self.get().strip()
+            if self.search_function:
+                # En modo dinámico solo mostramos si ya hay resultados previos
+                if self._last_results:
+                    matches = [r.get('nombre_display') for r in self._last_results if r.get('nombre_display')]
+                    self._show_dropdown(matches)
+                return
+
+            # Modo local: mostrar filtrados o todo si está vacío
+            if txt == '':
+                matches = list(self._values)
+            else:
+                matches = [v for v in self._values if txt.lower() in v.lower()]
+            
+            if matches:
+                self._show_dropdown(matches)
+        except Exception:
+            pass
+
     def _on_key(self, event=None):
         """Manejar teclas: filtrado local o búsqueda dinámica."""
         try:

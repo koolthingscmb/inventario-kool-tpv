@@ -165,7 +165,9 @@ class ReposicionStore:
             return False
     
     def guardar_pendientes_temp(self, ticket_id: int, productos: List[Dict[str, Any]]) -> bool:
-        """Guarda productos pendientes de anotar en el archivo temporal.
+        """Acumula productos pendientes en el archivo temporal.
+        
+        No sobrescribe: añade a los ya existentes. Cada producto se marca con su ticket_id.
         
         Args:
             ticket_id: ID del ticket
@@ -175,37 +177,101 @@ class ReposicionStore:
             True si se guardó correctamente, False si hubo error
         """
         try:
-            data = {
-                'ticket_id': ticket_id,
-                'productos': productos,
-                'fecha': datetime.now().isoformat()
-            }
+            pendientes = self.cargar_pendientes_temp()
+            
+            from datetime import datetime
+            now_iso = datetime.now().isoformat()
+            for p in productos:
+                p['ticket_id'] = ticket_id
+                if 'fecha' not in p:
+                    p['fecha'] = now_iso
+                pendientes.append(p)
             
             with open(TEMP_FILE, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
+                json.dump(pendientes, f, ensure_ascii=False, indent=2, default=str)
             return True
         except Exception as e:
             logger.exception(f"Error guardando pendientes temporales en {TEMP_FILE}")
             return False
     
-    def cargar_pendientes_temp(self) -> Optional[Dict[str, Any]]:
-        """Carga los productos pendientes del archivo temporal.
+    def cargar_pendientes_temp(self) -> List[Dict[str, Any]]:
+        """Carga los productos pendientes del archivo temporal como lista plana.
         
         Returns:
-            Dict con ticket_id y productos, o None si no hay archivo o error
+            Lista de productos pendientes, o lista vacía si no hay archivo o error
         """
         try:
             if not os.path.exists(TEMP_FILE):
-                return None
+                return []
             
             with open(TEMP_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                data = json.load(f)
+                # Compatibilidad con formato antiguo (dict con ticket_id + productos)
+                if isinstance(data, dict):
+                    return data.get('productos', [])
+                return data if isinstance(data, list) else []
         except Exception as e:
             logger.exception(f"Error cargando pendientes temporales desde {TEMP_FILE}")
-            return None
+            return []
     
+    def borrar_pendiente_temp(self, producto_id: int, ticket_id: int = None) -> bool:
+        """Borra un producto específico del archivo temporal.
+        
+        Se usa cuando el producto ha sido rellenado correctamente en el formulario.
+        
+        Args:
+            producto_id: ID del producto a borrar del temp
+            ticket_id: Opcional, filtra también por ticket
+            
+        Returns:
+            True si se borró, False si no se encontró o hubo error
+        """
+        try:
+            pendientes = self.cargar_pendientes_temp()
+            filtrados = [p for p in pendientes 
+                         if not (p.get('producto_id') == producto_id 
+                                 and (ticket_id is None or p.get('ticket_id') == ticket_id))]
+            
+            if len(pendientes) == len(filtrados):
+                return False
+            
+            if not filtrados:
+                return self.borrar_pendientes_temp()
+            
+            with open(TEMP_FILE, 'w', encoding='utf-8') as f:
+                json.dump(filtrados, f, ensure_ascii=False, indent=2, default=str)
+            return True
+        except Exception as e:
+            logger.exception(f"Error borrando pendiente temporal producto {producto_id}")
+            return False
+    
+    def eliminar_coincidencia(self, tipo_id: int, variante_id: Optional[int],
+                              talla_id: Optional[int], color_id: Optional[int],
+                              diseno_codigo: str) -> bool:
+        """Elimina la primera línea del JSON que coincida con todos los campos.
+
+        Comparación pura de IDs (int==int, None==None).
+
+        Returns:
+            True si se borró una línea, False si no había coincidencia.
+        """
+        try:
+            lineas = self.cargar()
+            for i, linea in enumerate(lineas):
+                if (linea.get('tipo_id') == tipo_id and
+                    linea.get('variante_id') == variante_id and
+                    linea.get('talla_id') == talla_id and
+                    linea.get('color_id') == color_id and
+                    linea.get('diseno_codigo') == diseno_codigo):
+                    del lineas[i]
+                    return self.guardar(lineas)
+            return False
+        except Exception:
+            logger.exception("Error eliminando coincidencia de reposición")
+            return False
+
     def borrar_pendientes_temp(self) -> bool:
-        """Borra el archivo temporal de pendientes.
+        """Borra el archivo temporal de pendientes por completo.
         
         Returns:
             True si se borró o no existía, False si hubo error

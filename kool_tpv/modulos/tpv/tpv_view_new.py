@@ -45,6 +45,8 @@ class ClickableBreadcrumb(ctk.CTkFrame):
         for widget in self.winfo_children():
             if widget is getattr(self, '_btn_cajon_ref', None):
                 continue
+            if widget is getattr(self, '_btn_reposicion_ref', None):
+                continue
             widget.destroy()
         for i, (text, callback) in enumerate(parts):
             if i > 0:
@@ -137,6 +139,23 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
         )
         self.btn_cajon.pack(side="right", padx=4)
         self.breadcrumb._btn_cajon_ref = self.btn_cajon
+
+        self.btn_reposicion = ButtonFactory.create_button(
+            parent=self.breadcrumb,
+            text="REPOSICIÓN",
+            command=self._abrir_reposicion,
+            color="#000000",
+            hover_color="#6C3483",
+            text_color="#9B59B6",
+            border_color="#9B59B6",
+            border_width=2,
+            corner_radius=12,
+            width=130,
+            height=36,
+            font=(bread_cfg.get("family", "Courier New"), 14, "bold")
+        )
+        self.btn_reposicion.pack(side="right", padx=4)
+        self.breadcrumb._btn_reposicion_ref = self.btn_reposicion
 
         self.grid_frame = ctk.CTkFrame(self.center_area, fg_color="transparent")
         self.grid_frame.pack(side="top", fill="both", expand=True, padx=20, pady=20)
@@ -362,6 +381,32 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
                 logging.exception('Error en push_subview')
             except Exception:
                 pass
+
+    def _abrir_reposicion(self):
+        """Abrir subvista de reposiciones pendientes."""
+        try:
+            from kool_tpv.modulos.tpv.services.reposicion_store import ReposicionStore
+            from kool_tpv.modulos.tpv.subviews.reposicion_pendientes_ui import ReposicionPendientesUI
+            
+            store = ReposicionStore()
+            pendientes_temp = store.cargar_pendientes_temp()
+            configurados = store.cargar()
+            if not pendientes_temp and not configurados:
+                from kool_tpv.utils.widgets.notificaciones import show_info
+                show_info(self.winfo_toplevel(), "NO HAY REPOSICIONES PENDIENTES")
+                return
+            
+            # Abrir subvista de lista de pendientes
+            view = ReposicionPendientesUI(
+                parent=self.grid_frame.master, 
+                db=self.db,
+                carrito_service=self.carrito_service,
+                view=self
+            )
+            self.push_subview(view, "REPOSICIONES PENDIENTES")
+            
+        except Exception:
+            logging.exception("Error al abrir reposición")
 
     def _abrir_cajon(self):
         """Abrir el cajón del dinero vía comando ESC/POS."""

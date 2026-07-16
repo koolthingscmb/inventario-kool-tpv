@@ -577,13 +577,16 @@ class NuevoProduccionFlow:
         self._items = items_resumen
 
         # Guardar la orden en BD
-        ok = self._ordenes_service.guardar_orden(self._items, usuario_id=self._usuario_id)
+        result = self._ordenes_service.guardar_orden(self._items, usuario_id=self._usuario_id)
 
-        if ok:
+        if result >= 0:
             # Mostrar mensaje de éxito
             total_uds = sum(item.cantidad for item in self._items)
             from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
             ToastWidget.show(self.parent, f"Guardada Producción de {total_uds} artículos", tipo="success")
+
+            if result > 0:
+                ToastWidget.show(self.parent, f"Se han borrado {result} líneas de la Reposición", tipo="success")
 
             # Cerramos el flujo
             self._cerrar_flow()

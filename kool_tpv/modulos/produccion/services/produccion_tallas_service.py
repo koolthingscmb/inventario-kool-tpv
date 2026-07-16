@@ -21,3 +21,11 @@ class ProduccionTallasService:
 	def obtener_por_tipo_color_3d(self, tipo_id: int, color_id: int, variante_id: Optional[int] = None) -> List[ProduccionTalla]:
 		"""Obtener tallas disponibles para una combinación tipo/variante+color (tabla stock base)."""
 		return self.repository.get_por_tipo_color_3d(tipo_id, color_id, variante_id)
+
+	def obtener_por_id(self, talla_id: int) -> Optional[ProduccionTalla]:
+		"""Obtener una talla por su ID."""
+		return self.repository.get_por_id(talla_id)
+
+	def obtener_por_nombre(self, nombre: str) -> Optional[ProduccionTalla]:
+		"""Obtener una talla por su nombre exacto."""
+		return self.repository.get_por_nombre(nombre)

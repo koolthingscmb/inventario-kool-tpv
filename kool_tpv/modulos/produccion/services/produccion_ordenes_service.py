@@ -14,6 +14,8 @@ from kool_tpv.modulos.produccion.models.produccion_linea_model import Produccion
 from kool_tpv.modulos.produccion.repositories.produccion_ordenes_repository import ProduccionOrdenesRepository
 from kool_tpv.modulos.produccion.repositories.produccion_stock_base_repository import ProduccionStockBaseRepository
 from kool_tpv.modulos.produccion.services.variante_producto_service import VarianteProductoService
+from kool_tpv.modulos.produccion.services.produccion_tallas_service import ProduccionTallasService
+from kool_tpv.modulos.tpv.services.reposicion_store import ReposicionStore
 
 @dataclass
 class ItemProduccion:
@@ -48,13 +50,20 @@ class ProduccionOrdenesService:
         self.repo_ordenes = ProduccionOrdenesRepository(db)
         self.repo_stock_base = ProduccionStockBaseRepository(db)
         self.link_service = VarianteProductoService(db)
+        self.tallas_service = ProduccionTallasService(db)
+        self.reposicion_store = ReposicionStore()
 
-    def guardar_orden(self, items: List[ItemProduccion], usuario_id: Optional[int] = None) -> bool:
-        """Guardar una orden de producción completa y actualizar el stock."""
+    def guardar_orden(self, items: List[ItemProduccion], usuario_id: Optional[int] = None) -> int:
+        """Guardar una orden de producción completa y actualizar el stock.
+
+        Returns:
+            Número de líneas de reposición borradas, o -1 si hubo error.
+        """
         if not items:
-            return False
+            return -1
 
         try:
+            lineas_borradas = 0
             # Determinamos el origen de la orden (del primer ítem o KOOL por defecto)
             origen_orden = items[0].origen if items else 'KOOL'
 
@@ -116,11 +125,16 @@ class ProduccionOrdenesService:
                     if item.variante_id:
                         self._actualizar_stock_tpv_vinculado(item)
 
-            return True
+                    # 6. REPOSICIÓN: Borrar línea coincidente del JSON
+                    borrado = self._borrar_reposicion_coincidente(item)
+                    if borrado:
+                        lineas_borradas += 1
+
+            return lineas_borradas
 
         except Exception:
             self.logger.exception("Error al guardar la orden de producción")
-            return False
+            return -1
 
     def _actualizar_stock_diseno(self, item: ItemProduccion):
         """Actualizar la tabla produccion_disenos_stock manejando correctamente los NULLs."""
@@ -168,3 +182,26 @@ class ProduccionOrdenesService:
                 self.logger.info(f"VINCULACIÓN TPV: Sumado +{cantidad_tpv} uds al producto ID {link.producto_id} (Variante {item.variante_id})")
         except Exception:
             self.logger.exception(f"Error al actualizar stock TPV vinculado para variante {item.variante_id}")
+
+    def _borrar_reposicion_coincidente(self, item: ItemProduccion) -> bool:
+        """Resolver talla texto→ID y borrar coincidencia del JSON de reposición."""
+        try:
+            talla_id = None
+            if item.talla:
+                t = self.tallas_service.obtener_por_nombre(item.talla)
+                if t:
+                    talla_id = t.id
+                else:
+                    self.logger.warning(f"No se encontró talla '{item.talla}' en BD para reposición")
+                    return False
+
+            return self.reposicion_store.eliminar_coincidencia(
+                tipo_id=item.tipo_id,
+                variante_id=item.variante_id,
+                talla_id=talla_id,
+                color_id=item.color_id,
+                diseno_codigo=item.diseno_codigo
+            )
+        except Exception:
+            self.logger.exception(f"Error borrando reposición coincidente para diseño {item.diseno_codigo}")
+            return False

@@ -19,6 +19,8 @@ from kool_tpv.modulos.produccion.services.produccion_colores_service import Prod
 from kool_tpv.modulos.produccion.services.produccion_disenos_service import ProduccionDisenosService
 from kool_tpv.modulos.produccion.repositories.produccion_colecciones_repository import ProduccionColeccionesRepository
 from kool_tpv.modulos.produccion.repositories.produccion_sufijos_repository import ProduccionSufijosRepository
+from kool_tpv.modulos.produccion.repositories.produccion_relaciones_repository import ProduccionRelacionesRepository
+from kool_tpv.modulos.produccion.repositories.variante_producto_repository import VarianteProductoRepository
 
 from kool_tpv.modulos.tpv.services.reposicion_store import ReposicionStore
 
@@ -52,6 +54,8 @@ class ReposicionFormUI(CTkFrame):
         self.disenos_service = ProduccionDisenosService(db)
         self.colecciones_repo = ProduccionColeccionesRepository(db)
         self.sufijos_repo = ProduccionSufijosRepository(db)
+        self.relaciones_repo = ProduccionRelacionesRepository(db)
+        self.variante_producto_repo = VarianteProductoRepository(db)
 
         # Keyboard manager
         root = self.winfo_toplevel()
@@ -76,6 +80,7 @@ class ReposicionFormUI(CTkFrame):
         self.body_frame.pack(side="top", fill="both", expand=True, padx=20, pady=10)
 
         self._setup_ui()
+        self._setup_tab_navigation()
         self._cargar_siguiente_producto()
 
     def _setup_ui(self):
@@ -102,18 +107,33 @@ class ReposicionFormUI(CTkFrame):
             zona2.grid_columnconfigure(c, weight=1 if c in (1, 3, 5) else 0)
 
         CTkLabel(zona2, text="Variante", font=("Roboto", 14, "bold")).grid(row=0, column=0, padx=(0, 6), sticky="w")
-        self.combo_variante = SearchableCombo(zona2, placeholder="Selecciona variante...", width=220)
+        self.combo_variante = SearchableCombo(
+            zona2,
+            placeholder="Selecciona variante...",
+            width=220,
+            command=self._on_variante_changed
+        )
         self.combo_variante.grid(row=0, column=1, padx=(0, 12), sticky="ew")
 
-        self.lbl_talla = CTkLabel(zona2, text="Talla", font=("Roboto", 14, "bold"))
-        self.lbl_talla.grid(row=0, column=2, padx=(0, 6), sticky="w")
-        self.combo_talla = SearchableCombo(zona2, placeholder="Talla...", width=160)
-        self.combo_talla.grid(row=0, column=3, padx=(0, 12), sticky="ew")
-
         self.lbl_color = CTkLabel(zona2, text="Color", font=("Roboto", 14, "bold"))
-        self.lbl_color.grid(row=0, column=4, padx=(0, 6), sticky="w")
-        self.combo_color = SearchableCombo(zona2, placeholder="Color...", width=160)
-        self.combo_color.grid(row=0, column=5, padx=(0, 0), sticky="ew")
+        self.lbl_color.grid(row=0, column=2, padx=(0, 6), sticky="w")
+        self.combo_color = SearchableCombo(
+            zona2,
+            placeholder="Color...",
+            width=160,
+            command=self._on_color_changed
+        )
+        self.combo_color.grid(row=0, column=3, padx=(0, 12), sticky="ew")
+
+        self.lbl_talla = CTkLabel(zona2, text="Talla", font=("Roboto", 14, "bold"))
+        self.lbl_talla.grid(row=0, column=4, padx=(0, 6), sticky="w")
+        self.combo_talla = SearchableCombo(
+            zona2,
+            placeholder="Talla...",
+            width=160,
+            command=self._on_talla_changed
+        )
+        self.combo_talla.grid(row=0, column=5, padx=(0, 0), sticky="ew")
 
         # ZONA 3: Comentarios (full width)
         zona3 = CTkFrame(self.body_frame, fg_color="transparent")
@@ -190,6 +210,86 @@ class ReposicionFormUI(CTkFrame):
         )
         self.btn_cancelar.pack(side="right", padx=6)
 
+    def _setup_tab_navigation(self):
+        """Configura navegación Tab/Shift+Tab entre los campos en orden lógico."""
+        self._tab_order = [
+            self.combo_variante,
+            self.combo_color,
+            self.combo_talla,
+            self.text_comentarios,
+            self.entry_buscar_diseno,
+            self.entry_cantidad,
+            self.btn_guardar,
+            self.btn_cancelar,
+        ]
+
+        self._widget_map = {}
+        for w in self._tab_order:
+            if hasattr(w, 'entry') and hasattr(w.entry, '_entry'):
+                self._widget_map[str(w.entry._entry)] = w
+            elif hasattr(w, '_entry'):
+                self._widget_map[str(w._entry)] = w
+            elif hasattr(w, '_canvas'):
+                self._widget_map[str(w._canvas)] = w
+                if hasattr(w, '_text_label'):
+                    self._widget_map[str(w._text_label)] = w
+            else:
+                self._widget_map[str(w)] = w
+
+        def on_tab(event):
+            current_tk = str(event.widget)
+            current_obj = self._widget_map.get(current_tk)
+
+            if current_obj in self._tab_order:
+                idx = self._tab_order.index(current_obj)
+
+                if event.state & 0x1:
+                    next_idx = (idx - 1) % len(self._tab_order)
+                else:
+                    next_idx = (idx + 1) % len(self._tab_order)
+
+                next_obj = self._tab_order[next_idx]
+
+                if hasattr(next_obj, 'entry'):
+                    next_obj.entry.focus_set()
+                    try: next_obj.entry._entry.selection_range(0, 'end')
+                    except: pass
+                elif hasattr(next_obj, '_entry'):
+                    next_obj.focus_set()
+                    try: next_obj._entry.selection_range(0, 'end')
+                    except: pass
+                else:
+                    next_obj.focus_set()
+
+                return 'break'
+            return None
+
+        for w in self._tab_order:
+            if hasattr(w, 'entry'):
+                w.entry._entry.bind('<Tab>', on_tab)
+                w.entry._entry.bind('<Shift-Tab>', on_tab)
+            elif hasattr(w, '_entry'):
+                w._entry.bind('<Tab>', on_tab)
+                w._entry.bind('<Shift-Tab>', on_tab)
+            elif hasattr(w, '_canvas'):
+                w._canvas.bind('<Tab>', on_tab)
+                w._canvas.bind('<Shift-Tab>', on_tab)
+                if hasattr(w, '_text_label'):
+                    w._text_label.bind('<Tab>', on_tab)
+                    w._text_label.bind('<Shift-Tab>', on_tab)
+            else:
+                w.bind('<Tab>', on_tab)
+                w.bind('<Shift-Tab>', on_tab)
+
+        import tkinter as _tk
+        def disable_frame_focus(parent):
+            for child in parent.winfo_children():
+                if isinstance(child, (ctk.CTkFrame, _tk.Frame)):
+                    try: child.configure(takefocus=0)
+                    except: pass
+                    disable_frame_focus(child)
+        disable_frame_focus(self)
+
     # ----------------- Carga y estado -----------------
 
     def _cargar_siguiente_producto(self):
@@ -237,21 +337,46 @@ class ReposicionFormUI(CTkFrame):
             self.entry_tipo.insert(0, (tipo_nombre or "SIN TIPO").upper())
         self.entry_tipo.configure(state="readonly")
 
-        # Variantes
+        # Variantes FILTRADAS por la tabla produccion_variantes_productos para este producto
         if self.tipo_actual:
-            variantes = self.variantes_service.obtener_por_tipo(self.tipo_actual.id)
-            self.combo_variante.set_options([(v.id, v.nombre) for v in variantes])
+            try:
+                # Obtener variantes vinculadas a este producto TPV
+                links = self.variante_producto_repo.get_por_producto_combinacion(prod_id)
+                
+                if links:
+                    # Usar solo las variantes vinculadas
+                    opciones = []
+                    for l in links:
+                        # Necesitamos el nombre de la variante (ya viene en el link o lo buscamos)
+                        nombre_v = l.variante_nombre
+                        if not nombre_v:
+                            v_obj = self.variantes_service.obtener_por_id(l.variante_id)
+                            nombre_v = v_obj.nombre if v_obj else f"ID {l.variante_id}"
+                        opciones.append((l.variante_id, nombre_v))
+                    self.combo_variante.set_options(opciones)
+                else:
+                    # Si no hay links específicos, fallback a todas las del tipo (opcional, 
+                    # pero según el usuario debería filtrar, así que mejor vacío o aviso)
+                    variantes = self.variantes_service.obtener_por_tipo(self.tipo_actual.id)
+                    self.combo_variante.set_options([(v.id, v.nombre) for v in variantes])
+            except Exception:
+                logger.exception("Error cargando variantes por producto")
+                self.combo_variante.set_options([])
         else:
             self.combo_variante.set_options([])
 
-        # Talla / Color condicionales + carga
+        self.combo_variante.clear()
+        self.combo_talla.clear()
+        self.combo_color.clear()
+
+        # Talla / Color condicionales + carga inicial (vacía hasta elegir variante)
         self._actualizar_opciones_tipo()
 
         # Cantidad
         self.entry_cantidad.delete(0, "end")
         self.entry_cantidad.insert(0, str(int(self.producto_actual.get('cantidad', 1))))
 
-        # Refrescar lista de diseños (carga inicial ya hecha, pero aseguramos)
+        # Refrescar lista de diseños
         try:
             self.design_list.search("")
         except Exception:
@@ -269,35 +394,97 @@ class ReposicionFormUI(CTkFrame):
         except Exception:
             pass
 
+    def _on_variante_changed(self, value):
+        """Al cambiar variante, filtramos colores por tipo + variante usando Matriz 3D (libro recetas)."""
+        if not self.tipo_actual:
+            return
+
+        variante_id = self.combo_variante.get_id()
+        if not variante_id:
+            self.combo_color.set_options([])
+            self.combo_talla.set_options([])
+            return
+
+        try:
+            # Obtener IDs de colores permitidos en la matriz 3D (produccion_tipo_color_tallas)
+            color_ids = self.relaciones_repo.get_colores_id_por_tipo_3d(self.tipo_actual.id, variante_id)
+            
+            if color_ids:
+                colores_obj = []
+                for cid in color_ids:
+                    c = self.colores_service.obtener_por_id(cid)
+                    if c: colores_obj.append(c)
+                # Ordenar por nombre
+                colores_obj.sort(key=lambda x: x.nombre)
+                self.combo_color.set_options([(c.id, c.nombre) for c in colores_obj])
+            else:
+                self.combo_color.set_options([])
+            
+            # Limpiar tallas hasta que elijan color (no hace falta clear() del texto si está vacío)
+            self.combo_talla.set_options([])
+            
+            self.update_idletasks()
+        except Exception:
+            logger.exception("Error actualizando colores por variante (3D)")
+
+    def _on_color_changed(self, value):
+        """Al cambiar color, filtramos tallas por tipo + variante + color usando Matriz 3D."""
+        if not self.tipo_actual:
+            return
+
+        variante_id = self.combo_variante.get_id()
+        color_id = self.combo_color.get_id()
+
+        if not variante_id or not color_id:
+            self.combo_talla.set_options([])
+            return
+
+        try:
+            # Obtener IDs de tallas permitidas en la matriz 3D
+            talla_ids = self.relaciones_repo.get_tallas_id_por_tipo_color_3d(self.tipo_actual.id, color_id, variante_id)
+            
+            if talla_ids:
+                tallas_obj = []
+                for tid in talla_ids:
+                    t = self.tallas_service.repository.get_por_id(tid) 
+                    if t: tallas_obj.append(t)
+                # Ordenar por orden de la talla
+                tallas_obj.sort(key=lambda x: x.orden)
+                self.combo_talla.set_options([(t.id, t.nombre) for t in tallas_obj])
+            else:
+                self.combo_talla.set_options([])
+            
+            self.update_idletasks()
+        except Exception:
+            logger.exception("Error actualizando tallas por color (3D)")
+
+    def _on_talla_changed(self, value):
+        pass
+
     def _actualizar_opciones_tipo(self):
+        """Ajusta visibilidad de combos Talla/Color según el tipo del producto."""
         requiere_talla = bool(getattr(self.tipo_actual, 'requiere_talla', False)) if self.tipo_actual else False
         requiere_color = bool(getattr(self.tipo_actual, 'requiere_color', False)) if self.tipo_actual else False
 
         if requiere_talla:
             self.lbl_talla.grid()
             self.combo_talla.grid()
-            try:
-                tallas = self.tallas_service.obtener_todas()
-                self.combo_talla.set_options([(t.id, t.nombre) for t in tallas])
-            except Exception:
-                self.combo_talla.set_options([])
         else:
             self.lbl_talla.grid_remove()
             self.combo_talla.grid_remove()
-            self.combo_talla.set_options([])
+        
+        self.combo_talla.set_options([])
+        self.combo_talla.clear()
 
         if requiere_color:
             self.lbl_color.grid()
             self.combo_color.grid()
-            try:
-                colores = self.colores_service.obtener_todos()
-                self.combo_color.set_options([(c.id, c.nombre) for c in colores])
-            except Exception:
-                self.combo_color.set_options([])
         else:
             self.lbl_color.grid_remove()
             self.combo_color.grid_remove()
-            self.combo_color.set_options([])
+            
+        self.combo_color.set_options([])
+        self.combo_color.clear()
 
     # ----------------- Búsqueda y selección de diseños -----------------
 
@@ -374,11 +561,11 @@ class ReposicionFormUI(CTkFrame):
         # Validaciones mínimas
         variante_id = self.combo_variante.get_id()
         if not variante_id:
-            show_warning(self, "DEBES SELECCIONAR UNA VARIANTE")
+            show_warning(self.winfo_toplevel(), "DEBES SELECCIONAR UNA VARIANTE")
             return
 
         if not self.diseno_seleccionado:
-            show_warning(self, "DEBES SELECCIONAR UN DISEÑO (doble clic en la lista)")
+            show_warning(self.winfo_toplevel(), "DEBES SELECCIONAR UN DISEÑO (doble clic en la lista)")
             return
 
         try:
@@ -386,7 +573,7 @@ class ReposicionFormUI(CTkFrame):
             if cantidad <= 0:
                 raise ValueError()
         except Exception:
-            show_warning(self, "CANTIDAD INVÁLIDA")
+            show_warning(self.winfo_toplevel(), "CANTIDAD INVÁLIDA")
             return
 
         requiere_talla = bool(getattr(self.tipo_actual, 'requiere_talla', False)) if self.tipo_actual else False
@@ -416,20 +603,30 @@ class ReposicionFormUI(CTkFrame):
             store = ReposicionStore()
             ok = store.añadir(datos)
             if not ok:
-                show_error(self, "ERROR AL GUARDAR EN REPOS (JSON)")
+                show_error(self.winfo_toplevel(), "ERROR AL GUARDAR EN REPOS (JSON)")
                 return
+            # Borrar del temporal si estaba pendiente
+            store.borrar_pendiente_temp(datos["producto_id"], self.ticket_id)
         except Exception:
             logger.exception("Error guardando en ReposicionStore")
-            show_error(self, "ERROR AL GUARDAR")
+            show_error(self.winfo_toplevel(), "ERROR AL GUARDAR")
             return
 
-        show_success(self, "REPOSICIÓN ANOTADA")
+        show_success(self.winfo_toplevel(), "REPOSICIÓN ANOTADA")
 
-        # Siguiente o fin
+        # Siguiente o fin (con pequeño retraso para que el toast sea visible)
         self.indice_actual += 1
-        self._cargar_siguiente_producto()
+        self.after(400, self._cargar_siguiente_producto)
 
     def _on_cancelar(self):
+        # Guardar productos restantes en el temporal
+        restantes = self.productos_pendientes[self.indice_actual:]
+        if restantes:
+            try:
+                store = ReposicionStore()
+                store.guardar_pendientes_temp(self.ticket_id, restantes)
+            except Exception:
+                logger.exception("Error guardando restantes en temp")
         self._finalizar()
 
     def _finalizar(self):
