@@ -16,7 +16,9 @@ from kool_tpv.utils.widgets.searchable_paginated_navlist import SearchablePagina
 
 
 class BusquedaUI:
-    def __init__(self, parent, db=None, owner=None, keyboard_manager=None, module_name: str = 'almacen'):
+    def __init__(self, parent, db=None, owner=None, keyboard_manager=None, module_name: str = 'almacen',
+                 termino_inicial: str = '', cat_id_inicial=None, tipo_id_inicial=None,
+                 estados_inicial: Optional[List[str]] = None):
         self.parent = parent
         self.owner = owner  # AlmacenView instance to call show_crear
         self.db = db
@@ -69,7 +71,10 @@ class BusquedaUI:
             options=[(c['id'], c['nombre']) for c in categorias],
             width=160
         )
-        self.cat_combo.set('Todas')
+        if cat_id_inicial is not None:
+            self.cat_combo.set_by_id(cat_id_inicial)
+        else:
+            self.cat_combo.set('Todas')
         self.cat_combo.pack(side='left', padx=(0, 12))
 
         # Label Tipos
@@ -79,16 +84,24 @@ class BusquedaUI:
             options=[(t['id'], t['nombre']) for t in tipos],
             width=160
         )
-        self.tipo_combo.set('Todos')
+        if tipo_id_inicial is not None:
+            self.tipo_combo.set_by_id(tipo_id_inicial)
+        else:
+            self.tipo_combo.set('Todos')
         self.tipo_combo.pack(side='left', padx=(0, 12))
 
         # Frame para checkboxes de estado
         estado_frame = ctk.CTkFrame(filter_frame, fg_color='transparent')
         estado_frame.pack(side='left', padx=(16, 0))
 
-        self.check_activo = tk.BooleanVar(value=True)
-        self.check_sin_stock = tk.BooleanVar(value=True)
-        self.check_archivado = tk.BooleanVar(value=False)
+        if estados_inicial is not None:
+            self.check_activo = tk.BooleanVar(value='activo' in estados_inicial)
+            self.check_sin_stock = tk.BooleanVar(value='sin_stock' in estados_inicial)
+            self.check_archivado = tk.BooleanVar(value='archivado' in estados_inicial)
+        else:
+            self.check_activo = tk.BooleanVar(value=True)
+            self.check_sin_stock = tk.BooleanVar(value=True)
+            self.check_archivado = tk.BooleanVar(value=False)
 
         ctk.CTkCheckBox(
             estado_frame,
@@ -152,11 +165,19 @@ class BusquedaUI:
         )
         self.search_list.pack(fill='both', expand=True, padx=12, pady=6)
 
-        # Auto-focus en search entry
-        try:
-            self.container.after(100, lambda: self.search_entry.focus_set())
-        except Exception:
-            pass
+        # Aplicar término inicial si existe y auto-buscar
+        if termino_inicial:
+            self.search_var.set(termino_inicial)
+            try:
+                self.container.after(150, self._on_search)
+            except Exception:
+                pass
+        else:
+            # Auto-focus en search entry
+            try:
+                self.container.after(100, lambda: self.search_entry.focus_set())
+            except Exception:
+                pass
 
     def get_widget(self):
         return self.container
@@ -227,6 +248,26 @@ class BusquedaUI:
         """Manejar doble click en fila de producto."""
         try:
             prod_id = data.get('_id') if data.get('_id') is not None else data.get('id')
+            # Guardar estado de búsqueda en el owner antes de navegar
+            if self.owner and hasattr(self.owner, '_busqueda_termino'):
+                termino = (self.search_var.get() or '').strip()
+                try:
+                    cat_id = self.cat_combo.get_id()
+                except Exception:
+                    cat_id = None
+                try:
+                    tipo_id = self.tipo_combo.get_id()
+                except Exception:
+                    tipo_id = None
+                estados = []
+                if self.check_activo.get():
+                    estados.append('activo')
+                if self.check_sin_stock.get():
+                    estados.append('sin_stock')
+                if self.check_archivado.get():
+                    estados.append('archivado')
+                self.owner._busqueda_termino = termino
+                self.owner._busqueda_filtros = (cat_id, tipo_id, estados)
             if self.owner and hasattr(self.owner, 'show_crear'):
                 try:
                     self.owner.show_crear(producto_id=prod_id)

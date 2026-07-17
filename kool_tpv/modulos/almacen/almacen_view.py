@@ -169,6 +169,10 @@ class AlmacenView(BaseModuleView):
         # Memoria para mantener contexto al navegar
         self._last_proveedor_id = None
 
+        # Estado de búsqueda para restaurar al volver de show_crear
+        self._busqueda_termino = None
+        self._busqueda_filtros = None  # (cat_id, tipo_id, estados)
+
         self.breadcrumb_callbacks = {
             'ALMACÉN': self.show_albaranes, # Click en ALMACÉN vuelve a vista principal albaranes
             'ALBARANES': self.show_albaranes,
@@ -185,6 +189,13 @@ class AlmacenView(BaseModuleView):
             'MENUS': self.show_menus,
             'MENÚS': self.show_menus,
         }
+
+    @staticmethod
+    def _norm(s: str) -> str:
+        try:
+            return ''.join(ch for ch in unicodedata.normalize("NFKD", (s or '').upper()) if not unicodedata.combining(ch)).strip()
+        except Exception:
+            return (s or '').upper().strip()
 
     def _on_power(self):
         """Gestiona el botón Power en el contexto del módulo Almacén.
@@ -207,20 +218,26 @@ class AlmacenView(BaseModuleView):
                     # Obtener partes del breadcrumb actual
                     breadcrumb_parts = self.breadcrumb.get_parts() if hasattr(self.breadcrumb, 'get_parts') else []
                     
-                    # Si hay más de 2 partes (SISTEMA_KOOL + ALMACÉN + algo más), volver a la vista anterior
-                    if len(breadcrumb_parts) > 2:
-                        # Obtener la penúltima parte
-                        previous_part = breadcrumb_parts[-2] if len(breadcrumb_parts) >= 2 else None
-                        previous_name = previous_part[0] if previous_part else None
-                        
-                        # Intentar volver a la vista anterior
-                        if previous_name and previous_name in self.breadcrumb_callbacks:
-                            callback = self.breadcrumb_callbacks[previous_name]
-                            if callable(callback):
-                                callback()
-                                return True
+                    if len(breadcrumb_parts) > 3:
+                        # Subvista (ej: CREAR_PRODUCTO) → volver a la penúltima
+                        previous_name = breadcrumb_parts[-2][0] if len(breadcrumb_parts) >= 2 else None
+                        if previous_name:
+                            prev_norm = self._norm(previous_name)
+                            for key, callback in self.breadcrumb_callbacks.items():
+                                if self._norm(key) == prev_norm and callable(callback):
+                                    callback()
+                                    return True
+
+                    elif len(breadcrumb_parts) == 3:
+                        # Vista de primer nivel (ej: BUSQUEDA) → recargar misma vista
+                        current_name = breadcrumb_parts[-1][0] if breadcrumb_parts else None
+                        if current_name:
+                            curr_norm = self._norm(current_name)
+                            for key, callback in self.breadcrumb_callbacks.items():
+                                if self._norm(key) == curr_norm and callable(callback):
+                                    callback()
+                                    return True
                     
-                    # Si no hay vista anterior definida, volver a ALMACÉN raíz
                     self.actualizar_ruta('ALMACÉN')
                 except Exception:
                     # En caso de error, volver a ALMACÉN raíz
@@ -270,18 +287,20 @@ class AlmacenView(BaseModuleView):
                 # Actualizar breadcrumb DESPUÉS de verificar cambios (solo si navegación exitosa)
                 if navigated:
                     try:
-                        # Si venimos de otra vista (breadcrumb tiene más de 2 partes), preservar la ruta
                         if current_breadcrumb_text and ' / ' in current_breadcrumb_text:
                             parts = current_breadcrumb_text.split(' / ')
-                            # Si ya estamos en una subvista (más de SISTEMA_KOOL + ALMACÉN)
-                            if len(parts) > 2:
-                                # Eliminar última parte si existe y agregar CREAR_PRODUCTO
-                                base_path = ' / '.join(parts[1:-1])  # Quitar SISTEMA_KOOL y última parte
-                                self.actualizar_ruta(f'{base_path} / CREAR_PRODUCTO')
+                            # Si ya estamos en CREAR_PRODUCTO, reemplazar la última parte
+                            if len(parts) > 2 and parts[-1] == 'CREAR_PRODUCTO':
+                                base_path = ' / '.join(parts[1:-1])
+                                self.actualizar_ruta(f'{base_path} / CREAR_PRODUCTO', callbacks=self.breadcrumb_callbacks)
+                            elif len(parts) > 2:
+                                # Preservar la vista anterior y añadir CREAR_PRODUCTO
+                                base_path = ' / '.join(parts[1:])
+                                self.actualizar_ruta(f'{base_path} / CREAR_PRODUCTO', callbacks=self.breadcrumb_callbacks)
                             else:
-                                self.actualizar_ruta('ALMACEN / CREAR_PRODUCTO')
+                                self.actualizar_ruta('ALMACEN / CREAR_PRODUCTO', callbacks=self.breadcrumb_callbacks)
                         else:
-                            self.actualizar_ruta('ALMACEN / CREAR_PRODUCTO')
+                            self.actualizar_ruta('ALMACEN / CREAR_PRODUCTO', callbacks=self.breadcrumb_callbacks)
                     except Exception:
                         pass
 
@@ -306,7 +325,17 @@ class AlmacenView(BaseModuleView):
         try:
             from .ui.busqueda_ui import BusquedaUI
             try:
-                busq = BusquedaUI(self.central_area, db=self.db, owner=self, keyboard_manager=self.keyboard_mgr)
+                kwargs = {}
+                if self._busqueda_termino is not None:
+                    kwargs['termino_inicial'] = self._busqueda_termino
+                    if self._busqueda_filtros:
+                        kwargs['cat_id_inicial'] = self._busqueda_filtros[0]
+                        kwargs['tipo_id_inicial'] = self._busqueda_filtros[1]
+                        kwargs['estados_inicial'] = self._busqueda_filtros[2]
+                    # Limpiar estado tras usarlo
+                    self._busqueda_termino = None
+                    self._busqueda_filtros = None
+                busq = BusquedaUI(self.central_area, db=self.db, owner=self, keyboard_manager=self.keyboard_mgr, **kwargs)
                 if self.set_central_content(busq):
                     try:
                         self.actualizar_ruta('ALMACEN / BUSQUEDA')
