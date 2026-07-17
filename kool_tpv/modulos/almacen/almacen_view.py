@@ -8,6 +8,7 @@ from typing import Optional
 import logging
 import json
 from pathlib import Path
+
 import unicodedata
 
 import customtkinter as ctk
@@ -165,7 +166,9 @@ class AlmacenView(BaseModuleView):
         except Exception:
             logging.exception('Error enlazando botones en AlmacenView')
 
-        # Mapeo breadcrumb → callbacks para navegación clickeable
+        # Stack de navegación: lista de callables para volver hacia atrás
+        self._nav_stack = []
+
         # Memoria para mantener contexto al navegar
         self._last_proveedor_id = None
 
@@ -174,7 +177,7 @@ class AlmacenView(BaseModuleView):
         self._busqueda_filtros = None  # (cat_id, tipo_id, estados)
 
         self.breadcrumb_callbacks = {
-            'ALMACÉN': self.show_albaranes, # Click en ALMACÉN vuelve a vista principal albaranes
+            'ALMACÉN': self.show_albaranes,
             'ALBARANES': self.show_albaranes,
             'BUSQUEDA': self.show_busqueda,
             'BÚSQUEDA': self.show_busqueda,
@@ -190,121 +193,78 @@ class AlmacenView(BaseModuleView):
             'MENÚS': self.show_menus,
         }
 
-    @staticmethod
-    def _norm(s: str) -> str:
-        try:
-            return ''.join(ch for ch in unicodedata.normalize("NFKD", (s or '').upper()) if not unicodedata.combining(ch)).strip()
-        except Exception:
-            return (s or '').upper().strip()
-
     def _on_power(self):
-        """Gestiona el botón Power en el contexto del módulo Almacén.
+        """Gestionar botón Power con stack de navegación.
 
         Returns:
-            True si gestionó la acción (cerró sub-vista), False si debe cerrarse el módulo.
+            True si gestionó la acción (navegó hacia atrás), False si debe cerrarse el módulo.
         """
         try:
-            # ¿Hay contenido en la zona central?
+            # 1. Verificar cambios sin guardar
+            if not self._check_unsaved_changes():
+                return True  # Usuario canceló, NO cerrar nada
+
+            # 2. Si hay vistas en el stack, navegar hacia atrás
+            if self._nav_stack:
+                previous_view = self._nav_stack.pop()
+                if callable(previous_view):
+                    previous_view()
+                    return True
+                else:
+                    self._nav_stack.clear()
+
+            # 3. Stack vacío: ¿hay contenido en central_area?
             if self.central_area.winfo_children():
-                # Verificar cambios sin guardar antes de destruir
-                if not self._check_unsaved_changes():
-                    return True  # Usuario canceló, NO cerrar nada
-                # SÍ → Destruir la sub-vista actual
+                children = self.central_area.winfo_children()
+                if children:
+                    current_widget = children[0]
+                    # El widget empaquetado puede ser un container/frame;
+                    # el _ui_owner apunta a la instancia UI real (ej: BusquedaUI)
+                    ui_owner = getattr(current_widget, '_ui_owner', current_widget)
+                    if hasattr(ui_owner, 'search_var'):
+                        try:
+                            termino = (ui_owner.search_var.get() or '').strip()
+                            if termino:
+                                # BusquedaUI con búsqueda activa → recargar vacía
+                                self._busqueda_termino = None
+                                self._busqueda_filtros = None
+                                self.show_busqueda()
+                                return True
+                            else:
+                                # BusquedaUI sin búsqueda → salir del módulo
+                                return False
+                        except Exception:
+                            pass
+
+                # Otras vistas: destruir y volver al raíz
                 for widget in self.central_area.winfo_children():
                     widget.destroy()
-                
-                # Intentar volver a la vista anterior según el breadcrumb
-                try:
-                    # Obtener partes del breadcrumb actual
-                    breadcrumb_parts = self.breadcrumb.get_parts() if hasattr(self.breadcrumb, 'get_parts') else []
-                    
-                    if len(breadcrumb_parts) > 3:
-                        # Subvista (ej: CREAR_PRODUCTO) → volver a la penúltima
-                        previous_name = breadcrumb_parts[-2][0] if len(breadcrumb_parts) >= 2 else None
-                        if previous_name:
-                            prev_norm = self._norm(previous_name)
-                            for key, callback in self.breadcrumb_callbacks.items():
-                                if self._norm(key) == prev_norm and callable(callback):
-                                    callback()
-                                    return True
+                self.actualizar_ruta('ALMACÉN')
+                return True
 
-                    elif len(breadcrumb_parts) == 3:
-                        # Vista de primer nivel (ej: BUSQUEDA) → recargar misma vista
-                        current_name = breadcrumb_parts[-1][0] if breadcrumb_parts else None
-                        if current_name:
-                            curr_norm = self._norm(current_name)
-                            for key, callback in self.breadcrumb_callbacks.items():
-                                if self._norm(key) == curr_norm and callable(callback):
-                                    callback()
-                                    return True
-                    
-                    self.actualizar_ruta('ALMACÉN')
-                except Exception:
-                    # En caso de error, volver a ALMACÉN raíz
-                    self.actualizar_ruta('ALMACÉN')
-                
-                return True  # "Ya gestioné el Power, NO me cierres"
-            else:
-                # NO → Zona vacía, permite que main.py cierre el módulo
-                return False  # "Ciérrame completamente"
+            # 4. Central vacío → permitir que main.py cierre el módulo
+            return False
         except Exception:
             logging.exception('Error en _on_power de AlmacenView')
-            return False  # En caso de fallo, permitir cerrar el módulo
+            return False
     
-    # Simple handlers that currently log actions — to be implemented
     def show_crear(self, producto_id: int = None):
-        """Instancia y muestra la UI de creación en la zona central."""
+        """Instancia y muestra la UI de creación/edición en la zona central."""
         try:
             from .ui.Productos.crear_producto_ui import CrearProductoUI
-            
-            # Guardar breadcrumb actual para preservar navegación
-            current_breadcrumb_text = None
-            try:
-                if hasattr(self, 'breadcrumb') and self.breadcrumb:
-                    current_breadcrumb_text = self.breadcrumb.get_text()
-            except Exception:
-                pass
-            
-            # Always instantiate a fresh UI to avoid using destroyed widgets
+
+            # Push estado de búsqueda actual al stack para restaurar al volver
+            if self._busqueda_termino is not None:
+                termino = self._busqueda_termino
+                filtros = self._busqueda_filtros
+                self._nav_stack.append(lambda t=termino, f=filtros: self._show_busqueda_with_state(t, f))
+
             try:
                 crear_ui = CrearProductoUI(self.central_area, db=self.db, producto_id=producto_id, module_name='almacen')
-                # Prefer passing the actual widget to set_central_content to avoid
-                # ambiguous packing behavior if the instance exposes both
-                # get_widget() and pack(). This reduces race conditions with
-                # previously destroyed widgets.
-                navigated = False
-                try:
-                    widget = crear_ui.get_widget() if hasattr(crear_ui, 'get_widget') else crear_ui
-                    navigated = self.set_central_content(widget)
-                except Exception:
-                    # fallback: try passing the instance itself
-                    logging.exception('Error obteniendo widget desde CrearProductoUI, intentando pasar la instancia')
-                    try:
-                        navigated = self.set_central_content(crear_ui)
-                    except Exception:
-                        logging.exception('Fallo al pasar la instancia CrearProductoUI a set_central_content')
+                widget = crear_ui.get_widget() if hasattr(crear_ui, 'get_widget') else crear_ui
+                if self.set_central_content(widget):
+                    self.actualizar_ruta('ALMACEN / CREAR_PRODUCTO', callbacks=self.breadcrumb_callbacks)
 
-                # Actualizar breadcrumb DESPUÉS de verificar cambios (solo si navegación exitosa)
-                if navigated:
-                    try:
-                        if current_breadcrumb_text and ' / ' in current_breadcrumb_text:
-                            parts = current_breadcrumb_text.split(' / ')
-                            # Si ya estamos en CREAR_PRODUCTO, reemplazar la última parte
-                            if len(parts) > 2 and parts[-1] == 'CREAR_PRODUCTO':
-                                base_path = ' / '.join(parts[1:-1])
-                                self.actualizar_ruta(f'{base_path} / CREAR_PRODUCTO', callbacks=self.breadcrumb_callbacks)
-                            elif len(parts) > 2:
-                                # Preservar la vista anterior y añadir CREAR_PRODUCTO
-                                base_path = ' / '.join(parts[1:])
-                                self.actualizar_ruta(f'{base_path} / CREAR_PRODUCTO', callbacks=self.breadcrumb_callbacks)
-                            else:
-                                self.actualizar_ruta('ALMACEN / CREAR_PRODUCTO', callbacks=self.breadcrumb_callbacks)
-                        else:
-                            self.actualizar_ruta('ALMACEN / CREAR_PRODUCTO', callbacks=self.breadcrumb_callbacks)
-                    except Exception:
-                        pass
-
-                # If a producto_id was provided, attempt to prefill the UI using the loader
                 if producto_id is not None:
                     try:
                         from .ui.Productos.cargar_producto import CargarProductoUI
@@ -321,7 +281,15 @@ class AlmacenView(BaseModuleView):
         except Exception:
             logging.exception('Error abriendo crear en AlmacenView')
 
+    def _show_busqueda_with_state(self, termino, filtros):
+        """Mostrar BusquedaUI restaurando un estado de búsqueda guardado."""
+        self._busqueda_termino = termino
+        self._busqueda_filtros = filtros
+        self.show_busqueda()
+
     def show_busqueda(self):
+        """Mostrar UI de búsqueda. Vista top-level: limpia el stack."""
+        self._nav_stack.clear()
         try:
             from .ui.busqueda_ui import BusquedaUI
             try:
@@ -332,15 +300,11 @@ class AlmacenView(BaseModuleView):
                         kwargs['cat_id_inicial'] = self._busqueda_filtros[0]
                         kwargs['tipo_id_inicial'] = self._busqueda_filtros[1]
                         kwargs['estados_inicial'] = self._busqueda_filtros[2]
-                    # Limpiar estado tras usarlo
                     self._busqueda_termino = None
                     self._busqueda_filtros = None
                 busq = BusquedaUI(self.central_area, db=self.db, owner=self, keyboard_manager=self.keyboard_mgr, **kwargs)
                 if self.set_central_content(busq):
-                    try:
-                        self.actualizar_ruta('ALMACEN / BUSQUEDA')
-                    except Exception:
-                        pass
+                    self.actualizar_ruta('ALMACEN / BUSQUEDA')
             except Exception:
                 logging.exception('No fue posible instanciar BusquedaUI en show_busqueda')
             logging.info('Abriendo búsqueda...')
@@ -348,15 +312,14 @@ class AlmacenView(BaseModuleView):
             logging.exception('Error abriendo busqueda en AlmacenView')
 
     def show_albaranes(self):
+        """Vista top-level: limpia el stack."""
+        self._nav_stack.clear()
         try:
             from .ui.albaranes_ui import AlbaranesUI
             try:
                 albaranes_ui = AlbaranesUI(self.central_area, db=self.db, owner=self)
                 if self.set_central_content(albaranes_ui):
-                    try:
-                        self.actualizar_ruta('ALMACEN / ALBARANES')
-                    except Exception:
-                        pass
+                    self.actualizar_ruta('ALMACEN / ALBARANES')
                     logging.info('Abriendo albaranes...')
             except Exception:
                 logging.exception('Error instanciando AlbaranesUI en show_albaranes')
@@ -364,17 +327,14 @@ class AlmacenView(BaseModuleView):
             logging.exception('Error abriendo albaranes en AlmacenView')
 
     def show_tipos(self):
+        """Vista top-level: limpia el stack."""
+        self._nav_stack.clear()
         try:
             from .ui.tipos_ui import TiposUI
-
-            # Always create a fresh UI instance to avoid reusing destroyed widgets
             try:
                 tipos_ui = TiposUI(self.central_area, db=self.db, module_name='almacen')
                 if self.set_central_content(tipos_ui):
-                    try:
-                        self.actualizar_ruta('ALMACEN / TIPOS')
-                    except Exception:
-                        pass
+                    self.actualizar_ruta('ALMACEN / TIPOS')
                     logging.info('Abriendo tipos...')
             except Exception:
                 logging.exception('Error instanciando TiposUI en show_tipos')
@@ -382,15 +342,14 @@ class AlmacenView(BaseModuleView):
             logging.exception('Error abriendo tipos en AlmacenView')
 
     def show_categorias(self):
+        """Vista top-level: limpia el stack."""
+        self._nav_stack.clear()
         try:
             from .ui.categorias_ui import CategoriasUI
             try:
                 categorias_ui = CategoriasUI(self.central_area, db=self.db, module_name='almacen')
                 if self.set_central_content(categorias_ui):
-                    try:
-                        self.actualizar_ruta('ALMACEN / CATEGORIAS')
-                    except Exception:
-                        pass
+                    self.actualizar_ruta('ALMACEN / CATEGORIAS')
                     logging.info('Abriendo categorías...')
             except Exception:
                 logging.exception('Error instanciando CategoriasUI en show_categorias')
@@ -398,8 +357,9 @@ class AlmacenView(BaseModuleView):
             logging.exception('Error abriendo categorias en AlmacenView')
 
     def show_proveedores(self, proveedor_id=None):
+        """Vista top-level: limpia el stack."""
+        self._nav_stack.clear()
         try:
-            # Si no se pasa ID, usar el último recordado
             if proveedor_id is None:
                 proveedor_id = getattr(self, '_last_proveedor_id', None)
 
@@ -407,16 +367,11 @@ class AlmacenView(BaseModuleView):
             try:
                 proveedores_ui = ProveedoresUI(self.central_area, db=self.db, owner=self, module_name='almacen')
                 if self.set_central_content(proveedores_ui):
-                    try:
-                        self.actualizar_ruta('ALMACEN / PROVEEDORES')
-                    except Exception:
-                        pass
+                    self.actualizar_ruta('ALMACEN / PROVEEDORES')
 
-                    # Cargar proveedor si hay ID
                     if proveedor_id:
                         try:
                             proveedores_ui.cargar_proveedor(proveedor_id)
-                            # Actualizar memoria con el ID cargado
                             self._last_proveedor_id = proveedor_id
                         except Exception:
                             logging.exception(f'Error cargando proveedor {proveedor_id} en show_proveedores')
@@ -432,12 +387,10 @@ class AlmacenView(BaseModuleView):
         self.show_configurar_mapeos(proveedor_id, proveedor_nombre, tab_inicial='CSV')
 
     def show_configurar_mapeos(self, proveedor_id, proveedor_nombre='', tab_inicial='CSV'):
-        """Mostrar configurador unificado de mapeos para un proveedor."""
+        """Sub-vista de proveedores: push show_proveedores al stack."""
+        self._nav_stack.append(lambda: self.show_proveedores())
         try:
-            try:
-                self._last_proveedor_id = proveedor_id
-            except Exception:
-                pass
+            self._last_proveedor_id = proveedor_id
 
             from kool_tpv.modulos.produccion.ui.subvistas.proveedores.produccion_proveedores_configurador import ProduccionProveedoresConfigurador
 
@@ -460,7 +413,8 @@ class AlmacenView(BaseModuleView):
             logging.exception('Error abriendo configurador de mapeos en AlmacenView')
 
     def show_entrada_manual(self, albaran_id=None):
-        """Mostrar UI de entrada manual de albaranes."""
+        """Sub-vista de albaranes: push show_albaranes al stack."""
+        self._nav_stack.append(lambda: self.show_albaranes())
         try:
             from .ui.albaranes.entrada_manual import EntradaManualUI
             try:
@@ -475,7 +429,8 @@ class AlmacenView(BaseModuleView):
             logging.exception('Error abriendo entrada manual en AlmacenView')
     
     def show_salida_manual(self):
-        """Mostrar UI de salida manual de albaranes."""
+        """Sub-vista de albaranes: push show_albaranes al stack."""
+        self._nav_stack.append(lambda: self.show_albaranes())
         try:
             from .ui.albaranes.salida_manual import SalidaManualUI
             try:
@@ -489,7 +444,8 @@ class AlmacenView(BaseModuleView):
             logging.exception('Error abriendo salida manual en AlmacenView')
 
     def show_devolucion(self):
-        """Mostrar UI de devolución de albaranes."""
+        """Sub-vista de albaranes: push show_albaranes al stack."""
+        self._nav_stack.append(lambda: self.show_albaranes())
         try:
             from .ui.albaranes.devolucion import DevolucionUI
 
@@ -504,7 +460,8 @@ class AlmacenView(BaseModuleView):
             logging.exception('Error abriendo devolución en AlmacenView')
 
     def show_importar_albaran(self, borrador=None):
-        """Mostrar UI de importar albarán desde CSV."""
+        """Sub-vista de albaranes: push show_albaranes al stack."""
+        self._nav_stack.append(lambda: self.show_albaranes())
         try:
             from .ui.albaranes.importar_albaran import ImportarAlbaranUI
             try:
@@ -520,7 +477,8 @@ class AlmacenView(BaseModuleView):
             logging.exception('Error abriendo importar albarán en AlmacenView')
 
     def show_consultar(self):
-        """Mostrar UI de consulta de albaranes con filtros."""
+        """Sub-vista de albaranes: push show_albaranes al stack."""
+        self._nav_stack.append(lambda: self.show_albaranes())
         try:
             from .ui.albaranes.consultar_albaran import ConsultarAlbaranUI
             try:
@@ -534,7 +492,8 @@ class AlmacenView(BaseModuleView):
             logging.exception('Error abriendo consultar en AlmacenView')
     
     def show_menus(self):
-        """Mostrar UI de gestión de menús."""
+        """Vista top-level: limpia el stack."""
+        self._nav_stack.clear()
         try:
             from .ui.Productos.menus_ui import MenusUI
             try:

@@ -56,12 +56,12 @@ class ReposicionPendientesUI(ctk.CTkFrame):
         # NavList
         # Ajustamos anchos para que quepan bien
         columns = [
-            ("FECHA", 90),
-            ("PRODUCTO VENDIDO", 250),
+            ("FECHA", 68),
+            ("PRODUCTO VENDIDO", 188),
             ("VARIANTE", 90),
-            ("COLOR", 90),
-            ("TALLA", 60),
-            ("DISEÑO", 200),
+            ("COLOR", 77),
+            ("TALLA", 54),
+            ("DISEÑO", 303),
             ("ENC.", 60),
             ("CONF.", 60),
             ("PROD.", 60)
@@ -123,7 +123,15 @@ class ReposicionPendientesUI(ctk.CTkFrame):
             if fecha_raw and len(fecha_raw) >= 10:
                 partes = fecha_raw[:10].split("-")
                 if len(partes) == 3:
-                    fecha_str = f"{partes[2]}/{partes[1]}/{partes[0]}"
+                    fecha_str = f"{partes[2]}/{partes[1]}/{partes[0][2:]}"
+
+            comentarios = p.get("comentarios", "")
+            if d_nombre and comentarios:
+                diseno_display = f"ℹ️ {d_nombre}"
+            elif not d_nombre and comentarios:
+                diseno_display = f"ℹ️ {comentarios}"
+            else:
+                diseno_display = d_nombre
 
             row = {
                 "id": p.get("id"), # UUID del draft
@@ -134,7 +142,7 @@ class ReposicionPendientesUI(ctk.CTkFrame):
                 "VARIANTE": v_nombre,
                 "COLOR": c_nombre,
                 "TALLA": t_nombre,
-                "DISEÑO": d_nombre,
+                "DISEÑO": diseno_display,
                 "ENC.": "📦" if p.get("encargo") else "",
                 "CONF.": "✓",
                 "PROD.": "○",
@@ -160,7 +168,10 @@ class ReposicionPendientesUI(ctk.CTkFrame):
             if fecha_raw and len(fecha_raw) >= 10:
                 partes = fecha_raw[:10].split("-")
                 if len(partes) == 3:
-                    fecha_str = f"{partes[2]}/{partes[1]}/{partes[0]}"
+                    fecha_str = f"{partes[2]}/{partes[1]}/{partes[0][2:]}"
+
+            comentarios_temp = p.get("comentarios", "")
+            diseno_display_temp = f"ℹ️ {comentarios_temp}" if comentarios_temp else ""
 
             row = {
                 "id": f"temp_{producto_id}_{p.get('ticket_id')}", 
@@ -171,7 +182,7 @@ class ReposicionPendientesUI(ctk.CTkFrame):
                 "VARIANTE": "",
                 "COLOR": "",
                 "TALLA": "",
-                "DISEÑO": "",
+                "DISEÑO": diseno_display_temp,
                 "ENC.": "",
                 "CONF.": "✗",
                 "PROD.": "○",

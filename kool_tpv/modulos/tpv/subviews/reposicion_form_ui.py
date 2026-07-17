@@ -575,9 +575,8 @@ class ReposicionFormUI(CTkFrame):
             show_warning(self.winfo_toplevel(), "DEBES SELECCIONAR UNA VARIANTE")
             return
 
-        if not self.diseno_seleccionado:
-            show_warning(self.winfo_toplevel(), "DEBES SELECCIONAR UN DISEÑO (doble clic en la lista)")
-            return
+        # El diseño es opcional: si no se selecciona, se guarda como None
+        # (el usuario puede añadir comentarios describiendo el diseño pendiente)
 
         try:
             cantidad = int(self.entry_cantidad.get().strip() or "1")
