@@ -23,6 +23,10 @@ backups/
 # Borradores de albaranes (locales, no deben subirse al repo)
 kool_tpv/borradores/
 
+# Borradores de reposición (se generan en runtime)
+kool_tpv/modulos/borradores/reposicion_pendiente.json
+kool_tpv/modulos/borradores/reposicion_pendientes_temp.json
+
 # Base de datos de trabajo (se genera automáticamente al arrancar)
 kool_tpv/base_datos/kool_bd.db
 kool_tpv/base_datos/kool_tpv.db
