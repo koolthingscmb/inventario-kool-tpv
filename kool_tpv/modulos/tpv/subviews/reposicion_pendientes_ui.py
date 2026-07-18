@@ -44,8 +44,8 @@ class ReposicionPendientesUI(ctk.CTkFrame):
         # Leyenda de iconos
         leyenda = ctk.CTkLabel(
             self.header,
-            text="⚠️ Faltan datos   📝 Revisar diseño   📦 Encargo",
-            font=("Roboto", 12),
+            text="⚠️ Faltan datos   �️ Escudo   �📝 Revisar diseño   📦 Encargo",
+            font=("Roboto", 14),
             text_color="gray60"
         )
         leyenda.pack(side="left", padx=(20, 0))
@@ -141,12 +141,12 @@ class ReposicionPendientesUI(ctk.CTkFrame):
                 diseno_display = d_nombre
 
             indic = ""
-            if comentarios and p.get("encargo"):
-                indic = "📦📝"
-            elif comentarios:
-                indic = "📝"
-            elif p.get("encargo"):
-                indic = "📦"
+            if p.get("escudo"):
+                indic += "�️"
+            if comentarios:
+                indic += "📝"
+            if p.get("encargo"):
+                indic += "📦"
 
             row = {
                 "id": p.get("id"), # UUID del draft
@@ -187,8 +187,10 @@ class ReposicionPendientesUI(ctk.CTkFrame):
             diseno_display_temp = comentarios_temp if comentarios_temp else ""
 
             indic_temp = "⚠️"
+            if p.get("escudo"):
+                indic_temp += "🛡️"
             if comentarios_temp:
-                indic_temp = "⚠️📝"
+                indic_temp += "📝"
 
             row = {
                 "id": f"temp_{producto_id}_{p.get('ticket_id')}", 

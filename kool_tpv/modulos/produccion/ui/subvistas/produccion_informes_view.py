@@ -15,6 +15,7 @@ from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.widgets.date_picker_entry import DatePickerEntry
 from kool_tpv.utils.widgets.notificaciones import ToastWidget, show_warning
 from kool_tpv.utils.formatter_service import FormatterService
+from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 
 from kool_tpv.modulos.produccion.services.produccion_informes_service import ProduccionInformesService
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_chip_config, get_chip_style, get_font as get_prod_font
@@ -110,16 +111,43 @@ class ProduccionInformesView:
         self.viewer_frame = ctk.CTkFrame(self.container, fg_color=self.colors.get('bg_dark', '#0d0d0d'), corner_radius=8)
         self.viewer_frame.pack(fill='both', expand=True, padx=20, pady=(0, 10))
         
-        self.result_textbox = ctk.CTkTextbox(
-            self.viewer_frame,
-            font=(get_font('terminal')[0], 14),
-            fg_color='transparent',
-            text_color='#ffffff',
-            wrap='none',
-            padx=20,
-            pady=20
+        # Cabecera del informe (título + fecha generación)
+        self.informe_header_frame = ctk.CTkFrame(self.viewer_frame, fg_color='transparent')
+        self.informe_header_frame.pack(fill='x', padx=20, pady=(15, 5))
+        
+        self.lbl_informe_titulo = ctk.CTkLabel(
+            self.informe_header_frame, text='',
+            font=(get_font('label')[0], 18, 'bold'),
+            text_color=self.colors.get('text', '#ffffff')
         )
-        self.result_textbox.pack(fill='both', expand=True)
+        self.lbl_informe_titulo.pack(side='left')
+        
+        self.lbl_informe_fecha = ctk.CTkLabel(
+            self.informe_header_frame, text='',
+            font=get_font('label_small'),
+            text_color=self.colors.get('text_secondary', 'gray60')
+        )
+        self.lbl_informe_fecha.pack(side='left', padx=(15, 0))
+        
+        # Resumen del informe (arriba de la tabla)
+        self.resumen_frame = ctk.CTkFrame(self.viewer_frame, fg_color='transparent')
+        self.resumen_frame.pack(fill='x', padx=20, pady=(5, 10))
+        
+        # NavList para los datos del informe
+        self.nav_list = VirtualNavList(
+            self.viewer_frame,
+            columns=[('placeholder', 100)],
+            module_name='produccion'
+        )
+        self.nav_list.pack(fill='both', expand=True, padx=10, pady=(0, 10))
+        
+        # Placeholder inicial
+        self.lbl_placeholder = ctk.CTkLabel(
+            self.viewer_frame, text='Genera un informe para ver los resultados',
+            font=(get_font('label')[0], 14),
+            text_color=self.colors.get('text_secondary', 'gray60')
+        )
+        self.lbl_placeholder.place(relx=0.5, rely=0.6, anchor='center')
         
         # --- Footer con Exportación ---
         self.footer_frame = ctk.CTkFrame(self.container, fg_color='transparent', height=50)
@@ -272,35 +300,79 @@ class ProduccionInformesView:
             logging.exception("Error generando informe de producción")
             
     def _render_report(self, report_data):
-        """Renderizar el informe como lista legible (formato bloques)."""
-        self.result_textbox.delete('1.0', 'end')
+        """Renderizar el informe usando VirtualNavList con cabecera y resumen."""
+        # Ocultar placeholder
+        try:
+            self.lbl_placeholder.place_forget()
+        except Exception:
+            pass
 
         # Cabecera
-        self.result_textbox.insert('end', f"{report_data['titulo']}\n")
-        self.result_textbox.insert('end', f"Generado: {report_data['fecha_generacion']}\n\n")
+        self.lbl_informe_titulo.configure(text=report_data.get('titulo', ''))
+        self.lbl_informe_fecha.configure(text=f"Generado: {report_data.get('fecha_generacion', '')}")
 
-        # Items como bloques: primera columna = nombre, resto = atributos
-        headers = report_data.get('headers', [])
-        items = report_data.get('items', [])
-
-        for row in items:
-            name = str(row[0]) if row else ''
-            self.result_textbox.insert('end', f"  '{name}':\n")
-            attrs = []
-            for i, h in enumerate(headers[1:], start=1):
-                if i < len(row):
-                    attrs.append(f"{h}: {row[i]}")
-            if attrs:
-                self.result_textbox.insert('end', f"    {'  |  '.join(attrs)}\n")
-            self.result_textbox.insert('end', '\n')
-
-        # Resumen al final
+        # Resumen
+        for w in self.resumen_frame.winfo_children():
+            w.destroy()
         resumen = report_data.get('resumen')
         if resumen:
-            self.result_textbox.insert('end', "─" * 50 + "\n")
-            self.result_textbox.insert('end', "RESUMEN:\n")
             for k, v in resumen.items():
-                self.result_textbox.insert('end', f"  {k}: {v}\n")
+                lbl = ctk.CTkLabel(
+                    self.resumen_frame, text=f"{k}: {v}",
+                    font=(get_font('label')[0], 13, 'bold'),
+                    text_color=self.colors.get('text', '#ffffff')
+                )
+                lbl.pack(side='left', padx=(0, 25))
+
+        # Reconstruir NavList con las columnas del informe
+        headers = report_data.get('headers', [])
+        items = report_data.get('items', [])
+        
+        # Destruir y recrear la nav_list con las columnas correctas
+        self.nav_list.destroy()
+        col_widths = self._calc_column_widths(headers, items)
+        columns = [(h, w) for h, w in zip(headers, col_widths)]
+        
+        self.nav_list = VirtualNavList(
+            self.viewer_frame,
+            columns=columns,
+            module_name='produccion'
+        )
+        self.nav_list.pack(fill='both', expand=True, padx=10, pady=(0, 10))
+        
+        # Mapear items a dicts para la nav_list
+        data = []
+        for row in items:
+            row_dict = {}
+            for i, h in enumerate(headers):
+                row_dict[h] = str(row[i]) if i < len(row) else ''
+            data.append(row_dict)
+        
+        self.nav_list.set_items(data)
+
+    def _calc_column_widths(self, headers, items, min_w=50, max_w=300):
+        """Calcular ancho de columna basado en el contenido más ancho."""
+        import tkinter.font as tkfont
+        try:
+            font_obj = tkfont.Font(family='Courier New', size=12)
+        except Exception:
+            font_obj = None
+        
+        widths = []
+        for i, h in enumerate(headers):
+            w = len(str(h)) * 8 + 20  # estimación base
+            if font_obj:
+                w = font_obj.measure(str(h)) + 20
+            # Medir las primeras 100 filas para estimar
+            for row in items[:100]:
+                val = str(row[i]) if i < len(row) else ''
+                if font_obj:
+                    val_w = font_obj.measure(val) + 20
+                else:
+                    val_w = len(val) * 8 + 20
+                w = max(w, val_w)
+            widths.append(max(min_w, min(max_w, w)))
+        return widths
 
     def _exportar(self, formato):
         if not self.current_report_data:

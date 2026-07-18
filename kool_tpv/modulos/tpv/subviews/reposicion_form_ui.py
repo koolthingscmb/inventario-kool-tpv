@@ -141,10 +141,20 @@ class ReposicionFormUI(CTkFrame):
         )
         self.combo_talla.grid(row=0, column=5, padx=(0, 0), sticky="ew")
 
-        # ZONA 3: Comentarios (full width)
+        # ZONA 3: Comentarios (full width) + Escudo a la derecha
         zona3 = CTkFrame(self.body_frame, fg_color="transparent")
         zona3.pack(fill="x", padx=10, pady=(10, 5))
-        CTkLabel(zona3, text="Comentarios", font=("Roboto", 14, "bold")).pack(anchor="w", pady=(0, 4))
+        fila_comentarios = CTkFrame(zona3, fg_color="transparent")
+        fila_comentarios.pack(fill="x", pady=(0, 4))
+        CTkLabel(fila_comentarios, text="Comentarios", font=("Roboto", 14, "bold")).pack(side="left")
+        escudo_frame = CTkFrame(fila_comentarios, fg_color="transparent")
+        escudo_frame.pack(side="right")
+        CTkLabel(escudo_frame, text="Escudo:", font=("Roboto", 14, "bold")).pack(side="left", padx=(0, 4))
+        self.check_escudo = ctk.CTkCheckBox(escudo_frame, text="", width=24, height=24, command=self._toggle_escudo)
+        self.check_escudo.pack(side="left", padx=(0, 6))
+        self.entry_escudo = CTkEntry(escudo_frame, width=180, height=28, font=("Roboto", 13), placeholder_text="Texto del escudo...")
+        self.entry_escudo.pack(side="left")
+        self.entry_escudo.configure(state="disabled")
         self.text_comentarios = CTkTextbox(zona3, height=60, font=("Roboto", 14))
         self.text_comentarios.pack(fill="x", expand=False)
 
@@ -223,6 +233,7 @@ class ReposicionFormUI(CTkFrame):
             self.combo_color,
             self.combo_talla,
             self.text_comentarios,
+            self.entry_escudo,
             self.entry_buscar_diseno,
             self.entry_cantidad,
             self.btn_guardar,
@@ -314,6 +325,9 @@ class ReposicionFormUI(CTkFrame):
         self.entry_diseno.configure(state="readonly")
         self.text_comentarios.delete("1.0", "end")
         self.check_encargo.deselect()
+        self.check_escudo.deselect()
+        self.entry_escudo.delete(0, "end")
+        self.entry_escudo.configure(state="disabled")
 
         # Producto y Tipo vía servicios (sin queries directas aquí)
         prod_id = self.producto_actual.get('producto_id')
@@ -437,6 +451,10 @@ class ReposicionFormUI(CTkFrame):
             self.text_comentarios.insert("1.0", le["comentarios"])
         if le.get("encargo"):
             self.check_encargo.select()
+        if le.get("escudo"):
+            self.check_escudo.select()
+            self.entry_escudo.configure(state="normal")
+            self.entry_escudo.insert(0, le["escudo"])
 
     def _on_variante_changed(self, value):
         """Al cambiar variante, filtramos colores por tipo + variante usando Matriz 3D (libro recetas)."""
@@ -504,6 +522,14 @@ class ReposicionFormUI(CTkFrame):
 
     def _on_talla_changed(self, value):
         pass
+
+    def _toggle_escudo(self):
+        if self.check_escudo.get():
+            self.entry_escudo.configure(state="normal")
+            self.entry_escudo.focus_set()
+        else:
+            self.entry_escudo.delete(0, "end")
+            self.entry_escudo.configure(state="disabled")
 
     def _actualizar_opciones_tipo(self):
         """Ajusta visibilidad de combos Talla/Color según el tipo del producto."""
@@ -629,6 +655,10 @@ class ReposicionFormUI(CTkFrame):
 
         comentarios = self.text_comentarios.get("1.0", "end").strip()
 
+        escudo_texto = ""
+        if self.check_escudo.get():
+            escudo_texto = self.entry_escudo.get().strip()
+
         datos = {
             "producto_id": self.producto_actual.get("producto_id"),
             "nombre": self.producto_actual.get("nombre"),
@@ -640,6 +670,7 @@ class ReposicionFormUI(CTkFrame):
             "cantidad": cantidad,
             "comentarios": comentarios,
             "encargo": bool(self.check_encargo.get()),
+            "escudo": escudo_texto,
             "ticket_id": self.ticket_id,
         }
 
