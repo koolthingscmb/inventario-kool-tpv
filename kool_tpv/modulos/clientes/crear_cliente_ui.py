@@ -465,7 +465,79 @@ class CrearClienteUI:
         if self.cliente_id:
             self._cargar_cliente()
 
+        self._setup_tab_navigation()
+
         logger.info('CrearClienteUI inicializado completamente')
+
+    def _setup_tab_navigation(self):
+        """Configura navegación Tab/Shift+Tab entre los campos editables."""
+        self._tab_order = [
+            self.e_nombre,
+            self.e_dni,
+            self.e_fecha_nac,
+            self.e_direccion,
+            self.e_pais,
+            self.e_ciudad,
+            self.e_cp,
+            self.e_telefono,
+            self.e_email,
+            self.e_tags,
+            self.chk_tesoro,
+            self.btn_guardar,
+        ]
+
+        self._widget_map = {}
+        for w in self._tab_order:
+            if hasattr(w, '_entry'):
+                self._widget_map[str(w._entry)] = w
+            elif hasattr(w, '_canvas'):
+                self._widget_map[str(w._canvas)] = w
+                if hasattr(w, '_text_label'):
+                    self._widget_map[str(w._text_label)] = w
+            else:
+                self._widget_map[str(w)] = w
+
+        def on_tab(event):
+            current_tk = str(event.widget)
+            current_obj = self._widget_map.get(current_tk)
+            if current_obj not in self._tab_order:
+                return None
+            idx = self._tab_order.index(current_obj)
+            if event.state & 0x1:
+                next_idx = (idx - 1) % len(self._tab_order)
+            else:
+                next_idx = (idx + 1) % len(self._tab_order)
+            next_obj = self._tab_order[next_idx]
+            if hasattr(next_obj, '_entry'):
+                next_obj.focus_set()
+                try: next_obj._entry.selection_range(0, 'end')
+                except: pass
+            else:
+                next_obj.focus_set()
+            return 'break'
+
+        for w in self._tab_order:
+            if hasattr(w, '_entry'):
+                w._entry.bind('<Tab>', on_tab)
+                w._entry.bind('<Shift-Tab>', on_tab)
+            elif hasattr(w, '_canvas'):
+                w._canvas.bind('<Tab>', on_tab)
+                w._canvas.bind('<Shift-Tab>', on_tab)
+                if hasattr(w, '_text_label'):
+                    w._text_label.bind('<Tab>', on_tab)
+                    w._text_label.bind('<Shift-Tab>', on_tab)
+            else:
+                w.bind('<Tab>', on_tab)
+                w.bind('<Shift-Tab>', on_tab)
+
+        import tkinter as _tk
+        def disable_frame_focus(parent):
+            for child in parent.winfo_children():
+                if isinstance(child, (ctk.CTkFrame, _tk.Frame)):
+                    try: child.configure(takefocus=0)
+                    except: pass
+                    disable_frame_focus(child)
+        disable_frame_focus(self.container)
 
     def get_widget(self):
         return self.container
