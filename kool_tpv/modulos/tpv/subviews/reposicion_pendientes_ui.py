@@ -44,7 +44,7 @@ class ReposicionPendientesUI(ctk.CTkFrame):
         # Leyenda de iconos
         leyenda = ctk.CTkLabel(
             self.header,
-            text="⚠️ Faltan datos   �️ Escudo   �📝 Revisar diseño   📦 Encargo",
+            text="⚠️ Faltan datos   ◆ Escudo   📝 Revisar diseño   📦 Encargo",
             font=("Roboto", 14),
             text_color="gray60"
         )
@@ -142,7 +142,7 @@ class ReposicionPendientesUI(ctk.CTkFrame):
 
             indic = ""
             if p.get("escudo"):
-                indic += "�️"
+                indic += "◆"
             if comentarios:
                 indic += "📝"
             if p.get("encargo"):
@@ -188,7 +188,7 @@ class ReposicionPendientesUI(ctk.CTkFrame):
 
             indic_temp = "⚠️"
             if p.get("escudo"):
-                indic_temp += "🛡️"
+                indic_temp += "◆"
             if comentarios_temp:
                 indic_temp += "📝"
 
