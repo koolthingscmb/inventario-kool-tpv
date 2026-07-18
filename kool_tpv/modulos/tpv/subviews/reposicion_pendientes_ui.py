@@ -56,15 +56,13 @@ class ReposicionPendientesUI(ctk.CTkFrame):
         # NavList
         # Ajustamos anchos para que quepan bien
         columns = [
-            ("FECHA", 68),
-            ("PRODUCTO VENDIDO", 188),
-            ("VARIANTE", 90),
+            ("FECHA", 78),
+            ("PRODUCTO VENDIDO", 226),
+            ("VARIANTE", 99),
             ("COLOR", 77),
             ("TALLA", 54),
-            ("DISEÑO", 303),
-            ("ENC.", 60),
-            ("CONF.", 60),
-            ("PROD.", 60)
+            ("DISEÑO", 364),
+            ("ℹ️", 60),
         ]
         
         self.nav_list = VirtualNavList(
@@ -127,11 +125,19 @@ class ReposicionPendientesUI(ctk.CTkFrame):
 
             comentarios = p.get("comentarios", "")
             if d_nombre and comentarios:
-                diseno_display = f"ℹ️ {d_nombre}"
+                diseno_display = d_nombre
             elif not d_nombre and comentarios:
-                diseno_display = f"ℹ️ {comentarios}"
+                diseno_display = comentarios
             else:
                 diseno_display = d_nombre
+
+            indic = ""
+            if comentarios and p.get("encargo"):
+                indic = "📦📝"
+            elif comentarios:
+                indic = "📝"
+            elif p.get("encargo"):
+                indic = "📦"
 
             row = {
                 "id": p.get("id"), # UUID del draft
@@ -143,9 +149,7 @@ class ReposicionPendientesUI(ctk.CTkFrame):
                 "COLOR": c_nombre,
                 "TALLA": t_nombre,
                 "DISEÑO": diseno_display,
-                "ENC.": "📦" if p.get("encargo") else "",
-                "CONF.": "✓",
-                "PROD.": "○",
+                "ℹ️": indic,
                 "_es_temp": False
             }
             data.append(row)
@@ -171,7 +175,9 @@ class ReposicionPendientesUI(ctk.CTkFrame):
                     fecha_str = f"{partes[2]}/{partes[1]}/{partes[0][2:]}"
 
             comentarios_temp = p.get("comentarios", "")
-            diseno_display_temp = f"ℹ️ {comentarios_temp}" if comentarios_temp else ""
+            diseno_display_temp = comentarios_temp if comentarios_temp else ""
+
+            indic_temp = "📝" if comentarios_temp else ""
 
             row = {
                 "id": f"temp_{producto_id}_{p.get('ticket_id')}", 
@@ -183,9 +189,7 @@ class ReposicionPendientesUI(ctk.CTkFrame):
                 "COLOR": "",
                 "TALLA": "",
                 "DISEÑO": diseno_display_temp,
-                "ENC.": "",
-                "CONF.": "✗",
-                "PROD.": "○",
+                "ℹ️": indic_temp,
                 "_es_temp": True
             }
             data.append(row)
@@ -208,26 +212,24 @@ class ReposicionPendientesUI(ctk.CTkFrame):
         ticket_id = item.get("ticket_id")
         es_temp = item.get("_es_temp", False)
         
-        cantidad = 1
+        linea_existente = None
         if es_temp:
-            # Buscar cantidad real en el temp
-            pendientes = self.store.cargar_pendientes_temp()
-            for p in pendientes:
+            for p in self.store.cargar_pendientes_temp():
                 if p.get("producto_id") == producto_id and p.get("ticket_id") == ticket_id:
-                    cantidad = p.get("cantidad", 1)
+                    linea_existente = p
                     break
         else:
-            # Es un configurado, buscamos su cantidad en el json de reposición
-            configurados = self.store.cargar()
-            for p in configurados:
+            for p in self.store.cargar():
                 if p.get("id") == item.get("id"):
-                    cantidad = p.get("cantidad", 1)
+                    linea_existente = p
                     break
+
+        cantidad = linea_existente.get("cantidad", 1) if linea_existente else 1
 
         producto_individual = {
             "producto_id": producto_id,
             "nombre": item.get("PRODUCTO VENDIDO"),
-            "cantidad": cantidad
+            "cantidad": cantidad,
         }
 
         form = ReposicionFormUI(
@@ -237,7 +239,8 @@ class ReposicionPendientesUI(ctk.CTkFrame):
             view=self.view,
             productos_pendientes=[producto_individual],
             ticket_id=ticket_id,
-            callback_finalizar=self.refrescar
+            callback_finalizar=self.refrescar,
+            linea_existente=linea_existente,
         )
         
         if self.view and hasattr(self.view, "push_subview"):

@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 class ReposicionFormUI(CTkFrame):
     """Formulario de reposición siguiendo estrictamente las zonas definidas por el usuario."""
 
-    def __init__(self, parent, db, carrito_service=None, view=None, productos_pendientes=None, ticket_id=None, callback_finalizar=None):
+    def __init__(self, parent, db, carrito_service=None, view=None, productos_pendientes=None, ticket_id=None, callback_finalizar=None, linea_existente=None):
         super().__init__(parent)
 
         self.db = db
@@ -39,6 +39,8 @@ class ReposicionFormUI(CTkFrame):
         self.productos_pendientes = productos_pendientes or []
         self.ticket_id = ticket_id
         self.callback_finalizar = callback_finalizar
+        self.linea_existente = linea_existente
+        self._linea_edit_id = linea_existente.get("id") if linea_existente else None
 
         self.indice_actual = 0
         self.producto_actual = None
@@ -393,6 +395,10 @@ class ReposicionFormUI(CTkFrame):
         except Exception:
             pass
 
+        # Pre-cargar datos si es edición de línea existente
+        if self.linea_existente:
+            self._pre_cargar_linea_existente()
+
         # FOCO en Variante
         self.after(120, self._enfocar_variante)
 
@@ -404,6 +410,33 @@ class ReposicionFormUI(CTkFrame):
                 self.combo_variante.focus_set()
         except Exception:
             pass
+
+    def _pre_cargar_linea_existente(self):
+        le = self.linea_existente
+        if not le: return
+        if le.get("variante_id"):
+            self.combo_variante.set_by_id(le["variante_id"])
+            self._on_variante_changed(None)
+        if le.get("color_id"):
+            self.combo_color.set_by_id(le["color_id"])
+            self._on_color_changed(None)
+        if le.get("talla_id"):
+            self.combo_talla.set_by_id(le["talla_id"])
+        dc = le.get("diseno_codigo")
+        if dc:
+            try:
+                d = self.disenos_service.obtener_por_codigo(dc)
+                if d:
+                    self.diseno_seleccionado = d
+                    self.entry_diseno.configure(state="normal")
+                    self.entry_diseno.delete(0, "end")
+                    self.entry_diseno.insert(0, f"{d.codigo} - {d.nombre}")
+                    self.entry_diseno.configure(state="readonly")
+            except Exception: pass
+        if le.get("comentarios"):
+            self.text_comentarios.insert("1.0", le["comentarios"])
+        if le.get("encargo"):
+            self.check_encargo.select()
 
     def _on_variante_changed(self, value):
         """Al cambiar variante, filtramos colores por tipo + variante usando Matriz 3D (libro recetas)."""
@@ -612,6 +645,8 @@ class ReposicionFormUI(CTkFrame):
 
         try:
             store = ReposicionStore()
+            if self._linea_edit_id:
+                store.borrar(self._linea_edit_id)
             ok = store.añadir(datos)
             if not ok:
                 show_error(self.winfo_toplevel(), "ERROR AL GUARDAR EN REPOS (JSON)")

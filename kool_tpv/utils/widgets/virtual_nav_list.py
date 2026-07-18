@@ -270,7 +270,7 @@ class VirtualNavList(ctk.CTkFrame):
             return
 
         total_items = len(self._all_data)
-        total_height = total_items * (self.row_height + 1)
+        total_height = total_items * self.row_height
         self._canvas.configure(scrollregion=(0, 0, 0, total_height))
         
         # Obtener posición actual del scroll (0.0 a 1.0)
@@ -282,11 +282,11 @@ class VirtualNavList(ctk.CTkFrame):
         # Calcular qué índice de datos debe ir arriba
         self._top_index = int(scroll_pos * total_items)
         # Asegurar que no nos pasamos del final
-        max_top = max(0, total_items - (len(self._visible_rows) - 1))
+        max_top = max(0, total_items - len(self._visible_rows))
         self._top_index = min(self._top_index, max_top)
         
         # Posicionar el row_container en el scroll exacto para que parezca continuo
-        y_offset = self._top_index * (self.row_height + 1)
+        y_offset = self._top_index * self.row_height
         self._canvas.coords(self._canvas_window, 0, y_offset)
         
         # Actualizar cada widget de fila con los datos correspondientes
@@ -294,7 +294,7 @@ class VirtualNavList(ctk.CTkFrame):
             data_idx = self._top_index + i
             
             if data_idx < total_items:
-                row['frame'].pack(fill='x', pady=1)
+                row['frame'].pack(fill='x')
                 row['data_index'] = data_idx
                 data = self._all_data[data_idx]
                 
