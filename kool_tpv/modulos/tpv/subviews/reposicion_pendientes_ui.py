@@ -41,6 +41,15 @@ class ReposicionPendientesUI(ctk.CTkFrame):
         
         ctk.CTkLabel(self.header, text="REPOSICIONES PENDIENTES", font=("Roboto", 20, "bold")).pack(side="left", padx=10)
         
+        # Leyenda de iconos
+        leyenda = ctk.CTkLabel(
+            self.header,
+            text="⚠️ Faltan datos   📝 Revisar diseño   📦 Encargo",
+            font=("Roboto", 12),
+            text_color="gray60"
+        )
+        leyenda.pack(side="left", padx=(20, 0))
+        
         # Botón Borrar
         self.btn_borrar = ButtonFactory.create_button(
             parent=self.header,
@@ -177,7 +186,9 @@ class ReposicionPendientesUI(ctk.CTkFrame):
             comentarios_temp = p.get("comentarios", "")
             diseno_display_temp = comentarios_temp if comentarios_temp else ""
 
-            indic_temp = "📝" if comentarios_temp else ""
+            indic_temp = "⚠️"
+            if comentarios_temp:
+                indic_temp = "⚠️📝"
 
             row = {
                 "id": f"temp_{producto_id}_{p.get('ticket_id')}", 

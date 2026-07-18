@@ -1334,12 +1334,13 @@ class TpvController:
                                     'cantidad': 1
                                 })
                 elif fabricado:
-                    # Producto directo producible
-                    productos_producibles.append({
-                        'producto_id': producto_id,
-                        'nombre': nombre,
-                        'cantidad': cantidad
-                    })
+                    # Producto directo producible: expandir por cantidad
+                    for _ in range(cantidad):
+                        productos_producibles.append({
+                            'producto_id': producto_id,
+                            'nombre': nombre,
+                            'cantidad': 1
+                        })
             
             if productos_producibles:
                 # Mostrar toast para anotar reposición
