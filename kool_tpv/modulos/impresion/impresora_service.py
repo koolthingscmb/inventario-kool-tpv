@@ -123,8 +123,13 @@ class ImpresoraService:
             }
 
             # Añadir claves para logo
-            claves = claves + ['logo_enabled', 'logo_filename']
-            mapeo.update({'logo_enabled': 'logo_enabled', 'logo_filename': 'logo_filename'})
+            claves = claves + ['logo_enabled', 'logo_filename', 'logo_nivel_enabled', 'logo_nivel_filename']
+            mapeo.update({
+                'logo_enabled': 'logo_enabled', 
+                'logo_filename': 'logo_filename',
+                'logo_nivel_enabled': 'logo_nivel_enabled',
+                'logo_nivel_filename': 'logo_nivel_filename'
+            })
 
             for clave_bd in claves:
                 try:

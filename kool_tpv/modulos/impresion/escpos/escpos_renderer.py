@@ -63,8 +63,9 @@ class EscPosRenderer:
                 if isinstance(logo_path, Path) and logo_path.exists():
                     logo_bytes = self.render_logo_from_path(logo_path)
                     if logo_bytes:
+                            parts.append(b"\n") # Asegurar línea limpia
                             parts.append(logo_bytes)
-                            parts.append(b"\n\n")
+                            parts.append(b"\n")
             except Exception:
                 self.logger.exception("Error generando bytes de logo desde %s", str(logo_path))
 
@@ -99,9 +100,12 @@ class EscPosRenderer:
                         # Codificar antes del badge
                         if before:
                             parts.append(self._encode_with_styles(before, bold_on, bold_off, fontb_on, fontb_off))
-                        # Insertar imagen centrada
+                        
+                        # INSERTAR BADGE CON LIMPIEZA
+                        parts.append(b"\n") # Nueva línea obligatoria antes de binario
                         parts.append(badge_bytes)
-                        parts.append(b"\n")
+                        parts.append(b"\n") # Nueva línea después de binario
+                        
                         # Seguir procesando con el resto
                         normalized = after.lstrip('\n') # Evitar huecos extra
                     else:
