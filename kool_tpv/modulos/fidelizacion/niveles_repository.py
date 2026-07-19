@@ -25,8 +25,8 @@ class NivelesRepository:
             cur.execute(
                 """
                 INSERT INTO niveles_fidelidad
-                (level, nombre_nivel, grafismo_nivel, tesoro_minimo, tipo_recompensa, detalle_recompensa)
-                VALUES (?, ?, ?, ?, ?, ?)
+                (level, nombre_nivel, grafismo_nivel, tesoro_minimo, tipo_recompensa, detalle_recompensa, producto_sku, lore_recompensa)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     data['level'],
@@ -35,6 +35,8 @@ class NivelesRepository:
                     data['tesoro_minimo'],
                     data.get('tipo_recompensa'),
                     data.get('detalle_recompensa'),
+                    data.get('producto_sku'),
+                    data.get('lore_recompensa'),
                 )
             )
             nuevo_id = cur.lastrowid
@@ -67,7 +69,7 @@ class NivelesRepository:
                 """
                 UPDATE niveles_fidelidad
                 SET level = ?, nombre_nivel = ?, grafismo_nivel = ?,
-                    tesoro_minimo = ?, tipo_recompensa = ?, detalle_recompensa = ?
+                    tesoro_minimo = ?, tipo_recompensa = ?, detalle_recompensa = ?, producto_sku = ?, lore_recompensa = ?
                 WHERE id = ?
                 """,
                 (
@@ -77,6 +79,8 @@ class NivelesRepository:
                     data['tesoro_minimo'],
                     data.get('tipo_recompensa'),
                     data.get('detalle_recompensa'),
+                    data.get('producto_sku'),
+                    data.get('lore_recompensa'),
                     nivel_id,
                 )
             )
@@ -133,7 +137,7 @@ class NivelesRepository:
         """Obtiene un nivel por su ID."""
         if nivel_id is None:
             return None
-        query = "SELECT id, level, nombre_nivel, grafismo_nivel, tesoro_minimo FROM niveles_fidelidad WHERE id = ?"
+        query = "SELECT id, level, nombre_nivel, grafismo_nivel, tesoro_minimo, tipo_recompensa, detalle_recompensa, producto_sku, lore_recompensa FROM niveles_fidelidad WHERE id = ?"
         row = self.db.fetch_one(query, (nivel_id,))
         if row:
             return {
@@ -141,6 +145,10 @@ class NivelesRepository:
                 'level': row[1],
                 'nombre_nivel': row[2],
                 'grafismo_nivel': row[3],
-                'tesoro_minimo': row[4]
+                'tesoro_minimo': row[4],
+                'tipo_recompensa': row[5],
+                'detalle_recompensa': row[6],
+                'producto_sku': row[7],
+                'lore_recompensa': row[8]
             }
         return None

@@ -20,7 +20,7 @@ class NivelesService:
         try:
             query = """
                 SELECT id, level, nombre_nivel, grafismo_nivel, tesoro_minimo,
-                       tipo_recompensa, detalle_recompensa
+                       tipo_recompensa, detalle_recompensa, producto_sku, lore_recompensa
                 FROM niveles_fidelidad
                 ORDER BY level
             """
@@ -55,7 +55,7 @@ class NivelesService:
         try:
             query = """
                 SELECT id, level, nombre_nivel, grafismo_nivel, tesoro_minimo,
-                       tipo_recompensa, detalle_recompensa
+                       tipo_recompensa, detalle_recompensa, producto_sku, lore_recompensa
                 FROM niveles_fidelidad
                 WHERE id = ?
             """
@@ -164,7 +164,9 @@ class NivelesService:
                 'grafismo_nivel': row[3] or '',
                 'tesoro_minimo': row[4] or 0,
                 'tipo_recompensa': row[5] or '',
-                'detalle_recompensa': row[6] or ''
+                'detalle_recompensa': row[6] or '',
+                'producto_sku': row[7] or '',
+                'lore_recompensa': row[8] or ''
             }
         else:
             # sqlite3.Row - acceso por nombre de columna
@@ -175,5 +177,7 @@ class NivelesService:
                 'grafismo_nivel': row['grafismo_nivel'] or '',
                 'tesoro_minimo': row['tesoro_minimo'] or 0,
                 'tipo_recompensa': row['tipo_recompensa'] or '',
-                'detalle_recompensa': row['detalle_recompensa'] or ''
+                'detalle_recompensa': row['detalle_recompensa'] or '',
+                'producto_sku': row['producto_sku'] or '',
+                'lore_recompensa': row['lore_recompensa'] or ''
             }
