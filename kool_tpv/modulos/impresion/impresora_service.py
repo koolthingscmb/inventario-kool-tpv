@@ -940,6 +940,10 @@ class ImpresoraService:
         except Exception:
             self.logger.exception('ImpresoraService: error recargando config antes de generar ticket nivel')
 
+        # Si no nos pasan badge_path, intentar detectarlo desde nivel_data['grafismo']
+        if not badge_path and nivel_data.get('grafismo'):
+            badge_path = self.detectar_badge_path({'grafismo': nivel_data['grafismo']})
+
         texto = self.nivel_ticket_generator.generate(self.config, nivel_data)
         # Usar el cliente o algún identificador como metadato para logs
         meta = {'num_ticket': nivel_data.get('cliente', '')}
@@ -1003,8 +1007,7 @@ class ImpresoraService:
             logging.info(f"DEBUG IMPRESORA CIERRE: ¿Contiene 'TESORO'? {'TESORO' in texto}")
             logging.info(f"DEBUG IMPRESORA CIERRE: últimas 300 chars={texto[-300:]}")
         elif ticket_type == TicketType.NIVEL:
-            texto = self.nivel_ticket_generator.generate(self.config, data or {})
-            meta = {'num_ticket': data.get('cliente', '')}
+            return self.imprimir_ticket_nivel(data or {}, printer_name=printer_name, badge_path=badge_path)
         elif ticket_type == TicketType.DESCUENTO:
             texto = self.descuento_ticket_generator.generate(self.config, data or {})
             meta = {'num_ticket': (data or {}).get('num_ticket', '')}
