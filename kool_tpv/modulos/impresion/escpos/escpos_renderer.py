@@ -80,8 +80,6 @@ class EscPosRenderer:
         if not normalized.endswith("\n"):
             normalized += "\n"
 
-        # Codificar todo el texto plano sin modificaciones ni estilos especiales
-        # El formato completo debe venir del generator (separación de responsabilidades)
         # Sustituir placeholders de negrita {{BOLD_ON}}/{{BOLD_OFF}} por comandos ESC/POS
         bold_on = self.ESC + b"E" + b"\x01"
         bold_off = self.ESC + b"E" + b"\x00"
@@ -89,42 +87,33 @@ class EscPosRenderer:
         fontb_on = self.ESC + b"M" + b"\x01"
         fontb_off = self.ESC + b"M" + b"\x00"
 
-        # Si hay badge, sustituir el placeholder {{BADGE}} por los bytes raster
-        if badge_path is not None and '{{BADGE}}' in normalized:
-            try:
-                if isinstance(badge_path, Path) and badge_path.exists():
+        # SI HAY BADGE, SUSTITUIR {{BADGE}} POR LA IMAGEN
+        # Si no hay badge_path o falla el renderizado, eliminar el placeholder.
+        if '{{BADGE}}' in normalized:
+            if badge_path is not None and isinstance(badge_path, Path) and badge_path.exists():
+                try:
                     badge_bytes = self.render_badge(badge_path)
                     if badge_bytes:
-                        # Dividir el texto en torno al placeholder
+                        # Dividir el texto por el placeholder
                         before, after = normalized.split('{{BADGE}}', 1)
-                        # Quitar saltos de línea extra después del badge
-                        after = after.lstrip('\n')
-                        # Codificar lo anterior al badge (con placeholders de estilos)
-                        if before.strip():
-                            before_bytes = self._encode_with_styles(before, bold_on, bold_off, fontb_on, fontb_off)
-                            parts.append(before_bytes)
-                        # Insertar badge centrado
+                        # Codificar antes del badge
+                        if before:
+                            parts.append(self._encode_with_styles(before, bold_on, bold_off, fontb_on, fontb_off))
+                        # Insertar imagen centrada
                         parts.append(badge_bytes)
                         parts.append(b"\n")
-                        # Codificar lo posterior al badge
-                        if after.strip():
-                            after_bytes = self._encode_with_styles(after, bold_on, bold_off, fontb_on, fontb_off)
-                            parts.append(after_bytes)
+                        # Seguir procesando con el resto
+                        normalized = after.lstrip('\n') # Evitar huecos extra
                     else:
-                        # Badge no se pudo renderizar, eliminar placeholder
                         normalized = normalized.replace('{{BADGE}}\n', '').replace('{{BADGE}}', '')
-                        parts.append(self._encode_with_styles(normalized, bold_on, bold_off, fontb_on, fontb_off))
-                else:
+                except Exception:
+                    self.logger.exception("Error renderizando badge")
                     normalized = normalized.replace('{{BADGE}}\n', '').replace('{{BADGE}}', '')
-                    parts.append(self._encode_with_styles(normalized, bold_on, bold_off, fontb_on, fontb_off))
-            except Exception:
-                self.logger.exception("Error sustituyendo badge en placeholder")
+            else:
                 normalized = normalized.replace('{{BADGE}}\n', '').replace('{{BADGE}}', '')
-                parts.append(self._encode_with_styles(normalized, bold_on, bold_off, fontb_on, fontb_off))
-        else:
-            # Sin badge: eliminar placeholder si existe y codificar normalmente
-            if '{{BADGE}}' in normalized:
-                normalized = normalized.replace('{{BADGE}}\n', '').replace('{{BADGE}}', '')
+
+        # Codificar el resto del texto (o todo si no había badge)
+        if normalized:
             parts.append(self._encode_with_styles(normalized, bold_on, bold_off, fontb_on, fontb_off))
 
         # 4) Añadir una línea extra de separación (antes del corte)

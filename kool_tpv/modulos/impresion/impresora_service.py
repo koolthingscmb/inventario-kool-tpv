@@ -21,7 +21,7 @@ except Exception:
 
 
 class ImpresoraService:
-    def __init__(self, db=None, imprimir_en_consola=True, verbose=False, modo_impresion: str = "texto", debug_dump: bool = False, dump_directory: Optional[Path] = None, codepage: str = "cp858"):
+    def __init__(self, db=None, imprimir_en_consola=True, verbose=False, modo_impresion: Optional[str] = None, debug_dump: bool = False, dump_directory: Optional[Path] = None, codepage: Optional[str] = None):
         self.db = db
         self.imprimir_en_consola = imprimir_en_consola
         self.verbose = verbose
@@ -32,18 +32,28 @@ class ImpresoraService:
         self.nivel_ticket_generator = NivelTicketGenerator()
         self.cierre_ticket_generator = CierreTicketGenerator()
         self.logger = logging.getLogger(__name__)
-        # modo_impresion: 'texto' (simulación/actual) o 'escpos' (envío ESC/POS)
-        if modo_impresion not in ("texto", "escpos"):
-            raise ValueError("modo_impresion must be 'texto' or 'escpos'")
-        self.modo_impresion = modo_impresion
-        # codepage: encoding para ESC/POS (cp858, cp1252, cp437)
+
+        # Si no se especifica modo o codepage, intentar cargar de BD
+        if self.db and (modo_impresion is None or codepage is None):
+            try:
+                if modo_impresion is None:
+                    row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'modo_impresion'")
+                    modo_impresion = str(row[0]) if row and row[0] else "texto"
+                
+                if codepage is None:
+                    row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'printer_codepage'")
+                    codepage = str(row[0]) if row and row[0] else "cp858"
+            except Exception:
+                self.logger.warning("No se pudo cargar modo_impresion/codepage de BD, usando valores por defecto")
+
+        # Valores finales con fallbacks
+        self.modo_impresion = modo_impresion or "texto"
         self.codepage = codepage if codepage in ("cp858", "cp1252", "cp437") else "cp858"
 
         # Inicializar componentes ESC/POS si están disponibles y si se pide modo escpos
-        # No anotar con tipos que podrían no existir en tiempo de ejecución
         self.esc_renderer = None
         self.printer_adapter = None
-        if modo_impresion == "escpos":
+        if self.modo_impresion == "escpos":
             if EscPosRenderer is not None:
                 try:
                     # Pasar opciones de debug y encoding al renderer
