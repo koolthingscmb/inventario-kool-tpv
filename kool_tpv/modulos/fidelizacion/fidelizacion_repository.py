@@ -313,15 +313,13 @@ class FidelizacionRepository:
 
     def get_cliente_info(self, cliente_id: int) -> Optional[Dict[str, Any]]:
         """Obtiene información básica del cliente."""
-        query = "SELECT id, nombre, apellidos FROM clientes WHERE id = ?"
+        query = "SELECT id, nombre FROM clientes WHERE id = ?"
         row = self.db.fetch_one(query, (cliente_id,))
         if row:
-            nombre_completo = f"{row[1]} {row[2] or ''}".strip()
             return {
                 'id': row[0],
                 'nombre': row[1],
-                'apellidos': row[2],
-                'nombre_completo': nombre_completo
+                'nombre_completo': row[1]
             }
         return None
 
