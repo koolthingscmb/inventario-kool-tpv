@@ -817,7 +817,7 @@ class ImpresoraService:
             self.logger.exception('Error generando cierre desde ID %s', cierre_id)
             return None
 
-    def _imprimir_texto_generico(self, texto: str, meta: dict, printer_name: Optional[str] = None, badge_path: Optional[Path] = None, open_drawer: bool = False):
+    def _imprimir_texto_generico(self, texto: str, meta: dict, printer_name: Optional[str] = None, badge_path: Optional[Path] = None, open_drawer: bool = False, override_logo_path: Optional[Path] = None):
         """Lógica común para imprimir un texto ya generado.
 
         - Maneja la simulación (logger)
@@ -832,6 +832,7 @@ class ImpresoraService:
             printer_name: nombre de impresora opcional
             badge_path: ruta al badge del cliente opcional.
             open_drawer: si True, solicita al renderer abrir el cajón
+            override_logo_path: ruta a un logo específico que anula el global (opcional).
         """
         logging.info(f"DEBUG _imprimir_generico: texto length={len(texto)}, open_drawer={open_drawer}")
         logging.info(f"DEBUG _imprimir_generico: ¿Contiene 'TESORO'? {'TESORO' in texto}")
@@ -884,18 +885,24 @@ class ImpresoraService:
             try:
                 # Preparar parámetro de logo si está habilitado (usar ruta absoluta)
                 logo_path = None
-                if getattr(self, 'logo_enabled', False) and getattr(self, 'logo_filename', ''):
+                
+                # 1) Si hay un override de logo, usarlo preferentemente
+                if override_logo_path and override_logo_path.exists():
+                    logo_path = override_logo_path
+                    self.logger.info("Usando logo de nivel (override): %s", str(logo_path))
+                # 2) Fallback al logo global si no hay override o no existe
+                elif getattr(self, 'logo_enabled', False) and getattr(self, 'logo_filename', ''):
                     # Construcción de ruta absoluta desde ubicación del módulo
                     base_dir = Path(__file__).resolve().parents[2]
                     candidate = base_dir / "assets" / "logo" / self.logo_filename
 
-                    self.logger.info(f"Buscando logo en: {candidate}")
+                    self.logger.info(f"Buscando logo global en: {candidate}")
 
                     if candidate.exists():
                         logo_path = candidate
-                        self.logger.info("Logo encontrado y cargado")
+                        self.logger.info("Logo global encontrado y cargado")
                     else:
-                        self.logger.warning(f"Logo habilitado pero archivo no encontrado en: {candidate}")
+                        self.logger.warning(f"Logo global habilitado pero archivo no encontrado en: {candidate}")
 
                 # Preparar QR si está habilitado
                 qr_data = None
@@ -920,7 +927,7 @@ class ImpresoraService:
         # Should not reach here, but return False defensively
         return False
 
-    def imprimir_ticket_nivel(self, nivel_data: dict, printer_name: Optional[str] = None):
+    def imprimir_ticket_nivel(self, nivel_data: dict, printer_name: Optional[str] = None, badge_path: Optional[Path] = None):
         """Genera e imprime un ticket de subida de nivel usando el generador específico.
 
         Reutiliza la lógica de impresión común para mantener compatibilidad con
@@ -936,7 +943,21 @@ class ImpresoraService:
         texto = self.nivel_ticket_generator.generate(self.config, nivel_data)
         # Usar el cliente o algún identificador como metadato para logs
         meta = {'num_ticket': nivel_data.get('cliente', '')}
-        return self._imprimir_texto_generico(texto, meta, printer_name)
+
+        # Logo específico para subida de nivel (LEVEL UP)
+        override_logo_path = None
+        try:
+            logo_nivel_enabled = self.config.get('logo_nivel_enabled', '0') == '1'
+            logo_nivel_filename = self.config.get('logo_nivel_filename', '')
+            if logo_nivel_enabled and logo_nivel_filename:
+                base_dir = Path(__file__).resolve().parents[2]
+                candidate = base_dir / "assets" / "logo" / logo_nivel_filename
+                if candidate.exists():
+                    override_logo_path = candidate
+        except Exception:
+            self.logger.warning("Error buscando logo_nivel_filename en configuración")
+
+        return self._imprimir_texto_generico(texto, meta, printer_name, badge_path=badge_path, override_logo_path=override_logo_path)
 
     def imprimir(self, ticket_type: 'TicketType', data: dict, items: Optional[list] = None, cliente_data: Optional[dict] = None, printer_name: Optional[str] = None, print_options: Optional[dict] = None):
         """API unificada para imprimir distintos tipos de tickets.

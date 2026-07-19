@@ -1,8 +1,13 @@
 from __future__ import annotations
-from typing import Any
+from typing import Any, Optional
 import logging
+from datetime import datetime
+from pathlib import Path
 
 from kool_tpv.modulos.ticket.venta_processor import VentaProcessor
+from kool_tpv.modulos.fidelizacion.niveles_repository import NivelesRepository
+from kool_tpv.modulos.almacen.producto_repository import ProductoRepository
+from kool_tpv.base_datos.money_adapter import read_from_db
 
 logger = logging.getLogger(__name__)
 
@@ -41,25 +46,54 @@ class VentaFidelizacionProcessor(VentaProcessor):
                 # Si subió de nivel y tenemos impresora, lanzar ticket
                 if res_nivel.get('subida_nivel') and self.impresora_service:
                     try:
-                        from datetime import datetime
-                        from kool_tpv.modulos.fidelizacion.niveles_repository import NivelesRepository
                         niv_repo = NivelesRepository(self.db)
-                        
                         nivel_ant = niv_repo.get_nivel_por_id(res_nivel['nivel_anterior_id'])
                         nivel_nue = niv_repo.get_nivel_por_id(res_nivel['nivel_nuevo_id'])
                         cliente_info = self.fidel_repo.get_cliente_info(cliente_id)
                         
-                        from kool_tpv.base_datos.money_adapter import read_from_db
+                        if not nivel_nue:
+                            logger.error(f"No se encontró información del nuevo nivel {res_nivel['nivel_nuevo_id']}")
+                            return ticket_id, num_ticket
+
+                        # Buscar nombre del producto si la recompensa es un artículo
+                        nombre_producto = ""
+                        tipo_recompensa = nivel_nue.get('tipo_recompensa', '')
+                        producto_sku = nivel_nue.get('producto_sku', '')
+                        
+                        if tipo_recompensa == 'Artículo' and producto_sku:
+                            try:
+                                prod_repo = ProductoRepository(self.db)
+                                producto = prod_repo.get_by_sku(producto_sku)
+                                if producto:
+                                    nombre_producto = producto.get('nombre', '')
+                            except Exception:
+                                logger.exception(f"Error buscando producto por SKU: {producto_sku}")
+
+                        # Construir badge_path si existe grafismo
+                        badge_path = None
+                        grafismo = nivel_nue.get('grafismo_nivel')
+                        if grafismo:
+                            base_dir = Path(__file__).resolve().parents[2]
+                            candidate = base_dir / "assets" / "badges" / grafismo
+                            if candidate.exists():
+                                badge_path = candidate
+
                         nivel_data = {
                             'fecha': datetime.now().strftime('%Y-%m-%d'),
                             'hora': datetime.now().strftime('%H:%M'),
                             'cliente': cliente_info['nombre_completo'] if cliente_info else f"Cliente #{cliente_id}",
                             'nivel_anterior': nivel_ant['nombre_nivel'] if nivel_ant else 'Base',
                             'nivel_nuevo': nivel_nue['nombre_nivel'] if nivel_nue else 'Nuevo',
-                            'grafismo': nivel_nue['grafismo_nivel'] if nivel_nue else '',
-                            'total_acumulado': float(read_from_db(res_nivel['tesoro_historico']))
+                            'grafismo': grafismo or '',
+                            'total_acumulado': float(read_from_db(res_nivel['tesoro_historico'])),
+                            'tipo_recompensa': tipo_recompensa,
+                            'detalle_recompensa': nivel_nue.get('detalle_recompensa', ''),
+                            'producto_sku': producto_sku,
+                            'nombre_producto': nombre_producto,
+                            'lore_recompensa': nivel_nue.get('lore_recompensa', '')
                         }
-                        self.impresora_service.imprimir_ticket_nivel(nivel_data)
+                        
+                        self.impresora_service.imprimir_ticket_nivel(nivel_data, badge_path=badge_path)
                         logger.info(f"Ticket de subida de nivel enviado para cliente {cliente_id}")
                     except Exception:
                         logger.exception("Error al intentar imprimir ticket de subida de nivel")

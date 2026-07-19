@@ -29,6 +29,9 @@ class NivelTicketGenerator(BaseTicketGenerator):
         nivel_nuevo = nivel_data.get('nivel_nuevo', '')
         grafismo = nivel_data.get('grafismo', '')
         total_acumulado_raw = nivel_data.get('total_acumulado', '')
+        tipo_recompensa = nivel_data.get('tipo_recompensa', '')
+        detalle_recompensa = nivel_data.get('detalle_recompensa', '')
+        nombre_producto = nivel_data.get('nombre_producto', '')
 
         # Intenta formatear total_acumulado si es numérico, sino usar raw
         try:
@@ -37,6 +40,14 @@ class NivelTicketGenerator(BaseTicketGenerator):
             total_acumulado = str(total_acumulado_raw)
 
         tipo = 'nivel'
+        # Calcular valor de recompensa según tipo
+        if tipo_recompensa == 'Descuento' and detalle_recompensa:
+            recompensa = detalle_recompensa
+        elif tipo_recompensa == 'Artículo' and nombre_producto:
+            recompensa = nombre_producto
+        else:
+            recompensa = ''
+
         context = {
             'fecha': fecha,
             'hora': hora,
@@ -44,9 +55,20 @@ class NivelTicketGenerator(BaseTicketGenerator):
             'nivel_anterior': nivel_anterior,
             'nivel_nuevo': nivel_nuevo,
             'total_acumulado': total_acumulado,
+            'recompensa': recompensa,
         }
 
-        # Header por tipo con fallback
+        # 1. Lore del nivel (si existe) - Intro narrativa antes del header
+        lore = nivel_data.get('lore_recompensa', '')
+        if lore:
+            lines.append(self.DIVIDER)
+            lore_lines = lore.split('|||')
+            for line in lore_lines:
+                lines.append(f"{{{{FONTB_ON}}}}{line.strip()}{{{{FONTB_OFF}}}}".center(self.WIDTH))
+            lines.append(self.DIVIDER)
+            lines.append('') # Espacio extra tras la caja
+
+        # 2. Header por tipo con fallback
         header_key = f"ticket_header_{tipo}"
         footer_key = f"ticket_footer_{tipo}"
         header_val = config.get(header_key)
@@ -55,42 +77,7 @@ class NivelTicketGenerator(BaseTicketGenerator):
         else:
             lines.extend(self._format_header(config))
 
-        # Cuerpo específico
-        # Mostrar siempre fecha y hora justo después del header
-        dt_line = f"{fecha} {hora}".strip()
-        if dt_line:
-            if len(dt_line) > self.WIDTH:
-                dt_line = dt_line[: self.WIDTH]
-            lines.append(dt_line.center(self.WIDTH))
-
-        lines.append(self.DIVIDER)
-        lines.append('SUBIDA DE NIVEL'.center(self.WIDTH))
-        lines.append(self.DIVIDER)
-
-        if cliente:
-            lines.append(str(cliente).center(self.WIDTH))
-
-        # Mostrar niveles "anterior -> nuevo"
-        lvl_line = f"{nivel_anterior} -> {nivel_nuevo}" if (nivel_anterior or nivel_nuevo) else ''
-        if lvl_line:
-            lines.append(lvl_line.center(self.WIDTH))
-
-        if grafismo:
-            lines.append(str(grafismo).center(self.WIDTH))
-
-        # Total acumulado
-        if total_acumulado:
-            left = 'Total acumulado:'
-            right = total_acumulado
-            # usar formato LR para alinear correctamente
-            try:
-                lines.append(self._format_line_lr(left, right))
-            except Exception:
-                lines.append(f"{left} {right}".center(self.WIDTH))
-
-        lines.append(self.DIVIDER)
-
-        # Footer por tipo con fallback
+        # 3. Footer por tipo con fallback
         footer_val = config.get(footer_key)
         if footer_val:
             lines.extend(self._render_template(footer_val, context))

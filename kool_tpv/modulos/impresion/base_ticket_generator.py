@@ -141,8 +141,8 @@ class BaseTicketGenerator(ABC):
 
         def _repl(match: re.Match) -> str:
             name = match.group('name')
-            # Preservar placeholders de negrita (los procesa el renderer ESC/POS)
-            if name in ('BOLD_ON', 'BOLD_OFF', 'BADGE'):
+            # Preservar placeholders de estilos (los procesa el renderer ESC/POS)
+            if name in ('BOLD_ON', 'BOLD_OFF', 'BADGE', 'FONTB_ON', 'FONTB_OFF'):
                 return match.group(0)
             val = context.get(name, '')
             try:

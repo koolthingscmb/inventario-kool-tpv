@@ -85,6 +85,9 @@ class EscPosRenderer:
         # Sustituir placeholders de negrita {{BOLD_ON}}/{{BOLD_OFF}} por comandos ESC/POS
         bold_on = self.ESC + b"E" + b"\x01"
         bold_off = self.ESC + b"E" + b"\x00"
+        # Sustituir placeholders de font B {{FONTB_ON}}/{{FONTB_OFF}} por comandos ESC/POS
+        fontb_on = self.ESC + b"M" + b"\x01"
+        fontb_off = self.ESC + b"M" + b"\x00"
 
         # Si hay badge, sustituir el placeholder {{BADGE}} por los bytes raster
         if badge_path is not None and '{{BADGE}}' in normalized:
@@ -96,33 +99,33 @@ class EscPosRenderer:
                         before, after = normalized.split('{{BADGE}}', 1)
                         # Quitar saltos de línea extra después del badge
                         after = after.lstrip('\n')
-                        # Codificar lo anterior al badge (con placeholders de negrita)
+                        # Codificar lo anterior al badge (con placeholders de estilos)
                         if before.strip():
-                            before_bytes = self._encode_with_bold(before, bold_on, bold_off)
+                            before_bytes = self._encode_with_styles(before, bold_on, bold_off, fontb_on, fontb_off)
                             parts.append(before_bytes)
                         # Insertar badge centrado
                         parts.append(badge_bytes)
                         parts.append(b"\n")
                         # Codificar lo posterior al badge
                         if after.strip():
-                            after_bytes = self._encode_with_bold(after, bold_on, bold_off)
+                            after_bytes = self._encode_with_styles(after, bold_on, bold_off, fontb_on, fontb_off)
                             parts.append(after_bytes)
                     else:
                         # Badge no se pudo renderizar, eliminar placeholder
                         normalized = normalized.replace('{{BADGE}}\n', '').replace('{{BADGE}}', '')
-                        parts.append(self._encode_with_bold(normalized, bold_on, bold_off))
+                        parts.append(self._encode_with_styles(normalized, bold_on, bold_off, fontb_on, fontb_off))
                 else:
                     normalized = normalized.replace('{{BADGE}}\n', '').replace('{{BADGE}}', '')
-                    parts.append(self._encode_with_bold(normalized, bold_on, bold_off))
+                    parts.append(self._encode_with_styles(normalized, bold_on, bold_off, fontb_on, fontb_off))
             except Exception:
                 self.logger.exception("Error sustituyendo badge en placeholder")
                 normalized = normalized.replace('{{BADGE}}\n', '').replace('{{BADGE}}', '')
-                parts.append(self._encode_with_bold(normalized, bold_on, bold_off))
+                parts.append(self._encode_with_styles(normalized, bold_on, bold_off, fontb_on, fontb_off))
         else:
             # Sin badge: eliminar placeholder si existe y codificar normalmente
             if '{{BADGE}}' in normalized:
                 normalized = normalized.replace('{{BADGE}}\n', '').replace('{{BADGE}}', '')
-            parts.append(self._encode_with_bold(normalized, bold_on, bold_off))
+            parts.append(self._encode_with_styles(normalized, bold_on, bold_off, fontb_on, fontb_off))
 
         # 4) Añadir una línea extra de separación (antes del corte)
 
@@ -222,55 +225,90 @@ class EscPosRenderer:
             self.logger.exception("Error generando QR code")
             return b""
 
-    def _encode_with_bold(self, text: str, bold_on: bytes, bold_off: bytes) -> bytes:
-        """Codificar texto sustituyendo placeholders de negrita por comandos ESC/POS.
+    def _encode_with_styles(self, text: str, bold_on: bytes, bold_off: bytes, fontb_on: bytes, fontb_off: bytes) -> bytes:
+        """Codificar texto sustituyendo placeholders de estilos por comandos ESC/POS.
+
+        Soporta {{BOLD_ON}}/{{BOLD_OFF}} y {{FONTB_ON}}/{{FONTB_OFF}} simultáneamente.
 
         Args:
-            text: texto con posibles placeholders {{BOLD_ON}}/{{BOLD_OFF}}
+            text: texto con posibles placeholders
             bold_on: bytes ESC/POS para activar negrita
             bold_off: bytes ESC/POS para desactivar negrita
+            fontb_on: bytes ESC/POS para activar font B
+            fontb_off: bytes ESC/POS para desactivar font B
 
         Returns:
-            bytes codificados con comandos de negrita insertados
+            bytes codificados con comandos de estilos insertados
         """
-        if '{{BOLD_ON}}' not in text and '{{BOLD_OFF}}' not in text:
+        if not any(ph in text for ph in ('{{BOLD_ON}}', '{{BOLD_OFF}}', '{{FONTB_ON}}', '{{FONTB_OFF}}')):
             try:
                 return text.encode(self.encoding)
             except Exception:
                 return text.encode(self.encoding, errors="replace")
 
         result = bytearray()
-        segments = text.split('{{BOLD_ON}}')
-        # First segment (before any bold) is always normal
-        if segments[0]:
-            try:
-                result.extend(segments[0].encode(self.encoding, errors="replace"))
-            except Exception:
-                result.extend(segments[0].encode(self.encoding, errors="replace"))
+        current_pos = 0
+        active_styles = []
 
-        for seg in segments[1:]:
-            # Each segment starts with bold text until {{BOLD_OFF}}
-            if '{{BOLD_OFF}}' in seg:
-                bold_text, rest = seg.split('{{BOLD_OFF}}', 1)
-                result.extend(bold_on)
+        while current_pos < len(text):
+            # Buscar el siguiente placeholder
+            next_bold_on = text.find('{{BOLD_ON}}', current_pos)
+            next_bold_off = text.find('{{BOLD_OFF}}', current_pos)
+            next_fontb_on = text.find('{{FONTB_ON}}', current_pos)
+            next_fontb_off = text.find('{{FONTB_OFF}}', current_pos)
+
+            # Encontrar el placeholder más cercano
+            positions = [(pos, tag) for pos, tag in [
+                (next_bold_on, 'BOLD_ON'),
+                (next_bold_off, 'BOLD_OFF'),
+                (next_fontb_on, 'FONTB_ON'),
+                (next_fontb_off, 'FONTB_OFF')
+            ] if pos != -1]
+
+            if not positions:
+                # No más placeholders, codificar el resto
+                remaining = text[current_pos:]
                 try:
-                    result.extend(bold_text.encode(self.encoding, errors="replace"))
+                    result.extend(remaining.encode(self.encoding, errors="replace"))
                 except Exception:
-                    result.extend(bold_text.encode(self.encoding, errors="replace"))
-                result.extend(bold_off)
-                if rest:
-                    try:
-                        result.extend(rest.encode(self.encoding, errors="replace"))
-                    except Exception:
-                        result.extend(rest.encode(self.encoding, errors="replace"))
-            else:
-                # No closing tag, treat rest as bold
-                result.extend(bold_on)
+                    result.extend(remaining.encode(self.encoding, errors="replace"))
+                break
+
+            # Ordenar por posición y tomar el más cercano
+            positions.sort(key=lambda x: x[0])
+            next_pos, next_tag = positions[0]
+
+            # Codificar texto antes del placeholder
+            before = text[current_pos:next_pos]
+            if before:
                 try:
-                    result.extend(seg.encode(self.encoding, errors="replace"))
+                    result.extend(before.encode(self.encoding, errors="replace"))
                 except Exception:
-                    result.extend(seg.encode(self.encoding, errors="replace"))
+                    result.extend(before.encode(self.encoding, errors="replace"))
+
+            # Procesar placeholder
+            if next_tag == 'BOLD_ON':
+                result.extend(bold_on)
+                active_styles.append('BOLD')
+            elif next_tag == 'BOLD_OFF':
                 result.extend(bold_off)
+                if 'BOLD' in active_styles:
+                    active_styles.remove('BOLD')
+            elif next_tag == 'FONTB_ON':
+                result.extend(fontb_on)
+                active_styles.append('FONTB')
+            elif next_tag == 'FONTB_OFF':
+                result.extend(fontb_off)
+                if 'FONTB' in active_styles:
+                    active_styles.remove('FONTB')
+
+            current_pos = next_pos + len(next_tag) + 4  # +4 por {{ y }}
+
+        # Apagar estilos activos al final
+        if 'BOLD' in active_styles:
+            result.extend(bold_off)
+        if 'FONTB' in active_styles:
+            result.extend(fontb_off)
 
         return bytes(result)
 
