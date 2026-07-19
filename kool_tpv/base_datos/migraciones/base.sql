@@ -75,7 +75,8 @@ CREATE TABLE IF NOT EXISTS niveles_fidelidad (
 	tesoro_minimo REAL NOT NULL DEFAULT 0.0,
 	tipo_recompensa TEXT,
 	detalle_recompensa TEXT,
-	producto_sku TEXT
+	producto_sku TEXT,
+	lore_recompensa TEXT
 );
 
 -- cierres
