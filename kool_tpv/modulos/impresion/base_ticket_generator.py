@@ -63,6 +63,25 @@ class BaseTicketGenerator(ABC):
             dec = dec.quantize(Decimal('0.01'))
             return f"{dec:.2f}"
 
+    def _format_number(self, val):
+        """Formatear valor a string con 2 decimales SIN símbolo de moneda.
+        
+        Útil para puntos de experiencia (XP), cantidades acumuladas no monetarias, etc.
+        """
+        from kool_tpv.utils.money import from_cents
+        fmt = FormatterService()
+        try:
+            if isinstance(val, bool):
+                return str(val)
+            if isinstance(val, int):
+                return fmt.format_tesoro(from_cents(val))
+            if isinstance(val, (float, str, Decimal)):
+                # El service format_tesoro ya maneja la conversión a Decimal y 2 decimales
+                return fmt.format_tesoro(val)
+            return str(val)
+        except Exception:
+            return str(val)
+
     def _format_line_lr(self, label, valor, label_width=30):
         """Formatear línea con label (izq) y valor (der) alineados.
 

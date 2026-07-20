@@ -33,9 +33,9 @@ class NivelTicketGenerator(BaseTicketGenerator):
         detalle_recompensa = nivel_data.get('detalle_recompensa', '')
         nombre_producto = nivel_data.get('nombre_producto', '')
 
-        # Intenta formatear total_acumulado si es numérico, sino usar raw
+        # Intenta formatear total_acumulado (XP) sin símbolo de moneda
         try:
-            total_acumulado = self._format_currency(total_acumulado_raw)
+            total_acumulado = self._format_number(total_acumulado_raw)
         except Exception:
             total_acumulado = str(total_acumulado_raw)
 
