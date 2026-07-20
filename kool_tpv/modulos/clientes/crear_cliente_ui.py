@@ -66,8 +66,10 @@ class CrearClienteUI:
         self.main_scroll.pack(fill='both', expand=True, padx=12, pady=8)
 
         # Grid 8 columnas
-        for c in range(8):
-            self.main_scroll.grid_columnconfigure(c, weight=1, uniform='col')
+        for c in [0, 2, 4, 6]:
+            self.main_scroll.grid_columnconfigure(c, weight=0)
+        for c in [1, 3, 5, 7]:
+            self.main_scroll.grid_columnconfigure(c, weight=1)
 
         lbl_font = get_font('label', module=self.module_name)
         entry_kw = {
@@ -80,7 +82,7 @@ class CrearClienteUI:
 
         # === FILA 0: ID | NOMBRE | TESORO ACTIVADO ===
         ctk.CTkLabel(self.main_scroll, text="ID:", text_color=self.colors.get('text', COLOR_MATRIX), font=lbl_font).grid(
-            row=0, column=0, sticky='w', padx=6, pady=6
+            row=0, column=0, sticky='w', padx=(12, 2), pady=4
         )
         self.e_id = ctk.CTkEntry(
             self.main_scroll,
@@ -90,16 +92,16 @@ class CrearClienteUI:
             text_color=self.colors.get('text', "#666666"),
             border_color=self.colors.get('primary', COLOR_MATRIX)
         )
-        self.e_id.grid(row=0, column=1, sticky='ew', padx=6, pady=6)
+        self.e_id.grid(row=0, column=1, sticky='ew', padx=(2, 12), pady=4)
 
         ctk.CTkLabel(self.main_scroll, text="NOMBRE:", text_color=self.colors.get('text', COLOR_MATRIX), font=lbl_font).grid(
-            row=0, column=2, sticky='w', padx=6, pady=6
+            row=0, column=2, sticky='w', padx=(12, 2), pady=4
         )
         self.e_nombre = ctk.CTkEntry(self.main_scroll, placeholder_text="Nombre completo", **entry_kw)
-        self.e_nombre.grid(row=0, column=3, columnspan=3, sticky='ew', padx=6, pady=6)
+        self.e_nombre.grid(row=0, column=3, columnspan=3, sticky='ew', padx=(2, 12), pady=4)
 
         ctk.CTkLabel(self.main_scroll, text="TESORO:", text_color=self.colors.get('text', COLOR_MATRIX), font=lbl_font).grid(
-            row=0, column=6, sticky='w', padx=6, pady=6
+            row=0, column=6, sticky='w', padx=(12, 2), pady=4
         )
         self.chk_tesoro = ctk.CTkCheckBox(
             self.main_scroll,
@@ -107,7 +109,7 @@ class CrearClienteUI:
             fg_color=self.colors.get('primary', COLOR_MATRIX),
             text_color=self.colors.get('text', COLOR_MATRIX)
         )
-        self.chk_tesoro.grid(row=0, column=7, sticky='w', padx=6, pady=6)
+        self.chk_tesoro.grid(row=0, column=7, sticky='w', padx=(2, 12), pady=4)
         try:
             self.chk_tesoro.select()  # Por defecto ON
         except Exception:
@@ -115,29 +117,29 @@ class CrearClienteUI:
 
         # === FILA 1: DNI | FECHA NACIMIENTO ===
         ctk.CTkLabel(self.main_scroll, text="DNI:", text_color=self.colors.get('text', COLOR_MATRIX), font=lbl_font).grid(
-            row=1, column=0, sticky='w', padx=6, pady=6
+            row=1, column=0, sticky='w', padx=(12, 2), pady=4
         )
         self.e_dni = ctk.CTkEntry(self.main_scroll, placeholder_text="DNI/NIE", **entry_kw)
-        self.e_dni.grid(row=1, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
+        self.e_dni.grid(row=1, column=1, columnspan=3, sticky='ew', padx=(2, 12), pady=4)
 
         ctk.CTkLabel(self.main_scroll, text="F. NACIMIENTO:", text_color=self.colors.get('text', COLOR_MATRIX), font=lbl_font).grid(
-            row=1, column=4, sticky='w', padx=6, pady=6
+            row=1, column=4, sticky='w', padx=(12, 2), pady=4
         )
         self.e_fecha_nac = ctk.CTkEntry(self.main_scroll, placeholder_text="YYYY-MM-DD", **entry_kw)
-        self.e_fecha_nac.grid(row=1, column=5, columnspan=3, sticky='ew', padx=6, pady=6)
+        self.e_fecha_nac.grid(row=1, column=5, columnspan=3, sticky='ew', padx=(2, 12), pady=4)
 
         # === FILA 2: DIRECCIÓN | PAÍS ===
         ctk.CTkLabel(self.main_scroll, text="DIRECCIÓN:", text_color=self.colors.get('text', COLOR_MATRIX), font=lbl_font).grid(
-            row=2, column=0, sticky='w', padx=6, pady=6
+            row=2, column=0, sticky='w', padx=(12, 2), pady=4
         )
         self.e_direccion = ctk.CTkEntry(self.main_scroll, placeholder_text="Calle, número...", **entry_kw)
-        self.e_direccion.grid(row=2, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
+        self.e_direccion.grid(row=2, column=1, columnspan=3, sticky='ew', padx=(2, 12), pady=4)
 
         ctk.CTkLabel(self.main_scroll, text="PAÍS:", text_color=self.colors.get('text', COLOR_MATRIX), font=lbl_font).grid(
-            row=2, column=4, sticky='w', padx=6, pady=6
+            row=2, column=4, sticky='w', padx=(12, 2), pady=4
         )
         self.e_pais = ctk.CTkEntry(self.main_scroll, placeholder_text="España", **entry_kw)
-        self.e_pais.grid(row=2, column=5, columnspan=3, sticky='ew', padx=6, pady=6)
+        self.e_pais.grid(row=2, column=5, columnspan=3, sticky='ew', padx=(2, 12), pady=4)
         try:
             self.e_pais.insert(0, 'España')  # Default
         except Exception:
@@ -145,35 +147,35 @@ class CrearClienteUI:
 
         # === FILA 3: CIUDAD | CÓDIGO POSTAL ===
         ctk.CTkLabel(self.main_scroll, text="CIUDAD:", text_color=self.colors.get('text', COLOR_MATRIX), font=lbl_font).grid(
-            row=3, column=0, sticky='w', padx=6, pady=6
+            row=3, column=0, sticky='w', padx=(12, 2), pady=4
         )
         self.e_ciudad = ctk.CTkEntry(self.main_scroll, placeholder_text="Ciudad", **entry_kw)
-        self.e_ciudad.grid(row=3, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
+        self.e_ciudad.grid(row=3, column=1, columnspan=3, sticky='ew', padx=(2, 12), pady=4)
 
         ctk.CTkLabel(self.main_scroll, text="C.P.:", text_color=self.colors.get('text', COLOR_MATRIX), font=lbl_font).grid(
-            row=3, column=4, sticky='w', padx=6, pady=6
+            row=3, column=4, sticky='w', padx=(12, 2), pady=4
         )
         self.e_cp = ctk.CTkEntry(self.main_scroll, placeholder_text="Código Postal", **entry_kw)
-        self.e_cp.grid(row=3, column=5, columnspan=3, sticky='ew', padx=6, pady=6)
+        self.e_cp.grid(row=3, column=5, columnspan=3, sticky='ew', padx=(2, 12), pady=4)
 
         # === FILA 4: TELÉFONO | EMAIL | TAGS ===
         ctk.CTkLabel(self.main_scroll, text="TELÉFONO:", text_color=self.colors.get('text', COLOR_MATRIX), font=lbl_font).grid(
-            row=4, column=0, sticky='w', padx=6, pady=6
+            row=4, column=0, sticky='w', padx=(12, 2), pady=4
         )
         self.e_telefono = ctk.CTkEntry(self.main_scroll, placeholder_text="Teléfono", **entry_kw)
-        self.e_telefono.grid(row=4, column=1, columnspan=2, sticky='ew', padx=6, pady=6)
+        self.e_telefono.grid(row=4, column=1, columnspan=2, sticky='ew', padx=(2, 12), pady=4)
 
         ctk.CTkLabel(self.main_scroll, text="EMAIL:", text_color=self.colors.get('text', COLOR_MATRIX), font=lbl_font).grid(
-            row=4, column=3, sticky='w', padx=6, pady=6
+            row=4, column=3, sticky='w', padx=(12, 2), pady=4
         )
         self.e_email = ctk.CTkEntry(self.main_scroll, placeholder_text="email@ejemplo.com", **entry_kw)
-        self.e_email.grid(row=4, column=4, columnspan=2, sticky='ew', padx=6, pady=6)
+        self.e_email.grid(row=4, column=4, columnspan=2, sticky='ew', padx=(2, 12), pady=4)
 
         ctk.CTkLabel(self.main_scroll, text="TAGS:", text_color=self.colors.get('text', COLOR_MATRIX), font=lbl_font).grid(
-            row=4, column=6, sticky='w', padx=6, pady=6
+            row=4, column=6, sticky='w', padx=(12, 2), pady=4
         )
         self.e_tags = ctk.CTkEntry(self.main_scroll, placeholder_text="tag1, tag2", **entry_kw)
-        self.e_tags.grid(row=4, column=7, sticky='ew', padx=6, pady=6)
+        self.e_tags.grid(row=4, column=7, sticky='ew', padx=(2, 12), pady=4)
 
         # === FILA 5: SEPARADOR VISUAL ===
         separador = ctk.CTkFrame(self.main_scroll, height=3, fg_color=self.colors.get('primary', COLOR_MATRIX))
@@ -468,6 +470,9 @@ class CrearClienteUI:
         self._setup_tab_navigation()
 
         logger.info('CrearClienteUI inicializado completamente')
+        
+        # Dar foco al nombre automáticamente
+        self.e_nombre.after(200, lambda: self.e_nombre.focus_set())
 
     def _setup_tab_navigation(self):
         """Configura navegación Tab/Shift+Tab entre los campos editables."""
