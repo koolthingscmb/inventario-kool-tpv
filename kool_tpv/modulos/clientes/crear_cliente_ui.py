@@ -125,7 +125,7 @@ class CrearClienteUI:
         ctk.CTkLabel(self.main_scroll, text="F. NACIMIENTO:", text_color=self.colors.get('text', COLOR_MATRIX), font=lbl_font).grid(
             row=1, column=4, sticky='w', padx=(12, 2), pady=4
         )
-        self.e_fecha_nac = ctk.CTkEntry(self.main_scroll, placeholder_text="YYYY-MM-DD", **entry_kw)
+        self.e_fecha_nac = ctk.CTkEntry(self.main_scroll, placeholder_text="DD-MM-YYYY", **entry_kw)
         self.e_fecha_nac.grid(row=1, column=5, columnspan=3, sticky='ew', padx=(2, 12), pady=4)
 
         # === FILA 2: DIRECCIÓN | PAÍS ===
@@ -586,11 +586,19 @@ class CrearClienteUI:
             except Exception:
                 pass
 
-            # Fecha nacimiento
+            # Fecha nacimiento (Convertir YYYY-MM-DD -> DD-MM-YYYY para visualización)
             try:
                 self.e_fecha_nac.delete(0, 'end')
-                if cliente.get('fecha_nacimiento'):
-                    self.e_fecha_nac.insert(0, cliente['fecha_nacimiento'])
+                fecha_db = cliente.get('fecha_nacimiento')
+                if fecha_db and '-' in fecha_db:
+                    partes = fecha_db.split('-')
+                    if len(partes) == 3 and len(partes[0]) == 4: # Formato ISO
+                        fecha_es = f"{partes[2]}-{partes[1]}-{partes[0]}"
+                        self.e_fecha_nac.insert(0, fecha_es)
+                    else:
+                        self.e_fecha_nac.insert(0, fecha_db)
+                elif fecha_db:
+                    self.e_fecha_nac.insert(0, fecha_db)
             except Exception:
                 pass
 
@@ -757,9 +765,14 @@ class CrearClienteUI:
             cp = (self.e_cp.get() or '').strip()
             pais = (self.e_pais.get() or '').strip()
             fecha_nac = (self.e_fecha_nac.get() or '').strip() or None
-            # Auto-corregir formato de fecha: aceptar tanto YYYY/MM/DD como YYYY-MM-DD
-            if fecha_nac and '/' in fecha_nac:
+            
+            # Normalizar fecha: DD-MM-YYYY o DD/MM/YYYY -> YYYY-MM-DD
+            if fecha_nac:
                 fecha_nac = fecha_nac.replace('/', '-')
+                partes = fecha_nac.split('-')
+                # Si viene en formato español (DD-MM-YYYY), la volteamos para la BD
+                if len(partes) == 3 and len(partes[0]) <= 2:
+                    fecha_nac = f"{partes[2]}-{partes[1]}-{partes[0]}"
             tags = (self.e_tags.get() or '').strip()
             fidelidad_activa = 1 if getattr(self.chk_tesoro, 'get', lambda: 1)() else 0
 
