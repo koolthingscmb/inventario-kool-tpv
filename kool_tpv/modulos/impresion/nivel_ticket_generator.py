@@ -72,7 +72,7 @@ class NivelTicketGenerator(BaseTicketGenerator):
                 # Ajuste de línea (wrapping) para que no corte palabras al borde
                 wrapped_lines = textwrap.wrap(selected_lore, width=self.WIDTH)
                 for line in wrapped_lines:
-                    lines.append(f"{{{{FONTB_ON}}}}{line.strip()}{{{{FONTB_OFF}}}}".center(self.WIDTH))
+                    lines.append(f"{{{{FONTB_ON}}}}{line.strip()}{{{{FONTB_OFF}}}}")
                 lines.append(self.DIVIDER)
                 lines.append('') # Espacio extra tras la caja
 
