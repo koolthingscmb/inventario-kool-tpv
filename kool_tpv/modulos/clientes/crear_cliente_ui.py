@@ -850,7 +850,7 @@ class CrearClienteUI:
             nombre_cliente = (self.e_nombre.get() or '').strip()
             prompt = f"Cliente: {nombre_cliente}\n¿Cuánto Tesoro deseas sumar o restar?\n(Usa - para restar, ej: -5.00)"
             
-            valor_str = show_input_dialog(parent_window, "MODIFICAR TESORO", prompt, tipo='info')
+            valor_str = show_input_dialog(parent_window, "ACTUALIZAR TESORO", prompt, tipo='info')
 
             # Si se canceló o no se introdujo nada, salir
             if valor_str is None or str(valor_str).strip() == "":
@@ -873,7 +873,7 @@ class CrearClienteUI:
             ok = self.cliente_service.sumar_tesoro(self.cliente_id, valor_decimal)
 
             if ok:
-                msg = f'Tesoro modificado: {valor_decimal:+.2f}€'
+                msg = f'Tesoro actualizado: {valor_decimal:+.2f}€'
                 ToastWidget.show(self.container, msg, tipo='success')
                 # Recargar ficha para ver nuevos valores
                 self._cargar_cliente()

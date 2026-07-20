@@ -12,7 +12,7 @@
   "mapeo_colores": {"text": "MAPEO COLORES", "style": "special"},
   "mapeo_tipos": {"text": "MAPEO TIPOS", "style": "special"},
   "importar_albaran": {"text": "IMPORTAR ALBARÁN", "style": "success"},
-  "sumar_puntos": {"text": "SUMAR TESORO", "style": "warning", "state": "disabled"},
+  "sumar_puntos": {"text": "ACTUALIZAR TESORO", "style": "warning", "state": "disabled"},
   "tickets": {"text": "TICKETS", "style": "info"},
   "comunicacion": {"text": "COMUNICACIÓN", "style": "special"},
   "entrada_manual": {"text": "ENTRADA MANUAL", "style": "primary"},
