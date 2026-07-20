@@ -848,9 +848,9 @@ class CrearClienteUI:
 
             # 2. MOSTRAR DIÁLOGO DE ENTRADA PARA LA CANTIDAD
             nombre_cliente = (self.e_nombre.get() or '').strip()
-            prompt = f"Cliente: {nombre_cliente}\n¿Cuánto Tesoro deseas SUMAR?"
+            prompt = f"Cliente: {nombre_cliente}\n¿Cuánto Tesoro deseas sumar o restar?\n(Usa - para restar, ej: -5.00)"
             
-            valor_str = show_input_dialog(parent_window, "SUMAR TESORO", prompt, tipo='success')
+            valor_str = show_input_dialog(parent_window, "MODIFICAR TESORO", prompt, tipo='info')
 
             # Si se canceló o no se introdujo nada, salir
             if valor_str is None or str(valor_str).strip() == "":
@@ -862,19 +862,19 @@ class CrearClienteUI:
             try:
                 valor_decimal = Decimal(valor_normalizado)
             except (InvalidOperation, ValueError):
-                ToastWidget.show(parent_window, 'INTRODUZCA UN NÚMERO VÁLIDO PARA SUMAR', tipo='error')
+                ToastWidget.show(parent_window, 'INTRODUZCA UN NÚMERO VÁLIDO', tipo='error')
                 return
 
-            # No permitir negativos ni cero
-            if valor_decimal <= Decimal('0'):
-                ToastWidget.show(parent_window, 'LA CANTIDAD A SUMAR DEBE SER MAYOR QUE 0', tipo='error')
+            # No permitir cero (no tiene sentido)
+            if valor_decimal == Decimal('0'):
                 return
 
             # Ejecutar persistencia en BD
             ok = self.cliente_service.sumar_tesoro(self.cliente_id, valor_decimal)
 
             if ok:
-                ToastWidget.show(self.container, f'Tesoro sumado: +{valor_decimal:.2f}€', tipo='success')
+                msg = f'Tesoro modificado: {valor_decimal:+.2f}€'
+                ToastWidget.show(self.container, msg, tipo='success')
                 # Recargar ficha para ver nuevos valores
                 self._cargar_cliente()
             else:
