@@ -32,11 +32,11 @@ class ClientesDB:
 
 		Returns:
 			Lista de diccionarios con las claves: `id`, `nombre`,
-			`telefono`, `tesoro_total`, `id_nivel`.
+			`telefono`, `email`, `tesoro_total`, `id_nivel`.
 		"""
 		term = f"%{filtro}%"
 		query = (
-			"SELECT c.id, c.nombre, c.telefono, c.tesoro_total, c.id_nivel, c.fecha_alta, "
+			"SELECT c.id, c.nombre, c.telefono, c.email, c.tesoro_total, c.id_nivel, c.fecha_alta, "
 			"n.level AS nivel_level, n.nombre_nivel AS nivel_nombre, n.grafismo_nivel AS nivel_grafismo "
 			"FROM clientes c "
 			"LEFT JOIN niveles_fidelidad n ON c.id_nivel = n.id "
@@ -49,9 +49,9 @@ class ClientesDB:
 
 		clientes: List[Dict[str, Any]] = []
 		for row in rows:
-			# row expected: (id, nombre, telefono, tesoro_total, id_nivel, fecha_alta, nivel_level, nivel_nombre, nivel_grafismo)
+			# row expected: (id, nombre, telefono, email, tesoro_total, id_nivel, fecha_alta, nivel_level, nivel_nombre, nivel_grafismo)
 			try:
-				id_, nombre, telefono, tesoro_total, id_nivel, fecha_alta, nivel_level, nivel_nombre, nivel_grafismo = row
+				id_, nombre, telefono, email, tesoro_total, id_nivel, fecha_alta, nivel_level, nivel_nombre, nivel_grafismo = row
 			except Exception:
 				# defensivo: si el esquema cambia, ignorar fila mal formada
 				continue
@@ -60,6 +60,7 @@ class ClientesDB:
 				"id": id_,
 				"nombre": nombre,
 				"telefono": telefono,
+				"email": email or "",
 				"tesoro_total": read_from_db(int(tesoro_total or 0)),
 				"id_nivel": id_nivel,
 				"fecha_alta": fecha_alta,

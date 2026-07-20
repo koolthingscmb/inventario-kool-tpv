@@ -460,6 +460,9 @@ class CrearClienteUI:
         self.btn_tickets = create_action_button(self.footer, 'tickets', self._on_tickets)
         self.btn_tickets.pack(side='left', padx=8)
 
+        self.btn_pedido = create_action_button(self.footer, 'pedido', self._on_pedido)
+        self.btn_pedido.pack(side='left', padx=8)
+
         self.btn_comunicacion = create_action_button(self.footer, 'comunicacion', self._on_comunicacion)
         self.btn_comunicacion.pack(side='left', padx=8)
 
@@ -927,6 +930,47 @@ class CrearClienteUI:
                 ToastWidget.show(self.container, 'NO SE PUDO ABRIR VISTA DE TICKETS', tipo='error')
             except Exception:
                 pass
+
+    def _on_pedido(self):
+        """Navegar a la subvista de creación de pedido para este cliente."""
+        try:
+            if not self.cliente_id:
+                ToastWidget.show(self.container, 'DEBES GUARDAR EL CLIENTE PRIMERO', tipo='error')
+                return
+
+            # Obtener ClientesView (owner del owner en esta estructura)
+            # CrearClienteUI -> central_area -> ClientesView
+            # Buscamos el objeto que tenga show_crear_pedido
+            
+            view = None
+            # En la arquitectura de este proyecto, self.parent suele ser central_area
+            # y BaseModuleView tiene la referencia al owner (ClientesView)
+            
+            # Buscamos el owner que sea ClientesView
+            from kool_tpv.modulos.clientes.clientes_view import ClientesView
+            
+            # Si el parent tiene un atributo 'owner' que es ClientesView
+            if hasattr(self.parent, 'owner') and isinstance(self.parent.owner, ClientesView):
+                view = self.parent.owner
+            elif hasattr(self, 'owner') and isinstance(self.owner, ClientesView):
+                view = self.owner
+
+            if view:
+                view.show_crear_pedido(cliente_id=self.cliente_id)
+            else:
+                # Fallback: intentar abrir diálogo si no hay navegación (no debería pasar)
+                from kool_tpv.modulos.clientes.pedido_dialog import PedidoDialog
+                dialog = PedidoDialog(
+                    self.container.winfo_toplevel(), 
+                    self.db, 
+                    cliente_id=self.cliente_id, 
+                    keyboard_manager=getattr(self, 'keyboard_mgr', None)
+                )
+                if dialog.show():
+                    ToastWidget.show(self.container, "PEDIDO REGISTRADO CORRECTAMENTE", tipo='success')
+        except Exception:
+            logger.exception('Error navegando a crear pedido desde ficha cliente')
+            ToastWidget.show(self.container, 'NO SE PUDO ABRIR CREAR PEDIDO', tipo='error')
 
     def _on_comunicacion(self):
         """Abrir comunicación con cliente."""

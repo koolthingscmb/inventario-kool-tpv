@@ -249,7 +249,7 @@ class ProductoRepository:
         """Query dinámica para scroll infinito en busqueda_ui.
 
         Devuelve list[dict] con: id, sku, nombre, categoria, tipo, ean,
-        pvp (raw sin normalizar), stock_actual, ventas, estado.
+        pvp (raw sin normalizar), stock_actual, ventas, estado, tipo_id, proveedor_id.
         """
         query = """
 SELECT p.id,
@@ -265,10 +265,14 @@ SELECT p.id,
            WHEN p.activo = 0 THEN 'Archivado'
            WHEN p.activo = 1 AND p.stock_actual <= 0 THEN 'Sin Stock'
            ELSE 'Activo'
-       END AS estado
+       END AS estado,
+       p.tipo AS tipo_id,
+       p.proveedor_id,
+       COALESCE(prov.nombre, 'Sin proveedor') AS proveedor_nombre
 FROM productos p
 LEFT JOIN categorias c ON p.categoria = c.id
 LEFT JOIN tipos t ON p.tipo = t.id
+LEFT JOIN proveedores prov ON p.proveedor_id = prov.id
 LEFT JOIN precios pr ON pr.producto_id = p.id AND pr.activo = 1
 WHERE 1=1
         """

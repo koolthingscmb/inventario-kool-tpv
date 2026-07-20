@@ -17,6 +17,7 @@
       {"id": "crear", "text": "+", "action": "show_crear_cliente"},
       {"id": "busqueda", "text": "BÚSQUEDA", "action": "show_busqueda"},
       {"id": "tops", "text": "TOPS", "action": "show_tops"},
+      {"id": "pedidos", "text": "PEDIDOS", "action": "show_pedidos"},
       {"id": "comunicacion", "text": "COMUNICACIÓN", "action": "show_comunicacion"},
       {"id": "config", "text": "CONFIG", "action": "show_config"}
     ]

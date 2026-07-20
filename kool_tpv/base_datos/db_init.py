@@ -377,6 +377,62 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migration 029: tabla pedidos_clientes
+		try:
+			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table' AND name='pedidos_clientes'")
+			if not rows:
+				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '029_pedidos_clientes.sql'
+				if mig_path.exists():
+					logging.info('Aplicando migración 029: pedidos_clientes')
+					cur = db.connection.cursor()
+					cur.executescript(mig_path.read_text(encoding='utf-8'))
+					db.connection.commit()
+					logging.info('Migración 029 aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 029')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
+		# Migration 030: refactor pedidos_clientes v2 (lines)
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('pedidos_clientes')") or [])]
+			if 'contacto_email' not in cols:
+				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '030_pedidos_clientes_v2.sql'
+				if mig_path.exists():
+					logging.info('Aplicando migración 030: pedidos_clientes_v2')
+					cur = db.connection.cursor()
+					cur.executescript(mig_path.read_text(encoding='utf-8'))
+					db.connection.commit()
+					logging.info('Migración 030 aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 030')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
+		# Migration 031: IDs de Tipo y Proveedor en líneas
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('pedidos_clientes_lines')") or [])]
+			if 'tipo_id' not in cols:
+				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '031_pedidos_v3.sql'
+				if mig_path.exists():
+					logging.info('Aplicando migración 031: IDs de tipo/proveedor en pedidos')
+					cur = db.connection.cursor()
+					cur.executescript(mig_path.read_text(encoding='utf-8'))
+					db.connection.commit()
+					logging.info('Migración 031 aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 031')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+			except Exception:
+				pass
+
 		# Validate again
 		try:
 			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table'")

@@ -80,6 +80,12 @@ class SearchablePaginatedNavList(ctk.CTkFrame):
         """API pública: disparar búsqueda con el texto dado."""
         self._on_search(texto)
 
+    def get_selected_item(self) -> Optional[dict]:
+        """Obtener el item actualmente seleccionado en la lista."""
+        if hasattr(self, 'nav_list'):
+            return self.nav_list.get_selected_data()
+        return None
+
     def destroy(self):
         """Limpiar referencias al destruir."""
         try:

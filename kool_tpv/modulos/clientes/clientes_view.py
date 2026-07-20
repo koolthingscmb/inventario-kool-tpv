@@ -194,6 +194,63 @@ class ClientesView(BaseModuleView):
         except Exception:
             logging.exception('Error en show_comunicacion')
 
+    def show_pedidos(self):
+        """Mostrar gestión de pedidos de clientes."""
+        try:
+            from kool_tpv.modulos.clientes.pedidos_ui import PedidosUI
+
+            # Añadir vista actual al stack
+            self._nav_stack.append(lambda: self.show_busqueda())
+            
+            ui = PedidosUI(
+                parent=self.central_area,
+                db=self.db,
+                owner=self,
+                keyboard_manager=getattr(self, 'keyboard_mgr', None),
+            )
+
+            if self.set_central_content(ui):
+                try:
+                    self.actualizar_ruta('CLIENTES / PEDIDOS', callbacks=self.breadcrumb_callbacks)
+                except Exception:
+                    pass
+                logging.info('Mostrando PEDIDOS clientes (UI)')
+            else:
+                logging.error('No fue posible montar PedidosUI')
+
+        except Exception:
+            logging.exception('Error en show_pedidos')
+
+    def show_crear_pedido(self, cliente_id: Optional[int] = None, pedido_id: Optional[int] = None):
+        """Mostrar subvista para crear o modificar un pedido especial."""
+        try:
+            from kool_tpv.modulos.clientes.crear_pedido_ui import CrearPedidoUI
+
+            # Añadir vista actual al stack
+            self._nav_stack.append(lambda: self.show_pedidos())
+            
+            ui = CrearPedidoUI(
+                parent=self.central_area,
+                db=self.db,
+                owner=self,
+                keyboard_manager=getattr(self, 'keyboard_mgr', None),
+                cliente_inicial_id=cliente_id,
+                pedido_id=pedido_id
+            )
+
+            if self.set_central_content(ui):
+                try:
+                    titulo = 'CLIENTES / MODIFICAR PEDIDO' if pedido_id else 'CLIENTES / NUEVO PEDIDO'
+                    self.actualizar_ruta(titulo, callbacks=self.breadcrumb_callbacks)
+                except Exception:
+                    pass
+                logging.info(f'Mostrando CREAR/MODIFICAR PEDIDO clientes (UI) - ID: {pedido_id}')
+            else:
+                logging.error('No fue posible montar CrearPedidoUI')
+
+        except Exception:
+            logging.exception('Error en show_crear_pedido')
+
     def show_config(self):
         logging.info('TODO: Implementar show_config')
 

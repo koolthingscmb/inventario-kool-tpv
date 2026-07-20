@@ -14,6 +14,7 @@
   "importar_albaran": {"text": "IMPORTAR ALBARÁN", "style": "success"},
   "sumar_puntos": {"text": "ACTUALIZAR TESORO", "style": "warning", "state": "disabled"},
   "tickets": {"text": "TICKETS", "style": "info"},
+  "pedido": {"text": "PEDIDO", "style": "primary"},
   "comunicacion": {"text": "COMUNICACIÓN", "style": "special"},
   "entrada_manual": {"text": "ENTRADA MANUAL", "style": "primary"},
   "salida_manual": {"text": "SALIDA MANUAL", "style": "warning"},

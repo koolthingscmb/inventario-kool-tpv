@@ -125,6 +125,20 @@ class AlbaranService:
             albaran_id = self.repo.guardar_albaran_completo(
                 num_albaran, proveedor_id, fecha, tipo, lineas_procesadas, totales
             )
+            
+            # Hook para actualizar pedidos de clientes si ha entrado stock
+            if albaran_id and tipo == 'ENTRADA':
+                try:
+                    from kool_tpv.modulos.clientes.services.pedidos_service import PedidosService
+                    producto_ids = [line.get('producto_id') for line in lineas_procesadas if line.get('producto_id')]
+                    if producto_ids:
+                        pedidos_service = PedidosService(self.db)
+                        actualizados = pedidos_service.actualizar_pedidos_por_stock(producto_ids)
+                        if actualizados > 0:
+                            logging.info(f'Pedidos actualizados a EN STOCK por albarán: {actualizados}')
+                except Exception:
+                    logging.exception('Error actualizando pedidos desde albarán hook')
+
             logging.info(f'Albarán {num_albaran} guardado correctamente con ID {albaran_id}')
             return albaran_id
 
