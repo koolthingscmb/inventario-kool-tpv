@@ -4,6 +4,8 @@ Generador de ticket para subida de nivel.
 Implementa `NivelTicketGenerator` que hereda de `BaseTicketGenerator`.
 """
 from kool_tpv.modulos.impresion.base_ticket_generator import BaseTicketGenerator
+import random
+import textwrap
 
 
 class NivelTicketGenerator(BaseTicketGenerator):
@@ -59,14 +61,20 @@ class NivelTicketGenerator(BaseTicketGenerator):
         }
 
         # 1. Lore del nivel (si existe) - Intro narrativa antes del header
-        lore = nivel_data.get('lore_recompensa', '')
-        if lore:
-            lines.append(self.DIVIDER)
-            lore_lines = lore.split('|||')
-            for line in lore_lines:
-                lines.append(f"{{{{FONTB_ON}}}}{line.strip()}{{{{FONTB_OFF}}}}".center(self.WIDTH))
-            lines.append(self.DIVIDER)
-            lines.append('') # Espacio extra tras la caja
+        lore_raw = nivel_data.get('lore_recompensa', '')
+        if lore_raw:
+            # Selección aleatoria si hay varios lores separados por |||
+            lore_pool = [l.strip() for l in lore_raw.split('|||') if l.strip()]
+            if lore_pool:
+                selected_lore = random.choice(lore_pool)
+                
+                lines.append(self.DIVIDER)
+                # Ajuste de línea (wrapping) para que no corte palabras al borde
+                wrapped_lines = textwrap.wrap(selected_lore, width=self.WIDTH)
+                for line in wrapped_lines:
+                    lines.append(f"{{{{FONTB_ON}}}}{line.strip()}{{{{FONTB_OFF}}}}".center(self.WIDTH))
+                lines.append(self.DIVIDER)
+                lines.append('') # Espacio extra tras la caja
 
         # 2. Header por tipo con fallback
         header_key = f"ticket_header_{tipo}"
