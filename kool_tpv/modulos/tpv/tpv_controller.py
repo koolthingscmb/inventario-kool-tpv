@@ -156,9 +156,9 @@ class TpvController:
         try:
             # 1. ¿Es un código de descuento de fidelización (prefijo 98)?
             if code.startswith('98'):
-                from kool_tpv.modulos.fidelizacion.niveles_repository import NivelesRepository
-                niv_repo = NivelesRepository(self.db)
-                nivel = niv_repo.get_nivel_por_barcode(code)
+                from kool_tpv.base_datos.niveles_service import NivelesService
+                niv_service = NivelesService(self.db)
+                nivel = niv_service.get_nivel_por_barcode(code)
                 
                 if nivel and nivel.get('tipo_recompensa') == 'Descuento':
                     from kool_tpv.utils.widgets.notificaciones import ToastWidget
@@ -181,7 +181,11 @@ class TpvController:
                             'tipo': desc_tipo,
                             'valor': Decimal(str(desc_valor))
                         })
-                        self.view.actualizar_totales()
+                        # Refrescar ticket visual (totales y líneas visuales)
+                        ticket = getattr(self.view, 'ticket_carrito', None)
+                        if ticket and hasattr(ticket, 'update_carrito'):
+                            ticket.update_carrito()
+                        
                         ToastWidget.show(self.view, f"DESCUENTO APLICADO: {nivel['nombre_nivel']}", tipo='success')
                     except ValueError as ve:
                         ToastWidget.show(self.view, str(ve).upper(), tipo='error')

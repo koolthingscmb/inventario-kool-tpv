@@ -134,6 +134,14 @@ class NivelesService:
             logging.exception('Error eliminando nivel %s', nivel_id)
             return False
 
+    def get_nivel_por_barcode(self, barcode: str) -> Optional[Dict[str, Any]]:
+        """Obtener un nivel por su código de recompensa."""
+        try:
+            return self.repo.get_nivel_por_barcode(barcode)
+        except Exception:
+            logging.exception('Error obteniendo nivel por barcode %s', barcode)
+            return None
+
     def get_next_level(self) -> int:
         """Calcular próximo número de level disponible.
 
