@@ -20,7 +20,8 @@ class NivelesService:
         try:
             query = """
                 SELECT id, level, nombre_nivel, grafismo_nivel, tesoro_minimo,
-                       tipo_recompensa, detalle_recompensa, producto_sku, lore_recompensa
+                       tipo_recompensa, detalle_recompensa, producto_sku, lore_recompensa,
+                       codigo_recompensa, descuento_tipo, descuento_valor
                 FROM niveles_fidelidad
                 ORDER BY level
             """
@@ -55,7 +56,8 @@ class NivelesService:
         try:
             query = """
                 SELECT id, level, nombre_nivel, grafismo_nivel, tesoro_minimo,
-                       tipo_recompensa, detalle_recompensa, producto_sku, lore_recompensa
+                       tipo_recompensa, detalle_recompensa, producto_sku, lore_recompensa,
+                       codigo_recompensa, descuento_tipo, descuento_valor
                 FROM niveles_fidelidad
                 WHERE id = ?
             """
@@ -166,7 +168,10 @@ class NivelesService:
                 'tipo_recompensa': row[5] or '',
                 'detalle_recompensa': row[6] or '',
                 'producto_sku': row[7] or '',
-                'lore_recompensa': row[8] or ''
+                'lore_recompensa': row[8] or '',
+                'codigo_recompensa': row[9] or '',
+                'descuento_tipo': row[10] or '',
+                'descuento_valor': row[11] or 0.0
             }
         else:
             # sqlite3.Row - acceso por nombre de columna
@@ -179,5 +184,8 @@ class NivelesService:
                 'tipo_recompensa': row['tipo_recompensa'] or '',
                 'detalle_recompensa': row['detalle_recompensa'] or '',
                 'producto_sku': row['producto_sku'] or '',
-                'lore_recompensa': row['lore_recompensa'] or ''
+                'lore_recompensa': row['lore_recompensa'] or '',
+                'codigo_recompensa': row['codigo_recompensa'] or '',
+                'descuento_tipo': row['descuento_tipo'] or '',
+                'descuento_valor': row['descuento_valor'] or 0.0
             }

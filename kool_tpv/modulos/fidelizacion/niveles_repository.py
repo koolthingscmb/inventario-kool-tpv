@@ -25,8 +25,8 @@ class NivelesRepository:
             cur.execute(
                 """
                 INSERT INTO niveles_fidelidad
-                (level, nombre_nivel, grafismo_nivel, tesoro_minimo, tipo_recompensa, detalle_recompensa, producto_sku, lore_recompensa)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                (level, nombre_nivel, grafismo_nivel, tesoro_minimo, tipo_recompensa, detalle_recompensa, producto_sku, lore_recompensa, codigo_recompensa, descuento_tipo, descuento_valor)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     data['level'],
@@ -37,6 +37,9 @@ class NivelesRepository:
                     data.get('detalle_recompensa'),
                     data.get('producto_sku'),
                     data.get('lore_recompensa'),
+                    data.get('codigo_recompensa'),
+                    data.get('descuento_tipo'),
+                    data.get('descuento_valor'),
                 )
             )
             nuevo_id = cur.lastrowid
@@ -69,7 +72,8 @@ class NivelesRepository:
                 """
                 UPDATE niveles_fidelidad
                 SET level = ?, nombre_nivel = ?, grafismo_nivel = ?,
-                    tesoro_minimo = ?, tipo_recompensa = ?, detalle_recompensa = ?, producto_sku = ?, lore_recompensa = ?
+                    tesoro_minimo = ?, tipo_recompensa = ?, detalle_recompensa = ?, producto_sku = ?, lore_recompensa = ?,
+                    codigo_recompensa = ?, descuento_tipo = ?, descuento_valor = ?
                 WHERE id = ?
                 """,
                 (
@@ -81,6 +85,9 @@ class NivelesRepository:
                     data.get('detalle_recompensa'),
                     data.get('producto_sku'),
                     data.get('lore_recompensa'),
+                    data.get('codigo_recompensa'),
+                    data.get('descuento_tipo'),
+                    data.get('descuento_valor'),
                     nivel_id,
                 )
             )
@@ -122,6 +129,21 @@ class NivelesRepository:
             logger.exception('Error eliminando nivel id=%s', nivel_id)
             raise
 
+    def get_nivel_por_barcode(self, barcode: str) -> Optional[Dict[str, Any]]:
+        """Busca un nivel por su código de recompensa."""
+        query = "SELECT id, level, nombre_nivel, tipo_recompensa, descuento_tipo, descuento_valor FROM niveles_fidelidad WHERE codigo_recompensa = ?"
+        row = self.db.fetch_one(query, (barcode,))
+        if row:
+            return {
+                'id': row[0],
+                'level': row[1],
+                'nombre_nivel': row[2],
+                'tipo_recompensa': row[3],
+                'descuento_tipo': row[4],
+                'descuento_valor': row[5]
+            }
+        return None
+
     def obtener_nivel_base(self) -> Optional[int]:
         """Devuelve el ID del nivel con tesoro_minimo más bajo (nivel base).
 
@@ -137,7 +159,7 @@ class NivelesRepository:
         """Obtiene un nivel por su ID."""
         if nivel_id is None:
             return None
-        query = "SELECT id, level, nombre_nivel, grafismo_nivel, tesoro_minimo, tipo_recompensa, detalle_recompensa, producto_sku, lore_recompensa FROM niveles_fidelidad WHERE id = ?"
+        query = "SELECT id, level, nombre_nivel, grafismo_nivel, tesoro_minimo, tipo_recompensa, detalle_recompensa, producto_sku, lore_recompensa, codigo_recompensa, descuento_tipo, descuento_valor FROM niveles_fidelidad WHERE id = ?"
         row = self.db.fetch_one(query, (nivel_id,))
         if row:
             return {
@@ -149,6 +171,9 @@ class NivelesRepository:
                 'tipo_recompensa': row[5],
                 'detalle_recompensa': row[6],
                 'producto_sku': row[7],
-                'lore_recompensa': row[8]
+                'lore_recompensa': row[8],
+                'codigo_recompensa': row[9],
+                'descuento_tipo': row[10],
+                'descuento_valor': row[11]
             }
         return None

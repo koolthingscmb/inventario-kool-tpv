@@ -165,8 +165,30 @@ class FidelizacionNivelesUI:
             font=get_font('entry', module=module_name),
             command=self._on_tipo_recompensa_change
         )
-        self.combo_tipo_recompensa.grid(row=1, column=3, columnspan=2, sticky='ew', padx=6, pady=6)
+        self.combo_tipo_recompensa.grid(row=1, column=3, columnspan=1, sticky='ew', padx=6, pady=6)
         self.combo_tipo_recompensa.set('')
+
+        # Nuevos campos para DESCUENTO (inicialmente ocultos)
+        self.descuento_fields_frame = ctk.CTkFrame(self.header_frame, fg_color='transparent')
+        self.descuento_fields_frame.grid(row=1, column=4, columnspan=1, sticky='ew', padx=6, pady=6)
+        
+        self.combo_descuento_tipo = ctk.CTkComboBox(
+            self.descuento_fields_frame,
+            values=['€', '%'],
+            width=60,
+            fg_color=bg,
+            button_color=self.colors.get('primary', '#FF9800'),
+            border_color=self.colors.get('border', self.colors.get('primary')),
+            text_color=self.colors.get('text'),
+            font=get_font('entry', module=module_name)
+        )
+        self.combo_descuento_tipo.pack(side='left', padx=(0, 4))
+        self.combo_descuento_tipo.set('€')
+
+        self.entry_descuento_valor = ctk.CTkEntry(self.descuento_fields_frame, width=80, **entry_kw)
+        self.entry_descuento_valor.pack(side='left')
+
+        self.descuento_fields_frame.grid_remove() # Ocultar por defecto
 
         ctk.CTkLabel(
             self.header_frame,
@@ -314,6 +336,12 @@ class FidelizacionNivelesUI:
             tipo_rec = nivel_completo.get('tipo_recompensa', '')
             self.combo_tipo_recompensa.set(tipo_rec if tipo_rec else '')
 
+            # Cargar campos de descuento si aplica
+            self.combo_descuento_tipo.set(nivel_completo.get('descuento_tipo') or '€')
+            self.entry_descuento_valor.delete(0, 'end')
+            desc_val = nivel_completo.get('descuento_valor') or 0.0
+            self.entry_descuento_valor.insert(0, str(desc_val) if desc_val else '')
+
             # Limpiar entry_detalle antes de cargar cualquier dato
             self.entry_detalle.configure(state='normal')
             self.entry_detalle.delete(0, 'end')
@@ -366,6 +394,8 @@ class FidelizacionNivelesUI:
         self._actualizar_preview_badge('')
         self.entry_puntos.delete(0, 'end')
         self.combo_tipo_recompensa.set('')
+        self.combo_descuento_tipo.set('€')
+        self.entry_descuento_valor.delete(0, 'end')
         self.entry_detalle.configure(state='normal')
         self.entry_detalle.delete(0, 'end')
         self._on_tipo_recompensa_change('')
@@ -404,6 +434,24 @@ class FidelizacionNivelesUI:
         tipo_rec = self.combo_tipo_recompensa.get().strip()
         detalle_rec = self.entry_detalle.get().strip()
 
+        # Generar código de recompensa si es descuento y no tiene uno
+        codigo_recompensa = self.selected_nivel.get('codigo_recompensa') if self.selected_nivel else None
+        descuento_tipo = None
+        descuento_valor = None
+
+        if tipo_rec == 'Descuento':
+            # Si no hay código previo, generar uno con prefijo 98
+            if not codigo_recompensa:
+                from kool_tpv.utils.barcode_gen_utils import generate_internal_number
+                codigo_recompensa = generate_internal_number(prefix="98")
+            
+            descuento_tipo = 'porcentaje' if self.combo_descuento_tipo.get() == '%' else 'directo'
+            try:
+                val_str = self.entry_descuento_valor.get().strip().replace(',', '.')
+                descuento_valor = float(val_str) if val_str else 0.0
+            except ValueError:
+                descuento_valor = 0.0
+
         # Concatenar lores con |||
         lores = []
         for tb in self.lore_textboxes:
@@ -420,7 +468,10 @@ class FidelizacionNivelesUI:
             'tipo_recompensa': tipo_rec if tipo_rec else None,
             'detalle_recompensa': detalle_rec if detalle_rec else None,
             'producto_sku': self.selected_producto_sku if tipo_rec == 'Artículo' else None,
-            'lore_recompensa': lore_recompensa
+            'lore_recompensa': lore_recompensa,
+            'codigo_recompensa': codigo_recompensa,
+            'descuento_tipo': descuento_tipo,
+            'descuento_valor': descuento_valor
         }
 
         # Guardar o actualizar
@@ -536,10 +587,17 @@ class FidelizacionNivelesUI:
         if value == 'Artículo':
             self.producto_search_frame.grid()
             self.producto_list_frame.grid()
+            self.descuento_fields_frame.grid_remove()
             self.entry_detalle.configure(state='disabled')
+        elif value == 'Descuento':
+            self.producto_search_frame.grid_remove()
+            self.producto_list_frame.grid_remove()
+            self.descuento_fields_frame.grid()
+            self.entry_detalle.configure(state='normal')
         else:
             self.producto_search_frame.grid_remove()
             self.producto_list_frame.grid_remove()
+            self.descuento_fields_frame.grid_remove()
             self.entry_detalle.configure(state='normal')
             self.selected_producto_sku = None
 

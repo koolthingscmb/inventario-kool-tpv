@@ -39,11 +39,12 @@ def calculate_ean13_checksum(code12: str) -> str:
     check_digit = (10 - (suma % 10)) % 10
     return str(check_digit)
 
-def generate_internal_number() -> str:
+def generate_internal_number(prefix: str = "99") -> str:
     """Genera un número EAN-13 válido (13 dígitos) para uso interno.
-    Formato: 99 + timestamp (YYMMDD) + 4 dígitos aleatorios + dígito control.
+    Formato: prefix + timestamp (YYMMDD) + 4 dígitos aleatorios + dígito control.
     """
-    prefix = "99"
+    if len(prefix) != 2:
+        prefix = "99"
     now = datetime.datetime.now()
     timestamp = now.strftime("%y%m%d") # 6 dígitos
     random_part = "".join([str(random.randint(0, 9)) for _ in range(4)]) # 4 dígitos

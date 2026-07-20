@@ -90,6 +90,7 @@ class VentaFidelizacionProcessor(VentaProcessor):
                             'detalle_recompensa': nivel_nue.get('detalle_recompensa', ''),
                             'producto_sku': producto_sku,
                             'nombre_producto': nombre_producto,
+                            'codigo_recompensa': nivel_nue.get('codigo_recompensa'),
                             'lore_recompensa': nivel_nue.get('lore_recompensa', '')
                         }
                         

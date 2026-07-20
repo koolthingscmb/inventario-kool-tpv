@@ -34,6 +34,7 @@ class NivelTicketGenerator(BaseTicketGenerator):
         tipo_recompensa = nivel_data.get('tipo_recompensa', '')
         detalle_recompensa = nivel_data.get('detalle_recompensa', '')
         nombre_producto = nivel_data.get('nombre_producto', '')
+        codigo_recompensa = nivel_data.get('codigo_recompensa')
 
         # Intenta formatear total_acumulado (XP) sin símbolo de moneda
         try:
@@ -94,5 +95,11 @@ class NivelTicketGenerator(BaseTicketGenerator):
             lines.extend(self._render_template(footer_val, context))
         else:
             lines.extend(self._format_footer(config))
+
+        # 4. Código de barras si es una recompensa escaneable
+        if codigo_recompensa:
+            lines.append('')
+            lines.append(f"{{{{BARCODE:{codigo_recompensa}}}}}")
+            lines.append('')
 
         return "\n".join(lines)

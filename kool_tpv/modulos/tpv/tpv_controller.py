@@ -154,6 +154,43 @@ class TpvController:
         """Callback cuando el escáner detecta un código de barras."""
         logger.info(f"TpvController: Procesando código escaneado: '{code}'")
         try:
+            # 1. ¿Es un código de descuento de fidelización (prefijo 98)?
+            if code.startswith('98'):
+                from kool_tpv.modulos.fidelizacion.niveles_repository import NivelesRepository
+                niv_repo = NivelesRepository(self.db)
+                nivel = niv_repo.get_nivel_por_barcode(code)
+                
+                if nivel and nivel.get('tipo_recompensa') == 'Descuento':
+                    from kool_tpv.utils.widgets.notificaciones import ToastWidget
+                    from decimal import Decimal
+                    
+                    carrito = getattr(self.view, 'carrito_service', None)
+                    if not carrito:
+                        return
+                    
+                    # No aplicar si el carrito está vacío
+                    if not carrito.get_items():
+                        ToastWidget.show(self.view, "CARRITO VACÍO: AÑADE PRODUCTOS PRIMERO", tipo='warning')
+                        return
+
+                    desc_tipo = nivel.get('descuento_tipo') # 'directo' o 'porcentaje'
+                    desc_valor = nivel.get('descuento_valor') or 0.0
+                    
+                    try:
+                        carrito.aplicar_descuento({
+                            'tipo': desc_tipo,
+                            'valor': Decimal(str(desc_valor))
+                        })
+                        self.view.actualizar_totales()
+                        ToastWidget.show(self.view, f"DESCUENTO APLICADO: {nivel['nombre_nivel']}", tipo='success')
+                    except ValueError as ve:
+                        ToastWidget.show(self.view, str(ve).upper(), tipo='error')
+                    except Exception:
+                        logger.exception("Error aplicando descuento desde barcode")
+                        ToastWidget.show(self.view, "ERROR AL APLICAR DESCUENTO", tipo='error')
+                    return
+
+            # 2. Flujo normal: buscar producto
             from kool_tpv.base_datos.producto_service import ProductoService
             producto_service = ProductoService(self.db)
             producto = producto_service.buscar_por_ean(code)

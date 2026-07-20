@@ -116,7 +116,29 @@ class EscPosRenderer:
             else:
                 normalized = normalized.replace('{{BADGE}}\n', '').replace('{{BADGE}}', '')
 
-        # Codificar el resto del texto (o todo si no había badge)
+        # Procesar posibles códigos de barras {{BARCODE:13DIGITS}}
+        import re
+        barcode_matches = re.findall(r'{{BARCODE:(\d{13})}}', normalized)
+        for code in barcode_matches:
+            try:
+                barcode_bytes = self.render_barcode_ean13(code)
+                if barcode_bytes:
+                    before, after = normalized.split(f'{{{{BARCODE:{code}}}}}', 1)
+                    if before:
+                        parts.append(self._encode_with_styles(before, bold_on, bold_off, fontb_on, fontb_off))
+                    
+                    parts.append(b"\n")
+                    parts.append(barcode_bytes)
+                    parts.append(b"\n")
+                    
+                    normalized = after.lstrip('\n')
+                else:
+                    normalized = normalized.replace(f'{{{{BARCODE:{code}}}}}', '')
+            except Exception:
+                self.logger.exception("Error renderizando barcode")
+                normalized = normalized.replace(f'{{{{BARCODE:{code}}}}}', '')
+
+        # Codificar el resto del texto (o todo si no había badge ni barcode)
         if normalized:
             parts.append(self._encode_with_styles(normalized, bold_on, bold_off, fontb_on, fontb_off))
 
@@ -165,6 +187,32 @@ class EscPosRenderer:
                 self.logger.exception("Error guardando ESC/POS dump en disco")
 
         return result
+
+    def render_barcode_ean13(self, code: str) -> bytes:
+        """Renderiza un código de barras EAN-13 usando comandos nativos ESC/POS."""
+        if not code or len(code) != 13 or not code.isdigit():
+            return b""
+        
+        parts = []
+        # 1. Centrar el código de barras
+        parts.append(self.ESC + b"a" + b"\x01")
+        
+        # 2. Configurar dimensiones
+        # GS h n (Altura: 1-255, default 162)
+        parts.append(self.GS + b"h" + b"\x60") # Altura 96px
+        # GS w n (Ancho módulo: 2-6, default 3)
+        parts.append(self.GS + b"w" + b"\x02") # Ancho 2 (más compacto)
+        # GS H n (HRI: 0=none, 1=above, 2=below, 3=both)
+        parts.append(self.GS + b"H" + b"\x02") # Debajo del código
+        
+        # 3. Imprimir el código (GS k m n d1...dn)
+        # m=67 (EAN13), n=13
+        parts.append(self.GS + b"k" + b"\x43" + b"\x0d" + code.encode('ascii'))
+        
+        # 4. Resetear alineación a la izquierda
+        parts.append(self.ESC + b"a" + b"\x00")
+        
+        return b"".join(parts)
 
     def render_qr_code(self, data: str, size: int = 6) -> bytes:
         """Genera QR Code usando comandos ESC/POS nativos.
