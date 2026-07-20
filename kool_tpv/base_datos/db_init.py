@@ -360,6 +360,23 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migration 028: columnas de descuento en niveles_fidelidad (codigo_recompensa, descuento_tipo, descuento_valor)
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('niveles_fidelidad')") or [])]
+			if 'codigo_recompensa' not in cols:
+				logging.info('Aplicando migración 028: columnas de descuento en niveles_fidelidad')
+				db.connection.execute('ALTER TABLE niveles_fidelidad ADD COLUMN codigo_recompensa TEXT')
+				db.connection.execute('ALTER TABLE niveles_fidelidad ADD COLUMN descuento_tipo TEXT')
+				db.connection.execute('ALTER TABLE niveles_fidelidad ADD COLUMN descuento_valor REAL')
+				db.connection.commit()
+				logging.info('Migración 028 (descuento en niveles_fidelidad) aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 028')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Validate again
 		try:
 			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table'")
