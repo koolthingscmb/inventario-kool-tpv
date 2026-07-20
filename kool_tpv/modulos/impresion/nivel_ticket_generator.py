@@ -70,9 +70,12 @@ class NivelTicketGenerator(BaseTicketGenerator):
                 
                 lines.append(self.DIVIDER)
                 # Ajuste de línea (wrapping) para que no corte palabras al borde
-                wrapped_lines = textwrap.wrap(selected_lore, width=self.WIDTH)
+                # Font B permite hasta ~56 caracteres. Usamos 50 para el wrap y centramos en 56.
+                wrapped_lines = textwrap.wrap(selected_lore, width=50)
                 for line in wrapped_lines:
-                    lines.append(f"{{{{FONTB_ON}}}}{line.strip()}{{{{FONTB_OFF}}}}")
+                    # Centramos el texto limpio y LUEGO ponemos las etiquetas de estilo
+                    centered_line = line.strip().center(56)
+                    lines.append(f"{{{{FONTB_ON}}}}{centered_line}{{{{FONTB_OFF}}}}")
                 lines.append(self.DIVIDER)
                 lines.append('') # Espacio extra tras la caja
 
