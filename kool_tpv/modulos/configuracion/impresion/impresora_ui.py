@@ -14,6 +14,7 @@ from kool_tpv.utils.config_loader import load_colors, create_action_button
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.base_datos.configuracion_repository import ConfiguracionRepository
+from kool_tpv.base_datos.configuracion_service import ConfiguracionService
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
 
 
@@ -22,6 +23,7 @@ class ImpresoraUI:
         self.parent = parent
         self.db = db
         self.config_repo = ConfiguracionRepository(db)
+        self.config_service = ConfiguracionService(db)
         try:
             self.colors = load_colors(module_name)
         except Exception:
@@ -388,294 +390,207 @@ class ImpresoraUI:
                 pass
 
     def _load_data(self):
-        """Cargar valores desde tabla configuracion."""
+        """Cargar valores usando el repositorio para mayor eficiencia y consistencia."""
         if not self.db:
             return
 
         try:
-            # Cargar printer_name
-            row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'printer_name'")
-            if row and row[0]:
+            claves = [
+                'printer_name', 'printer_width', 'modo_impresion', 'printer_codepage',
+                'logo_enabled', 'logo_filename', 'logo_nivel_enabled', 'logo_nivel_filename',
+                'qr_enabled', 'qr_url'
+            ]
+            config = self.config_repo.obtener_multiples(claves)
+
+            # 1. Nombre de impresora
+            p_name = config.get('printer_name')
+            if p_name:
                 try:
-                    self.cb_impresora.set(row[0])
+                    self.cb_impresora.set(p_name)
                 except Exception:
                     try:
-                        self.cb_impresora.configure(values=[row[0]])
+                        self.cb_impresora.configure(values=[p_name])
+                        self.cb_impresora.set(p_name)
                     except Exception:
                         pass
 
-            # Cargar printer_width
-            row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'printer_width'")
-            if row and row[0]:
+            # 2. Ancho papel
+            p_width = config.get('printer_width')
+            if p_width:
                 try:
-                    self.paper_width_var.set(row[0])
+                    self.paper_width_var.set(p_width)
                 except Exception:
                     pass
 
-            # Cargar modo_impresion (escpos o texto) y sincronizar label de estado
+            # 3. Modo impresión (escpos vs texto)
+            modo = config.get('modo_impresion', 'texto')
+            if modo == 'escpos':
+                try:
+                    self.switch_modo_fisico.select()
+                    self.lbl_modo_estado.configure(text='SÍ - Enviar a impresora térmica', text_color='#66FF66')
+                except Exception:
+                    pass
+            else:
+                try:
+                    self.switch_modo_fisico.deselect()
+                    self.lbl_modo_estado.configure(text='NO (solo simulación en pantalla)', text_color='#FF6666')
+                except Exception:
+                    pass
+
+            # 4. Codepage
+            cp = config.get('printer_codepage', 'cp858')
+            if cp in ('cp858', 'cp1252', 'cp437'):
+                try:
+                    self.codepage_var.set(cp)
+                    info_map = {
+                        'cp858': 'CP858: €, tildes, ñ (recomendado impresoras térmicas)',
+                        'cp1252': 'CP1252: €, tildes, ñ, puntos suspensivos (Windows)',
+                        'cp437': 'CP437: Sin €, compatible más antiguo (DOS)'
+                    }
+                    self.lbl_codepage_info.configure(text=info_map.get(cp, ''))
+                except Exception:
+                    pass
+
+            # 5. Logo Global
+            if config.get('logo_enabled') == '1':
+                try:
+                    self.switch_logo.select()
+                except Exception:
+                    pass
+            else:
+                try:
+                    self.switch_logo.deselect()
+                except Exception:
+                    pass
+
+            self.logo_filename = config.get('logo_filename')
+            if self.logo_filename:
+                base_dir = Path(__file__).resolve().parents[3]
+                logo_path = base_dir / 'assets' / 'logo' / self.logo_filename
+                if logo_path.exists():
+                    try:
+                        self._mostrar_preview(logo_path)
+                    except Exception:
+                        pass
+
+            # 6. Logo Level Up
+            if config.get('logo_nivel_enabled') == '1':
+                try:
+                    self.switch_logo_nivel.select()
+                except Exception:
+                    pass
+            else:
+                try:
+                    self.switch_logo_nivel.deselect()
+                except Exception:
+                    pass
+
+            self.logo_nivel_filename = config.get('logo_nivel_filename')
+            if self.logo_nivel_filename:
+                base_dir = Path(__file__).resolve().parents[3]
+                logo_path = base_dir / 'assets' / 'logo' / self.logo_nivel_filename
+                if logo_path.exists():
+                    try:
+                        self._mostrar_preview_nivel(logo_path)
+                    except Exception:
+                        pass
+
+            # 7. QR Code
+            if config.get('qr_enabled') == '1':
+                try:
+                    self.switch_qr.select()
+                except Exception:
+                    pass
+            else:
+                try:
+                    self.switch_qr.deselect()
+                except Exception:
+                    pass
+
+            qr_url = config.get('qr_url', '')
             try:
-                row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'modo_impresion'")
-                if row and row[0] == 'escpos':
-                    try:
-                        self.switch_modo_fisico.select()
-                        self.lbl_modo_estado.configure(
-                            text='SÍ - Enviar a impresora térmica',
-                            text_color='#66FF66'
-                        )
-                    except Exception:
-                        pass
-                else:
-                    try:
-                        self.switch_modo_fisico.deselect()
-                        self.lbl_modo_estado.configure(
-                            text='NO (solo simulación en pantalla)',
-                            text_color='#FF6666'
-                        )
-                    except Exception:
-                        pass
+                self.entry_qr_url.delete(0, 'end')
+                self.entry_qr_url.insert(0, qr_url)
             except Exception:
                 pass
 
-            # Cargar codepage (encoding para ESC/POS)
-            try:
-                row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'printer_codepage'")
-                if row and row[0]:
-                    codepage = row[0]
-                    if codepage in ('cp858', 'cp1252', 'cp437'):
-                        self.codepage_var.set(codepage)
-                        # Actualizar label informativo
-                        info_map = {
-                            'cp858': 'CP858: €, tildes, ñ (recomendado impresoras térmicas)',
-                            'cp1252': 'CP1252: €, tildes, ñ, puntos suspensivos (Windows)',
-                            'cp437': 'CP437: Sin €, compatible más antiguo (DOS)'
-                        }
-                        self.lbl_codepage_info.configure(text=info_map.get(codepage, ''))
-            except Exception:
-                pass
-
-            # Cargar logo_enabled
-            try:
-                row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'logo_enabled'")
-                if row and row[0] == '1':
-                    try:
-                        self.switch_logo.select()
-                    except Exception:
-                        pass
-                else:
-                    try:
-                        self.switch_logo.deselect()
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-
-            # Cargar logo_filename y mostrar preview
-            try:
-                row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'logo_filename'")
-                if row and row[0]:
-                    self.logo_filename = row[0]
-                    base_dir = Path(__file__).resolve().parents[3]
-                    logo_path = base_dir / 'assets' / 'logo' / self.logo_filename
-                    if logo_path.exists():
-                        try:
-                            self._mostrar_preview(logo_path)
-                        except Exception:
-                            pass
-            except Exception:
-                pass
-
-            # Cargar logo_nivel_enabled
-            try:
-                row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'logo_nivel_enabled'")
-                if row and row[0] == '1':
-                    try:
-                        self.switch_logo_nivel.select()
-                    except Exception:
-                        pass
-                else:
-                    try:
-                        self.switch_logo_nivel.deselect()
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-
-            # Cargar logo_nivel_filename y mostrar preview
-            try:
-                row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'logo_nivel_filename'")
-                if row and row[0]:
-                    self.logo_nivel_filename = row[0]
-                    base_dir = Path(__file__).resolve().parents[3]
-                    logo_path = base_dir / 'assets' / 'logo' / self.logo_nivel_filename
-                    if logo_path.exists():
-                        try:
-                            self._mostrar_preview_nivel(logo_path)
-                        except Exception:
-                            pass
-            except Exception:
-                pass
-
-            # Cargar qr_enabled
-            try:
-                row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'qr_enabled'")
-                if row and row[0] == '1':
-                    try:
-                        self.switch_qr.select()
-                    except Exception:
-                        pass
-                else:
-                    try:
-                        self.switch_qr.deselect()
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-
-            # Cargar qr_url
-            try:
-                row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'qr_url'")
-                if row and row[0]:
-                    try:
-                        self.entry_qr_url.delete(0, 'end')
-                        self.entry_qr_url.insert(0, row[0])
-                    except Exception:
-                        pass
-            except Exception:
-                pass
         except Exception:
-            logging.exception('Error cargando datos impresora')
+            logging.exception('Error cargando datos en ImpresoraUI via Repository')
 
     def _on_save(self):
-        """Guardar configuración en BD."""
+        """Guardar configuración de forma atómica usando el repositorio."""
         if not self.db:
             return
 
         try:
-            cambios = {}
+            cambios = {
+                'printer_name': self.cb_impresora.get(),
+                'printer_width': self.paper_width_var.get(),
+                'modo_impresion': 'escpos' if self.switch_modo_fisico.get() else 'texto',
+                'printer_codepage': self.codepage_var.get() or 'cp858',
+                'logo_enabled': '1' if self.switch_logo.get() else '0',
+                'logo_nivel_enabled': '1' if self.switch_logo_nivel.get() else '0',
+                'qr_enabled': '1' if self.switch_qr.get() else '0',
+                'qr_url': self.entry_qr_url.get().strip()
+            }
 
-            # printer_name
-            cambios['printer_name'] = self.cb_impresora.get()
-
-            # printer_width
-            cambios['printer_width'] = self.paper_width_var.get()
-
-            # modo_impresion (escpos o texto)
-            try:
-                cambios['modo_impresion'] = 'escpos' if self.switch_modo_fisico.get() else 'texto'
-            except Exception:
-                cambios['modo_impresion'] = 'texto'
-
-            # printer_codepage (cp858, cp1252, cp437)
-            try:
-                codepage = self.codepage_var.get()
-                if codepage in ('cp858', 'cp1252', 'cp437'):
-                    cambios['printer_codepage'] = codepage
-                else:
-                    cambios['printer_codepage'] = 'cp858'
-            except Exception:
-                cambios['printer_codepage'] = 'cp858'
-
-            # logo_enabled
-            try:
-                cambios['logo_enabled'] = '1' if self.switch_logo.get() else '0'
-            except Exception:
-                cambios['logo_enabled'] = '0'
-
-            # logo_filename (solo si tiene valor)
-            try:
-                if self.logo_filename:
-                    cambios['logo_filename'] = self.logo_filename
-            except Exception:
-                pass
-
-            # logo_nivel_enabled
-            try:
-                cambios['logo_nivel_enabled'] = '1' if self.switch_logo_nivel.get() else '0'
-            except Exception:
-                cambios['logo_nivel_enabled'] = '0'
-
-            # logo_nivel_filename
-            try:
-                if self.logo_nivel_filename:
-                    cambios['logo_nivel_filename'] = self.logo_nivel_filename
-            except Exception:
-                pass
-
-            # qr_enabled
-            try:
-                cambios['qr_enabled'] = '1' if self.switch_qr.get() else '0'
-            except Exception:
-                cambios['qr_enabled'] = '0'
-
-            # qr_url (solo si tiene valor)
-            try:
-                qr_url = self.entry_qr_url.get().strip()
-                if qr_url:
-                    cambios['qr_url'] = qr_url
-            except Exception:
-                pass
+            if self.logo_filename:
+                cambios['logo_filename'] = self.logo_filename
+            
+            if self.logo_nivel_filename:
+                cambios['logo_nivel_filename'] = self.logo_nivel_filename
 
             self.config_repo.guardar_multiples(cambios)
-
             ToastWidget.show(self.parent, 'Configuración de impresora guardada', tipo='success')
 
         except Exception:
+            logging.exception('Error en _on_save de ImpresoraUI')
             from kool_tpv.utils.custom_dialog import show_error
-            show_error(self.container, 'Error', 'No se pudo guardar')
+            show_error(self.container, 'Error', 'No se pudo guardar la configuración')
 
     def _test_impresion(self):
-        """Imprimir ticket de prueba."""
+        """Imprimir ticket de prueba usando el servicio real de impresión."""
         try:
+            from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
+            from kool_tpv.modulos.impresion.ticket_type import TicketType
+            
+            # Instanciar servicio (usará el modo que acabamos de guardar o el que esté en BD)
+            imp_svc = ImpresoraService(db=self.db)
+            
             printer_name = self.cb_impresora.get()
-
             if not printer_name or printer_name == 'Sin impresoras detectadas':
-                from kool_tpv.utils.widgets.notificaciones import show_warning
-                show_warning(self.container, 'Selecciona una impresora primero')
+                ToastWidget.show(self.parent, 'Selecciona una impresora primero', tipo='warning')
                 return
 
-            # Generar ticket test
-            ticket_text = f"""
-            ================================
-                  TEST - KOOL TPV
-            ================================
-            Fecha: {self._get_fecha_actual()}
-            Impresora: {printer_name}
-            Ancho: {self.paper_width_var.get()}mm
-            --------------------------------
-            Impresora funcionando OK
-            ================================
-            """
+            # Datos dummy para el test
+            test_data = {
+                'num_ticket': 'TEST-0001',
+                'fecha': datetime.now().strftime('%d/%m/%Y'),
+                'hora': datetime.now().strftime('%H:%M'),
+                'cajero': 'ADMIN'
+            }
+            
+            items = [
+                {'nombre': 'PRODUCTO TEST', 'pvp': 10.0, 'cantidad': 1, 'total_linea': 10.0}
+            ]
 
-            # Intentar imprimir
-            try:
-                # Windows
-                import win32print
-                import win32ui
+            # Intentar imprimir usando la lógica real del sistema
+            res = imp_svc.imprimir(
+                ticket_type=TicketType.VENTA,
+                data=test_data,
+                items=items,
+                printer_name=printer_name
+            )
 
-                hprinter = win32print.OpenPrinter(printer_name)
-                try:
-                    hdc = win32ui.CreateDC()
-                    hdc.CreatePrinterDC(printer_name)
-                    hdc.StartDoc('Test KOOL TPV')
-                    hdc.StartPage()
-                    hdc.TextOut(100, 100, ticket_text)
-                    hdc.EndPage()
-                    hdc.EndDoc()
-                finally:
-                    win32print.ClosePrinter(hprinter)
-
-                ToastWidget.show(self.parent, 'Ticket de prueba enviado', tipo='success')
-
-            except Exception:
-                # Fallback: mostrar en consola
-                logging.info(f'TEST IMPRESIÓN:\n{ticket_text}')
-                from kool_tpv.utils.widgets.notificaciones import show_warning
-                show_warning(self.container, 'Test enviado a logs (win32print no disponible)')
+            if res:
+                ToastWidget.show(self.parent, f'Ticket de prueba enviado a {printer_name}', tipo='success')
+            else:
+                ToastWidget.show(self.parent, 'Error al generar ticket de prueba', tipo='error')
 
         except Exception:
             logging.exception('Error en test de impresión')
             from kool_tpv.utils.custom_dialog import show_error
-            show_error(self.container, 'Error', 'Error en test de impresión')
+            show_error(self.container, 'Error', 'No se pudo realizar el test de impresión')
 
     def _seleccionar_logo(self):
         """Abrir diálogo, copiar imagen a assets/logo/ y mostrar preview."""
