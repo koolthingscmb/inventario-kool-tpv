@@ -665,10 +665,17 @@ class ClientesTicketsUI(PaginaConVisor):
                     logger.exception('Error leyendo ticket_text fallback para imprimir')
 
             if texto:
+                # Intentar obtener el badge del cliente para la reimpresión
+                badge_path = None
+                try:
+                    badge_path = imp.get_badge_path_for_ticket(ticket_id)
+                except Exception:
+                    logger.debug(f"No se pudo obtener badge para ticket {ticket_id}")
+
                 try:
                     if modo_impresion == 'escpos':
                         logger.info(" ENVIANDO A IMPRESORA: %s ", printer_name or 'NO CONFIGURADA')
-                    imp._imprimir_texto_generico(texto, {'num_ticket': ticket_id}, printer_name)
+                    imp._imprimir_texto_generico(texto, {'num_ticket': ticket_id}, printer_name, badge_path=badge_path)
                 except Exception:
                     try:
                         print('\n' + '='*50)
