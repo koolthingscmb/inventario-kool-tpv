@@ -184,6 +184,8 @@ class FidelizacionRepository:
             row = cur.fetchone()
             nivel_anterior_id = row[0] if row else None
             total_compras_previo = row[2] if row and row[2] is not None else 0
+            
+            logger.debug(f"DEBUG FISCAL: cliente={cliente_id}, nivel_ant={nivel_anterior_id}, compras_prev={total_compras_previo}")
 
             # If we're already inside a transaction, reuse it; otherwise start one.
             in_tx = getattr(self.db.connection, 'in_transaction', False)
@@ -240,13 +242,23 @@ class FidelizacionRepository:
 
             # Si es la primera compra del cliente, forzar subida_nivel a True para imprimir ticket de bienvenida
             es_primera_compra = (total_compras_previo == 0)
+            
+            # Asegurar que nivel_nuevo_id no sea None si estamos forzando primera compra
+            # (Si es None, intentamos obtener el nivel base)
+            if es_primera_compra and nivel_nuevo_id is None:
+                cur.execute("SELECT id FROM niveles_fidelidad ORDER BY tesoro_minimo ASC LIMIT 1")
+                row_base = cur.fetchone()
+                if row_base:
+                    nivel_nuevo_id = row_base[0]
 
-            return {
+            res = {
                 'subida_nivel': ((nivel_nuevo_id != nivel_anterior_id) or es_primera_compra) and nivel_nuevo_id is not None,
                 'nivel_anterior_id': nivel_anterior_id,
                 'nivel_nuevo_id': nivel_nuevo_id,
                 'tesoro_historico': tesoro_historico
             }
+            logger.debug(f"DEBUG FISCAL RESULT: {res}")
+            return res
 
         except Exception:
             try:
