@@ -151,7 +151,7 @@ class ImportarAlbaranUI:
 
         # Tabla NavList para preview de líneas (todas las columnas de BD + ESTADO)
         self.columns = [
-            ('EAN', 120), ('NOMBRE', 600), ('ESTADO', 80), ('UDS', 50),
+            ('EAN', 160), ('NOMBRE', 450), ('ESTADO', 95), ('UDS', 50),
             ('COSTE', 80), ('%IVA', 45), ('IVA', 70), ('PVPR', 80), ('TOTAL', 80)
         ]
 
@@ -340,7 +340,7 @@ class ImportarAlbaranUI:
 
             row_data = {
                 'EAN': linea.ean,
-                'NOMBRE': linea.nombre[:30],
+                'NOMBRE': linea.nombre[:60],
                 'ESTADO': estado,
                 'UDS': str(linea.cantidad),
                 'COSTE': f'{coste:.2f}',
@@ -527,7 +527,7 @@ class ImportarAlbaranUI:
         # Tabla de productos
         self.nav_list_crear = VirtualNavList(
             self.container,
-            columns=[('EAN', 120), ('NOMBRE', 900), ('ESTADO', 100)],
+            columns=[('EAN', 165), ('NOMBRE', 1350), ('ESTADO', 100)],
             module_name=self.module_name,
             keyboard_manager=None,
             on_select=self._on_seleccionar_producto,
@@ -545,14 +545,14 @@ class ImportarAlbaranUI:
         row1 = ctk.CTkFrame(panel_frame, fg_color='transparent')
         row1.pack(fill='x', padx=10, pady=5)
         ctk.CTkLabel(row1, text='EAN:', font=(label_font['family'], label_font['size']), width=80, anchor='e').pack(side='left')
-        self.entry_ean = ctk.CTkEntry(row1, font=(entry_font['family'], entry_font['size']), state='readonly', width=200)
+        self.entry_ean = ctk.CTkEntry(row1, font=(entry_font['family'], entry_font['size']), state='readonly', width=270)
         self.entry_ean.pack(side='left', padx=5)
 
         # Nombre (editable)
         row2 = ctk.CTkFrame(panel_frame, fg_color='transparent')
         row2.pack(fill='x', padx=10, pady=5)
         ctk.CTkLabel(row2, text='Nombre:', font=(label_font['family'], label_font['size']), width=80, anchor='e').pack(side='left')
-        self.entry_nombre = ctk.CTkEntry(row2, font=(entry_font['family'], entry_font['size']), width=400)
+        self.entry_nombre = ctk.CTkEntry(row2, font=(entry_font['family'], entry_font['size']), width=600)
         self.entry_nombre.pack(side='left', padx=5, fill='x', expand=True)
         self.entry_nombre.bind('<FocusOut>', lambda e: self._auto_generate_sku())
         self.entry_nombre.bind('<Return>', self._on_guardar_producto)
@@ -736,7 +736,7 @@ class ImportarAlbaranUI:
 
             row = {
                 'EAN': ean,
-                'NOMBRE': data['nombre'][:40],
+                'NOMBRE': data['nombre'][:120],
                 'ESTADO': estado
             }
             rows.append(row)
@@ -1057,7 +1057,7 @@ class ImportarAlbaranUI:
         self.nav_list_albaran = VirtualNavList(
             self.container,
             columns=[
-                ('EAN', 120), ('NOMBRE', 220), ('UDS', 50),
+                ('EAN', 165), ('NOMBRE', 330), ('UDS', 50),
                 ('COSTE', 80), ('%IVA', 45), ('IVA', 70), ('PVPR', 80), ('TOTAL', 80)
             ],
             module_name=self.module_name,
@@ -1101,7 +1101,7 @@ class ImportarAlbaranUI:
 
             row_data = {
                 'EAN': linea.ean,
-                'NOMBRE': linea.nombre[:35],
+                'NOMBRE': linea.nombre[:60],
                 'UDS': str(linea.cantidad),
                 'COSTE': f'{coste:.2f}',
                 '%IVA': f'{linea.tipo_iva}%',
