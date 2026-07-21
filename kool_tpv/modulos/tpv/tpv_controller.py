@@ -56,6 +56,10 @@ class TpvController:
         # Payment controllers (dict)
         self.payment_controllers = {}
 
+        # Servicio de Pedidos (para match automático)
+        from kool_tpv.modulos.clientes.services.pedidos_service import PedidosService
+        self.pedidos_service = PedidosService(db)
+
         # Barcode service
         self._barcode_service = None
 
@@ -321,6 +325,7 @@ class TpvController:
 
         if carrito.add_item(producto, parent_window=self.view):
             logger.info('Producto añadido al carrito -> %s', producto.get('nombre'))
+            
             # Actualizar ticket visual
             ticket = getattr(self.view, 'ticket_carrito', None)
             if ticket and hasattr(ticket, 'update_carrito'):
@@ -335,6 +340,64 @@ class TpvController:
                         current_view.on_add_callback()
             except Exception:
                 pass
+
+    def _comprobar_pedido_especial(self, items: list):
+        """Busca pedidos pendientes para los productos vendidos y pregunta al usuario."""
+        if not items: return
+        
+        try:
+            # Recopilar todos los producto_id vendidos
+            producto_ids = set()
+            for item in items:
+                p_id = item.get('id')
+                if p_id: producto_ids.add(p_id)
+            
+            if not producto_ids: return
+
+            # Obtener todas las líneas de pedido pendientes para estos productos
+            todas_las_lineas = []
+            for p_id in producto_ids:
+                lineas = self.pedidos_service.get_lineas_pendientes_por_producto(p_id)
+                for l in lineas:
+                    # Añadir nombre del producto para el mensaje
+                    prod_name = next((it.get('nombre') for it in items if it.get('id') == p_id), "Producto")
+                    todas_las_lineas.append({**l, 'producto_nombre': prod_name})
+
+            if not todas_las_lineas: return
+            
+            from kool_tpv.utils.custom_dialog import show_warning
+            
+            def procesar_lineas(index):
+                if index >= len(todas_las_lineas): return
+                
+                lin = todas_las_lineas[index]
+                cliente = lin.get('cliente_nombre') or lin.get('contacto_nombre') or "Anon"
+                msg = f"¿EL PRODUCTO '{lin['producto_nombre'].upper()}'\nCORRESPONDE AL PEDIDO DE: {cliente.upper()}?"
+                
+                def on_confirm(confirmed):
+                    if confirmed:
+                        # Marcar como entregado
+                        if self.pedidos_service.actualizar_estado_linea(lin['linea_id'], 'entregado'):
+                            ToastWidget.show(self.view, f"PEDIDO DE {cliente.upper()} MARCADO COMO ENTREGADO", tipo='success')
+                        else:
+                            ToastWidget.show(self.view, "ERROR AL ACTUALIZAR PEDIDO", tipo='error')
+                    
+                    # Siempre preguntar por la siguiente línea (haya confirmado o no la anterior)
+                    procesar_lineas(index + 1)
+                
+                show_warning(
+                    parent=self.view,
+                    titulo="PEDIDO ESPECIAL DETECTADO",
+                    mensaje=msg,
+                    confirm=True,
+                    callback=on_confirm
+                )
+            
+            # Iniciar secuencia de preguntas
+            procesar_lineas(0)
+            
+        except Exception:
+            logger.exception("Error comprobando pedidos especiales tras venta")
 
     def setup_services(self):
         """Instanciar servicios de negocio."""
@@ -1201,6 +1264,9 @@ class TpvController:
 
                 # Extraer datos para resumen ANTES de limpiar carrito
                 resumen_data = self._build_resumen_data(ticket_data, num_ticket, forma_pago, efectivo)
+                
+                # Copiar items antes de limpiar el carrito para comprobar pedidos especiales
+                items_vendidos = carrito_service.get_items()
 
                 # Limpiar carrito
                 carrito_service.clear()
@@ -1233,6 +1299,9 @@ class TpvController:
 
                 # Detectar productos para reposición (después de imprimir)
                 self._detectar_productos_producibles(ticket_id)
+
+                # Comprobar si corresponden a pedidos especiales (después de finalizar la venta)
+                self._comprobar_pedido_especial(items_vendidos)
             else:
                 # Mostrar error
                 error_msg = result.get('error', 'Error desconocido')

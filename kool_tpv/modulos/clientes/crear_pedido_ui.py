@@ -13,6 +13,7 @@ from kool_tpv.utils.config_loader import load_colors, load_layout_config, create
 from kool_tpv.utils.widgets.searchable_paginated_navlist import SearchablePaginatedNavList
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.base_datos.usuario_service import UsuarioService
 from kool_tpv.base_datos.proveedor_service import ProveedorService
 from kool_tpv.modulos.almacen.tipo_repository import TipoRepository
@@ -43,6 +44,7 @@ class CrearPedidoUI:
         self.selected_cliente = None
         self.selected_producto = None
         self.lineas_widgets = [] # List of dicts with entries
+        self.current_estado = 'pendiente'
         
         self._build_ui()
         
@@ -105,16 +107,21 @@ class CrearPedidoUI:
         zone2.pack_propagate(False)
         zone2.configure(height=200)
         
+        row_busqueda_cli = ctk.CTkFrame(zone2, fg_color='transparent')
+        row_busqueda_cli.pack(fill='x', pady=(0, 5))
+        
+        ctk.CTkLabel(row_busqueda_cli, text="BUSCAR CLIENTE:").pack(side='left', padx=5)
+        
         self.search_cli_var = tk.StringVar()
         entry_cli = ctk.CTkEntry(
-            zone2, textvariable=self.search_cli_var,
-            placeholder_text="BUSCAR CLIENTE (Enter)...",
+            row_busqueda_cli, textvariable=self.search_cli_var,
+            placeholder_text="Nombre, Teléfono, Email (Enter)...",
             fg_color=self.colors_clientes.get('background'),
             text_color=self.colors_clientes.get('text'),
             border_color=self.colors_clientes.get('primary'),
             height=35
         )
-        entry_cli.pack(fill='x', pady=(0, 5))
+        entry_cli.pack(side='left', fill='x', expand=True, padx=5)
         entry_cli.bind('<Return>', lambda e: self.nav_cli.search(self.search_cli_var.get()))
         
         cols_cli = [('id', 50, 'ID'), ('nombre', 300, 'CLIENTE'), ('telefono', 140, 'TELÉFONO'), ('email', 250, 'EMAIL')]
@@ -135,18 +142,32 @@ class CrearPedidoUI:
         header_grid = ctk.CTkFrame(zone3, fg_color='transparent')
         header_grid.pack(fill='x', pady=5)
         ctk.CTkLabel(header_grid, text="DATOS DEL PEDIDO", font=('Arial', 14, 'bold')).pack(side='left', padx=5)
-        ctk.CTkButton(header_grid, text="+ AÑADIR PRODUCTO", width=150, command=self._add_producto_row,
-                      fg_color="#00A4DF").pack(side='right')
+        
+        # Label de Pedido Finalizado (oculto por defecto)
+        self.lbl_finalizado = ctk.CTkLabel(
+            header_grid, text="PEDIDO FINALIZADO", 
+            font=('Arial', 14, 'bold'),
+            text_color="#FF4444" # Rojo
+        )
+        # Se posiciona pero no se muestra inicialmente
+        
+        ButtonFactory.create_button(
+            parent=header_grid,
+            text="+ AÑADIR PRODUCTO",
+            command=self._add_producto_row,
+            style_key='action_primary',
+            width=150
+        ).pack(side='right')
 
         # Fila 1: Datos Cliente (Fija)
         self.cli_row = ctk.CTkFrame(zone3, fg_color='#333333', height=60)
         self.cli_row.pack(fill='x', pady=2)
         
         ctk.CTkLabel(self.cli_row, text="CLIENTE:", width=80).pack(side='left', padx=5)
-        self.e_cli_nombre = ctk.CTkEntry(self.cli_row, placeholder_text="Nombre...", width=270) # +35% (200 * 1.35)
+        self.e_cli_nombre = ctk.CTkEntry(self.cli_row, placeholder_text="Nombre...", width=200) # Reducido 25% (270 -> 200)
         self.e_cli_nombre.pack(side='left', padx=5)
         ctk.CTkLabel(self.cli_row, text="TELÉFONO:", width=80).pack(side='left', padx=5)
-        self.e_cli_tel = ctk.CTkEntry(self.cli_row, placeholder_text="Teléfono...", width=150)
+        self.e_cli_tel = ctk.CTkEntry(self.cli_row, placeholder_text="Teléfono...", width=110) # Reducido 25% (150 -> 110)
         self.e_cli_tel.pack(side='left', padx=5)
         ctk.CTkLabel(self.cli_row, text="EMAIL:", width=60).pack(side='left', padx=5)
         self.e_cli_mail = ctk.CTkEntry(self.cli_row, placeholder_text="Email...", width=200)
@@ -181,21 +202,21 @@ class CrearPedidoUI:
         e_sku.bind('<Return>', lambda e, r=row: self._on_sku_enter(e, r))
 
         ctk.CTkLabel(row, text="PRODUCTO:", width=80).pack(side='left', padx=2)
-        e_prod = ctk.CTkEntry(row, placeholder_text="Producto...", width=300)
+        e_prod = ctk.CTkEntry(row, placeholder_text="Producto...", width=240) # Reducido 20% (300 -> 240)
         e_prod.pack(side='left', padx=2)
         
-        ctk.CTkLabel(row, text="TIPO:", width=50).pack(side='left', padx=2)
+        ctk.CTkLabel(row, text="TIPO:", width=40).pack(side='left', padx=2)
         # SearchableCombo para Tipo
         tipos = self.tipo_repo.get_all()
         tipo_opts = [(t['id'], t['nombre']) for t in tipos]
-        cb_tipo = SearchableCombo(row, options=tipo_opts, width=150, placeholder="Tipo...")
+        cb_tipo = SearchableCombo(row, options=tipo_opts, width=100, placeholder="Tipo...") # Reducido 30% (150 -> 100)
         cb_tipo.pack(side='left', padx=2)
         
-        ctk.CTkLabel(row, text="PROVEEDOR:", width=80).pack(side='left', padx=2)
+        ctk.CTkLabel(row, text="PROV:", width=40).pack(side='left', padx=2)
         # SearchableCombo para Proveedor
         provs = self.prov_service.get_all_proveedores()
         prov_opts = [(p['id'], p['nombre']) for p in provs]
-        cb_prov = SearchableCombo(row, options=prov_opts, width=180, placeholder="Proveedor...")
+        cb_prov = SearchableCombo(row, options=prov_opts, width=120, placeholder="Prov...") # Reducido 30% (180 -> 120)
         cb_prov.pack(side='left', padx=2)
         
         ctk.CTkLabel(row, text="CANT:", width=40).pack(side='left', padx=2)
@@ -341,11 +362,15 @@ class CrearPedidoUI:
             'contacto_email': self.e_cli_mail.get().strip(),
             'notas_generales': self.e_cli_nota.get().strip(),
             'usuario_id': self.cb_usuario.get_id(),
-            'estado': 'pendiente' # Se podría cargar el estado actual si es edición
+            'estado': self.current_estado
         }
         
         if not cab['contacto_nombre']:
             ToastWidget.show(self.container, "Falta nombre del cliente", tipo='error')
+            return
+            
+        if not cab['usuario_id']:
+            ToastWidget.show(self.container, "Debe introducir un Usuario", tipo='error')
             return
             
         # 2. Líneas
@@ -388,6 +413,14 @@ class CrearPedidoUI:
             return
         
         # 1. Rellenar cabecera
+        self.current_estado = pedido.get('estado', 'pendiente')
+        
+        # Mostrar label si está finalizado
+        if self.current_estado == 'entregado':
+            self.lbl_finalizado.pack(side='left', padx=20)
+        else:
+            self.lbl_finalizado.pack_forget()
+
         self.e_cli_nombre.delete(0, 'end')
         self.e_cli_nombre.insert(0, pedido.get('contacto_nombre', ''))
         self.e_cli_tel.delete(0, 'end')

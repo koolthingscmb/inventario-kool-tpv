@@ -150,15 +150,11 @@ class PedidosUI:
         estado_id = pedido.get('estado', 'pendiente')
         estado_txt = estado_id.upper()
         
-        # Color según estado
-        estados_cfg = {e['id']: e['color'] for e in self.service.get_estados()}
-        color = estados_cfg.get(estado_id, '#FFFFFF')
-        
-        # Si está en stock, resaltar
-        if estado_id == 'en_stock':
-            estado_txt = "★ EN STOCK ★"
+        # Si es distribuidor, resaltar
+        if estado_id == 'distribuidor':
+            estado_txt = "★ DISTRIBUIDOR ★"
 
-        return {
+        mapped = {
             'id': str(pedido.get('id')),
             'fecha_pedido': fecha,
             'cliente_nombre': pedido.get('cliente_nombre') or pedido.get('contacto_nombre') or 'Anon',
@@ -166,9 +162,16 @@ class PedidosUI:
             'num_lineas': str(pedido.get('num_lineas', 0)),
             'estado': estado_txt,
             'notas': pedido.get('notas_generales') or '',
-            '_row_color': color,
             '_data': pedido
         }
+
+        # Color de texto si está entregado (usando color de la config global si es posible)
+        if estado_id == 'entregado':
+            global_colors = load_colors('global')
+            # text_disabled suele ser un gris oscuro/medio apropiado
+            mapped['_row_fg'] = global_colors.get('text_disabled', '#666666')
+        
+        return mapped
 
     def _on_cambiar_estado(self):
         """Cambiar el estado del pedido seleccionado al estado elegido en el combo."""

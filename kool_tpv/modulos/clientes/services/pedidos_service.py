@@ -36,7 +36,7 @@ class PedidosService:
             if lin.get('producto_id'):
                 prod = prod_service.get_producto_completo(lin['producto_id'])
                 if prod and prod.get('stock_actual', 0) >= lin.get('cantidad', 1):
-                    lin['estado_linea'] = 'en_stock'
+                    lin['estado_linea'] = 'distribuidor'
 
         pedido_id = self.repo.guardar_pedido_completo(cabecera, lineas)
         if pedido_id:
@@ -51,6 +51,10 @@ class PedidosService:
         """Actualizar el estado del pedido (cabecera)."""
         return self.repo.actualizar_estado_pedido(pedido_id, nuevo_estado)
 
+    def get_lineas_pendientes_por_producto(self, producto_id: int) -> List[Dict[str, Any]]:
+        """Obtener líneas pendientes asociadas a un producto."""
+        return self.repo.get_lineas_pendientes_por_producto(producto_id)
+
     def actualizar_pedidos_por_stock(self, producto_ids: List[int]) -> int:
         """Llamado desde AlbaranService para actualizar estados de líneas."""
         return self.repo.actualizar_lineas_por_stock(producto_ids)
@@ -58,7 +62,7 @@ class PedidosService:
     def get_estados(self) -> List[Dict[str, str]]:
         return [
             {'id': 'pendiente', 'nombre': 'PENDIENTE', 'color': '#FFBB00'},
-            {'id': 'en_stock', 'nombre': 'EN STOCK', 'color': '#00CC66'},
+            {'id': 'distribuidor', 'nombre': 'DISTRIBUIDOR', 'color': '#00CC66'},
             {'id': 'avisado', 'nombre': 'AVISADO', 'color': '#00A4DF'},
             {'id': 'entregado', 'nombre': 'ENTREGADO', 'color': '#888888'},
             {'id': 'cancelado', 'nombre': 'CANCELADO', 'color': '#FF4444'}

@@ -47,6 +47,8 @@ class ClickableBreadcrumb(ctk.CTkFrame):
                 continue
             if widget is getattr(self, '_btn_reposicion_ref', None):
                 continue
+            if widget is getattr(self, '_btn_pedidos_ref', None):
+                continue
             widget.destroy()
         for i, (text, callback) in enumerate(parts):
             if i > 0:
@@ -156,6 +158,23 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
         )
         self.btn_reposicion.pack(side="right", padx=4)
         self.breadcrumb._btn_reposicion_ref = self.btn_reposicion
+
+        self.btn_pedidos = ButtonFactory.create_button(
+            parent=self.breadcrumb,
+            text="PEDIDOS",
+            command=self._abrir_pedidos,
+            color="#000000",
+            hover_color="#827314",
+            text_color="#E3C509",
+            border_color="#E3C509",
+            border_width=2,
+            corner_radius=12,
+            width=100,
+            height=36,
+            font=(bread_cfg.get("family", "Courier New"), 14, "bold")
+        )
+        self.btn_pedidos.pack(side="right", padx=4)
+        self.breadcrumb._btn_pedidos_ref = self.btn_pedidos
 
         self.grid_frame = ctk.CTkFrame(self.center_area, fg_color="transparent")
         self.grid_frame.pack(side="top", fill="both", expand=True, padx=20, pady=20)
@@ -398,7 +417,7 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
             
             # Abrir subvista de lista de pendientes
             view = ReposicionPendientesUI(
-                parent=self.grid_frame.master, 
+                parent=self.center_area, 
                 db=self.db,
                 carrito_service=self.carrito_service,
                 view=self
@@ -407,6 +426,66 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
             
         except Exception:
             logging.exception("Error al abrir reposición")
+
+    def _abrir_pedidos(self):
+        """Abrir subvista de pedidos de clientes."""
+        try:
+            from kool_tpv.modulos.clientes.pedidos_ui import PedidosUI
+            
+            # Obtener keyboard manager si existe
+            km = None
+            try:
+                root = self.winfo_toplevel()
+                km = getattr(root, 'keyboard_manager', None) or getattr(root, 'keyboard_mgr', None)
+            except Exception: pass
+
+            pedidos_ui = PedidosUI(
+                parent=self.center_area,
+                db=self.db,
+                owner=self,
+                module_name='clientes',
+                keyboard_manager=km
+            )
+            
+            # PedidosUI.get_widget() devuelve el frame contenedor
+            widget = pedidos_ui.get_widget()
+            self.push_subview(widget, "PEDIDOS CLIENTES")
+            
+        except Exception:
+            logging.exception("Error al abrir pedidos desde TPV")
+
+    def show_crear_pedido(self, cliente_id: Optional[int] = None, pedido_id: Optional[int] = None):
+        """Método requerido por PedidosUI para abrir la edición/creación."""
+        try:
+            from kool_tpv.modulos.clientes.crear_pedido_ui import CrearPedidoUI
+            
+            # Obtener keyboard manager
+            km = None
+            try:
+                root = self.winfo_toplevel()
+                km = getattr(root, 'keyboard_manager', None) or getattr(root, 'keyboard_mgr', None)
+            except Exception: pass
+
+            crear_ui = CrearPedidoUI(
+                parent=self.center_area,
+                db=self.db,
+                owner=self,
+                keyboard_manager=km,
+                cliente_inicial_id=cliente_id,
+                pedido_id=pedido_id
+            )
+            
+            # CrearPedidoUI no es un widget, hay que obtener su contenedor
+            widget = crear_ui.get_widget()
+            titulo = "MODIFICAR PEDIDO" if pedido_id else "NUEVO PEDIDO"
+            self.push_subview(widget, titulo)
+            
+        except Exception:
+            logging.exception("Error al abrir creación de pedido desde TPV")
+
+    def show_pedidos(self):
+        """Método requerido por CrearPedidoUI para volver al listado."""
+        self.pop_subview()
 
     def _abrir_cajon(self):
         """Abrir el cajón del dinero vía comando ESC/POS."""

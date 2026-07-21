@@ -9,9 +9,15 @@ logger = logging.getLogger(__name__)
 class PedidosRepository:
     def __init__(self, db: Database):
         self.db = db
+        # Migración automática de IDs de estado de 'en_stock' a 'distribuidor'
+        try:
+            self.db.execute_query("UPDATE pedidos_clientes SET estado = 'distribuidor' WHERE estado = 'en_stock'")
+            self.db.execute_query("UPDATE pedidos_clientes_lines SET estado_linea = 'distribuidor' WHERE estado_linea = 'en_stock'")
+        except:
+            pass
 
     def get_pedidos(self, estado: Optional[str] = None, cliente_id: Optional[int] = None, termino: str = "") -> List[Dict[str, Any]]:
-        """Obtener lista de pedidos (cabeceras)."""
+        """Obtener lista de pedidos (cabeceras). Ordenado: Pendientes/Stock arriba, Entregados abajo."""
         query = """
             SELECT 
                 p.id, p.cliente_id, p.contacto_nombre, p.contacto_telefono, p.contacto_email,
@@ -32,10 +38,20 @@ class PedidosRepository:
             params.append(cliente_id)
         if termino:
             term = f"%{termino}%"
-            query += " AND (p.contacto_nombre LIKE ? OR p.contacto_telefono LIKE ? OR p.contacto_email LIKE ?)"
-            params.extend([term, term, term])
+            query += " AND (p.contacto_nombre LIKE ? OR p.contacto_telefono LIKE ? OR p.contacto_email LIKE ? OR p.notas_generales LIKE ?)"
+            params.extend([term, term, term, term])
 
-        query += " ORDER BY p.fecha_pedido DESC"
+        # Orden: 
+        # 1. Por estado (entregado va al final). Usamos un CASE para asignar peso.
+        # 2. Por fecha_pedido (más actual arriba)
+        query += """
+            ORDER BY 
+                CASE 
+                    WHEN p.estado = 'entregado' THEN 1 
+                    ELSE 0 
+                END ASC,
+                p.fecha_pedido DESC
+        """
         
         try:
             rows = self.db.fetch_all(query, tuple(params))
@@ -136,16 +152,41 @@ class PedidosRepository:
             return None
 
     def actualizar_estado_linea(self, linea_id: int, nuevo_estado: str) -> bool:
-        """Actualiza el estado de una línea individual."""
+        """Actualiza el estado de una línea individual y sincroniza la cabecera si es necesario."""
         query = "UPDATE pedidos_clientes_lines SET estado_linea = ? "
         params = [nuevo_estado]
-        if nuevo_estado == 'en_stock':
+        if nuevo_estado == 'distribuidor':
             query += ", fecha_en_stock = ? "
             params.append(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         query += " WHERE id = ?"
         params.append(linea_id)
         try:
-            self.db.execute_query(query, tuple(params))
+            with self.db.transaction() as cur:
+                cur.execute(query, tuple(params))
+                
+                # Obtener el pedido_id de esta línea
+                row = self.db.fetch_one("SELECT pedido_id FROM pedidos_clientes_lines WHERE id = ?", (linea_id,))
+                if row:
+                    pedido_id = row[0]
+                    # Si la línea se marca como entregada, comprobar si el pedido completo debe marcarse como entregado
+                    if nuevo_estado == 'entregado':
+                        # Contar líneas que NO están entregadas
+                        res = self.db.fetch_one("""
+                            SELECT COUNT(*) FROM pedidos_clientes_lines 
+                            WHERE pedido_id = ? AND estado_linea != 'entregado'
+                        """, (pedido_id,))
+                        
+                        if res and res[0] == 0:
+                            # Todas las líneas entregadas -> Pedido entregado
+                            cur.execute("UPDATE pedidos_clientes SET estado = 'entregado' WHERE id = ?", (pedido_id,))
+                            logger.info(f"Pedido {pedido_id} marcado como ENTREGADO automáticamente.")
+                    
+                    # Si se marca como pendiente/distribuidor/avisado, y el pedido estaba entregado, volver a pendiente
+                    elif nuevo_estado in ['pendiente', 'distribuidor', 'avisado']:
+                        res_ped = self.db.fetch_one("SELECT estado FROM pedidos_clientes WHERE id = ?", (pedido_id,))
+                        if res_ped and res_ped[0] == 'entregado':
+                            cur.execute("UPDATE pedidos_clientes SET estado = 'pendiente' WHERE id = ?", (pedido_id,))
+
             return True
         except Exception:
             logger.exception(f"Error actualizando estado linea {linea_id}")
@@ -171,13 +212,13 @@ class PedidosRepository:
             return None
 
     def actualizar_lineas_por_stock(self, producto_ids: List[int]) -> int:
-        """Actualiza a 'en_stock' las líneas pendientes de productos que acaban de entrar."""
+        """Actualiza a 'distribuidor' las líneas pendientes de productos que acaban de entrar."""
         if not producto_ids:
             return 0
         placeholders = ','.join(['?'] * len(producto_ids))
         query = f"""
             UPDATE pedidos_clientes_lines
-            SET estado_linea = 'en_stock', fecha_en_stock = CURRENT_TIMESTAMP
+            SET estado_linea = 'distribuidor', fecha_en_stock = CURRENT_TIMESTAMP
             WHERE estado_linea = 'pendiente'
             AND producto_id IN ({placeholders})
             AND producto_id IN (SELECT id FROM productos WHERE stock_actual >= 1)
@@ -198,6 +239,24 @@ class PedidosRepository:
         except Exception:
             logger.exception(f"Error actualizando estado pedido {pedido_id}")
             return False
+
+    def get_lineas_pendientes_por_producto(self, producto_id: int) -> List[Dict[str, Any]]:
+        """Obtener líneas pendientes asociadas a un producto, con info del cliente."""
+        query = """
+            SELECT 
+                pl.id AS linea_id, pl.pedido_id, pl.cantidad,
+                p.contacto_nombre, c.nombre AS cliente_nombre
+            FROM pedidos_clientes_lines pl
+            JOIN pedidos_clientes p ON pl.pedido_id = p.id
+            LEFT JOIN clientes c ON p.cliente_id = c.id
+            WHERE pl.producto_id = ? AND pl.estado_linea IN ('pendiente', 'distribuidor')
+        """
+        try:
+            rows = self.db.fetch_all(query, (producto_id,))
+            return [dict(row) for row in rows]
+        except Exception:
+            logger.exception(f"Error en get_lineas_pendientes_por_producto {producto_id}")
+            return []
 
     def borrar_pedido(self, pedido_id: int) -> bool:
         """Borrar un pedido y sus líneas."""
