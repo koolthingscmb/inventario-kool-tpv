@@ -180,9 +180,10 @@ class FidelizacionRepository:
         try:
             # 1. Obtener nivel actual antes de actualizar
             cur = self.db.connection.cursor()
-            cur.execute("SELECT id_nivel, tesoro_historico FROM clientes WHERE id = ?", (cliente_id,))
+            cur.execute("SELECT id_nivel, tesoro_historico, total_compras FROM clientes WHERE id = ?", (cliente_id,))
             row = cur.fetchone()
             nivel_anterior_id = row[0] if row else None
+            total_compras_previo = row[2] if row and row[2] is not None else 0
 
             # If we're already inside a transaction, reuse it; otherwise start one.
             in_tx = getattr(self.db.connection, 'in_transaction', False)
@@ -237,8 +238,11 @@ class FidelizacionRepository:
             if not in_tx:
                 self.db.connection.commit()
 
+            # Si es la primera compra del cliente, forzar subida_nivel a True para imprimir ticket de bienvenida
+            es_primera_compra = (total_compras_previo == 0)
+
             return {
-                'subida_nivel': (nivel_nuevo_id != nivel_anterior_id) and nivel_nuevo_id is not None,
+                'subida_nivel': ((nivel_nuevo_id != nivel_anterior_id) or es_primera_compra) and nivel_nuevo_id is not None,
                 'nivel_anterior_id': nivel_anterior_id,
                 'nivel_nuevo_id': nivel_nuevo_id,
                 'tesoro_historico': tesoro_historico
