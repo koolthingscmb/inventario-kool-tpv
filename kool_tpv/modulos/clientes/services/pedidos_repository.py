@@ -17,16 +17,20 @@ class PedidosRepository:
             pass
 
     def get_pedidos(self, estado: Optional[str] = None, cliente_id: Optional[int] = None, termino: str = "") -> List[Dict[str, Any]]:
-        """Obtener lista de pedidos (cabeceras). Ordenado: Pendientes/Stock arriba, Entregados abajo."""
+        """Obtener lista de pedidos. Devuelve una fila por cada línea de producto."""
         query = """
             SELECT 
                 p.id, p.cliente_id, p.contacto_nombre, p.contacto_telefono, p.contacto_email,
                 p.estado, p.fecha_pedido, p.notas_generales, p.usuario_id,
                 c.nombre AS cliente_nombre, u.nombre AS usuario_nombre,
-                (SELECT COUNT(*) FROM pedidos_clientes_lines pl WHERE pl.pedido_id = p.id) AS num_lineas
+                COALESCE(pr.nombre, pl.nombre_manual) AS linea_producto_nombre,
+                pl.cantidad AS linea_unidades,
+                (SELECT COUNT(*) FROM pedidos_clientes_lines pl2 WHERE pl2.pedido_id = p.id) AS num_lineas
             FROM pedidos_clientes p
             LEFT JOIN clientes c ON p.cliente_id = c.id
             LEFT JOIN usuarios u ON p.usuario_id = u.id
+            LEFT JOIN pedidos_clientes_lines pl ON p.id = pl.pedido_id
+            LEFT JOIN productos pr ON pl.producto_id = pr.id
             WHERE 1=1
         """
         params = []
@@ -38,19 +42,21 @@ class PedidosRepository:
             params.append(cliente_id)
         if termino:
             term = f"%{termino}%"
-            query += " AND (p.contacto_nombre LIKE ? OR p.contacto_telefono LIKE ? OR p.contacto_email LIKE ? OR p.notas_generales LIKE ?)"
-            params.extend([term, term, term, term])
+            query += " AND (p.contacto_nombre LIKE ? OR p.contacto_telefono LIKE ? OR p.contacto_email LIKE ? OR p.notas_generales LIKE ? OR pl.nombre_manual LIKE ? OR pr.nombre LIKE ?)"
+            params.extend([term, term, term, term, term, term])
 
         # Orden: 
         # 1. Por estado (entregado va al final). Usamos un CASE para asignar peso.
         # 2. Por fecha_pedido (más actual arriba)
+        # 3. Por pedido_id (para agrupar las líneas del mismo pedido)
         query += """
             ORDER BY 
                 CASE 
                     WHEN p.estado = 'entregado' THEN 1 
                     ELSE 0 
                 END ASC,
-                p.fecha_pedido DESC
+                p.fecha_pedido DESC,
+                p.id DESC
         """
         
         try:
