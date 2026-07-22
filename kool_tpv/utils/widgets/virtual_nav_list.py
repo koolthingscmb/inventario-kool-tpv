@@ -194,6 +194,15 @@ class VirtualNavList(ctk.CTkFrame):
     # Lógica de Virtualización
     # ------------------------------------------------------------------
 
+    @property
+    def data(self) -> List[dict]:
+        """Propiedad de compatibilidad con NavList antigua."""
+        return self._all_data
+
+    def select_index(self, index: int, fire_callback: bool = True):
+        """Método de compatibilidad con NavList antigua."""
+        self._select(index, fire_callback=fire_callback)
+
     def _on_canvas_configure(self, event):
         """Al cambiar el tamaño del canvas, creamos/ajustamos los widgets de fila."""
         canvas_w = event.width
