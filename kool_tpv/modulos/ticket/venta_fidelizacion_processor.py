@@ -49,6 +49,35 @@ class VentaFidelizacionProcessor(VentaProcessor):
                 if res_nivel.get('subida_nivel') and self.impresora_service:
                     try:
                         logger.info(f"DEBUG FIDEL: Iniciando proceso de ticket de nivel para cliente {cliente_id}")
+                        
+                        # 1. Leer configuración de impresión desde BD AHORA (igual que en tpv_service)
+                        # Creamos un objeto fresco para no depender de la inicialización al arranque de la app
+                        modo_impresion = 'escpos'
+                        printer_name = None
+                        codepage = 'cp858'
+                        try:
+                            if self.db and getattr(self.db, 'fetch_one', None):
+                                row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'modo_impresion'")
+                                if row and row[0]:
+                                    modo_impresion = row[0]
+                                row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'printer_name'")
+                                if row and row[0]:
+                                    printer_name = row[0]
+                                row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'printer_codepage'")
+                                if row and row[0]:
+                                    codepage = row[0]
+                        except Exception:
+                            logger.exception('Error leyendo configuración de impresión desde BD para ticket de nivel')
+
+                        # 2. Crear ImpresoraService NUEVO desde cero (igual que en tpv_service)
+                        from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
+                        imp_service = ImpresoraService(
+                            db=self.db,
+                            imprimir_en_consola=True,
+                            modo_impresion=modo_impresion,
+                            codepage=codepage
+                        )
+
                         niv_repo = NivelesRepository(self.db)
                         nivel_ant = niv_repo.get_nivel_por_id(res_nivel['nivel_anterior_id'])
                         nivel_nue = niv_repo.get_nivel_por_id(res_nivel['nivel_nuevo_id'])
@@ -99,8 +128,9 @@ class VentaFidelizacionProcessor(VentaProcessor):
                             'lore_recompensa': nivel_nue.get('lore_recompensa', '')
                         }
                         
-                        self.impresora_service.imprimir_ticket_nivel(nivel_data, badge_path=badge_path)
-                        logger.info(f"Ticket de subida de nivel enviado para cliente {cliente_id}")
+                        # 3. Imprimir con el objeto nuevo y parámetros frescos de la BD
+                        imp_service.imprimir_ticket_nivel(nivel_data, printer_name=printer_name, badge_path=badge_path)
+                        logger.info(f"Ticket de subida de nivel enviado para cliente {cliente_id} (modo: {modo_impresion})")
                     except Exception:
                         logger.exception("Error al intentar imprimir ticket de subida de nivel")
 
