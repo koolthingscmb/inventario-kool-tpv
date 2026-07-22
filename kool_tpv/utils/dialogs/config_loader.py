@@ -61,91 +61,76 @@ FALLBACKS = {
 
 
 def _transform_ui_dialogs_to_legacy_format(ui_data: dict) -> tuple:
-    """Transforma datos de ui_dialogs.json al formato legacy esperado por los dialogs.
-
-    Args:
-        ui_data: Dict cargado de ui_dialogs.json
-
-    Returns:
-        tuple: (colors_dict, fonts_dict, geometry_dict, fallbacks_dict)
+    """Transforma el nuevo formato ui_dialogs.json al formato que espera BaseDialog.
+    
+    Implementa herencia: common -> dialogs[type]
     """
     dialogs_data = ui_data.get('dialogs', {})
-
-    # Transformar a formato legacy (colors por tipo de dialog)
+    common = ui_data.get('common', {})
+    
+    # 1. Colores (normalmente específicos por tipo)
     colors_dict = {}
     for dialog_type, config in dialogs_data.items():
-        colors = config.get('colors', {})
-        colors_dict[dialog_type] = {
-            'bg': colors.get('bg', FALLBACKS['colors']['bg']),
-            'border': colors.get('border', FALLBACKS['colors']['border']),
-            'title_text': colors.get('title_text', FALLBACKS['colors']['title_text']),
-            'message_text': colors.get('message_text', FALLBACKS['colors']['message_text']),
-            'button_bg': colors.get('button_bg', FALLBACKS['colors']['button_bg']),
-            'button_hover': colors.get('button_hover', FALLBACKS['colors']['button_hover']),
-            'button_text': colors.get('button_text', FALLBACKS['colors']['button_text']),
-            'cancel_bg': colors.get('cancel_bg', FALLBACKS['colors']['cancel_bg']),
-            'cancel_hover': colors.get('cancel_hover', FALLBACKS['colors']['cancel_hover']),
-            'button_focus_border': colors.get('button_focus_border', FALLBACKS['colors']['button_focus_border']),
-            'title_bar_bg': colors.get('title_bar_bg', FALLBACKS['colors']['title_bar_bg']),
-            'title_bar_text': colors.get('title_bar_text', FALLBACKS['colors']['title_bar_text']),
+        colors_dict[dialog_type] = config.get('colors', {})
+
+    # 2. Fuentes (heredan de common.fonts)
+    fonts_by_type = {}
+    common_fonts = common.get('fonts', {})
+    for dialog_type, config in dialogs_data.items():
+        type_fonts = config.get('fonts', {})
+        fonts_by_type[dialog_type] = {
+            'title': type_fonts.get('title') or common_fonts.get('title', {'family': 'Courier New', 'size': 18, 'weight': 'bold'}),
+            'message': type_fonts.get('message') or common_fonts.get('message', {'family': 'Courier New', 'size': 14, 'weight': 'bold'}),
+            'button': type_fonts.get('button') or common_fonts.get('button', {'family': 'Courier New', 'size': 14, 'weight': 'bold'}),
+            'input': type_fonts.get('input') or common_fonts.get('input', {'family': 'Courier New', 'size': 14, 'weight': 'normal'}),
         }
 
-    # Construir fonts_dict en formato legacy
-    fonts_dict = {
-        'global': {'fallback': ['Courier New']},
-        'app': {},
-        'components': {'dialog': {}},
-        'modules': {}
-    }
-
-    # Usar fuentes del primer dialog como base (todos tienen mismas fuentes)
-    first_dialog = next(iter(dialogs_data.values()), {})
-    fonts_config = first_dialog.get('fonts', {})
-
-    fonts_dict['components']['dialog'] = {
-        'title': fonts_config.get('title', {'family': 'Courier New', 'size': 20, 'weight': 'bold'}),
-        'message': fonts_config.get('message', {'family': 'Courier New', 'size': 14, 'weight': 'bold'}),
-        'button': fonts_config.get('button', {'family': 'Courier New', 'size': 14, 'weight': 'bold'}),
-        'input': fonts_config.get('input', {'family': 'Courier New', 'size': 14, 'weight': 'normal'}),
-    }
-
-    # Construir geometry_dict
-    window = first_dialog.get('window', {})
-    spacing = first_dialog.get('spacing', {})
-    geometry = {
-        'width': window.get('width', FALLBACKS['geometry']['width']),
-        'height': window.get('height', FALLBACKS['geometry']['height']),
-        'border_width': window.get('border_width', FALLBACKS['geometry']['border_width']),
-        'icon_size': window.get('icon_size', FALLBACKS['geometry']['icon_size']),
-        'button_width': window.get('button_width', FALLBACKS['geometry']['button_width']),
-        'button_height': window.get('button_height', FALLBACKS['geometry']['button_height']),
-        'corner_radius': window.get('corner_radius', FALLBACKS['geometry']['corner_radius']),
-        'wraplength': window.get('wraplength', FALLBACKS['geometry']['wraplength']),
-        'focus_border_width': window.get('focus_border_width', FALLBACKS['geometry']['focus_border_width']),
-        'entry_width': window.get('entry_width', FALLBACKS['geometry']['entry_width']),
-        'entry_height': window.get('entry_height', FALLBACKS['geometry']['entry_height']),
-        'button_width': window.get('button_width', FALLBACKS['geometry']['button_width']),
-        'button_height': window.get('button_height', FALLBACKS['geometry']['button_height']),
-        'title_bar_height': window.get('title_bar_height', FALLBACKS['geometry']['title_bar_height']),
-        'padding_x': window.get('padding_x', FALLBACKS['geometry']['padding_x']),
-        'padding_y': window.get('padding_y', FALLBACKS['geometry']['padding_y']),
-        'spacing_icon_top': spacing.get('icon_top', 10),
-        'spacing_icon_bottom': spacing.get('icon_bottom', 15),
-        'spacing_title_bottom': spacing.get('title_bottom', 10),
-        'spacing_message_bottom': spacing.get('message_bottom', 10),
-        'spacing_entry_bottom': spacing.get('entry_bottom', 10),
-    }
-
-    # Geometría por tipo (para que cada dialog pueda tener su propio width/height)
+    # 3. Geometría, Spacing y Buttons por tipo (heredan de common)
     geometry_by_type = {}
+    spacing_by_type = {}
+    buttons_by_type = {}
+    
+    common_win = common.get('window', {})
+    common_spacing = common.get('spacing', {})
+    common_buttons = common.get('buttons', {})
+
     for dialog_type, config in dialogs_data.items():
         w = config.get('window', {})
+        s = config.get('spacing', {})
+        b = config.get('buttons', {})
+        
         geometry_by_type[dialog_type] = {
-            'width': w.get('width', geometry['width']),
-            'height': w.get('height', geometry['height']),
+            'width': w.get('width') or common_win.get('width', FALLBACKS['geometry']['width']),
+            'height': w.get('height') or common_win.get('height', FALLBACKS['geometry']['height']),
+            'border_width': w.get('border_width') or common_win.get('border_width', FALLBACKS['geometry']['border_width']),
+            'corner_radius': w.get('corner_radius') or common_win.get('corner_radius', FALLBACKS['geometry']['corner_radius']),
+            'icon_size': w.get('icon_size') or common_win.get('icon_size', FALLBACKS['geometry']['icon_size']),
+            'title_bar_height': w.get('title_bar_height') or common_win.get('title_bar_height', FALLBACKS['geometry']['title_bar_height']),
+            'padding_x': w.get('padding_x') or common_win.get('padding_x', FALLBACKS['geometry']['padding_x']),
+            'padding_y': w.get('padding_y') or common_win.get('padding_y', FALLBACKS['geometry']['padding_y']),
+            'entry_width': w.get('entry_width') or common_win.get('entry_width', FALLBACKS['geometry']['entry_width']),
+            'entry_height': w.get('entry_height') or common_win.get('entry_height', FALLBACKS['geometry']['entry_height']),
+            'wraplength': w.get('wraplength') or common_win.get('wraplength', FALLBACKS['geometry']['wraplength']),
+            'focus_border_width': w.get('focus_border_width') or common_win.get('focus_border_width', FALLBACKS['geometry']['focus_border_width']),
+        }
+        
+        spacing_by_type[dialog_type] = {
+            'icon_top': s.get('icon_top') or common_spacing.get('icon_top', 10),
+            'icon_bottom': s.get('icon_bottom') or common_spacing.get('icon_bottom', 15),
+            'title_bottom': s.get('title_bottom') or common_spacing.get('title_bottom', 10),
+            'message_bottom': s.get('message_bottom') or common_spacing.get('message_bottom', 10),
+            'entry_bottom': s.get('entry_bottom') or common_spacing.get('entry_bottom', 10),
         }
 
-    return colors_dict, fonts_dict, geometry, FALLBACKS, geometry_by_type
+        buttons_by_type[dialog_type] = {
+            'accept': {**common_buttons.get('accept', {}), **b.get('accept', {})},
+            'cancel': {**common_buttons.get('cancel', {}), **b.get('cancel', {})},
+        }
+
+    # Mantener geometry legacy (primer tipo) para compatibilidad
+    geometry_legacy = geometry_by_type.get('info', geometry_by_type[next(iter(geometry_by_type))]) if geometry_by_type else FALLBACKS['geometry']
+
+    return colors_dict, fonts_by_type, geometry_legacy, FALLBACKS, geometry_by_type, spacing_by_type, buttons_by_type
 
 
 def load_dialog_config():
@@ -160,7 +145,7 @@ def load_dialog_config():
     Las siguientes llamadas devuelven el cache en memoria.
 
     Returns:
-        tuple: (colors_dict, fonts_dict, geometry_dict, fallbacks_dict, geometry_by_type_dict)
+        tuple: (colors, fonts_by_type, geometry_legacy, fallbacks, geometry_by_type, spacing_by_type, buttons_by_type)
     """
     global _CONFIG_CACHE
 
@@ -198,11 +183,13 @@ def load_dialog_config():
             geometry = layout_data.get('components', {}).get('dialog', {})
 
         # Guardar en cache para futuras llamadas
-        _CONFIG_CACHE = (dialogs_colors, fonts_data, geometry, FALLBACKS, {})
+        # Nota: fonts_by_type será el dict completo de font_config (legacy)
+        # geometry_by_type, spacing_by_type y buttons_by_type estarán vacíos
+        _CONFIG_CACHE = (dialogs_colors, fonts_data, geometry, FALLBACKS, {}, {}, {})
         return _CONFIG_CACHE
 
     except Exception as e:
         logging.exception("Error cargando configuración de diálogos, usando fallbacks")
         # En caso de error, cachear fallbacks para no reintentar
-        _CONFIG_CACHE = ({}, {}, {}, FALLBACKS, {})
+        _CONFIG_CACHE = ({}, {}, {}, FALLBACKS, {}, {}, {})
         return _CONFIG_CACHE

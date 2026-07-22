@@ -41,7 +41,7 @@ class TypographyTab:
 
         self._render_preview_panel(right)
 
-    _SKIP_KEYS = {"components", "modules", "scale"}
+    _SKIP_KEYS = {"components", "scale"}
 
     def _render_tokens(self, parent, data: Dict[str, Any], prefix: str = ""):
         """Renderiza recursivamente todos los tokens de fuente encontrados."""

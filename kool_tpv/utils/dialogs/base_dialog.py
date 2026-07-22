@@ -29,13 +29,18 @@ class BaseDialog(ctk.CTkToplevel):
             self._cb_parent = self
 
         # Cargar configuración desde JSON
-        self.dialogs_colors, self.fonts_data, self.geometry_cfg, self.fallbacks, self.geometry_by_type = load_dialog_config()
+        self.dialogs_colors, self.fonts_data, self.geometry_cfg, self.fallbacks, self.geometry_by_type, self.spacing_data, self.buttons_data = load_dialog_config()
 
         # Filtrar tipos válidos
         valid_dialog_types = ['info', 'success', 'warning', 'error', 'password', 'input']
         allowed_types = [k for k in self.dialogs_colors.keys() if k in valid_dialog_types] if self.dialogs_colors else valid_dialog_types
         self.tipo = tipo if tipo in allowed_types else 'info'
         self.result = None
+
+        # Geometría, Spacing y Buttons específicos del tipo
+        self.current_geom = self.geometry_by_type.get(self.tipo, self.geometry_cfg)
+        self.current_spacing = self.spacing_data.get(self.tipo, {})
+        self.current_buttons = self.buttons_data.get(self.tipo, {})
 
         # Configurar ventana
         self.title(titulo)
@@ -50,19 +55,13 @@ class BaseDialog(ctk.CTkToplevel):
 
     def _setup_geometry(self, parent):
         """Configurar geometría de ventana."""
-        # Intentar leer geometría específica del tipo
-        tipo_geom = self.geometry_by_type.get(self.tipo, {}) if self.geometry_by_type else {}
         try:
-            width = tipo_geom.get('width') or self.geometry_cfg.get('width')
-            height = tipo_geom.get('height') or self.geometry_cfg.get('height')
+            width = self.current_geom.get('width')
+            height = self.current_geom.get('height')
             if isinstance(width, str):
                 width = int(width) if width else None
             if isinstance(height, str):
                 height = int(height) if height else None
-            if not isinstance(width, int):
-                width = None
-            if not isinstance(height, int):
-                height = None
         except Exception:
             width = None
             height = None
@@ -88,14 +87,17 @@ class BaseDialog(ctk.CTkToplevel):
         try:
             bg = tipo_config.get('bg', None)
             border_color = tipo_config.get('border', None)
-            border_width = int(self.geometry_cfg.get('border_width', self.fallbacks['geometry']['border_width'])) if isinstance(self.geometry_cfg.get('border_width', None), int) else int(max(1, min(self._dialog_width, 400) * 0.01))
+            border_width = int(self.current_geom.get('border_width', self.fallbacks['geometry']['border_width']))
+            corner_radius = int(self.current_geom.get('corner_radius', self.fallbacks['geometry']['corner_radius']))
 
             if bg is not None:
                 self.configure(fg_color=bg)
             if border_color is not None:
+                # CustomTkinter CTkToplevel doesn't have corner_radius, but we can use it in content frames
                 self.configure(border_width=border_width, border_color=border_color)
         except Exception as e:
             logging.warning(f"Error aplicando estilos: {e}")
+
 
     def _setup_modal(self, parent):
         """Configurar comportamiento modal."""
@@ -137,8 +139,13 @@ class BaseDialog(ctk.CTkToplevel):
     def _get_font(self, font_key):
         """Obtiene tupla de fuente desde configuración."""
         try:
-            dialog_fonts = self.fonts_data.get('components', {}).get('dialog', {})
-            font_data = dialog_fonts.get(font_key, {})
+            # Si fonts_data es un dict por tipo (nuevo sistema)
+            if self.tipo in self.fonts_data:
+                font_data = self.fonts_data[self.tipo].get(font_key, {})
+            else:
+                # Sistema legacy
+                dialog_fonts = self.fonts_data.get('components', {}).get('dialog', {})
+                font_data = dialog_fonts.get(font_key, {})
 
             fallback_map = {
                 'title': 'dialog_title',
@@ -173,7 +180,8 @@ class BaseDialog(ctk.CTkToplevel):
             'success': 'dialog_success_btn',
             'warning': 'dialog_warning_btn',
             'error': 'dialog_error_btn',
-            'password': 'dialog_password_btn'
+            'password': 'dialog_password_btn',
+            'input': 'dialog_success_btn'
         }
         return style_map.get(self.tipo, 'dialog_info_btn')
 
@@ -181,7 +189,7 @@ class BaseDialog(ctk.CTkToplevel):
         """Configura eventos de foco en un botón."""
         tipo_config = self.dialogs_colors.get(self.tipo, {})
         focus_border = tipo_config.get('button_focus_border', self.fallbacks['colors']['button_focus_border'])
-        focus_width = int(self.geometry_cfg.get('focus_border_width', self.fallbacks['geometry']['focus_border_width'])) if isinstance(self.geometry_cfg.get('focus_border_width', None), int) else int(self.fallbacks['geometry']['focus_border_width'])
+        focus_width = int(self.current_geom.get('focus_border_width', self.fallbacks['geometry']['focus_border_width']))
         try:
             normal_width = int(btn.cget('border_width'))
         except Exception:
@@ -222,10 +230,10 @@ class BaseDialog(ctk.CTkToplevel):
 
     def _calcular_wraplength(self):
         """Calcula wraplength dinámico basado en configuración."""
-        wraplength_cfg = self.geometry_cfg.get('wraplength', self.fallbacks['geometry']['wraplength'])
-        dialog_w = self.geometry_by_type.get(self.tipo, {}).get('width', 0) or self._dialog_width
+        wraplength_cfg = self.current_geom.get('wraplength', self.fallbacks['geometry']['wraplength'])
+        dialog_w = self._dialog_width
         if wraplength_cfg == 'auto':
-            padding_x = int(self.geometry_cfg.get('padding_x', 20))
+            padding_x = int(self.current_geom.get('padding_x', 20))
             return max(200, dialog_w - (padding_x * 2) - 40)
         else:
             return int(wraplength_cfg) if isinstance(wraplength_cfg, (int, float)) else int(self.fallbacks['geometry']['wraplength'])
@@ -243,8 +251,8 @@ class BaseDialog(ctk.CTkToplevel):
         tipo_config = self.dialogs_colors.get(self.tipo, {})
         bar_bg = tipo_config.get('title_bar_bg', self.fallbacks['colors']['title_bar_bg'])
         bar_text = tipo_config.get('title_bar_text', self.fallbacks['colors']['title_bar_text'])
-        bar_height = int(self.geometry_cfg.get('title_bar_height', self.fallbacks['geometry']['title_bar_height']))
-        bar_icon_size = int(self.geometry_cfg.get('icon_size', self.fallbacks['geometry']['icon_size']))
+        bar_height = int(self.current_geom.get('title_bar_height', self.fallbacks['geometry']['title_bar_height']))
+        bar_icon_size = int(self.current_geom.get('icon_size', self.fallbacks['geometry']['icon_size']))
         bar_pad = max(4, bar_height // 6)
 
         # Barra superior
@@ -252,7 +260,7 @@ class BaseDialog(ctk.CTkToplevel):
         bar.pack(fill='x', side='top')
         bar.pack_propagate(False)
         bar.update_idletasks()
-        bar_w = bar.winfo_width() or int(self.geometry_by_type.get(self.tipo, {}).get('width', 0)) or int(self.geometry_cfg.get('width', 400))
+        bar_w = bar.winfo_width() or int(self.current_geom.get('width', 400))
 
         # Icono pequeño en la barra (centrado con el título)
         icon_img = self._cargar_icono(bar_icon_size)
@@ -278,6 +286,7 @@ class BaseDialog(ctk.CTkToplevel):
         if icon_img:
             lbl_icon = ctk.CTkLabel(bar, image=icon_img, text='', fg_color=bar_bg)
             lbl_icon.image = icon_img
+            # Aplicar spacing_icon_top si existiera, pero aquí está centrado verticalmente
             lbl_icon.place(x=start_x, rely=0.5, anchor='w', y=0)
             lbl_title.place(x=start_x + icon_w + gap, rely=0.5, anchor='w', y=0)
         else:
@@ -302,22 +311,37 @@ class BaseDialog(ctk.CTkToplevel):
         """
         tipo_config = self.dialogs_colors.get(self.tipo, {})
         button_font = self._get_font('button')
-        btn_w = int(self.geometry_cfg.get('button_width', self.fallbacks['geometry']['button_width']))
-        btn_h = int(self.geometry_cfg.get('button_height', self.fallbacks['geometry']['button_height']))
-        corner_radius = int(self.geometry_cfg.get('corner_radius', self.fallbacks['geometry']['corner_radius']))
-        style_key = self._get_button_style_key()
+        
+        # Configuración de botones
+        accept_cfg = self.current_buttons.get('accept', {})
+        cancel_cfg = self.current_buttons.get('cancel', {})
+
+        btn_w = accept_cfg.get('width') or int(self.current_geom.get('button_width', self.fallbacks['geometry']['button_width']))
+        btn_h = accept_cfg.get('height') or int(self.current_geom.get('button_height', self.fallbacks['geometry']['button_height']))
+        corner_radius = accept_cfg.get('corner_radius') or int(self.current_geom.get('corner_radius', self.fallbacks['geometry']['corner_radius']))
+        style_key = accept_cfg.get('style_key') or self._get_button_style_key()
 
         btn_frame = ctk.CTkFrame(parent, fg_color='transparent')
-        btn_frame.pack(pady=(0, 10))
+        # Aplicar spacing antes de los botones
+        pady_top = self.current_spacing.get('message_bottom', 10)
+        btn_frame.pack(pady=(pady_top, 10))
 
         if confirm:
             # Cancelar
+            c_w = cancel_cfg.get('width') or btn_w
+            c_h = cancel_cfg.get('height') or btn_h
+            c_cr = cancel_cfg.get('corner_radius') or corner_radius
+            c_sk = cancel_cfg.get('style_key', 'dialog_cancel_btn')
+
             try:
                 btn_cancel = ButtonFactory.create_button(
                     parent=btn_frame,
                     text='CANCELAR',
                     command=self._on_cancel,
-                    style_key='dialog_cancel_btn',
+                    style_key=c_sk,
+                    width=c_w,
+                    height=c_h,
+                    corner_radius=c_cr,
                     font=button_font
                 )
             except Exception:
@@ -329,9 +353,9 @@ class BaseDialog(ctk.CTkToplevel):
                     hover_color=tipo_config.get('cancel_hover', self.fallbacks['colors']['cancel_hover']),
                     text_color=tipo_config.get('button_text', self.fallbacks['colors']['button_text']),
                     font=button_font,
-                    width=btn_w,
-                    height=btn_h,
-                    corner_radius=corner_radius,
+                    width=c_w,
+                    height=c_h,
+                    corner_radius=c_cr,
                     border_width=0
                 )
             btn_cancel.pack(side='left', padx=(0, 10))
@@ -344,6 +368,9 @@ class BaseDialog(ctk.CTkToplevel):
                     text=btn_text,
                     command=self._on_accept,
                     style_key=style_key,
+                    width=btn_w,
+                    height=btn_h,
+                    corner_radius=corner_radius,
                     font=button_font
                 )
             except Exception:
@@ -381,6 +408,9 @@ class BaseDialog(ctk.CTkToplevel):
                     text=btn_text,
                     command=self._on_close,
                     style_key=style_key,
+                    width=btn_w,
+                    height=btn_h,
+                    corner_radius=corner_radius,
                     font=button_font
                 )
             except Exception:
@@ -400,6 +430,7 @@ class BaseDialog(ctk.CTkToplevel):
             btn.pack()
             self._setup_button_focus(btn, is_accept=True)
             return btn
+
 
     def _cargar_icono(self, size=None):
         """Cargar icono según tipo, redimensionado al tamaño indicado."""

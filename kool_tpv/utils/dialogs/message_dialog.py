@@ -54,8 +54,8 @@ class MessageDialog(BaseDialog):
         content_frame = self._crear_barra_titulo(main_frame, titulo)
 
         # Contenido: mensaje centrado
-        padding_x = int(self.geometry_cfg.get('padding_x', 20))
-        padding_y = int(self.geometry_cfg.get('padding_y', 20))
+        padding_x = int(self.current_geom.get('padding_x', 20))
+        padding_y = int(self.current_geom.get('padding_y', 20))
 
         msg_container = ctk.CTkFrame(content_frame, fg_color='transparent')
         msg_container.pack(fill='both', expand=True, padx=padding_x, pady=padding_y)

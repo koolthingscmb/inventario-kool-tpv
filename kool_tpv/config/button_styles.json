@@ -11,7 +11,6 @@
     "border_width": 2,
     "font_size": 24
   },
-
   "menu_tpv": {
     "type": "outline",
     "bg_token": "black_base",
@@ -24,7 +23,6 @@
     "border_width": 3,
     "font_size": 60
   },
-
   "menu_clientes": {
     "type": "outline",
     "bg_token": "black_base",
@@ -37,7 +35,6 @@
     "border_width": 2,
     "font_size": 24
   },
-
   "menu_informes": {
     "type": "outline",
     "bg_token": "black_base",
@@ -50,7 +47,6 @@
     "border_width": 2,
     "font_size": 20
   },
-
   "menu_shopify": {
     "type": "outline",
     "bg_token": "black_base",
@@ -63,7 +59,6 @@
     "border_width": 2,
     "font_size": 20
   },
-
   "menu_config": {
     "type": "outline",
     "bg_token": "black_base",
@@ -76,7 +71,6 @@
     "border_width": 2,
     "font_size": 20
   },
-
   "menu_presencia": {
     "type": "outline",
     "bg_token": "black_base",
@@ -89,7 +83,6 @@
     "border_width": 2,
     "font_size": 20
   },
-
   "menu_produccion": {
     "type": "outline",
     "bg_token": "black_base",
@@ -102,7 +95,6 @@
     "border_width": 2,
     "font_size": 20
   },
-
   "almacen_outline": {
     "type": "outline",
     "bg_token": "black_base",
@@ -115,7 +107,6 @@
     "border_width": 2,
     "font_size": 16
   },
-
   "clientes_outline": {
     "type": "outline",
     "bg_token": "black_base",
@@ -128,7 +119,6 @@
     "border_width": 2,
     "font_size": 16
   },
-
   "danger_solid": {
     "type": "solid",
     "bg_token": "red_danger",
@@ -140,8 +130,7 @@
     "corner_radius": 12,
     "border_width": 0,
     "font_size": 16
-  }
-,
+  },
   "tpv_primary_strong": {
     "type": "outline",
     "bg_token": "black_base",
@@ -153,7 +142,6 @@
     "border_width": 5,
     "font_size": 36
   },
-
   "tpv_almacen": {
     "type": "outline",
     "bg_token": "black_base",
@@ -165,7 +153,6 @@
     "border_width": 3,
     "font_size": 36
   },
-
   "tpv_clientes": {
     "type": "outline",
     "bg_token": "black_base",
@@ -177,7 +164,6 @@
     "border_width": 3,
     "font_size": 36
   },
-
   "tpv_shopify": {
     "type": "outline",
     "bg_token": "black_base",
@@ -189,7 +175,6 @@
     "border_width": 3,
     "font_size": 36
   },
-
   "tpv_config": {
     "type": "outline",
     "bg_token": "black_base",
@@ -201,7 +186,6 @@
     "border_width": 3,
     "font_size": 36
   },
-
   "tpv_danger": {
     "type": "solid",
     "bg_token": "red_danger",
@@ -212,8 +196,7 @@
     "corner_radius": 18,
     "border_width": 0,
     "font_size": 36
-  }
-,
+  },
   "module_almacen": {
     "type": "outline",
     "bg_token": "black_base",
@@ -225,7 +208,6 @@
     "border_width": 2,
     "font_size": 24
   },
-
   "module_produccion": {
     "type": "outline",
     "bg_token": "black_base",
@@ -237,7 +219,6 @@
     "border_width": 2,
     "font_size": 24
   },
-
   "module_clientes": {
     "type": "outline",
     "bg_token": "black_base",
@@ -249,7 +230,6 @@
     "border_width": 2,
     "font_size": 24
   },
-
   "module_informes": {
     "type": "outline",
     "bg_token": "black_base",
@@ -261,7 +241,6 @@
     "border_width": 2,
     "font_size": 24
   },
-
   "module_shopify": {
     "type": "outline",
     "bg_token": "black_base",
@@ -273,7 +252,6 @@
     "border_width": 2,
     "font_size": 24
   },
-
   "module_config": {
     "type": "outline",
     "bg_token": "black_base",
@@ -285,7 +263,6 @@
     "border_width": 2,
     "font_size": 24
   },
-
   "module_presencia": {
     "type": "outline",
     "bg_token": "black_base",
@@ -296,8 +273,7 @@
     "corner_radius": 8,
     "border_width": 2,
     "font_size": 24
-  }
-,
+  },
   "action_primary": {
     "type": "outline",
     "bg_token": "black_base",
@@ -310,7 +286,6 @@
     "border_width": 2,
     "font_size": 16
   },
-
   "action_secondary": {
     "type": "outline",
     "bg_token": "black_base",
@@ -323,7 +298,6 @@
     "border_width": 2,
     "font_size": 16
   },
-
   "action_success": {
     "type": "solid",
     "bg_token": "green_success",
@@ -336,7 +310,6 @@
     "border_width": 0,
     "font_size": 16
   },
-
   "action_warning": {
     "type": "solid",
     "bg_token": "orange_config",
@@ -349,7 +322,6 @@
     "border_width": 0,
     "font_size": 16
   },
-
   "action_danger": {
     "type": "solid",
     "bg_token": "red_danger",
@@ -361,8 +333,7 @@
     "corner_radius": 10,
     "border_width": 0,
     "font_size": 16
-  }
-,
+  },
   "header_outline_small": {
     "type": "outline",
     "bg_token": "black_base",
@@ -375,7 +346,6 @@
     "border_width": 1,
     "font_size": 14
   },
-
   "header_neutral_small": {
     "type": "outline",
     "bg_token": "black_base",
@@ -388,7 +358,6 @@
     "border_width": 1,
     "font_size": 14
   },
-
   "header_danger_small": {
     "type": "solid",
     "bg_token": "red_danger",
@@ -400,8 +369,7 @@
     "corner_radius": 8,
     "border_width": 0,
     "font_size": 14
-  }
-,
+  },
   "chip_default": {
     "type": "outline",
     "bg_token": "black_base",
@@ -414,7 +382,6 @@
     "border_width": 1,
     "font_size": 13
   },
-
   "chip_selected": {
     "type": "solid",
     "bg_token": "gray_light",
@@ -427,7 +394,6 @@
     "border_width": 0,
     "font_size": 13
   },
-
   "chip_danger": {
     "type": "solid",
     "bg_token": "red_danger",
@@ -439,8 +405,7 @@
     "corner_radius": 14,
     "border_width": 0,
     "font_size": 13
-  }
-,
+  },
   "cajero_chip": {
     "type": "outline",
     "bg_token": "black_base",
@@ -452,7 +417,6 @@
     "border_width": 4,
     "font_size": 52
   },
-
   "cajero_chip_selected": {
     "type": "solid",
     "bg_token": "black_base",
@@ -463,8 +427,7 @@
     "corner_radius": 24,
     "border_width": 0,
     "font_size": 52
-  }
-,
+  },
   "mini_action": {
     "type": "solid",
     "bg_token": "blue_action",
@@ -476,8 +439,7 @@
     "corner_radius": 8,
     "border_width": 2,
     "font_size": 14
-  }
-,
+  },
   "mini_success": {
     "type": "solid",
     "bg_token": "green_success",
@@ -490,7 +452,6 @@
     "border_width": 2,
     "font_size": 14
   },
-
   "mini_info": {
     "type": "solid",
     "bg_token": "blue_action",
@@ -503,7 +464,6 @@
     "border_width": 2,
     "font_size": 14
   },
-
   "mini_special": {
     "type": "solid",
     "bg_token": "purple_special",
@@ -516,7 +476,6 @@
     "border_width": 2,
     "font_size": 14
   },
-
   "mini_warning": {
     "type": "solid",
     "bg_token": "orange_config",
@@ -528,8 +487,7 @@
     "corner_radius": 8,
     "border_width": 2,
     "font_size": 14
-  }
-,
+  },
   "mini_outline_clientes": {
     "type": "outline",
     "bg_token": "black_base",
@@ -541,8 +499,7 @@
     "corner_radius": 8,
     "border_width": 2,
     "font_size": 14
-  }
-,
+  },
   "action_confirm": {
     "type": "solid",
     "bg_token": "orange_config",
@@ -554,8 +511,7 @@
     "corner_radius": 8,
     "border_width": 2,
     "font_size": 14
-  }
-,
+  },
   "action_warning_small": {
     "type": "solid",
     "bg_token": "orange_config",
@@ -568,7 +524,6 @@
     "border_width": 0,
     "font_size": 14
   },
-
   "action_danger_small": {
     "type": "solid",
     "bg_token": "red_danger",
@@ -580,8 +535,7 @@
     "corner_radius": 8,
     "border_width": 0,
     "font_size": 14
-  }
-,
+  },
   "rojo_tickets": {
     "type": "outline",
     "bg_token": "black_base",
@@ -592,7 +546,6 @@
     "corner_radius": 18,
     "font_size": 24
   },
-
   "rosa_descuentos": {
     "type": "outline",
     "bg_token": "black_base",
@@ -603,7 +556,6 @@
     "corner_radius": 18,
     "font_size": 24
   },
-
   "blanco": {
     "type": "outline",
     "bg_token": "black_base",
@@ -613,8 +565,7 @@
     "border_width": 3,
     "corner_radius": 18,
     "font_size": 36
-  }
-,
+  },
   "Busqueda_principal": {
     "type": "outline",
     "bg_token": "black_base",
@@ -627,7 +578,6 @@
     "width": 350,
     "height": 150
   },
-
   "Busqueda_categoria": {
     "type": "outline",
     "bg_token": "black_base",
@@ -640,7 +590,6 @@
     "min_width": 160,
     "height": 48
   },
-
   "Busqueda_tipo": {
     "type": "outline",
     "bg_token": "black_base",
@@ -653,7 +602,6 @@
     "min_width": 160,
     "height": 48
   },
-
   "Busqueda_categoria_prod": {
     "type": "outline",
     "bg_token": "black_base",
@@ -666,7 +614,6 @@
     "min_width": 160,
     "height": 56
   },
-
   "Busqueda_tipo_prod": {
     "type": "outline",
     "bg_token": "black_base",
@@ -679,7 +626,6 @@
     "min_width": 160,
     "height": 56
   },
-
   "dialog_info_btn": {
     "type": "outline",
     "bg_token": "black_base",
@@ -692,7 +638,6 @@
     "border_width": 10,
     "font_size": 20
   },
-
   "dialog_success_btn": {
     "type": "outline",
     "bg_token": "black_base",
@@ -702,10 +647,9 @@
     "width": 160,
     "height": 55,
     "corner_radius": 12,
-    "border_width": 10,
+    "border_width": 1,
     "font_size": 20
   },
-
   "dialog_warning_btn": {
     "type": "outline",
     "bg_token": "black_base",
@@ -715,10 +659,9 @@
     "width": 160,
     "height": 55,
     "corner_radius": 12,
-    "border_width": 10,
+    "border_width": 1,
     "font_size": 20
   },
-
   "dialog_error_btn": {
     "type": "outline",
     "bg_token": "black_base",
@@ -731,7 +674,6 @@
     "border_width": 10,
     "font_size": 20
   },
-
   "dialog_cancel_btn": {
     "type": "outline",
     "bg_token": "black_base",
@@ -741,10 +683,9 @@
     "width": 100,
     "height": 40,
     "corner_radius": 12,
-    "border_width": 5,
+    "border_width": 1,
     "font_size": 12
   },
-
   "dialog_password_btn": {
     "type": "solid",
     "bg_token": "purple_special",

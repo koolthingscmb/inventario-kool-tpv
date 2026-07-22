@@ -56,8 +56,8 @@ class InputDialog(BaseDialog):
         content_frame = self._crear_barra_titulo(main_frame, titulo)
 
         # Contenido: mensaje + entry centrados
-        padding_x = int(self.geometry_cfg.get('padding_x', 20))
-        padding_y = int(self.geometry_cfg.get('padding_y', 20))
+        padding_x = int(self.current_geom.get('padding_x', 20))
+        padding_y = int(self.current_geom.get('padding_y', 20))
 
         content_wrapper = ctk.CTkFrame(content_frame, fg_color='transparent')
         content_wrapper.pack(fill='both', expand=True, padx=padding_x, pady=padding_y)
@@ -74,11 +74,12 @@ class InputDialog(BaseDialog):
                 wraplength=wraplength,
                 justify='center'
             )
-            mensaje_label.pack(pady=(0, 10))
+            pady_msg = self.current_spacing.get('title_bottom', 10)
+            mensaje_label.pack(pady=(0, pady_msg))
 
         # Entry
-        entry_width = int(self.geometry_cfg.get('entry_width', self.fallbacks['geometry']['entry_width'])) if isinstance(self.geometry_cfg.get('entry_width', None), int) else int(self.fallbacks['geometry']['entry_width'])
-        entry_height = int(self.geometry_cfg.get('entry_height', self.fallbacks['geometry']['entry_height'])) if isinstance(self.geometry_cfg.get('entry_height', None), int) else int(self.fallbacks['geometry']['entry_height'])
+        entry_width = int(self.current_geom.get('entry_width', self.fallbacks['geometry']['entry_width']))
+        entry_height = int(self.current_geom.get('entry_height', self.fallbacks['geometry']['entry_height']))
 
         entry_params = {
             "master": content_wrapper,
@@ -92,7 +93,9 @@ class InputDialog(BaseDialog):
             entry_params["show"] = "*"
 
         self.entry = ctk.CTkEntry(**entry_params)
-        self.entry.pack(pady=(0, 10))
+        pady_entry = self.current_spacing.get('message_bottom', 10)
+        self.entry.pack(pady=(0, pady_entry))
+
         if valor_defecto:
             self.entry.insert(0, str(valor_defecto))
             self.entry.select_range(0, 'end')

@@ -11,81 +11,30 @@ import logging
 import tkinter as tk
 
 
-class TextViewDialog(ctk.CTkToplevel):
+from .dialogs.base_dialog import BaseDialog
+
+
+class TextViewDialog(BaseDialog):
     """Diálogo modal para visualizar texto largo con scroll."""
 
-    def __init__(self, parent, titulo='', texto='', width=600, height=800, callback=None, print_callback=None):
+    def __init__(self, parent, titulo='', texto='', width=None, height=None, callback=None, print_callback=None):
         """
         Args:
             parent: Ventana padre
             titulo: Título del diálogo
             texto: Texto completo a mostrar
-            width: Ancho de la ventana (default 600)
-            height: Alto de la ventana (default 800)
+            width: Ancho de la ventana (opcional)
+            height: Alto de la ventana (opcional)
             callback: Función a ejecutar al cerrar (opcional)
         """
-        super().__init__(parent)
-
-        self.callback = callback
+        self.texto_inicial = texto
         self.print_callback = print_callback
-
-        # Configurar ventana
-        self.title(titulo or 'Visualización')
-        self.geometry(f"{width}x{height}")
-        self.resizable(False, False)
-
-        try:
-            self.configure(fg_color='#2b2b2b')
-        except Exception:
-            pass
-
-        # Prepare hidden window, set transient and compute geometry before mapping
-        try:
-            self.withdraw()
-        except Exception:
-            pass
-        try:
-            self.transient(parent)
-        except Exception:
-            pass
-
-        try:
-            self.update_idletasks()
-            w, h = width, height
-            if parent is not None and getattr(parent, 'winfo_ismapped', None) and parent.winfo_ismapped():
-                try:
-                    parent.update_idletasks()
-                    px = parent.winfo_rootx()
-                    py = parent.winfo_rooty()
-                    pw = parent.winfo_width() or parent.winfo_reqwidth()
-                    ph = parent.winfo_height() or parent.winfo_reqheight()
-                    x = px + max(0, (pw - w) // 2)
-                    y = py + max(0, (ph - h) // 2)
-                except Exception:
-                    x = (self.winfo_screenwidth() // 2) - (w // 2)
-                    y = (self.winfo_screenheight() // 2) - (h // 2)
-            else:
-                x = (self.winfo_screenwidth() // 2) - (w // 2)
-                y = (self.winfo_screenheight() // 2) - (h // 2)
-            self.geometry(f"{w}x{h}+{x}+{y}")
-        except Exception:
-            pass
-
-        self._crear_contenido(titulo, texto)
-
-        # Show immediately (no animation) and grab
-        try:
-            self.deiconify()
-        except Exception:
-            pass
-        try:
-            self.update_idletasks()
-        except Exception:
-            pass
-        try:
-            self.grab_set()
-        except Exception:
-            pass
+        
+        # Si no se pasan dimensiones, se usarán las de la config (tipo info por defecto)
+        super().__init__(parent, tipo='info', titulo=titulo, callback=callback)
+        
+        if width and height:
+            self.geometry(f"{width}x{height}")
 
         # Bind Escape para cerrar
         try:
@@ -99,46 +48,27 @@ class TextViewDialog(ctk.CTkToplevel):
         except Exception:
             pass
 
-    def _cargar_icono(self):
-        """Cargar icono dialog_info.png (libro mágico azul)."""
-        try:
-            base = Path(__file__).resolve().parents[1]  # kool_tpv/
-            icon_path = base / "assets" / "dialogs" / "dialog_info.png"
-
-            if icon_path.exists():
-                img = Image.open(icon_path)
-                img = img.resize((96, 96), Image.LANCZOS)
-                return ctk.CTkImage(light_image=img, dark_image=img, size=(96, 96))
-        except Exception:
-            logging.exception('Error cargando icono dialog_info.png en TextViewDialog')
-
-        return None
-
-    def _crear_contenido(self, titulo, texto):
-        """Crear widgets del diálogo."""
-        # Frame principal
+    def _crear_contenido(self, titulo, mensaje):
+        """Crear widgets del visor de texto dentro de la estructura de BaseDialog."""
+        tipo_config = self.dialogs_colors.get(self.tipo, {})
+        
+        # Frame principal sin padding (la barra va full-width)
         main_frame = ctk.CTkFrame(self, fg_color='transparent')
-        main_frame.pack(fill='both', expand=True, padx=20, pady=20)
+        main_frame.pack(fill='both', expand=True)
 
-        # Icono
-        icon = self._cargar_icono()
-        if icon:
-            icon_label = ctk.CTkLabel(main_frame, image=icon, text='')
-            icon_label.pack(pady=(0, 10))
-
-        # Título
-        if titulo:
-            titulo_label = ctk.CTkLabel(
-                main_frame,
-                text=titulo,
-                font=('Roboto-Bold', 24),
-                text_color='#FFFFFF'
-            )
-            titulo_label.pack(pady=(0, 10))
+        # Barra de título con icono
+        content_frame = self._crear_barra_titulo(main_frame, titulo)
 
         # Frame para texto con scroll
-        text_frame = tk.Frame(main_frame, bg='#2b2b2b')
-        text_frame.pack(fill='both', expand=True, pady=(0, 15))
+        padding_x = int(self.current_geom.get('padding_x', 20))
+        padding_y = int(self.current_geom.get('padding_y', 20))
+        
+        text_container = ctk.CTkFrame(content_frame, fg_color='transparent')
+        text_container.pack(fill='both', expand=True, padx=padding_x, pady=(padding_y, 0))
+
+        # Frame interno para tk.Text
+        text_frame = tk.Frame(text_container, bg='#2b2b2b')
+        text_frame.pack(fill='both', expand=True)
 
         # Scrollbar
         scrollbar = tk.Scrollbar(text_frame)
@@ -162,15 +92,20 @@ class TextViewDialog(ctk.CTkToplevel):
         # Insertar texto
         try:
             # Limpiar etiquetas de impresión para visualización
-            clean_text = (texto or '').replace('{{BOLD_ON}}', '').replace('{{BOLD_OFF}}', '').replace('{{BADGE}}', '')
+            clean_text = (self.texto_inicial or '').replace('{{BOLD_ON}}', '').replace('{{BOLD_OFF}}', '').replace('{{BADGE}}', '')
             self.text_widget.insert('1.0', clean_text)
             self.text_widget.configure(state='disabled')
         except Exception:
             logging.exception('Error insertando texto en TextViewDialog')
 
-        # Botones: Cerrar (por defecto focus) y opcional Imprimir
-        btn_frame = ctk.CTkFrame(main_frame, fg_color='transparent')
-        btn_frame.pack(pady=(10, 0))
+        # Botones unificados (Cerrar y opcional Imprimir)
+        self.btn = self._crear_botones_visor(content_frame)
+
+    def _crear_botones_visor(self, parent):
+        """Crear botones específicos para el visor (Cerrar / Imprimir)."""
+        btn_frame = ctk.CTkFrame(parent, fg_color='transparent')
+        pady_top = self.current_spacing.get('message_bottom', 10)
+        btn_frame.pack(pady=(pady_top, 10))
 
         # Botón Imprimir (si se provee callback)
         if self.print_callback is not None:
@@ -181,64 +116,58 @@ class TextViewDialog(ctk.CTkToplevel):
                     command=self._on_print,
                     fg_color='#2ecc71',
                     hover_color='#27ae60',
-                    font=('Roboto-SemiBold', 18),
+                    font=self._get_font('button'),
                     width=160,
                     height=44,
                     corner_radius=8
                 )
                 self.print_btn.pack(side='left', padx=(0, 12))
+                self._setup_button_focus(self.print_btn, is_accept=True)
             except Exception:
                 logging.exception('Error creando botón IMPRIMIR en TextViewDialog')
 
-        # Botón Cerrar (color info azul)
+        # Botón Cerrar (usa estilo de aceptar de info)
+        style_key = self._get_button_style_key()
         self.btn = ctk.CTkButton(
             btn_frame,
             text='CERRAR',
             command=self._on_close,
-            fg_color='#3498db',
-            hover_color='#2980b9',
-            font=('Roboto-SemiBold', 20),
+            fg_color=self.dialogs_colors.get('info', {}).get('button_bg', '#3498db'),
+            hover_color=self.dialogs_colors.get('info', {}).get('button_hover', '#2980b9'),
+            font=self._get_font('button'),
             width=200,
             height=50,
             corner_radius=10
         )
         self.btn.pack(side='left')
+        self._setup_button_focus(self.btn, is_accept=True)
+        return self.btn
 
-    def _on_close(self):
-        """Cerrar diálogo y ejecutar callback si existe."""
+    def _cargar_icono(self):
+        """Cargar icono dialog_info.png (libro mágico azul)."""
         try:
-            if self.callback and callable(self.callback):
-                self.callback()
+            base = Path(__file__).resolve().parents[1]  # kool_tpv/
+            icon_path = base / "assets" / "dialogs" / "dialog_info.png"
+
+            if icon_path.exists():
+                img = Image.open(icon_path)
+                img = img.resize((96, 96), Image.LANCZOS)
+                return ctk.CTkImage(light_image=img, dark_image=img, size=(96, 96))
         except Exception:
-            logging.exception('Error ejecutando callback de TextViewDialog')
-        finally:
-            try:
-                self.grab_release()
-            except Exception:
-                pass
-            self.destroy()
+            logging.exception('Error cargando icono dialog_info.png en TextViewDialog')
 
-    def _on_print(self):
-        """Ejecutar la callback de impresión si existe."""
-        try:
-            if self.print_callback and callable(self.print_callback):
-                try:
-                    self.print_callback()
-                except Exception:
-                    logging.exception('Error ejecutando print_callback en TextViewDialog')
-        except Exception:
-            logging.exception('Error en _on_print de TextViewDialog')
+        return None
 
 
-def show_text_viewer(parent, titulo, texto, width=600, height=800, callback=None, print_callback=None):
+def show_text_viewer(parent, titulo, texto, width=None, height=None, callback=None, print_callback=None):
     """Mostrar diálogo de visualización de texto largo.
 
     Args:
         parent: Ventana padre
         titulo: Título del diálogo
         texto: Texto completo a mostrar (monoespaciado)
-        width: Ancho de la ventana (default 600)
-        height: Alto de la ventana (default 800)
+        width: Ancho de la ventana (opcional)
+        height: Alto de la ventana (opcional)
         callback: Función a ejecutar al cerrar (opcional)
     """
     try:
