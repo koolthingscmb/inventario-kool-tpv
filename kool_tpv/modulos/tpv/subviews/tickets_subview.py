@@ -866,16 +866,7 @@ class TicketsSubView(CTkFrame):
                         pass
 
                 logger.info(f'Cierre completado: cierre_id={cierre_id}')
-
-            # Modal info: OK para continuar
-            from kool_tpv.utils.custom_dialog import show_info
-            root = self.winfo_toplevel()
-            show_info(
-                root,
-                'Cierre generado',
-                'Revisa el visor y pulsa OK para continuar.',
-                callback=lambda: _cerrar_y_continuar()
-            )
+                _cerrar_y_continuar()
         except Exception:
             logger.exception('Error en _cierre_z_mostrar_resultado')
 

@@ -42,14 +42,19 @@ class VentaFidelizacionProcessor(VentaProcessor):
                     unidades_vendidas=kwargs.get('total_unidades', 0),
                     fecha=(kwargs.get('created_at') or '').split(' ')[0]
                 )
+                
+                logger.info(f"DEBUG FIDEL: res_nivel={res_nivel}")
 
                 # Si subió de nivel y tenemos impresora, lanzar ticket
                 if res_nivel.get('subida_nivel') and self.impresora_service:
                     try:
+                        logger.info(f"DEBUG FIDEL: Iniciando proceso de ticket de nivel para cliente {cliente_id}")
                         niv_repo = NivelesRepository(self.db)
                         nivel_ant = niv_repo.get_nivel_por_id(res_nivel['nivel_anterior_id'])
                         nivel_nue = niv_repo.get_nivel_por_id(res_nivel['nivel_nuevo_id'])
                         cliente_info = self.fidel_repo.get_cliente_info(cliente_id)
+                        
+                        logger.info(f"DEBUG FIDEL: nivel_ant={nivel_ant['nombre_nivel'] if nivel_ant else 'None'}, nivel_nue={nivel_nue['nombre_nivel'] if nivel_nue else 'None'}")
                         
                         if not nivel_nue:
                             logger.error(f"No se encontró información del nuevo nivel {res_nivel['nivel_nuevo_id']}")

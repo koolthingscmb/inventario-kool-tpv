@@ -240,8 +240,10 @@ class CrearPedidoUI:
         
         if data:
             row_data['producto_id'] = data.get('id')
-            e_sku.insert(0, data.get('sku', ''))
-            e_prod.insert(0, data.get('nombre', ''))
+            sku_val = str(data.get('sku') or '')
+            nombre_val = str(data.get('nombre') or '')
+            e_sku.insert(0, sku_val)
+            e_prod.insert(0, nombre_val)
             
             # Intentar rellenar tipo y proveedor por ID o nombre
             t_id = data.get('tipo_id') or data.get('tipo')

@@ -257,7 +257,7 @@ class FidelizacionRepository:
                 'nivel_nuevo_id': nivel_nuevo_id,
                 'tesoro_historico': tesoro_historico
             }
-            logger.debug(f"DEBUG FISCAL RESULT: {res}")
+            logger.info(f"DEBUG FIDEL REPO: result={res} (es_primera={es_primera_compra})")
             return res
 
         except Exception:
