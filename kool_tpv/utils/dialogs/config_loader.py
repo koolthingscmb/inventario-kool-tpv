@@ -153,6 +153,22 @@ def load_dialog_config():
     if _CONFIG_CACHE is not None:
         return _CONFIG_CACHE
 
+    return reload_dialog_config()
+
+
+def reload_dialog_config(ui_data: dict = None):
+    """Fuerza la recarga de la configuración, opcionalmente usando datos proporcionados.
+    
+    Args:
+        ui_data (dict, optional): Si se proporciona, usa estos datos en lugar de leer de disco.
+    """
+    global _CONFIG_CACHE
+    
+    if ui_data:
+        _CONFIG_CACHE = _transform_ui_dialogs_to_legacy_format(ui_data)
+        logging.info("Config de diálogos actualizada desde datos manuales (cache)")
+        return _CONFIG_CACHE
+
     # PASO 1: Intentar cargar desde ui_dialogs.json (nuevo formato)
     if _UI_LOADER_AVAILABLE and load_ui_dialogs is not None:
         try:
@@ -183,8 +199,6 @@ def load_dialog_config():
             geometry = layout_data.get('components', {}).get('dialog', {})
 
         # Guardar en cache para futuras llamadas
-        # Nota: fonts_by_type será el dict completo de font_config (legacy)
-        # geometry_by_type, spacing_by_type y buttons_by_type estarán vacíos
         _CONFIG_CACHE = (dialogs_colors, fonts_data, geometry, FALLBACKS, {}, {}, {})
         return _CONFIG_CACHE
 

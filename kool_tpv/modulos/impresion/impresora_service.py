@@ -82,6 +82,32 @@ class ImpresoraService:
         except Exception:
             self.logo_filename = ''
 
+    def _inicializar_componentes_escpos(self):
+        """Inicializa (o re-inicializa) los componentes ESC/POS si no están listos."""
+        if self.esc_renderer is None:
+            if EscPosRenderer is not None:
+                try:
+                    self.logger.info("Inicializando EscPosRenderer dinámicamente...")
+                    self.esc_renderer = EscPosRenderer(
+                        encoding=self.codepage, 
+                        debug_dump=getattr(self, 'debug_dump', False), 
+                        dump_directory=getattr(self, 'dump_directory', None)
+                    )
+                except Exception:
+                    self.logger.exception("No se pudo instanciar EscPosRenderer dinámicamente")
+            else:
+                self.logger.warning("EscPosRenderer no disponible para inicialización dinámica")
+
+        if self.printer_adapter is None:
+            if WindowsPrinterAdapter is not None:
+                try:
+                    self.logger.info("Inicializando WindowsPrinterAdapter dinámicamente...")
+                    self.printer_adapter = WindowsPrinterAdapter()
+                except Exception:
+                    self.logger.exception("No se pudo instanciar WindowsPrinterAdapter dinámicamente")
+            else:
+                self.logger.warning("WindowsPrinterAdapter no disponible para inicialización dinámica")
+
     def _load_config_from_db(self):
         """Cargar configuración del ticket desde tabla configuracion.
 
@@ -868,6 +894,9 @@ class ImpresoraService:
 
         # modo escpos
         if self.modo_impresion == "escpos":
+            # Asegurar componentes listos (self-healing)
+            self._inicializar_componentes_escpos()
+            
             if self.esc_renderer is None:
                 self.logger.error("Modo 'escpos' solicitado pero EscPosRenderer no está disponible")
                 return
@@ -949,16 +978,28 @@ class ImpresoraService:
         `imprimir_ticket` (simulación, modo texto/escpos, logo, dump).
         """
         # Leer modo_impresion y printer_name de la BD en tiempo real (igual que _print_ticket)
+        # Default a escpos si no se puede leer (máxima fiabilidad)
+        modo_leido = 'escpos' 
         try:
             if self.db and getattr(self.db, 'fetch_one', None):
                 row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'modo_impresion'")
                 if row and row[0]:
-                    self.modo_impresion = row[0]
+                    modo_leido = row[0]
+                
+                # Si el modo ha cambiado a escpos o ya lo era, asegurar que los componentes estén cargados
+                if modo_leido == 'escpos':
+                    self.modo_impresion = 'escpos'
+                    self._inicializar_componentes_escpos()
+
                 row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'printer_name'")
                 if row and row[0] and not printer_name:
                     printer_name = row[0]
+            
+            self.modo_impresion = modo_leido
         except Exception:
-            self.logger.exception('Error leyendo modo_impresion/printer_name de BD en imprimir_ticket_nivel')
+            self.logger.exception('Error leyendo modo_impresion/printer_name de BD en imprimir_ticket_nivel, usando default escpos')
+            self.modo_impresion = 'escpos'
+            self._inicializar_componentes_escpos()
 
         self.logger.info(f"DEBUG IMPRESORA: imprimir_ticket_nivel llamado. modo={self.modo_impresion}")
         # Ensure latest config from DB before generating nivel ticket

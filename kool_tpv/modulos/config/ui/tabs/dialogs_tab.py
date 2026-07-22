@@ -1,10 +1,17 @@
 """Tab DIÁLOGOS del panel de configuración UI."""
 import tkinter as tk
 from typing import Any, Dict
+import logging
+import shutil
+from pathlib import Path
+from PIL import Image
 
 import customtkinter as ctk
 
 from kool_tpv.modulos.config.ui.services.ui_config_service import UIConfigService
+from kool_tpv.utils.dialogs.config_loader import reload_dialog_config
+from kool_tpv.utils.dialogs.message_dialog import MessageDialog
+from kool_tpv.utils.dialogs.input_dialog import InputDialog
 
 
 class DialogsTab:
@@ -134,6 +141,9 @@ class DialogsTab:
         # Colores (Siempre mostrados)
         if "colors" in config:
             self._render_colors_section(self.content_container, f"{prefix}.colors", config["colors"], accent)
+
+        # Icono (Nuevo: Gestión de iconos)
+        self._render_icon_section(self.content_container, dlg_key, accent)
 
         # Botón para añadir overrides si no existen
         tk.Label(
@@ -299,93 +309,132 @@ class DialogsTab:
             d[keys[-1]] = value
 
     def _test_dialog(self, dlg_type: str, accent: str):
-        """Abre un diálogo real de prueba usando los valores actuales (incluyendo herencia)."""
-        p = f"dialogs.{dlg_type}"
-        common_p = "common"
-
-        def _val(key):
-            # Prioridad: valor en UI (específico) -> valor en UI (global) -> vacío
-            v = self._values.get(f"{p}.{key}")
-            if v and v.get().strip(): return v.get().strip()
-            v = self._values.get(f"{common_p}.{key}")
-            if v and v.get().strip(): return v.get().strip()
-            return ""
-
-        def _int(key, default=0):
-            try:
-                return int(float(_val(key)))
-            except ValueError:
-                return default
-
-        w = _int("window.width", 400)
-        h = _int("window.height", 300)
-        cr = _int("window.corner_radius", 15)
-        bw = _int("window.border_width", 2)
-        tbh = _int("window.title_bar_height", 50)
-        px = _int("window.padding_x", 15)
-        py = _int("window.padding_y", 15)
-
-        bg = _val("colors.bg") or "#000000"
-        border_c = _val("colors.border") or accent
-        title_c = _val("colors.title_text") or accent
-        msg_c = _val("colors.message_text") or "#FFFFFF"
-        btn_bg = _val("colors.button_bg") or accent
-        btn_text_c = _val("colors.button_text") or "#FFFFFF"
-        tb_bg = _val("colors.title_bar_bg") or accent
-        tb_text = _val("colors.title_bar_text") or "#FFFFFF"
-
-        title_fam = _val("fonts.title.family") or "Courier New"
-        title_sz = _int("fonts.title.size", 18)
-        title_wt = _val("fonts.title.weight") or "bold"
-        msg_fam = _val("fonts.message.family") or "Courier New"
-        msg_sz = _int("fonts.message.size", 14)
-        msg_wt = _val("fonts.message.weight") or "bold"
-        btn_fam = _val("fonts.button.family") or "Courier New"
+        """Abre un diálogo REAL de la aplicación usando los valores actuales (incluyendo cambios no guardados)."""
+        # 1. Recopilar todos los valores actuales de la UI para crear un ui_data temporal
+        ui_data = self._build_ui_data_from_vars()
         
-        accept_w = _int("buttons.accept.width", 140)
-        accept_h = _int("buttons.accept.height", 45)
-        accept_cr = _int("buttons.accept.corner_radius", 10)
-        accept_fs = _int("buttons.accept.font_size", 16)
+        # 2. Actualizar el cache global de configuración (en memoria) para que el diálogo lo use
+        reload_dialog_config(ui_data)
+        
+        # 3. Lanzar el diálogo real según el tipo
+        if dlg_type in ['input', 'password']:
+            InputDialog(
+                self.parent, 
+                tipo=dlg_type, 
+                titulo="DIÁLOGO DE PRUEBA", 
+                mensaje=f"ESTE ES UN DIÁLOGO REAL DE TIPO {dlg_type.upper()}",
+                password=(dlg_type == 'password')
+            )
+        else:
+            MessageDialog(
+                self.parent, 
+                tipo=dlg_type, 
+                titulo="DIÁLOGO DE PRUEBA", 
+                mensaje=f"ESTE ES UN DIÁLOGO REAL DE TIPO {dlg_type.upper()}\nCON ICONO Y ESTILOS ACTUALES.",
+                confirm=(dlg_type == 'warning') # Simular confirmación en warning
+            )
 
-        dialog = ctk.CTkToplevel(self.parent)
-        dialog.title(f"TEST — {dlg_type.upper()}")
-        dialog.geometry(f"{w}x{h}")
-        dialog.resizable(False, False)
-        dialog.configure(fg_color=bg, border_width=bw, border_color=border_c)
-        dialog.transient(self.parent)
-        dialog.grab_set()
+    def _build_ui_data_from_vars(self) -> dict:
+        """Construye un diccionario con la estructura de ui_dialogs.json a partir de los campos de la UI."""
+        # Clonar la data actual para mantener campos que no están en la UI si los hubiera
+        temp_data = dict(self._data)
+        
+        for key, var in self._values.items():
+            parts = key.split(".")
+            val = var.get().strip()
+            
+            # Convertir a int si es numérico
+            numeric_fields = [
+                "width", "height", "corner_radius", "border_width",
+                "padding_x", "padding_y", "title_bar_height", "icon_size",
+                "button_width", "button_height", "entry_width", "entry_height",
+                "size", "font_size", "icon_top", "icon_bottom", "title_bottom",
+                "message_bottom", "entry_bottom", "focus_border_width"
+            ]
+            if parts[-1] in numeric_fields:
+                try: val = int(float(val))
+                except: continue
+                
+            self._set_nested(temp_data, parts, val)
+        return temp_data
 
-        # Simular barra de título
-        title_bar = ctk.CTkFrame(dialog, fg_color=tb_bg, height=tbh, corner_radius=0)
-        title_bar.pack(fill="x", side="top")
-        title_bar.pack_propagate(False)
+    def _render_icon_section(self, parent, dlg_type: str, accent: str):
+        self._section_header(parent, "ICONO DEL DIÁLOGO", accent)
+        
+        row = tk.Frame(parent, bg=self._bg)
+        row.pack(fill="x", padx=15, pady=5)
+        
+        # 1. Mostrar icono actual
+        icon_container = tk.Frame(row, bg="#1a1a1a", width=60, height=60)
+        icon_container.pack(side="left", padx=(0, 15))
+        icon_container.pack_propagate(False)
+        
+        lbl_icon = tk.Label(icon_container, bg="#1a1a1a")
+        lbl_icon.pack(expand=True)
+        
+        def _load_current_icon():
+            try:
+                base = Path(__file__).resolve().parents[4]
+                icon_path = base / "assets" / "dialogs" / f"dialog_{dlg_type}.png"
+                if not icon_path.exists():
+                    icon_path = base / "assets" / "dialogs" / "dialog_error.png"
+                
+                if icon_path.exists():
+                    from PIL import ImageTk
+                    img = Image.open(icon_path)
+                    img = img.resize((40, 40), Image.LANCZOS)
+                    photo = ImageTk.PhotoImage(img)
+                    lbl_icon.configure(image=photo)
+                    lbl_icon.image = photo
+                else:
+                    lbl_icon.configure(text="?", fg="#ecf0f1", font=("Helvetica", 20, "bold"))
+            except Exception as e:
+                logging.error(f"Error cargando icono para preview: {e}")
+                lbl_icon.configure(text="!", fg="#e74c3c", font=("Helvetica", 20, "bold"))
 
-        ctk.CTkLabel(
-            title_bar, text=dlg_type.upper(),
-            font=(title_fam, title_sz, title_wt),
-            text_color=tb_text
-        ).pack(side="left", padx=px)
+        _load_current_icon()
+        
+        # 2. Información y botones
+        info_col = tk.Frame(row, bg=self._bg)
+        info_col.pack(side="left", fill="both", expand=True)
+        
+        tk.Label(
+            info_col, text=f"dialog_{dlg_type}.png",
+            font=("Courier New", 10), fg="#95a5a6", bg=self._bg, anchor="w"
+        ).pack(fill="x")
+        
+        btn_row = tk.Frame(info_col, bg=self._bg)
+        btn_row.pack(fill="x", pady=(5, 0))
+        
+        def _on_change_icon():
+            from tkinter import filedialog
+            file_path = filedialog.askopenfilename(
+                title="Seleccionar Nuevo Icono (PNG)",
+                filetypes=[("Imágenes PNG", "*.png")]
+            )
+            if file_path:
+                try:
+                    base = Path(__file__).resolve().parents[4]
+                    dest_dir = base / "assets" / "dialogs"
+                    dest_dir.mkdir(parents=True, exist_ok=True)
+                    dest_path = dest_dir / f"dialog_{dlg_type}.png"
+                    
+                    # Copiar el archivo
+                    shutil.copy2(file_path, dest_path)
+                    
+                    # Refrescar preview
+                    _load_current_icon()
+                    self._status_label.configure(text=f"✓ Icono {dlg_type} actualizado", fg="#2ecc71")
+                except Exception as e:
+                    logging.exception("Error al cambiar icono")
+                    self._status_label.configure(text="✕ Error al guardar icono", fg="#e74c3c")
 
-        # Cuerpo
-        body = ctk.CTkFrame(dialog, fg_color="transparent")
-        body.pack(fill="both", expand=True, padx=px, pady=py)
-
-        ctk.CTkLabel(
-            body, text="MENSAJE DE PRUEBA",
-            font=(msg_fam, msg_sz, msg_wt),
-            text_color=msg_c,
-            wraplength=w - (px * 2) - 20
-        ).pack(expand=True)
-
-        # Botón
         ctk.CTkButton(
-            body, text="ACEPTAR",
-            width=accept_w, height=accept_h,
-            corner_radius=accept_cr,
-            fg_color=btn_bg, text_color=btn_text_c,
-            font=(btn_fam, accept_fs, "bold"),
-            command=dialog.destroy
-        ).pack(side="bottom", pady=(py, 0))
+            btn_row, text="CAMBIAR ICONO", width=120, height=28,
+            fg_color="#34495e", hover_color="#2c3e50",
+            font=("Helvetica", 10, "bold"),
+            command=_on_change_icon
+        ).pack(side="left")
 
     def _section_header(self, parent, label: str, accent: str):
         tk.Label(
