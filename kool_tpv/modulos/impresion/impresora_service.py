@@ -948,6 +948,18 @@ class ImpresoraService:
         Reutiliza la lógica de impresión común para mantener compatibilidad con
         `imprimir_ticket` (simulación, modo texto/escpos, logo, dump).
         """
+        # Leer modo_impresion y printer_name de la BD en tiempo real (igual que _print_ticket)
+        try:
+            if self.db and getattr(self.db, 'fetch_one', None):
+                row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'modo_impresion'")
+                if row and row[0]:
+                    self.modo_impresion = row[0]
+                row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'printer_name'")
+                if row and row[0] and not printer_name:
+                    printer_name = row[0]
+        except Exception:
+            self.logger.exception('Error leyendo modo_impresion/printer_name de BD en imprimir_ticket_nivel')
+
         self.logger.info(f"DEBUG IMPRESORA: imprimir_ticket_nivel llamado. modo={self.modo_impresion}")
         # Ensure latest config from DB before generating nivel ticket
         try:
