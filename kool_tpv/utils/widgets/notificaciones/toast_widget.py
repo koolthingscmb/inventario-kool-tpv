@@ -99,46 +99,20 @@ class ToastWidget:
             text_x = px
             self.mensaje = f"{icono}  {self.mensaje}"
 
-        # Botón OK para toast tipo 'info' (persistente hasta clic)
-        mostrar_ok = self.tipo == 'info' and cfg.get('toast_info_mostrar_ok', False)
-        if mostrar_ok:
-            ok_w = int(cfg.get('toast_ok_width', 40))
-            ok_h = int(cfg.get('toast_ok_height', 26))
-            ok_pad = icon_pad
-            ok_bg = self._parse_color(cfg.get('toast_ok_bg', '#FFFFFF'), bg)
-            ok_fg = cfg.get('toast_ok_fg', '#FFFFFF')
-            ok_hover = self._parse_color(cfg.get('toast_ok_hover', '#E0E0E0'), bg)
-            text_w = w - text_x - px - ok_w - ok_pad
-        else:
-            text_w = w - text_x - px
+        # Sin botón OK - los toast son puramente informativos y no bloquean
+        text_w = w - text_x - px
 
         lbl = tk.Label(self._win, text=self.mensaje, bg=bg, fg=fg,
                        font=('Helvetica', 11, 'bold'),
                        anchor='w')
         lbl.place(x=text_x, y=0, width=text_w, height=h)
-        if not mostrar_ok:
-            lbl.bind('<Button-1>', lambda e: self._destruir())
-            self._win.bind('<Button-1>', lambda e: self._destruir())
-
-        if mostrar_ok:
-            btn_y = (h - ok_h) // 2
-            btn_x = w - px - ok_w
-            def _on_ok_click():
-                self._destruir(confirmed=True)
-            btn = tk.Button(
-                self._win, text='OK',
-                bg=ok_bg, fg=ok_fg,
-                activebackground=ok_hover, activeforeground=ok_fg,
-                font=('Helvetica', 9, 'bold'),
-                relief='flat', bd=0, highlightthickness=0,
-                cursor='hand2', command=_on_ok_click
-            )
-            btn.place(x=btn_x, y=btn_y, width=ok_w, height=ok_h)
+        lbl.bind('<Button-1>', lambda e: self._destruir())
+        self._win.bind('<Button-1>', lambda e: self._destruir())
 
         # Posición
         self._posicionar(w, h)
 
-        if not mostrar_ok and self.duracion_ms > 0:
+        if self.duracion_ms > 0:
             self._after_id = self._win.after(self.duracion_ms, self._destruir)
         ToastWidget._instancias.append(self)
 
@@ -213,7 +187,7 @@ class ToastWidget:
         except Exception:
             return '#FFFFFF'
 
-    def _destruir(self, confirmed=False):
+    def _destruir(self):
         if self._win is None:
             return
         if self._after_id:
@@ -230,6 +204,6 @@ class ToastWidget:
             ToastWidget._instancias.remove(self)
         if self.al_cerrar:
             try:
-                self.al_cerrar(confirmed)
+                self.al_cerrar()
             except Exception:
                 pass

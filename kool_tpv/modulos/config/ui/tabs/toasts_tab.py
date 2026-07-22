@@ -62,18 +62,28 @@ class ToastsTab:
             command=self._test_toast
         ).pack(side="left")
 
-        self._render_position_animacion(scroll)
-        self._separator(scroll)
-        self._render_tamano_forma(scroll)
-        self._separator(scroll)
-        self._render_tiempos(scroll)
-        self._separator(scroll)
-        self._render_iconos(scroll)
-        self._separator(scroll)
-        self._render_colores_tipo(scroll)
-        self._separator(scroll)
-        self._render_boton_ok(scroll)
-        self._separator(scroll)
+        # Layout de 2 columnas
+        columns_frame = tk.Frame(scroll, bg=self._bg)
+        columns_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(5, 0))
+
+        self._left_column = tk.Frame(columns_frame, bg=self._bg)
+        self._left_column.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+
+        self._right_column = tk.Frame(columns_frame, bg=self._bg)
+        self._right_column.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
+
+        # Secciones en columna izquierda
+        self._render_position_animacion(self._left_column)
+        self._separator(self._left_column)
+        self._render_tamano_forma(self._left_column)
+        self._separator(self._left_column)
+        self._render_tiempos(self._left_column)
+
+        # Secciones en columna derecha
+        self._render_iconos(self._right_column)
+        self._separator(self._right_column)
+        self._render_colores_tipo(self._right_column)
+        self._separator(self._right_column)
         self._render_save_bar(scroll)
 
     def _render_save_bar(self, parent):
@@ -525,46 +535,6 @@ class ToastsTab:
         for f, label, default in color_fields:
             val = self._data.get(f, default)
             self._color_row(parent, f, label, val)
-
-    # ── BOTÓN OK ─────────────────────────────────────────────────
-
-    def _render_boton_ok(self, parent):
-        self._section_header(parent, "BOTÓN OK", "#1abc9c")
-
-        self._bool_row(parent, "toast_info_mostrar_ok", "Mostrar Botón OK (info)",
-                       self._data.get("toast_info_mostrar_ok", False))
-
-        row = tk.Frame(parent, bg=self._bg)
-        row.pack(fill="x", padx=10, pady=4)
-
-        for i, (f, label) in enumerate([
-            ("toast_info_duracion_ms", "Info Duración ms"),
-            ("toast_ok_width", "OK Width"),
-            ("toast_ok_height", "OK Height"),
-        ]):
-            val = self._data.get(f, 0)
-            v = tk.StringVar(value=str(val))
-            self._values[f] = v
-
-            col = tk.Frame(row, bg=self._bg)
-            col.grid(row=0, column=i, padx=4, sticky="w")
-
-            tk.Label(
-                col, text=label, font=("Helvetica", 8),
-                fg="#1abc9c", bg=self._bg, anchor="w"
-            ).pack(anchor="w")
-            tk.Spinbox(
-                col, from_=0, to=60000, increment=1,
-                textvariable=v, width=5, font=("Helvetica", 10), justify="right"
-            ).pack(anchor="w", pady=(2, 0))
-
-        for f, label in [
-            ("toast_ok_bg", "OK BG"),
-            ("toast_ok_fg", "OK FG"),
-            ("toast_ok_hover", "OK Hover"),
-        ]:
-            val = self._data.get(f, "")
-            self._color_or_str_row(parent, f, label, val)
 
     # ── HELPERS ──────────────────────────────────────────────────
 
