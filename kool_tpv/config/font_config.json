@@ -219,12 +219,12 @@
         },
         "footer_labels": {
           "family": "Courier New",
-          "size": 14,
+          "size": 18,
           "weight": "bold"
         },
         "footer_totales": {
           "family": "Courier New",
-          "size": 16,
+          "size": 30,
           "weight": "bold"
         }
       },
