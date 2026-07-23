@@ -489,8 +489,8 @@ class ProduccionEntradaManualUI:
             except: pass
 
     def _on_eliminar_linea_click(self):
-        idx = self.nav_list.get_selected_index()
-        if idx is not None and 0 <= idx < len(self.lineas):
+        idx = self.nav_list.selected_index
+        if idx >= 0 and idx < len(self.lineas):
             self.lineas.pop(idx)
             self._actualizar_tabla()
 
