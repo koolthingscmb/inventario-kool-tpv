@@ -28,7 +28,7 @@ class ReposicionPendientesUI(ctk.CTkFrame):
         self.tallas_service = ProduccionTallasService(db)
         self.colores_service = ProduccionColoresService(db)
         self.disenos_service = ProduccionDisenosService(db)
-        self.selected_item = None
+        self.selected_items = []  # Lista para multi-select
         
         self._setup_ui()
         self.refrescar()
@@ -77,11 +77,18 @@ class ReposicionPendientesUI(ctk.CTkFrame):
         self.nav_list = VirtualNavList(
             self,
             columns=columns,
-            on_select=self._on_select,
+            on_selection_change=self._on_selection_change,
             on_double_click=self._on_double_click,
-            module_name="produccion" # Colores morados
+            module_name="produccion", # Colores morados
+            multi_select=True
         )
         self.nav_list.pack(side="top", fill="both", expand=True, padx=10, pady=10)
+
+        # Bindings de teclado para borrar (usamos bind en lugar de bind_all)
+        self.nav_list.bind("<Delete>", lambda e: self._on_borrar())
+        self.nav_list.bind("<BackSpace>", lambda e: self._on_borrar())
+        self.bind("<Delete>", lambda e: self._on_borrar())
+        self.bind("<BackSpace>", lambda e: self._on_borrar())
 
     def refrescar(self):
         # 1. Cargar configurados (Drafts)
@@ -208,12 +215,16 @@ class ReposicionPendientesUI(ctk.CTkFrame):
             data.append(row)
         
         self.nav_list.set_items(data)
-        self.selected_item = None
+        self.selected_items = []
         self.btn_borrar.configure(state="disabled")
 
-    def _on_select(self, item):
-        self.selected_item = item
-        self.btn_borrar.configure(state="normal")
+    def _on_selection_change(self, indices: List[int]):
+        """Handler para cambios en la selección múltiple."""
+        self.selected_items = self.nav_list.get_selected_items()
+        if self.selected_items:
+            self.btn_borrar.configure(state="normal")
+        else:
+            self.btn_borrar.configure(state="disabled")
 
     def _on_double_click(self, item):
         if not item: return
@@ -260,26 +271,37 @@ class ReposicionPendientesUI(ctk.CTkFrame):
             self.view.push_subview(form, f"REPOSICIÓN: {item.get('PRODUCTO VENDIDO')}")
 
     def _on_borrar(self):
-        if not self.selected_item:
+        if not self.selected_items:
             return
             
-        producto_id = self.selected_item.get("producto_id")
-        ticket_id = self.selected_item.get("ticket_id")
-        es_temp = self.selected_item.get("_es_temp", False)
-        item_id = self.selected_item.get("id")
-        
+        count = len(self.selected_items)
+        if count == 1:
+            item = self.selected_items[0]
+            mensaje = f"¿Estás seguro de que deseas eliminar '{item.get('PRODUCTO VENDIDO')}' de la lista de pendientes?"
+        else:
+            mensaje = f"¿Estás seguro de que deseas eliminar {count} productos de la lista de pendientes?"
+            
         from kool_tpv.utils.custom_dialog import CustomDialog
         
         def confirmar_borrado(result):
             if result:
-                ok = False
-                if es_temp:
-                    ok = self.store.borrar_pendiente_temp(producto_id, ticket_id)
-                else:
-                    ok = self.store.borrar(item_id)
+                success_count = 0
+                for item in self.selected_items:
+                    producto_id = item.get("producto_id")
+                    ticket_id = item.get("ticket_id")
+                    es_temp = item.get("_es_temp", False)
+                    item_id = item.get("id")
+                    
+                    if es_temp:
+                        if self.store.borrar_pendiente_temp(producto_id, ticket_id):
+                            success_count += 1
+                    else:
+                        if self.store.borrar(item_id):
+                            success_count += 1
                 
-                if ok:
-                    show_success(self.winfo_toplevel(), "PRODUCTO ELIMINADO")
+                if success_count > 0:
+                    msg = "PRODUCTO ELIMINADO" if success_count == 1 else f"{success_count} PRODUCTOS ELIMINADOS"
+                    show_success(self.winfo_toplevel(), msg)
                     self.refrescar()
                 else:
                     show_error(self.winfo_toplevel(), "ERROR AL ELIMINAR")
@@ -287,7 +309,7 @@ class ReposicionPendientesUI(ctk.CTkFrame):
         CustomDialog(
             self.winfo_toplevel(),
             titulo="ELIMINAR",
-            mensaje=f"¿Estás seguro de que deseas eliminar '{self.selected_item.get('PRODUCTO VENDIDO')}' de la lista de pendientes?",
+            mensaje=mensaje,
             tipo="warning",
             confirm=True,
             callback=confirmar_borrado

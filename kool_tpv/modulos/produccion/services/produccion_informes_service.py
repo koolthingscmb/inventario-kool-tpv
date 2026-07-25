@@ -143,7 +143,8 @@ class ProduccionInformesService:
                 r['unidades'],
                 f"{read_from_db(r['coste_total']):.2f} €",
                 fecha_str,
-                r.get('usuario', '-')
+                r.get('usuario', '-'),
+                r['id']
             ])
 
         report["sections"].append({

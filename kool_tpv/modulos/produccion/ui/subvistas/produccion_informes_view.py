@@ -22,11 +22,12 @@ from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config
 
 
 class ProduccionInformesView:
-    def __init__(self, parent, db, colors=None, km=None):
+    def __init__(self, parent, db, colors=None, km=None, owner=None):
         self.parent = parent
         self.db = db
         self.colors = colors or load_colors('produccion')
         self.km = km
+        self.owner = owner
         self.service = ProduccionInformesService(db)
         
         # Repositorios para filtros
@@ -327,6 +328,7 @@ class ProduccionInformesView:
         # Reconstruir NavList con las columnas del informe
         headers = report_data.get('headers', [])
         items = report_data.get('items', [])
+        tipo = self.cb_tipo_informe.get()
         
         # Destruir y recrear la nav_list con las columnas correctas
         self.nav_list.destroy()
@@ -336,7 +338,8 @@ class ProduccionInformesView:
         self.nav_list = VirtualNavList(
             self.viewer_frame,
             columns=columns,
-            module_name='produccion'
+            module_name='produccion',
+            on_double_click=self._on_item_double_click if tipo == "Producción de diseños" else None
         )
         self.nav_list.pack(fill='both', expand=True, padx=10, pady=(0, 10))
         
@@ -346,9 +349,59 @@ class ProduccionInformesView:
             row_dict = {}
             for i, h in enumerate(headers):
                 row_dict[h] = str(row[i]) if i < len(row) else ''
+            
+            # Guardar el ID de la línea si estamos en el informe detallado
+            if tipo == "Producción de diseños" and len(row) > len(headers):
+                row_dict["_linea_id"] = row[-1]
+                
             data.append(row_dict)
         
         self.nav_list.set_items(data)
+
+    def get_state(self) -> dict:
+        """Obtener el estado actual de los filtros y el tipo de informe."""
+        return {
+            'tipo': self.cb_tipo_informe.get(),
+            'fecha_inicio': self.entry_desde.get(),
+            'fecha_fin': self.entry_hasta.get(),
+            'filtros_diseno': self._filtros_diseno.copy()
+        }
+
+    def restore_state(self, state: dict):
+        """Restaurar filtros y generar el informe automáticamente."""
+        try:
+            if not state: return
+            
+            tipo = state.get('tipo', '')
+            self.cb_tipo_informe.set(tipo)
+            self._on_tipo_changed(tipo)
+            
+            self.entry_desde.set(state.get('fecha_inicio', ''))
+            self.entry_hasta.set(state.get('fecha_fin', ''))
+            
+            # Restaurar filtros de chips
+            self._filtros_diseno = state.get('filtros_diseno', {"coleccion_ids": [], "sufijo_ids": []}).copy()
+            
+            if tipo == "Producción de diseños":
+                self._render_chips_filtros()
+            
+            # Generar el informe automáticamente
+            self._on_generar_click()
+        except Exception:
+            logging.exception("Error restaurando estado en ProduccionInformesView")
+
+    def _on_item_double_click(self, item_data: dict):
+        """Manejador para el doble clic en una línea: Abrir edición."""
+        linea_id = item_data.get("_linea_id")
+        if not linea_id:
+            return
+            
+        if self.owner and hasattr(self.owner, 'show_editar_linea'):
+            # Pasamos el estado actual para poder volver
+            state = self.get_state()
+            self.owner.show_editar_linea(linea_id, state_informe=state)
+        else:
+            ToastWidget.show(self.container, "No se puede editar: falta el controlador de vistas", tipo='warning')
 
     def _calc_column_widths(self, headers, items, min_w=50, max_w=300):
         """Calcular ancho de columna basado en el contenido más ancho."""

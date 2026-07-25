@@ -414,7 +414,7 @@ class ProduccionView(BaseModuleView):
 		except Exception:
 			logging.exception('Error abriendo show_stock en ProduccionView')
 
-	def show_informes(self):
+	def show_informes(self, state_to_restore: Optional[dict] = None):
 		"""Mostrar vista de informes del módulo de producción."""
 		try:
 			from kool_tpv.modulos.produccion.ui.subvistas.produccion_informes_view import ProduccionInformesView
@@ -424,9 +424,33 @@ class ProduccionView(BaseModuleView):
 			view = ProduccionInformesView(
 				self.central_area,
 				db=self.db,
-				km=self.keyboard_mgr
+				km=self.keyboard_mgr,
+				owner=self
 			)
 			self.actualizar_ruta('PRODUCCIÓN / INFORMES')
+			
+			if state_to_restore:
+				# Dar un pequeño margen para que la UI se asiente
+				self.central_area.after(100, lambda: view.restore_state(state_to_restore))
+				
 			logging.info('Abriendo informes de producción...')
 		except Exception:
 			logging.exception('Error abriendo show_informes en ProduccionView')
+
+	def show_editar_linea(self, linea_id: int, state_informe: Optional[dict] = None):
+		"""Mostrar subvista de edición para una línea de producción."""
+		try:
+			from kool_tpv.modulos.produccion.ui.subvistas.produccion_edicion_linea_view import ProduccionEdicionLineaView
+			for w in list(self.central_area.winfo_children()):
+				w.destroy()
+			
+			view = ProduccionEdicionLineaView(
+				self.central_area,
+				db=self.db,
+				linea_id=linea_id,
+				on_volver=lambda: self.show_informes(state_informe)
+			)
+			self.actualizar_ruta(f'PRODUCCIÓN / EDITAR LÍNEA {linea_id}')
+			logging.info(f'Editando línea de producción {linea_id}...')
+		except Exception:
+			logging.exception('Error abriendo show_editar_linea en ProduccionView')

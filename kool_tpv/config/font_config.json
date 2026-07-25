@@ -224,7 +224,7 @@
         },
         "footer_totales": {
           "family": "Courier New",
-          "size": 30,
+          "size": 60,
           "weight": "bold"
         }
       },

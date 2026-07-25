@@ -224,28 +224,84 @@ class ProduccionOrdenesRepository:
 
 		lineas: List[ProduccionLinea] = []
 		for row in rows:
-			(id_, orden_id, diseno_codigo, tipo_id, talla, color_id,
-			 cantidad, produccion_mixta, extra_id, extra_coste, usuario_produccion_id,
-			 coste_unitario, coste_total, variante_id, metodo_id, origen) = row
-			lineas.append(ProduccionLinea(
-				id=id_,
-				orden_id=orden_id,
-				diseno_codigo=diseno_codigo,
-				tipo_id=tipo_id,
-				talla=talla,
-				color_id=color_id,
-				cantidad=cantidad,
-				produccion_mixta=produccion_mixta,
-				extra_id=extra_id,
-				extra_coste=extra_coste,
-				usuario_produccion_id=usuario_produccion_id,
-				coste_unitario=coste_unitario,
-				coste_total=coste_total,
-				variante_id=variante_id,
-				metodo_id=metodo_id,
-				origen=origen or 'KOOL'
-			))
+			lineas.append(self._row_to_model(row))
 		return lineas
+
+	def get_linea_por_id(self, linea_id: int) -> Optional[ProduccionLinea]:
+		"""Obtener una línea específica por su ID.
+
+		Args:
+			linea_id: ID de la línea.
+
+		Returns:
+			Objeto ProduccionLinea o None.
+		"""
+		query = """
+			SELECT id, orden_id, diseno_codigo, tipo_id, talla, color_id,
+			       cantidad, produccion_mixta, extra_id, extra_coste, usuario_produccion_id,
+			       coste_unitario, coste_total, variante_id, metodo_id, origen
+			FROM produccion_lineas
+			WHERE id = ?
+		"""
+		row = self.db.fetch_one(query, (linea_id,))
+		return self._row_to_model(row) if row else None
+
+	def _row_to_model(self, row: tuple) -> ProduccionLinea:
+		"""Mapear una tupla de la DB al modelo ProduccionLinea."""
+		(id_, orden_id, diseno_codigo, tipo_id, talla, color_id,
+		 cantidad, produccion_mixta, extra_id, extra_coste, usuario_produccion_id,
+		 coste_unitario, coste_total, variante_id, metodo_id, origen) = row
+		return ProduccionLinea(
+			id=id_,
+			orden_id=orden_id,
+			diseno_codigo=diseno_codigo,
+			tipo_id=tipo_id,
+			talla=talla,
+			color_id=color_id,
+			cantidad=cantidad,
+			produccion_mixta=produccion_mixta,
+			extra_id=extra_id,
+			extra_coste=extra_coste,
+			usuario_produccion_id=usuario_produccion_id,
+			coste_unitario=coste_unitario,
+			coste_total=coste_total,
+			variante_id=variante_id,
+			metodo_id=metodo_id,
+			origen=origen or 'KOOL'
+		)
+
+	def actualizar_linea(self, linea: ProduccionLinea) -> bool:
+		"""Actualizar una línea existente.
+
+		Args:
+			linea: Objeto ProduccionLinea con los datos actualizados (debe tener id).
+
+		Returns:
+			True si OK, False si error.
+		"""
+		if not linea.id:
+			return False
+
+		try:
+			query = """
+				UPDATE produccion_lineas
+				SET diseno_codigo = ?, tipo_id = ?, talla = ?, color_id = ?,
+				    cantidad = ?, produccion_mixta = ?, extra_id = ?, extra_coste = ?,
+				    usuario_produccion_id = ?, coste_unitario = ?, coste_total = ?,
+				    variante_id = ?, metodo_id = ?, origen = ?
+				WHERE id = ?
+			"""
+			self.db.execute_query(query, (
+				linea.diseno_codigo, linea.tipo_id, linea.talla, linea.color_id,
+				linea.cantidad, linea.produccion_mixta, linea.extra_id, linea.extra_coste,
+				linea.usuario_produccion_id, linea.coste_unitario, linea.coste_total,
+				linea.variante_id, linea.metodo_id, linea.origen, linea.id
+			))
+			return True
+		except Exception:
+			import logging
+			logging.exception(f"Error actualizando línea de producción {linea.id}")
+			return False
 
 	def crear_linea(self, linea: ProduccionLinea) -> Optional[int]:
 		"""Crear una nueva línea de producción.

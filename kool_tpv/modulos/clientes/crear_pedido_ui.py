@@ -74,7 +74,7 @@ class CrearPedidoUI:
         
         ctk.CTkLabel(top_search_row, text="BUSCAR PRODUCTO:").pack(side='left', padx=5)
         self.search_prod_var = tk.StringVar()
-        entry_prod = ctk.CTkEntry(
+        self.entry_prod = ctk.CTkEntry(
             top_search_row, textvariable=self.search_prod_var,
             placeholder_text="Nombre o SKU (Enter)...",
             fg_color=self.colors_almacen.get('background'),
@@ -83,8 +83,8 @@ class CrearPedidoUI:
             width=300,
             height=35
         )
-        entry_prod.pack(side='left', padx=5)
-        entry_prod.bind('<Return>', lambda e: self.nav_prod.search(self.search_prod_var.get()))
+        self.entry_prod.pack(side='left', padx=5)
+        self.entry_prod.bind('<Return>', lambda e: self.nav_prod.search(self.search_prod_var.get()))
 
         ctk.CTkLabel(top_search_row, text="USUARIO:").pack(side='left', padx=15)
         usuarios = self.user_service.get_all_usuarios()
@@ -113,7 +113,7 @@ class CrearPedidoUI:
         ctk.CTkLabel(row_busqueda_cli, text="BUSCAR CLIENTE:").pack(side='left', padx=5)
         
         self.search_cli_var = tk.StringVar()
-        entry_cli = ctk.CTkEntry(
+        self.entry_cli = ctk.CTkEntry(
             row_busqueda_cli, textvariable=self.search_cli_var,
             placeholder_text="Nombre, Teléfono, Email (Enter)...",
             fg_color=self.colors_clientes.get('background'),
@@ -121,8 +121,8 @@ class CrearPedidoUI:
             border_color=self.colors_clientes.get('primary'),
             height=35
         )
-        entry_cli.pack(side='left', fill='x', expand=True, padx=5)
-        entry_cli.bind('<Return>', lambda e: self.nav_cli.search(self.search_cli_var.get()))
+        self.entry_cli.pack(side='left', fill='x', expand=True, padx=5)
+        self.entry_cli.bind('<Return>', lambda e: self.nav_cli.search(self.search_cli_var.get()))
         
         cols_cli = [('id', 50, 'ID'), ('nombre', 300, 'CLIENTE'), ('telefono', 140, 'TELÉFONO'), ('email', 250, 'EMAIL')]
         self.nav_cli = SearchablePaginatedNavList(
@@ -190,7 +190,104 @@ class CrearPedidoUI:
         self.btn_cancelar.pack(side='left', padx=10)
         
         # Foco inicial
-        entry_prod.after(100, lambda: entry_prod.focus_set())
+        self.entry_prod.after(100, lambda: self.entry_prod.focus_set())
+        
+        # Setup Tab Navigation
+        self._setup_tab_nav()
+
+    def _setup_tab_nav(self):
+        """Configurar la navegación por Tab."""
+        try:
+            root = self.container.winfo_toplevel()
+            root.bind("<Tab>", self._on_tab_next)
+            root.bind("<Shift-Tab>", self._on_tab_prev)
+            
+            # Limpiar al destruir
+            self.container.bind("<Destroy>", self._on_view_destroy)
+        except Exception:
+            logging.exception("Error vinculando Tab en CrearPedidoUI")
+
+    def _on_view_destroy(self, event):
+        """Limpiar bindings globales al cerrar la vista."""
+        if event.widget == self.container:
+            try:
+                root = self.container.winfo_toplevel()
+                root.unbind("<Tab>")
+                root.unbind("<Shift-Tab>")
+            except Exception:
+                pass
+
+    def _get_navigable_widgets(self):
+        """Obtiene la lista de widgets navegables (internos de tkinter) en orden."""
+        widgets = []
+        
+        def add_widget(w):
+            if not w: return
+            # Si es CTkEntry o similar, coger el _entry interno
+            if hasattr(w, '_entry'): widgets.append(w._entry)
+            elif hasattr(w, '_canvas'): widgets.append(w._canvas)
+            else: widgets.append(w)
+
+        # 1. Buscadores superiores
+        if hasattr(self, 'entry_prod'): add_widget(self.entry_prod)
+        if hasattr(self, 'cb_usuario'): add_widget(self.cb_usuario.entry)
+        if hasattr(self, 'entry_cli'): add_widget(self.entry_cli)
+        
+        # 2. Datos del cliente
+        if hasattr(self, 'e_cli_nombre'): add_widget(self.e_cli_nombre)
+        if hasattr(self, 'e_cli_tel'): add_widget(self.e_cli_tel)
+        if hasattr(self, 'e_cli_mail'): add_widget(self.e_cli_mail)
+        if hasattr(self, 'e_cli_nota'): add_widget(self.e_cli_nota)
+        
+        # 3. Líneas de productos
+        for w in self.lineas_widgets:
+            add_widget(w['e_sku'])
+            add_widget(w['e_prod'])
+            add_widget(w['cb_tipo'].entry)
+            add_widget(w['cb_prov'].entry)
+            add_widget(w['e_cant'])
+            
+        # 4. Botones inferiores
+        if hasattr(self, 'btn_cancelar'): add_widget(self.btn_cancelar)
+        if hasattr(self, 'btn_guardar'): add_widget(self.btn_guardar)
+        
+        return [w for w in widgets if w.winfo_exists() and w.winfo_viewable()]
+
+    def _on_tab_next(self, event):
+        """Foco al siguiente widget."""
+        widgets = self._get_navigable_widgets()
+        if not widgets: return
+        
+        try:
+            current = self.container.focus_get()
+            if current in widgets:
+                idx = widgets.index(current)
+                next_idx = (idx + 1) % len(widgets)
+                widgets[next_idx].focus_set()
+            else:
+                widgets[0].focus_set()
+        except Exception:
+            widgets[0].focus_set()
+            
+        return "break"
+
+    def _on_tab_prev(self, event):
+        """Foco al widget anterior."""
+        widgets = self._get_navigable_widgets()
+        if not widgets: return
+        
+        try:
+            current = self.container.focus_get()
+            if current in widgets:
+                idx = widgets.index(current)
+                prev_idx = (idx - 1) % len(widgets)
+                widgets[prev_idx].focus_set()
+            else:
+                widgets[-1].focus_set()
+        except Exception:
+            widgets[-1].focus_set()
+            
+        return "break"
 
     def _add_producto_row(self, data=None):
         row = ctk.CTkFrame(self.grid_container, fg_color='#2A2A2A', height=50)

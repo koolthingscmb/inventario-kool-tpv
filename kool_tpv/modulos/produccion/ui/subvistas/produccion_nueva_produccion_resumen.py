@@ -102,7 +102,8 @@ class NuevaProduccionResumenView:
 			columns=self.columns,
 			module_name="produccion",
 			keyboard_manager=km,
-			on_double_click=self._on_item_double_click
+			on_double_click=self._on_item_double_click,
+			multi_select=True
 		)
 		self.nav_list.pack(expand=True, fill="both")
 		
@@ -110,18 +111,34 @@ class NuevaProduccionResumenView:
 		self.nav_list.bind('<Delete>', lambda e: self._on_eliminar_teclado())
 
 	def _on_item_double_click(self, data):
-		"""Doble clic para eliminar (o podríamos abrir edición en el futuro)."""
-		idx = data.get("_idx")
-		if idx is not None:
-			self.eliminar_item(idx)
+		"""Doble clic para editar (implementar en el futuro)."""
+		# Por ahora desactivamos el borrado automático por doble clic
+		pass
 
 	def _on_eliminar_teclado(self):
-		"""Eliminar el ítem seleccionado con la tecla Supr."""
-		data = self.nav_list.get_selected_data()
-		if data:
-			idx = data.get("_idx")
-			if idx is not None:
-				self.eliminar_item(idx)
+		"""Eliminar los ítems seleccionados con la tecla Supr."""
+		self._on_eliminar_click()
+
+	def _on_eliminar_click(self):
+		"""Eliminar todos los ítems seleccionados en la tabla."""
+		selected = self.nav_list.get_selected_items()
+		if not selected:
+			ToastWidget.show(self.frame, "Seleccione al menos una línea para eliminar", tipo='warning')
+			return
+		
+		# Confirmación (opcional, pero profesional)
+		# De momento borramos directamente como se pedía
+		
+		# Obtener índices reales y ordenarlos de mayor a menor para no romper el pop()
+		indices = sorted([d.get("_idx") for d in selected if d.get("_idx") is not None], reverse=True)
+		
+		if indices:
+			for idx in indices:
+				if 0 <= idx < len(self.items):
+					self.items.pop(idx)
+			
+			self._refrescar_lista()
+			ToastWidget.show(self.frame, f"Eliminadas {len(indices)} líneas", tipo='success')
 
 	def _crear_total_unidades(self):
 		"""Crear el label del total de unidades."""
@@ -175,7 +192,22 @@ class NuevaProduccionResumenView:
 			cursor="hand2",
 			command=self._on_anadir
 		)
-		self.btn_anadir.pack(side=tk.LEFT, padx=(10, 0))
+		self.btn_anadir.pack(side=tk.LEFT, padx=(10, 10))
+
+		# Botón ELIMINAR
+		self.btn_eliminar = ctk.CTkButton(
+			frame_nav,
+			text="ELIMINAR",
+			font=self._get_font("button"),
+			fg_color="#e74c3c",
+			text_color="#FFFFFF",
+			hover_color="#c0392b",
+			width=120,
+			height=nav_anadir.get("height", 2) * 20,
+			cursor="hand2",
+			command=self._on_eliminar_click
+		)
+		self.btn_eliminar.pack(side=tk.LEFT, padx=10)
 
 		# Botón CONFIRMAR
 		nav_conf = get_nav_button_config(self.config, "confirmar")
@@ -241,8 +273,8 @@ class NuevaProduccionResumenView:
 
 	def _setup_keyboard_nav(self):
 		"""Configurar bindings de navegación por teclado."""
-		self._nav_buttons = [self.btn_volver, self.btn_anadir, self.btn_confirmar]
-		self._nav_callbacks = [self._on_volver, self._on_anadir, self._on_confirmar]
+		self._nav_buttons = [self.btn_volver, self.btn_anadir, self.btn_eliminar, self.btn_confirmar]
+		self._nav_callbacks = [self._on_volver, self._on_anadir, self._on_eliminar_click, self._on_confirmar]
 		self._nav_index = -1
 
 		toplevel = self.frame.winfo_toplevel()

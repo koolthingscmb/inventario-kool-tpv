@@ -424,7 +424,7 @@ class TicketCarrito(ctk.CTkFrame):
         )
 
     def _create_totales_grid(self):
-        """Crear zona de totales usando columnas Pack para estabilidad visual."""
+        """Crear zona de totales con 2 zonas: izquierda (50%) y derecha (50%)."""
         footer_cfg = self.ticket_colors.get("footer", {})
 
         # Fuentes (reutilizando las del config si existen, o defaults seguros)
@@ -444,39 +444,65 @@ class TicketCarrito(ctk.CTkFrame):
 
         footer_layout = self.ticket_layout.get("footer", {})
 
-        # 1. Contenedor "Caja Fuerte" (Altura fija compacta)
-        # Altura suficiente para Título + Valor (aprox 20+25 = 45px) + márgenes
-        grid_frame = ctk.CTkFrame(self.totales_container, fg_color="transparent", height=100)
-        grid_frame.pack_propagate(False)  # <--- CLAVE: Impide estiramiento
+        # Contenedor principal (sin altura fija, se adapta al contenido)
+        grid_frame = ctk.CTkFrame(self.totales_container, fg_color="transparent")
 
         pad_h = footer_layout.get("padding_horizontal", 12)
         grid_frame.pack(fill="x", padx=pad_h)
 
-        # 2. Columnas (Izquierda, Centro, Derecha)
+        # ZONA IZQUIERDA (50%) - Grid 2x3
+        left_zone = ctk.CTkFrame(grid_frame, fg_color="transparent")
+        left_zone.pack(side="left", fill="both", expand=True)
 
-        # Columna 1: SUBTOTAL (Alineada izquierda)
-        col_sub = ctk.CTkFrame(grid_frame, fg_color="transparent")
-        col_sub.pack(side="left", fill="y", anchor="w")
+        # Fila 1: SUBTOTAL | IVA
+        ctk.CTkLabel(
+            left_zone,
+            text="SUBTOTAL",
+            font=labels_font,
+            text_color=footer_cfg.get("text", "#FFFFFF")
+        ).grid(row=0, column=0, sticky="w", padx=(0, 20), pady=(0, 4))
 
-        ctk.CTkLabel(col_sub, text="SUBTOTAL", font=labels_font, text_color=footer_cfg.get("text", "#FFFFFF")).pack(anchor="w")
-        self.subtotal_label = ctk.CTkLabel(col_sub, text="0.00€", font=totales_font, text_color=footer_cfg.get("text", "#FFFFFF"))
-        self.subtotal_label.pack(anchor="w")
+        ctk.CTkLabel(
+            left_zone,
+            text="IVA",
+            font=labels_font,
+            text_color=footer_cfg.get("text", "#FFFFFF")
+        ).grid(row=0, column=1, sticky="w", pady=(0, 4))
 
-        # Columna 3: TOTAL (Alineada derecha - La creamos antes para que se pegue al borde derecho)
-        col_tot = ctk.CTkFrame(grid_frame, fg_color="transparent")
-        col_tot.pack(side="right", fill="y", anchor="e")
+        # Fila 2: Valor SUBTOTAL | Container IVA
+        self.subtotal_label = ctk.CTkLabel(
+            left_zone,
+            text="0.00€",
+            font=labels_font,  # Cambiado de totales_font a labels_font
+            text_color=footer_cfg.get("text", "#FFFFFF")
+        )
+        self.subtotal_label.grid(row=1, column=0, sticky="w", padx=(0, 20), pady=(0, 4))
 
-        ctk.CTkLabel(col_tot, text="TOTAL", font=labels_font, text_color=footer_cfg.get("text_totales", "#00FF00")).pack(anchor="e")
-        self.total_label = ctk.CTkLabel(col_tot, text="0.00€", font=totales_font, text_color=footer_cfg.get("text_totales", "#00FF00"))
+        self.iva_container = ctk.CTkFrame(left_zone, fg_color="transparent")
+        self.iva_container.grid(row=1, column=1, sticky="w", pady=(0, 4))
+        # Column 1 para el container IVA (debajo del label "IVA")
+
+        # Fila 3: Vacío | (para más tipos de IVA si es necesario)
+        # El iva_container puede tener múltiples elementos apilados verticalmente
+
+        # ZONA DERECHA (50%) - Grid 1x2
+        right_zone = ctk.CTkFrame(grid_frame, fg_color="transparent")
+        right_zone.pack(side="left", fill="both", expand=True)
+
+        ctk.CTkLabel(
+            right_zone,
+            text="TOTAL",
+            font=labels_font,
+            text_color=footer_cfg.get("text_totales", "#00FF00")
+        ).pack(anchor="e", pady=(0, 4))
+
+        self.total_label = ctk.CTkLabel(
+            right_zone,
+            text="0.00€",
+            font=totales_font,
+            text_color=footer_cfg.get("text_totales", "#00FF00")
+        )
         self.total_label.pack(anchor="e")
-
-        # Columna 2: IVA (Centro - Ocupa el espacio restante)
-        col_iva = ctk.CTkFrame(grid_frame, fg_color="transparent")
-        col_iva.pack(side="left", fill="both", expand=True) # Rellena hueco central
-
-        ctk.CTkLabel(col_iva, text="DESGLOSE IVA", font=labels_font, text_color=footer_cfg.get("text", "#FFFFFF")).pack(anchor="center")
-        self.iva_container = ctk.CTkFrame(col_iva, fg_color="transparent")
-        self.iva_container.pack(anchor="center")
 
     def _clear_payment_area(self):
         """Limpiar el área de payment controllers."""
@@ -823,12 +849,12 @@ class TicketCarrito(ctk.CTkFrame):
                                 iva_text = "0.00 €"
                         label = ctk.CTkLabel(
                             self.iva_container,
-                            text=f"IVA {tipo}%: {iva_text}",
+                            text=f"{tipo}%: {iva_text}",
                             font=iva_font,
                             text_color=footer_cfg.get("text", "#FFFFFF"),
-                            anchor="center"
+                            anchor="w"
                         )
-                        label.pack()
+                        label.pack(anchor="w")
 
         except Exception:
             logger.exception("Error actualizando totales")

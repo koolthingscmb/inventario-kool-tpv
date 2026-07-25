@@ -125,6 +125,84 @@ class PedidosUI:
         
         # Auto-focus
         self.container.after(100, lambda: self.search_entry.focus_set())
+        
+        # Setup Tab Navigation
+        self._setup_tab_nav()
+
+    def _setup_tab_nav(self):
+        """Configurar la navegación por Tab."""
+        try:
+            root = self.container.winfo_toplevel()
+            root.bind("<Tab>", self._on_tab_next)
+            root.bind("<Shift-Tab>", self._on_tab_prev)
+            
+            # Limpiar al destruir
+            self.container.bind("<Destroy>", self._on_view_destroy)
+        except Exception:
+            logging.exception("Error vinculando Tab en PedidosUI")
+
+    def _on_view_destroy(self, event):
+        """Limpiar bindings globales al cerrar la vista."""
+        if event.widget == self.container:
+            try:
+                root = self.container.winfo_toplevel()
+                root.unbind("<Tab>")
+                root.unbind("<Shift-Tab>")
+            except Exception:
+                pass
+
+    def _get_navigable_widgets(self):
+        """Obtiene la lista de widgets navegables (internos de tkinter) en orden."""
+        widgets = []
+        def add_widget(w):
+            if not w: return
+            if hasattr(w, '_entry'): widgets.append(w._entry)
+            elif hasattr(w, '_canvas'): widgets.append(w._canvas)
+            else: widgets.append(w)
+
+        if hasattr(self, 'search_entry'): add_widget(self.search_entry)
+        if hasattr(self, 'combo_estado'): add_widget(self.combo_estado)
+        if hasattr(self, 'btn_cambiar_estado'): add_widget(self.btn_cambiar_estado)
+        if hasattr(self, 'btn_modificar'): add_widget(self.btn_modificar)
+        if hasattr(self, 'btn_nuevo'): add_widget(self.btn_nuevo)
+        
+        return [w for w in widgets if w.winfo_exists() and w.winfo_viewable()]
+
+    def _on_tab_next(self, event):
+        """Foco al siguiente widget."""
+        widgets = self._get_navigable_widgets()
+        if not widgets: return
+        
+        try:
+            current = self.container.focus_get()
+            if current in widgets:
+                idx = widgets.index(current)
+                next_idx = (idx + 1) % len(widgets)
+                widgets[next_idx].focus_set()
+            else:
+                widgets[0].focus_set()
+        except Exception:
+            widgets[0].focus_set()
+            
+        return "break"
+
+    def _on_tab_prev(self, event):
+        """Foco al widget anterior."""
+        widgets = self._get_navigable_widgets()
+        if not widgets: return
+        
+        try:
+            current = self.container.focus_get()
+            if current in widgets:
+                idx = widgets.index(current)
+                prev_idx = (idx - 1) % len(widgets)
+                widgets[prev_idx].focus_set()
+            else:
+                widgets[-1].focus_set()
+        except Exception:
+            widgets[-1].focus_set()
+            
+        return "break"
 
     def get_widget(self):
         return self.container

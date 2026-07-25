@@ -67,6 +67,7 @@ class ProduccionInformesRepository:
             ff = f"{fecha_fin} 23:59:59"
             
             query = """SELECT 
+                        l.id,
                         l.diseno_codigo, 
                         COALESCE(d.nombre, l.diseno_codigo) as diseno_nombre,
                         COALESCE(c.nombre, 'SIN COL.') as coleccion,
@@ -109,20 +110,21 @@ class ProduccionInformesRepository:
             
             rows = self.db.fetch_all(query, tuple(params))
             return [{
-                'diseno_codigo': r[0],
-                'diseno_nombre': r[1],
-                'coleccion': r[2],
-                'sufijo': r[3],
-                'tipo_id': r[4],
-                'tipo_nombre': r[5],
-                'variante': r[6],
-                'talla': r[7],
-                'color': r[8],
-                'metodo': r[9],
-                'unidades': int(r[10]),
-                'coste_total': int(r[11]),
-                'fecha': r[12],
-                'usuario': r[13]
+                'id': r[0],
+                'diseno_codigo': r[1],
+                'diseno_nombre': r[2],
+                'coleccion': r[3],
+                'sufijo': r[4],
+                'tipo_id': r[5],
+                'tipo_nombre': r[6],
+                'variante': r[7],
+                'talla': r[8],
+                'color': r[9],
+                'metodo': r[10],
+                'unidades': int(r[11]),
+                'coste_total': int(r[12]),
+                'fecha': r[13],
+                'usuario': r[14]
             } for r in rows or []]
         except Exception:
             logging.exception('Error en get_produccion_detallada_disenos')
