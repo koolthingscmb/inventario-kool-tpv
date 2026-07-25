@@ -13,6 +13,8 @@ from kool_tpv.modulos.produccion.models.produccion_orden_model import Produccion
 from kool_tpv.modulos.produccion.models.produccion_linea_model import ProduccionLinea
 from kool_tpv.modulos.produccion.repositories.produccion_ordenes_repository import ProduccionOrdenesRepository
 from kool_tpv.modulos.produccion.repositories.produccion_stock_base_repository import ProduccionStockBaseRepository
+from kool_tpv.modulos.produccion.repositories.produccion_metodos_repository import ProduccionMetodosRepository
+from kool_tpv.modulos.produccion.repositories.produccion_extras_repository import ProduccionExtrasRepository
 from kool_tpv.modulos.produccion.services.variante_producto_service import VarianteProductoService
 from kool_tpv.modulos.produccion.services.produccion_tallas_service import ProduccionTallasService
 from kool_tpv.modulos.tpv.services.reposicion_store import ReposicionStore
@@ -49,6 +51,8 @@ class ProduccionOrdenesService:
         self.logger = logging.getLogger(__name__)
         self.repo_ordenes = ProduccionOrdenesRepository(db)
         self.repo_stock_base = ProduccionStockBaseRepository(db)
+        self.repo_metodos = ProduccionMetodosRepository(db)
+        self.repo_extras = ProduccionExtrasRepository(db)
         self.link_service = VarianteProductoService(db)
         self.tallas_service = ProduccionTallasService(db)
         self.reposicion_store = ReposicionStore()
@@ -194,3 +198,138 @@ class ProduccionOrdenesService:
         except Exception:
             self.logger.exception(f"Error borrando reposición coincidente para diseño {item.diseno_codigo}")
             return False
+
+    def get_linea_por_id(self, linea_id: int) -> Optional[ProduccionLinea]:
+        """Obtener una línea específica por su ID."""
+        return self.repo_ordenes.get_linea_por_id(linea_id)
+
+    def actualizar_linea(self, linea_id: int, nuevos_datos: dict) -> bool:
+        """Actualizar una línea de producción y ajustar stocks."""
+        try:
+            linea_original = self.repo_ordenes.get_linea_por_id(linea_id)
+            if not linea_original:
+                return False
+
+            with self.db.transaction():
+                # Guardar valores originales para el ajuste de stock
+                cant_orig = linea_original.cantidad
+                tipo_orig = linea_original.tipo_id
+                col_orig = linea_original.color_id
+                talla_orig = linea_original.talla
+                var_orig = linea_original.variante_id
+                dis_orig = linea_original.diseno_codigo
+
+                # 1. Actualizar objeto linea con nuevos datos
+                linea_original.diseno_codigo = nuevos_datos.get('diseno_codigo', linea_original.diseno_codigo)
+                linea_original.cantidad = nuevos_datos.get('cantidad', linea_original.cantidad)
+                linea_original.tipo_id = nuevos_datos.get('tipo_id', linea_original.tipo_id)
+                linea_original.talla = nuevos_datos.get('talla', linea_original.talla)
+                linea_original.color_id = nuevos_datos.get('color_id', linea_original.color_id)
+                linea_original.variante_id = nuevos_datos.get('variante_id', linea_original.variante_id)
+                linea_original.metodo_id = nuevos_datos.get('metodo_id', linea_original.metodo_id)
+                linea_original.extra_id = nuevos_datos.get('extra_id', linea_original.extra_id)
+                linea_original.produccion_mixta = nuevos_datos.get('produccion_mixta', linea_original.produccion_mixta)
+
+                # 2. Recalcular costes si cambiaron campos relevantes
+                # a) Coste Base (Prenda) desde stock
+                stock_base = self.repo_stock_base.get_by_params(
+                    linea_original.tipo_id, linea_original.color_id, 
+                    linea_original.talla, linea_original.variante_id
+                )
+                coste_base = stock_base['coste_medio'] if stock_base else 0
+
+                # b) Coste del método para el diseño
+                costes_metodos = self.repo_metodos.get_costes_por_diseno(linea_original.diseno_codigo)
+                coste_metodo = costes_metodos.get(linea_original.metodo_id, 0)
+                
+                # c) Coste del extra
+                coste_extra = 0
+                if linea_original.extra_id:
+                    extra = self.repo_extras.get_por_id(linea_original.extra_id)
+                    coste_extra = extra.coste if extra else 0
+                
+                # Snapshot de costes
+                linea_original.extra_coste = coste_extra
+                linea_original.coste_unitario = coste_base + coste_metodo # El coste unitario es prenda + impresión
+                linea_original.coste_total = int((linea_original.coste_unitario + coste_extra) * linea_original.cantidad)
+
+                # 3. Guardar en DB
+                if not self.repo_ordenes.actualizar_linea(linea_original):
+                    raise Exception("Error en repo_ordenes.actualizar_linea")
+
+                # 4. AJUSTE DE STOCKS (Transaccional)
+                # Revertir stock antiguo (sumar lo que se restó al producir)
+                self.repo_stock_base.actualizar_cantidad(
+                    tipo_id=tipo_orig, color_id=col_orig, talla=talla_orig,
+                    delta=cant_orig, variante_id=var_orig
+                )
+                self._actualizar_stock_diseno_directo(dis_orig, tipo_orig, col_orig, talla_orig, var_orig, -cant_orig)
+                if var_orig:
+                    self._ajustar_stock_tpv_vinculado_por_datos(dis_orig, var_orig, -cant_orig)
+
+                # Aplicar stock nuevo (restar la nueva producción)
+                self.repo_stock_base.actualizar_cantidad(
+                    tipo_id=linea_original.tipo_id, color_id=linea_original.color_id, 
+                    talla=linea_original.talla, delta=-linea_original.cantidad, 
+                    variante_id=linea_original.variante_id
+                )
+                self._actualizar_stock_diseno_directo(
+                    linea_original.diseno_codigo, linea_original.tipo_id, 
+                    linea_original.color_id, linea_original.talla, 
+                    linea_original.variante_id, linea_original.cantidad
+                )
+                if linea_original.variante_id:
+                    self._ajustar_stock_tpv_vinculado(linea_original, linea_original.cantidad)
+
+            return True
+        except Exception:
+            self.logger.exception(f"Error actualizando línea {linea_id}")
+            return False
+
+    def _ajustar_stock_tpv_vinculado_por_datos(self, diseno_codigo, variante_id, delta):
+        """Ajustar stock TPV por datos directos (para reversiones)."""
+        try:
+            from kool_tpv.modulos.produccion.repositories.produccion_disenos_repository import ProduccionDisenosRepository
+            repo_dis = ProduccionDisenosRepository(self.db)
+            dis = repo_dis.get_por_codigo(diseno_codigo)
+            col_id = dis.coleccion_id if dis else None
+            link = self.link_service.get_por_combinacion(variante_id, coleccion_id=col_id)
+            if link and link.producto_id:
+                ratio = link.ratio if link.ratio and link.ratio > 0 else 1
+                cantidad_tpv = delta * ratio
+                query = "UPDATE productos SET stock_actual = stock_actual + ? WHERE id = ?"
+                self.db.execute_query(query, (cantidad_tpv, link.producto_id))
+        except Exception:
+            self.logger.exception(f"Error ajustando stock TPV directo para {diseno_codigo}")
+
+    def _actualizar_stock_diseno_directo(self, codigo, tipo_id, color_id, talla, variante_id, delta):
+        """Versión directa de _actualizar_stock_diseno para ajustes."""
+        try:
+            check_query = """
+                SELECT id FROM produccion_disenos_stock 
+                WHERE diseno_codigo = ? AND tipo_id = ? AND color_id IS ? AND talla IS ? AND variante_id IS ?
+            """
+            row = self.db.fetch_one(check_query, (codigo, tipo_id, color_id, talla, variante_id))
+            if row:
+                update_query = "UPDATE produccion_disenos_stock SET cantidad = cantidad + ? WHERE id = ?"
+                self.db.execute_query(update_query, (delta, row[0]))
+        except Exception:
+            self.logger.exception(f"Error ajustando stock directo para diseño {codigo}")
+
+    def _ajustar_stock_tpv_vinculado(self, linea: ProduccionLinea, delta: int):
+        """Ajustar el stock TPV vinculado basándose en un delta."""
+        try:
+            # Obtener coleccion_id del diseño para el link_service
+            from kool_tpv.modulos.produccion.repositories.produccion_disenos_repository import ProduccionDisenosRepository
+            repo_dis = ProduccionDisenosRepository(self.db)
+            dis = repo_dis.get_por_codigo(linea.diseno_codigo)
+            col_id = dis.coleccion_id if dis else None
+
+            link = self.link_service.get_por_combinacion(linea.variante_id, extra_id=linea.extra_id, coleccion_id=col_id)
+            if link and link.producto_id:
+                ratio = link.ratio if link.ratio and link.ratio > 0 else 1
+                cantidad_tpv = delta * ratio
+                query = "UPDATE productos SET stock_actual = stock_actual + ? WHERE id = ?"
+                self.db.execute_query(query, (cantidad_tpv, link.producto_id))
+        except Exception:
+            self.logger.exception(f"Error ajustando stock TPV vinculado para linea {linea.id}")
