@@ -205,11 +205,10 @@ class DisenoNuevoView:
 
 		columns = [
 			("codigo", 100, "Código"),
-			("nombre", 180, "Nombre"),
+			("nombre", 270, "Nombre"),
 			("coleccion_nombre", 120, "Colección"),
 			("sufijo_nombre", 100, "Sufijo"),
-			("tipos_nombres", 150, "Tipos"),
-			("total_producido", 80, "Uds.")
+			("total_producido", 80, "Producciones")
 		]
 
 		self._paginated_list = SearchablePaginatedNavList(
@@ -700,7 +699,6 @@ class DisenoNuevoView:
 
 	def _map_diseno_para_lista(self, r: ProduccionDiseno) -> dict:
 		"""Función de mapeo para SearchablePaginatedNavList."""
-		tipos_nombres = ", ".join([self._cache_tipos.get(tid, str(tid)) for tid in r.tipos])
 		coleccion_nombre = self._get_coleccion_nombre(r.coleccion_id)
 		sufijo_nombre = self._get_sufijo_nombre(r.sufijo_id) if r.sufijo_id else ""
 		
@@ -713,7 +711,6 @@ class DisenoNuevoView:
 			"nombre": r.nombre,
 			"coleccion_nombre": coleccion_nombre,
 			"sufijo_nombre": sufijo_nombre,
-			"tipos_nombres": tipos_nombres,
 			"total_producido": total_producido,
 			"obj": r
 		}
@@ -771,9 +768,12 @@ class DisenoNuevoView:
 
 		# Recopilar tipos_ids desde los ítems de coste
 		tipos_ids = list(set(item["tipo_id"] for item in self._coste_items))
+		
+		logging.info(f"[PRODUCCION] Guardando diseño: nombre='{nombre}', coleccion='{coleccion_nombre}' (ID={coleccion_id}), sufijo='{sufijo_nombre}' (ID={sufijo_id}), tipos={tipos_ids}")
 
 		if self._diseno_cargado:
 			# MODO MODIFICAR
+			logging.info(f"[PRODUCCION] Modo MODIFICAR: codigo='{self._diseno_cargado.codigo}'")
 			ok = self.service.actualizar(
 				codigo=self._diseno_cargado.codigo,
 				coleccion_id=coleccion_id,
@@ -839,6 +839,7 @@ class DisenoNuevoView:
 	def _on_diseno_double_click(self, item_data: dict):
 		"""Al hacer doble click, cargar el diseño y sus chips."""
 		diseno: ProduccionDiseno = item_data["obj"]
+		logging.info(f"[PRODUCCION] Cargando diseño para editar: {diseno.codigo} - {diseno.nombre} (Tipos: {diseno.tipos})")
 		self._diseno_cargado = diseno
 		
 		# Rellenar nombre
@@ -848,6 +849,12 @@ class DisenoNuevoView:
 		# Seleccionar chips automáticamente
 		self._coleccion_seleccionada = self._get_coleccion_nombre(diseno.coleccion_id)
 		self._sufijo_seleccionado = self._get_sufijo_nombre(diseno.sufijo_id) if diseno.sufijo_id else None
+		
+		# Cargar tipos del diseño en _coste_items para no perderlos al guardar
+		self._coste_items = []
+		if diseno.tipos:
+			for tid in diseno.tipos:
+				self._coste_items.append({"tipo_id": tid})
 		
 		# Refrescar UI
 		self._render_chips_colecciones()
@@ -870,10 +877,16 @@ class DisenoNuevoView:
 
 	def _limpiar_formulario(self):
 		"""Limpiar todos los campos para crear un nuevo diseño."""
+		logging.info("[PRODUCCION] Limpiando formulario")
 		self._diseno_cargado = None
 		self._entry_nombre.delete(0, tk.END)
 		self._coste_items = []
+		self._coleccion_seleccionada = None
+		self._sufijo_seleccionado = None
 		self._cache_tipos = {t.id: t.nombre for t in self.tipos_service.obtener_activos()}
+		self._render_chips_colecciones()
+		self._render_chips_sufijos()
+		self._render_rejilla_metodos()
 		self._paginated_list.search("")
 		self._entry_nombre.focus_set()
 

@@ -236,7 +236,7 @@ class ProductoRepository:
         LEFT JOIN categorias c ON p.categoria = c.id
         LEFT JOIN tipos t ON p.tipo = t.id
         LEFT JOIN precios pr ON pr.producto_id = p.id AND pr.activo = 1
-        WHERE p.nombre LIKE ? OR p.sku LIKE ? OR EXISTS (SELECT 1 FROM codigos_barras cb WHERE cb.producto_id = p.id AND cb.ean LIKE ?)
+        WHERE p.nombre LIKE ? COLLATE NOCASE OR p.sku LIKE ? COLLATE NOCASE OR EXISTS (SELECT 1 FROM codigos_barras cb WHERE cb.producto_id = p.id AND cb.ean LIKE ? COLLATE NOCASE)
         ORDER BY p.id
         """
         termino_like = f'%{termino}%'
@@ -281,9 +281,9 @@ WHERE 1=1
         if termino:
             termino_like = f'%{termino}%'
             query += (
-                " AND (p.nombre LIKE ? OR p.sku LIKE ? OR EXISTS ("
+                " AND (p.nombre LIKE ? COLLATE NOCASE OR p.sku LIKE ? COLLATE NOCASE OR EXISTS ("
                 "SELECT 1 FROM codigos_barras cb "
-                "WHERE cb.producto_id = p.id AND cb.ean LIKE ?))"
+                "WHERE cb.producto_id = p.id AND cb.ean LIKE ? COLLATE NOCASE))"
             )
             params.extend([termino_like, termino_like, termino_like])
 
