@@ -11,7 +11,7 @@ from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.font_loader import get_font
-from kool_tpv.utils.custom_dialog import show_warning
+from kool_tpv.utils.dialogs import show_warning
 from kool_tpv.base_datos.money_adapter import read_from_db
 from kool_tpv.modulos.clientes.services.clientes_tops_service import ClientesTopsService
 from kool_tpv.base_datos.categoria_service import CategoriaService

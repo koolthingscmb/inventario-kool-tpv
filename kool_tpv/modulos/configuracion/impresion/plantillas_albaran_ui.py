@@ -246,7 +246,7 @@ class PlantillasAlbaranUI:
             self._mostrar_preview_logo(destino)
         except Exception:
             logging.exception('Error seleccionando logo PDF')
-            from kool_tpv.utils.custom_dialog import show_error
+            from kool_tpv.utils.dialogs import show_error
             show_error(self.container, 'Error', 'No se pudo cargar el logo')
 
     def _on_quitar_logo(self):
@@ -283,7 +283,7 @@ class PlantillasAlbaranUI:
             ToastWidget.show(self.parent, 'Plantilla guardada', tipo='success')
         except Exception:
             logging.exception('Error guardando plantilla de albarán')
-            from kool_tpv.utils.custom_dialog import show_error
+            from kool_tpv.utils.dialogs import show_error
             show_error(self.container, 'Error', 'No se pudo guardar la plantilla')
 
     def _on_restaurar(self):

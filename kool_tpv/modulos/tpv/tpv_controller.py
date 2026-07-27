@@ -13,7 +13,7 @@ from datetime import datetime
 
 from kool_tpv.base_datos.money_adapter import prepare_for_db
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
-from kool_tpv.utils.custom_dialog import show_input_dialog
+from kool_tpv.utils.dialogs import show_input_dialog
 
 logger = logging.getLogger(__name__)
 
@@ -205,7 +205,7 @@ class TpvController:
             
             if producto is None:
                 # Mostrar diálogo de "No encontrado" con opción de Alta Rápida
-                from kool_tpv.utils.custom_dialog import show_warning
+                from kool_tpv.utils.dialogs import show_warning
                 
                 def on_dialog_closed(confirmed):
                     if confirmed:
@@ -365,7 +365,7 @@ class TpvController:
 
             if not todas_las_lineas: return
             
-            from kool_tpv.utils.custom_dialog import show_warning
+            from kool_tpv.utils.dialogs import show_warning
             
             def procesar_lineas(index):
                 if index >= len(todas_las_lineas): return
@@ -1496,7 +1496,7 @@ class TpvController:
             productos: Lista de productos producibles
         """
         try:
-            from kool_tpv.utils.custom_dialog import CustomDialog
+            from kool_tpv.utils.dialogs import MessageDialog as CustomDialog
             from kool_tpv.modulos.tpv.services.reposicion_store import ReposicionStore
             
             # Construir mensaje con productos

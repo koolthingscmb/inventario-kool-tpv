@@ -1,0 +1,766 @@
+{
+  "global": {
+    "dialog_bg": "#000000",
+    "dialog_text": "#00FF00",
+    "success_hover": "#27ae60",
+    "error_hover": "#c0392b",
+    "warning_hover": "#d68910",
+    "info_hover": "#2980b9",
+    "bg_terminal": "#000000",
+    "background": "#000000",
+    "bg_sidebar": "#1a1a1a",
+    "bg_dark": "#0d0d0d",
+    "bg_medium": "#2a2a2a",
+    "text_matrix": "#00FF00",
+    "text_white": "#FFFFFF",
+    "text_gray": "#CCCCCC",
+    "text_disabled": "#666666",
+    "success": "#2ecc71",
+    "error": "#e74c3c",
+    "warning": "#f39c12",
+    "info": "#3498db",
+    "buttons": {
+      "primary": {
+        "bg": "#2ecc71",
+        "hover": "#27ae60",
+        "text": "#000000",
+        "border": "#1e8449"
+      },
+      "secondary": {
+        "bg": "#3498db",
+        "hover": "#2d86c9",
+        "text": "#FFFFFF",
+        "border": "#2a7ab8"
+      },
+      "accent": {
+        "bg": "#f1c40f",
+        "hover": "#f39c12",
+        "text": "#000000",
+        "border": "#d4ac0d"
+      }
+    },
+    "layout": {
+      "app_background": "#222831",
+      "sidebar_background": "#393E46",
+      "text_primary": "#FFFFFF",
+      "print_on_button": {
+        "bg": "#00BFFF",
+        "hover": "#00A4DF",
+        "text": "#FFFFFF"
+      }
+    },
+    "components": {
+      "action_buttons": {
+        "primary": {
+          "bg": "#2ecc71",
+          "hover": "#27ae60",
+          "text": "#000000",
+          "border": "#000000"
+        },
+        "secondary": {
+          "bg": "#95a5a6",
+          "hover": "#7f8c8d",
+          "text": "#000000",
+          "border": "#000000"
+        },
+        "danger": {
+          "bg": "#DB3D21",
+          "hover": "#c0392b",
+          "text": "#000000",
+          "border": "#000000"
+        },
+        "warning": {
+          "bg": "#f39c12",
+          "hover": "#d68910",
+          "text": "#000000",
+          "border": "#000000"
+        },
+        "info": {
+          "bg": "#3498db",
+          "hover": "#2980b9",
+          "text": "#000000",
+          "border": "#000000"
+        },
+        "special": {
+          "bg": "#9b59b6",
+          "hover": "#8e44ad",
+          "text": "#000000",
+          "border": "#000000"
+        }
+      }
+    },
+    "dialogs": {
+      "info": {
+        "bg": "#000000",
+        "border": "#3498db",
+        "border_hover": "#2980b9",
+        "title_text": "#00FF00",
+        "message_text": "#3498db",
+        "button_bg": "#3498db",
+        "button_hover": "#2980b9",
+        "button_text": "#000000",
+        "cancel_bg": "#2980b9",
+        "cancel_hover": "#3498db",
+        "button_focus_border": "#5DADE2"
+      },
+      "success": {
+        "bg": "#000000",
+        "border": "#2ecc71",
+        "border_hover": "#27ae60",
+        "title_text": "#00FF00",
+        "message_text": "#2ecc71",
+        "button_bg": "#2ecc71",
+        "button_hover": "#27ae60",
+        "button_text": "#000000",
+        "cancel_bg": "#27ae60",
+        "cancel_hover": "#2ecc71",
+        "button_focus_border": "#00FF00"
+      },
+      "warning": {
+        "bg": "#000000",
+        "border": "#f39c12",
+        "border_hover": "#d68910",
+        "title_text": "#00FF00",
+        "message_text": "#f39c12",
+        "button_bg": "#f39c12",
+        "button_hover": "#d68910",
+        "button_text": "#000000",
+        "cancel_bg": "#d68910",
+        "cancel_hover": "#f39c12",
+        "button_focus_border": "#FFD700"
+      },
+      "error": {
+        "bg": "#000000",
+        "border": "#e74c3c",
+        "border_hover": "#c0392b",
+        "title_text": "#FFD000",
+        "message_text": "#e74c3c",
+        "button_bg": "#e74c3c",
+        "button_hover": "#c0392b",
+        "button_text": "#000000",
+        "cancel_bg": "#c0392b",
+        "cancel_hover": "#e74c3c",
+        "button_focus_border": "#FF6B6B"
+      },
+      "password": {
+        "bg": "#000000",
+        "border": "#9b59b6",
+        "border_hover": "#8e44ad",
+        "title_text": "#00FF00",
+        "message_text": "#9b59b6",
+        "button_bg": "#9b59b6",
+        "button_hover": "#8e44ad",
+        "button_text": "#FFFFFF",
+        "cancel_bg": "#8e44ad",
+        "cancel_hover": "#9b59b6",
+        "button_focus_border": "#C39BD3"
+      }
+    }
+  },
+  "main_menu": {
+    "menu_tpv": {
+      "bg": "#FF9D00",
+      "hover": "#A17A3B",
+      "text": "#000000",
+      "border": "#000000"
+    },
+    "menu_almacen": {
+      "bg": "#000000",
+      "hover": "#2B782B",
+      "text": "#00FF00",
+      "border": "#00FF00"
+    },
+    "menu_clientes": {
+      "bg": "#000000",
+      "hover": "#A18D27",
+      "text": "#FFD700",
+      "border": "#FFD700"
+    },
+    "menu_informes": {
+      "bg": "#000000",
+      "hover": "#7A7A79",
+      "text": "#FFFFFF",
+      "border": "#FFFFFF"
+    },
+    "menu_shopify": {
+      "bg": "#000000",
+      "hover": "#3A758A",
+      "text": "#00A4DF",
+      "border": "#00A4DF"
+    },
+    "menu_config": {
+      "bg": "#000000",
+      "hover": "#8A3A3A",
+      "text": "#FF9800",
+      "border": "#FF9800"
+    },
+    "menu_presencia": {
+      "bg": "#000000",
+      "hover": "#F7AE92",
+      "text": "#E36C3D",
+      "border": "#E36C3D"
+    }
+  },
+  "global_buttons": {
+    "power_btn": {
+      "bg": "#FF0000",
+      "hover": "#00A4DF",
+      "text": "",
+      "border": ""
+    },
+    "print_btn": {
+      "bg": "#00BFFF",
+      "hover": "#00A4DF",
+      "text": "#FFFFFF",
+      "border": ""
+    }
+  },
+  "almacen": {
+    "primary": "#00FF00",
+    "secondary": "#32CD32",
+    "accent": "#DAFCCF",
+    "light": "#99FF52",
+    "border": "#91FF00",
+    "text": "#00FF00",
+    "background": "#000000",
+    "bg_dark": "#0D0D0D",
+    "bg_medium": "#1A1A1A",
+    "warning": "#F39C12",
+    "error": "#E74C3C",
+    "description": "Verde Matrix - Gestión de stock y productos",
+    "buttons": {
+      "primary": {
+        "bg": "#000000",
+        "hover": "#91E291",
+        "text": "#00FF00",
+        "border": "#00FF00"
+      },
+      "secondary": {
+        "bg": "#32CD32",
+        "hover": "#99FF52",
+        "text": "#000000",
+        "border": "#91FF00"
+      },
+      "accent": {
+        "bg": "#DAFCCF",
+        "hover": "#E6F8DF",
+        "text": "#000000",
+        "border": "#91FF00"
+      }
+    },
+    "nav_list": {
+      "row_normal_bg": "#1A1A1A",
+      "row_normal_text": "#E0E0E0",
+      "row_zebra_bg": "#0D0D0D",
+      "use_zebra": true,
+      "row_hover_bg": "#2A2A2A",
+      "row_hover_text": "#FFFFFF",
+      "row_selected_bg": "#C7BA0C",
+      "row_selected_text": "#000000",
+      "row_selected_border": "primary"
+    }
+  },
+  "clientes": {
+    "primary": "#FFD700",
+    "secondary": "#FFC107",
+    "accent": "#FFEB3B",
+    "light": "#FF9800",
+    "crear": "#ADFF2F",
+    "border": "#FFD700",
+    "text": "#FFD700",
+    "background": "#000000",
+    "bg_dark": "#0D0D0D",
+    "bg_medium": "#1A1A1A",
+    "warning": "#F39C12",
+    "error": "#E74C3C",
+    "description": "Amarillo Sol - Gestión de clientes y fidelización",
+    "buttons": {
+      "primary": {
+        "bg": "#FFD700",
+        "hover": "#FFCA00",
+        "text": "#000000",
+        "border": "#E6BE00"
+      },
+      "secondary": {
+        "bg": "#FFC107",
+        "hover": "#FFB000",
+        "text": "#000000",
+        "border": "#E0A800"
+      },
+      "accent": {
+        "bg": "#FFEB3B",
+        "hover": "#FFF176",
+        "text": "#000000",
+        "border": "#F7E017"
+      }
+    },
+    "nav_list": {
+      "row_normal_bg": "#1A1A1A",
+      "row_normal_text": "#E0E0E0",
+      "row_zebra_bg": "#222222",
+      "use_zebra": true,
+      "row_hover_bg": "#2A2A2A",
+      "row_hover_text": "#FFFFFF",
+      "row_selected_bg": "#C7BA0C",
+      "row_selected_text": "#000000",
+      "row_selected_border": "primary"
+    }
+  },
+  "informes": {
+    "primary": "#FFFFFF",
+    "secondary": "#E0E0E0",
+    "accent": "#BDBDBD",
+    "light": "#F5F5F5",
+    "border": "#FFFFFF",
+    "text": "#FFFFFF",
+    "background": "#000000",
+    "bg_dark": "#0d0d0d",
+    "bg_medium": "#1a1a1a",
+    "warning": "#f39c12",
+    "error": "#e74c3c",
+    "description": "Blanco - Reportes y análisis",
+    "buttons": {
+      "primary": {
+        "bg": "#FFFFFF",
+        "hover": "#F0F0F0",
+        "text": "#000000",
+        "border": "#E0E0E0"
+      },
+      "secondary": {
+        "bg": "#E0E0E0",
+        "hover": "#D6D6D6",
+        "text": "#000000",
+        "border": "#CFCFCF"
+      },
+      "accent": {
+        "bg": "#BDBDBD",
+        "hover": "#AFAFAF",
+        "text": "#000000",
+        "border": "#9E9E9E"
+      }
+    },
+    "nav_list": {
+      "row_normal_bg": "#1a1a1a",
+      "row_normal_text": "#e0e0e0",
+      "row_zebra_bg": "#222222",
+      "use_zebra": true,
+      "row_hover_bg": "#2a2a2a",
+      "row_hover_text": "#ffffff",
+      "row_selected_bg": "#C7BA0C",
+      "row_selected_text": "#000000",
+      "row_selected_border": "primary"
+    }
+  },
+  "shopify": {
+    "primary": "#00A4DF",
+    "secondary": "#3498db",
+    "accent": "#5DADE2",
+    "light": "#6FCFF5",
+    "border": "#00A4DF",
+    "text": "#00A4DF",
+    "background": "#000000",
+    "bg_dark": "#0d0d0d",
+    "bg_medium": "#1a1a1a",
+    "warning": "#f39c12",
+    "error": "#e74c3c",
+    "description": "Azul Matrix - Integración tienda online",
+    "buttons": {
+      "primary": {
+        "bg": "#00A4DF",
+        "hover": "#008FC6",
+        "text": "#FFFFFF",
+        "border": "#0089BF"
+      },
+      "secondary": {
+        "bg": "#3498db",
+        "hover": "#2d86c9",
+        "text": "#FFFFFF",
+        "border": "#2a7ab8"
+      },
+      "accent": {
+        "bg": "#5DADE2",
+        "hover": "#4FB1E6",
+        "text": "#FFFFFF",
+        "border": "#4AA7D9"
+      }
+    },
+    "nav_list": {
+      "row_normal_bg": "#1a1a1a",
+      "row_normal_text": "#e0e0e0",
+      "row_zebra_bg": "#222222",
+      "use_zebra": true,
+      "row_hover_bg": "#2a2a2a",
+      "row_hover_text": "#ffffff",
+      "row_selected_bg": "#C7BA0C",
+      "row_selected_text": "#000000",
+      "row_selected_border": "primary"
+    }
+  },
+  "config": {
+    "primary": "#FF9800",
+    "secondary": "#F57C00",
+    "accent": "#FFB74D",
+    "light": "#FFCC80",
+    "border": "#FF9800",
+    "text": "#FF9800",
+    "background": "#000000",
+    "bg_dark": "#0d0d0d",
+    "bg_medium": "#1a1a1a",
+    "warning": "#f39c12",
+    "error": "#e74c3c",
+    "description": "Naranja - Configuración del sistema",
+    "buttons": {
+      "primary": {
+        "bg": "#FF9800",
+        "hover": "#F57C00",
+        "text": "#000000",
+        "border": "#E06700"
+      },
+      "secondary": {
+        "bg": "#F57C00",
+        "hover": "#EB6A00",
+        "text": "#000000",
+        "border": "#D65D00"
+      },
+      "accent": {
+        "bg": "#FFB74D",
+        "hover": "#FFAA33",
+        "text": "#000000",
+        "border": "#FFA033"
+      }
+    },
+    "nav_list": {
+      "row_normal_bg": "#1a1a1a",
+      "row_normal_text": "#e0e0e0",
+      "row_zebra_bg": "#222222",
+      "use_zebra": true,
+      "row_hover_bg": "#2a2a2a",
+      "row_hover_text": "#ffffff",
+      "row_selected_bg": "#C7BA0C",
+      "row_selected_text": "#000000",
+      "row_selected_border": "primary"
+    }
+  },
+  "presencia": {
+    "primary": "#00FFFF",
+    "secondary": "#008B8B",
+    "accent": "#E0FFFF",
+    "background": "#000000",
+    "bg_dark": "#0d0d0d",
+    "nav_list": {
+      "row_normal_bg": "#1a1a1a",
+      "row_normal_text": "#e0e0e0",
+      "row_zebra_bg": "#222222",
+      "use_zebra": true,
+      "row_hover_bg": "#2a2a2a",
+      "row_hover_text": "#ffffff",
+      "row_selected_bg": "#C7BA0C",
+      "row_selected_text": "#000000",
+      "row_selected_border": "primary"
+    }
+  },
+  "produccion": {
+    "primary": "#552583",
+    "secondary": "#C77BFF",
+    "accent": "#C77BFF",
+    "background": "#1A1A2E",
+    "bg_dark": "#1A1A2E",
+    "text": "#ECF0F1",
+    "border": "#552583",
+    "warning": "#F39C12",
+    "error": "#E74C3C",
+    "description": "Morado - Producción y diseños",
+    "buttons": {
+      "primary": {
+        "bg": "#552583",
+        "hover": "#8E44AD",
+        "text": "#FFFFFF",
+        "border": "#C77BFF"
+      },
+      "secondary": {
+        "bg": "#1A1A2E",
+        "hover": "#C77BFF",
+        "text": "#E0E0E0",
+        "border": "#552583"
+      },
+      "accent": {
+        "bg": "#C77BFF",
+        "hover": "#8E44AD",
+        "text": "#000000",
+        "border": "#552583"
+      }
+    },
+    "nav_list": {
+      "row_normal_bg": "#1A1A1A",
+      "row_normal_text": "#E0E0E0",
+      "row_zebra_bg": "#222222",
+      "use_zebra": true,
+      "row_hover_bg": "#2A2A2A",
+      "row_hover_text": "#FFFFFF",
+      "row_selected_bg": "#552583",
+      "row_selected_text": "#FFFFFF",
+      "row_selected_border": "primary"
+    }
+  },
+  "tpv": {
+    "grid_buttons": {
+      "buscar_articulo": {
+        "bg": "#000000",
+        "hover": "#025736",
+        "text": "#00FF9D",
+        "border": "#00FF9D",
+        "border_width": 5
+      },
+      "print_on": {
+        "bg": "#000000",
+        "hover": "#999696",
+        "text": "#FFFFFF",
+        "border": "#FFFFFF",
+        "border_width": 3
+      },
+      "config": {
+        "bg": "#000000",
+        "hover": "#853211",
+        "text": "#E85217",
+        "border": "#E85217",
+        "border_width": 3
+      },
+      "stock": {
+        "bg": "#000000",
+        "hover": "#48702C",
+        "text": "#A1FA61",
+        "border": "#A1FA61",
+        "border_width": 3
+      },
+      "multi": {
+        "bg": "#000000",
+        "hover": "#035C03",
+        "text": "#00FF00",
+        "border": "#00FF00",
+        "border_width": 3
+      },
+      "web": {
+        "bg": "#000000",
+        "hover": "#035C03",
+        "text": "#00FF00",
+        "border": "#00FF00",
+        "border_width": 3
+      },
+      "cierre": {
+        "bg": "#000000",
+        "hover": "#7A0707",
+        "text": "#FF0000",
+        "border": "#FF0000",
+        "border_width": 3
+      },
+      "descuento": {
+        "bg": "#000000",
+        "hover": "#664156",
+        "text": "#C27EA4",
+        "border": "#C27EA4",
+        "border_width": 3
+      },
+      "cliente": {
+        "bg": "#000000",
+        "hover": "#827314",
+        "text": "#E3C509",
+        "border": "#E3C509",
+        "border_width": 3
+      },
+      "tarjeta": {
+        "bg": "#000000",
+        "hover": "#035C03",
+        "text": "#00FF00",
+        "border": "#00FF00",
+        "border_width": 3
+      },
+      "tickets": {
+        "bg": "#000000",
+        "hover": "#7A0707",
+        "text": "#FF0000",
+        "border": "#FF0000",
+        "border_width": 3
+      },
+      "devolucion": {
+        "bg": "#000000",
+        "hover": "#664156",
+        "text": "#C27EA4",
+        "border": "#C27EA4",
+        "border_width": 3
+      },
+      "cajero": {
+        "bg": "#000000",
+        "hover": "#827314",
+        "text": "#E3C509",
+        "border": "#E3C509",
+        "border_width": 3
+      },
+      "cash": {
+        "bg": "#000000",
+        "hover": "#035C03",
+        "text": "#00FF00",
+        "border": "#00FF00",
+        "border_width": 5
+      }
+    },
+    "nav_list": {
+      "row_normal_bg": "#1A1A1A",
+      "row_normal_text": "#E0E0E0",
+      "row_zebra_bg": "#222222",
+      "use_zebra": true,
+      "row_hover_bg": "#2A2A2A",
+      "row_hover_text": "#FFFFFF",
+      "row_selected_bg": "#C7BA0C",
+      "row_selected_text": "#000000",
+      "row_selected_border": "primary"
+    },
+    "carrito_nav_list": {
+      "line_normal": {
+        "bg": "#1A1A1A",
+        "text": "#E0E0E0",
+        "hover_bg": "#2A2A2A",
+        "selected_bg": "#0D0D0D",
+        "selected_text": "#00FF00",
+        "selected_border": "#00FF00"
+      },
+      "line_descuento": {
+        "bg": "#2A1A1A",
+        "text": "#FF6B6B"
+      },
+      "line_devolucion": {
+        "bg": "#1A1A2A",
+        "text": "#D9534F"
+      },
+      "line_tesoro": {
+        "bg": "#1A2A1A",
+        "text": "#FFD700"
+      },
+      "line_tesoro_visual": {
+        "bg": "#1A2A1A",
+        "text": "#FFD700"
+      }
+    },
+    "ticket_carrito": {
+      "header": {
+        "bg": "#000000",
+        "text_info": "#00FF00",
+        "text_cliente": "#FFD700",
+        "text_tesoro": "#FFD700"
+      },
+      "body": {
+        "bg": "#000000",
+        "header_text": "#00FF00"
+      },
+      "footer": {
+        "bg": "#1A1A1A",
+        "bg_active_efectivo": "#2ECC71",
+        "bg_active_tarjeta": "#3498DB",
+        "bg_active_web": "#88B04B",
+        "text": "#FFFFFF",
+        "text_totales": "#00FF00"
+      }
+    },
+    "payment_controllers": {
+      "efectivo": {
+        "bg": "#000000",
+        "border": "#2CFF00",
+        "border_hover": "#27AE60",
+        "text_titulo": "#2CFF00",
+        "text_label": "#2CFF00",
+        "text_cambio": "#2CFF00",
+        "text_error": "#E74C3C",
+        "button": {
+          "bg": "#000000",
+          "hover": "#197307",
+          "text": "#2CFF00",
+          "border": "#2CFF00"
+        }
+      },
+      "tarjeta": {
+        "bg": "#000000",
+        "border": "#53FFB1",
+        "border_hover": "#E3FFEE",
+        "text_titulo": "#53FFB1",
+        "button": {
+          "bg": "#000000",
+          "hover": "#2A7D58",
+          "text": "#53FFB1",
+          "border": "#53FFB1"
+        }
+      },
+      "web": {
+        "bg": "#000000",
+        "border": "#9BE74A",
+        "border_hover": "#E9FAD7",
+        "text_titulo": "#9BE74A",
+        "button": {
+          "bg": "#000000",
+          "hover": "#6A8E3A",
+          "text": "#9BE74A",
+          "border": "#9BE74A"
+        }
+      },
+      "multi": {
+        "bg": "#000000",
+        "border": "#B4EA0A",
+        "border_hover": "#678508",
+        "text_titulo": "#B4EA0A",
+        "text_label": "#FFFFFF",
+        "text_error": "#E74C3C",
+        "button": {
+          "bg": "#000000",
+          "hover": "#678508",
+          "text": "#B4EA0A",
+          "border": "#B4EA0A"
+        }
+      },
+      "resumen": {
+        "bg": "#000000",
+        "border": "#FFD700",
+        "border_hover": "#FFEA70",
+        "text_titulo": "#FFD700",
+        "text_label": "#FFFFFF",
+        "text": "#FFFFFF",
+        "text_cambio": "#2ECC71",
+        "separator": "#555555",
+        "text_secondary": "#888888"
+      }
+    },
+    "buscar_overlay": {
+      "bg": "#000000",
+      "categories_area_bg": "#000000",
+      "articles_area_bg": "#000000",
+      "breadcrumb": {
+        "text": "#BBF527",
+        "text_hover": "#FFFFFF",
+        "bg_hover": "#BABABA"
+      },
+      "main_buttons": {
+        "bg": "#000000",
+        "hover": "#333333",
+        "text": "#BBF527",
+        "text_active": "#000000",
+        "bg_active": "#BBF527",
+        "border": "#BBF527",
+        "border_width": 2
+      },
+      "category_buttons": {
+        "bg": "#111111",
+        "hover": "#333333",
+        "text": "#E0F545",
+        "text_selected": "#000000",
+        "bg_selected": "#E0F545",
+        "border": "#E0F545",
+        "border_width": 2
+      },
+      "article_buttons": {
+        "bg": "#000000",
+        "hover": "#A5D600",
+        "text": "#A5D600",
+        "text_hover": "#4F6601",
+        "border": "#A5D600",
+        "border_width": 1
+      }
+    }
+  }
+}

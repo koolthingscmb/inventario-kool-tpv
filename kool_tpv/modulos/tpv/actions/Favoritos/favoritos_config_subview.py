@@ -219,7 +219,7 @@ class FavoritosConfigSubView(ctk.CTkFrame):
 
     def _ejecutar_auto_orden(self):
         """Ejecuta la reorganización por ventas después de confirmar."""
-        from kool_tpv.utils.custom_dialog import show_warning
+        from kool_tpv.utils.dialogs import show_warning
         from kool_tpv.utils.widgets.notificaciones import ToastWidget
         
         def on_confirm(res):
@@ -243,7 +243,7 @@ class FavoritosConfigSubView(ctk.CTkFrame):
         if not selected:
             return
             
-        from kool_tpv.utils.custom_dialog import show_warning
+        from kool_tpv.utils.dialogs import show_warning
         
         def on_confirm(res):
             if res:

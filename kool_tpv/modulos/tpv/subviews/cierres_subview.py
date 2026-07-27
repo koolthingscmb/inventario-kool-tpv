@@ -194,7 +194,7 @@ class CierresSubView(CTkFrame):
             cierre_id = sel.get('cierre_id') or sel.get('id')
             if not cierre_id: return
 
-            from kool_tpv.utils.custom_dialog import show_info
+            from kool_tpv.utils.dialogs import show_info
             show_info(
                 self.winfo_toplevel(),
                 'Imprimir cierre',
@@ -302,7 +302,7 @@ class CierresSubView(CTkFrame):
         try:
             # Confirmación
             try:
-                from kool_tpv.utils.custom_dialog import show_info
+                from kool_tpv.utils.dialogs import show_info
                 root = self.winfo_toplevel()
                 confirmed = bool(show_info(root, 'Cerrar caja', 'Se generará un cierre con los tickets pendientes. Continuar?', confirm=True))
             except Exception:
@@ -425,7 +425,7 @@ class CierresSubView(CTkFrame):
 
             # Confirmación
             try:
-                from kool_tpv.utils.custom_dialog import show_info
+                from kool_tpv.utils.dialogs import show_info
                 root = self.winfo_toplevel()
                 confirmed = bool(show_info(root, 'Imprimir ticket', f'Se imprimirá el ticket {ticket_id}', confirm=True))
             except Exception:

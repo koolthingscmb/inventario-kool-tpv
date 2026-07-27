@@ -528,7 +528,7 @@ class BaseModuleView:
                             try:
                                 if owner.has_unsaved_changes():
                                     # Hay cambios sin guardar → mostrar warning
-                                    from kool_tpv.utils.custom_dialog import show_warning
+                                    from kool_tpv.utils.dialogs import show_warning
                                     result = show_warning(
                                         self.parent,
                                         "Cambios sin guardar",

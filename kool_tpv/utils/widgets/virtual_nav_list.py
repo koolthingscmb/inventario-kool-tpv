@@ -188,6 +188,13 @@ class VirtualNavList(ctk.CTkFrame):
             w.bind('<Button-5>',   self._on_mousewheel)
             # NO bindeamos Return/Enter aquí para no interferir con el BarcodeService o el CarritoNavList
 
+        # Atajos de teclado para multi-select
+        self._canvas.bind('<Control-a>', lambda e: self.select_all())
+        self._canvas.bind('<Control-A>', lambda e: self.select_all())
+        # En Mac suele ser Command-A, pero tkinter suele mapear Control a Command en muchos casos o necesita binding extra
+        self._canvas.bind('<Command-a>', lambda e: self.select_all())
+        self._canvas.bind('<Command-A>', lambda e: self.select_all())
+
         self.bind('<FocusIn>', lambda e: self._canvas.focus_set())
 
     # ------------------------------------------------------------------
@@ -260,8 +267,8 @@ class VirtualNavList(ctk.CTkFrame):
         
         # Bindings (clic, doble clic, scroll)
         for w in [row_frame] + labels:
-            w.bind('<Button-1>', lambda e=None, i=idx_in_pool: self._on_row_click(i))
-            w.bind('<Double-Button-1>', lambda e=None, i=idx_in_pool: self._on_row_double_click(i))
+            w.bind('<Button-1>', lambda e, i=idx_in_pool: self._on_row_click(i, e))
+            w.bind('<Double-Button-1>', lambda e, i=idx_in_pool: self._on_row_double_click(i))
             w.bind('<MouseWheel>', self._on_mousewheel)
             w.bind('<Button-4>',   self._on_mousewheel)
             w.bind('<Button-5>',   self._on_mousewheel)
@@ -467,11 +474,36 @@ class VirtualNavList(ctk.CTkFrame):
     # Manejo de Eventos de Fila
     # ------------------------------------------------------------------
 
-    def _on_row_click(self, pool_idx: int):
+    def _on_row_click(self, pool_idx: int, event: Optional[tk.Event] = None):
         data_idx = self._visible_rows[pool_idx]['data_index']
         if data_idx >= 0:
             if self.multi_select:
-                self.toggle_selection(data_idx)
+                # Soporte para Shift y Control/Command
+                is_shift = event and (event.state & 0x0001)  # Shift
+                is_ctrl = event and (event.state & 0x0004 or event.state & 0x0008)  # Control o Command(Mac)
+                
+                if is_shift and self.selected_index >= 0:
+                    # Seleccionar rango desde el último seleccionado hasta el actual
+                    start = min(self.selected_index, data_idx)
+                    end = max(self.selected_index, data_idx)
+                    # En modo shift, solemos reemplazar la selección actual por el rango
+                    # o añadir el rango. Vamos a añadirlo para que sea más flexible.
+                    for i in range(start, end + 1):
+                        self.selected_indices.add(i)
+                elif is_ctrl:
+                    # Toggle individual
+                    self.toggle_selection(data_idx)
+                else:
+                    # Clic normal: limpiar otros y seleccionar solo este (comportamiento estándar)
+                    # O si ya estaba seleccionado y era el único, tal vez deseleccionar?
+                    # Para simplificar: clic normal en multi-select selecciona solo ese.
+                    self.selected_indices.clear()
+                    self.selected_indices.add(data_idx)
+                
+                # En multi-select, el "foco" (selected_index) sigue al último clic
+                self.selected_index = data_idx
+                self._refresh_ui()
+                self._fire_selection_change()
             else:
                 self._select(data_idx, fire_callback=True)
 

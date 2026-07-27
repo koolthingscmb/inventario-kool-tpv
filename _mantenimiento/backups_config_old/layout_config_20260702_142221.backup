@@ -1,0 +1,336 @@
+{
+  "global": {
+    "spacing": {
+      "xs": 4,
+      "sm": 8,
+      "md": 12,
+      "lg": 20,
+      "xl": 32
+    },
+    "window": {
+      "width": 1600,
+      "height": 960,
+      "min_width": 1600,
+      "min_height": 960
+    },
+    "navigation": {
+      "button_padx": 20,
+      "button_pady": 14
+    },
+    "keyboard_navigation": {
+      "focus_border_color": "#F2F0E6",
+      "focus_border_width": 5,
+      "normal_border_width": 2,
+      "zone_colors": {
+        "carrito": "#4A9EFF",
+        "payment": "#4AFF91",
+        "grid": "transparent"
+      },
+      "zone_border_width": 3
+    },
+    "main_menu_layout": {
+      "side": "top",
+      "padx": 20,
+      "pady": 14,
+      "fill": "x",
+      "button_width": 500,
+      "placement": "place",
+      "offset_x": 0,
+      "offset_y": 180,
+      "anchor": "nw",
+      "container_height": 600,
+      "container_width": 220
+    },
+    "power_layout": {
+      "corner": "top_left",
+      "offset_x": 40,
+      "offset_y": 12,
+      "width": 140,
+      "height": 140,
+      "corner_radius": 0,
+      "border_width": 0,
+      "bg_color": "transparent",
+      "hover_color": "transparent",
+      "collision_margin": 5
+    }
+  },
+  "components": {
+    "dialog": {
+      "width": 400,
+      "height": 300,
+      "border_width": 10,
+      "icon_size": 80,
+      "button_width": 50,
+      "button_height": 30,
+      "corner_radius": 20,
+      "wraplength": "auto",
+      "focus_border_width": 3,
+      "padding_x": 10,
+      "padding_y": 10,
+      "content_align_x": "bottom",
+      "content_align_y": "top",
+      "entry_width": 300,
+      "entry_height": 35,
+      "spacing_icon_top": 10,
+      "spacing_icon_bottom": 15,
+      "spacing_title_bottom": 10,
+      "spacing_message_bottom": 10,
+      "spacing_entry_bottom": 10
+    },
+    "nav_list": {
+      "row_height": 35,
+      "header_height": 40,
+      "wraplength": 180
+    },
+    "print_on_button": {
+      "height": 28
+    }
+  },
+  "modules": {
+    "sidebar": {
+      "width": 220,
+      "top_offset": 30
+    },
+    "tpv": {
+      "sidebar_width": 220,
+      "right_width": 600,
+      "center": {
+        "grid": {
+          "columns": 4,
+          "rows": 4,
+          "spacing": 12,
+          "min_button_size": 120,
+          "max_button_size": 400,
+          "buttons": [
+            {
+              "label": "FAVORITOS",
+              "command": "buscar_articulo",
+              "row": 0,
+              "col": 0,
+              "colspan": 2,
+              "style_key": "menu_almacen"
+            },
+            {
+              "label": "CASH",
+              "shortcut": "Alt+1",
+              "command": "Pagar en Efectivo",
+              "row": 0,
+              "col": 2,
+              "colspan": 2,
+              "style_key": "menu_almacen"
+            },
+            {
+              "label": "STOCK",
+              "command": "stock",
+              "row": 1,
+              "col": 0,
+              "style_key": "menu_almacen"
+            },
+            {
+              "label": "MULTI $",
+              "shortcut": "Alt+4",
+              "command": "Multicobro",
+              "row": 1,
+              "col": 1,
+              "style_key": "menu_almacen"
+            },
+            {
+              "label": "WEB",
+              "shortcut": "Alt+3",
+              "command": "Pagar en Web",
+              "row": 1,
+              "col": 2,
+              "style_key": "menu_almacen"
+            },
+            {
+              "label": "TARJETA",
+              "shortcut": "Alt+2",
+              "command": "Pagar con Tarjeta",
+              "row": 1,
+              "col": 3,
+              "style_key": "menu_almacen"
+            },
+            {
+              "label": "DESCUENTO",
+              "command": "Hacer dto directo o %",
+              "row": 2,
+              "col": 0,
+              "style_key": "rosa_descuentos"
+            },
+            {
+              "label": "DEVOLUCIÓN",
+              "command": "Realizar Devolución",
+              "row": 2,
+              "col": 1,
+              "style_key": "rosa_descuentos"
+            },
+            {
+              "label": "CLIENTE",
+              "command": "Asignar Cliente",
+              "row": 2,
+              "col": 2,
+              "style_key": "menu_clientes"
+            },
+            {
+              "label": "CAJERO",
+              "command": "Asignar Cajero",
+              "row": 2,
+              "col": 3,
+              "style_key": "menu_clientes"
+            },
+            {
+              "label": "PRESENCIA",
+              "command": "presencia",
+              "row": 3,
+              "col": 0,
+              "style_key": "menu_config"
+            },
+            {
+              "label": "PRINT ON",
+              "command": "toggle_print",
+              "row": 3,
+              "col": 1,
+              "style_key": "blanco"
+            },
+            {
+              "label": "CIERRE",
+              "command": "Cierres de caja",
+              "row": 3,
+              "col": 2,
+              "style_key": "rojo_tickets"
+            },
+            {
+              "label": "TICKETS",
+              "command": "Abrir Tickets",
+              "row": 3,
+              "col": 3,
+              "style_key": "rojo_tickets"
+            }
+          ]
+        }
+      },
+      "ticket_carrito": {
+        "width": 600,
+        "header": {
+          "padding_horizontal": 12,
+          "padding_vertical_top": 8,
+          "padding_vertical_bottom": 2,
+          "info_section": {
+            "label_height": 20,
+            "spacing_top": 4,
+            "spacing_bottom": 2
+          },
+          "cliente_section": {
+            "label_height": 24,
+            "spacing_top": 4,
+            "spacing_bottom": 2
+          }
+        },
+        "body": {
+          "height": 450,
+          "padding_horizontal": 12,
+          "padding_vertical_top": 4,
+          "padding_vertical_bottom": 0
+        },
+        "footer": {
+          "padding_horizontal": 12,
+          "padding_vertical_top": 8,
+          "padding_vertical_bottom": 12,
+          "totales_section": {
+            "padding_top": 0,
+            "separator_height": 2,
+            "separator_padding": 8,
+            "grid_padding": 12
+          },
+          "payment_area": {
+            "padding_top": 8,
+            "padding_bottom": 8
+          }
+        },
+        "payment_controllers": {
+          "border_width": 5,
+          "corner_radius": 18,
+          "padding": 20,
+          "spacing": 12,
+          "button_spacing_top": 0,
+          "button_spacing_bottom": 8,
+          "efectivo": {
+            "entry_width": 112,
+            "entry_height": 40,
+            "titulo_bottom": 12,
+            "grid_bottom": 2,
+            "label_padx_right": 8,
+            "entry_padx_right": 12,
+            "error_top": 4,
+            "error_bottom": 8
+          },
+          "simple": {
+            "titulo_bottom": 12,
+            "button_spacing": 12
+          },
+          "multi": {
+            "entry_width": 120,
+            "entry_height": 40,
+            "titulo_bottom": 12,
+            "entries_spacing": 16,
+            "entries_bottom": 8,
+            "error_bottom": 8
+          },
+          "button": {
+            "width": 200,
+            "height": 45,
+            "corner_radius": 22,
+            "border_width": 2
+          },
+          "resumen": {
+            "titulo_bottom": 12,
+            "info_spacing": 8
+          }
+        }
+      },
+      "carrito_nav_list": {
+        "row_height": 35,
+        "wraplength": 170,
+        "column_widths": {
+          "producto": 240,
+          "cantidad": 50,
+          "precio": 80,
+          "total": 100
+        }
+      },
+      "buscar_overlay": {
+        "top_buttons_height": 150,
+        "main_button_width": 320,
+        "main_button_height": 130,
+        "category_button_min_width": 120,
+        "category_button_height": 48,
+        "article_button_height": 50,
+        "grid_spacing": 5
+      },
+      "favorites": {
+        "columns": 8,
+        "chip_height": 80,
+        "grid_spacing": 8,
+        "max_chars_line": 12
+      }
+    },
+    "almacen": {},
+    "clientes": {},
+    "shopify": {},
+    "config": {},
+    "informes": {
+      "viewer": {
+        "width": 800,
+        "height": 600
+      },
+      "formats": {
+        "justified_list": {
+          "left_width": 10,
+          "right_width": 12,
+          "separator_char": "-",
+          "separator_padding": 2
+        }
+      }
+    }
+  }
+}

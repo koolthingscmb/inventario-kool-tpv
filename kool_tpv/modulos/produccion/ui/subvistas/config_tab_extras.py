@@ -6,7 +6,7 @@ from typing import Optional, List
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import get_font
 from kool_tpv.modulos.produccion.services.produccion_extras_service import ProduccionExtrasService, ProduccionExtra
 from kool_tpv.base_datos.money_adapter import read_from_db, prepare_for_db
-from kool_tpv.utils.custom_dialog import show_warning, show_error
+from kool_tpv.utils.dialogs import show_warning, show_error
 
 class ConfigTabExtras:
     """Sub-pestaña EXTRAS: chips + formulario CRUD."""

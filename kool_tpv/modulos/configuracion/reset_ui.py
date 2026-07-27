@@ -5,7 +5,7 @@ from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.modulos.configuracion.reset_service import ResetService
 from kool_tpv.utils.widgets.tag_selector import TagSelector
-from kool_tpv.utils.custom_dialog import show_warning, show_error
+from kool_tpv.utils.dialogs import show_warning, show_error
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
 
 

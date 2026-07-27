@@ -545,7 +545,7 @@ class ImpresoraUI:
 
         except Exception:
             logging.exception('Error en _on_save de ImpresoraUI')
-            from kool_tpv.utils.custom_dialog import show_error
+            from kool_tpv.utils.dialogs import show_error
             show_error(self.container, 'Error', 'No se pudo guardar la configuración')
 
     def _test_impresion(self):
@@ -589,7 +589,7 @@ class ImpresoraUI:
 
         except Exception:
             logging.exception('Error en test de impresión')
-            from kool_tpv.utils.custom_dialog import show_error
+            from kool_tpv.utils.dialogs import show_error
             show_error(self.container, 'Error', 'No se pudo realizar el test de impresión')
 
     def _seleccionar_logo(self):
@@ -611,7 +611,7 @@ class ImpresoraUI:
                 img_test = Image.open(filepath)
                 img_test.close()
             except Exception:
-                from kool_tpv.utils.custom_dialog import show_error
+                from kool_tpv.utils.dialogs import show_error
                 show_error(self.container, 'Error', 'Archivo no válido')
                 return
 
@@ -636,7 +636,7 @@ class ImpresoraUI:
 
         except Exception:
             logging.exception('Error seleccionando logo')
-            from kool_tpv.utils.custom_dialog import show_error
+            from kool_tpv.utils.dialogs import show_error
             show_error(self.container, 'Error', 'No se pudo cargar el logo')
 
     def _seleccionar_logo_nivel(self):
@@ -658,7 +658,7 @@ class ImpresoraUI:
                 img_test = Image.open(filepath)
                 img_test.close()
             except Exception:
-                from kool_tpv.utils.custom_dialog import show_error
+                from kool_tpv.utils.dialogs import show_error
                 show_error(self.container, 'Error', 'Archivo no válido')
                 return
 
@@ -683,7 +683,7 @@ class ImpresoraUI:
 
         except Exception:
             logging.exception('Error seleccionando logo nivel')
-            from kool_tpv.utils.custom_dialog import show_error
+            from kool_tpv.utils.dialogs import show_error
             show_error(self.container, 'Error', 'No se pudo cargar el logo de nivel')
 
     def _mostrar_preview_nivel(self, image_path):

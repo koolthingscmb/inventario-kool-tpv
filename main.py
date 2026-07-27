@@ -342,7 +342,7 @@ class App(ctk.CTk):
     # --- Navegación ---
     def load_tpv(self):
         self._clear_main()
-        from kool_tpv.modulos.tpv.tpv_view_new import TpvView
+        from kool_tpv.modulos.tpv.tpv_view import TpvView
 
         # Entrar en TPV: ocultar únicamente los botones del menú principal
         # (menu_container) para mantener la sidebar con el botón Power.

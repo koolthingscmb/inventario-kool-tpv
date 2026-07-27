@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 import customtkinter as ctk
 from kool_tpv.utils.factories.button_factory import ButtonFactory
-from kool_tpv.utils.custom_dialog import show_password_dialog
+from kool_tpv.utils.dialogs import show_password_dialog
 from kool_tpv.utils.dialogs.input_dialog import InputDialog
 from kool_tpv.utils.auth_service import AuthService
 from kool_tpv.base_datos.usuario_service import UsuarioService

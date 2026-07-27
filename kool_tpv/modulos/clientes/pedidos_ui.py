@@ -12,7 +12,7 @@ from kool_tpv.utils.config_loader import load_colors, load_layout_config
 from kool_tpv.utils.widgets.searchable_paginated_navlist import SearchablePaginatedNavList
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
-from kool_tpv.utils.custom_dialog import show_warning
+from kool_tpv.utils.dialogs import show_warning
 
 logger = logging.getLogger(__name__)
 

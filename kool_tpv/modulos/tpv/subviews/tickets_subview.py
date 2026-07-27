@@ -514,7 +514,7 @@ class TicketsSubView(CTkFrame):
                 return
 
             # Modal info: OK para imprimir
-            from kool_tpv.utils.custom_dialog import show_info
+            from kool_tpv.utils.dialogs import show_info
             root = self.winfo_toplevel()
             show_info(
                 root,

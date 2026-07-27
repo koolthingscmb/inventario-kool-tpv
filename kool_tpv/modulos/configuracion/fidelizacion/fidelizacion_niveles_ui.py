@@ -496,7 +496,7 @@ class FidelizacionNivelesUI:
             ToastWidget.show(self.container, 'SELECCIONA UN NIVEL PRIMERO', tipo='warning')
             return
 
-        from kool_tpv.utils.custom_dialog import show_warning
+        from kool_tpv.utils.dialogs import show_warning
 
         def _confirmar_eliminar():
             ok = self.service.delete_nivel(self.selected_nivel['id'])

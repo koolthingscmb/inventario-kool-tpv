@@ -302,7 +302,7 @@ class ConfigView(BaseModuleView):
         try:
             parent = self._get_dialog_parent()
 
-            from kool_tpv.utils.custom_dialog import show_password_dialog, show_warning
+            from kool_tpv.utils.dialogs import show_password_dialog, show_warning
 
             password = show_password_dialog(
                 parent,
@@ -348,7 +348,7 @@ class ConfigView(BaseModuleView):
         """Abrir submenu de Fidelización: cambia sidebar y muestra opciones."""
         try:
             parent = self._get_dialog_parent()
-            from kool_tpv.utils.custom_dialog import show_password_dialog, show_warning
+            from kool_tpv.utils.dialogs import show_password_dialog, show_warning
 
             password = show_password_dialog(
                 parent,
@@ -705,7 +705,7 @@ class ConfigView(BaseModuleView):
         """Mostrar herramienta de reset (protegido por password admin)."""
         try:
             parent = self._get_dialog_parent()
-            from kool_tpv.utils.custom_dialog import show_password_dialog, show_warning
+            from kool_tpv.utils.dialogs import show_password_dialog, show_warning
 
             password = show_password_dialog(
                 parent,

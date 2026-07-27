@@ -9,7 +9,7 @@ subvista `DescuentoSubView`.
 import logging
 from typing import Any
 
-from kool_tpv.utils.custom_dialog import show_password_dialog
+from kool_tpv.utils.dialogs import show_password_dialog
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
 
 logger = logging.getLogger(__name__)

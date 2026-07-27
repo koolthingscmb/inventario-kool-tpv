@@ -8,7 +8,7 @@ import customtkinter as ctk
 from kool_tpv.base_datos.usuario_service import UsuarioService
 from kool_tpv.utils.config_loader import create_action_button, load_colors
 from kool_tpv.utils.factories.button_factory import ButtonFactory
-from kool_tpv.utils.custom_dialog import show_error
+from kool_tpv.utils.dialogs import show_error
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL

@@ -20,7 +20,7 @@ from kool_tpv.utils.utils import (
 )
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.config_loader import create_action_button, load_colors
-from kool_tpv.utils.custom_dialog import show_input_dialog, show_password_dialog
+from kool_tpv.utils.dialogs import show_input_dialog, show_password_dialog
 from kool_tpv.utils.auth_service import AuthService
 from kool_tpv.modulos.clientes.clientes_tickets import ClientesTicketsUI
 from kool_tpv.utils.badge_loader import load_badge_image

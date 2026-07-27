@@ -357,7 +357,7 @@ class ConfigGeneralUI:
 
         except Exception:
             logging.exception('Error guardando configuracion')
-            from kool_tpv.utils.custom_dialog import show_error
+            from kool_tpv.utils.dialogs import show_error
             show_error(self.container, 'Error', 'No se pudo guardar')
 
 
