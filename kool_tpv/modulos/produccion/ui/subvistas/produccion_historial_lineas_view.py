@@ -99,13 +99,13 @@ class ProduccionHistorialLineasView:
 		columns = [
 			("fecha", 150, "Fecha"),
 			("usuario", 120, "Usuario"),
-			("tipo_producto", 120, "Tipo"),
-			("variante", 100, "Variante"),
-			("color", 100, "Color"),
+			("tipo_producto", 150, "Tipo"),
+			("variante", 130, "Variante"),
+			("color", 110, "Color"),
 			("talla", 60, "Talla"),
 			("coleccion", 120, "Colección"),
 			("sufijo", 80, "Sufijo"),
-			("diseno", 200, "Diseño"),
+			("diseno", 270, "Diseño"),
 			("coste_total", 100, "Coste"),
 		]
 
@@ -136,7 +136,8 @@ class ProduccionHistorialLineasView:
 		if linea.get("fecha"):
 			try:
 				fecha_obj = datetime.fromisoformat(linea["fecha"])
-				fecha_str = fecha_obj.strftime("%d/%m/%Y %H:%M")
+				# Formato pedido: 28/7/26 14:23
+				fecha_str = fecha_obj.strftime("%-d/%-m/%y %H:%M")
 			except Exception:
 				fecha_str = str(linea["fecha"])
 
