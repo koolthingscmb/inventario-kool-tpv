@@ -443,18 +443,18 @@ class ProduccionEdicionLineaView:
                 'produccion_mixta': 1 if self.cb_mixta.get() == "SÍ" else 0
             }
 
+            logging.info(f"Guardando cambios en línea {self.linea_id}: {nuevos_datos}")
+
             if self.service.actualizar_linea(self.linea_id, nuevos_datos):
-                ToastWidget.show(self.parent, "Línea actualizada y stock ajustado", tipo='success')
-                # No llamamos a on_guardar() aquí porque la vista origen (Informes) 
-                # fue destruida al entrar en edición, causando TclError.
-                # Simplemente volvemos.
-                self._on_volver_click()
+                ToastWidget.show(self.frame.winfo_toplevel(), "Línea actualizada y stock ajustado", tipo='success')
+                # Pequeño delay para que el usuario vea el toast antes de volver
+                self.frame.after(600, self._on_volver_click)
             else:
-                ToastWidget.show(self.frame, "Error al actualizar la línea", tipo='error')
+                ToastWidget.show(self.frame.winfo_toplevel(), "Error al actualizar la línea", tipo='error')
 
         except Exception:
             logging.exception("Error guardando cambios en línea de producción")
-            ToastWidget.show(self.frame, "Error inesperado al guardar", tipo='error')
+            ToastWidget.show(self.frame.winfo_toplevel(), "Error inesperado al guardar", tipo='error')
 
     def destruir(self):
         self.frame.destroy()
