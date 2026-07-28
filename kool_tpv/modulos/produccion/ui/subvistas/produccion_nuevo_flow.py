@@ -68,12 +68,14 @@ class NuevoProduccionFlow:
 
     def __init__(self, parent, db: Database, keyboard_mgr=None, on_cerrar: Optional[Callable] = None,
                  usuario_id: Optional[int] = None, usuario_nombre: str = '',
-                 on_cajero_auth: Optional[Callable[[int, str], None]] = None):
+                 on_cajero_auth: Optional[Callable[[int, str], None]] = None,
+                 on_historial: Optional[Callable] = None):
         self.parent = parent
         self.db = db
         self.keyboard_mgr = keyboard_mgr
         self.on_cerrar = on_cerrar
         self.on_cajero_auth = on_cajero_auth
+        self.on_historial = on_historial
         self._usuario_id = usuario_id
         self._usuario_nombre = usuario_nombre
 
@@ -115,8 +117,28 @@ class NuevoProduccionFlow:
         self._header = tk.Frame(self.frame, bg="#2c3e50")
         self._header.pack(fill="x", side=tk.TOP)
 
-        # Label de cajero arriba a la derecha (siempre creado, se actualiza tras auth)
+        # Botón HISTORIAL (izquierda) - Estilo integrado en el header
         import customtkinter as ctk
+        from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font
+        config = cargar_config_produccion()
+        
+        self._btn_historial = ctk.CTkButton(
+            self._header,
+            text="HISTORIAL",
+            font=get_font(config, "button"),
+            fg_color="transparent",
+            text_color="#C77BFF",
+            hover_color="#34495e",
+            border_color="#C77BFF",
+            border_width=1,
+            width=100,
+            height=30,
+            cursor="hand2",
+            command=self._on_historial_click
+        )
+        self._btn_historial.pack(side=tk.LEFT, padx=20, pady=(10, 0))
+
+        # Label de cajero arriba a la derecha (siempre creado, se actualiza tras auth)
         self._lbl_cajero = ctk.CTkLabel(
             self._header,
             text=f"Cajero: {usuario_nombre}" if usuario_nombre else "",
@@ -717,6 +739,11 @@ class NuevoProduccionFlow:
         if not self._tipo:
             return False
         return self._tipo.nombre.lower() in ("camiseta", "camisetas")
+
+    def _on_historial_click(self):
+        """Handler del botón HISTORIAL: notificar al padre para abrir la vista."""
+        if self.on_historial:
+            self.on_historial()
 
     def _cerrar_flow(self):
         """Cerrar el flujo y notificar al callback."""

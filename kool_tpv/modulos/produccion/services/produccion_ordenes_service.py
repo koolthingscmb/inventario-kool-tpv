@@ -333,3 +333,15 @@ class ProduccionOrdenesService:
                 self.db.execute_query(query, (cantidad_tpv, link.producto_id))
         except Exception:
             self.logger.exception(f"Error ajustando stock TPV vinculado para linea {linea.id}")
+
+    def obtener_lineas_historial(self, filtro: Optional[str] = None) -> List[dict]:
+        """Obtener todas las líneas de producción con datos enriquecidos.
+
+        Args:
+            filtro: Término de búsqueda opcional (busca en nombre de diseño).
+
+        Returns:
+            Lista de diccionarios con fecha, usuario, tipo, variante, color, talla,
+            colección, sufijo, diseño y coste.
+        """
+        return self.repo_ordenes.get_todas_lineas_con_datos(filtro)

@@ -186,6 +186,7 @@ class ProduccionView(BaseModuleView):
 				usuario_id=self._cajero_id,
 				usuario_nombre=self._cajero_nombre,
 				on_cajero_auth=self._on_cajero_auth_from_flow,
+				on_historial=self.show_historial_lineas,
 			)
 			try:
 				self.actualizar_ruta('PRODUCCIÓN / NUEVO')
@@ -454,3 +455,21 @@ class ProduccionView(BaseModuleView):
 			logging.info(f'Editando línea de producción {linea_id}...')
 		except Exception:
 			logging.exception('Error abriendo show_editar_linea en ProduccionView')
+
+	def show_historial_lineas(self):
+		"""Mostrar vista de historial de líneas de producción."""
+		try:
+			from kool_tpv.modulos.produccion.ui.subvistas.produccion_historial_lineas_view import ProduccionHistorialLineasView
+			for w in list(self.central_area.winfo_children()):
+				w.destroy()
+			
+			view = ProduccionHistorialLineasView(
+				self.central_area,
+				db=self.db,
+				on_volver=self.show_nuevo,
+				keyboard_manager=self.keyboard_mgr
+			)
+			self.actualizar_ruta('PRODUCCIÓN / HISTORIAL LÍNEAS')
+			logging.info('Abriendo historial de líneas de producción...')
+		except Exception:
+			logging.exception('Error abriendo show_historial_lineas en ProduccionView')

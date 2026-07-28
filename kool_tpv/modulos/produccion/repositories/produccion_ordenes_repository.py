@@ -357,3 +357,70 @@ class ProduccionOrdenesRepository:
 			import logging
 			logging.exception(f"Error eliminando línea {linea_id}")
 			return False
+
+	def get_todas_lineas_con_datos(self, filtro: Optional[str] = None) -> List[dict]:
+		"""Obtener todas las líneas de producción con datos enriquecidos.
+
+		Hace un JOIN para obtener fecha, usuario, tipo, variante, color, talla,
+		colección, sufijo, diseño y coste en una sola query.
+
+		Args:
+			filtro: Término de búsqueda opcional (busca en nombre de diseño).
+
+		Returns:
+			Lista de diccionarios con todos los datos enriquecidos.
+		"""
+		try:
+			query = """
+				SELECT
+					o.fecha_hora,
+					u.nombre as usuario,
+					t.nombre as tipo_producto,
+					v.nombre as variante,
+					c.nombre as color,
+					l.talla,
+					col.nombre as coleccion,
+					suf.nombre as sufijo,
+					d.nombre as diseno,
+					l.coste_total
+				FROM produccion_lineas l
+				LEFT JOIN produccion_ordenes o ON l.orden_id = o.id
+				LEFT JOIN usuarios u ON o.usuario_id = u.id
+				LEFT JOIN tipos t ON l.tipo_id = t.id
+				LEFT JOIN tipos_variantes v ON l.variante_id = v.id
+				LEFT JOIN produccion_colores c ON l.color_id = c.id
+				LEFT JOIN produccion_disenos d ON l.diseno_codigo = d.codigo
+				LEFT JOIN produccion_colecciones col ON d.coleccion_id = col.id
+				LEFT JOIN produccion_sufijos suf ON d.sufijo_id = suf.id
+			"""
+			params = ()
+
+			if filtro and filtro.strip():
+				query += " WHERE d.nombre LIKE ?"
+				params = (f"%{filtro.strip()}%",)
+
+			query += " ORDER BY o.fecha_hora DESC"
+
+			rows = self.db.fetch_all(query, params)
+
+			result = []
+			for row in rows:
+				(fecha, usuario, tipo_producto, variante, color, talla,
+				 coleccion, sufijo, diseno, coste_total) = row
+				result.append({
+					"fecha": fecha,
+					"usuario": usuario or "",
+					"tipo_producto": tipo_producto or "",
+					"variante": variante or "",
+					"color": color or "",
+					"talla": talla or "",
+					"coleccion": coleccion or "",
+					"sufijo": sufijo or "",
+					"diseno": diseno or "",
+					"coste_total": coste_total or 0
+				})
+			return result
+		except Exception:
+			import logging
+			logging.exception("Error en get_todas_lineas_con_datos")
+			return []
