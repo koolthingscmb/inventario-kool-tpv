@@ -12,24 +12,24 @@ from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.base_datos.db_init import initialize_database
 from kool_tpv.utils.keyboard_manager import KeyboardManager
 from kool_tpv.utils.factories.button_factory import ButtonFactory
+from kool_tpv.paths import CONFIG_DIR, DB_PATH, ASSETS_DIR, LOGS_DIR, PROJECT_ROOT, PROJECT_ROOT_ASSETS
 from PIL import Image
 
 
 # Configuración de logs
-os.makedirs("logs", exist_ok=True)
+LOGS_DIR.mkdir(exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("logs/application.log", encoding="utf-8"),
+        logging.FileHandler(LOGS_DIR / "application.log", encoding="utf-8"),
         logging.StreamHandler(sys.stdout),
     ],
 )
 
 
 def load_json_config(filename: str) -> dict:
-    base = Path(__file__).resolve().parents[0]
-    config_path = base / "kool_tpv" / "config" / filename
+    config_path = CONFIG_DIR / filename
     if not config_path.exists():
         logging.error(f"CRÍTICO: Archivo de configuración no encontrado: {config_path}")
         return {}
@@ -80,10 +80,8 @@ class App(ctk.CTk):
         self.configure(fg_color=app_bg)
 
         # 3. Base de Datos
-        project_root = os.path.dirname(os.path.abspath(__file__))
-        db_path = os.path.join(project_root, "kool_tpv", "base_datos", "kool_bd.db")
-        initialize_database(db_path)
-        self.db = Database(db_path)
+        initialize_database(str(DB_PATH))
+        self.db = Database(str(DB_PATH))
         self.db.connect()
 
         # 4. Managers Globales
@@ -189,15 +187,14 @@ class App(ctk.CTk):
         self.power_img_normal = None
         self.power_img_hover = None
         try:
-            repo_root = Path(__file__).resolve().parents[0]
             # Preferir carpeta kool_tpv-assets en la raíz del repo
-            normal_path = repo_root / "kool_tpv-assets" / "power.png"
-            hover_path = repo_root / "kool_tpv-assets" / "power_hover.png"
+            normal_path = PROJECT_ROOT_ASSETS / "power.png"
+            hover_path = PROJECT_ROOT_ASSETS / "power_hover.png"
             # Fallback a los assets dentro de kool_tpv
             if not normal_path.exists():
-                normal_path = repo_root / "kool_tpv" / "assets" / "power.png"
+                normal_path = ASSETS_DIR / "power.png"
             if not hover_path.exists():
-                hover_path = repo_root / "kool_tpv" / "assets" / "power_hover.png"
+                hover_path = ASSETS_DIR / "power_hover.png"
 
             if normal_path.exists():
                 pil_img = Image.open(normal_path)
