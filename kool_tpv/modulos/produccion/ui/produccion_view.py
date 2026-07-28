@@ -45,6 +45,8 @@ class ProduccionView(BaseModuleView):
 		# Cajero autenticado (persiste mientras el módulo esté activo)
 		self._cajero_id = None
 		self._cajero_nombre = ''
+		self._ruta_actual = 'PRODUCCIÓN'
+		self._ruta_anterior = ''
 
 		# Rebind menu buttons to local handlers
 		try:
@@ -129,6 +131,19 @@ class ProduccionView(BaseModuleView):
 		except Exception:
 			logging.exception('Error en _on_power de ProduccionView')
 			return False
+
+	def actualizar_ruta(self, sub_seccion: str = None, callbacks: dict = None):
+		"""Sobrescribir para trackear la ruta anterior y permitir navegación inteligente."""
+		try:
+			# Trackear historia para el "Volver" inteligente
+			if hasattr(self, '_ruta_actual'):
+				self._ruta_anterior = self._ruta_actual
+			self._ruta_actual = sub_seccion or 'PRODUCCIÓN'
+			
+			# Llamar al original de BaseModuleView
+			super().actualizar_ruta(sub_seccion, callbacks)
+		except Exception:
+			logging.exception("Error en actualizar_ruta de ProduccionView")
 
 	def show_nuevo(self):
 		"""Abrir flujo de nueva producción."""
@@ -445,11 +460,19 @@ class ProduccionView(BaseModuleView):
 			for w in list(self.central_area.winfo_children()):
 				w.destroy()
 			
+			# Determinar a dónde volver
+			if state_informe:
+				on_volver = lambda: self.show_informes(state_informe)
+			elif self._ruta_anterior == 'PRODUCCIÓN / HISTORIAL LÍNEAS':
+				on_volver = self.show_historial_lineas
+			else:
+				on_volver = self.show_nuevo
+
 			view = ProduccionEdicionLineaView(
 				self.central_area,
 				db=self.db,
 				linea_id=linea_id,
-				on_volver=lambda: self.show_informes(state_informe)
+				on_volver=on_volver
 			)
 			self.actualizar_ruta(f'PRODUCCIÓN / EDITAR LÍNEA {linea_id}')
 			logging.info(f'Editando línea de producción {linea_id}...')
@@ -467,7 +490,8 @@ class ProduccionView(BaseModuleView):
 				self.central_area,
 				db=self.db,
 				on_volver=self.show_nuevo,
-				keyboard_manager=self.keyboard_mgr
+				keyboard_manager=self.keyboard_mgr,
+				owner=self
 			)
 			self.actualizar_ruta('PRODUCCIÓN / HISTORIAL LÍNEAS')
 			logging.info('Abriendo historial de líneas de producción...')

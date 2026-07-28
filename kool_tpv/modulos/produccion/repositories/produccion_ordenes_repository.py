@@ -373,6 +373,7 @@ class ProduccionOrdenesRepository:
 		try:
 			query = """
 				SELECT
+					l.id,
 					o.fecha_hora,
 					u.nombre as usuario,
 					t.nombre as tipo_producto,
@@ -405,9 +406,10 @@ class ProduccionOrdenesRepository:
 
 			result = []
 			for row in rows:
-				(fecha, usuario, tipo_producto, variante, color, talla,
+				(linea_id, fecha, usuario, tipo_producto, variante, color, talla,
 				 coleccion, sufijo, diseno, coste_total) = row
 				result.append({
+					"id": linea_id,
 					"fecha": fecha,
 					"usuario": usuario or "",
 					"tipo_producto": tipo_producto or "",

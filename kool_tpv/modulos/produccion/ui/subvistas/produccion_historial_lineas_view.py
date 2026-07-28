@@ -29,11 +29,13 @@ class ProduccionHistorialLineasView:
 
 	def __init__(self, parent, db: Database,
 	             on_volver: Optional[Callable] = None,
-	             keyboard_manager=None):
+	             keyboard_manager=None,
+	             owner=None):
 		self.parent = parent
 		self.db = db
 		self.on_volver = on_volver
 		self.keyboard_manager = keyboard_manager
+		self.owner = owner
 
 		# Servicio para cargar líneas
 		self._service = ProduccionOrdenesService(db)
@@ -114,6 +116,7 @@ class ProduccionHistorialLineasView:
 			map_function=self._map_linea,
 			module_name="produccion",
 			page_limit=50,
+			on_double_click=self._on_item_double_click,
 			keyboard_manager=self.keyboard_manager,
 			layout_config=load_layout_config(),
 		)
@@ -141,6 +144,7 @@ class ProduccionHistorialLineasView:
 		coste_str = f"{read_from_db(linea.get('coste_total', 0)):.2f} €"
 
 		return {
+			"id": linea.get("id"),
 			"fecha": fecha_str,
 			"usuario": linea.get("usuario", ""),
 			"tipo_producto": linea.get("tipo_producto", ""),
@@ -152,6 +156,19 @@ class ProduccionHistorialLineasView:
 			"diseno": linea.get("diseno", ""),
 			"coste_total": coste_str,
 		}
+
+	def _on_item_double_click(self, item_data: dict):
+		"""Manejador para el doble clic en una línea: Abrir edición."""
+		from kool_tpv.utils.widgets.notificaciones import ToastWidget
+		linea_id = item_data.get("id")
+		if not linea_id:
+			return
+			
+		if self.owner and hasattr(self.owner, 'show_editar_linea'):
+			# Al editar desde el historial, al volver queremos regresar aquí
+			self.owner.show_editar_linea(linea_id, state_informe=None)
+		else:
+			ToastWidget.show(self.frame, "No se puede editar: falta el controlador de vistas", tipo='warning')
 
 	def _on_buscar_enter(self, event):
 		"""Enter en la búsqueda: disparar búsqueda."""
