@@ -71,7 +71,7 @@ class PedidosUI:
 
         self.btn_asociar_vale = ButtonFactory.create_button(
             parent=top_frame,
-            text='+ VALE',
+            text='Asignar Vale',
             command=self._on_asociar_vale,
             style_key='action_secondary'
         )

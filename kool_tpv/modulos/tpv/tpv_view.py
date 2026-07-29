@@ -49,6 +49,8 @@ class ClickableBreadcrumb(ctk.CTkFrame):
                 continue
             if widget is getattr(self, '_btn_pedidos_ref', None):
                 continue
+            if widget is getattr(self, '_btn_vales_ref', None):
+                continue
             widget.destroy()
         for i, (text, callback) in enumerate(parts):
             if i > 0:
@@ -175,6 +177,23 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
         )
         self.btn_pedidos.pack(side="right", padx=4)
         self.breadcrumb._btn_pedidos_ref = self.btn_pedidos
+
+        self.btn_vales = ButtonFactory.create_button(
+            parent=self.breadcrumb,
+            text="VALES",
+            command=self._abrir_vales,
+            color="#000000",
+            hover_color="#21618C",
+            text_color="#3498DB",
+            border_color="#3498DB",
+            border_width=2,
+            corner_radius=12,
+            width=80,
+            height=36,
+            font=(bread_cfg.get("family", "Courier New"), 14, "bold")
+        )
+        self.btn_vales.pack(side="right", padx=4)
+        self.breadcrumb._btn_vales_ref = self.btn_vales
 
         self.grid_frame = ctk.CTkFrame(self.center_area, fg_color="transparent")
         self.grid_frame.pack(side="top", fill="both", expand=True, padx=20, pady=20)
@@ -486,6 +505,20 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
     def show_pedidos(self):
         """Método requerido por CrearPedidoUI para volver al listado."""
         self.pop_subview()
+
+    def _abrir_vales(self):
+        """Abrir subvista de listado de vales."""
+        try:
+            from kool_tpv.modulos.tpv.subviews.vales_list_subview import ValesListSubView
+            
+            view = ValesListSubView(
+                parent=self.center_area,
+                view=self,
+                module_name='tpv'
+            )
+            self.push_subview(view, "LISTADO DE VALES")
+        except Exception:
+            logging.exception("Error al abrir listado de vales desde TPV")
 
     def _abrir_cajon(self):
         """Abrir el cajón del dinero vía comando ESC/POS."""

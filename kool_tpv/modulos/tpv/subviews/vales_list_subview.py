@@ -24,10 +24,20 @@ class ValesListSubView(CTkFrame):
         self.btn_eliminar = ButtonFactory.create_button(
             parent=self.header_frame,
             text="ELIMINAR",
-            style_key="mini_outline_clientes",
-            command=self._on_eliminar_seleccionado
+            style_key="action_danger",
+            command=self._on_eliminar_seleccionados
         )
         self.btn_eliminar.pack(side="right", padx=10)
+        self.btn_eliminar.configure(state="disabled")
+
+        self.btn_select_all = ButtonFactory.create_button(
+            parent=self.header_frame,
+            text="TODO",
+            style_key="action_primary",
+            command=lambda: self.search_list.nav_list.select_all() if hasattr(self.search_list, 'nav_list') else None,
+            width=80
+        )
+        self.btn_select_all.pack(side="right", padx=5)
 
         self.list_frame = CTkFrame(self)
         self.list_frame.pack(side="top", fill="both", expand=True, padx=20, pady=10)
@@ -58,13 +68,15 @@ class ValesListSubView(CTkFrame):
             on_double_click=self._on_double_click,
             keyboard_manager=_km,
             layout_config=load_layout_config(),
+            multi_select=True,
+            on_selection_change=self._on_selection_change
         )
         self.search_list.pack(fill="both", expand=True)
 
         nav = getattr(self.search_list, 'nav_list', None)
         if nav and hasattr(nav, 'bind_key'):
             try:
-                nav.bind_key('<Delete>', lambda e: self._on_eliminar_seleccionado())
+                nav.bind_key('<Delete>', lambda e: self._on_eliminar_seleccionados())
             except Exception:
                 pass
 
@@ -115,35 +127,60 @@ class ValesListSubView(CTkFrame):
         except Exception:
             return {}
 
+    def _on_selection_change(self, indices):
+        """Habilitar/Deshabilitar botón eliminar según selección."""
+        if indices:
+            self.btn_eliminar.configure(state="normal")
+        else:
+            self.btn_eliminar.configure(state="disabled")
+
     def _on_double_click(self, data):
         if self.on_select_callback:
             self.on_select_callback(data)
         else:
-            self._confirmar_eliminar(data)
+            self._confirmar_eliminar([data])
 
-    def _on_eliminar_seleccionado(self):
-        nav = getattr(self.search_list, 'nav_list', None)
-        if nav:
-            data = nav.get_selected_data()
-            if data:
-                self._confirmar_eliminar(data)
+    def _on_eliminar_seleccionados(self):
+        items = self.search_list.get_selected_items()
+        if items:
+            self._confirmar_eliminar(items)
 
-    def _confirmar_eliminar(self, data):
-        if not data:
+    def _confirmar_eliminar(self, items):
+        if not items:
             return
-        usado = data.get('usado', False)
-        path = data.get('path', '')
-        vale_id = data.get('id', '')
+            
+        count = len(items)
+        if count == 1:
+            mensaje = f"¿Estás seguro de que deseas eliminar el vale '{items[0].get('nombre_vale')}'?"
+        else:
+            mensaje = f"¿Estás seguro de que deseas eliminar {count} vales?"
 
-        def _ejecutar():
-            ok = self.vale_service.eliminar_por_path(path) if path else self.vale_service.eliminar(vale_id)
-            if ok:
-                ToastWidget.show(self, 'Vale eliminado', tipo='success')
-                self.search_list.search('')
-            else:
-                ToastWidget.show(self, 'NO SE PUDO ELIMINAR EL VALE', tipo='error')
+        from kool_tpv.utils.dialogs import MessageDialog
+        
+        def _ejecutar(confirm):
+            if confirm:
+                success_count = 0
+                for data in items:
+                    path = data.get('path', '')
+                    vale_id = data.get('id', '')
+                    ok = self.vale_service.eliminar_por_path(path) if path else self.vale_service.eliminar(vale_id)
+                    if ok:
+                        success_count += 1
+                
+                if success_count > 0:
+                    ToastWidget.show(self, f'{success_count} vales eliminados', tipo='success')
+                    self.search_list.search('')
+                else:
+                    ToastWidget.show(self, 'NO SE PUDO ELIMINAR NINGÚN VALE', tipo='error')
 
-        _ejecutar()
+        MessageDialog(
+            self.winfo_toplevel(),
+            titulo="ELIMINAR VALES",
+            mensaje=mensaje,
+            tipo="warning",
+            confirm=True,
+            callback=_ejecutar
+        )
 
     def destroy(self):
         super().destroy()

@@ -26,6 +26,8 @@ class SearchablePaginatedNavList(ctk.CTkFrame):
         on_double_click: Optional[Callable[[dict], None]] = None,
         keyboard_manager=None,
         layout_config: Optional[dict] = None,
+        multi_select: bool = False,
+        on_selection_change: Optional[Callable[[List[int]], None]] = None,
         **kwargs,
     ):
         self.layout_config = layout_config if isinstance(layout_config, dict) else None
@@ -45,6 +47,8 @@ class SearchablePaginatedNavList(ctk.CTkFrame):
             module_name=self.module_name or '',
             keyboard_manager=self.keyboard_manager,
             layout_config=self.layout_config,
+            multi_select=multi_select,
+            on_selection_change=on_selection_change
         )
         self.nav_list.pack(fill="both", expand=True, padx=6, pady=(0, 6))
 
@@ -85,6 +89,12 @@ class SearchablePaginatedNavList(ctk.CTkFrame):
         if hasattr(self, 'nav_list'):
             return self.nav_list.get_selected_data()
         return None
+
+    def get_selected_items(self) -> List[dict]:
+        """Obtener todos los items seleccionados en modo multiselección."""
+        if hasattr(self, 'nav_list'):
+            return self.nav_list.get_selected_items()
+        return []
 
     def destroy(self):
         """Limpiar referencias al destruir."""
