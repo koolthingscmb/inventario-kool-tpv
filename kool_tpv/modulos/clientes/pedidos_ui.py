@@ -31,6 +31,8 @@ class PedidosUI:
             self.colors = {'text': COLOR_MATRIX, 'primary': COLOR_MATRIX, 'background': COLOR_BG_TERMINAL}
 
         self.container = ctk.CTkFrame(self.parent, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
+        # Vincular esta instancia al widget para permitir refrescos desde fuera
+        self.container._ui_object = self
         
         # TOP: Search and Actions
         top_frame = ctk.CTkFrame(self.container, fg_color='transparent')
@@ -67,6 +69,22 @@ class PedidosUI:
         )
         self.btn_modificar.pack(side='right', padx=5)
 
+        self.btn_asociar_vale = ButtonFactory.create_button(
+            parent=top_frame,
+            text='+ VALE',
+            command=self._on_asociar_vale,
+            style_key='action_secondary'
+        )
+        self.btn_asociar_vale.pack(side='right', padx=5)
+
+        self.btn_usar_vale = ButtonFactory.create_button(
+            parent=top_frame,
+            text='USAR VALE',
+            command=self._on_usar_vale,
+            style_key='action_primary'
+        )
+        self.btn_usar_vale.pack(side='right', padx=5)
+
         # FILTERS
         filter_frame = ctk.CTkFrame(self.container, fg_color='transparent', height=40)
         filter_frame.pack(fill='x', padx=12, pady=(6, 6))
@@ -100,13 +118,13 @@ class PedidosUI:
 
         # LIST
         columns = [
-            ('id', 50, 'ID'),
+            ('id', 42, 'ID'),
             ('fecha_pedido', 120, 'FECHA'),
-            ('cliente_nombre', 200, 'CLIENTE'),
-            ('producto_nombre', 400, 'PRODUCTO'),
-            ('usuario_nombre', 120, 'USUARIO'),
-            ('num_lineas', 80, 'LÍNEAS'),
-            ('estado', 120, 'ESTADO'),
+            ('cliente_nombre', 136, 'CLIENTE'), # 160 - 15% = 136
+            ('producto_nombre', 258, 'PRODUCTO'), # 224 + 15% = 257.6
+            ('usuario_nombre', 86, 'USUARIO'),  # 96 - 10% = 86.4
+            ('estado', 96, 'ESTADO'),           # 120 - 20% = 96
+            ('vale', 54, 'VALE'),               # 60 - 10% = 54
             ('notas', 250, 'NOTAS')
         ]
         
@@ -164,6 +182,8 @@ class PedidosUI:
         if hasattr(self, 'combo_estado'): add_widget(self.combo_estado)
         if hasattr(self, 'btn_cambiar_estado'): add_widget(self.btn_cambiar_estado)
         if hasattr(self, 'btn_modificar'): add_widget(self.btn_modificar)
+        if hasattr(self, 'btn_asociar_vale'): add_widget(self.btn_asociar_vale)
+        if hasattr(self, 'btn_usar_vale'): add_widget(self.btn_usar_vale)
         if hasattr(self, 'btn_nuevo'): add_widget(self.btn_nuevo)
         
         return [w for w in widgets if w.winfo_exists() and w.winfo_viewable()]
@@ -207,6 +227,10 @@ class PedidosUI:
     def get_widget(self):
         return self.container
 
+    def refresh(self):
+        """Refrescar la lista de pedidos."""
+        self._on_search()
+
     def _on_search(self):
         termino = (self.search_var.get() or '').strip()
         self.nav_list.search(termino)
@@ -239,8 +263,8 @@ class PedidosUI:
             'cliente_nombre': pedido.get('cliente_nombre') or pedido.get('contacto_nombre') or 'Anon',
             'producto_nombre': pedido.get('linea_producto_nombre') or '',
             'usuario_nombre': pedido.get('usuario_nombre') or '',
-            'num_lineas': str(pedido.get('num_lineas', 0)),
             'estado': estado_txt,
+            'vale': '✅' if pedido.get('vale_id') and estado_id != 'entregado' else '',
             'notas': pedido.get('notas_generales') or '',
             '_data': pedido
         }
@@ -282,6 +306,92 @@ class PedidosUI:
     def _on_item_double_click(self, item_data: dict):
         """Doble click: Modificar pedido."""
         self._on_modificar_pedido()
+
+    def _on_asociar_vale(self):
+        """Abrir subvista de vales para asociar uno al pedido seleccionado."""
+        sel = self.nav_list.get_selected_item()
+        if not sel:
+            ToastWidget.show(self.container, "Seleccione un pedido de la lista", tipo='warning')
+            return
+
+        pedido = sel.get('_data')
+        pedido_id = pedido['id']
+
+        try:
+            from kool_tpv.modulos.tpv.subviews.vales_list_subview import ValesListSubView
+            
+            def _vincular_vale(vale_data):
+                vale_id = vale_data.get('id')
+                if not vale_id: return
+                
+                if self.service.asociar_vale(pedido_id, vale_id):
+                    ToastWidget.show(self.container, f"Vale asociado al pedido #{pedido_id}", tipo='success')
+                    # Cerrar subview de vales (pop)
+                    if self.owner and hasattr(self.owner, 'pop_subview'):
+                        self.owner.pop_subview()
+                    self._on_search() # Recargar lista
+                else:
+                    ToastWidget.show(self.container, "Error al asociar el vale", tipo='error')
+
+            if self.owner and hasattr(self.owner, 'push_subview'):
+                subview = ValesListSubView(
+                    parent=self.parent,
+                    view=self.owner,
+                    module_name='tpv',
+                    on_select=_vincular_vale
+                )
+                self.owner.push_subview(subview, "ASOCIAR VALE A PEDIDO")
+        except Exception:
+            logging.exception('Error abriendo ValesListSubView desde PedidosUI')
+
+    def _on_usar_vale(self):
+        """Carga el vale asociado al pedido en el TPV para finalizar la venta."""
+        sel = self.nav_list.get_selected_item()
+        if not sel:
+            ToastWidget.show(self.container, "Seleccione un pedido de la lista", tipo='warning')
+            return
+
+        pedido = sel.get('_data')
+        vale_id = pedido.get('vale_id')
+
+        if not vale_id:
+            ToastWidget.show(self.container, "Este pedido no tiene un vale asociado", tipo='warning')
+            return
+
+        # 1. Obtener datos del vale
+        try:
+            from kool_tpv.modulos.tpv.vale_devolucion_service import ValeDevolucionService
+            vale_service = ValeDevolucionService()
+            vale_data = vale_service.obtener_por_id(vale_id)
+            if not vale_data:
+                ToastWidget.show(self.container, "No se encontró el archivo del vale", tipo='error')
+                return
+        except Exception:
+            logging.exception("Error cargando vale")
+            return
+
+        # 2. Acceder al carrito y aplicar vale
+        try:
+            # El carrito reside en TpvView (self.owner)
+            if hasattr(self.owner, 'carrito_service'):
+                self.owner.carrito_service.aplicar_vale(vale_data)
+                
+                # Refrescar el visor del carrito (TicketCarrito)
+                ticket = getattr(self.owner, 'ticket_widget', None)
+                if ticket and hasattr(ticket, 'update_carrito'):
+                    ticket.update_carrito()
+                
+                # 3. Volver al TPV (cerrando esta sub-vista de pedidos)
+                if hasattr(self.owner, 'pop_subview'):
+                    self.owner.pop_subview()
+                    # Mostrar mensaje de éxito en la vista que queda visible
+                    ToastWidget.show(self.owner, "Vale aplicado al carrito", tipo='success')
+            else:
+                ToastWidget.show(self.container, "No se pudo acceder al carrito del TPV", tipo='error')
+            
+        except Exception:
+            logging.exception("Error al aplicar vale en el TPV")
+            ToastWidget.show(self.container, "Error al procesar el vale", tipo='error')
 
     def _on_modificar_pedido(self):
         """Navegar a la subvista de creación de pedido en modo edición."""

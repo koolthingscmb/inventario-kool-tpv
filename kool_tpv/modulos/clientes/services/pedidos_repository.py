@@ -21,7 +21,7 @@ class PedidosRepository:
         query = """
             SELECT 
                 p.id, p.cliente_id, p.contacto_nombre, p.contacto_telefono, p.contacto_email,
-                p.estado, p.fecha_pedido, p.notas_generales, p.usuario_id,
+                p.estado, p.fecha_pedido, p.notas_generales, p.usuario_id, p.vale_id,
                 c.nombre AS cliente_nombre, u.nombre AS usuario_nombre,
                 COALESCE(pr.nombre, pl.nombre_manual) AS linea_producto_nombre,
                 pl.cantidad AS linea_unidades,
@@ -96,7 +96,7 @@ class PedidosRepository:
                     query_cab = """
                         UPDATE pedidos_clientes 
                         SET cliente_id = ?, contacto_nombre = ?, contacto_telefono = ?, 
-                            contacto_email = ?, estado = ?, notas_generales = ?, usuario_id = ?
+                            contacto_email = ?, estado = ?, notas_generales = ?, usuario_id = ?, vale_id = ?
                         WHERE id = ?
                     """
                     params_cab = (
@@ -107,6 +107,7 @@ class PedidosRepository:
                         cabecera.get('estado', 'pendiente'),
                         cabecera.get('notas_generales'),
                         cabecera.get('usuario_id'),
+                        cabecera.get('vale_id'),
                         pedido_id
                     )
                     cur.execute(query_cab, params_cab)
@@ -117,8 +118,8 @@ class PedidosRepository:
                     # 1. Insertar Cabecera
                     query_cab = """
                         INSERT INTO pedidos_clientes 
-                        (cliente_id, contacto_nombre, contacto_telefono, contacto_email, estado, notas_generales, usuario_id)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        (cliente_id, contacto_nombre, contacto_telefono, contacto_email, estado, notas_generales, usuario_id, vale_id)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """
                     params_cab = (
                         cabecera.get('cliente_id'),
@@ -127,7 +128,8 @@ class PedidosRepository:
                         cabecera.get('contacto_email'),
                         cabecera.get('estado', 'pendiente'),
                         cabecera.get('notas_generales'),
-                        cabecera.get('usuario_id')
+                        cabecera.get('usuario_id'),
+                        cabecera.get('vale_id')
                     )
                     cur.execute(query_cab, params_cab)
                     pedido_id = cur.lastrowid
@@ -202,7 +204,7 @@ class PedidosRepository:
         """Obtener un pedido completo por su ID."""
         query = """
             SELECT 
-                p.*, c.nombre AS cliente_nombre, u.nombre AS usuario_nombre
+                p.*, c.nombre AS cliente_nombre, u.nombre AS usuario_nombre, p.vale_id
             FROM pedidos_clientes p
             LEFT JOIN clientes c ON p.cliente_id = c.id
             LEFT JOIN usuarios u ON p.usuario_id = u.id
@@ -273,4 +275,27 @@ class PedidosRepository:
                 return True
         except Exception:
             logger.exception(f"Error borrando pedido {pedido_id}")
+            return False
+
+    def asociar_vale(self, pedido_id: int, vale_id: str) -> bool:
+        """Vincular un vale de devolución a un pedido."""
+        query = "UPDATE pedidos_clientes SET vale_id = ? WHERE id = ?"
+        try:
+            self.db.execute_query(query, (vale_id, pedido_id))
+            return True
+        except Exception:
+            logger.exception(f"Error asociando vale {vale_id} a pedido {pedido_id}")
+            return False
+
+    def marcar_entregado_por_vale(self, vale_id: str) -> bool:
+        """Busca el pedido asociado a un vale y lo marca como entregado."""
+        query = "UPDATE pedidos_clientes SET estado = 'entregado' WHERE vale_id = ?"
+        try:
+            cursor = self.db.execute_query(query, (vale_id,))
+            if cursor and cursor.rowcount > 0:
+                logger.info(f"Pedido asociado al vale {vale_id} marcado como ENTREGADO")
+                return True
+            return False
+        except Exception:
+            logger.exception(f"Error marcando pedido como entregado para vale {vale_id}")
             return False

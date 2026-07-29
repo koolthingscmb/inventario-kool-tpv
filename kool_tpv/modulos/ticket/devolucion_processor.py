@@ -139,11 +139,16 @@ class DevolucionProcessor(VentaProcessor):
                         cliente_nombre = cliente.get('nombre')
                     else:
                         cliente_nombre = str(cliente)
+                
+                # Intentar obtener el nombre del primer producto para el vale
+                prod_nombre = (carrito_items[0].get('nombre', 'Vale')) if carrito_items else 'Vale'
+                
                 vale_service.guardar(
                     importe_cents=devuelto_cents,
                     num_ticket_devolucion=num_ticket,
                     cliente_id=cliente_id,
                     cliente_nombre=cliente_nombre,
+                    productos_nombres=prod_nombre
                 )
                 logger.info('Vale generado para devolucion %s: %s cents', num_ticket, devuelto_cents)
             except Exception:

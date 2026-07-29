@@ -7,11 +7,12 @@ logger = logging.getLogger(__name__)
 
 class ValesListSubView(CTkFrame):
 
-    def __init__(self, parent, view=None, module_name='tpv'):
+    def __init__(self, parent, view=None, module_name='tpv', on_select=None):
         super().__init__(parent)
 
         self.view = view
         self.module_name = module_name
+        self.on_select_callback = on_select
 
         from kool_tpv.modulos.tpv.vale_devolucion_service import ValeDevolucionService
         self.vale_service = ValeDevolucionService()
@@ -33,6 +34,7 @@ class ValesListSubView(CTkFrame):
 
         columns = [
             ("fecha", 160, "Fecha"),
+            ("nombre_vale", 200, "Nombre Vale"),
             ("importe", 100, "Importe"),
             ("estado", 100, "Estado"),
             ("ticket_devolucion", 140, "Ticket Devolución"),
@@ -86,15 +88,24 @@ class ValesListSubView(CTkFrame):
     def _map_vale(self, vale):
         try:
             from kool_tpv.base_datos.money_adapter import read_from_db
+            from pathlib import Path as _Path
             importe = read_from_db(vale.get('importe_cents', 0))
             fecha = vale.get('fecha', '')[:16].replace('T', ' ')
             usado = vale.get('usado', False)
             estado = 'USADO' if usado else 'PENDIENTE'
             ticket_venta = vale.get('num_ticket_venta_uso') or '-'
+            
+            # Obtener nombre del archivo sin extensión
+            path_str = vale.get('path', '')
+            nombre_vale = _Path(path_str).stem if path_str else '?'
+            if nombre_vale.startswith('USADO_'):
+                nombre_vale = nombre_vale[6:]
+            
             return {
                 'id': vale.get('id'),
-                'path': vale.get('path', ''),
+                'path': path_str,
                 'fecha': fecha,
+                'nombre_vale': nombre_vale,
                 'importe': f'{importe:.2f} €',
                 'estado': estado,
                 'ticket_devolucion': vale.get('num_ticket_devolucion', '-'),
@@ -105,7 +116,10 @@ class ValesListSubView(CTkFrame):
             return {}
 
     def _on_double_click(self, data):
-        self._confirmar_eliminar(data)
+        if self.on_select_callback:
+            self.on_select_callback(data)
+        else:
+            self._confirmar_eliminar(data)
 
     def _on_eliminar_seleccionado(self):
         nav = getattr(self.search_list, 'nav_list', None)

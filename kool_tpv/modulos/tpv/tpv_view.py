@@ -563,6 +563,11 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
                 previous = self._subview_stack[-1]["view"]
                 try:
                     previous.pack(fill="both", expand=True)
+                    # REFRESCAR AUTOMÁTICAMENTE SI LA VISTA LO SOPORTA
+                    if hasattr(previous, '_ui_object'):
+                        ui_obj = getattr(previous, '_ui_object')
+                        if hasattr(ui_obj, 'refresh'):
+                            ui_obj.refresh()
                 except Exception:
                     pass
                 try:

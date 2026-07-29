@@ -1253,10 +1253,18 @@ class TpvController:
                 try:
                     vale_aplicado = carrito_service.get_vale_aplicado()
                     if vale_aplicado:
+                        vale_id = vale_aplicado['id']
                         from kool_tpv.modulos.tpv.vale_devolucion_service import ValeDevolucionService
                         vale_service = ValeDevolucionService()
-                        vale_service.marcar_usado(vale_aplicado['id'], str(num_ticket))
-                        logger.info(f"Vale {vale_aplicado['id']} marcado como usado en ticket {num_ticket}")
+                        vale_service.marcar_usado(vale_id, str(num_ticket))
+                        logger.info(f"Vale {vale_id} marcado como usado en ticket {num_ticket}")
+                        
+                        # PASO 7: Marcar pedido asociado como ENTREGADO si existe
+                        try:
+                            if self.pedidos_service:
+                                self.pedidos_service.marcar_entregado_por_vale(vale_id)
+                        except Exception:
+                            logger.exception('Error marcando pedido como entregado tras usar vale')
                 except Exception:
                     logger.exception('Error marcando vale como usado')
 

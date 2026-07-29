@@ -164,6 +164,7 @@ class CarritoService:
             self._vale_aplicado = None
         except Exception:
             self._vale_aplicado = None
+        
         # Al limpiar el carrito también debe desactivarse el modo devolución
         try:
             setattr(self, '_devolucion_active', False)

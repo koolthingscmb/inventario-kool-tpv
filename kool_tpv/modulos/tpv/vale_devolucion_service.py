@@ -17,17 +17,15 @@ class ValeDevolucionService:
         VALES_DIR.mkdir(parents=True, exist_ok=True)
 
     def _iter_vale_files(self):
-        """Itera sobre todos los archivos de vale activos (antiguos y nuevos formato)."""
-        for f in VALES_DIR.glob('vale_*.json'):
-            yield f
-        for f in VALES_DIR.glob('Vale*.json'):
+        """Itera sobre todos los archivos de vale (activos)."""
+        for f in VALES_DIR.glob('*.json'):
             if f.name.startswith('USADO_'):
                 continue
             yield f
 
     def _find_file_by_id(self, vale_id: str) -> Path | None:
-        """Encuentra el archivo de vale por su UUID."""
-        for f in self._iter_vale_files():
+        """Encuentra el archivo de vale por su UUID (busca en todos, activos y usados)."""
+        for f in VALES_DIR.glob('*.json'):
             try:
                 data = json.loads(f.read_text(encoding='utf-8'))
                 if data.get('id') == vale_id:
@@ -43,6 +41,17 @@ class ValeDevolucionService:
             count += 1
         return count + 1
 
+    def _sanitizar_nombre_archivo(self, nombre: str) -> str:
+        """Limpia un nombre de producto para usarlo en nombre de archivo."""
+        # Reemplazar caracteres inválidos por guiones
+        invalidos = '<>:"/\\|?*'
+        for c in invalidos:
+            nombre = nombre.replace(c, '-')
+        # Limitar longitud
+        if len(nombre) > 50:
+            nombre = nombre[:50]
+        return nombre.strip()
+
     # ------------------------------------------------------------------
     def guardar(
         self,
@@ -50,6 +59,7 @@ class ValeDevolucionService:
         num_ticket_devolucion: str,
         cliente_id: int | None = None,
         cliente_nombre: str | None = None,
+        productos_nombres: str | None = None,
     ) -> Path:
         """Genera un nuevo vale de devolución y lo guarda como JSON.
 
@@ -58,15 +68,24 @@ class ValeDevolucionService:
             num_ticket_devolucion: número de ticket de la devolución origen.
             cliente_id: id del cliente (None si es venta anónima).
             cliente_nombre: nombre del cliente (None si es anónima).
+            productos_nombres: nombres de productos concatenados (ej: "Tomo 13 OP + Tomo 14 OP").
 
         Returns:
             Path del archivo guardado.
         """
         vale_id = str(uuid.uuid4())
         ts = datetime.now().isoformat()
-        dia_mes = datetime.now().strftime('%d%m')
         n = self._siguiente_numero()
-        filename = f'Vale{n}_{importe_cents}_{dia_mes}.json'
+
+        if productos_nombres:
+            # Usar nombres de productos como base del nombre
+            nombre_base = self._sanitizar_nombre_archivo(productos_nombres)
+            filename = f'{nombre_base}_{n}.json'
+        else:
+            # Formato fallback para backwards compatibility
+            dia_mes = datetime.now().strftime('%d%m')
+            filename = f'Vale{n}_{importe_cents}_{dia_mes}.json'
+
         path = VALES_DIR / filename
 
         data = {

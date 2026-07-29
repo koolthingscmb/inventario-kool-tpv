@@ -51,6 +51,14 @@ class PedidosService:
         """Actualizar el estado del pedido (cabecera)."""
         return self.repo.actualizar_estado_pedido(pedido_id, nuevo_estado)
 
+    def asociar_vale(self, pedido_id: int, vale_id: str) -> bool:
+        """Vincular un vale de devolución a un pedido."""
+        return self.repo.asociar_vale(pedido_id, vale_id)
+
+    def marcar_entregado_por_vale(self, vale_id: str) -> bool:
+        """Marcar como entregado el pedido asociado a un vale."""
+        return self.repo.marcar_entregado_por_vale(vale_id)
+
     def get_lineas_pendientes_por_producto(self, producto_id: int) -> List[Dict[str, Any]]:
         """Obtener líneas pendientes asociadas a un producto."""
         return self.repo.get_lineas_pendientes_por_producto(producto_id)

@@ -164,17 +164,28 @@ class CrearPedidoUI:
         self.cli_row.pack(fill='x', pady=2)
         
         ctk.CTkLabel(self.cli_row, text="CLIENTE:", width=80).pack(side='left', padx=5)
-        self.e_cli_nombre = ctk.CTkEntry(self.cli_row, placeholder_text="Nombre...", width=200) # Reducido 25% (270 -> 200)
+        self.e_cli_nombre = ctk.CTkEntry(self.cli_row, placeholder_text="Nombre...", width=160) # Reducido más para hueco vale
         self.e_cli_nombre.pack(side='left', padx=5)
-        ctk.CTkLabel(self.cli_row, text="TELÉFONO:", width=80).pack(side='left', padx=5)
-        self.e_cli_tel = ctk.CTkEntry(self.cli_row, placeholder_text="Teléfono...", width=110) # Reducido 25% (150 -> 110)
+        
+        ctk.CTkLabel(self.cli_row, text="TEL:", width=40).pack(side='left', padx=5)
+        self.e_cli_tel = ctk.CTkEntry(self.cli_row, placeholder_text="Tel...", width=100)
         self.e_cli_tel.pack(side='left', padx=5)
-        ctk.CTkLabel(self.cli_row, text="EMAIL:", width=60).pack(side='left', padx=5)
-        self.e_cli_mail = ctk.CTkEntry(self.cli_row, placeholder_text="Email...", width=200)
-        self.e_cli_mail.pack(side='left', padx=5)
-        ctk.CTkLabel(self.cli_row, text="NOTA:", width=50).pack(side='left', padx=5)
-        self.e_cli_nota = ctk.CTkEntry(self.cli_row, placeholder_text="Nota general...", width=260) # +30% (200 * 1.3)
+        
+        ctk.CTkLabel(self.cli_row, text="NOTA:", width=40).pack(side='left', padx=5)
+        self.e_cli_nota = ctk.CTkEntry(self.cli_row, placeholder_text="Nota...", width=180)
         self.e_cli_nota.pack(side='left', padx=5)
+
+        # SECCIÓN VALE (Solo lectura)
+        ctk.CTkLabel(self.cli_row, text="VALE:", width=50, text_color="#FFFFFF").pack(side='left', padx=(15, 5))
+        self.lbl_vale_nombre = ctk.CTkLabel(self.cli_row, text="-", width=180, anchor="w", text_color="#55FF55", font=("Arial", 12, "bold"))
+        self.lbl_vale_nombre.pack(side='left', padx=5)
+        
+        ctk.CTkLabel(self.cli_row, text="VALOR:", width=50, text_color="#FFFFFF").pack(side='left', padx=5)
+        self.lbl_vale_valor = ctk.CTkLabel(self.cli_row, text="- €", width=80, anchor="w", text_color="#55FF55", font=("Arial", 12, "bold"))
+        self.lbl_vale_valor.pack(side='left', padx=5)
+        
+        # Guardamos el ID del vale internamente
+        self.current_vale_id = None
         
         # Añadir primera fila de producto por defecto
         self._add_producto_row()
@@ -236,7 +247,6 @@ class CrearPedidoUI:
         # 2. Datos del cliente
         if hasattr(self, 'e_cli_nombre'): add_widget(self.e_cli_nombre)
         if hasattr(self, 'e_cli_tel'): add_widget(self.e_cli_tel)
-        if hasattr(self, 'e_cli_mail'): add_widget(self.e_cli_mail)
         if hasattr(self, 'e_cli_nota'): add_widget(self.e_cli_nota)
         
         # 3. Líneas de productos
@@ -447,8 +457,6 @@ class CrearPedidoUI:
         self.e_cli_nombre.insert(0, cli['nombre'])
         self.e_cli_tel.delete(0, 'end')
         self.e_cli_tel.insert(0, cli.get('telefono', ''))
-        self.e_cli_mail.delete(0, 'end')
-        self.e_cli_mail.insert(0, cli.get('email', ''))
         ToastWidget.show(self.container, f"Cliente seleccionado: {cli['nombre']}", tipo='success')
 
     def _on_guardar(self):
@@ -458,10 +466,10 @@ class CrearPedidoUI:
             'cliente_id': self.selected_cliente['id'] if self.selected_cliente else None,
             'contacto_nombre': self.e_cli_nombre.get().strip(),
             'contacto_telefono': self.e_cli_tel.get().strip(),
-            'contacto_email': self.e_cli_mail.get().strip(),
             'notas_generales': self.e_cli_nota.get().strip(),
             'usuario_id': self.cb_usuario.get_id(),
-            'estado': self.current_estado
+            'estado': self.current_estado,
+            'vale_id': self.current_vale_id
         }
         
         if not cab['contacto_nombre']:
@@ -524,10 +532,33 @@ class CrearPedidoUI:
         self.e_cli_nombre.insert(0, pedido.get('contacto_nombre', ''))
         self.e_cli_tel.delete(0, 'end')
         self.e_cli_tel.insert(0, pedido.get('contacto_telefono', ''))
-        self.e_cli_mail.delete(0, 'end')
-        self.e_cli_mail.insert(0, pedido.get('contacto_email', ''))
         self.e_cli_nota.delete(0, 'end')
         self.e_cli_nota.insert(0, pedido.get('notas_generales', ''))
+
+        # Cargar Vale si existe
+        self.current_vale_id = pedido.get('vale_id')
+        if self.current_vale_id:
+            try:
+                from kool_tpv.modulos.tpv.vale_devolucion_service import ValeDevolucionService
+                from kool_tpv.base_datos.money_adapter import read_from_db
+                from pathlib import Path as _Path
+                
+                vale_service = ValeDevolucionService()
+                vale_data = vale_service.obtener_por_id(self.current_vale_id)
+                
+                if vale_data:
+                    path_str = vale_data.get('path', '')
+                    nombre_vale = _Path(path_str).stem if path_str else '?'
+                    if nombre_vale.startswith('USADO_'): nombre_vale = nombre_vale[6:]
+                    
+                    importe = read_from_db(vale_data.get('importe_cents', 0))
+                    
+                    self.lbl_vale_nombre.configure(text=nombre_vale)
+                    self.lbl_vale_valor.configure(text=f"{importe:.2f} €")
+                else:
+                    self.lbl_vale_nombre.configure(text="ID NO ENCONTRADO", text_color="#FF4444")
+            except Exception:
+                logger.exception("Error cargando vale en CrearPedidoUI")
         
         if pedido.get('usuario_id'):
             self.cb_usuario.set_by_id(pedido['usuario_id'])
