@@ -430,6 +430,22 @@ def initialize_database(db_path: str) -> None:
 				db.connection.rollback()
 			except Exception:
 				pass
+
+		# Migration 032: campo vale_id en pedidos_clientes
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('pedidos_clientes')") or [])]
+			if cols and 'vale_id' not in cols:
+				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '032_pedidos_vale_id.sql'
+				if mig_path.exists():
+					logging.info('Aplicando migración 032: vale_id en pedidos_clientes')
+					cur = db.connection.cursor()
+					cur.executescript(mig_path.read_text(encoding='utf-8'))
+					db.connection.commit()
+					logging.info('Migración 032 aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 032')
+			try:
+				db.connection.rollback()
 			except Exception:
 				pass
 
