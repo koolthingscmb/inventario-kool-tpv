@@ -25,17 +25,18 @@ class PaymentControllerResumen(ctk.CTkFrame):
         title_font = self.config.get_font("titulo")
         label_font = self.config.get_font("label")
         value_font = self.config.get_font("value")
-        button_font = self.config.get_font("button")
+        
+        # Fuentes personalizadas para el nuevo layout
+        font_family = label_font[0] if isinstance(label_font, tuple) else "Helvetica"
+        large_font = (font_family, 18, "bold")
+        xlarge_font = (font_family, 48, "bold")
 
         main = ctk.CTkFrame(self, fg_color="transparent")
         main.pack(fill="both", expand=True, padx=20, pady=12)
 
-        # Título
+        # 1- Título
         ctk.CTkLabel(main, text="TICKET COMPLETADO", font=title_font,
-                     text_color=self.config.get_color("text_titulo")).pack(pady=(0, 16))
-
-        # Separador
-        ctk.CTkFrame(main, height=2, fg_color=self.config.get_color("separator", "#555555")).pack(fill="x", padx=10, pady=(0, 16))
+                     text_color=self.config.get_color("text_titulo")).pack(pady=(0, 20))
 
         # Datos
         num_ticket = self.ticket_data.get("num_ticket", "---")
@@ -45,31 +46,37 @@ class PaymentControllerResumen(ctk.CTkFrame):
         cambio = self.ticket_data.get("cambio", 0.0)
         cliente = self.ticket_data.get("cliente_nombre", "")
 
-        self._row(main, "TICKET:", f"#{num_ticket}", label_font, value_font)
-        if cliente:
-            self._row(main, "CLIENTE:", cliente, label_font, value_font)
-        self._row(main, "FORMA DE PAGO:", forma_pago, label_font, value_font)
-        self._row(main, "TOTAL:", f"{total:.2f} €", label_font, value_font, True)
+        # 3- GRID 4X1 (Ticket e ID, Forma Pago y Tipo)
+        row1 = ctk.CTkFrame(main, fg_color="transparent")
+        row1.pack(fill="x", pady=5)
+        row1.grid_columnconfigure((1, 3), weight=1)
+        
+        ctk.CTkLabel(row1, text="Ticket:", font=label_font, text_color=self.config.get_color("text_label")).grid(row=0, column=0, sticky="w", padx=(0, 5))
+        ctk.CTkLabel(row1, text=f"#{num_ticket}", font=value_font, text_color=self.config.get_color("text")).grid(row=0, column=1, sticky="w")
+        
+        ctk.CTkLabel(row1, text="Forma Pago:", font=label_font, text_color=self.config.get_color("text_label")).grid(row=0, column=2, sticky="w", padx=(10, 5))
+        ctk.CTkLabel(row1, text=forma_pago, font=value_font, text_color=self.config.get_color("text")).grid(row=0, column=3, sticky="w")
+
+        # 4- GRID 4X1 (Total y Entregado) - Fuente más grande
+        row2 = ctk.CTkFrame(main, fg_color="transparent")
+        row2.pack(fill="x", pady=15)
+        row2.grid_columnconfigure((1, 3), weight=1)
+        
+        ctk.CTkLabel(row2, text="Total:", font=large_font, text_color=self.config.get_color("text_label")).grid(row=0, column=0, sticky="w", padx=(0, 5))
+        ctk.CTkLabel(row2, text=f"{total:.2f} €", font=large_font, text_color=self.config.get_color("text_titulo")).grid(row=0, column=1, sticky="w")
+        
         if efectivo > 0:
-            self._row(main, "ENTREGADO:", f"{efectivo:.2f} €", label_font, value_font)
+            ctk.CTkLabel(row2, text="Entregado:", font=large_font, text_color=self.config.get_color("text_label")).grid(row=0, column=2, sticky="w", padx=(10, 5))
+            ctk.CTkLabel(row2, text=f"{efectivo:.2f} €", font=large_font, text_color=self.config.get_color("text")).grid(row=0, column=3, sticky="w")
+
+        # 5- Grid 2x1 (Cambio) - Fuente MUCHO más grande
         if cambio > 0:
-            self._row(main, "CAMBIO:", f"{cambio:.2f} €", label_font, value_font, True, True)
-
-        # Info adicional: instrucción para continuar
-        ctk.CTkFrame(main, fg_color="transparent", height=10).pack()
-        ctk.CTkLabel(
-            main,
-            text="→ Escanee producto para nueva venta ←",
-            font=("Helvetica", 12),
-            text_color=self.config.get_color("text_secondary", "#888888")
-        ).pack(pady=(10, 0))
-
-    def _row(self, parent, label, value, label_font, value_font, highlight=False, cambio=False):
-        row = ctk.CTkFrame(parent, fg_color="transparent")
-        row.pack(fill="x", pady=4)
-        color = self.config.get_color("text_cambio" if cambio else ("text_titulo" if highlight else "text"))
-        ctk.CTkLabel(row, text=label, font=label_font, text_color=self.config.get_color("text_label")).pack(side="left")
-        ctk.CTkLabel(row, text=value, font=value_font, text_color=color).pack(side="right")
+            row3 = ctk.CTkFrame(main, fg_color="transparent")
+            row3.pack(fill="x", pady=10)
+            row3.grid_columnconfigure(1, weight=1)
+            
+            ctk.CTkLabel(row3, text="Cambio:", font=xlarge_font, text_color=self.config.get_color("text_label")).grid(row=0, column=0, sticky="w", padx=(0, 10))
+            ctk.CTkLabel(row3, text=f"{cambio:.2f} €", font=xlarge_font, text_color=self.config.get_color("text_cambio")).grid(row=0, column=1, sticky="w")
 
     def _on_nueva_venta(self):
         if self.on_nueva_venta_callback:
