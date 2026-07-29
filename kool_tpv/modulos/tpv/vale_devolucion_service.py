@@ -126,8 +126,8 @@ class ValeDevolucionService:
 
     # ------------------------------------------------------------------
     def listar_activos(self) -> list[dict]:
-        """Devuelve solo los vales NO usados."""
-        return [v for v in self.listar() if not v.get('usado', False)]
+        """Devuelve solo los vales NO usados y NO reservados."""
+        return [v for v in self.listar() if not v.get('usado', False) and not v.get('reservado', False)]
 
     # ------------------------------------------------------------------
     def listar_todos(self) -> list[dict]:
@@ -177,6 +177,10 @@ class ValeDevolucionService:
             data['usado'] = True
             data['num_ticket_venta_uso'] = str(num_ticket_venta_uso)
             data['fecha_uso'] = datetime.now().isoformat()
+            
+            # Quitar reservado si lo tenía
+            data.pop('reservado', None)
+            data.pop('pedido_id', None)
 
             # Renombrar a USADO_{nombre_original}
             nuevo_nombre = f'USADO_{path.name}'
@@ -190,6 +194,30 @@ class ValeDevolucionService:
             return True
         except Exception:
             logger.exception(f'Error marcando vale {vale_id} como usado')
+            return False
+
+    def marcar_reservado(self, vale_id: str, pedido_id: int | None = None) -> bool:
+        """Marca un vale como reservado para un pedido, para que no salte el aviso automático.
+        
+        Args:
+            vale_id: UUID del vale.
+            pedido_id: ID del pedido opcional.
+        """
+        try:
+            path = self._find_file_by_id(vale_id)
+            if not path or not path.exists():
+                return False
+            
+            data = json.loads(path.read_text(encoding='utf-8'))
+            data['reservado'] = True
+            if pedido_id:
+                data['pedido_id'] = pedido_id
+            
+            path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
+            logger.info(f"Vale {vale_id} marcado como RESERVADO para pedido {pedido_id}")
+            return True
+        except Exception:
+            logger.exception(f"Error marcando vale {vale_id} como reservado")
             return False
 
     # ------------------------------------------------------------------
@@ -215,11 +243,15 @@ class ValeDevolucionService:
 
     # ------------------------------------------------------------------
     def hay_vales_activos(self) -> bool:
-        """Devuelve True si existe al menos un vale no usado."""
-        return any(
-            not json.loads(f.read_text(encoding='utf-8')).get('usado', False)
-            for f in self._iter_vale_files()
-        )
+        """Devuelve True si existe al menos un vale no usado y NO reservado."""
+        for f in self._iter_vale_files():
+            try:
+                data = json.loads(f.read_text(encoding='utf-8'))
+                if not data.get('usado', False) and not data.get('reservado', False):
+                    return True
+            except Exception:
+                continue
+        return False
 
     # ------------------------------------------------------------------
     def obtener_por_id(self, vale_id: str) -> dict | None:

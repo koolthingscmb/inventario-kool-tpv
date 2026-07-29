@@ -40,6 +40,16 @@ class PedidosService:
 
         pedido_id = self.repo.guardar_pedido_completo(cabecera, lineas)
         if pedido_id:
+            # Si tiene vale asociado, marcarlo como reservado en el archivo JSON
+            vale_id = cabecera.get('vale_id')
+            if vale_id:
+                try:
+                    from kool_tpv.modulos.tpv.vale_devolucion_service import ValeDevolucionService
+                    vale_service = ValeDevolucionService()
+                    vale_service.marcar_reservado(vale_id, pedido_id)
+                except Exception:
+                    logger.exception(f"Error marcando vale {vale_id} como reservado al guardar pedido")
+            
             return {'success': True, 'pedido_id': pedido_id}
         else:
             return {'success': False, 'error': 'Error interno al guardar en la base de datos.'}
@@ -53,7 +63,15 @@ class PedidosService:
 
     def asociar_vale(self, pedido_id: int, vale_id: str) -> bool:
         """Vincular un vale de devolución a un pedido."""
-        return self.repo.asociar_vale(pedido_id, vale_id)
+        if self.repo.asociar_vale(pedido_id, vale_id):
+            try:
+                from kool_tpv.modulos.tpv.vale_devolucion_service import ValeDevolucionService
+                vale_service = ValeDevolucionService()
+                vale_service.marcar_reservado(vale_id, pedido_id)
+            except Exception:
+                logger.exception(f"Error marcando vale {vale_id} como reservado al asociar a pedido {pedido_id}")
+            return True
+        return False
 
     def marcar_entregado_por_vale(self, vale_id: str) -> bool:
         """Marcar como entregado el pedido asociado a un vale."""
