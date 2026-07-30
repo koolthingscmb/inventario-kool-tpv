@@ -151,10 +151,17 @@ class ImpresoraService:
             # Añadir claves para logo
             claves = claves + ['logo_enabled', 'logo_filename', 'logo_nivel_enabled', 'logo_nivel_filename']
             mapeo.update({
-                'logo_enabled': 'logo_enabled', 
+                'logo_enabled': 'logo_enabled',
                 'logo_filename': 'logo_filename',
                 'logo_nivel_enabled': 'logo_nivel_enabled',
                 'logo_nivel_filename': 'logo_nivel_filename'
+            })
+
+            # Añadir claves para textos de tickets (camisetas, sin_recompensa)
+            claves = claves + ['ticket_cuidado_camisetas', 'ticket_nivel_sin_recompensa']
+            mapeo.update({
+                'ticket_cuidado_camisetas': 'ticket_cuidado_camisetas',
+                'ticket_nivel_sin_recompensa': 'ticket_nivel_sin_recompensa'
             })
 
             for clave_bd in claves:
