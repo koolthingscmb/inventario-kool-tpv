@@ -178,6 +178,25 @@ class TextosPlantillaUI(PaginaConVisor):
         )
         # No empaquetar aún, se muestra/oculta según el tipo
 
+        # Label + Entry Sin Recompensa (solo para nivel)
+        self.label_sin_recompensa = ctk.CTkLabel(
+            grid_content,
+            text='SIN RECOMPENSA (aparece cuando no hay recompensa):',
+            font=get_font('label', module='config'),
+            text_color=self.colors.get('text')
+        )
+        self.entry_sin_recompensa = ctk.CTkTextbox(
+            grid_content,
+            width=400,
+            height=100,
+            fg_color=self.colors.get('background'),
+            text_color=self.colors.get('text'),
+            border_color=self.colors.get('primary'),
+            border_width=2,
+            font=get_font('entry', module='config')
+        )
+        # No empaquetar aún, se muestra/oculta según el tipo
+
         # Cargar valores iniciales
         try:
             self._cargar_valores()
@@ -224,6 +243,7 @@ class TextosPlantillaUI(PaginaConVisor):
         header_val = ""
         footer_val = ""
         camisetas_val = ""
+        sin_recompensa_val = ""
 
         if self.db:
             try:
@@ -256,6 +276,16 @@ class TextosPlantillaUI(PaginaConVisor):
             except Exception:
                 pass
 
+            try:
+                row = self.db.fetch_one(
+                    "SELECT valor FROM configuracion WHERE clave = ?",
+                    ('ticket_nivel_sin_recompensa',)
+                )
+                if row and row[0]:
+                    sin_recompensa_val = str(row[0])
+            except Exception:
+                pass
+
         try:
             self.entry_header.delete('1.0', 'end')
             self.entry_header.insert('1.0', header_val)
@@ -265,6 +295,9 @@ class TextosPlantillaUI(PaginaConVisor):
 
             self.entry_camisetas.delete('1.0', 'end')
             self.entry_camisetas.insert('1.0', camisetas_val)
+
+            self.entry_sin_recompensa.delete('1.0', 'end')
+            self.entry_sin_recompensa.insert('1.0', sin_recompensa_val)
         except Exception:
             logging.exception('Error actualizando widgets en _cargar_valores')
 
@@ -279,13 +312,25 @@ class TextosPlantillaUI(PaginaConVisor):
         except Exception:
             pass
 
+        # Mostrar/ocultar campo sin_recompensa según tipo
+        try:
+            if tipo == 'nivel':
+                self.label_sin_recompensa.pack(anchor='w', pady=(20, 6))
+                self.entry_sin_recompensa.pack(fill='both', expand=True, pady=(0, 0))
+            else:
+                self.label_sin_recompensa.pack_forget()
+                self.entry_sin_recompensa.pack_forget()
+        except Exception:
+            pass
+
     def _on_guardar(self):
-        """Guardar header, footer y cuidado camisetas en BD."""
+        """Guardar header, footer, cuidado camisetas y sin_recompensa en BD."""
         header_text = self.entry_header.get('1.0', 'end').rstrip('\n')
         footer_text = self.entry_footer.get('1.0', 'end').rstrip('\n')
         camisetas_text = self.entry_camisetas.get('1.0', 'end').rstrip('\n')
+        sin_recompensa_text = self.entry_sin_recompensa.get('1.0', 'end').rstrip('\n')
 
-        if not header_text and not footer_text and not camisetas_text:
+        if not header_text and not footer_text and not camisetas_text and not sin_recompensa_text:
             from kool_tpv.utils.widgets.notificaciones import show_warning
             show_warning(self.container, 'No hay información para guardar')
             return
@@ -313,6 +358,12 @@ class TextosPlantillaUI(PaginaConVisor):
                 ('ticket_cuidado_camisetas', camisetas_text)
             )
 
+            # Guardar sin_recompensa (clave global, no por tipo)
+            self.db.execute_query(
+                "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES (?, ?)",
+                ('ticket_nivel_sin_recompensa', sin_recompensa_text)
+            )
+
             ToastWidget.show(self.parent, 'Textos guardados', tipo='success')
         except Exception:
             logging.exception('Error guardando textos')
@@ -325,6 +376,7 @@ class TextosPlantillaUI(PaginaConVisor):
         header_text = self.entry_header.get('1.0', 'end').rstrip('\n')
         footer_text = self.entry_footer.get('1.0', 'end').rstrip('\n')
         camisetas_text = self.entry_camisetas.get('1.0', 'end').rstrip('\n')
+        sin_recompensa_text = self.entry_sin_recompensa.get('1.0', 'end').rstrip('\n')
 
         header_key = f"ticket_header_{tipo}"
         footer_key = f"ticket_footer_{tipo}"
@@ -337,6 +389,10 @@ class TextosPlantillaUI(PaginaConVisor):
         # Incluir texto de camisetas en el preview de venta
         if tipo == 'venta' and camisetas_text:
             config_preview['ticket_cuidado_camisetas'] = camisetas_text
+
+        # Incluir texto sin_recompensa en el preview de nivel
+        if tipo == 'nivel' and sin_recompensa_text:
+            config_preview['ticket_nivel_sin_recompensa'] = sin_recompensa_text
 
         # Contexto mock
         mock = {

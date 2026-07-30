@@ -299,9 +299,11 @@ class ImportarAlbaranUI:
         # Calcular totales
         totales = self.parse_result.totales
         total_str = f'{totales.get("total", Decimal("0")):.2f} €'
+        total_uds = sum(l.cantidad for l in self.parse_result.lineas)
 
         resumen_text = (
             f'Total: {total} líneas | '
+            f'Uds: {total_uds} | '
             f'Existentes: {existentes} | '
             f'Nuevos: {nuevos} | '
             f'Total albarán: {total_str}'

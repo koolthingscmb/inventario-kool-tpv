@@ -49,7 +49,8 @@ class NivelTicketGenerator(BaseTicketGenerator):
         elif tipo_recompensa == 'Artículo' and nombre_producto:
             recompensa = nombre_producto
         else:
-            recompensa = ''
+            # Si no hay recompensa, usar texto de configuración o vacío
+            recompensa = config.get('ticket_nivel_sin_recompensa', '')
 
         context = {
             'fecha': fecha,
