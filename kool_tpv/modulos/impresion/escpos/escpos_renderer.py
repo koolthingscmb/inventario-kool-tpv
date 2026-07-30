@@ -381,7 +381,6 @@ class EscPosRenderer:
             '\u2009': ' ',        # (thin space) -> espacio normal
             '\u00A0': ' ',        # (nbsp) -> espacio normal
             '\u00D1': 'N',         # Ñ (mayúscula) -> N (cp858 no tiene Ñ, su posición la ocupa €)
-            '\u00F1': 'n',         # ñ (minúscula) -> n (cp858 sí tiene ñ, pero por consistencia)
         }
         for unicode_char, ascii_char in replacements.items():
             text = text.replace(unicode_char, ascii_char)
