@@ -126,6 +126,37 @@ class ProduccionStockBaseRepository:
 			logger.exception("Error obteniendo stock por tipo+color")
 			return {}
 
+	def get_by_sku(self, sku: str, cur=None) -> Optional[Dict[str, Any]]:
+		"""Obtener un registro de stock por su SKU."""
+		query = """
+			SELECT id, tipo_id, variante_id, color_id, talla, sku, cantidad, coste_medio, talla_id
+			FROM produccion_stock_colores_tallas
+			WHERE sku = ?
+		"""
+		try:
+			if cur:
+				cur.execute(query, (sku,))
+				row = cur.fetchone()
+			else:
+				row = self.db.fetch_one(query, (sku,))
+			
+			if row:
+				return {
+					"id": row[0],
+					"tipo_id": row[1],
+					"variante_id": row[2],
+					"color_id": row[3],
+					"talla": row[4],
+					"sku": row[5],
+					"cantidad": row[6],
+					"coste_medio": row[7],
+					"talla_id": row[8]
+				}
+			return None
+		except Exception:
+			logger.exception(f"Error buscando stock base por SKU: {sku}")
+			return None
+
 	def crear_o_actualizar(self, tipo_id: int,
 	                      color_id: Optional[int], talla: str, sku: str, 
 	                      cantidad: int, coste_medio: int = 0,
@@ -226,15 +257,19 @@ class ProduccionStockBaseRepository:
 
 	def actualizar_cantidad(self, tipo_id: int,
 	                        color_id: Optional[int], talla: str, delta: int,
-	                        variante_id: Optional[int] = None) -> bool:
+	                        variante_id: Optional[int] = None, cur=None) -> bool:
 		"""Sumar o restar cantidad al stock (ej: -1 al producir)."""
 		query = """
 			UPDATE produccion_stock_colores_tallas 
 			SET cantidad = cantidad + ?
-			WHERE tipo_id = ? AND variante_id IS ? AND color_id IS ? AND talla IS ?
+			WHERE tipo_id = ? AND variante_id IS ? AND color_id IS ? AND COALESCE(talla, '') = COALESCE(?, '')
 		"""
 		try:
-			self.db.execute_query(query, (delta, tipo_id, variante_id, color_id, talla))
+			params = (delta, tipo_id, variante_id, color_id, talla)
+			if cur:
+				cur.execute(query, params)
+			else:
+				self.db.execute_query(query, params)
 			return True
 		except Exception:
 			logger.exception("Error actualizando cantidad stock base")

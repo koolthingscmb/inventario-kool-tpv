@@ -397,15 +397,12 @@ class AlbaranService:
                 'total': total,
             }
 
-            # 2. Filtrar y preparar SOLO líneas nuevas (sin 'id')
-            new_lines = [l for l in all_lines if 'id' not in l or l.get('id') is None]
-            logging.info(f'Actualizando albarán {albaran_id}: {len(new_lines)} líneas nuevas de {len(all_lines)} totales')
-
-            nuevas_lineas_procesadas = []
-            for line in new_lines:
+            # 2. Preparar todas las líneas procesadas (viejas y nuevas)
+            lineas_procesadas = []
+            for line in all_lines:
                 cantidad = int(line.get('cantidad', 0))
                 coste_dec = Decimal(str(line.get('coste', 0)))
-                nuevas_lineas_procesadas.append({
+                item = {
                     'producto_id': line.get('producto_id'),
                     'ean': line.get('ean', ''),
                     'nombre': line.get('nombre', ''),
@@ -414,11 +411,14 @@ class AlbaranService:
                     'tipo_iva': int(line.get('tipo_iva', 21)),
                     'pvpr_cents': int(line.get('pvpr_cents', 0)),
                     'sku': line.get('sku', '')
-                })
+                }
+                if 'id' in line and line['id']:
+                    item['id'] = line['id']
+                lineas_procesadas.append(item)
 
-            # 3. Delegar escritura al repo
-            self.repo.actualizar_albaran_con_lineas(albaran_id, nuevas_lineas_procesadas, totales, cur=cur)
-            logging.info(f'Albarán {albaran_id} actualizado: {len(new_lines)} líneas añadidas, totales recalculados')
+            # 3. Delegar escritura al repo (pasamos todas las líneas para que gestione borrados)
+            self.repo.actualizar_albaran_con_lineas(albaran_id, lineas_procesadas, totales, cur=cur)
+            logging.info(f'Albarán {albaran_id} actualizado: totales recalculados y líneas sincronizadas')
             return True
 
         except Exception:

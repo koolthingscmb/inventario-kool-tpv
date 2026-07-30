@@ -161,7 +161,7 @@ class ProduccionEntradaManualUI:
 
         # TABLA DE LÍNEAS
         self.columns = [
-            ('SKU', 150), ('MATERIA PRIMA', 350), ('CANT', 80), ('COSTE UN.', 100), ('TOTAL', 120)
+            ('SKU', 190), ('MATERIA PRIMA', 490), ('CANT', 80), ('COSTE UN.', 100), ('TOTAL', 120)
         ]
         root = self.container.winfo_toplevel()
         km = getattr(root, 'keyboard_manager', None)
@@ -513,8 +513,17 @@ class ProduccionEntradaManualUI:
             if self.albaran_id:
                 # MODO ACTUALIZACIÓN
                 # Solo podemos actualizar si usamos update_albaran_with_new_lines, 
-                # que inserta líneas nuevas y recalcula totales.
+                # que inserta líneas nuevas, borra las desaparecidas y recalcula totales.
                 
+                # Identificar líneas que van a ser borradas para revertir su stock en producción
+                deleted_lines = []
+                current_db_detail = self.albaran_service.get_albaran_detalle(self.albaran_id)
+                if current_db_detail:
+                    new_ids = {l['id'] for l in self.lineas if 'id' in l}
+                    for db_l in current_db_detail['lines']:
+                        if db_l['id'] not in new_ids:
+                            deleted_lines.append(db_l)
+
                 # Preparar todas las líneas (nuevas y viejas)
                 all_lines = []
                 nuevas_para_stock = []
@@ -536,10 +545,25 @@ class ProduccionEntradaManualUI:
                     all_lines.append(line_data)
 
                 with self.db.transaction() as cur:
-                    # 1. Actualizar albarán (cabecera + líneas nuevas)
+                    # 1. Actualizar albarán (cabecera + líneas nuevas + borrados gestionados por repo)
                     self.albaran_service.update_albaran_with_new_lines(self.albaran_id, all_lines, cur=cur)
                     
-                    # 2. Actualizar stock SOLO de las líneas nuevas
+                    # 2. Revertir stock de líneas BORRADAS (solo materia prima de producción)
+                    for dl in deleted_lines:
+                        if not dl.get('producto_id') and dl.get('sku'):
+                            stk = self.stock_service.get_by_sku(dl['sku'], cur=cur)
+                            if stk:
+                                # Restar la cantidad que entró en su día
+                                self.stock_service.actualizar_cantidad(
+                                    tipo_id=stk['tipo_id'],
+                                    color_id=stk['color_id'],
+                                    talla=stk['talla'],
+                                    delta=-dl['cantidad'],
+                                    variante_id=stk['variante_id'],
+                                    cur=cur
+                                )
+
+                    # 3. Actualizar stock SOLO de las líneas nuevas
                     for l in nuevas_para_stock:
                         if l.get('tipo_id'): # Solo si tenemos los IDs (líneas añadidas ahora)
                             self.stock_service.importar_stock(

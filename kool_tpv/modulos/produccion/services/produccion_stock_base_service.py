@@ -55,6 +55,16 @@ class ProduccionStockBaseService:
 			talla_norm = None
 		return self.repo.obtener_cantidad(tipo_id, color_id, talla_norm, variante_id)
 
+	def get_by_sku(self, sku: str, cur=None) -> Optional[Dict[str, Any]]:
+		"""Obtener un registro de stock por su SKU."""
+		return self.repo.get_by_sku(sku, cur=cur)
+
+	def crear_o_actualizar(self, tipo_id: int, color_id: Optional[int], talla: str, 
+	                      sku: str, cantidad: int, coste_medio: int = 0,
+	                      variante_id: Optional[int] = None, talla_id: Optional[int] = None,
+	                      cur=None) -> bool:
+		return self.repo.crear_o_actualizar(tipo_id, color_id, talla, sku, cantidad, coste_medio, variante_id, talla_id, cur=cur)
+
 	def importar_stock(self, tipo_id: int, color_id: int, talla: str, 
 	                   cantidad_nueva: int, coste_nuevo_eur: float,
 	                   variante_id: Optional[int] = None,
@@ -229,19 +239,25 @@ class ProduccionStockBaseService:
 
 	def consumir_stock(self, tipo_id: int,
 	                  color_id: int, talla: str, cantidad: int,
-	                  variante_id: Optional[int] = None) -> bool:
+	                  variante_id: Optional[int] = None, cur=None) -> bool:
 		"""Descontar stock del almacén de bases."""
 		if cantidad <= 0:
 			return True
-		return self.repo.actualizar_cantidad(tipo_id, color_id, (talla or "").strip().upper(), -cantidad, variante_id)
+		return self.repo.actualizar_cantidad(tipo_id, color_id, (talla or "").strip().upper(), -cantidad, variante_id, cur=cur)
 
 	def reponer_stock(self, tipo_id: int,
 	                 color_id: int, talla: str, cantidad: int,
-	                 variante_id: Optional[int] = None) -> bool:
+	                 variante_id: Optional[int] = None, cur=None) -> bool:
 		"""Añadir stock al almacén de bases."""
 		if cantidad <= 0:
 			return True
-		return self.repo.actualizar_cantidad(tipo_id, color_id, (talla or "").strip().upper(), cantidad, variante_id)
+		return self.repo.actualizar_cantidad(tipo_id, color_id, (talla or "").strip().upper(), cantidad, variante_id, cur=cur)
+
+	def actualizar_cantidad(self, tipo_id: int,
+	                        color_id: Optional[int], talla: str, delta: int,
+	                        variante_id: Optional[int] = None, cur=None) -> bool:
+		"""Sumar o restar cantidad al stock (ej: -1 al producir)."""
+		return self.repo.actualizar_cantidad(tipo_id, color_id, (talla or "").strip().upper(), delta, variante_id, cur=cur)
 
 	def obtener_opciones_formulario(self) -> Dict[str, List[Dict[str, Any]]]:
 		"""Obtener listas de tipos y colores para los selectores usando servicios."""
