@@ -70,9 +70,6 @@ class ProductoSelectorWidget:
 		self._crear_chips_tipos()
 
 		# Auto-focus primer chip (si se maneja internamente, pero ahora lo hará la vista padre)
-		# Registrarse en KeyboardManager (para flechas Up/Down)
-		if self.keyboard_mgr:
-			self.keyboard_mgr.set_active_list(self)
 
 	def get_navigable_widgets(self) -> List[tuple]:
 		"""Devolver lista de (widget, callback) para el mixin de navegación."""
@@ -205,28 +202,6 @@ class ProductoSelectorWidget:
 		elif menu_item is not None:
 			# Seleccionar chip
 			self._select_chip(btn, menu_item)
-
-	# --- Protocolo Navigable para KeyboardManager (flechas) ---
-
-	def select_next(self) -> bool:
-		"""Flecha abajo → siguiente chip."""
-		if not self._chip_buttons:
-			return False
-		next_idx = self._nav_focused_index + 1 if self._nav_focused_index >= 0 else 0
-		if next_idx >= len(self._chip_buttons):
-			next_idx = 0
-		self._focus_nav_widget(next_idx)
-		return True
-
-	def select_previous(self) -> bool:
-		"""Flecha arriba → chip anterior."""
-		if not self._chip_buttons:
-			return False
-		prev_idx = self._nav_focused_index - 1 if self._nav_focused_index >= 0 else len(self._chip_buttons) - 1
-		if prev_idx < 0:
-			prev_idx = len(self._chip_buttons) - 1
-		self._focus_nav_widget(prev_idx)
-		return True
 
 	def obtener_seleccion(self) -> Optional[ProduccionMenuItem]:
 		"""Obtener el menú seleccionado."""
