@@ -6,6 +6,7 @@ from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
+from kool_tpv.paths import CLOUD_CONFIG_DIR, DB_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -21,16 +22,14 @@ class CloudBackupService:
     
     def __init__(self, db=None):
         self.db = db
-        # Rutas de configuración
-        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        self.config_dir = os.path.join(base_path, 'config', 'cloud')
-        self.client_secrets_path = os.path.join(self.config_dir, 'client_secrets.json')
-        self.token_path = os.path.join(self.config_dir, 'token.json')
-        self.user_info_path = os.path.join(self.config_dir, 'user_info.json') # Para guardar email
+        # Rutas de configuración desde paths.py
+        self.config_dir = str(CLOUD_CONFIG_DIR)
+        self.client_secrets_path = str(CLOUD_CONFIG_DIR / "client_secrets.json")
+        self.token_path = str(CLOUD_CONFIG_DIR / "token.json")
+        self.user_info_path = str(CLOUD_CONFIG_DIR / "user_info.json") # Para guardar email
         
         # Asegurar que la carpeta existe
-        if not os.path.exists(self.config_dir):
-            os.makedirs(self.config_dir)
+        CLOUD_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
             
         self.service = None
 

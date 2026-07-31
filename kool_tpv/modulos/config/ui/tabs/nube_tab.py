@@ -7,6 +7,7 @@ from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.base_datos.configuracion_repository import ConfiguracionRepository
 from kool_tpv.services.cloud_backup_service import CloudBackupService
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL
+from kool_tpv.paths import DB_PATH
 from kool_tpv.utils.config_loader import load_colors, create_action_button
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 class NubeTab(ctk.CTkFrame):
     """Panel de configuración de Backup en la Nube (Google Drive)."""
 
-    def __init__(self, parent, **kwargs):
+    def __init__(self, parent, db=None, **kwargs):
         self.module_name = 'config'
         try:
             self.colors = load_colors(self.module_name)
@@ -29,9 +30,15 @@ class NubeTab(ctk.CTkFrame):
         self.parent = parent
         
         # Inicializar servicios de base de datos
-        db_path = "/Volumes/ALMACEN/KOOL_THINGS/KOOL_TPV_V2/kool_tpv/base_datos/kool_bd.db"
-        self.db = Database(db_path)
-        self.db.connect()
+        if db:
+            self.db = db
+            self._db_shared = True
+        else:
+            # Si no nos pasan la DB, usamos la ruta centralizada
+            self.db = Database(str(DB_PATH))
+            self.db.connect()
+            self._db_shared = False
+
         self.config_repo = ConfiguracionRepository(self.db)
         
         # Servicio de Backup
@@ -188,9 +195,9 @@ class NubeTab(ctk.CTkFrame):
             ToastWidget.show(self.parent, "Error en la subida", tipo='error')
 
     def destroy(self):
-        """Cerrar la conexión a la DB al destruir el objeto."""
+        """Cerrar la conexión a la DB solo si la creamos nosotros."""
         try:
-            if hasattr(self, 'db'):
+            if hasattr(self, 'db') and not getattr(self, '_db_shared', False):
                 self.db.close_connection()
         except Exception:
             pass

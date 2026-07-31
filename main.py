@@ -603,7 +603,7 @@ class App(ctk.CTk):
                 # Como la app se cierra, mejor lo hacemos síncrono y rápido
                 
                 backup_service = CloudBackupService(self.db)
-                db_path = "/Volumes/ALMACEN/KOOL_THINGS/KOOL_TPV_V2/kool_tpv/base_datos/kool_bd.db"
+                db_path = str(DB_PATH)
                 
                 if os.path.exists(db_path):
                     folder_name = settings.get('backup_drive_folder_name', 'KOOL_TPV_Backups')

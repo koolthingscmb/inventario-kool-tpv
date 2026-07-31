@@ -10,6 +10,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 # Rutas clave del proyecto
 CONFIG_DIR = PROJECT_ROOT / "kool_tpv" / "config"
+CLOUD_CONFIG_DIR = CONFIG_DIR / "cloud"
 DB_PATH = PROJECT_ROOT / "kool_tpv" / "base_datos" / "kool_bd.db"
 ASSETS_DIR = PROJECT_ROOT / "kool_tpv" / "assets"
 LOGS_DIR = PROJECT_ROOT / "logs"
