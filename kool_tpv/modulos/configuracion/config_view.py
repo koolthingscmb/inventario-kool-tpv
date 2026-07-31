@@ -33,6 +33,7 @@ class ConfigView(BaseModuleView):
             'open_config_fidelizacion': getattr(self, 'show_fidelizacion', None),
             'open_config_reset': getattr(self, 'show_reset', None),
             'show_diseno_ui': getattr(self, 'show_diseno_ui', None),
+            'open_config_nube': getattr(self, 'show_nube', None),
             'show_fidelizacion_general': getattr(self, 'show_fidelizacion_general', None),
             'show_fidelizacion_categorias': getattr(self, 'show_fidelizacion_categorias', None),
             'show_fidelizacion_tipos': getattr(self, 'show_fidelizacion_tipos', None),
@@ -78,6 +79,7 @@ class ConfigView(BaseModuleView):
             'IMPRESORA': None,
             'TEXTOS TICKETS': None,
             'PLANTILLAS': None,
+            'NUBE': None,
         }
 
         try:
@@ -202,6 +204,7 @@ class ConfigView(BaseModuleView):
         try:
             self.breadcrumb_callbacks.update({
                 'CONFIG': self.show_config_root,
+                'NUBE': self.show_nube,
                 'IMPRESIÓN': self.show_impresion,
                 'GENERAL': self.show_general,
                 'USUARIO': self.show_usuario,
@@ -556,6 +559,21 @@ class ConfigView(BaseModuleView):
         except Exception:
             logging.exception('Error en show_diseno_ui')
 
+    def show_nube(self):
+        """Mostrar configuración de Backup en la Nube (Google Drive)."""
+        try:
+            from kool_tpv.modulos.config.ui.tabs.nube_tab import NubeTab
+            
+            ui = NubeTab(self.central_area)
+            if self.set_central_content(ui):
+                try:
+                    self.actualizar_ruta('CONFIG / NUBE', callbacks=self.breadcrumb_callbacks)
+                except Exception:
+                    pass
+                logging.info('Config: abriendo NUBE...')
+        except Exception:
+            logging.exception('Error en show_nube')
+
     def show_config_root(self):
         """Volver a vista raíz de Config (limpiar sidebar y central)."""
         try:
@@ -584,6 +602,8 @@ class ConfigView(BaseModuleView):
                 'open_config_usuario': self.show_usuario,
                 'show_usuarios': self.show_usuarios,
                 'open_config_fidelizacion': self.show_fidelizacion,
+                'open_config_nube': self.show_nube,
+                'open_config_reset': self.show_reset,
                 'show_diseno_ui': self.show_diseno_ui,
             }
 

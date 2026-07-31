@@ -573,6 +573,8 @@ class App(ctk.CTk):
                 return
 
         # 3. Si estamos en el menú principal, CERRAR APP DE VERDAD
+        self._ejecutar_backup_nube()
+
         if self.db: 
             try:
                 self.db.close_connection()
@@ -580,6 +582,41 @@ class App(ctk.CTk):
                 pass
         self.destroy()
         sys.exit(0)
+
+    def _ejecutar_backup_nube(self):
+        """Ejecuta el backup en la nube si está habilitado."""
+        try:
+            if not self.db:
+                return
+
+            from kool_tpv.base_datos.configuracion_repository import ConfiguracionRepository
+            from kool_tpv.services.cloud_backup_service import CloudBackupService
+            import os
+
+            config_repo = ConfiguracionRepository(self.db)
+            settings = config_repo.obtener_multiples(['backup_drive_enabled', 'backup_drive_folder_name'])
+            
+            if settings.get('backup_drive_enabled') == '1':
+                logging.info("Backup en la nube habilitado. Iniciando...")
+                
+                # Mostrar un mensaje visual si es posible (opcional, ya que la app se cierra)
+                # Como la app se cierra, mejor lo hacemos síncrono y rápido
+                
+                backup_service = CloudBackupService(self.db)
+                db_path = "/Volumes/ALMACEN/KOOL_THINGS/KOOL_TPV_V2/kool_tpv/base_datos/kool_bd.db"
+                
+                if os.path.exists(db_path):
+                    folder_name = settings.get('backup_drive_folder_name', 'KOOL_TPV_Backups')
+                    success = backup_service.subir_archivo(db_path, folder_name)
+                    if success:
+                        logging.info("Backup en la nube completado con éxito.")
+                    else:
+                        logging.error("Error al realizar el backup en la nube al cerrar.")
+                else:
+                    logging.error(f"No se encontró la base de datos para backup: {db_path}")
+
+        except Exception:
+            logging.exception("Error crítico durante el backup en la nube al cerrar")
 
     def close_current_module_and_return_to_menu(self):
         """Cerrar el módulo actual y volver al menú principal.

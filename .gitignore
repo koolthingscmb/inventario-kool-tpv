@@ -34,5 +34,10 @@ kool_tpv/base_datos/kool_tpv.db
 # Vales de devolución (se generan en runtime)
 vales_devolucion/
 
+# Google Drive API - Credenciales y Tokens (Seguridad)
+kool_tpv/config/cloud/client_secrets.json
+kool_tpv/config/cloud/token.json
+kool_tpv/config/cloud/user_info.json
+
 # Scripts de test/utilidad locales
 stress_test_data.py
