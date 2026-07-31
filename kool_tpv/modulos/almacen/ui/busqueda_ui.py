@@ -136,7 +136,16 @@ class BusquedaUI:
             command=self._on_search,
             style_key='action_primary'
         )
-        self.btn_buscar.pack(side='right', padx=12)
+        self.btn_buscar.pack(side='right', padx=(0, 12))
+
+        # Botón INCOMPLETOS - filtra productos de categoría 3
+        self.btn_incompletos = ButtonFactory.create_button(
+            parent=filter_frame,
+            text='INCOMPLETOS',
+            command=self._on_filtrar_incompletos,
+            style_key='action_secondary'
+        )
+        self.btn_incompletos.pack(side='right', padx=(0, 6))
 
         # Crear SearchablePaginatedNavList
         columns = [
@@ -189,6 +198,18 @@ class BusquedaUI:
             self.search_list.search(termino)
         except Exception:
             logging.exception('Error ejecutando búsqueda')
+
+    def _on_filtrar_incompletos(self):
+        """Filtrar productos de la categoría Incompleto (id=3)."""
+        try:
+            # Seleccionar categoría 3 (Incompleto) en el combo
+            self.cat_combo.set_by_id(3)
+            # Limpiar término de búsqueda para ver todos los incompletos
+            self.search_var.set('')
+            # Disparar búsqueda
+            self._on_search()
+        except Exception:
+            logging.exception('Error filtrando productos incompletos')
 
     def _buscar_productos(self, texto: str) -> List[dict]:
         """Función de búsqueda para SearchablePaginatedNavList."""

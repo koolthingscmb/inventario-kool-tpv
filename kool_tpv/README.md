@@ -60,6 +60,27 @@ Notas importantes
 - Precision monetaria: se utiliza `decimal.Decimal` para cálculos monetarios en código.
 - Copias de seguridad: mantener backups regulares de `kool_bd.db` antes de migraciones.
 
+### Backup en Google Drive — Recordatorio para lanzamiento comercial
+
+El sistema de backup en la nube ya está programado y funcional. El cliente final solo tiene que pulsar "Vincular Cuenta" en la pestaña NUBE y elegir su Gmail. No descarga nada ni ve tokens.
+
+**Lo único que falta para lanzar comercialmente (paperwork, no código):**
+
+1. Ir a [Google Cloud Console](https://console.cloud.google.com/) → OAuth consent screen.
+2. Cambiar el estado de la app de "Testing" a "In production".
+3. Rellenar el formulario de verificación de Google explicando que la app sube backups de TPV a Drive.
+4. Crear una pantalla de consentimiento con el logo de KOOL THINGS.
+5. Google revisa la solicitud (puede tardar días/semanas). Una vez aprobada, el aviso "App no segura" desaparece para los clientes.
+
+**Mientras tanto (fase beta):** la app funciona añadiendo manualmente los emails de los clientes como "Test Users" en la consola de Google (máximo 100).
+
+**Archivos sensibles (nUNCA subir a Git):**
+- `kool_tpv/config/cloud/client_secrets.json` — credenciales OAuth de Google.
+- `kool_tpv/config/cloud/token.json` — token de sesión del usuario.
+- `kool_tpv/config/cloud/user_info.json` — email del usuario vinculado.
+
+Estos tres archivos ya están en `.gitignore`.
+
 Desarrollo y pruebas
 
 - Ejecutar pruebas unitarias:
