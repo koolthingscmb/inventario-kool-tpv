@@ -111,7 +111,10 @@ class NubeTab(ctk.CTkFrame):
         btn_row.pack(fill='x', padx=6, pady=(15, 5))
 
         self.btn_link = create_action_button(btn_row, 'VINCULAR CUENTA', self._vincular_cuenta)
-        self.btn_link.pack(side='left')
+        self.btn_link.pack(side='left', padx=(0, 10))
+
+        self.btn_unlink = create_action_button(btn_row, 'DESVINCULAR / CAMBIAR', self._desvincular_cuenta)
+        self.btn_unlink.pack(side='left')
 
         # --- SECCIÓN CONFIGURACIÓN ---
         cfg_frame = ctk.CTkFrame(scroll, fg_color=bg)
@@ -172,6 +175,19 @@ class NubeTab(ctk.CTkFrame):
             ToastWidget.show(self.parent, "Cuenta vinculada con éxito", tipo='success')
         else:
             ToastWidget.show(self.parent, "Error al vincular cuenta", tipo='error')
+
+    def _desvincular_cuenta(self):
+        """Elimina la vinculación de la cuenta actual."""
+        if self.backup_service.desvincular_cuenta():
+            self._account_linked.set(False)
+            self._linked_email.set("No vinculada")
+            try:
+                self.email_lbl.configure(text_color="#e74c3c")
+            except Exception:
+                pass
+            ToastWidget.show(self.parent, "Cuenta desvinculada", tipo='info')
+        else:
+            ToastWidget.show(self.parent, "Error al desvincular", tipo='error')
 
     def _probar_subida(self):
         """Realiza una subida de prueba de la base de datos actual."""

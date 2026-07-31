@@ -564,7 +564,7 @@ class ConfigView(BaseModuleView):
         try:
             from kool_tpv.modulos.config.ui.tabs.nube_tab import NubeTab
             
-            ui = NubeTab(self.central_area)
+            ui = NubeTab(self.central_area, db=self.db)
             if self.set_central_content(ui):
                 try:
                     self.actualizar_ruta('CONFIG / NUBE', callbacks=self.breadcrumb_callbacks)

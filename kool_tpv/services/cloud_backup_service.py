@@ -58,6 +58,20 @@ class CloudBackupService:
                 except Exception: pass
         return None
 
+    def desvincular_cuenta(self) -> bool:
+        """Elimina las credenciales locales para permitir cambiar de cuenta."""
+        try:
+            if os.path.exists(self.token_path):
+                os.remove(self.token_path)
+            if os.path.exists(self.user_info_path):
+                os.remove(self.user_info_path)
+            self.service = None
+            logger.info("Cuenta desvinculada correctamente (tokens eliminados)")
+            return True
+        except Exception:
+            logger.exception("Error al desvincular la cuenta")
+            return False
+
     def autenticar(self) -> bool:
         """Realiza el flujo de autenticación OAuth2."""
         creds = None
@@ -150,14 +164,14 @@ class CloudBackupService:
             if not folder_id:
                 return False
 
-            # 2. Generar nombre con sufijo DDMMAA_HH
+            # 2. Generar nombre con sufijo DDMMAA_HHMM
             from datetime import datetime
             ahora = datetime.now()
-            sufijo = ahora.strftime("%d%m%y_%H") # Formato: DDMMAA_HH
+            sufijo = ahora.strftime("%d%m%y_%H%M") # Formato: DDMMAA_HHMM
             
             base_name = os.path.basename(file_path) # kool_bd.db
             name_part, ext = os.path.splitext(base_name) # kool_bd, .db
-            new_file_name = f"{name_part}_{sufijo}{ext}" # kool_bd_310726_12.db
+            new_file_name = f"{name_part}_{sufijo}{ext}" # kool_bd_310726_1241.db
 
             # 3. Preparar metadatos del archivo
             file_metadata = {

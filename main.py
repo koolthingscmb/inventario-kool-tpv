@@ -599,9 +599,33 @@ class App(ctk.CTk):
             if settings.get('backup_drive_enabled') == '1':
                 logging.info("Backup en la nube habilitado. Iniciando...")
                 
-                # Mostrar un mensaje visual si es posible (opcional, ya que la app se cierra)
-                # Como la app se cierra, mejor lo hacemos síncrono y rápido
-                
+                # Feedback visual rápido
+                try:
+                    import tkinter as tk
+                    from kool_tpv.utils.config_loader import load_colors
+                    colors = load_colors('config')
+                    
+                    overlay = tk.Toplevel(self)
+                    overlay.overrideredirect(True)
+                    overlay.attributes("-topmost", True)
+                    
+                    # Centrar en pantalla
+                    w, h = 400, 100
+                    sw = self.winfo_screenwidth()
+                    sh = self.winfo_screenheight()
+                    overlay.geometry(f"{w}x{h}+{int((sw-w)/2)}+{int((sh-h)/2)}")
+                    
+                    overlay.configure(bg=colors.get('primary', '#3498db'))
+                    
+                    lbl = tk.Label(overlay, text="GUARDANDO COPIA EN DRIVE...", 
+                                   fg="white", bg=colors.get('primary', '#3498db'),
+                                   font=("Helvetica", 14, "bold"))
+                    lbl.pack(expand=True, fill='both', padx=10, pady=10)
+                    
+                    self.update()
+                except Exception:
+                    overlay = None
+
                 backup_service = CloudBackupService(self.db)
                 db_path = str(DB_PATH)
                 
@@ -614,6 +638,11 @@ class App(ctk.CTk):
                         logging.error("Error al realizar el backup en la nube al cerrar.")
                 else:
                     logging.error(f"No se encontró la base de datos para backup: {db_path}")
+
+                # Cerrar overlay si existe
+                try:
+                    if overlay: overlay.destroy()
+                except Exception: pass
 
         except Exception:
             logging.exception("Error crítico durante el backup en la nube al cerrar")
