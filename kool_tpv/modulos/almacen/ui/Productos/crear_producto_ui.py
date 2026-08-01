@@ -572,6 +572,7 @@ class CrearProductoUI:
         """Generar código de barras interno e imagen JPG/PNG."""
         try:
             sku = self.e_sku.get().strip()
+            nombre = self.e_nombre.get().strip()
             if not sku:
                 ToastWidget.show(self.container, "Introduce el SKU primero", tipo='warning')
                 return
@@ -579,8 +580,8 @@ class CrearProductoUI:
             # Generar número interno
             nuevo_codigo = barcode_gen_utils.generate_internal_number()
             
-            # Generar imagen
-            path = barcode_gen_utils.generate_barcode_image(nuevo_codigo, sku)
+            # Generar imagen (pasando el nombre para que salga en el PNG)
+            path = barcode_gen_utils.generate_barcode_image(nuevo_codigo, sku, nombre=nombre)
             
             if path:
                 # Añadir al campo de códigos (si ya hay otros, añadir con coma)

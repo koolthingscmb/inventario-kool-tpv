@@ -54,7 +54,7 @@ def generate_internal_number(prefix: str = "99") -> str:
     
     return f"{code12}{checksum}"
 
-def generate_barcode_image(code: str, sku: str) -> Optional[str]:
+def generate_barcode_image(code: str, sku: str, nombre: str = "") -> Optional[str]:
     """Generar imagen del código de barras usando python-barcode."""
     ensure_barcodes_dir()
     
@@ -77,6 +77,10 @@ def generate_barcode_image(code: str, sku: str) -> Optional[str]:
             'text_distance': 5.0,
             'quiet_zone': 6.0 # EAN13 necesita más zona de silencio
         }
+        
+        # Si se proporciona un nombre, lo usamos como texto en lugar del código numérico
+        if nombre:
+            options['text'] = nombre.upper()
         
         # El código debe tener 13 dígitos
         my_barcode = EAN13(code, writer=writer)
