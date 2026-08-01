@@ -577,10 +577,10 @@ class CrearProductoUI:
                 ToastWidget.show(self.container, "Introduce el SKU primero", tipo='warning')
                 return
 
-            # Generar número interno
-            nuevo_codigo = barcode_gen_utils.generate_internal_number()
+            # Generar número interno (pasando self.db para asegurar que no se repita)
+            nuevo_codigo = barcode_gen_utils.generate_internal_number(db=self.db)
             
-            # Generar imagen (pasando el nombre para que salga en el PNG)
+            # Generar imagen (usará el nombre para el archivo y para el texto visual)
             path = barcode_gen_utils.generate_barcode_image(nuevo_codigo, sku, nombre=nombre)
             
             if path:

@@ -39,30 +39,51 @@ def calculate_ean13_checksum(code12: str) -> str:
     check_digit = (10 - (suma % 10)) % 10
     return str(check_digit)
 
-def generate_internal_number(prefix: str = "99") -> str:
+def generate_internal_number(db=None, prefix: str = "99") -> str:
     """Genera un número EAN-13 válido (13 dígitos) para uso interno.
     Formato: prefix + timestamp (YYMMDD) + 4 dígitos aleatorios + dígito control.
     """
     if len(prefix) != 2:
         prefix = "99"
-    now = datetime.datetime.now()
-    timestamp = now.strftime("%y%m%d") # 6 dígitos
-    random_part = "".join([str(random.randint(0, 9)) for _ in range(4)]) # 4 dígitos
     
-    code12 = f"{prefix}{timestamp}{random_part}"
-    checksum = calculate_ean13_checksum(code12)
-    
-    return f"{code12}{checksum}"
+    while True:
+        now = datetime.datetime.now()
+        timestamp = now.strftime("%y%m%d") # 6 dígitos
+        random_part = "".join([str(random.randint(0, 9)) for _ in range(4)]) # 4 dígitos
+        
+        code12 = f"{prefix}{timestamp}{random_part}"
+        checksum = calculate_ean13_checksum(code12)
+        final_code = f"{code12}{checksum}"
+        
+        # Si tenemos DB, verificar que no existe ya en la tabla codigos_barras
+        if db:
+            try:
+                res = db.fetch_one("SELECT 1 FROM codigos_barras WHERE ean = ?", (final_code,))
+                if not res:
+                    return final_code
+                else:
+                    logger.warning(f"Código interno {final_code} colisionó, reintentando...")
+            except Exception:
+                logger.exception("Error verificando unicidad de código de barras")
+                return final_code # Fallback si falla la consulta
+        else:
+            return final_code
 
 def generate_barcode_image(code: str, sku: str, nombre: str = "") -> Optional[str]:
     """Generar imagen del código de barras usando python-barcode."""
     ensure_barcodes_dir()
     
-    safe_sku = "".join([c for c in sku if c.isalnum() or c in ('-', '_')]).strip()
-    if not safe_sku:
-        safe_sku = f"barcode_{code}"
+    # Prioridad para el nombre del archivo: Nombre del producto, si no SKU
+    base_name = nombre if nombre else sku
+    # Limpiar caracteres no permitidos en nombres de archivo (Windows/Mac/Linux)
+    safe_filename = "".join([c if c.isalnum() or c in (' ', '-', '_') else '_' for c in base_name]).strip()
+    # Reemplazar espacios por guiones para que sea más limpio
+    safe_filename = safe_filename.replace(' ', '-')
+    
+    if not safe_filename:
+        safe_filename = f"barcode_{code}"
         
-    output_base = os.path.join(BARCODES_DIR, safe_sku)
+    output_base = os.path.join(BARCODES_DIR, safe_filename)
     
     try:
         # Usar EAN13 en lugar de Code128
