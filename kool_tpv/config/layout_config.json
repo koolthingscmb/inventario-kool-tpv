@@ -104,6 +104,7 @@
           "buttons": [
             {
               "label": "FAVORITOS",
+              "shortcut": "F1",
               "command": "favoritos",
               "row": 0,
               "col": 0,

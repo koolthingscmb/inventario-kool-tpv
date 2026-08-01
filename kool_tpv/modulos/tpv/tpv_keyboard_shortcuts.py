@@ -46,15 +46,37 @@ class TpvKeyboardShortcuts:
         root.bind_all('<Alt-Key-4>', lambda e: self._fkey_pago('multi'))
         root.bind_all('<Key-q>', lambda e: self._ciclar_zona() if not self._focus_is_entry(e) else None)
         root.bind_all('<Key-Q>', lambda e: self._ciclar_zona() if not self._focus_is_entry(e) else None)
-        logger.info('TpvKeyboardShortcuts registrados (Alt+1-4, Q)')
+        
+        # F1 -> Favoritos
+        root.bind_all('<F1>', lambda e: self._on_f1(e))
+        
+        logger.info('TpvKeyboardShortcuts registrados (Alt+1-4, Q, F1)')
 
     def detach(self):
-        for key in ('<Alt-Key-1>', '<Alt-Key-2>', '<Alt-Key-3>', '<Alt-Key-4>', '<Key-q>', '<Key-Q>'):
+        for key in ('<Alt-Key-1>', '<Alt-Key-2>', '<Alt-Key-3>', '<Alt-Key-4>', '<Key-q>', '<Key-Q>', '<F1>'):
             try:
                 self._root.unbind_all(key)
             except Exception:
                 pass
         self._clear_zone_indicators()
+
+    # ------------------------------------------------------------------
+    # F1: Favoritos
+    # ------------------------------------------------------------------
+
+    def _on_f1(self, event):
+        """Abrir subvista de Favoritos."""
+        try:
+            # Si estamos en un entry, ignorar para evitar interferencias (opcional pero recomendado)
+            if self._focus_is_entry(event):
+                return
+            
+            view = self.ctrl.view
+            if hasattr(view, '_mostrar_favoritos'):
+                view._mostrar_favoritos()
+                logger.info('Favoritos abierto por F1')
+        except Exception:
+            logger.exception('Error abriendo favoritos por F1')
 
     # ------------------------------------------------------------------
     # 1-4: Formas de pago
