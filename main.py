@@ -92,6 +92,7 @@ class App(ctk.CTk):
         self.current_view = None
         self._power_stack = []  # Stack de handlers (LIFO - último registrado tiene prioridad) 
         self._presencia_from_tpv = False
+        self._is_closing = False  # Flag para evitar re-entrada en close_app
 
         # 5. UI - Estructura Principal
         self._init_ui_structure()
@@ -467,6 +468,10 @@ class App(ctk.CTk):
             logger.exception("Error en toggle_print")
 
     def close_app(self):
+        # 0. Evitar re-entrada si ya se está cerrando
+        if getattr(self, '_is_closing', False):
+            return
+        
         # 1. Si estamos en TPV, salir al menú principal
         if self.current_view == "tpv":
             self.current_view = None
@@ -573,6 +578,7 @@ class App(ctk.CTk):
                 return
 
         # 3. Si estamos en el menú principal, CERRAR APP DE VERDAD
+        self._is_closing = True
         self._ejecutar_backup_nube()
 
         if self.db: 
@@ -580,7 +586,12 @@ class App(ctk.CTk):
                 self.db.close_connection()
             except Exception:
                 pass
-        self.destroy()
+        
+        try:
+            if self.winfo_exists():
+                self.destroy()
+        except Exception:
+            pass
         sys.exit(0)
 
     def _ejecutar_backup_nube(self):
@@ -622,7 +633,8 @@ class App(ctk.CTk):
                                    font=("Helvetica", 14, "bold"))
                     lbl.pack(expand=True, fill='both', padx=10, pady=10)
                     
-                    self.update()
+                    if self.winfo_exists():
+                        self.update()
                 except Exception:
                     overlay = None
 
