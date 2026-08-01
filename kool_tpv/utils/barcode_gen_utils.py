@@ -86,25 +86,25 @@ def generate_barcode_image(code: str, sku: str, nombre: str = "") -> Optional[st
     output_base = os.path.join(BARCODES_DIR, safe_filename)
     
     try:
-        # Usar EAN13 en lugar de Code128
-        EAN13 = barcode.get_barcode_class('ean13')
+        # Usar Code128 en lugar de EAN13 para permitir texto personalizado (Nombre del producto)
+        CODE128 = barcode.get_barcode_class('code128')
         # ImageWriter usa Pillow internamente para generar PNG/JPG
         writer = ImageWriter()
         # Ajustar opciones para mejor legibilidad
         options = {
             'module_height': 15.0,
-            'module_width': 0.3, # Un poco más ancho para EAN13
+            'module_width': 0.2,
             'font_size': 10,
             'text_distance': 5.0,
-            'quiet_zone': 6.0 # EAN13 necesita más zona de silencio
+            'quiet_zone': 6.0
         }
         
         # Si se proporciona un nombre, lo usamos como texto en lugar del código numérico
         if nombre:
             options['text'] = nombre.upper()
         
-        # El código debe tener 13 dígitos
-        my_barcode = EAN13(code, writer=writer)
+        # Generamos el código (usamos el número generado pero con formato Code128 para el PNG)
+        my_barcode = CODE128(code, writer=writer)
         # save() añade la extensión automáticamente si no se indica en el path
         full_path = my_barcode.save(output_base, options=options)
         
