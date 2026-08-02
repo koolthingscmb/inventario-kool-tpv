@@ -195,6 +195,10 @@ class VirtualNavList(ctk.CTkFrame):
         self._canvas.bind('<Command-a>', lambda e: self.select_all())
         self._canvas.bind('<Command-A>', lambda e: self.select_all())
 
+        # Atajo para Enter
+        self._canvas.bind('<Return>', self._handle_return_key)
+        self._canvas.bind('<KP_Enter>', self._handle_return_key)
+
         self.bind('<FocusIn>', lambda e: self._canvas.focus_set())
 
     # ------------------------------------------------------------------
@@ -380,7 +384,7 @@ class VirtualNavList(ctk.CTkFrame):
     # API Pública (Compatible con NavList)
     # ------------------------------------------------------------------
 
-    def set_items(self, items: List[dict]):
+    def set_items(self, items: List[dict], grab_focus: bool = True):
         self._all_data = list(items)
         self.selected_index = -1
         self.selected_indices.clear()
@@ -396,8 +400,8 @@ class VirtualNavList(ctk.CTkFrame):
         if self.keyboard_manager:
             try: 
                 self.keyboard_manager.set_active_list(self)
-                # Si hay items, dar foco al canvas para capturar teclas
-                if items:
+                # Solo dar foco si se solicita explícitamente y hay items
+                if grab_focus and items:
                     self._canvas.focus_set()
             except: pass
 
@@ -469,6 +473,14 @@ class VirtualNavList(ctk.CTkFrame):
 
     def bind_return(self, callback):
         self._on_return_callback = callback
+
+    def _handle_return_key(self, event=None):
+        """Manejar pulsación de tecla Enter/Return."""
+        if self._on_return_callback:
+            try:
+                self._on_return_callback()
+            except Exception:
+                logger.exception("Error ejecutando on_return_callback en VirtualNavList")
 
     # ------------------------------------------------------------------
     # Manejo de Eventos de Fila

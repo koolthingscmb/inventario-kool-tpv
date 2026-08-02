@@ -58,7 +58,7 @@ class SearchablePaginatedNavList(ctk.CTkFrame):
         except Exception:
             logger.exception('Error en carga inicial SearchablePaginatedNavList')
 
-    def _on_search(self, texto: str = ''):
+    def _on_search(self, texto: str = '', grab_focus: bool = True):
         """Ejecutar búsqueda y cargar resultados en VirtualNavList."""
         try:
             self.termino = texto.strip()
@@ -75,14 +75,14 @@ class SearchablePaginatedNavList(ctk.CTkFrame):
                 except Exception:
                     logger.exception('Error mapeando item')
 
-            self.nav_list.set_items(mapped)
+            self.nav_list.set_items(mapped, grab_focus=grab_focus)
 
         except Exception:
             logger.exception('Error en _on_search')
 
-    def search(self, texto: str = ''):
+    def search(self, texto: str = '', grab_focus: bool = True):
         """API pública: disparar búsqueda con el texto dado."""
-        self._on_search(texto)
+        self._on_search(texto, grab_focus=grab_focus)
 
     def get_selected_item(self) -> Optional[dict]:
         """Obtener el item actualmente seleccionado en la lista."""

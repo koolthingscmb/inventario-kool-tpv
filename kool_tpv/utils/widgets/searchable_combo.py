@@ -114,7 +114,6 @@ class SearchableCombo(ctk.CTkFrame):
         self.entry.bind('<Up>', self._on_up)
         self.entry.bind('<Return>', self._on_return_key)
         self.entry.bind('<FocusOut>', self._on_focus_out)
-        self.entry.bind('<FocusIn>', lambda e: self.after(50, self._on_click))
         self.entry.bind('<Button-1>', lambda e: self.after(10, self._on_click))
 
     # --- Properties ---

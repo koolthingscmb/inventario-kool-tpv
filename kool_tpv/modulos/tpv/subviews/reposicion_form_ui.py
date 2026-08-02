@@ -246,6 +246,8 @@ class ReposicionFormUI(CTkFrame):
                 self._widget_map[str(w.entry._entry)] = w
             elif hasattr(w, '_entry'):
                 self._widget_map[str(w._entry)] = w
+            elif hasattr(w, '_textbox'):
+                self._widget_map[str(w._textbox)] = w
             elif hasattr(w, '_canvas'):
                 self._widget_map[str(w._canvas)] = w
                 if hasattr(w, '_text_label'):
@@ -259,24 +261,38 @@ class ReposicionFormUI(CTkFrame):
 
             if current_obj in self._tab_order:
                 idx = self._tab_order.index(current_obj)
+                direction = -1 if event.state & 0x1 else 1
+                
+                # Buscar el siguiente widget visible
+                for i in range(1, len(self._tab_order)):
+                    next_idx = (idx + (i * direction)) % len(self._tab_order)
+                    next_obj = self._tab_order[next_idx]
+                    
+                    # Verificar si el widget está visible (winfo_viewable)
+                    # o si es un CTkEntry/SearchableCombo, verificar su visibilidad
+                    is_visible = False
+                    try:
+                        if hasattr(next_obj, 'winfo_viewable'):
+                            is_visible = next_obj.winfo_viewable()
+                        else:
+                            is_visible = True # Fallback
+                    except Exception:
+                        is_visible = True
 
-                if event.state & 0x1:
-                    next_idx = (idx - 1) % len(self._tab_order)
-                else:
-                    next_idx = (idx + 1) % len(self._tab_order)
-
-                next_obj = self._tab_order[next_idx]
-
-                if hasattr(next_obj, 'entry'):
-                    next_obj.entry.focus_set()
-                    try: next_obj.entry._entry.selection_range(0, 'end')
-                    except: pass
-                elif hasattr(next_obj, '_entry'):
-                    next_obj.focus_set()
-                    try: next_obj._entry.selection_range(0, 'end')
-                    except: pass
-                else:
-                    next_obj.focus_set()
+                    if is_visible:
+                        if hasattr(next_obj, 'entry'):
+                            next_obj.entry.focus_set()
+                            try: next_obj.entry._entry.selection_range(0, 'end')
+                            except: pass
+                        elif hasattr(next_obj, '_entry'):
+                            next_obj.focus_set()
+                            try: next_obj._entry.selection_range(0, 'end')
+                            except: pass
+                        elif hasattr(next_obj, '_textbox'):
+                            next_obj.focus_set()
+                        else:
+                            next_obj.focus_set()
+                        return 'break'
 
                 return 'break'
             return None
@@ -288,6 +304,9 @@ class ReposicionFormUI(CTkFrame):
             elif hasattr(w, '_entry'):
                 w._entry.bind('<Tab>', on_tab)
                 w._entry.bind('<Shift-Tab>', on_tab)
+            elif hasattr(w, '_textbox'):
+                w._textbox.bind('<Tab>', on_tab)
+                w._textbox.bind('<Shift-Tab>', on_tab)
             elif hasattr(w, '_canvas'):
                 w._canvas.bind('<Tab>', on_tab)
                 w._canvas.bind('<Shift-Tab>', on_tab)
@@ -593,15 +612,12 @@ class ReposicionFormUI(CTkFrame):
     def _on_buscar_diseno_enter(self, event=None):
         texto = self.entry_buscar_diseno.get()
         try:
-            self.design_list.search(texto)
+            # Forzamos que la lista no robe el foco (grab_focus=False)
+            self.design_list.search(texto, grab_focus=False)
         except Exception:
             pass
-        try:
-            nav = getattr(self.design_list, 'nav_list', None)
-            if nav:
-                nav._canvas.focus_set()
-        except Exception:
-            pass
+        # Mantenemos el foco en el entry para poder seguir escribiendo o refinando
+        self.entry_buscar_diseno.focus_set()
         return "break"
 
     def _on_diseno_double_click(self, data: dict):
