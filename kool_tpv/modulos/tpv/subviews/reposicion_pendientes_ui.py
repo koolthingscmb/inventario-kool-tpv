@@ -211,7 +211,8 @@ class ReposicionPendientesUI(ctk.CTkFrame):
                 indic_temp += "📝"
 
             row = {
-                "id": f"temp_{producto_id}_{p.get('ticket_id')}", 
+                "id": p.get('temp_id') or f"temp_{producto_id}_{p.get('ticket_id')}", 
+                "temp_id": p.get('temp_id'),
                 "producto_id": producto_id,
                 "ticket_id": p.get("ticket_id"),
                 "FECHA": fecha_str,
@@ -263,6 +264,7 @@ class ReposicionPendientesUI(ctk.CTkFrame):
 
         producto_individual = {
             "producto_id": producto_id,
+            "temp_id": item.get("temp_id"),
             "nombre": item.get("PRODUCTO VENDIDO"),
             "cantidad": cantidad,
         }

@@ -682,8 +682,14 @@ class ReposicionFormUI(CTkFrame):
             if not ok:
                 show_error(self.winfo_toplevel(), "ERROR AL GUARDAR EN REPOS (JSON)")
                 return
-            # Borrar del temporal si estaba pendiente
-            store.borrar_pendiente_temp(datos["producto_id"], self.ticket_id)
+            
+            # Borrar del temporal si estaba pendiente (usando temp_id único si existe)
+            temp_id = self.producto_actual.get("temp_id")
+            if temp_id:
+                store.borrar_pendiente_temp(temp_id)
+            else:
+                # Fallback por si acaso (compatibilidad con flujo directo sin temp_id)
+                store.borrar_pendiente_temp_by_ids(datos["producto_id"], self.ticket_id)
         except Exception:
             logger.exception("Error guardando en ReposicionStore")
             show_error(self.winfo_toplevel(), "ERROR AL GUARDAR")

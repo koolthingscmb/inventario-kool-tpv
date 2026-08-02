@@ -167,7 +167,7 @@ class ReposicionStore:
     def guardar_pendientes_temp(self, ticket_id: int, productos: List[Dict[str, Any]]) -> bool:
         """Acumula productos pendientes en el archivo temporal.
         
-        No sobrescribe: añade a los ya existentes. Cada producto se marca con su ticket_id.
+        No sobrescribe: añade a los ya existentes. Cada producto se marca con su ticket_id y un temp_id único.
         
         Args:
             ticket_id: ID del ticket
@@ -180,11 +180,21 @@ class ReposicionStore:
             pendientes = self.cargar_pendientes_temp()
             
             from datetime import datetime
+            import uuid
             now_iso = datetime.now().isoformat()
+            
             for p in productos:
+                # Si el producto ya tiene un temp_id, no lo volvemos a añadir si ya existe en la lista
+                # (prevención de duplicados en cancelaciones)
+                if 'temp_id' in p:
+                    if any(item.get('temp_id') == p['temp_id'] for item in pendientes):
+                        continue
+                
                 p['ticket_id'] = ticket_id
                 if 'fecha' not in p:
                     p['fecha'] = now_iso
+                if 'temp_id' not in p:
+                    p['temp_id'] = str(uuid.uuid4())
                 pendientes.append(p)
             
             with open(TEMP_FILE, 'w', encoding='utf-8') as f:
@@ -209,22 +219,55 @@ class ReposicionStore:
                 # Compatibilidad con formato antiguo (dict con ticket_id + productos)
                 if isinstance(data, dict):
                     return data.get('productos', [])
+                
+                # Asegurar que todos tengan un temp_id si se cargan de una versión vieja
+                if isinstance(data, list):
+                    modificado = False
+                    for item in data:
+                        if 'temp_id' not in item:
+                            item['temp_id'] = str(uuid.uuid4())
+                            modificado = True
+                    if modificado:
+                        with open(TEMP_FILE, 'w', encoding='utf-8') as f_write:
+                            json.dump(data, f_write, ensure_ascii=False, indent=2, default=str)
+                
                 return data if isinstance(data, list) else []
         except Exception as e:
             logger.exception(f"Error cargando pendientes temporales desde {TEMP_FILE}")
             return []
     
-    def borrar_pendiente_temp(self, producto_id: int, ticket_id: int = None) -> bool:
-        """Borra un producto específico del archivo temporal.
+    def borrar_pendiente_temp(self, temp_id: str) -> bool:
+        """Borra un producto específico del archivo temporal usando su ID único.
         
         Se usa cuando el producto ha sido rellenado correctamente en el formulario.
         
         Args:
-            producto_id: ID del producto a borrar del temp
-            ticket_id: Opcional, filtra también por ticket
+            temp_id: ID único (temp_id) del producto a borrar del temp
             
         Returns:
             True si se borró, False si no se encontró o hubo error
+        """
+        try:
+            pendientes = self.cargar_pendientes_temp()
+            filtrados = [p for p in pendientes if p.get('temp_id') != temp_id]
+            
+            if len(pendientes) == len(filtrados):
+                return False
+            
+            if not filtrados:
+                return self.borrar_pendientes_temp()
+            
+            with open(TEMP_FILE, 'w', encoding='utf-8') as f:
+                json.dump(filtrados, f, ensure_ascii=False, indent=2, default=str)
+            return True
+        except Exception as e:
+            logger.exception(f"Error borrando pendiente temporal ID {temp_id}")
+            return False
+
+    def borrar_pendiente_temp_by_ids(self, producto_id: int, ticket_id: int = None) -> bool:
+        """Borra productos del temporal por producto_id y ticket_id (compatibilidad).
+        
+        ADVERTENCIA: Borra TODOS los que coincidan. Usar preferiblemente borrar_pendiente_temp(temp_id).
         """
         try:
             pendientes = self.cargar_pendientes_temp()

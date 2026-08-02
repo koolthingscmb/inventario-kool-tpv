@@ -1442,20 +1442,24 @@ class TpvController:
                     """
                     componentes = self.db.fetch_all(menu_query, (producto_id,))
                     
+                    import uuid
                     for comp in componentes:
                         if comp[3]:  # fabricado_por_nosotros = 1
                             comp_cantidad = comp[1] * cantidad
                             for _ in range(comp_cantidad):
                                 productos_producibles.append({
                                     'producto_id': comp[0],
+                                    'temp_id': str(uuid.uuid4()), # ID ÚNICO por UNIDAD
                                     'nombre': comp[2],
                                     'cantidad': 1
                                 })
                 elif fabricado:
                     # Producto directo producible: expandir por cantidad
+                    import uuid
                     for _ in range(cantidad):
                         productos_producibles.append({
                             'producto_id': producto_id,
+                            'temp_id': str(uuid.uuid4()), # ID ÚNICO por UNIDAD
                             'nombre': nombre,
                             'cantidad': 1
                         })
