@@ -48,6 +48,8 @@ class CrearClienteUI:
 
         self.cliente_service = ClienteService(db) if db else None
         self.auth_service = AuthService(db) if db else None
+        from kool_tpv.base_datos.configuracion_repository import ConfiguracionRepository
+        self.config_repo = ConfiguracionRepository(db) if db else None
 
         self.container = ctk.CTkFrame(parent, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
 
@@ -463,8 +465,11 @@ class CrearClienteUI:
         self.btn_pedido = create_action_button(self.footer, 'pedido', self._on_pedido)
         self.btn_pedido.pack(side='left', padx=8)
 
-        self.btn_comunicacion = create_action_button(self.footer, 'comunicacion', self._on_comunicacion)
-        self.btn_comunicacion.pack(side='left', padx=8)
+        self.btn_whatsapp = create_action_button(self.footer, 'whatsapp', self._on_whatsapp)
+        self.btn_whatsapp.pack(side='left', padx=8)
+
+        self.btn_mail = create_action_button(self.footer, 'mail', self._on_mail)
+        self.btn_mail.pack(side='left', padx=8)
 
         # Cargar datos si es edición
         if self.cliente_id:
@@ -972,14 +977,77 @@ class CrearClienteUI:
             logger.exception('Error navegando a crear pedido desde ficha cliente')
             ToastWidget.show(self.container, 'NO SE PUDO ABRIR CREAR PEDIDO', tipo='error')
 
-    def _on_comunicacion(self):
-        """Abrir comunicación con cliente."""
+    def _on_whatsapp(self):
+        """Abrir diálogo de selección de plantilla y luego WhatsApp."""
         try:
-            # TODO: Abrir UI de comunicación
-            logger.info('TODO: Implementar comunicación cliente')
-            ToastWidget.show(self.container, 'FUNCIÓN COMUNICACIÓN PRÓXIMAMENTE', tipo='info')
+            telefono = (self.e_telefono.get() or '').strip()
+            if not telefono:
+                ToastWidget.show(self.container, 'EL CLIENTE NO TIENE TELÉFONO', tipo='warning')
+                return
+
+            # Cargar plantillas desde BD
+            val = self.config_repo.obtener_multiples(['whatsapp_plantillas']).get('whatsapp_plantillas')
+            import json
+            plantillas = json.loads(val) if val else []
+
+            # Datos del cliente para reemplazo
+            cliente_data = {
+                'nombre': self.e_nombre.get().strip(),
+                'telefono': telefono,
+                'email': (self.e_email.get() or '').strip()
+            }
+
+            from kool_tpv.utils.dialogs.whatsapp_select_dialog import show_whatsapp_select_dialog
+            mensaje = show_whatsapp_select_dialog(self.container.winfo_toplevel(), plantillas, cliente_data)
+
+            if mensaje is None: # Canceló
+                return
+
+            # Normalizar teléfono (solo números, añadir 34 si es español de 9 cifras)
+            import re
+            solo_numeros = re.sub(r'\D', '', telefono)
+            if len(solo_numeros) == 9 and solo_numeros[0] in ('6', '7'):
+                solo_numeros = '34' + solo_numeros
+            
+            import urllib.parse
+            mensaje_enc = urllib.parse.quote(mensaje)
+            
+            # Protocolos
+            url_web = f"https://wa.me/{solo_numeros}?text={mensaje_enc}"
+            url_app = f"whatsapp://send?phone={solo_numeros}&text={mensaje_enc}"
+
+            import webbrowser
+            try:
+                # Intentar app escritorio primero
+                webbrowser.open(url_app)
+                # Y también web por si acaso/fallback
+                # webbrowser.open(url_web) # Mejor no abrir las dos a la vez
+            except Exception:
+                webbrowser.open(url_web)
+
         except Exception:
-            logger.exception('Error en comunicación')
+            logger.exception('Error en _on_whatsapp')
+            ToastWidget.show(self.container, 'ERROR AL ABRIR WHATSAPP', tipo='error')
+
+    def _on_mail(self):
+        """Abrir cliente de correo del sistema."""
+        try:
+            email = (self.e_email.get() or '').strip()
+            if not email:
+                ToastWidget.show(self.container, 'EL CLIENTE NO TIENE EMAIL', tipo='warning')
+                return
+
+            import urllib.parse
+            subject = urllib.parse.quote("Contacto desde KOOL TPV")
+            body = urllib.parse.quote(f"Hola {self.e_nombre.get().strip()},")
+            url = f"mailto:{email}?subject={subject}&body={body}"
+
+            import webbrowser
+            webbrowser.open(url)
+
+        except Exception:
+            logger.exception('Error en _on_mail')
+            ToastWidget.show(self.container, 'ERROR AL ABRIR CORREO', tipo='error')
 
     def _limpiar_formulario(self):
         """Limpiar todos los campos del formulario."""

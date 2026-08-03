@@ -39,6 +39,7 @@ class ConfigView(BaseModuleView):
             'show_fidelizacion_tipos': getattr(self, 'show_fidelizacion_tipos', None),
             'show_fidelizacion_productos': getattr(self, 'show_fidelizacion_productos', None),
             'show_fidelizacion_niveles': getattr(self, 'show_fidelizacion_niveles', None),
+            'show_whatsapp_templates': getattr(self, 'show_whatsapp_templates', None),
         }
 
         # Registrar métodos como atributos para que BaseModuleView los encuentre
@@ -63,33 +64,6 @@ class ConfigView(BaseModuleView):
         except Exception:
             pass
 
-        # Mapeo breadcrumb callbacks para navegación clickeable
-        self.breadcrumb_callbacks = {
-            'CONFIG': None,  # se asigna después de los handlers
-            'IMPRESIÓN': None,
-            'GENERAL': None,
-            'USUARIO': None,
-            'FIDELIZACIÓN': None,
-            'GENERAL FIDE': None,
-            'CATEGORÍAS FIDE': None,
-            'TIPOS FIDE': None,
-            'PRODUCTOS FIDE': None,
-            'NIVELES FIDE': None,
-            'RESET': None,
-            'IMPRESORA': None,
-            'TEXTOS TICKETS': None,
-            'PLANTILLAS': None,
-            'NUBE': None,
-        }
-
-        try:
-            # Inicializar breadcrumb (los callbacks se actualizarán tras crear handlers)
-            try:
-                self.actualizar_ruta('CONFIG', callbacks=self.breadcrumb_callbacks)
-            except Exception:
-                pass
-        except Exception:
-            pass
         self.parent = parent
         self.db = db
         try:
@@ -200,28 +174,31 @@ class ConfigView(BaseModuleView):
         except Exception:
             logging.exception('Error enlazando botones en ConfigView')
 
-        # Completar mapping de callbacks para breadcrumb (ahora que handlers existen)
+        # Inicializar breadcrumb callbacks al final del __init__ cuando todos los métodos existan
+        self.breadcrumb_callbacks = {
+            'CONFIG': self.show_config_root,
+            'NUBE': self.show_nube,
+            'IMPRESIÓN': self.show_impresion,
+            'GENERAL': self.show_general,
+            'USUARIO': self.show_usuario,
+            'FIDELIZACIÓN': self.show_fidelizacion,
+            'GENERAL FIDE': self.show_fidelizacion_general,
+            'CATEGORÍAS FIDE': self.show_fidelizacion_categorias,
+            'TIPOS FIDE': self.show_fidelizacion_tipos,
+            'PRODUCTOS FIDE': self.show_fidelizacion_productos,
+            'NIVELES FIDE': self.show_fidelizacion_niveles,
+            'RESET': self.show_reset,
+            'IMPRESORA': self.show_impresora_config,
+            'TEXTOS TICKETS': self.show_textos_tickets,
+            'PLANTILLAS': self.show_plantillas,
+            'WASSAP': self.show_whatsapp_templates,
+            'PLANTILLAS INFORMES': self.show_plantillas_informes,
+        }
+
         try:
-            self.breadcrumb_callbacks.update({
-                'CONFIG': self.show_config_root,
-                'NUBE': self.show_nube,
-                'IMPRESIÓN': self.show_impresion,
-                'GENERAL': self.show_general,
-                'USUARIO': self.show_usuario,
-                'FIDELIZACIÓN': self.show_fidelizacion,
-                'GENERAL FIDE': self.show_fidelizacion_general,
-                'CATEGORÍAS FIDE': self.show_fidelizacion_categorias,
-                'TIPOS FIDE': self.show_fidelizacion_tipos,
-                'PRODUCTOS FIDE': self.show_fidelizacion_productos,
-                'NIVELES FIDE': self.show_fidelizacion_niveles,
-                'RESET': self.show_reset,
-                'IMPRESORA': self.show_impresora_config,
-                'TEXTOS TICKETS': self.show_textos_tickets,
-                'PLANTILLAS': self.show_plantillas,
-            })
+            self.actualizar_ruta('CONFIG', callbacks=self.breadcrumb_callbacks)
         except Exception:
-            # No crítico: si falla, navegacion clickeable no disponible
-            logging.exception('No se pudo inicializar breadcrumb_callbacks')
+            pass
 
     def show_general(self):
         """Mostrar config general (sin protección password)."""
@@ -267,6 +244,7 @@ class ConfigView(BaseModuleView):
                 'show_impresora_config': self.show_impresora_config,
                 'show_textos_tickets': self.show_textos_tickets,
                 'show_plantillas': self.show_plantillas,
+                'show_whatsapp_templates': self.show_whatsapp_templates,
                 'show_plantillas_informes': self.show_plantillas_informes,
             }
 
@@ -520,6 +498,20 @@ class ConfigView(BaseModuleView):
                 logging.info('Config: abriendo PLANTILLAS...')
         except Exception:
             logging.exception('Error en show_plantillas')
+
+    def show_whatsapp_templates(self):
+        """Mostrar configuración de plantillas de WhatsApp."""
+        try:
+            from kool_tpv.modulos.configuracion.impresion.whatsapp_plantillas_ui import WhatsappPlantillasUI
+            ui = WhatsappPlantillasUI(self.central_area, db=self.db, module_name='config')
+            if self.set_central_content(ui):
+                try:
+                    self.actualizar_ruta('CONFIG / IMPRESIÓN / WASSAP', callbacks=self.breadcrumb_callbacks)
+                except Exception:
+                    pass
+                logging.info('Config: abriendo PLANTILLAS WHATSAPP...')
+        except Exception:
+            logging.exception('Error en show_whatsapp_templates')
 
     def show_plantillas_informes(self):
         """Mostrar configuración de plantilla PDF de informes."""

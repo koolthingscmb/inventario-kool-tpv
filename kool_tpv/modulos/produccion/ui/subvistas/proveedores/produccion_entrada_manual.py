@@ -238,19 +238,28 @@ class ProduccionEntradaManualUI:
             
             self.lineas = []
             for l in detalle['lines']:
-                # Intentar parsear el nombre para recuperar datos si es posible (formato: "Tipo / Variante - Color (Talla)")
-                # Pero de momento cargamos como líneas de "solo lectura" en la tabla.
-                
-                # Intentar obtener el SKU si existe en la línea (aunque albaran_lines no lo tenga, 
-                # podríamos buscarlo si tuviéramos los IDs, pero aquí cargamos de albarán general)
                 sku = l.get('sku', '')
                 
+                # Intentar recuperar IDs desde el stock base usando el SKU para permitir edición
+                tipo_id = None
+                variante_id = None
+                color_id = None
+                talla = ''
+                
+                if sku:
+                    stock_info = self.stock_service.get_by_sku(sku)
+                    if stock_info:
+                        tipo_id = stock_info.get('tipo_id')
+                        variante_id = stock_info.get('variante_id')
+                        color_id = stock_info.get('color_id')
+                        talla = stock_info.get('talla', '')
+                
                 self.lineas.append({
-                    'id': l['id'], # Importante para saber que ya existe en la BD
-                    'tipo_id': None, # No lo tenemos fácil
-                    'variante_id': None,
-                    'color_id': None,
-                    'talla': '',
+                    'id': l['id'],
+                    'tipo_id': tipo_id,
+                    'variante_id': variante_id,
+                    'color_id': color_id,
+                    'talla': talla or '',
                     'sku': sku,
                     'nombre': l['nombre'],
                     'cantidad': l['cantidad'],

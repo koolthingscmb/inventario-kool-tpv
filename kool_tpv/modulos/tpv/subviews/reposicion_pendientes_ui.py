@@ -306,7 +306,7 @@ class ReposicionPendientesUI(ctk.CTkFrame):
                     item_id = item.get("id")
                     
                     if es_temp:
-                        if self.store.borrar_pendiente_temp(producto_id, ticket_id):
+                        if self.store.borrar_pendiente_temp_by_ids(producto_id, ticket_id):
                             success_count += 1
                     else:
                         if self.store.borrar(item_id):
