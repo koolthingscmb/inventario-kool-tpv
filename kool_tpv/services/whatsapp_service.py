@@ -76,7 +76,7 @@ class WhatsAppService:
 
             # 1. Cargar plantillas desde la base de datos
             config_repo = ConfiguracionRepository(db)
-            plantillas_json = config_repo.get_config('whatsapp_plantillas')
+            plantillas_json = config_repo.obtener_multiples(['whatsapp_plantillas']).get('whatsapp_plantillas')
             import json
             try:
                 plantillas = json.loads(plantillas_json) if plantillas_json else []
