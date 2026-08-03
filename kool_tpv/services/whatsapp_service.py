@@ -43,18 +43,35 @@ class WhatsAppService:
         """Detecta si WhatsApp Desktop está instalado en el sistema."""
         system = platform.system()
         if system == 'Windows':
-            # Rutas típicas de WhatsApp Desktop en Windows
+            try:
+                import winreg
+                # Buscar en el registro el handler del protocolo whatsapp://
+                with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, 'whatsapp', 0, winreg.KEY_READ) as key:
+                    # Si existe la clave, el protocolo está registrado
+                    return True
+            except Exception:
+                pass
+            
+            # Fallback: buscar en rutas comunes
             possible_paths = [
-                r'C:\Users\{}\AppData\Local\WhatsApp\WhatsApp.exe'.format(os.environ.get('USERNAME', '')),
-                r'C:\Program Files\WindowsApps\5319275A.WhatsAppDesktop_*\WhatsApp.exe',
+                os.path.expandvars(r'%LOCALAPPDATA%\WhatsApp\WhatsApp.exe'),
+                os.path.expandvars(r'%PROGRAMFILES%\WhatsApp\WhatsApp.exe'),
+                os.path.expandvars(r'%PROGRAMFILES(X86)%\WhatsApp\WhatsApp.exe'),
             ]
-            for path in possible_paths:
-                if '*' in path:
-                    matches = glob.glob(path)
+            # También buscar en WindowsApps con glob
+            windows_apps = os.path.expandvars(r'%PROGRAMFILES%\WindowsApps')
+            if os.path.exists(windows_apps):
+                try:
+                    matches = glob.glob(os.path.join(windows_apps, '5319275A.WhatsAppDesktop_*', 'WhatsApp.exe'))
                     if matches:
                         return True
-                elif os.path.exists(path):
+                except Exception:
+                    pass
+            
+            for path in possible_paths:
+                if os.path.exists(path):
                     return True
+                    
         elif system == 'Darwin':  # macOS
             if os.path.exists('/Applications/WhatsApp.app'):
                 return True
