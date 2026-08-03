@@ -973,57 +973,23 @@ class CrearClienteUI:
                 )
                 if dialog.show():
                     ToastWidget.show(self.container, "PEDIDO REGISTRADO CORRECTAMENTE", tipo='success')
+
         except Exception:
-            logger.exception('Error navegando a crear pedido desde ficha cliente')
-            ToastWidget.show(self.container, 'NO SE PUDO ABRIR CREAR PEDIDO', tipo='error')
+            logger.exception('Error en _on_pedido')
+            ToastWidget.show(self.container, 'ERROR AL ABRIR PEDIDOS', tipo='error')
 
     def _on_whatsapp(self):
-        """Abrir diálogo de selección de plantilla y luego WhatsApp."""
+        """Abrir diálogo de WhatsApp y enviar mensaje."""
         try:
             telefono = (self.e_telefono.get() or '').strip()
-            if not telefono:
-                ToastWidget.show(self.container, 'EL CLIENTE NO TIENE TELÉFONO', tipo='warning')
-                return
-
-            # Cargar plantillas desde BD
-            val = self.config_repo.obtener_multiples(['whatsapp_plantillas']).get('whatsapp_plantillas')
-            import json
-            plantillas = json.loads(val) if val else []
-
-            # Datos del cliente para reemplazo
             cliente_data = {
-                'nombre': self.e_nombre.get().strip(),
+                'nombre': (self.e_nombre.get() or '').strip(),
                 'telefono': telefono,
                 'email': (self.e_email.get() or '').strip()
             }
-
-            from kool_tpv.utils.dialogs.whatsapp_select_dialog import show_whatsapp_select_dialog
-            mensaje = show_whatsapp_select_dialog(self.container.winfo_toplevel(), plantillas, cliente_data)
-
-            if mensaje is None: # Canceló
-                return
-
-            # Normalizar teléfono (solo números, añadir 34 si es español de 9 cifras)
-            import re
-            solo_numeros = re.sub(r'\D', '', telefono)
-            if len(solo_numeros) == 9 and solo_numeros[0] in ('6', '7'):
-                solo_numeros = '34' + solo_numeros
             
-            import urllib.parse
-            mensaje_enc = urllib.parse.quote(mensaje)
-            
-            # Protocolos
-            url_web = f"https://wa.me/{solo_numeros}?text={mensaje_enc}"
-            url_app = f"whatsapp://send?phone={solo_numeros}&text={mensaje_enc}"
-
-            import webbrowser
-            try:
-                # Intentar app escritorio primero
-                webbrowser.open(url_app)
-                # Y también web por si acaso/fallback
-                # webbrowser.open(url_web) # Mejor no abrir las dos a la vez
-            except Exception:
-                webbrowser.open(url_web)
+            from kool_tpv.services.whatsapp_service import WhatsAppService
+            WhatsAppService.enviar_mensaje(self.container, self.db, telefono, cliente_data)
 
         except Exception:
             logger.exception('Error en _on_whatsapp')

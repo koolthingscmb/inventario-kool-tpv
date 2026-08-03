@@ -196,6 +196,9 @@ class CrearPedidoUI:
         
         self.btn_guardar = create_action_button(footer, 'guardar', self._on_guardar)
         self.btn_guardar.pack(side='right', padx=10)
+
+        self.btn_whatsapp = create_action_button(footer, 'whatsapp', self._on_whatsapp)
+        self.btn_whatsapp.pack(side='right', padx=10)
         
         self.btn_cancelar = create_action_button(footer, 'cancelar', self._on_cancelar)
         self.btn_cancelar.pack(side='left', padx=10)
@@ -259,6 +262,7 @@ class CrearPedidoUI:
             
         # 4. Botones inferiores
         if hasattr(self, 'btn_cancelar'): add_widget(self.btn_cancelar)
+        if hasattr(self, 'btn_whatsapp'): add_widget(self.btn_whatsapp)
         if hasattr(self, 'btn_guardar'): add_widget(self.btn_guardar)
         
         return [w for w in widgets if w.winfo_exists() and w.winfo_viewable()]
@@ -586,3 +590,20 @@ class CrearPedidoUI:
             # La cantidad se pone manual
             self.lineas_widgets[-1]['e_cant'].delete(0, 'end')
             self.lineas_widgets[-1]['e_cant'].insert(0, str(lin.get('cantidad', 1)))
+
+    def _on_whatsapp(self):
+        """Abrir diálogo de WhatsApp y enviar mensaje."""
+        try:
+            telefono = (self.e_cli_tel.get() or '').strip()
+            cliente_data = {
+                'nombre': (self.e_cli_nombre.get() or '').strip(),
+                'telefono': telefono,
+                'email': self.selected_cliente.get('email', '') if self.selected_cliente else ''
+            }
+            
+            from kool_tpv.services.whatsapp_service import WhatsAppService
+            WhatsAppService.enviar_mensaje(self.container, self.db, telefono, cliente_data)
+
+        except Exception:
+            logger.exception('Error en _on_whatsapp')
+            ToastWidget.show(self.container, 'ERROR AL ABRIR WHATSAPP', tipo='error')
