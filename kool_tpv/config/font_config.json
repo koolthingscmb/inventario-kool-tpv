@@ -204,7 +204,7 @@
         },
         "header_cajero": {
           "family": "Courier New",
-          "size": 18,
+          "size": 28,
           "weight": "bold"
         },
         "header_cliente": {
