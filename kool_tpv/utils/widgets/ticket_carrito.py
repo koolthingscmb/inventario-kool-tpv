@@ -101,6 +101,12 @@ class TicketCarrito(ctk.CTkFrame):
             # Info section
             info_cfg = header_cfg.get("info_section", {})
             info_height = info_cfg.get("label_height", 20)
+            
+            # AJUSTE: Si el cajero tiene fuente grande, aumentar altura de la sección
+            cajero_font_cfg = self.ticket_fonts.get("header_cajero", {})
+            cajero_font_size = cajero_font_cfg.get("size", 18)
+            info_height = max(info_height, cajero_font_size + 4)
+            
             info_spacing = info_cfg.get("spacing_top", 4) + info_cfg.get("spacing_bottom", 4)
 
             # Cliente section
@@ -145,7 +151,8 @@ class TicketCarrito(ctk.CTkFrame):
                 header_cfg_layout.get("padding_vertical_bottom", 0)
             )
         )
-        self.header_frame.pack_propagate(False)
+        # Dejar que el contenido defina la altura si el cálculo se queda corto
+        self.header_frame.pack_propagate(True)
 
         # Zona 1: Info general (hora/fecha + cajero)
         self._create_info_section()
@@ -199,14 +206,15 @@ class TicketCarrito(ctk.CTkFrame):
         )
         self.hora_label.pack(side="left", padx=(pad_h, 0))
 
-        # Cajero
+        # Cajero (altura dinámica basada en tamaño de fuente para evitar solapes)
+        cajero_label_height = max(label_height, cajero_font[1] + 4)
         self.cajero_label = ctk.CTkLabel(
             info_container,
             text="Cajero: ---",
             font=cajero_font,
             text_color=self._default_cajero_color,
             anchor="e",
-            height=label_height
+            height=cajero_label_height
         )
         self.cajero_label.pack(side="right", padx=(0, pad_h))
 
