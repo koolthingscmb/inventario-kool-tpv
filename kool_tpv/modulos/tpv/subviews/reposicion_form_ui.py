@@ -317,9 +317,10 @@ class ReposicionFormUI(CTkFrame):
                 w.bind('<Tab>', on_tab)
                 w.bind('<Shift-Tab>', on_tab)
 
-        # Binding de Enter para guardar (ZONA 4)
-        self.bind_all('<Return>', self._on_enter_save, add='+')
-        self.bind_all('<KP_Enter>', self._on_enter_save, add='+')
+        # Binding de Enter para guardar (ZONA 4) sobre el toplevel (CTk bloquea bind_all directo)
+        root = self.winfo_toplevel()
+        root.bind_all('<Return>', self._on_enter_save, add='+')
+        root.bind_all('<KP_Enter>', self._on_enter_save, add='+')
 
         import tkinter as _tk
         def disable_frame_focus(parent):
@@ -350,8 +351,9 @@ class ReposicionFormUI(CTkFrame):
     def destroy(self):
         """Limpiar bindings globales al destruir."""
         try:
-            self.unbind_all('<Return>')
-            self.unbind_all('<KP_Enter>')
+            root = self.winfo_toplevel()
+            root.unbind_all('<Return>')
+            root.unbind_all('<KP_Enter>')
         except Exception:
             pass
         super().destroy()
@@ -667,6 +669,9 @@ class ReposicionFormUI(CTkFrame):
             data = nav.get_selected_data()
             if data:
                 self._on_diseno_double_click(data)
+                # Salto automático al botón Guardar tras seleccionar diseño
+                self.after(100, lambda: self.btn_guardar.focus_set())
+        return "break"
 
     # ----------------- Guardar / Cancelar -----------------
 

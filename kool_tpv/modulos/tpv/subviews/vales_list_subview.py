@@ -21,6 +21,24 @@ class ValesListSubView(CTkFrame):
         self.header_frame.pack(side="top", fill="x", padx=20, pady=10)
 
         from kool_tpv.utils.factories.button_factory import ButtonFactory
+        
+        self.btn_usar = ButtonFactory.create_button(
+            parent=self.header_frame,
+            text="USAR VALE",
+            style_key="action_success",
+            command=self._on_usar_vale
+        )
+        self.btn_usar.pack(side="right", padx=10)
+        self.btn_usar.configure(state="disabled")
+
+        self.btn_crear = ButtonFactory.create_button(
+            parent=self.header_frame,
+            text="+ CREAR VALE",
+            style_key="action_primary",
+            command=self._on_crear_vale
+        )
+        self.btn_crear.pack(side="right", padx=10)
+
         self.btn_eliminar = ButtonFactory.create_button(
             parent=self.header_frame,
             text="ELIMINAR",
@@ -43,12 +61,12 @@ class ValesListSubView(CTkFrame):
         self.list_frame.pack(side="top", fill="both", expand=True, padx=20, pady=10)
 
         columns = [
-            ("fecha", 160, "Fecha"),
-            ("nombre_vale", 200, "Nombre Vale"),
+            ("fecha", 100, "Fecha"),
+            ("nombre_vale", 180, "Nombre Vale"),
+            ("cliente", 180, "Cliente"),
             ("importe", 100, "Importe"),
-            ("estado", 100, "Estado"),
-            ("ticket_devolucion", 140, "Ticket Devolución"),
-            ("ticket_venta", 140, "Usado en Ticket"),
+            ("ticket_devolucion", 140, "Devolución"),
+            ("usado_check", 80, "Usado"),
         ]
 
         from kool_tpv.utils.widgets.searchable_paginated_navlist import SearchablePaginatedNavList
@@ -102,10 +120,21 @@ class ValesListSubView(CTkFrame):
             from kool_tpv.base_datos.money_adapter import read_from_db
             from pathlib import Path as _Path
             importe = read_from_db(vale.get('importe_cents', 0))
-            fecha = vale.get('fecha', '')[:16].replace('T', ' ')
+            
+            # Formato fecha d-m-y
+            raw_fecha = vale.get('fecha', '')
+            if raw_fecha:
+                try:
+                    from datetime import datetime
+                    dt = datetime.fromisoformat(raw_fecha)
+                    fecha_str = dt.strftime('%d-%m-%y')
+                except Exception:
+                    fecha_str = raw_fecha[:10]
+            else:
+                fecha_str = '-'
+
             usado = vale.get('usado', False)
-            estado = 'USADO' if usado else 'PENDIENTE'
-            ticket_venta = vale.get('num_ticket_venta_uso') or '-'
+            usado_check = '✓' if usado else '✗'
             
             # Obtener nombre del archivo sin extensión
             path_str = vale.get('path', '')
@@ -116,23 +145,84 @@ class ValesListSubView(CTkFrame):
             return {
                 'id': vale.get('id'),
                 'path': path_str,
-                'fecha': fecha,
+                'fecha': fecha_str,
                 'nombre_vale': nombre_vale,
+                'cliente': vale.get('cliente_nombre') or '-',
                 'importe': f'{importe:.2f} €',
-                'estado': estado,
                 'ticket_devolucion': vale.get('num_ticket_devolucion', '-'),
-                'ticket_venta': ticket_venta,
+                'usado_check': usado_check,
                 'usado': usado,
             }
         except Exception:
             return {}
 
     def _on_selection_change(self, indices):
-        """Habilitar/Deshabilitar botón eliminar según selección."""
+        """Habilitar/Deshabilitar botones según selección."""
         if indices:
             self.btn_eliminar.configure(state="normal")
+            # Habilitar USAR VALE solo si hay 1 seleccionado y no está usado
+            items = self.search_list.get_selected_items()
+            if len(items) == 1 and not items[0].get('usado'):
+                self.btn_usar.configure(state="normal")
+            else:
+                self.btn_usar.configure(state="disabled")
         else:
             self.btn_eliminar.configure(state="disabled")
+            self.btn_usar.configure(state="disabled")
+
+    def _on_crear_vale(self):
+        """Abrir subvista de creación manual de vale."""
+        try:
+            from kool_tpv.modulos.tpv.subviews.vale_crear_ui import ValeCrearUI
+            root = self.winfo_toplevel()
+            db = getattr(root, 'db', None)
+            
+            subview = ValeCrearUI(
+                parent=self.view.center_area,
+                view=self.view,
+                db=db,
+                callback_success=lambda: self.search_list.search('')
+            )
+            self.view.push_subview(subview, "CREAR VALE MANUAL")
+        except Exception:
+            logger.exception('Error abriendo ValeCrearUI')
+
+    def _on_usar_vale(self):
+        """Aplicar el vale seleccionado al carrito del TPV."""
+        items = self.search_list.get_selected_items()
+        if not items or len(items) != 1:
+            return
+        
+        vale_data = items[0]
+        if vale_data.get('usado'):
+            ToastWidget.show(self, "El vale ya ha sido usado", tipo='warning')
+            return
+
+        try:
+            # 1. Cargar datos completos del vale desde el service (necesitamos importe_cents)
+            full_vale = self.vale_service.obtener_por_id(vale_data['id'])
+            if not full_vale:
+                ToastWidget.show(self, "No se encontró el archivo del vale", tipo='error')
+                return
+
+            # 2. Aplicar al carrito
+            if hasattr(self.view, 'carrito_service'):
+                self.view.carrito_service.aplicar_vale(full_vale)
+                
+                # 3. Refrescar ticket
+                ticket = getattr(self.view, 'ticket_widget', None)
+                if ticket and hasattr(ticket, 'update_carrito'):
+                    ticket.update_carrito()
+                
+                # 4. Volver al TPV
+                if hasattr(self.view, 'pop_subview'):
+                    self.view.pop_subview()
+                    ToastWidget.show(self.view, "Vale aplicado al carrito", tipo='success')
+            else:
+                ToastWidget.show(self, "No se pudo acceder al carrito", tipo='error')
+        except Exception:
+            logger.exception('Error usando vale')
+            ToastWidget.show(self, "Error al aplicar el vale", tipo='error')
 
     def _on_double_click(self, data):
         if self.on_select_callback:
