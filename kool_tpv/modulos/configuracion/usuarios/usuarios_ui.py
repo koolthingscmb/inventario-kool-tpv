@@ -94,10 +94,42 @@ class UsuariosUI:
         self.sw_cajon = ctk.CTkSwitch(self.grid_frame, text='Cajón')
         self.sw_cajon.grid(row=4, column=7, columnspan=1, padx=6, pady=6, sticky='w')
 
-        # Row5: Chips area
-        self.grid_frame.grid_rowconfigure(5, weight=1)
+        # Row 5: COLOR PALETTE
+        ctk.CTkLabel(self.grid_frame, text='COLOR UI:', text_color=self.colors.get('text'), font=get_font('label', module='config')).grid(row=5, column=0, sticky='w', padx=6, pady=6)
+        self.colors_palette_frame = ctk.CTkFrame(self.grid_frame, fg_color='transparent')
+        self.colors_palette_frame.grid(row=5, column=1, columnspan=7, sticky='ew', padx=6, pady=6)
+        
+        self.user_colors = [
+            '#00FF00', '#FFD700', '#FF5733', '#3357FF', 
+            '#FF33E9', '#33FFF5', '#A833FF', '#FFFFFF',
+            '#FF8C00', '#00CED1', '#ADFF2F', '#F08080'
+        ]
+        self.color_btns = {}
+        self.selected_color = '#00FF00' # Default
+        
+        for i, color in enumerate(self.user_colors):
+            btn = ctk.CTkButton(
+                self.colors_palette_frame, 
+                text='', 
+                fg_color=color, 
+                hover_color=color,
+                width=30, 
+                height=30, 
+                corner_radius=15, # Round
+                border_width=0,
+                command=lambda c=color: self._select_color(c)
+            )
+            btn.pack(side='left', padx=4)
+            self.color_btns[color] = btn
+            
+        # Preview of selected color
+        self.color_preview = ctk.CTkLabel(self.colors_palette_frame, text='SELECCIONADO', text_color=self.selected_color, font=get_font('label', module='config'))
+        self.color_preview.pack(side='left', padx=20)
+
+        # Row 6: Chips area
+        self.grid_frame.grid_rowconfigure(6, weight=1)
         self.chips_frame = ctk.CTkScrollableFrame(self.grid_frame, fg_color=self.colors.get('background'))
-        self.chips_frame.grid(row=5, column=0, columnspan=8, sticky='nsew', padx=6, pady=6)
+        self.chips_frame.grid(row=6, column=0, columnspan=8, sticky='nsew', padx=6, pady=6)
 
         # Footer buttons
         self.footer = ctk.CTkFrame(self.container, fg_color='transparent')
@@ -173,6 +205,23 @@ class UsuariosUI:
         except Exception:
             pass
 
+    def _select_color(self, color):
+        try:
+            # Deselect previous
+            if self.selected_color in self.color_btns:
+                self.color_btns[self.selected_color].configure(border_width=0)
+            
+            self.selected_color = color
+            
+            # Select new
+            if color in self.color_btns:
+                self.color_btns[color].configure(border_width=2, border_color='#FFFFFF')
+            
+            # Update preview
+            self.color_preview.configure(text_color=color)
+        except Exception:
+            logging.exception('Error seleccionando color de usuario')
+
     def _load_usuario_into_form(self, usr: dict):
         try:
             self.e_id.configure(state='normal')
@@ -196,6 +245,10 @@ class UsuariosUI:
 
             # Always clear password field when loading
             self.e_password.delete(0, 'end')
+
+            # Color
+            db_color = usr.get('ui_color', '#00FF00')
+            self._select_color(db_color)
 
             # Normalize role values to match combobox entries
             rol = (usr.get('rol') or 'Cajero')
@@ -279,6 +332,9 @@ class UsuariosUI:
             except Exception:
                 pass
 
+            # Reset color palette
+            self._select_color('#00FF00')
+
             self.btn_guardar.configure(text='GUARDAR')
         except Exception:
             logging.exception('Error limpiando formulario usuarios')
@@ -310,6 +366,8 @@ class UsuariosUI:
             permiso_devolucion = 1 if self.sw_devolucion.get() else 0
             permiso_tickets = 1 if self.sw_tickets.get() else 0
             permiso_cajon = 1 if self.sw_cajon.get() else 0
+            
+            ui_color = self.selected_color
 
             id_val = None
             try:
@@ -330,6 +388,7 @@ class UsuariosUI:
                     'permiso_devolucion': permiso_devolucion,
                     'permiso_tickets': permiso_tickets,
                     'permiso_cajon': permiso_cajon,
+                    'ui_color': ui_color,
                 }
                 if password:
                     data['password'] = password
@@ -350,7 +409,7 @@ class UsuariosUI:
                 ok = self.service.save_usuario(nombre, email=email, telefono=telefono, password=password, rol=rol,
                                                permiso_cierre=permiso_cierre, permiso_descuento=permiso_descuento,
                                                permiso_devolucion=permiso_devolucion, permiso_tickets=permiso_tickets,
-                                               permiso_cajon=permiso_cajon)
+                                               permiso_cajon=permiso_cajon, ui_color=ui_color)
 
             if ok:
                 # Mostrar diálogo de éxito según operación

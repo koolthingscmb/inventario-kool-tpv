@@ -14,7 +14,7 @@ class UsuarioService:
             # id, nombre, password, rol, permiso_cierre, permiso_descuento, permiso_devolucion, permiso_tickets
             query = """
                 SELECT id, nombre, rol, permiso_cierre, permiso_descuento, permiso_devolucion, permiso_tickets,
-                       created_at, telefono, email, permiso_cajon
+                       created_at, telefono, email, permiso_cajon, ui_color, banner_path
                 FROM usuarios
                 ORDER BY nombre
             """
@@ -33,6 +33,8 @@ class UsuarioService:
                     'telefono': r[8] or '',
                     'email': r[9] or '',
                     'permiso_cajon': int(r[10] or 0),
+                    'ui_color': r[11] or '#00FF00',
+                    'banner_path': r[12] or None,
                 })
             return usuarios
         except Exception:
@@ -45,7 +47,9 @@ class UsuarioService:
             row = self.db.fetch_one(query, (user_id,))
             if not row:
                 return None
-            # Map columns according to actual schema (including optional email/telefono/created_at)
+            
+            # Map columns by name if possible, or position (id=0, nombre=1, password=2, rol=3, ..., ui_color=12, banner_path=13)
+            # The schema order is: id, nombre, password, rol, permiso_cierre, permiso_descuento, permiso_devolucion, permiso_tickets, created_at, telefono, email, permiso_cajon, ui_color, banner_path
             return {
                 'id': row[0],
                 'nombre': row[1] or '',
@@ -59,6 +63,8 @@ class UsuarioService:
                 'telefono': row[9] if len(row) > 9 else '',
                 'email': row[10] if len(row) > 10 else '',
                 'permiso_cajon': int(row[11]) if len(row) > 11 and row[11] is not None else 0,
+                'ui_color': row[12] if len(row) > 12 else '#00FF00',
+                'banner_path': row[13] if len(row) > 13 else None,
             }
         except Exception:
             logging.exception(f'Error obteniendo usuario {user_id}')
@@ -66,7 +72,7 @@ class UsuarioService:
 
     def save_usuario(self, nombre, email='', telefono='', password='', rol='Cajero',
                      permiso_cierre=0, permiso_descuento=0, permiso_devolucion=0, permiso_tickets=0,
-                     permiso_cajon=0) -> bool:
+                     permiso_cajon=0, ui_color='#00FF00', banner_path=None) -> bool:
         try:
             if not nombre:
                 logging.warning('UsuarioService.save_usuario: nombre vacío')
@@ -80,10 +86,10 @@ class UsuarioService:
                 created_at = datetime.now().isoformat(sep=' ', timespec='seconds')
             query = """
                 INSERT INTO usuarios
-                (nombre, password, rol, permiso_cierre, permiso_descuento, permiso_devolucion, permiso_tickets, created_at, telefono, email, permiso_cajon)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (nombre, password, rol, permiso_cierre, permiso_descuento, permiso_devolucion, permiso_tickets, created_at, telefono, email, permiso_cajon, ui_color, banner_path)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
-            self.db.execute_query(query, (nombre, password_hash, rol, int(permiso_cierre), int(permiso_descuento), int(permiso_devolucion), int(permiso_tickets), created_at, telefono, email, int(permiso_cajon)))
+            self.db.execute_query(query, (nombre, password_hash, rol, int(permiso_cierre), int(permiso_descuento), int(permiso_devolucion), int(permiso_tickets), created_at, telefono, email, int(permiso_cajon), ui_color, banner_path))
             return True
         except Exception:
             logging.exception('Error guardando usuario')
@@ -97,7 +103,7 @@ class UsuarioService:
             # Prepare allowed fields
             allowed = ['nombre', 'email', 'telefono', 'password', 'rol',
                        'permiso_cierre', 'permiso_descuento', 'permiso_devolucion', 'permiso_tickets',
-                       'permiso_cajon']
+                       'permiso_cajon', 'ui_color', 'banner_path']
 
             updates = []
             params = []

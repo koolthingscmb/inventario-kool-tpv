@@ -467,6 +467,24 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migration 034: Personalización visual de usuarios (ui_color, banner_path)
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('usuarios')") or [])]
+			if 'ui_color' not in cols:
+				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '034_usuarios_visual_customization.sql'
+				if mig_path.exists():
+					logging.info('Aplicando migración 034: ui_color/banner_path en usuarios')
+					cur = db.connection.cursor()
+					cur.executescript(mig_path.read_text(encoding='utf-8'))
+					db.connection.commit()
+					logging.info('Migración 034 aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 034')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Validate again
 		try:
 			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table'")

@@ -161,14 +161,25 @@ class TicketCarrito(ctk.CTkFrame):
             info_font_cfg.get("size", 14),
             info_font_cfg.get("weight", "normal")
         )
-        text_color = self.ticket_colors.get("header", {}).get("text_info", "#00FF00")
+        
+        # Nueva fuente para el cajero (posibilidad de ser más grande)
+        cajero_font_cfg = self.ticket_fonts.get("header_cajero", info_font_cfg)
+        cajero_font = (
+            cajero_font_cfg.get("family", "Courier New"),
+            cajero_font_cfg.get("size", 18), # Por defecto un poco más grande
+            cajero_font_cfg.get("weight", "bold")
+        )
+
+        text_color_info = self.ticket_colors.get("header", {}).get("text_info", "#00FF00")
+        # El color del cajero puede ser personalizado, por defecto usa el de info
+        self._default_cajero_color = self.ticket_colors.get("header", {}).get("text_cajero", text_color_info)
 
         header_layout = self.ticket_layout.get("header", {})
         info_cfg = header_layout.get("info_section", {})
 
         spacing_top = info_cfg.get("spacing_top", 4)
         spacing_bottom = info_cfg.get("spacing_bottom", 4)
-        label_height = info_cfg.get("label_height", 20)
+        label_height = info_cfg.get("label_height", 24) # Aumentado un poco para fuentes grandes
         pad_h = header_layout.get("padding_horizontal", 12)
 
         info_container = ctk.CTkFrame(self.header_frame, fg_color="transparent")
@@ -182,7 +193,7 @@ class TicketCarrito(ctk.CTkFrame):
             info_container,
             text="--:--:--",
             font=info_font,
-            text_color=text_color,
+            text_color=text_color_info,
             anchor="w",
             height=label_height
         )
@@ -192,8 +203,8 @@ class TicketCarrito(ctk.CTkFrame):
         self.cajero_label = ctk.CTkLabel(
             info_container,
             text="Cajero: ---",
-            font=info_font,
-            text_color=text_color,
+            font=cajero_font,
+            text_color=self._default_cajero_color,
             anchor="e",
             height=label_height
         )
@@ -647,10 +658,14 @@ class TicketCarrito(ctk.CTkFrame):
         except Exception:
             pass
 
-    def update_cajero(self, nombre: str):
+    def update_cajero(self, nombre: str, color: str = None):
         """Actualizar nombre del cajero."""
         try:
             self.cajero_label.configure(text=f"Cajero: {nombre}")
+            if color:
+                self.cajero_label.configure(text_color=color)
+            else:
+                self.cajero_label.configure(text_color=self._default_cajero_color)
         except Exception:
             pass
 

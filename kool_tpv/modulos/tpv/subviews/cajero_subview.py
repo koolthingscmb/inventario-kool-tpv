@@ -80,6 +80,7 @@ class CajeroSubView(CTkFrame, KeyboardNavigableMixin):
 
         if valid:
             cajero_data = {"id": user_id, "nombre": nombre}
+            user_color = None
             try:
                 usr = self.usuario_service.get_usuario(user_id) if self.usuario_service else None
                 if usr:
@@ -89,13 +90,14 @@ class CajeroSubView(CTkFrame, KeyboardNavigableMixin):
                     cajero_data['permiso_devolucion'] = usr.get('permiso_devolucion', 0)
                     cajero_data['permiso_tickets'] = usr.get('permiso_tickets', 0)
                     cajero_data['permiso_cajon'] = usr.get('permiso_cajon', 0)
+                    user_color = usr.get('ui_color')
             except Exception:
                 pass
             self.carrito_service.set_cajero(cajero_data)
 
             ticket_widget = getattr(self.view, "ticket_widget", None)
             if ticket_widget is not None:
-                ticket_widget.update_cajero(nombre)
+                ticket_widget.update_cajero(nombre, color=user_color)
 
             pop = getattr(self.view, "pop_subview", None)
             if callable(pop):
