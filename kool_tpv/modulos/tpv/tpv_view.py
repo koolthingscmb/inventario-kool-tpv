@@ -394,6 +394,8 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
             else:
                 # Si estamos en el grid base, ocultar el frame del grid completamente
                 try:
+                    # Resetear índice de foco para evitar que al volver el Enter actúe sobre el anterior
+                    self._nav_focused_index = -1
                     self.grid_frame.pack_forget()
                 except Exception:
                     pass

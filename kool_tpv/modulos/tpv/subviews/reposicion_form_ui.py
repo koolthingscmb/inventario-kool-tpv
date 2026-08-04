@@ -317,6 +317,10 @@ class ReposicionFormUI(CTkFrame):
                 w.bind('<Tab>', on_tab)
                 w.bind('<Shift-Tab>', on_tab)
 
+        # Binding de Enter para guardar (ZONA 4)
+        self.bind_all('<Return>', self._on_enter_save, add='+')
+        self.bind_all('<KP_Enter>', self._on_enter_save, add='+')
+
         import tkinter as _tk
         def disable_frame_focus(parent):
             for child in parent.winfo_children():
@@ -325,6 +329,32 @@ class ReposicionFormUI(CTkFrame):
                     except: pass
                     disable_frame_focus(child)
         disable_frame_focus(self)
+
+    def _on_enter_save(self, event=None):
+        """Maneja el Enter global para guardar en reposición."""
+        try:
+            if not self.winfo_exists() or not self.winfo_viewable():
+                return
+            
+            # Si el foco está en el cuadro de comentarios (textbox), permitir saltos de línea
+            focused = self.winfo_toplevel().focus_get()
+            if focused and 'textbox' in str(focused).lower():
+                return
+
+            # Ejecutar guardado
+            self._on_guardar()
+            return "break"
+        except Exception:
+            pass
+
+    def destroy(self):
+        """Limpiar bindings globales al destruir."""
+        try:
+            self.unbind_all('<Return>')
+            self.unbind_all('<KP_Enter>')
+        except Exception:
+            pass
+        super().destroy()
 
     # ----------------- Carga y estado -----------------
 

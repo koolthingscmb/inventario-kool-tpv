@@ -153,7 +153,20 @@ class KeyboardNavigableMixin:
 
     def _on_nav_enter(self, event):
         """Activar el widget que tiene el foco navegable."""
-        # Si el BarcodeService tiene caracteres pendientes, no consumir el Enter
+        # 0. SEGURIDAD: Si esta vista no es visible, ignorar TOTALMENTE el evento.
+        # Esto evita que subvistas en el stack (ocultas) respondan a Enter globales.
+        try:
+            if not self.winfo_viewable():
+                return
+        except Exception:
+            return
+
+        # 1. Si el usuario está escribiendo en un campo de texto, el Enter es para el campo,
+        # no para la navegación de botones.
+        if self._should_ignore_enter(event):
+            return
+
+        # 2. Si el BarcodeService tiene caracteres pendientes, no consumir el Enter
         # (es el terminador del escáner, debe llegar a bind_all)
         barcode_svc = getattr(self._nav_toplevel, '_barcode_service', None) if self._nav_toplevel else None
         if barcode_svc and barcode_svc._buffer:
@@ -164,6 +177,13 @@ class KeyboardNavigableMixin:
 
         widget, callback = self._navigable_buttons[self._nav_focused_index]
         if callable(callback):
+            # Verificar si el widget sigue existiendo y es visible
+            try:
+                if not widget.winfo_exists() or not widget.winfo_viewable():
+                    return
+            except Exception:
+                pass
+
             callback()
             try:
                 if widget.winfo_exists():
@@ -172,6 +192,23 @@ class KeyboardNavigableMixin:
                 pass
             return "break"
         return
+
+    def _should_ignore_enter(self, event) -> bool:
+        """Determinar si el Enter debe ignorarse porque el foco está en un widget de entrada."""
+        try:
+            focused = self.winfo_toplevel().focus_get()
+            if focused is None:
+                return False
+
+            w_class = focused.__class__.__name__.lower()
+            ignore_classes = ['entry', 'text', 'textbox', 'ctkentry', 'ctktextbox', 'spinbox', 'combobox']
+            
+            for cls in ignore_classes:
+                if cls in w_class:
+                    return True
+            return False
+        except Exception:
+            return False
 
     def clear_keyboard_navigation(self):
         """Limpiar estado de navegación. Útil al destruir o reconstruir widgets."""
