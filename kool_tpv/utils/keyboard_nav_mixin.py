@@ -153,13 +153,20 @@ class KeyboardNavigableMixin:
 
     def _on_nav_enter(self, event):
         """Activar el widget que tiene el foco navegable."""
-        # 0. SEGURIDAD: Si esta vista no es visible, ignorar TOTALMENTE el evento.
-        # Esto evita que subvistas en el stack (ocultas) respondan a Enter globales.
-        try:
-            if not self.winfo_viewable():
-                return
-        except Exception:
-            return
+        # 0. SEGURIDAD: Si esta vista no es visible, ignorar el evento.
+        # Manejamos el caso de clases que no son widgets directos (como NuevaProduccionView)
+        # buscando una referencia visual (frame o container).
+        viewable_ref = self if hasattr(self, 'winfo_viewable') else getattr(self, 'frame', getattr(self, 'container', None))
+        
+        if viewable_ref and hasattr(viewable_ref, 'winfo_viewable'):
+            try:
+                if not viewable_ref.winfo_viewable():
+                    return
+            except Exception:
+                pass # Ante la duda de visibilidad, no bloqueamos el flujo
+        elif not hasattr(self, 'winfo_viewable') and not hasattr(self, 'frame') and not hasattr(self, 'container'):
+            # Si no hay forma de comprobar visibilidad, permitimos continuar
+            pass
 
         # 1. Si el usuario está escribiendo en un campo de texto, el Enter es para el campo,
         # no para la navegación de botones.
