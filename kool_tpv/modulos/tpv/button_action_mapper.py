@@ -255,6 +255,17 @@ def _open_tickets_guarded(view):
 def _open_presencia(view):
     """Intentar invocar `open_presencia` en la aplicación principal."""
     try:
+        from kool_tpv.utils.widgets.notificaciones import ToastWidget
+        
+        # Validación: impedir acceso a presencia si hay venta en curso
+        carrito = getattr(view, 'carrito_service', None)
+        if carrito and not carrito.is_empty():
+            try:
+                ToastWidget.show(view, 'CIERRA LA VENTA ACTUAL ANTES DE ACCEDER A PRESENCIA', tipo='error')
+            except Exception:
+                logger.warning('No se pudo mostrar el toast de presencia bloqueada')
+            return
+
         app = view.winfo_toplevel()
         if hasattr(app, 'open_presencia') and callable(app.open_presencia):
             # Indicar que venimos desde el TPV

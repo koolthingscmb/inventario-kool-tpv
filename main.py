@@ -393,6 +393,17 @@ class App(ctk.CTk):
         self.config_view = ConfigView(self, db=self.db, keyboard_manager=self.keyboard_mgr)
 
     def open_presencia(self, from_tpv: bool = False):
+        # Validación robusta: impedir acceso si hay venta en curso en el TPV
+        if hasattr(self, 'tpv_view') and self.tpv_view:
+            carrito = getattr(self.tpv_view, 'carrito_service', None)
+            if carrito and not carrito.is_empty():
+                try:
+                    from kool_tpv.utils.widgets.notificaciones import ToastWidget
+                    ToastWidget.show(self.tpv_view, 'CIERRA LA VENTA ACTUAL ANTES DE ACCEDER A PRESENCIA', tipo='error')
+                except Exception:
+                    logging.warning("No se pudo mostrar el toast de bloqueo en Presencia")
+                return
+
         self._presencia_from_tpv = from_tpv
         self.current_view = "presencia"
         self.nav_frame.pack_forget()
