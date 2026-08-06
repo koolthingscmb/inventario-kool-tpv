@@ -86,32 +86,63 @@ def generate_barcode_image(code: str, sku: str, nombre: str = "") -> Optional[st
     output_base = os.path.join(BARCODES_DIR, safe_filename)
     
     try:
-        # Usar EAN13 en lugar de Code128
+        # Usar EAN13 en lugar de Code128 para productos (comportamiento legacy)
         EAN13 = barcode.get_barcode_class('ean13')
-        # ImageWriter usa Pillow internamente para generar PNG/JPG
         writer = ImageWriter()
-        # Ajustar opciones para mejor legibilidad
         options = {
             'module_height': 15.0,
-            'module_width': 0.3, # Un poco más ancho para EAN13
+            'module_width': 0.3,
             'font_size': 10,
             'text_distance': 5.0,
-            'quiet_zone': 6.0 # EAN13 necesita más zona de silencio
+            'quiet_zone': 6.0
         }
         
-        # Si se proporciona un nombre, lo usamos como texto en lugar del código numérico
         if nombre:
             options['text'] = nombre.upper()
         
-        # El código debe tener 13 dígitos
         my_barcode = EAN13(code, writer=writer)
-        # save() añade la extensión automáticamente si no se indica en el path
         full_path = my_barcode.save(output_base, options=options)
         
         logger.info(f"Código de barras EAN-13 generado: {full_path} (Code: {code})")
         return full_path
     except Exception:
         logger.exception(f"Error generando imagen de código de barras EAN-13 para SKU {sku}")
+        return None
+
+def generate_cajero_barcode(user_id: int, nombre: str) -> Optional[str]:
+    """Generar imagen de código de barras para un cajero con prefijo CAJ."""
+    ensure_barcodes_dir()
+    
+    # Texto del código: CAJ + ID con padding de 3 (ej: CAJ001)
+    code_text = f"CAJ{user_id:03d}"
+    
+    # Nombre del archivo: cajero_{id}_{nombre}
+    safe_name = "".join([c if c.isalnum() or c in ('-', '_') else '_' for c in nombre]).strip().replace(' ', '-')
+    filename = f"cajero_{user_id}_{safe_name}"
+    output_path = os.path.join(BARCODES_DIR, filename)
+    
+    try:
+        # Usar Code128 para permitir el prefijo "CAJ"
+        Code128 = barcode.get_barcode_class('code128')
+        writer = ImageWriter()
+        
+        # Opciones optimizadas para tarjetas de cajero
+        options = {
+            'module_height': 10.0,
+            'module_width': 0.2,
+            'font_size': 8,
+            'text_distance': 4.0,
+            'quiet_zone': 4.0,
+            'text': f"CAJERO: {nombre.upper()} ({code_text})"
+        }
+        
+        my_barcode = Code128(code_text, writer=writer)
+        full_path = my_barcode.save(output_path, options=options)
+        
+        logger.info(f"Barcode de cajero generado: {full_path} (Texto: {code_text})")
+        return full_path
+    except Exception:
+        logger.exception(f"Error generando barcode para cajero {nombre} (ID: {user_id})")
         return None
 
 def get_barcode_path(sku: str) -> str:

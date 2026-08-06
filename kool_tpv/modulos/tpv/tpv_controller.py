@@ -158,6 +158,62 @@ class TpvController:
         """Callback cuando el escáner detecta un código de barras."""
         logger.info(f"TpvController: Procesando código escaneado: '{code}'")
         try:
+            # 0. ¿Es un código de cajero (prefijo CAJ)?
+            if code.startswith('CAJ'):
+                try:
+                    user_id_str = code[3:] # Quitar 'CAJ'
+                    user_id = int(user_id_str)
+                    
+                    from kool_tpv.base_datos.usuario_service import UsuarioService
+                    from kool_tpv.utils.widgets.notificaciones import ToastWidget
+                    
+                    u_service = UsuarioService(self.db)
+                    usr = u_service.get_usuario(user_id)
+                    
+                    if not usr:
+                        ToastWidget.show(self.view, f"CAJERO ID {user_id} NO ENCONTRADO", tipo='error')
+                        return
+
+                    # Autenticación automática (el barcode es la credencial física)
+                    nombre = usr.get('nombre', '---')
+                    cajero_data = {
+                        "id": user_id, 
+                        "nombre": nombre,
+                        "rol": usr.get('rol', 'Cajero'),
+                        "permiso_cierre": usr.get('permiso_cierre', 0),
+                        "permiso_descuento": usr.get('permiso_descuento', 0),
+                        "permiso_devolucion": usr.get('permiso_devolucion', 0),
+                        "permiso_tickets": usr.get('permiso_tickets', 0),
+                        "permiso_cajon": usr.get('permiso_cajon', 0)
+                    }
+                    
+                    carrito_service = getattr(self.view, 'carrito_service', None)
+                    if carrito_service:
+                        carrito_service.set_cajero(cajero_data)
+
+                    # Actualizar UI visual
+                    ticket_widget = getattr(self.view, "ticket_widget", None)
+                    if ticket_widget is not None:
+                        ticket_widget.update_cajero(nombre, color=usr.get('ui_color'))
+
+                    ToastWidget.show(self.view, f"CAJERO IDENTIFICADO: {nombre.upper()}", tipo='success')
+                    
+                    # Si había una subview de cajero abierta, cerrarla
+                    try:
+                        # Comprobar si la vista actual es una subview y si es de tipo CajeroSubView
+                        if hasattr(self.view, '_subview_stack') and self.view._subview_stack:
+                            from kool_tpv.modulos.tpv.subviews.cajero_subview import CajeroSubView
+                            current_sub = self.view._subview_stack[-1][0]
+                            if isinstance(current_sub, CajeroSubView):
+                                self.view.pop_subview()
+                    except Exception:
+                        pass
+                        
+                    return
+                except (ValueError, Exception):
+                    logger.exception("Error procesando login por barcode")
+                    return
+
             # 1. ¿Es un código de descuento de fidelización (prefijo 98)?
             if code.startswith('98'):
                 from kool_tpv.base_datos.niveles_service import NivelesService

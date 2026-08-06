@@ -144,6 +144,10 @@ class UsuariosUI:
         self.btn_eliminar = create_action_button(self.footer, 'eliminar', self.delete)
         self.btn_eliminar.pack(side='left', padx=8)
 
+        self.btn_tarjeta = create_action_button(self.footer, 'buscar_articulo', self.generate_card_manual)
+        self.btn_tarjeta.configure(text='GENERAR TARJETA')
+        self.btn_tarjeta.pack(side='right', padx=8)
+
         # state
         self.selected_chip = None
         self._load_usuarios()
@@ -345,6 +349,27 @@ class UsuariosUI:
         pattern = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
         return re.match(pattern, email) is not None
 
+    def generate_card_manual(self):
+        """Generar tarjeta de cajero para el usuario seleccionado manualmente."""
+        try:
+            id_text = self.e_id.get()
+            id_val = int(id_text) if id_text else None
+            nombre = self.e_nombre.get().strip()
+            
+            if not id_val or not nombre:
+                ToastWidget.show(self.parent, 'SELECCIONE UN USUARIO PRIMERO', tipo='warning')
+                return
+                
+            from kool_tpv.utils.barcode_gen_utils import generate_cajero_barcode
+            path = generate_cajero_barcode(id_val, nombre)
+            
+            if path:
+                ToastWidget.show(self.parent, f'TARJETA GENERADA: {nombre}', tipo='success')
+            else:
+                ToastWidget.show(self.parent, 'ERROR AL GENERAR TARJETA', tipo='error')
+        except Exception:
+            logging.exception('Error en generate_card_manual')
+
     def save(self):
         try:
             nombre = self.e_nombre.get().strip()
@@ -376,6 +401,7 @@ class UsuariosUI:
             except Exception:
                 id_val = None
 
+            ok = False
             if id_val:
                 # Update: if password empty -> do not update password
                 data = {
@@ -410,8 +436,26 @@ class UsuariosUI:
                                                permiso_cierre=permiso_cierre, permiso_descuento=permiso_descuento,
                                                permiso_devolucion=permiso_devolucion, permiso_tickets=permiso_tickets,
                                                permiso_cajon=permiso_cajon, ui_color=ui_color)
+                
+                # Para nuevos usuarios, necesitamos obtener el ID generado para el barcode
+                if ok:
+                    try:
+                        # Obtener el último ID insertado (el del nuevo usuario)
+                        res = self.db.fetch_one("SELECT id FROM usuarios WHERE nombre = ? ORDER BY id DESC LIMIT 1", (nombre,))
+                        if res:
+                            id_val = res[0]
+                    except Exception:
+                        logger.exception("Error recuperando ID para barcode")
 
             if ok:
+                # GENERAR BARCODE AUTOMÁTICAMENTE
+                if id_val:
+                    try:
+                        from kool_tpv.utils.barcode_gen_utils import generate_cajero_barcode
+                        generate_cajero_barcode(id_val, nombre)
+                    except Exception:
+                        logging.exception(f"Error generando barcode automático para {nombre}")
+
                 # Mostrar diálogo de éxito según operación
                 parent = None
                 try:
@@ -419,10 +463,10 @@ class UsuariosUI:
                 except Exception:
                     parent = self.parent
 
-                if id_val:
+                if id_val and self.e_id.get(): # Si ya tenía ID antes de guardar
                     ToastWidget.show(self.parent, f'Usuario {nombre} actualizado', tipo='success')
                 else:
-                    ToastWidget.show(self.parent, f'Usuario {nombre} creado', tipo='success')
+                    ToastWidget.show(self.parent, f'Usuario {nombre} creado y tarjeta generada', tipo='success')
 
                 self.clear()
                 self._load_usuarios()
