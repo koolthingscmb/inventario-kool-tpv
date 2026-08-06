@@ -177,7 +177,8 @@ class ReposicionPendientesUI(ctk.CTkFrame):
                 "TALLA": t_nombre,
                 "DISEÑO": diseno_display,
                 "ℹ️": indic,
-                "_es_temp": False
+                "_es_temp": False,
+                "_fecha_iso": p.get("fecha", "")
             }
             data.append(row)
 
@@ -222,9 +223,13 @@ class ReposicionPendientesUI(ctk.CTkFrame):
                 "TALLA": "",
                 "DISEÑO": diseno_display_temp,
                 "ℹ️": indic_temp,
-                "_es_temp": True
+                "_es_temp": True,
+                "_fecha_iso": p.get("fecha", "")
             }
             data.append(row)
+        
+        # Ordenar por fecha (más reciente primero)
+        data.sort(key=lambda x: x.get("_fecha_iso", ""), reverse=True)
         
         self.nav_list.set_items(data)
         self.selected_items = []
