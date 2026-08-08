@@ -33,6 +33,8 @@ class ProduccionStockBaseView:
 		self._chip_cfg = self.config.get("chips", {}).get("diseno", {})
 		self._selected_chip = None
 		self._tipo_filtro = None
+		self._sort_column = None
+		self._sort_direction = 'asc'
 		
 		# Estado de la vista: 'lista' o 'formulario'
 		self._view_state = 'lista'
@@ -141,31 +143,38 @@ class ProduccionStockBaseView:
 			container.grid_columnconfigure(c, weight=1)
 
 		# Chip TODOS
+		is_todos_selected = (self._tipo_filtro is None)
+		cfg_todos = selected_cfg if is_todos_selected else default_cfg
+        
 		btn_todos = ctk.CTkButton(
 			container, text="TODOS",
 			width=0, height=32, corner_radius=16,
-			fg_color=selected_cfg.get("bg", "#552583"),
-			text_color=selected_cfg.get("text", "#ffffff"),
-			border_color=selected_cfg.get("border", "#C77BFF"),
-			border_width=selected_cfg.get("border_width", 2),
-			hover_color=selected_cfg.get("hover", "#8e44ad"),
+			fg_color=cfg_todos.get("bg", "#552583" if is_todos_selected else "#1a1a2e"),
+			text_color=cfg_todos.get("text", "#ffffff" if is_todos_selected else "#e0e0e0"),
+			border_color=cfg_todos.get("border", "#C77BFF" if is_todos_selected else "#552583"),
+			border_width=cfg_todos.get("border_width", 2 if is_todos_selected else 1),
+			hover_color=cfg_todos.get("hover", "#8e44ad" if is_todos_selected else "#C77BFF"),
 			font=get_font(self.config, "button_small") if "button_small" in self.config.get("fonts", {}) else (None, 12),
 			cursor="hand2"
 		)
 		btn_todos.grid(row=0, column=0, padx=3, pady=3, sticky="ew")
 		btn_todos.bind("<Button-1>", lambda e, b=btn_todos: self._on_chip_click(b, None))
 		self._chip_buttons.append(btn_todos)
-		self._selected_chip = btn_todos
+		if is_todos_selected:
+			self._selected_chip = btn_todos
 
 		for idx, tipo in enumerate(tipos, start=1):
+			is_selected = (self._tipo_filtro == tipo.id)
+			cfg = selected_cfg if is_selected else default_cfg
+            
 			btn = ctk.CTkButton(
 				container, text=tipo.nombre,
 				width=0, height=32, corner_radius=16,
-				fg_color=default_cfg.get("bg", "#1a1a2e"),
-				text_color=default_cfg.get("text", "#e0e0e0"),
-				border_color=default_cfg.get("border", "#552583"),
-				border_width=default_cfg.get("border_width", 1),
-				hover_color=default_cfg.get("hover", "#C77BFF"),
+				fg_color=cfg.get("bg", "#552583" if is_selected else "#1a1a2e"),
+				text_color=cfg.get("text", "#ffffff" if is_selected else "#e0e0e0"),
+				border_color=cfg.get("border", "#C77BFF" if is_selected else "#552583"),
+				border_width=cfg.get("border_width", 2 if is_selected else 1),
+				hover_color=cfg.get("hover", "#8e44ad" if is_selected else "#C77BFF"),
 				font=get_font(self.config, "button_small") if "button_small" in self.config.get("fonts", {}) else (None, 12),
 				cursor="hand2"
 			)
@@ -174,6 +183,8 @@ class ProduccionStockBaseView:
 			btn.grid(row=row, column=col, padx=3, pady=3, sticky="ew")
 			btn.bind("<Button-1>", lambda e, b=btn, t=tipo: self._on_chip_click(b, t))
 			self._chip_buttons.append(btn)
+			if is_selected:
+				self._selected_chip = btn
 
 	def _on_chip_click(self, btn, tipo):
 		"""Filtrar la tabla por tipo al pulsar un chip."""
@@ -224,8 +235,13 @@ class ProduccionStockBaseView:
 		self.show_lista()
 
 	def _cargar_datos(self):
-		"""Cargar los datos del servicio en la tabla."""
+		"""Cargar los datos del servicio en la tabla persistiendo el orden."""
 		try:
+			# 1. Preservar estado de ordenación actual si existe
+			if hasattr(self, 'tabla'):
+				self._sort_column = self.tabla._sort_column
+				self._sort_direction = self.tabla._sort_direction
+
 			items = self.service.listar_todo()
 			if self._tipo_filtro is not None:
 				items = [it for it in items if it.get("tipo_id") == self._tipo_filtro]
@@ -237,11 +253,22 @@ class ProduccionStockBaseView:
 					"VARIANTE": it.get("variante", "-"),
 					"COLOR": it["color"],
 					"TALLA": it["talla"],
+					"_sort_TALLA": it.get("talla_orden", 999),
 					"SKU SHOPIFY": it["sku"],
 					"CANTIDAD": str(it["cantidad"]),
 					"_raw": it
 				})
+			
 			self.tabla.set_items(rows)
+			
+			# 2. Restaurar ordenación
+			if self._sort_column:
+				self.tabla._sort_column = self._sort_column
+				self.tabla._sort_direction = self._sort_direction
+				self.tabla._sort_data()
+				self.tabla._update_header_indicators()
+				self.tabla._refresh_ui()
+
 		except Exception:
 			logger.exception("Error cargando tabla de stock base")
 

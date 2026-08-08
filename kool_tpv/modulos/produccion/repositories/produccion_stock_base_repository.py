@@ -48,13 +48,14 @@ class ProduccionStockBaseRepository:
 				psbt.tipo_id,
 				psbt.variante_id,
 				psbt.color_id,
-				psbt.coste_medio
+				psbt.coste_medio,
+				pt.orden AS talla_orden
 			FROM produccion_stock_colores_tallas psbt
 			JOIN tipos t ON psbt.tipo_id = t.id
 			LEFT JOIN tipos_variantes v ON psbt.variante_id = v.id
 			LEFT JOIN produccion_colores c ON psbt.color_id = c.id
-			LEFT JOIN produccion_tallas pt ON psbt.talla_id = pt.id
-			ORDER BY t.nombre, v.nombre, c.nombre, COALESCE(pt.nombre, psbt.talla)
+			LEFT JOIN produccion_tallas pt ON (psbt.talla_id = pt.id OR (psbt.talla_id IS NULL AND pt.nombre = psbt.talla))
+			ORDER BY t.nombre, v.nombre, c.nombre, pt.orden, COALESCE(pt.nombre, psbt.talla)
 		"""
 		try:
 			rows = self.db.fetch_all(query)
@@ -70,7 +71,8 @@ class ProduccionStockBaseRepository:
 					"tipo_id": r[7],
 					"variante_id": r[8],
 					"color_id": r[9],
-					"coste_medio": r[10] or 0
+					"coste_medio": r[10] or 0,
+					"talla_orden": r[11] or 999
 				}
 				for r in rows
 			]

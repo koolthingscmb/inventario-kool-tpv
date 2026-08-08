@@ -71,6 +71,18 @@ class ProduccionTallasRepository:
 			return ProduccionTalla(id=rows[0][0], nombre=rows[0][1], orden=rows[0][2], activo=rows[0][3])
 		return None
 
+	def get_por_nombre_robusto(self, nombre: str) -> Optional[ProduccionTalla]:
+		"""Obtener una talla por su nombre ignorando espacios y mayúsculas/minúsculas."""
+		query = """
+			SELECT id, nombre, orden, activo FROM produccion_tallas 
+			WHERE TRIM(UPPER(nombre)) = TRIM(UPPER(?))
+			LIMIT 1
+		"""
+		rows = self.db.fetch_all(query, (nombre,))
+		if rows:
+			return ProduccionTalla(id=rows[0][0], nombre=rows[0][1], orden=rows[0][2], activo=rows[0][3])
+		return None
+
 	def actualizar_orden(self, talla_id: int, orden: int) -> bool:
 		"""Actualizar solo el campo orden de una talla."""
 		self.db.execute_query("UPDATE produccion_tallas SET orden = ? WHERE id = ?", (orden, talla_id))

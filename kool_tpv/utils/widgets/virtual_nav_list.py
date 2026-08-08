@@ -633,24 +633,34 @@ class VirtualNavList(ctk.CTkFrame):
             return [int(part) if part.isdigit() else part.lower() for part in re.split(r'(\d+)', text)]
         
         def sort_key(item):
-            value = item.get(self._sort_column, '')
+            # 1. Criterio Principal
+            sort_key_name = f"_sort_{self._sort_column}"
+            primary_val = None
+            if sort_key_name in item:
+                val = item[sort_key_name]
+                primary_val = [float(val)] if isinstance(val, (int, float, Decimal)) else natural_key(str(val))
+            else:
+                value = item.get(self._sort_column, '')
+                if isinstance(value, (int, float, Decimal)):
+                    primary_val = [float(value)]
+                elif isinstance(value, str):
+                    try:
+                        primary_val = [float(value)]
+                    except ValueError:
+                        primary_val = natural_key(value)
+                else:
+                    primary_val = natural_key(str(value))
+
+            # 2. Criterio Secundario (Agrupar por el primer campo, normalmente ARTÍCULO/NOMBRE)
+            # Esto evita que registros con el mismo valor principal (ej: misma talla) salgan desordenados entre sí.
+            secondary_column = self.columns[0][0] # La primera columna definida
+            if secondary_column == self._sort_column and len(self.columns) > 1:
+                secondary_column = self.columns[1][0] # Si ya estamos en la primera, usamos la segunda
             
-            # Si es un número puro (int, float, Decimal), ordenar numéricamente
-            if isinstance(value, (int, float, Decimal)):
-                return [float(value)]
-            
-            # Si es string, intentar convertir a número primero
-            if isinstance(value, str):
-                # Intentar convertir a número puro (ej: "10.5" -> 10.5)
-                try:
-                    return [float(value)]
-                except ValueError:
-                    pass
-                # Si no es número puro, usar natural sort (ej: "OP 10" -> ['OP ', 10])
-                return natural_key(value)
-            
-            # Para cualquier otro tipo, convertir a string y usar natural sort
-            return natural_key(str(value))
+            secondary_value = item.get(secondary_column, '')
+            secondary_key = natural_key(str(secondary_value))
+
+            return (primary_val, secondary_key)
         
         self._all_data.sort(key=sort_key, reverse=reverse)
 

@@ -346,6 +346,7 @@ class ProduccionImportarAlbaran:
                 talla_prov_norm = self._normalizar(talla_prov)
                 for t_interna, t_prov_list in self.mapeo_tallas.items():
                     if isinstance(t_prov_list, list):
+                        # Búsqueda exacta normalizada en lista de mapeo
                         if any(self._normalizar(str(tp)) == talla_prov_norm for tp in t_prov_list):
                             talla_mapeada = t_interna
                             break
@@ -353,8 +354,8 @@ class ProduccionImportarAlbaran:
                         talla_mapeada = t_interna
                         break
             
-            # Si no hay mapeo explícito, probamos si coincide directamente con una interna
-            if not talla_mapeada:
+            # Si no hay mapeo explícito, probamos si coincide directamente con una interna (normalizado)
+            if not talla_mapeada and talla_prov:
                 t_prov_norm = self._normalizar(talla_prov)
                 for t_interna in self.tallas_internas.keys():
                     if self._normalizar(t_interna) == t_prov_norm:
@@ -363,6 +364,7 @@ class ProduccionImportarAlbaran:
             
             talla_id = self.tallas_internas.get(talla_mapeada) if talla_mapeada else None
             
+            # VALIDACIÓN PROFESIONAL: Si hay texto de talla pero no hay ID, es un ERROR CRÍTICO.
             estado = '✓ OK'
             if not variante_id:
                 estado = '⚠ Falta Variante'

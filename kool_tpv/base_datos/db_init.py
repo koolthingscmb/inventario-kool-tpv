@@ -199,6 +199,92 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migración 035: Saneamiento de vínculos huérfanos en stock base (talla_id / color_id NULL)
+		try:
+			logging.info('Comprobando integridad de stock base (Migración 035)...')
+			# 1. Reparar talla_id usando el nombre de la talla (limpiando espacios)
+			db.connection.execute("""
+				UPDATE produccion_stock_colores_tallas
+				SET talla_id = (
+					SELECT id FROM produccion_tallas 
+					WHERE TRIM(UPPER(produccion_tallas.nombre)) = TRIM(UPPER(produccion_stock_colores_tallas.talla))
+					LIMIT 1
+				)
+				WHERE talla_id IS NULL AND talla IS NOT NULL AND talla != ''
+			""")
+			
+			# 2. Reparar color_id usando el nombre del color (limpiando espacios)
+			# Nota: Solo si color_id es NULL pero tenemos el nombre del color en alguna parte o podemos deducirlo.
+			# En esta tabla el color_id es obligatorio, pero si hubiera basura, lo intentamos rescatar.
+			db.connection.execute("""
+				UPDATE produccion_stock_colores_tallas
+				SET color_id = (
+					SELECT id FROM produccion_colores 
+					WHERE TRIM(UPPER(produccion_colores.nombre)) = (
+						SELECT TRIM(UPPER(c.nombre)) FROM produccion_colores c WHERE c.id = color_id
+					)
+					LIMIT 1
+				)
+				WHERE color_id IS NULL
+			""")
+			
+			db.connection.commit()
+			logging.info('Migración 035 (Saneamiento de stock) finalizada con éxito.')
+		except Exception:
+			logging.exception('Error aplicando migración 035 (Saneamiento)')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
+		# Migración 036: Refuerzo de Foreign Keys (Cursiva en DB Browser)
+		try:
+			# Comprobar si ya tenemos las FKs reales (buscando 'REFERENCES' en el SQL de creación)
+			schema = db.fetch_one("SELECT sql FROM sqlite_master WHERE type='table' AND name='produccion_stock_colores_tallas'")
+			if schema and 'REFERENCES produccion_tallas' not in schema[0]:
+				logging.info('Aplicando migración 036: Reforzando Foreign Keys en stock base...')
+				
+				with db.transaction() as cur:
+					# 1. Crear tabla nueva con estructura robusta
+					cur.execute("""
+						CREATE TABLE produccion_stock_colores_tallas_new (
+							id INTEGER PRIMARY KEY AUTOINCREMENT,
+							tipo_id INTEGER NOT NULL,
+							variante_id INTEGER,
+							color_id INTEGER,
+							talla TEXT,
+							sku TEXT,
+							cantidad INTEGER DEFAULT 0,
+							coste_medio INTEGER DEFAULT 0,
+							talla_id INTEGER,
+							FOREIGN KEY (tipo_id) REFERENCES tipos(id) ON DELETE CASCADE,
+							FOREIGN KEY (variante_id) REFERENCES tipos_variantes(id) ON DELETE CASCADE,
+							FOREIGN KEY (color_id) REFERENCES produccion_colores(id) ON DELETE CASCADE,
+							FOREIGN KEY (talla_id) REFERENCES produccion_tallas(id) ON DELETE SET NULL
+						)
+					""")
+					
+					# 2. Migrar datos
+					cur.execute("""
+						INSERT INTO produccion_stock_colores_tallas_new 
+						(id, tipo_id, variante_id, color_id, talla, sku, cantidad, coste_medio, talla_id)
+						SELECT id, tipo_id, variante_id, color_id, talla, sku, cantidad, coste_medio, talla_id
+						FROM produccion_stock_colores_tallas
+					""")
+					
+					# 3. Intercambiar tablas
+					cur.execute("DROP TABLE produccion_stock_colores_tallas")
+					cur.execute("ALTER TABLE produccion_stock_colores_tallas_new RENAME TO produccion_stock_colores_tallas")
+					
+					# 4. Recrear índice de SKU (importante para rendimiento)
+					cur.execute("CREATE INDEX IF NOT EXISTS idx_stock_base_sku ON produccion_stock_colores_tallas(sku)")
+					
+				logging.info('Migración 036 (Foreign Keys) aplicada correctamente.')
+		except Exception:
+			logging.exception('Error aplicando migración 036 (Refuerzo FKs)')
+
+
+
 		# Migration 015: tipos_variantes
 		try:
 			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table' AND name='tipos_variantes'")

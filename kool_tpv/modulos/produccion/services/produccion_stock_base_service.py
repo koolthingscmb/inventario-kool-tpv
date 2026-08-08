@@ -93,7 +93,8 @@ class ProduccionStockBaseService:
 				try:
 					from kool_tpv.modulos.produccion.repositories.produccion_tallas_repository import ProduccionTallasRepository
 					repo_t = ProduccionTallasRepository(self.db)
-					t_obj = repo_t.get_por_nombre(talla.strip().upper())
+					# Búsqueda robusta (ignora espacios y mayúsculas)
+					t_obj = repo_t.get_por_nombre_robusto(talla)
 					if t_obj:
 						talla_id = t_obj.id
 				except Exception:
@@ -139,14 +140,13 @@ class ProduccionStockBaseService:
 		"""Auto-poblar la matriz produccion_tipo_color_tallas al importar stock."""
 		try:
 			repo_tallas = ProduccionTallasRepository(self.db)
-			talla_norm = (talla or "").strip().upper()
 			talla_id = None
-			if talla_norm:
-				talla_obj = repo_tallas.get_por_nombre(talla_norm)
+			if talla:
+				talla_obj = repo_tallas.get_por_nombre_robusto(talla)
 				if talla_obj:
 					talla_id = talla_obj.id
 				else:
-					logger.warning(f"Auto-matriz: talla '{talla_norm}' no encontrada en BD, se insertará como NULL")
+					logger.warning(f"Auto-matriz: talla '{talla}' no encontrada en catálogo oficial, se insertará como NULL")
 
 			repo_rel = ProduccionRelacionesRepository(self.db)
 			repo_rel.asegurar_relacion(tipo_id, color_id, talla_id, variante_id, cur=cur)
