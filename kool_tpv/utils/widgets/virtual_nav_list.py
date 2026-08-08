@@ -146,8 +146,28 @@ class VirtualNavList(ctk.CTkFrame):
         bg_dark = self.colors.get('bg_dark', '#0d0d0d')
         secondary = self.colors.get('secondary', '#FFD700')
 
-        # 1. Header Fijo
-        self._header = tk.Frame(self, bg=bg_dark, height=_HEADER_HEIGHT)
+        # 1. Scrollbar vertical fijo a la derecha
+        self._scrollbar = tk.Scrollbar(self, orient='vertical')
+        self._scrollbar.pack(side='right', fill='y')
+
+        # 2. Scrollbar horizontal fijo abajo
+        self._x_scrollbar = tk.Scrollbar(self, orient='horizontal')
+        self._x_scrollbar.pack(side='bottom', fill='x')
+
+        # 3. Canvas horizontal (el contenedor principal de la vista responsiva con scroll)
+        self._x_canvas = tk.Canvas(
+            self, bg=bg, highlightthickness=0,
+            xscrollcommand=self._x_scrollbar.set
+        )
+        self._x_canvas.pack(side='left', fill='both', expand=True)
+        self._x_scrollbar.configure(command=self._x_canvas.xview)
+
+        # 4. Frame contenedor que se moverá horizontalmente (header + filas)
+        self._main_container = tk.Frame(self._x_canvas, bg=bg)
+        self._x_canvas_window = self._x_canvas.create_window((0, 0), window=self._main_container, anchor='nw')
+
+        # 5. Header (dentro del main_container para que ruede horizontalmente con los datos)
+        self._header = tk.Frame(self._main_container, bg=bg_dark, height=_HEADER_HEIGHT)
         self._header.pack(fill='x', padx=6, pady=(0, 2))
         self._header.pack_propagate(False)
         x = 10 # Margen inicial
@@ -162,30 +182,23 @@ class VirtualNavList(ctk.CTkFrame):
             self._header_labels.append(header_label)
             x += width + 12 # Espaciado
 
-        # 2. Contenedor de lista
-        container = tk.Frame(self, bg=bg)
-        container.pack(fill='both', expand=True, padx=6, pady=(0, 6))
-
-        # Scrollbar
-        self._scrollbar = tk.Scrollbar(container, orient='vertical', command=self._on_vscroll)
-        self._scrollbar.pack(side='right', fill='y')
-
-        # Canvas (El corazón de la virtualización)
+        # 6. Canvas Vertical (para la virtualización de filas, se desplaza con la scrollbar fija de la derecha)
         self._canvas = tk.Canvas(
-            container, bg=bg, highlightthickness=0,
+            self._main_container, bg=bg, highlightthickness=0,
             yscrollcommand=self._scrollbar.set
         )
-        self._canvas.pack(side='left', fill='both', expand=True)
+        self._canvas.pack(fill='both', expand=True, padx=6, pady=(0, 6))
+        self._scrollbar.configure(command=self._on_vscroll)
         
         # Frame interno que contendrá SOLO las filas visibles
         self._row_container = tk.Frame(self._canvas, bg=bg)
         self._canvas_window = self._canvas.create_window((0, 0), window=self._row_container, anchor='nw')
 
-        # Eventos de redimensión para recalcular cuántas filas caben
-        self._canvas.bind('<Configure>', self._on_canvas_configure)
+        # Evento de redimensión en el canvas horizontal
+        self._x_canvas.bind('<Configure>', self._on_canvas_configure)
         
         # Eventos de ratón
-        for w in (self._canvas, self._row_container):
+        for w in (self._canvas, self._row_container, self._x_canvas, self._main_container):
             w.bind('<MouseWheel>', self._on_mousewheel)
             w.bind('<Button-4>',   self._on_mousewheel)
             w.bind('<Button-5>',   self._on_mousewheel)
@@ -201,6 +214,10 @@ class VirtualNavList(ctk.CTkFrame):
         # Atajo para Enter
         self._canvas.bind('<Return>', self._handle_return_key)
         self._canvas.bind('<KP_Enter>', self._handle_return_key)
+
+        # Atajos para flechas izquierda/derecha (Scroll horizontal de la tabla)
+        self._canvas.bind('<Left>',  self._scroll_left)
+        self._canvas.bind('<Right>', self._scroll_right)
 
         self.bind('<FocusIn>', lambda e: self._canvas.focus_set())
 
@@ -218,35 +235,47 @@ class VirtualNavList(ctk.CTkFrame):
         self._select(index, fire_callback=fire_callback)
 
     def _on_canvas_configure(self, event):
-        """Al cambiar el tamaño del canvas, recalculamos anchos de columna y ajustamos widgets."""
+        """Al cambiar el tamaño del canvas horizontal, recalculamos anchos de columna y ajustamos widgets."""
         canvas_w = event.width
         canvas_h = event.height
-        self._canvas.itemconfig(self._canvas_window, width=canvas_w)
         
-        # 1. RECALCULAR ANCHOS RESPONSIVOS
-        # Usamos los anchos originales como proporciones (pesos)
+        # Calcular el ancho total mínimo necesario para las columnas (anchos originales definidos)
         total_orig_w = sum(col[1] for col in self.columns)
-        if total_orig_w > 0:
-            # Reservamos espacio para márgenes fijos (10 inicial + 12 entre cols + 25 para scroll)
-            fixed_margins = 10 + (12 * (len(self.columns) - 1)) + 25
-            available_w = max(100, canvas_w - fixed_margins)
+        fixed_margins = 10 + (12 * (len(self.columns) - 1)) + 25 # Márgenes fijos y margen de scroll
+        min_table_w = total_orig_w + fixed_margins
+        
+        # El ancho de la tabla será el mayor entre el viewport (pantalla visible) y el mínimo necesario
+        if canvas_w > min_table_w:
+            table_w = canvas_w
+        else:
+            table_w = min_table_w
             
-            new_positions = []
-            current_x = 10
-            for i, (key, orig_w, label) in enumerate(self.columns):
-                # Regla de tres: el ancho es proporcional al original respecto al total
-                col_w = int((orig_w / total_orig_w) * available_w)
-                new_positions.append((current_x, col_w))
-                
-                # Actualizar header label al vuelo
-                if i < len(self._header_labels):
-                    self._header_labels[i].place(x=current_x, width=col_w)
-                
-                current_x += col_w + 12
+        # Actualizar el tamaño del frame principal en el canvas horizontal
+        self._x_canvas.itemconfig(self._x_canvas_window, width=table_w, height=canvas_h)
+        self._x_canvas.configure(scrollregion=(0, 0, table_w, canvas_h))
+        
+        # Actualizar el tamaño del canvas vertical interno
+        self._canvas.itemconfig(self._canvas_window, width=table_w)
+        
+        # 1. RECALCULAR ANCHOS RESPONSIVOS (solo si estiramos más allá del mínimo)
+        available_w = table_w - fixed_margins
+        
+        new_positions = []
+        current_x = 10
+        for i, (key, orig_w, label) in enumerate(self.columns):
+            # Proporción exacta basada en anchos originales
+            col_w = int((orig_w / total_orig_w) * available_w) if total_orig_w > 0 else orig_w
+            new_positions.append((current_x, col_w))
             
-            self._col_positions = new_positions
+            # Actualizar cabecera
+            if i < len(self._header_labels):
+                self._header_labels[i].place(x=current_x, width=col_w)
+            
+            current_x += col_w + 12
+        
+        self._col_positions = new_positions
 
-        # 2. ACTUALIZAR FILAS YA CREADAS (Pivote de place)
+        # 2. ACTUALIZAR FILAS YA CREADAS (place)
         if self._col_positions:
             for row in self._visible_rows:
                 for i, lbl in enumerate(row['labels']):
@@ -254,7 +283,7 @@ class VirtualNavList(ctk.CTkFrame):
                         x, w = self._col_positions[i]
                         lbl.place(x=x, width=w)
 
-        # 3. CALCULAR NECESIDAD DE MÁS FILAS
+        # 3. CALCULAR NECESIDAD DE MÁS FILAS (según la altura visible del canvas vertical)
         needed = (canvas_h // self.row_height) + 2
         if needed > self._row_widgets_count:
             for i in range(self._row_widgets_count, needed):
@@ -262,6 +291,30 @@ class VirtualNavList(ctk.CTkFrame):
             self._row_widgets_count = needed
             
         self._refresh_ui()
+
+    def _scroll_left(self, event=None):
+        if self._should_ignore_key():
+            return
+        self._x_canvas.xview_scroll(-1, 'units')
+        return 'break'
+
+    def _scroll_right(self, event=None):
+        if self._should_ignore_key():
+            return
+        self._x_canvas.xview_scroll(1, 'units')
+        return 'break'
+
+    def _should_ignore_key(self) -> bool:
+        try:
+            focused = self.focus_get()
+            if focused:
+                wclass = focused.winfo_class().lower()
+                # Ignorar si estamos en widgets de entrada de texto
+                if any(x in wclass for x in ('entry', 'text', 'combobox')):
+                    return True
+        except Exception:
+            pass
+        return False
 
     def _create_row_widget(self):
         """Crea un widget de fila vacío y lo añade al pool usando anchos responsivos."""

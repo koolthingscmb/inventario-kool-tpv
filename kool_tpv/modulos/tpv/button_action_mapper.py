@@ -123,49 +123,6 @@ def _activate_payment(view, tipo: str):
                     finalize(efectivo=None, forma_pago='Multi', importe_efectivo=data.get('efectivo', 0.0), importe_tarjeta=data.get('tarjeta', 0.0))
             return wrapper
 
-        # Guardia: si hay vales activos disponibles y aún no se ha aplicado uno,
-        # mostrar primero el controller de vale (para cualquier forma de pago excepto devolucion)
-        if tipo != 'devolucion':
-            try:
-                from kool_tpv.modulos.tpv.vale_devolucion_service import ValeDevolucionService
-                carrito = getattr(view, 'carrito_service', None)
-                vale_service = ValeDevolucionService()
-                ya_aplicado = False
-                try:
-                    ya_aplicado = carrito and carrito.get_vale_aplicado() is not None
-                except Exception:
-                    pass
-                if vale_service.hay_vales_activos() and not ya_aplicado:
-                    vale_ctrl = getattr(view, '_vale_controller', None)
-                    if vale_ctrl:
-                        # Recordar tipo de pago original para activarlo tras vale
-                        try:
-                            tc.pending_payment_type = tipo
-                        except Exception:
-                            pass
-                        try:
-                            for widget in tc.payment_area.winfo_children():
-                                widget.pack_forget()
-                        except Exception:
-                            pass
-                        try:
-                            vale_ctrl.pack(in_=tc.payment_area, fill="both", expand=True)
-                            resumen = carrito.get_resumen_financiero() if carrito else {}
-                            vale_ctrl.set_total(resumen.get('total', 0.0))
-                            vale_ctrl.recargar_vales()
-                        except Exception:
-                            logger.exception('Error activando controller de vale')
-                        # Actualizar referencia en ticket_carrito para navegación por zonas
-                        try:
-                            tc.active_payment_controller = vale_ctrl
-                            tc.active_payment_type = 'vale'
-                        except Exception:
-                            pass
-                        logger.info('Payment vale activado (hay vales disponibles)')
-                        return
-            except Exception:
-                pass
-
         # Activar forma de pago usando métodos de ticket_carrito (igual que atajos de teclado)
         if tipo == 'efectivo':
             tc.activar_pago_efectivo(on_finalizar=_make_wrapper('Efectivo'))

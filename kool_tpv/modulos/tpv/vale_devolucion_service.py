@@ -75,16 +75,17 @@ class ValeDevolucionService:
         """
         vale_id = str(uuid.uuid4())
         ts = datetime.now().isoformat()
+        ts_filename = datetime.now().strftime('%Y%m%d_%H%M%S')
         n = self._siguiente_numero()
 
         if productos_nombres:
-            # Usar nombres de productos como base del nombre
+            # Usar nombres de productos como base del nombre + secuencial + timestamp
             nombre_base = self._sanitizar_nombre_archivo(productos_nombres)
-            filename = f'{nombre_base}_{n}.json'
+            filename = f'{nombre_base}_{n}_{ts_filename}.json'
         else:
-            # Formato fallback para backwards compatibility
+            # Formato fallback + timestamp
             dia_mes = datetime.now().strftime('%d%m')
-            filename = f'Vale{n}_{importe_cents}_{dia_mes}.json'
+            filename = f'Vale{n}_{importe_cents}_{dia_mes}_{ts_filename}.json'
 
         path = VALES_DIR / filename
 
