@@ -93,7 +93,7 @@
     },
     "tpv": {
       "sidebar_width": 220,
-      "right_width": 600,
+      "right_width": 550,
       "center": {
         "grid": {
           "columns": 4,

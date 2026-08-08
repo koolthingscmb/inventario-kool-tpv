@@ -119,6 +119,9 @@ class VirtualNavList(ctk.CTkFrame):
         self._top_index = 0  # Índice del primer dato visible
         self._row_widgets_count = 0 # Cuántas filas físicas hemos creado
         
+        # Sistema de columnas responsivas
+        self._col_positions = [] # [(x, width), ...] calculado dinámicamente
+        
         self._build_ui()
 
     def _parse_columns(self, columns):
@@ -215,16 +218,45 @@ class VirtualNavList(ctk.CTkFrame):
         self._select(index, fire_callback=fire_callback)
 
     def _on_canvas_configure(self, event):
-        """Al cambiar el tamaño del canvas, creamos/ajustamos los widgets de fila."""
+        """Al cambiar el tamaño del canvas, recalculamos anchos de columna y ajustamos widgets."""
         canvas_w = event.width
         canvas_h = event.height
         self._canvas.itemconfig(self._canvas_window, width=canvas_w)
         
-        # Calcular cuántas filas caben en pantalla + un pequeño buffer
+        # 1. RECALCULAR ANCHOS RESPONSIVOS
+        # Usamos los anchos originales como proporciones (pesos)
+        total_orig_w = sum(col[1] for col in self.columns)
+        if total_orig_w > 0:
+            # Reservamos espacio para márgenes fijos (10 inicial + 12 entre cols + 25 para scroll)
+            fixed_margins = 10 + (12 * (len(self.columns) - 1)) + 25
+            available_w = max(100, canvas_w - fixed_margins)
+            
+            new_positions = []
+            current_x = 10
+            for i, (key, orig_w, label) in enumerate(self.columns):
+                # Regla de tres: el ancho es proporcional al original respecto al total
+                col_w = int((orig_w / total_orig_w) * available_w)
+                new_positions.append((current_x, col_w))
+                
+                # Actualizar header label al vuelo
+                if i < len(self._header_labels):
+                    self._header_labels[i].place(x=current_x, width=col_w)
+                
+                current_x += col_w + 12
+            
+            self._col_positions = new_positions
+
+        # 2. ACTUALIZAR FILAS YA CREADAS (Pivote de place)
+        if self._col_positions:
+            for row in self._visible_rows:
+                for i, lbl in enumerate(row['labels']):
+                    if i < len(self._col_positions):
+                        x, w = self._col_positions[i]
+                        lbl.place(x=x, width=w)
+
+        # 3. CALCULAR NECESIDAD DE MÁS FILAS
         needed = (canvas_h // self.row_height) + 2
-        
         if needed > self._row_widgets_count:
-            # Crear más widgets de fila si faltan
             for i in range(self._row_widgets_count, needed):
                 self._create_row_widget()
             self._row_widgets_count = needed
@@ -232,12 +264,11 @@ class VirtualNavList(ctk.CTkFrame):
         self._refresh_ui()
 
     def _create_row_widget(self):
-        """Crea un widget de fila vacío y lo añade al pool."""
+        """Crea un widget de fila vacío y lo añade al pool usando anchos responsivos."""
         rh = self.row_height
         bg = self.row_normal_bg
         fg = self.row_normal_text
         
-        # Volvemos a tk.Frame para evitar cualquier artefacto o borde fantasma de CTk
         row_frame = tk.Frame(
             self._row_container, 
             bg=bg, 
@@ -245,28 +276,31 @@ class VirtualNavList(ctk.CTkFrame):
             highlightthickness=0,
             bd=0
         )
-        # pack sin padx ni pady para que las filas sean bloques continuos
         row_frame.pack(fill='x', side='top')
         row_frame.pack_propagate(False)
         
         labels = []
-        x = 10 # Margen inicial
-        for i, (key, width, _) in enumerate(self.columns):
-            # Si es la última columna, le damos un margen extra para que no la tape el scroll
-            actual_width = width
-            if i == len(self.columns) - 1:
-                actual_width = width + 20 # Espacio extra para el scroll
-            
-            lbl = tk.Label(row_frame, text="", font=self._font_row, fg=fg, bg=bg, anchor='w')
-            lbl.place(x=x, y=0, width=actual_width, height=rh)
-            labels.append(lbl)
-            x += width + 12 # Espaciado
+        # Si ya tenemos posiciones calculadas, las usamos; si no, fallback a estático
+        if self._col_positions:
+            for i in range(len(self.columns)):
+                x, width = self._col_positions[i]
+                lbl = tk.Label(row_frame, text="", font=self._font_row, fg=fg, bg=bg, anchor='w')
+                lbl.place(x=x, y=0, width=width, height=rh)
+                labels.append(lbl)
+        else:
+            # Fallback estático (solo primera creación antes de primer Configure)
+            x = 10
+            for i, (key, width, _) in enumerate(self.columns):
+                lbl = tk.Label(row_frame, text="", font=self._font_row, fg=fg, bg=bg, anchor='w')
+                lbl.place(x=x, y=0, width=width, height=rh)
+                labels.append(lbl)
+                x += width + 12
             
         idx_in_pool = len(self._visible_rows)
         row_data = {
             'frame': row_frame,
             'labels': labels,
-            'data_index': -1 # A qué índice de datos representa actualmente
+            'data_index': -1
         }
         
         # Bindings (clic, doble clic, scroll)
@@ -359,9 +393,11 @@ class VirtualNavList(ctk.CTkFrame):
                 # Actualizar Labels
                 for j, lbl in enumerate(row['labels']):
                     key = self.columns[j][0]
-                    width = self.columns[j][1]
+                    # Usar ancho actual calculado en lugar del original de self.columns
+                    current_w = self._col_positions[j][1] if j < len(self._col_positions) else self.columns[j][1]
+                    
                     val = str(data.get(key, ''))
-                    lbl.configure(text=self._truncate(val, width), bg=bg, fg=fg)
+                    lbl.configure(text=self._truncate(val, current_w), bg=bg, fg=fg)
             else:
                 # Ocultar widget si no hay más datos para él
                 row['frame'].pack_forget()
