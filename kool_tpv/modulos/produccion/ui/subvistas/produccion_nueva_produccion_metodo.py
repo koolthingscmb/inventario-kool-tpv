@@ -136,7 +136,7 @@ class NuevaProduccionMetodoView(ctk.CTkFrame, KeyboardNavigableMixin):
             width=nv.get("width", 15)*10,
             height=nv.get("height", 2)*20,
             cursor="hand2",
-            command=self._on_volver
+            command=self._on_volver_handler
         )
         self.btn_volver.pack(side=tk.LEFT, padx=10)
 
@@ -150,11 +150,11 @@ class NuevaProduccionMetodoView(ctk.CTkFrame, KeyboardNavigableMixin):
             width=ns.get("width", 15)*10,
             height=ns.get("height", 2)*20,
             cursor="hand2",
-            command=self._on_siguiente
+            command=self._on_siguiente_handler
         )
         self.btn_siguiente.pack(side=tk.RIGHT, padx=10)
 
-    def _on_volver(self):
+    def _on_volver_handler(self):
         if self.on_volver: self.on_volver()
 
     def _on_siguiente_handler(self):
@@ -162,7 +162,7 @@ class NuevaProduccionMetodoView(ctk.CTkFrame, KeyboardNavigableMixin):
 
     def _setup_nav(self):
         self._navigable_buttons = [(b, lambda b=b, m=getattr(b, '_metodo_data', None): self._nav_cb(b, m)) for b in self._chip_buttons]
-        self._navigable_buttons.extend([(self.btn_volver, self._on_volver), (self.btn_siguiente, self._on_siguiente_handler)])
+        self._navigable_buttons.extend([(self.btn_volver, self._on_volver_handler), (self.btn_siguiente, self._on_siguiente_handler)])
         
         # Usar el método del mixin para configurar todo
         self._setup_keyboard_navigation()

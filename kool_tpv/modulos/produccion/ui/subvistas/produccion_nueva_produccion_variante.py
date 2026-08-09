@@ -181,7 +181,7 @@ class NuevaProduccionVarianteView(ctk.CTkFrame, KeyboardNavigableMixin):
             width=nav_volver.get("width", 15) * 10,
             height=nav_volver.get("height", 2) * 20,
             cursor="hand2",
-            command=self._on_volver
+            command=self._on_volver_handler
         )
         self.btn_volver.pack(side=tk.LEFT, padx=10)
 
@@ -200,7 +200,7 @@ class NuevaProduccionVarianteView(ctk.CTkFrame, KeyboardNavigableMixin):
             width=nav_sig.get("width", 15) * 10,
             height=nav_sig.get("height", 2) * 20,
             cursor="hand2",
-            command=self._on_siguiente
+            command=self._on_siguiente_handler
         )
         self.btn_siguiente.pack(side=tk.RIGHT, padx=10)
 

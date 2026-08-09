@@ -63,15 +63,9 @@ class CajeroAuthView(ctk.CTkFrame, KeyboardNavigableMixin):
 			(btn, lambda u=getattr(btn, '_usr_data', None): self._on_nav_enter_callback(u))
 			for btn in self._chip_buttons
 		]
-		self._navigable_buttons.append((self.btn_volver, self._on_volver))
+		self._navigable_buttons.append((self.btn_volver, self._on_volver_handler))
 		if self._navigable_buttons:
-			try:
-				self._setup_keyboard_navigation()
-				self._nav_toplevel.bind("<Return>", self._on_nav_enter)
-				self._nav_toplevel.bind("<KP_Enter>", self._on_nav_enter)
-				self.bind("<Destroy>", self._on_nav_destroy)
-			except Exception:
-				pass
+			self._setup_keyboard_navigation()
 
 		if self._chip_buttons:
 			self.after(100, lambda: self._focus_nav_widget(0))
@@ -230,11 +224,11 @@ class CajeroAuthView(ctk.CTkFrame, KeyboardNavigableMixin):
 			width=nav_volver.get("width", 15) * 10,
 			height=nav_volver.get("height", 2) * 20,
 			cursor="hand2",
-			command=self._on_volver
+			command=self._on_volver_handler
 		)
 		self.btn_volver.pack(side="left", padx=10)
 
-	def _on_volver(self):
+	def _on_volver_handler(self):
 		"""Manejador del botón VOLVER."""
 		if self.on_cancel:
 			self.on_cancel()
