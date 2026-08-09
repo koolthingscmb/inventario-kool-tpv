@@ -61,12 +61,12 @@ class ValesListSubView(CTkFrame):
         self.list_frame.pack(side="top", fill="both", expand=True, padx=20, pady=10)
 
         columns = [
-            ("fecha", 100, "Fecha"),
-            ("nombre_vale", 180, "Nombre Vale"),
-            ("cliente", 180, "Cliente"),
-            ("importe", 100, "Importe"),
-            ("ticket_devolucion", 140, "Devolución"),
-            ("usado_check", 80, "Usado"),
+            ("fecha", 90, "FECHA"),
+            ("nombre_vale", 150, "NOMBRE"),
+            ("cliente", 180, "CLIENTE", True), # Stretch
+            ("importe", 90, "💰"),
+            ("ticket_devolucion", 120, "DEVOLUCIÓN"),
+            ("usado_check", 50, "📥"),
         ]
 
         from kool_tpv.utils.widgets.searchable_paginated_navlist import SearchablePaginatedNavList
