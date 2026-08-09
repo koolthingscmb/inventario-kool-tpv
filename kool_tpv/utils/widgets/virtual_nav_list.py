@@ -468,7 +468,12 @@ class VirtualNavList(ctk.CTkFrame):
                     current_w = self._col_positions[j][1] if j < len(self._col_positions) else col['width']
                     
                     val = str(data.get(key, ''))
-                    lbl.configure(text=self._truncate(val, current_w), bg=bg, fg=fg)
+                    
+                    # Soporte para estilos específicos por celda (Pro)
+                    cell_bg = data.get(f"_cell_bg_{key}", bg)
+                    cell_fg = data.get(f"_cell_fg_{key}", fg)
+                    
+                    lbl.configure(text=self._truncate(val, current_w), bg=cell_bg, fg=cell_fg)
             else:
                 # Ocultar widget si no hay más datos para él
                 row['frame'].pack_forget()

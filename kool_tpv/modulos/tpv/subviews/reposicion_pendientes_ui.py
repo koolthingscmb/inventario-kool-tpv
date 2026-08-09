@@ -57,13 +57,13 @@ class ReposicionPendientesUI(ctk.CTkFrame):
         # NavList (Lo creamos antes de los botones que lo usan)
         # Ajustamos anchos para que quepan bien
         columns = [
-            ("FECHA", 78),
-            ("PRODUCTO VENDIDO", 226),
-            ("VARIANTE", 99),
-            ("COLOR", 77),
-            ("TALLA", 54),
-            ("DISEÑO", 364),
-            ("ℹ️", 60),
+            ("FECHA", 60),
+            ("ℹ️", 50),
+            ("PRODUCTO", 200, True),  # Stretch
+            ("VARIANTE", 100),
+            ("COLOR", 50),
+            ("TALLA", 60),
+            ("DISEÑO", 300, True),    # Stretch
         ]
         
         root = self.winfo_toplevel()
@@ -133,9 +133,12 @@ class ReposicionPendientesUI(ctk.CTkFrame):
                 if v: v_nombre = v.nombre
                 
             c_nombre = ""
+            c_hex = None
             if p.get("color_id"):
                 c = self.colores_service.obtener_por_id(p.get("color_id"))
-                if c: c_nombre = c.nombre
+                if c: 
+                    c_nombre = c.nombre
+                    c_hex = c.codigo_hex
                 
             t_nombre = ""
             if p.get("talla_id"):
@@ -155,7 +158,7 @@ class ReposicionPendientesUI(ctk.CTkFrame):
             if fecha_raw and len(fecha_raw) >= 10:
                 partes = fecha_raw[:10].split("-")
                 if len(partes) == 3:
-                    fecha_str = f"{partes[2]}/{partes[1]}/{partes[0][2:]}"
+                    fecha_str = f"{partes[2]}-{partes[1]}" # Formato DD-MM
 
             comentarios = p.get("comentarios", "")
             if d_nombre and comentarios:
@@ -178,12 +181,13 @@ class ReposicionPendientesUI(ctk.CTkFrame):
                 "producto_id": producto_id,
                 "ticket_id": p.get("ticket_id"),
                 "FECHA": fecha_str,
-                "PRODUCTO VENDIDO": p.get("nombre", ""),
+                "ℹ️": indic,
+                "PRODUCTO": p.get("nombre", ""),
                 "VARIANTE": v_nombre,
-                "COLOR": c_nombre,
+                "COLOR": " " if c_hex else c_nombre,
+                "_cell_bg_COLOR": c_hex,
                 "TALLA": t_nombre,
                 "DISEÑO": diseno_display,
-                "ℹ️": indic,
                 "_es_temp": False,
                 "_fecha_iso": p.get("fecha", "")
             }
@@ -207,7 +211,7 @@ class ReposicionPendientesUI(ctk.CTkFrame):
             if fecha_raw and len(fecha_raw) >= 10:
                 partes = fecha_raw[:10].split("-")
                 if len(partes) == 3:
-                    fecha_str = f"{partes[2]}/{partes[1]}/{partes[0][2:]}"
+                    fecha_str = f"{partes[2]}-{partes[1]}" # Formato DD-MM
 
             comentarios_temp = p.get("comentarios", "")
             diseno_display_temp = comentarios_temp if comentarios_temp else ""
@@ -224,12 +228,12 @@ class ReposicionPendientesUI(ctk.CTkFrame):
                 "producto_id": producto_id,
                 "ticket_id": p.get("ticket_id"),
                 "FECHA": fecha_str,
-                "PRODUCTO VENDIDO": p.get("nombre", ""),
+                "ℹ️": indic_temp,
+                "PRODUCTO": p.get("nombre", ""),
                 "VARIANTE": "",
                 "COLOR": "",
                 "TALLA": "",
                 "DISEÑO": diseno_display_temp,
-                "ℹ️": indic_temp,
                 "_es_temp": True,
                 "_fecha_iso": p.get("fecha", "")
             }
@@ -277,7 +281,7 @@ class ReposicionPendientesUI(ctk.CTkFrame):
         producto_individual = {
             "producto_id": producto_id,
             "temp_id": item.get("temp_id"),
-            "nombre": item.get("PRODUCTO VENDIDO"),
+            "nombre": item.get("PRODUCTO"),
             "cantidad": cantidad,
         }
 
@@ -293,7 +297,7 @@ class ReposicionPendientesUI(ctk.CTkFrame):
         )
         
         if self.view and hasattr(self.view, "push_subview"):
-            self.view.push_subview(form, f"REPOSICIÓN: {item.get('PRODUCTO VENDIDO')}")
+            self.view.push_subview(form, f"REPOSICIÓN: {item.get('PRODUCTO')}")
 
     def _on_borrar(self):
         if not self.selected_items:
@@ -302,7 +306,7 @@ class ReposicionPendientesUI(ctk.CTkFrame):
         count = len(self.selected_items)
         if count == 1:
             item = self.selected_items[0]
-            mensaje = f"¿Estás seguro de que deseas eliminar '{item.get('PRODUCTO VENDIDO')}' de la lista de pendientes?"
+            mensaje = f"¿Estás seguro de que deseas eliminar '{item.get('PRODUCTO')}' de la lista de pendientes?"
         else:
             mensaje = f"¿Estás seguro de que deseas eliminar {count} productos de la lista de pendientes?"
             
