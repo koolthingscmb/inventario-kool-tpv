@@ -643,13 +643,13 @@
     "ticket_carrito": {
       "header": {
         "bg": "#000000",
-        "text_info": "#00FF00",
+        "text_info": "#FFFFFF",
         "text_cliente": "#FFD700",
         "text_tesoro": "#FFD700"
       },
       "body": {
         "bg": "#000000",
-        "header_text": "#00FF00"
+        "header_text": "#FFD700"
       },
       "footer": {
         "bg": "#1A1A1A",
@@ -657,7 +657,7 @@
         "bg_active_tarjeta": "#3498DB",
         "bg_active_web": "#88B04B",
         "text": "#FFFFFF",
-        "text_totales": "#00FF00"
+        "text_totales": "#FFD700"
       }
     },
     "payment_controllers": {
