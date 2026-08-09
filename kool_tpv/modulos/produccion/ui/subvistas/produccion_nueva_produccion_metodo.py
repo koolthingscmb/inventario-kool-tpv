@@ -15,17 +15,22 @@ class MetodoSeleccion:
 
 class NuevaProduccionMetodoView(ctk.CTkFrame, KeyboardNavigableMixin):
     def __init__(self, parent, db: Database, variante_id: int, on_siguiente=None, on_volver=None):
-        KeyboardNavigableMixin.__init_keyboard_mixin__(self)
-        self.parent, self.db, self.on_siguiente, self.on_volver = parent, db, on_siguiente, on_volver
-        self._variante_id, self.metodo_seleccionado, self._chip_buttons, self._selected_chip = variante_id, None, [], None
-        self._service = TiposVariantesMetodosService(db)
+        # Cargar configuración
         self.config = cargar_config_produccion()
         c = self.config.get("colors", {})
-        self._bg, self._text, self._text_sec = c.get("background", "#2c3e50"), c.get("text", "#ecf0f1"), c.get("text_secondary", "#95a5a6")
-        self._chip_cfg = get_chip_config(self.config, "producto")
-        
+        self._bg = c.get("background", "#2c3e50")
+
         # Inicializar como CTkFrame
         ctk.CTkFrame.__init__(self, parent, fg_color=self._bg)
+        KeyboardNavigableMixin.__init_keyboard_mixin__(self)
+
+        self.db, self.on_siguiente, self.on_volver = db, on_siguiente, on_volver
+        self._variante_id, self.metodo_seleccionado, self._chip_buttons, self._selected_chip = variante_id, None, [], None
+        self._service = TiposVariantesMetodosService(db)
+        
+        self._text, self._text_sec = c.get("text", "#ecf0f1"), c.get("text_secondary", "#95a5a6")
+        self._chip_cfg = get_chip_config(self.config, "producto")
+        
         self.pack(fill="both", expand=True)
         
         ctk.CTkLabel(self, text="SELECCIONA MÉTODO", font=get_font(self.config, "title"), text_color=self._text).pack(pady=20)
@@ -152,12 +157,12 @@ class NuevaProduccionMetodoView(ctk.CTkFrame, KeyboardNavigableMixin):
     def _on_volver(self):
         if self.on_volver: self.on_volver()
 
-    def _on_siguiente(self):
+    def _on_siguiente_handler(self):
         if self.metodo_seleccionado and self.on_siguiente: self.on_siguiente(self.metodo_seleccionado)
 
     def _setup_nav(self):
         self._navigable_buttons = [(b, lambda b=b, m=getattr(b, '_metodo_data', None): self._nav_cb(b, m)) for b in self._chip_buttons]
-        self._navigable_buttons.extend([(self.btn_volver, self._on_volver), (self.btn_siguiente, self._on_siguiente)])
+        self._navigable_buttons.extend([(self.btn_volver, self._on_volver), (self.btn_siguiente, self._on_siguiente_handler)])
         
         # Usar el método del mixin para configurar todo
         self._setup_keyboard_navigation()
@@ -168,7 +173,7 @@ class NuevaProduccionMetodoView(ctk.CTkFrame, KeyboardNavigableMixin):
 
     def _nav_cb(self, btn, m):
         if self._selected_chip == btn:
-            self._on_siguiente()
+            self._on_siguiente_handler()
         elif m:
             self._click(btn, m)
 

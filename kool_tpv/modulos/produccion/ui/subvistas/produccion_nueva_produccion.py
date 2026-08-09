@@ -16,7 +16,7 @@ from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config
 from kool_tpv.utils.keyboard_nav_mixin import KeyboardNavigableMixin
 
 
-class NuevaProduccionView(KeyboardNavigableMixin):
+class NuevaProduccionView(ctk.CTkFrame, KeyboardNavigableMixin):
 	"""Subvista para seleccionar el tipo de producto.
 
 	Args:
@@ -29,23 +29,25 @@ class NuevaProduccionView(KeyboardNavigableMixin):
 	             on_siguiente: Optional[Callable[[ProduccionMenuItem], None]] = None,
 	             on_volver: Optional[Callable] = None,
 	             keyboard_mgr=None):
+		# Cargar configuración
+		self.config = cargar_config_produccion()
+		self._colors = self.config.get("colors", {})
+		self._bg = self._colors.get("background", "#2c3e50")
+
+		# Inicializar como CTkFrame
+		ctk.CTkFrame.__init__(self, parent, fg_color=self._bg)
 		KeyboardNavigableMixin.__init_keyboard_mixin__(self)
-		self.parent = parent
+
 		self.db = db
 		self.on_siguiente = on_siguiente
 		self.on_volver = on_volver
 		self.keyboard_mgr = keyboard_mgr
 		self.menu_seleccionado: Optional[ProduccionMenuItem] = None
 
-		# Cargar configuración
-		self.config = cargar_config_produccion()
-		self._colors = self.config.get("colors", {})
-		self._bg = self._colors.get("background", "#2c3e50")
 		self._text = self._colors.get("text", "#ecf0f1")
 
-		# Frame principal
-		self.frame = tk.Frame(parent, bg=self._bg)
-		self.frame.pack(fill=tk.BOTH, expand=True)
+		# Frame principal ya es self
+		self.pack(fill=tk.BOTH, expand=True)
 
 		# Widget selector de producto
 		self._crear_selector()
@@ -60,22 +62,14 @@ class NuevaProduccionView(KeyboardNavigableMixin):
 			for btn, callback in self.selector.get_navigable_widgets():
 				self._navigable_buttons.append((btn, callback))
 		
-		self._navigable_buttons.append((self.btn_volver, self._on_volver))
-		self._navigable_buttons.append((self.btn_siguiente, self._on_siguiente))
+		self._navigable_buttons.append((self.btn_volver, self._on_volver_handler))
+		self._navigable_buttons.append((self.btn_siguiente, self._on_siguiente_handler))
 
 		if self._navigable_buttons:
-			try:
-				self._nav_toplevel = self.frame.winfo_toplevel()
-			except Exception:
-				self._nav_toplevel = self.frame
-			self._nav_toplevel.bind("<Tab>", self._on_nav_tab_next)
-			self._nav_toplevel.bind("<Shift-Tab>", self._on_nav_tab_prev)
-			self._nav_toplevel.bind("<Return>", self._on_nav_enter)
-			self._nav_toplevel.bind("<KP_Enter>", self._on_nav_enter)
-			self.frame.bind("<Destroy>", self._on_nav_destroy)
+			self._setup_keyboard_navigation()
 
 		if self._navigable_buttons:
-			self.frame.after(100, lambda: self._focus_nav_widget(0))
+			self.after(100, lambda: self._focus_nav_widget(0))
 
 	def _get_font(self, key: str) -> tuple:
 		"""Obtener una fuente desde la configuración."""
@@ -83,21 +77,19 @@ class NuevaProduccionView(KeyboardNavigableMixin):
 
 	def _crear_selector(self):
 		"""Crear el widget selector de producto."""
-		frame_selector = tk.Frame(self.frame, bg=self._bg)
-		frame_selector.pack(fill=tk.BOTH, expand=True, padx=20, pady=(20, 10))
-
 		self.selector = ProductoSelectorWidget(
-			frame_selector,
+			self,
 			db=self.db,
 			on_seleccion=self._on_producto_seleccionado,
-			on_advance=self._on_siguiente,
+			on_advance=self._on_siguiente_handler,
 			keyboard_mgr=self.keyboard_mgr,
 			titulo="SELECCIONA PRODUCTO"
 		)
+		self.selector.frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=(20, 10))
 
 	def _crear_botones_navegacion(self):
 		"""Crear los botones de navegación inferior."""
-		frame_nav = ctk.CTkFrame(self.frame, fg_color=self._bg)
+		frame_nav = ctk.CTkFrame(self, fg_color=self._bg)
 		frame_nav.pack(fill="x", padx=40, pady=20)
 
 		# Botón VOLVER
@@ -115,7 +107,7 @@ class NuevaProduccionView(KeyboardNavigableMixin):
 			width=nav_volver.get("width", 15) * 10,
 			height=nav_volver.get("height", 2) * 20,
 			cursor="hand2",
-			command=self._on_volver
+			command=self._on_volver_handler
 		)
 		self.btn_volver.pack(side=tk.LEFT, padx=10)
 
@@ -134,7 +126,7 @@ class NuevaProduccionView(KeyboardNavigableMixin):
 			width=nav_sig.get("width", 15) * 10,
 			height=nav_sig.get("height", 2) * 20,
 			cursor="hand2",
-			command=self._on_siguiente
+			command=self._on_siguiente_handler
 		)
 		self.btn_siguiente.pack(side=tk.RIGHT, padx=10)
 
@@ -142,12 +134,12 @@ class NuevaProduccionView(KeyboardNavigableMixin):
 		"""Manejador cuando se selecciona un menú de producto."""
 		self.menu_seleccionado = menu_item
 
-	def _on_siguiente(self):
+	def _on_siguiente_handler(self):
 		"""Manejador del botón SIGUIENTE."""
 		if self.menu_seleccionado and self.on_siguiente:
 			self.on_siguiente(self.menu_seleccionado)
 
-	def _on_volver(self):
+	def _on_volver_handler(self):
 		"""Manejador del botón VOLVER."""
 		if self.on_volver:
 			self.on_volver()
@@ -165,4 +157,4 @@ class NuevaProduccionView(KeyboardNavigableMixin):
 		self.clear_keyboard_navigation()
 		if hasattr(self.selector, 'destruir'):
 			self.selector.destruir()
-		self.frame.destroy()
+		self.destroy()

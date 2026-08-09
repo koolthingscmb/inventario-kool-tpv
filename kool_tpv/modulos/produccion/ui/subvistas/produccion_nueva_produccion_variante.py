@@ -28,8 +28,15 @@ class NuevaProduccionVarianteView(ctk.CTkFrame, KeyboardNavigableMixin):
     def __init__(self, parent, db: Database, tipo_id: int,
                  on_siguiente: Optional[Callable[[ProduccionTipoVariante], None]] = None,
                  on_volver: Optional[Callable] = None):
+        # Cargar configuración
+        self.config = cargar_config_produccion()
+        self._colors = self.config.get("colors", {})
+        self._bg = self._colors.get("background", "#2c3e50")
+
+        # Inicializar como CTkFrame
+        ctk.CTkFrame.__init__(self, parent, fg_color=self._bg)
         KeyboardNavigableMixin.__init_keyboard_mixin__(self)
-        self.parent = parent
+
         self.db = db
         self.tipo_id = tipo_id
         self.on_siguiente = on_siguiente
@@ -39,15 +46,10 @@ class NuevaProduccionVarianteView(ctk.CTkFrame, KeyboardNavigableMixin):
         self._selected_chip: Optional[ctk.CTkButton] = None
 
         self._service = ProduccionTiposVariantesService(db)
-        self.config = cargar_config_produccion()
-        self._colors = self.config.get("colors", {})
-        self._bg = self._colors.get("background", "#2c3e50")
         self._text = self._colors.get("text", "#ecf0f1")
         self._text_sec = self._colors.get("text_secondary", "#95a5a6")
         self._chip_cfg = get_chip_config(self.config, "producto")
 
-        # Inicializar como CTkFrame
-        ctk.CTkFrame.__init__(self, parent, fg_color=self._bg)
         self.pack(fill="both", expand=True)
 
         self._crear_titulo()
@@ -58,8 +60,8 @@ class NuevaProduccionVarianteView(ctk.CTkFrame, KeyboardNavigableMixin):
             (btn, lambda b=btn, v=getattr(btn, '_variante_data', None): self._on_nav_enter_callback(b, v))
             for btn in self._chip_buttons
         ]
-        self._navigable_buttons.append((self.btn_volver, self._on_volver))
-        self._navigable_buttons.append((self.btn_siguiente, self._on_siguiente))
+        self._navigable_buttons.append((self.btn_volver, self._on_volver_handler))
+        self._navigable_buttons.append((self.btn_siguiente, self._on_siguiente_handler))
         
         if self._navigable_buttons:
             self._setup_keyboard_navigation()
@@ -202,11 +204,11 @@ class NuevaProduccionVarianteView(ctk.CTkFrame, KeyboardNavigableMixin):
         )
         self.btn_siguiente.pack(side=tk.RIGHT, padx=10)
 
-    def _on_volver(self):
+    def _on_volver_handler(self):
         if self.on_volver:
             self.on_volver()
 
-    def _on_siguiente(self):
+    def _on_siguiente_handler(self):
         if self.variante_seleccionada and self.on_siguiente:
             self.on_siguiente(self.variante_seleccionada)
 
