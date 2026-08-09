@@ -54,29 +54,7 @@ class ReposicionPendientesUI(ctk.CTkFrame):
         )
         leyenda.pack(side="top", anchor="w", pady=(2, 0))
         
-        # Botones a la derecha
-        self.btn_borrar = ButtonFactory.create_button(
-            parent=self.header,
-            text="ELIMINAR",
-            command=self._on_borrar,
-            style_key="action_danger",
-            width=150,
-            height=40
-        )
-        self.btn_borrar.pack(side="right", padx=10)
-        self.btn_borrar.configure(state="disabled")
-
-        self.btn_select_all = ButtonFactory.create_button(
-            parent=self.header,
-            text="TODO",
-            command=self.nav_list.select_all,
-            style_key="action_primary",
-            width=80,
-            height=40
-        )
-        self.btn_select_all.pack(side="right", padx=5)
-
-        # NavList
+        # NavList (Lo creamos antes de los botones que lo usan)
         # Ajustamos anchos para que quepan bien
         columns = [
             ("FECHA", 78),
@@ -101,6 +79,28 @@ class ReposicionPendientesUI(ctk.CTkFrame):
             keyboard_manager=km
         )
         self.nav_list.pack(side="top", fill="both", expand=True, padx=10, pady=10)
+
+        # Botones a la derecha
+        self.btn_borrar = ButtonFactory.create_button(
+            parent=self.header,
+            text="ELIMINAR",
+            command=self._on_borrar,
+            style_key="action_danger",
+            width=150,
+            height=40
+        )
+        self.btn_borrar.pack(side="right", padx=10)
+        self.btn_borrar.configure(state="disabled")
+
+        self.btn_select_all = ButtonFactory.create_button(
+            parent=self.header,
+            text="TODO",
+            command=self.nav_list.select_all,
+            style_key="action_primary",
+            width=80,
+            height=40
+        )
+        self.btn_select_all.pack(side="right", padx=5)
 
         # Bindings de teclado para borrar (usamos bind en lugar de bind_all)
         self.nav_list.bind("<Delete>", lambda e: self._on_borrar())
