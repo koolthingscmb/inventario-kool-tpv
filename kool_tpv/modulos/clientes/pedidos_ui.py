@@ -96,14 +96,24 @@ class PedidosUI:
             font=get_font('label', module=self.module_name)
         ).pack(side='left', padx=(0, 8))
         
-        self.estado_var = tk.StringVar(value='TODOS')
-        estados_list = ['TODOS'] + [e['id'].upper() for e in self.service.get_estados()]
+        self.estado_var = tk.StringVar(value='PENDIENTE')
+        
+        # Diccionario de estados con iconos
+        self.ESTADOS_UI = {
+            'pendiente': '⏳',
+            'distribuidor': '🚚',
+            'avisado': '📞',
+            'entregado': '✅',
+            'cancelado': '❌'
+        }
+        
+        estados_list = [f"{icon} ({name.upper()})" for name, icon in self.ESTADOS_UI.items()]
         
         self.combo_estado = ctk.CTkComboBox(
             filter_frame,
             values=estados_list,
             variable=self.estado_var,
-            width=150,
+            width=200,
             font=get_font('label', module=self.module_name)
         )
         self.combo_estado.pack(side='left', padx=(0, 10))
@@ -119,12 +129,12 @@ class PedidosUI:
         # LIST
         columns = [
             ('id', 42, 'ID'),
-            ('fecha_pedido', 120, 'FECHA'),
-            ('cliente_nombre', 136, 'CLIENTE'), # 160 - 15% = 136
-            ('producto_nombre', 258, 'PRODUCTO'), # 224 + 15% = 257.6
-            ('usuario_nombre', 86, 'USUARIO'),  # 96 - 10% = 86.4
-            ('estado', 96, 'ESTADO'),           # 120 - 20% = 96
-            ('vale', 54, 'VALE'),               # 60 - 10% = 54
+            ('fecha_pedido', 80, 'FECHA'),
+            ('vale', 50, '🎫'),
+            ('cliente_nombre', 160, 'CLIENTE', True),
+            ('producto_nombre', 200, 'PRODUCTO', True),
+            ('usuario_nombre', 86, 'USER'),
+            ('estado', 50, '📌'),
             ('notas', 250, 'NOTAS')
         ]
         
@@ -240,31 +250,27 @@ class PedidosUI:
         return pedidos
 
     def _map_pedido(self, pedido: dict) -> dict:
-        # Formatear fecha
+        # Formatear fecha (DD-MM-YY)
         fecha = pedido.get('fecha_pedido', '')
         if fecha:
             try:
                 dt = datetime.strptime(fecha, '%Y-%m-%d %H:%M:%S')
-                fecha = dt.strftime('%d/%m/%y %H:%M')
+                fecha = dt.strftime('%d-%m-%y')
             except Exception:
                 pass
         
-        # Badge de estado con color
-        estado_id = pedido.get('estado', 'pendiente')
-        estado_txt = estado_id.upper()
+        # Icono de estado
+        estado_id = pedido.get('estado', 'pendiente').lower()
+        estado_icon = self.ESTADOS_UI.get(estado_id, '⏳')
         
-        # Si es distribuidor, resaltar
-        if estado_id == 'distribuidor':
-            estado_txt = "★ DISTRIBUIDOR ★"
-
         mapped = {
             'id': str(pedido.get('id')),
             'fecha_pedido': fecha,
             'cliente_nombre': pedido.get('cliente_nombre') or pedido.get('contacto_nombre') or 'Anon',
             'producto_nombre': pedido.get('linea_producto_nombre') or '',
             'usuario_nombre': pedido.get('usuario_nombre') or '',
-            'estado': estado_txt,
-            'vale': '✅' if pedido.get('vale_id') and estado_id != 'entregado' else '',
+            'estado': estado_icon,
+            'vale': '🎟️' if pedido.get('vale_id') and estado_id != 'entregado' else '',
             'notas': pedido.get('notas_generales') or '',
             '_data': pedido
         }
@@ -284,13 +290,16 @@ class PedidosUI:
             ToastWidget.show(self.container, "Seleccione un pedido de la lista", tipo='warning')
             return
             
-        nuevo_estado_txt = self.estado_var.get()
-        if nuevo_estado_txt == 'TODOS':
-            ToastWidget.show(self.container, "Seleccione un estado específico en el combo", tipo='warning')
+        nuevo_estado_full = self.estado_var.get()
+        # Extraer el id del estado del formato "Icono (NOMBRE)"
+        import re
+        match = re.search(r'\((.*?)\)', nuevo_estado_full)
+        if not match:
+            ToastWidget.show(self.container, "Estado no válido", tipo='error')
             return
             
+        nuevo_estado = match.group(1).lower()
         pedido = sel.get('_data')
-        nuevo_estado = nuevo_estado_txt.lower()
         
         if self.service.actualizar_estado(pedido['id'], nuevo_estado):
             ToastWidget.show(self.container, f"Pedido #{pedido['id']} actualizado a {nuevo_estado.upper()}", tipo='success')
