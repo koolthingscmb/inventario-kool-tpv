@@ -61,8 +61,8 @@ class ReposicionPendientesUI(ctk.CTkFrame):
             ("ℹ️", 50),
             ("PRODUCTO", 200, True),  # Stretch
             ("VARIANTE", 100),
-            ("COLOR", 50),
-            ("TALLA", 60),
+            ("COLOR", 50, "🎨"),
+            ("TALLA", 60, "📏"),
             ("DISEÑO", 300, True),    # Stretch
         ]
         
