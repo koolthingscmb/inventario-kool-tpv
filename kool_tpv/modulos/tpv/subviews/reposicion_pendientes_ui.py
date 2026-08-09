@@ -62,13 +62,17 @@ class ReposicionPendientesUI(ctk.CTkFrame):
             ("ℹ️", 60),
         ]
         
+        root = self.winfo_toplevel()
+        km = getattr(root, 'keyboard_manager', None)
+
         self.nav_list = VirtualNavList(
             self,
             columns=columns,
             on_selection_change=self._on_selection_change,
             on_double_click=self._on_double_click,
             module_name="produccion", # Colores morados
-            multi_select=True
+            multi_select=True,
+            keyboard_manager=km
         )
         self.nav_list.pack(side="top", fill="both", expand=True, padx=10, pady=10)
 

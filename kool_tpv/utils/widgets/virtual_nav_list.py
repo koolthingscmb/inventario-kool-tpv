@@ -128,8 +128,16 @@ class VirtualNavList(ctk.CTkFrame):
         result = []
         for col in columns:
             try:
-                if len(col) == 3:
-                    key, width, label = col
+                stretch = False
+                if len(col) == 4:
+                    key, width, label, stretch = col
+                elif len(col) == 3:
+                    # Detectar si el tercer elemento es el label o el stretch
+                    if isinstance(col[2], bool):
+                        key, width, stretch = col
+                        label = key
+                    else:
+                        key, width, label = col
                 elif len(col) == 2:
                     key, width = col
                     label = key
@@ -138,7 +146,12 @@ class VirtualNavList(ctk.CTkFrame):
             except Exception:
                 key = str(col); width = 100; label = key
             
-            result.append((key, int(width), str(label)))
+            result.append({
+                'key': key,
+                'width': int(width),
+                'label': str(label),
+                'stretch': stretch
+            })
         return result
 
     def _build_ui(self):
@@ -236,7 +249,7 @@ class VirtualNavList(ctk.CTkFrame):
         
         # 1. INTELIGENCIA DE LÍMITES (Paso 4: Responsividad + Scroll Horizontal)
         # Calculamos el espacio mínimo que necesitan las columnas sumando sus anchos originales
-        total_orig_w = sum(col[1] for col in self.columns)
+        total_orig_w = sum(col['width'] for col in self.columns)
         fixed_margins = 10 + (12 * (len(self.columns) - 1)) + 25
         min_required_width = total_orig_w + fixed_margins
         
@@ -260,18 +273,42 @@ class VirtualNavList(ctk.CTkFrame):
         if total_orig_w > 0:
             available_w = max(100, table_width - fixed_margins)
             
+            # Identificar columnas que se estiran (stretch=True)
+            stretch_cols = [c for c in self.columns if c.get('stretch', False)]
+            
             new_positions = []
             current_x = 10
-            for i, (key, orig_w, label) in enumerate(self.columns):
-                # Regla de tres: proporcional al original respecto al total disponible
-                col_w = int((orig_w / total_orig_w) * available_w)
-                new_positions.append((current_x, col_w))
+            
+            if stretch_cols:
+                # MODO PRO: Columnas fijas + una o varias elásticas
+                # Calculamos cuánto espacio ocupan las fijas
+                fixed_w_sum = sum(c['width'] for c in self.columns if not c.get('stretch', False))
+                remaining_w = max(0, available_w - fixed_w_sum)
                 
-                # Actualizar header label al vuelo
-                if i < len(self._header_labels):
-                    self._header_labels[i].place(x=current_x, width=col_w)
+                # Repartimos el sobrante entre las elásticas (normalmente solo habrá una)
+                stretch_share = remaining_w // len(stretch_cols)
                 
-                current_x += col_w + 12
+                for i, col in enumerate(self.columns):
+                    if col.get('stretch', False):
+                        col_w = stretch_share
+                    else:
+                        col_w = col['width']
+                    
+                    new_positions.append((current_x, col_w))
+                    if i < len(self._header_labels):
+                        self._header_labels[i].place(x=current_x, width=col_w)
+                    current_x += col_w + 12
+            else:
+                # MODO COMPATIBILIDAD: Reparto proporcional clásico (todas se estiran según su peso)
+                for i, col in enumerate(self.columns):
+                    orig_w = col['width']
+                    col_w = int((orig_w / total_orig_w) * available_w)
+                    new_positions.append((current_x, col_w))
+                    
+                    if i < len(self._header_labels):
+                        self._header_labels[i].place(x=current_x, width=col_w)
+                    
+                    current_x += col_w + 12
             
             self._col_positions = new_positions
 
@@ -319,7 +356,8 @@ class VirtualNavList(ctk.CTkFrame):
         else:
             # Fallback estático (solo primera creación antes de primer Configure)
             x = 10
-            for i, (key, width, _) in enumerate(self.columns):
+            for col in self.columns:
+                width = col['width']
                 lbl = tk.Label(row_frame, text="", font=self._font_row, fg=fg, bg=bg, anchor='w')
                 lbl.place(x=x, y=0, width=width, height=rh)
                 labels.append(lbl)
@@ -677,9 +715,11 @@ class VirtualNavList(ctk.CTkFrame):
     # Ordenación por Cabecera
     # ------------------------------------------------------------------
 
-    def _on_header_click(self, col_idx: int):
-        """Manejador de clic en cabecera para ordenar."""
-        key = self.columns[col_idx][0]  # La key de datos (ej: 'nombre', 'tipo')
+    def _on_header_click(self, col_index):
+        """Maneja el clic en la cabecera para ordenar."""
+        col = self.columns[col_index]
+        key = col['key']
+        label_text = col['label']  # El texto visible en la cabecera (ej: 'ARTÍCULO', 'PVP')
         
         # Toggle dirección si clic en la misma columna
         if self._sort_column == key:
