@@ -168,7 +168,9 @@ class VirtualNavList(ctk.CTkFrame):
         
         x = 10 # Margen inicial
         self._header_labels = []
-        for i, (key, width, label) in enumerate(self.columns):
+        for i, col in enumerate(self.columns):
+            width = col['width']
+            label = col['label']
             header_label = tk.Label(
                 self._header_container, text=label, font=self._font_header,
                 fg=secondary, bg=bg_dark, anchor='w', cursor='hand2'
@@ -460,9 +462,10 @@ class VirtualNavList(ctk.CTkFrame):
                 
                 # Actualizar Labels
                 for j, lbl in enumerate(row['labels']):
-                    key = self.columns[j][0]
+                    col = self.columns[j]
+                    key = col['key']
                     # Usar ancho actual calculado en lugar del original de self.columns
-                    current_w = self._col_positions[j][1] if j < len(self._col_positions) else self.columns[j][1]
+                    current_w = self._col_positions[j][1] if j < len(self._col_positions) else col['width']
                     
                     val = str(data.get(key, ''))
                     lbl.configure(text=self._truncate(val, current_w), bg=bg, fg=fg)
@@ -779,9 +782,9 @@ class VirtualNavList(ctk.CTkFrame):
 
             # 2. Criterio Secundario (Agrupar por el primer campo, normalmente ARTÍCULO/NOMBRE)
             # Esto evita que registros con el mismo valor principal (ej: misma talla) salgan desordenados entre sí.
-            secondary_column = self.columns[0][0] # La primera columna definida
+            secondary_column = self.columns[0]['key'] # La primera columna definida
             if secondary_column == self._sort_column and len(self.columns) > 1:
-                secondary_column = self.columns[1][0] # Si ya estamos en la primera, usamos la segunda
+                secondary_column = self.columns[1]['key'] # Si ya estamos en la primera, usamos la segunda
             
             secondary_value = item.get(secondary_column, '')
             secondary_key = natural_key(str(secondary_value))
@@ -792,7 +795,9 @@ class VirtualNavList(ctk.CTkFrame):
 
     def _update_header_indicators(self):
         """Actualiza las flechas de ordenación en las cabeceras."""
-        for i, (key, width, label) in enumerate(self.columns):
+        for i, col in enumerate(self.columns):
+            key = col['key']
+            label = col['label']
             if key == self._sort_column:
                 arrow = ' ▲' if self._sort_direction == 'asc' else ' ▼'
                 self._header_labels[i].configure(text=label + arrow)
