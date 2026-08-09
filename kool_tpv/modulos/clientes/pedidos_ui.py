@@ -129,13 +129,13 @@ class PedidosUI:
         # LIST
         columns = [
             ('id', 42, 'ID'),
-            ('fecha_pedido', 80, 'FECHA'),
+            ('fecha_pedido', 88, 'FECHA'),
             ('vale', 50, '🎫'),
             ('cliente_nombre', 160, 'CLIENTE', True),
             ('producto_nombre', 200, 'PRODUCTO', True),
             ('usuario_nombre', 86, 'USER'),
             ('estado', 50, '📌'),
-            ('notas', 250, 'NOTAS')
+            ('notas', 50, '📝')
         ]
         
         self.nav_list = SearchablePaginatedNavList(
@@ -271,7 +271,7 @@ class PedidosUI:
             'usuario_nombre': pedido.get('usuario_nombre') or '',
             'estado': estado_icon,
             'vale': '🎟️' if pedido.get('vale_id') and estado_id != 'entregado' else '',
-            'notas': pedido.get('notas_generales') or '',
+            'notas': '✅' if pedido.get('notas_generales') else '',
             '_data': pedido
         }
 
