@@ -946,20 +946,26 @@ class TicketCarrito(ctk.CTkFrame):
         except Exception:
             logger.exception("Error delegando update_display a update_carrito")
 
-    def update_carrito(self):
-        """Actualizar display del carrito manteniendo scroll."""
+    def update_carrito(self, focus_index: Optional[int] = None):
+        """Actualizar display del carrito manteniendo scroll.
+        
+        Args:
+            focus_index: Opcional, índice de la fila a seleccionar y enfocar tras el refresco.
+        """
         try:
             if not self.carrito_service:
                 return
 
             # Guardar posición scroll (donde estaba mirando el usuario)
+            # Solo si NO vamos a forzar un foco en un índice específico
             scroll_pos = 0.0
-            try:
-                if hasattr(self, 'carrito_nav_list'):
-                    # VirtualNavList usa self._canvas
-                    scroll_pos = self.carrito_nav_list._canvas.yview()[0]
-            except Exception:
-                pass
+            if focus_index is None:
+                try:
+                    if hasattr(self, 'carrito_nav_list'):
+                        # VirtualNavList usa self._canvas
+                        scroll_pos = self.carrito_nav_list._canvas.yview()[0]
+                except Exception:
+                    pass
 
             if hasattr(self, 'carrito_nav_list'):
                 # Recopilar todos los items (reales + visuales)
@@ -1082,11 +1088,15 @@ class TicketCarrito(ctk.CTkFrame):
                 # CARGAR TODO DE GOLPE (Eficiencia Virtual)
                 self.carrito_nav_list.set_items(items_to_set)
 
-                # Restaurar scroll
-                try:
-                    self.carrito_nav_list._canvas.yview_moveto(scroll_pos)
-                except Exception:
-                    pass
+                # Restaurar scroll o aplicar nuevo foco
+                if focus_index is not None and 0 <= focus_index < len(items_to_set):
+                    # Seleccionar el item solicitado (esto ya hace ensure_visible)
+                    self.carrito_nav_list.select_index(focus_index)
+                else:
+                    try:
+                        self.carrito_nav_list._canvas.yview_moveto(scroll_pos)
+                    except Exception:
+                        pass
 
                 # Actualizar totales
                 resumen = self.carrito_service.get_resumen_financiero() or {}

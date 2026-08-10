@@ -542,9 +542,15 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
     def _mostrar_favoritos(self):
         """Mostrar subvista de favoritos (reemplaza el grid)."""
         def refresh_ticket():
+            """Refrescar ticket tras añadir favorito.
+            Nota: Si la adición fue vía TpvController, el foco ya se gestionó allí.
+            """
             try:
                 ticket = getattr(self, 'ticket_widget', None) or getattr(self, 'ticket_carrito', None) or getattr(self, 'ticket', None)
                 if ticket and hasattr(ticket, 'update_carrito'):
+                    # Si ya hay una selección activa (puesta por el controller), 
+                    # update_carrito sin argumentos mantendrá el scroll pero 
+                    # no queremos que resetee el foco.
                     ticket.update_carrito()
             except Exception:
                 pass

@@ -382,10 +382,23 @@ class TpvController:
         if carrito.add_item(producto, parent_window=self.view):
             logger.info('Producto añadido al carrito -> %s', producto.get('nombre'))
             
-            # Actualizar ticket visual
+            # Buscar el índice del producto que acabamos de añadir/actualizar
+            target_idx = -1
+            try:
+                items = carrito.get_items()
+                p_id = producto.get('id')
+                p_tipo = producto.get('line_tipo', 'venta')
+                for i, item in enumerate(items):
+                    if item.get('id') == p_id and item.get('line_tipo', 'venta') == p_tipo:
+                        target_idx = i
+                        break
+            except Exception:
+                logger.exception("Error buscando índice del producto añadido")
+
+            # Actualizar ticket visual y dar foco al producto
             ticket = getattr(self.view, 'ticket_carrito', None)
             if ticket and hasattr(ticket, 'update_carrito'):
-                ticket.update_carrito()
+                ticket.update_carrito(focus_index=target_idx if target_idx >= 0 else None)
             
             # Si hay un callback on_add_callback en la subvista actual, llamarlo
             # Esto es para que Favoritos sepa que se añadió algo
