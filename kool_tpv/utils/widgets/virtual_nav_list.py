@@ -224,6 +224,7 @@ class VirtualNavList(ctk.CTkFrame):
         # Atajo para Enter
         self._canvas.bind('<Return>', self._handle_return_key)
         self._canvas.bind('<KP_Enter>', self._handle_return_key)
+        self._canvas.bind('<space>', self._on_space_key)
 
         # Atajos para scroll horizontal con teclado (Paso 5)
         self._canvas.bind('<Left>', self._on_key_left)
@@ -423,9 +424,14 @@ class VirtualNavList(ctk.CTkFrame):
                 data = self._all_data[data_idx]
                 
                 # 1. Determinar colores base (Zebra / Normal)
-                is_sel = (data_idx == self.selected_index)
+                is_sel = False
                 if self.multi_select:
                     is_sel = (data_idx in self.selected_indices)
+                else:
+                    is_sel = (data_idx == self.selected_index)
+                
+                # Foco visual (cursor de teclado)
+                is_focused = (data_idx == self.selected_index)
                 
                 if is_sel:
                     bg = self.row_selected_bg
@@ -437,7 +443,7 @@ class VirtualNavList(ctk.CTkFrame):
                         bg = self.row_zebra_bg
                     fg = self.row_normal_text
 
-                # Sobrescribir si hay colores en el data o callback (Incluso si está seleccionada si el callback lo decide)
+                # Sobrescribir si hay colores en el data o callback
                 custom_colors = None
                 if self.row_color_callback:
                     try:
@@ -457,8 +463,16 @@ class VirtualNavList(ctk.CTkFrame):
                     if custom_colors.get('bg'): bg = custom_colors['bg']
                     if custom_colors.get('fg'): fg = custom_colors['fg']
                 
-                # Actualizar Frame (Bloque sólido, sin bordes)
-                row['frame'].configure(bg=bg)
+                # Actualizar Frame
+                # Si está enfocado, mostramos un borde (highlight)
+                if is_focused:
+                    row['frame'].configure(
+                        bg=bg, 
+                        highlightthickness=self.row_selected_border_width,
+                        highlightbackground=self.row_selected_border
+                    )
+                else:
+                    row['frame'].configure(bg=bg, highlightthickness=0)
                 
                 # Actualizar Labels
                 for j, lbl in enumerate(row['labels']):
@@ -591,7 +605,12 @@ class VirtualNavList(ctk.CTkFrame):
         if not self._all_data: return False
         new_idx = 0 if self.selected_index < 0 else min(len(self._all_data) - 1, self.selected_index + 1)
         if new_idx != self.selected_index:
-            self._select(new_idx, fire_callback=True)
+            if self.multi_select:
+                # Solo movemos el foco visual (cursor)
+                self._select(new_idx, fire_callback=False)
+            else:
+                # En modo simple, la selección sigue al foco
+                self._select(new_idx, fire_callback=True)
             return True
         return False
 
@@ -599,7 +618,12 @@ class VirtualNavList(ctk.CTkFrame):
         if not self._all_data: return False
         new_idx = len(self._all_data) - 1 if self.selected_index < 0 else max(0, self.selected_index - 1)
         if new_idx != self.selected_index:
-            self._select(new_idx, fire_callback=True)
+            if self.multi_select:
+                # Solo movemos el foco visual (cursor)
+                self._select(new_idx, fire_callback=False)
+            else:
+                # En modo simple, la selección sigue al foco
+                self._select(new_idx, fire_callback=True)
             return True
         return False
 
@@ -608,11 +632,22 @@ class VirtualNavList(ctk.CTkFrame):
 
     def _handle_return_key(self, event=None):
         """Manejar pulsación de tecla Enter/Return."""
+        if self.multi_select and self.selected_index >= 0:
+            # En multi-select, Enter selecciona/deselecciona la fila enfocada
+            self.toggle_selection(self.selected_index)
+            return "break"
+
         if self._on_return_callback:
             try:
                 self._on_return_callback()
             except Exception:
                 logger.exception("Error ejecutando on_return_callback en VirtualNavList")
+
+    def _on_space_key(self, event=None):
+        """Alternar selección con la barra espaciadora en modo multi-select."""
+        if self.multi_select and self.selected_index >= 0:
+            self.toggle_selection(self.selected_index)
+            return "break"
 
     # ------------------------------------------------------------------
     # Manejo de Eventos de Fila
@@ -622,32 +657,33 @@ class VirtualNavList(ctk.CTkFrame):
         data_idx = self._visible_rows[pool_idx]['data_index']
         if data_idx >= 0:
             if self.multi_select:
-                # Soporte para Shift y Control/Command
+                # Soporte para Shift y Control/Command (Estándar OS)
                 is_shift = event and (event.state & 0x0001)  # Shift
                 is_ctrl = event and (event.state & 0x0004 or event.state & 0x0008)  # Control o Command(Mac)
                 
                 if is_shift and self.selected_index >= 0:
-                    # Seleccionar rango desde el último seleccionado hasta el actual
+                    # Rango entre foco actual y el clic
                     start = min(self.selected_index, data_idx)
                     end = max(self.selected_index, data_idx)
-                    # En modo shift, solemos reemplazar la selección actual por el rango
-                    # o añadir el rango. Vamos a añadirlo para que sea más flexible.
+                    # En Shift-click estándar solemos limpiar y seleccionar el rango
+                    # o extender si ya había selección. Para simplificar y robustez:
+                    # Limpiamos y seleccionamos el rango nuevo.
+                    self.selected_indices.clear()
                     for i in range(start, end + 1):
                         self.selected_indices.add(i)
                 elif is_ctrl:
-                    # Toggle individual
+                    # Toggle individual (Sin limpiar el resto)
                     self.toggle_selection(data_idx)
                 else:
-                    # Clic normal: limpiar otros y seleccionar solo este (comportamiento estándar)
-                    # O si ya estaba seleccionado y era el único, tal vez deseleccionar?
-                    # Para simplificar: clic normal en multi-select selecciona solo ese.
+                    # Clic normal: Limpiar selección y seleccionar solo este
                     self.selected_indices.clear()
                     self.selected_indices.add(data_idx)
                 
-                # En multi-select, el "foco" (selected_index) sigue al último clic
+                # El foco visual (cursor) siempre sigue al último clic
                 self.selected_index = data_idx
                 self._refresh_ui()
                 self._fire_selection_change()
+                self._canvas.focus_set()
             else:
                 self._select(data_idx, fire_callback=True)
 
