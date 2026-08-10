@@ -424,14 +424,9 @@ class VirtualNavList(ctk.CTkFrame):
                 data = self._all_data[data_idx]
                 
                 # 1. Determinar colores base (Zebra / Normal)
-                is_sel = False
+                is_sel = (data_idx == self.selected_index)
                 if self.multi_select:
                     is_sel = (data_idx in self.selected_indices)
-                else:
-                    is_sel = (data_idx == self.selected_index)
-                
-                # Foco visual (cursor de teclado)
-                is_focused = (data_idx == self.selected_index)
                 
                 if is_sel:
                     bg = self.row_selected_bg
@@ -463,16 +458,8 @@ class VirtualNavList(ctk.CTkFrame):
                     if custom_colors.get('bg'): bg = custom_colors['bg']
                     if custom_colors.get('fg'): fg = custom_colors['fg']
                 
-                # Actualizar Frame
-                # Si está enfocado, mostramos un borde (highlight)
-                if is_focused:
-                    row['frame'].configure(
-                        bg=bg, 
-                        highlightthickness=self.row_selected_border_width,
-                        highlightbackground=self.row_selected_border
-                    )
-                else:
-                    row['frame'].configure(bg=bg, highlightthickness=0)
+                # Actualizar Frame (Bloque sólido, sin bordes)
+                row['frame'].configure(bg=bg, highlightthickness=0)
                 
                 # Actualizar Labels
                 for j, lbl in enumerate(row['labels']):
@@ -605,12 +592,7 @@ class VirtualNavList(ctk.CTkFrame):
         if not self._all_data: return False
         new_idx = 0 if self.selected_index < 0 else min(len(self._all_data) - 1, self.selected_index + 1)
         if new_idx != self.selected_index:
-            if self.multi_select:
-                # Solo movemos el foco visual (cursor)
-                self._select(new_idx, fire_callback=False)
-            else:
-                # En modo simple, la selección sigue al foco
-                self._select(new_idx, fire_callback=True)
+            self._select(new_idx, fire_callback=True)
             return True
         return False
 
@@ -618,12 +600,7 @@ class VirtualNavList(ctk.CTkFrame):
         if not self._all_data: return False
         new_idx = len(self._all_data) - 1 if self.selected_index < 0 else max(0, self.selected_index - 1)
         if new_idx != self.selected_index:
-            if self.multi_select:
-                # Solo movemos el foco visual (cursor)
-                self._select(new_idx, fire_callback=False)
-            else:
-                # En modo simple, la selección sigue al foco
-                self._select(new_idx, fire_callback=True)
+            self._select(new_idx, fire_callback=True)
             return True
         return False
 
@@ -697,6 +674,14 @@ class VirtualNavList(ctk.CTkFrame):
     def _select(self, index: int, fire_callback: bool = False):
         self.selected_index = index
         
+        if self.multi_select:
+            # En modo multi-select, si seleccionamos vía teclado/API, 
+            # solemos querer que esta sea la única seleccionada a menos que usemos Ctrl/Shift
+            self.selected_indices.clear()
+            if 0 <= index < len(self._all_data):
+                self.selected_indices.add(index)
+            self._fire_selection_change()
+
         # Asegurar que el elemento seleccionado sea visible en el scroll
         self._ensure_visible(index)
         self._refresh_ui()
