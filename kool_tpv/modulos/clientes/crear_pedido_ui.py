@@ -602,7 +602,13 @@ class CrearPedidoUI:
             }
             
             from kool_tpv.services.whatsapp_service import WhatsAppService
-            WhatsAppService.enviar_mensaje(self.container, self.db, telefono, cliente_data)
+            WhatsAppService.enviar_mensaje(
+                self.container, 
+                self.db, 
+                telefono, 
+                cliente_data,
+                pedido_id=self.pedido_id if hasattr(self, 'pedido_id') else None
+            )
 
         except Exception:
             logger.exception('Error en _on_whatsapp')

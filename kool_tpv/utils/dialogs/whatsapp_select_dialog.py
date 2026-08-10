@@ -152,7 +152,8 @@ class WhatsappSelectDialog(BaseDialog):
                     # Reemplazar variables
                     texto = texto.replace('{nombre}', self.cliente_data.get('nombre', ''))\
                                  .replace('{telefono}', self.cliente_data.get('telefono', ''))\
-                                 .replace('{email}', self.cliente_data.get('email', ''))
+                                 .replace('{email}', self.cliente_data.get('email', ''))\
+                                 .replace('{productos}', self.cliente_data.get('productos', ''))
                     textos_finales.append(texto)
             
             if not textos_finales:

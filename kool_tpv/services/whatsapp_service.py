@@ -78,13 +78,14 @@ class WhatsAppService:
         return False
 
     @staticmethod
-    def enviar_mensaje(parent, db, telefono: str, cliente_data: Dict[str, Any]):
+    def enviar_mensaje(parent, db, telefono: str, cliente_data: Dict[str, Any], pedido_id: Optional[int] = None):
         """
         Orquesta todo el proceso de envío de WhatsApp:
         1. Carga plantillas
-        2. Muestra diálogo de selección
-        3. Normaliza teléfono
-        4. Abre WhatsApp (App o Web)
+        2. Carga productos del pedido si aplica
+        3. Muestra diálogo de selección
+        4. Normaliza teléfono
+        5. Abre WhatsApp (App o Web)
         """
         try:
             if not telefono or not telefono.strip():
@@ -100,7 +101,17 @@ class WhatsAppService:
             except Exception:
                 plantillas = []
 
-            # 2. Mostrar diálogo de selección de plantillas
+            # 2. Cargar productos si hay pedido_id
+            if pedido_id and 'productos' not in cliente_data:
+                try:
+                    from kool_tpv.modulos.clientes.services.pedidos_service import PedidosService
+                    ped_service = PedidosService(db)
+                    cliente_data['productos'] = ped_service.get_resumen_productos(pedido_id)
+                except Exception:
+                    logger.exception(f"Error cargando resumen productos en WhatsAppService para pedido {pedido_id}")
+                    cliente_data['productos'] = ""
+
+            # 3. Mostrar diálogo de selección de plantillas
             from kool_tpv.utils.dialogs.whatsapp_select_dialog import show_whatsapp_select_dialog
             mensaje = show_whatsapp_select_dialog(parent.winfo_toplevel(), plantillas, cliente_data)
 

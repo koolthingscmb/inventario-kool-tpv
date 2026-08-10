@@ -120,7 +120,7 @@ class WhatsappPlantillasUI(PaginaConVisor):
         
         ctk.CTkLabel(
             ayuda_box, 
-            text='{nombre} - Nombre del cliente\n{telefono} - Teléfono del cliente\n{email} - Email del cliente', 
+            text='{nombre} - Nombre del cliente\n{telefono} - Teléfono del cliente\n{email} - Email del cliente\n{productos} - Artículos del pedido', 
             font=get_font('body', module='config', size=11),
             text_color=self.colors.get('text_secondary', '#888888'),
             justify='left'
@@ -257,6 +257,7 @@ class WhatsappPlantillasUI(PaginaConVisor):
         # Mock de reemplazo para preview
         preview = texto.replace('{nombre}', 'JUAN PÉREZ')\
                       .replace('{telefono}', '600123456')\
-                      .replace('{email}', 'juan.perez@ejemplo.com')
+                      .replace('{email}', 'juan.perez@ejemplo.com')\
+                      .replace('{productos}', 'Camiseta Azul, Taza Personalizada y 2 Stickers')
         
         self.update_visor(preview)
