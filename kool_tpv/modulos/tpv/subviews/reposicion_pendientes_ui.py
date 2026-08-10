@@ -132,13 +132,19 @@ class ReposicionPendientesUI(ctk.CTkFrame):
                 v = self.variantes_service.obtener_por_id(p.get("variante_id"))
                 if v: v_nombre = v.nombre
                 
+            # Resolver color
             c_nombre = ""
             c_hex = None
             if p.get("color_id"):
                 c = self.colores_service.obtener_por_id(p.get("color_id"))
                 if c: 
                     c_nombre = c.nombre
-                    c_hex = c.codigo_hex
+                    # Solo aceptar si es un color hex válido
+                    raw_hex = c.codigo_hex
+                    if raw_hex and str(raw_hex).startswith('#'):
+                        c_hex = raw_hex
+
+            # ... (omitiendo otros resolvers)
                 
             t_nombre = ""
             if p.get("talla_id"):
@@ -184,8 +190,8 @@ class ReposicionPendientesUI(ctk.CTkFrame):
                 "ℹ️": indic,
                 "PRODUCTO": p.get("nombre", ""),
                 "VARIANTE": v_nombre,
-                "COLOR": " " if c_hex else c_nombre,
-                "_cell_bg_COLOR": c_hex,
+                "COLOR": "●" if c_hex else c_nombre,
+                "_cell_fg_COLOR": c_hex if c_hex else None,
                 "TALLA": t_nombre,
                 "DISEÑO": diseno_display,
                 "_es_temp": False,
@@ -232,6 +238,7 @@ class ReposicionPendientesUI(ctk.CTkFrame):
                 "PRODUCTO": p.get("nombre", ""),
                 "VARIANTE": "",
                 "COLOR": "",
+                "_cell_fg_COLOR": None,
                 "TALLA": "",
                 "DISEÑO": diseno_display_temp,
                 "_es_temp": True,
