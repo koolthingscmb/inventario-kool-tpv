@@ -635,16 +635,14 @@ class VirtualNavList(ctk.CTkFrame):
         if data_idx >= 0:
             if self.multi_select:
                 # Soporte para Shift y Control/Command (Estándar OS)
+                # En Mac, Command es a veces 0x0008 o 0x0010, Control es 0x0004
                 is_shift = event and (event.state & 0x0001)  # Shift
-                is_ctrl = event and (event.state & 0x0004 or event.state & 0x0008)  # Control o Command(Mac)
+                is_ctrl = event and (event.state & 0x0004 or event.state & 0x0008 or event.state & 0x0040)  # Ctrl / Cmd
                 
                 if is_shift and self.selected_index >= 0:
                     # Rango entre foco actual y el clic
                     start = min(self.selected_index, data_idx)
                     end = max(self.selected_index, data_idx)
-                    # En Shift-click estándar solemos limpiar y seleccionar el rango
-                    # o extender si ya había selección. Para simplificar y robustez:
-                    # Limpiamos y seleccionamos el rango nuevo.
                     self.selected_indices.clear()
                     for i in range(start, end + 1):
                         self.selected_indices.add(i)
