@@ -133,8 +133,19 @@ class TpvController:
         try:
             from kool_tpv.utils.barcode_service import BarcodeService
             root = self.view.winfo_toplevel()
+            
+            # Si ya existía uno, desvincularlo antes de crear el nuevo
+            if hasattr(self, '_barcode_service') and self._barcode_service:
+                try:
+                    self._barcode_service.detach()
+                except Exception:
+                    pass
+
             self._barcode_service = BarcodeService(root, on_barcode=self._on_barcode_scanned)
-            self._barcode_service.attach()
+            
+            # Usar un pequeño retraso para asegurar que la ventana está lista y enfocada
+            self.view.after(200, self._barcode_service.attach)
+            
             # Guardar referencia en el toplevel para que KeyboardNavigableMixin pueda consultar el buffer
             root._barcode_service = self._barcode_service
             # Pasar referencia al CarritoNavList para que ignore el Enter del escáner

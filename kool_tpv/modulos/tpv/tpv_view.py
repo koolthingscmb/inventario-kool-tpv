@@ -203,10 +203,14 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
         # Stack para sub-vistas dinámicas (push/pop views)
         self._subview_stack = []
 
+        # Asegurar limpieza al destruir el widget
+        self.bind("<Destroy>", lambda e: self.teardown())
+
         self._build_grid_buttons()
         
-        # Configurar navegación por teclado para los botones del grid
-        self._setup_grid_keyboard_navigation()
+        # Configurar navegación por teclado con un ligero retraso (100ms)
+        # Esto evita que el cleanup de la vista anterior (Almacén) borre los bindings del TPV
+        self.after(100, self._setup_grid_keyboard_navigation)
         
         # Instanciar controlador (gestiona payment controllers, acciones y rebind de botones)
         try:
@@ -542,15 +546,9 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
     def _mostrar_favoritos(self):
         """Mostrar subvista de favoritos (reemplaza el grid)."""
         def refresh_ticket():
-            """Refrescar ticket tras añadir favorito.
-            Nota: Si la adición fue vía TpvController, el foco ya se gestionó allí.
-            """
             try:
                 ticket = getattr(self, 'ticket_widget', None) or getattr(self, 'ticket_carrito', None) or getattr(self, 'ticket', None)
                 if ticket and hasattr(ticket, 'update_carrito'):
-                    # Si ya hay una selección activa (puesta por el controller), 
-                    # update_carrito sin argumentos mantendrá el scroll pero 
-                    # no queremos que resetee el foco.
                     ticket.update_carrito()
             except Exception:
                 pass
