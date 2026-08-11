@@ -10,6 +10,7 @@ import logging
 import re
 import tkinter as tk
 import customtkinter as ctk
+import platform
 from typing import List, Tuple, Callable, Optional, Any
 from decimal import Decimal
 
@@ -635,9 +636,16 @@ class VirtualNavList(ctk.CTkFrame):
         if data_idx >= 0:
             if self.multi_select:
                 # Soporte para Shift y Control/Command (Estándar OS)
-                # En Mac, Command es a veces 0x0008 o 0x0010, Control es 0x0004
                 is_shift = event and (event.state & 0x0001)  # Shift
-                is_ctrl = event and (event.state & 0x0004 or event.state & 0x0008 or event.state & 0x0040)  # Ctrl / Cmd
+                
+                # En Windows, 0x0004 es Control. 
+                # NUNCA usar 0x0040 globalmente porque en Windows significa "Botón Izquierdo Presionado".
+                if platform.system() == 'Darwin':
+                    # Mac: Ctrl (0x0004) o Command (0x0008, 0x0010, 0x0100)
+                    is_ctrl = event and (event.state & 0x0004 or event.state & 0x0008 or event.state & 0x0010)
+                else:
+                    # Windows/Linux: Solo Ctrl (0x0004)
+                    is_ctrl = event and (event.state & 0x0004)
                 
                 if is_shift and self.selected_index >= 0:
                     # Rango entre foco actual y el clic
