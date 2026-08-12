@@ -1,6 +1,6 @@
 """PresenciaUI: Interfaz para control de fichajes (entrada/salida)."""
 import logging
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import customtkinter as ctk
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.dialogs import show_password_dialog
@@ -156,9 +156,9 @@ class PresenciaUI(ctk.CTkFrame):
             if estado["trabajando"] and estado["desde"]:
                 try:
                     local_desde_chk = utc_str_to_local_str(estado["desde"]) if estado["desde"] else ''
-                    fecha_entrada = local_desde_chk.split()[0]
-                    hoy = datetime.now().strftime("%Y-%m-%d")
-                    if fecha_entrada < hoy:
+                    dt_entrada = datetime.strptime(local_desde_chk, '%Y-%m-%d %H:%M:%S')
+                    horas = (datetime.now() - dt_entrada).total_seconds() / 3600
+                    if horas > 20:
                         es_olvido = True
                 except Exception:
                     pass
@@ -208,13 +208,25 @@ class PresenciaUI(ctk.CTkFrame):
         nota = dialog_nota.get_input() or "Corrección manual"
 
         # 3. Procesar
-        # Obtenemos la fecha de la sesión activa para reconstruir el timestamp completo
         estado = self.presencia_service.get_estado_usuario(self.selected_user["id"])
         local_desde_corr = utc_str_to_local_str(estado["desde"]) if estado["desde"] else ''
-        fecha_solo = local_desde_corr.split()[0] # YYYY-MM-DD
-        timestamp_salida = f"{fecha_solo} {hora}:00"
+        partes = local_desde_corr.split()
+        fecha_solo = partes[0]  # YYYY-MM-DD
+        hora_entrada = partes[1][:5] if len(partes) > 1 else ''
 
-        res = self.presencia_service.corregir_fichaje(sesion_id, timestamp_salida, nota)
+        # Si la hora de salida es menor que la de entrada, cruzó medianoche
+        if hora_entrada and hora < hora_entrada:
+            dt_fecha = datetime.strptime(fecha_solo, '%Y-%m-%d')
+            fecha_solo = (dt_fecha + timedelta(days=1)).strftime('%Y-%m-%d')
+
+        timestamp_salida_local = f"{fecha_solo} {hora}:00"
+
+        # Convertir a UTC para almacenamiento (la entrada se guardó en UTC)
+        dt_local = datetime.strptime(timestamp_salida_local, '%Y-%m-%d %H:%M:%S')
+        dt_utc = dt_local.astimezone(timezone.utc)
+        timestamp_salida_utc = dt_utc.strftime('%Y-%m-%d %H:%M:%S')
+
+        res = self.presencia_service.corregir_fichaje(sesion_id, timestamp_salida_utc, nota)
         
         if res.get("success"):
             ToastWidget.show(self.winfo_toplevel(), "SESIÓN CORREGIDA. YA PUEDES FICHAR HOY.", tipo="success")
@@ -274,9 +286,9 @@ class PresenciaUI(ctk.CTkFrame):
             es_antigua = False
             try:
                 local_desde_ant = utc_str_to_local_str(estado["desde"]) if estado["desde"] else ''
-                fecha_entrada = local_desde_ant.split()[0]
-                hoy = datetime.now().strftime("%Y-%m-%d")
-                if fecha_entrada < hoy:
+                dt_entrada = datetime.strptime(local_desde_ant, '%Y-%m-%d %H:%M:%S')
+                horas = (datetime.now() - dt_entrada).total_seconds() / 3600
+                if horas > 20:
                     es_antigua = True
             except Exception:
                 pass
