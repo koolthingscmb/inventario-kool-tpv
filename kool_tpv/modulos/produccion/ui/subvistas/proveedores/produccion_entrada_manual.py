@@ -16,6 +16,7 @@ from kool_tpv.utils.widgets.notificaciones import ToastWidget
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 
 from kool_tpv.base_datos.albaran_service import AlbaranService
+from kool_tpv.base_datos.money_adapter import read_from_db
 from kool_tpv.modulos.almacen.albaran_repository import AlbaranRepository
 from kool_tpv.modulos.produccion.services.produccion_stock_base_service import ProduccionStockBaseService
 from kool_tpv.modulos.produccion.services.produccion_tipos_service import ProduccionTiposService
