@@ -21,7 +21,7 @@ EAN_LENGTH = 13         # longitud estándar EAN-13
 class BarcodeService:
     """Captura global de códigos de barras para lector USB HID."""
 
-    def __init__(self, root_widget: tk.Misc, on_barcode: Callable[[str], None]):
+    def __init__(self, root_widget: tk.Misc, on_barcode: Callable[[str], None] = None):
         self.root = root_widget
         self.on_barcode = on_barcode
         self._buffer: list[str] = []
@@ -29,23 +29,38 @@ class BarcodeService:
         self._attached = False
         self._just_dispatched = False
         self._ignore_return_until: float = 0.0
+        self._handler_id = None # ID del binding de Tkinter para limpieza segura
+
+    def set_handler(self, on_barcode: Callable[[str], None]):
+        """Establece o elimina el callback que recibirá los códigos detectados."""
+        self.on_barcode = on_barcode
+        if on_barcode:
+            logger.debug("BarcodeService: nuevo handler registrado")
+        else:
+            logger.debug("BarcodeService: handler eliminado (modo silencioso)")
 
     def attach(self):
         if self._attached:
             return
         try:
-            self.root.bind_all('<KeyPress>', self._on_key)
+            # Guardamos el ID del binding para poder hacer unbind exacto después
+            self._handler_id = self.root.bind_all('<KeyPress>', self._on_key, add='+')
             self._attached = True
-            logger.info('BarcodeService: captura de teclado activada')
+            logger.info(f'BarcodeService: captura de teclado activada (id={self._handler_id})')
         except Exception:
             logger.exception('BarcodeService: error al registrar binding')
 
     def detach(self):
+        """Desvincula el servicio globalmente. Solo debe llamarse al cerrar la App."""
+        if not self._attached:
+            return
         try:
-            self.root.unbind_all('<KeyPress>')
+            if self._handler_id:
+                self.root.unbind_all('<KeyPress>', self._handler_id)
+                self._handler_id = None
             self._attached = False
             self._buffer.clear()
-            logger.info('BarcodeService: captura de teclado desactivada')
+            logger.info('BarcodeService: captura de teclado desactivada completamente')
         except Exception:
             logger.exception('BarcodeService: error al eliminar binding')
 
@@ -70,12 +85,18 @@ class BarcodeService:
         self._last_key_time = 0.0
         self._just_dispatched = True
         self._ignore_return_until = time.monotonic() * 1000 + 300
+        
         if len(code) >= MIN_CODE_LENGTH:
-            logger.info(f'BarcodeService: código detectado ({source}) -> {code}')
-            try:
-                self.on_barcode(code)
-            except Exception:
-                logger.exception('BarcodeService: error en callback on_barcode')
+            # SOLO procesamos si hay alguien escuchando activamente
+            if self.on_barcode:
+                logger.info(f'BarcodeService: código detectado ({source}) -> {code}')
+                try:
+                    self.on_barcode(code)
+                except Exception:
+                    logger.exception('BarcodeService: error en callback on_barcode')
+            else:
+                # Si nadie escucha, registramos en debug por si acaso
+                logger.debug(f'BarcodeService: código ignorado (sin handler) -> {code}')
 
     def _on_key(self, event: tk.Event):
         try:

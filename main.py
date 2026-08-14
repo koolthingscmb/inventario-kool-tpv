@@ -12,6 +12,7 @@ from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.base_datos.db_init import initialize_database
 from kool_tpv.utils.keyboard_manager import KeyboardManager
 from kool_tpv.utils.factories.button_factory import ButtonFactory
+from kool_tpv.utils.barcode_service import BarcodeService
 from kool_tpv.paths import CONFIG_DIR, DB_PATH, ASSETS_DIR, LOGS_DIR, PROJECT_ROOT, PROJECT_ROOT_ASSETS
 from PIL import Image
 
@@ -88,6 +89,12 @@ class App(ctk.CTk):
         self.keyboard_mgr = KeyboardManager(self)
         # Exponer alias `keyboard_manager` para compatibilidad con código que usa ese atributo
         self.keyboard_manager = self.keyboard_mgr
+
+        # SERVICIO DE ESCÁNER CENTRAL (Senior Architecture)
+        # Se instancia una sola vez aquí para evitar procesos fantasmas
+        self.barcode_service = BarcodeService(self)
+        self.barcode_service.attach()
+
         self.nav_buttons = {}
         self.current_view = None
         self._power_stack = []  # Stack de handlers (LIFO - último registrado tiene prioridad) 
@@ -256,6 +263,11 @@ class App(ctk.CTk):
         self.power_floating_btn = self.btn_power
 
     # --- Power Handler System ---
+    def set_barcode_handler(self, callback: Callable[[str], None]):
+        """Suscribe a un módulo para recibir los códigos del escáner central."""
+        if hasattr(self, 'barcode_service'):
+            self.barcode_service.set_handler(callback)
+
     def register_power_handler(self, handler: Callable, owner: Any = None):
         """Registrar power handler con prioridad (último = mayor prioridad).
         
@@ -593,6 +605,17 @@ class App(ctk.CTk):
                 pass
         self.destroy()
         sys.exit(0)
+
+    def destroy(self):
+        """Limpieza final antes de destruir la ventana."""
+        try:
+            if hasattr(self, 'barcode_service'):
+                self.barcode_service.detach()
+            if self.db:
+                self.db.close_connection()
+        except Exception:
+            pass
+        super().destroy()
 
     def _ejecutar_backup_nube(self):
         """Ejecuta el backup en la nube si está habilitado."""

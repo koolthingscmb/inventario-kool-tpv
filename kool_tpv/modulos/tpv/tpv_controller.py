@@ -129,32 +129,25 @@ class TpvController:
             logger.exception("Error navegando a Almacén desde recordatorio")
 
     def setup_barcode(self):
-        """Inicializar captura de código de barras."""
+        """Conectar con el servicio central de captura de código de barras."""
         try:
-            from kool_tpv.utils.barcode_service import BarcodeService
             root = self.view.winfo_toplevel()
-            
-            # Si ya existía uno, desvincularlo antes de crear el nuevo
-            if hasattr(self, '_barcode_service') and self._barcode_service:
-                try:
-                    self._barcode_service.detach()
-                except Exception:
-                    pass
-
-            self._barcode_service = BarcodeService(root, on_barcode=self._on_barcode_scanned)
-            
-            # Usar un pequeño retraso para asegurar que la ventana está lista y enfocada
-            self.view.after(200, self._barcode_service.attach)
-            
-            # Guardar referencia en el toplevel para que KeyboardNavigableMixin pueda consultar el buffer
-            root._barcode_service = self._barcode_service
-            # Pasar referencia al CarritoNavList para que ignore el Enter del escáner
-            ticket = getattr(self.view, 'ticket_carrito', None)
-            if ticket and hasattr(ticket, 'carrito_nav_list'):
-                ticket.carrito_nav_list._barcode_service = self._barcode_service
-            logger.info('BarcodeService inicializado')
+            if hasattr(root, 'set_barcode_handler'):
+                # Suscribirse al escáner central
+                root.set_barcode_handler(self._on_barcode_scanned)
+                
+                # Obtener referencia al servicio para KeyboardNavigableMixin y otros widgets
+                self._barcode_service = getattr(root, 'barcode_service', None)
+                
+                ticket = getattr(self.view, 'ticket_carrito', None)
+                if ticket and hasattr(ticket, 'carrito_nav_list'):
+                    ticket.carrito_nav_list._barcode_service = self._barcode_service
+                
+                logger.info('TpvController: suscrito al escáner central')
+            else:
+                logger.warning('TpvController: no se pudo encontrar el método set_barcode_handler en root')
         except Exception:
-            logger.exception('Error inicializando BarcodeService')
+            logger.exception('Error vinculando TpvController con el escáner central')
 
     def _setup_keyboard_shortcuts(self):
         """Inicializar gestión de shortcuts de teclado."""

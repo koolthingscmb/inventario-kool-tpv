@@ -335,18 +335,23 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
             logger.exception("Error actualizando botones del TPV tras cambio de colores")
 
     def teardown(self):
-        # Desvincular observer
+        # 1. Desvincular del servicio de configuración
         if self.ui_config_service:
             try:
                 self.ui_config_service.eliminar_observer("colors_config", self._on_colors_changed)
             except Exception:
                 pass
 
+        # 2. Desconectar del Escáner Central (Arquitectura Senior)
         try:
-            if self.controller and hasattr(self.controller, '_barcode_service') and self.controller._barcode_service:
-                self.controller._barcode_service.detach()
+            root = self.winfo_toplevel()
+            if hasattr(root, 'set_barcode_handler'):
+                root.set_barcode_handler(None)
+                logger.info("TpvView: desconectado del escáner central")
         except Exception:
             pass
+
+        # 3. Limpieza de shortcuts
         try:
             if self.controller and hasattr(self.controller, '_keyboard_shortcuts') and self.controller._keyboard_shortcuts:
                 self.controller._keyboard_shortcuts.detach()
