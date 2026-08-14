@@ -55,9 +55,9 @@ class BarcodeService:
         if not self._attached:
             return
         try:
-            if self._handler_id:
-                self.root.unbind_all('<KeyPress>', self._handler_id)
-                self._handler_id = None
+            # unbind_all en Tkinter no acepta el ID del handler, elimina todos los bindings globales de esa secuencia.
+            self.root.unbind_all('<KeyPress>')
+            self._handler_id = None
             self._attached = False
             self._buffer.clear()
             logger.info('BarcodeService: captura de teclado desactivada completamente')

@@ -144,7 +144,7 @@ class EntradaManualUI:
         # Cabecera de columnas
         self.col_widths = [160, 480, 70, 80, 50, 70, 90]
         col_widths = self.col_widths
-        headers_input = ['EAN', 'NOMBRE', 'CANTIDAD', 'COSTE', '%IVA', 'IVA', 'TOTAL']
+        headers_input = ['EAN', 'NOMBRE', 'UDS', 'COSTE', '%IVA', 'IVA', 'TOTAL']
 
         cab_frame = ctk.CTkFrame(right_panel, fg_color='transparent', height=20)
         cab_frame.pack(fill='x', pady=(0, 2))
@@ -172,7 +172,7 @@ class EntradaManualUI:
                                      state='readonly', **entry_kw)
         self.e_nombre.place(x=sum(col_widths[:1]) + 6, y=4)
 
-        self.e_uds = ctk.CTkEntry(self.input_frame, width=col_widths[2]-12, placeholder_text='Cantidad', **entry_kw)
+        self.e_uds = ctk.CTkEntry(self.input_frame, width=col_widths[2]-12, placeholder_text='Uds', **entry_kw)
         self.e_uds.place(x=sum(col_widths[:2]) + 6, y=4)
         try:
             self.e_uds.bind('<KeyRelease>', lambda e: self._recalc_importe())
@@ -255,7 +255,7 @@ class EntradaManualUI:
 
         # Área de líneas añadidas
         self.columns_lines = [
-            ('EAN', 160), ('NOMBRE', 440), ('UDS', 60), ('COSTE', 75), ('%IVA', 45), ('IVA', 65), ('PVP', 75), ('TOTAL', 85)
+            ('EAN', 160), ('NOMBRE', 300, True), ('UDS', 60), ('COSTE', 75), ('%IVA', 45), ('IVA', 65), ('PVP', 75), ('TOTAL', 85)
         ]
         self.nav_list = VirtualNavList(
             right_panel,
