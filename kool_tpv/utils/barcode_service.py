@@ -127,12 +127,17 @@ class BarcodeService:
                 return
 
             elapsed = now - self._last_key_time
+            
+            # Si es la primera tecla del buffer, no aplicamos filtro de velocidad
+            is_first_key = (self._last_key_time == 0.0)
+
             # Si hay pausa larga entre teclas, resetear buffer
             if self._buffer and elapsed > THRESHOLD_MS:
                 self._buffer.clear()
 
             # Si hay foco en Entry y velocidad lenta → es escritura humana, ignorar
-            if self._is_typing_in_entry() and elapsed > THRESHOLD_MS:
+            # EXCEPCIÓN: Si es la primera tecla, la dejamos pasar para iniciar el buffer
+            if not is_first_key and self._is_typing_in_entry() and elapsed > THRESHOLD_MS:
                 return
 
             self._buffer.append(char)
