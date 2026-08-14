@@ -142,7 +142,7 @@ class EntradaManualUI:
         right_panel.pack(side='left', fill='both', expand=True)
 
         # Cabecera de columnas
-        self.col_widths = [160, 480, 70, 80, 50, 70, 90]
+        self.col_widths = [160, 336, 70, 80, 50, 70, 90]
         col_widths = self.col_widths
         headers_input = ['EAN', 'NOMBRE', 'UDS', 'COSTE', '%IVA', 'IVA', 'TOTAL']
 
