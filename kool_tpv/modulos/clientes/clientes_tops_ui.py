@@ -74,7 +74,7 @@ class ClientesTopsUI(ctk.CTkFrame):
 
                     btn_tesoro_actual = ButtonFactory.create_button(
                         self.filters_frame,
-                        'TESORO ACTUAL',
+                        'TESORO',
                         command=self._on_tesoro_actual,
                         style_key='mini_outline_clientes'
                     )
@@ -82,7 +82,7 @@ class ClientesTopsUI(ctk.CTkFrame):
 
                     btn_tesoro_gastado = ButtonFactory.create_button(
                         self.filters_frame,
-                        'TESORO GASTADO',
+                        'T. GASTADO',
                         command=self._on_tesoro_gastado,
                         style_key='mini_outline_clientes'
                     )
@@ -90,7 +90,7 @@ class ClientesTopsUI(ctk.CTkFrame):
 
                     btn_tesoro_total = ButtonFactory.create_button(
                         self.filters_frame,
-                        'TESORO TOTAL GANADO',
+                        'T. TOTAL',
                         command=self._on_tesoro_total,
                         style_key='mini_outline_clientes'
                     )
@@ -159,14 +159,14 @@ class ClientesTopsUI(ctk.CTkFrame):
         try:
             columns = [
                 ("posicion", 60, 'Posición'),
-                ("nombre", 200, 'Cliente'),
-                ("total_tickets", 120, 'Tickets'),
-                ("total_unidades", 120, 'Uds.'),
-                ("total_euros", 120, '€€'),
+                ("nombre", 200, 'Cliente', True),
+                ("total_tickets", 72, '🎫'),
+                ("total_unidades", 72, 'Uds.'),
+                ("total_euros", 84, '€€'),
                 # Campos de tesoro (clave, ancho, texto a mostrar en header)
-                ("tesoro_total", 120, 'TESORO ACTUAL'),
-                ("tesoro_gastado_total", 140, 'TESORO GASTADO'),
-                ("tesoro_historico", 160, 'TESORO TOTAL GANADO'),
+                ("tesoro_total", 96, 'Tesoro'),
+                ("tesoro_gastado_total", 112, 'T. Gastado'),
+                ("tesoro_historico", 120, 'T. Total'),
             ]
 
             # on_double_click: abrir ficha de cliente en el owner si existe
