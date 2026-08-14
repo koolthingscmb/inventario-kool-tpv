@@ -369,6 +369,10 @@ class App(ctk.CTk):
         self.tpv_view = TpvView(self.main_frame, db=self.db)
         self.tpv_view.pack(fill="both", expand=True)
         self.current_view = "tpv"
+        
+        # FOCO SENIOR: Al cargar el TPV, le damos el foco oficial a la vista
+        # Esto quita el foco de cualquier Entry oculto de otros módulos
+        self.after(50, lambda: self.tpv_view.focus_set() if hasattr(self, 'tpv_view') else None)
 
     def open_almacen(self):
         self.current_view = "almacen"

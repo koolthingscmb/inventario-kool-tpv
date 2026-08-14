@@ -69,6 +69,16 @@ class BarcodeService:
             focused = self.root.focus_get()
             if focused is None:
                 return False
+            
+            # ARREGLO SENIOR: Solo importa el foco si el widget es VISIBLE en pantalla.
+            # winfo_viewable() comprueba que el widget y todos sus padres estén mapeados.
+            # Si el foco está en un Entry oculto (como el de Almacén), devolvemos False.
+            try:
+                if not focused.winfo_viewable():
+                    return False
+            except Exception:
+                pass
+
             cls = focused.__class__.__name__.lower()
             return any(w in cls for w in ('entry', 'text', 'textbox', 'ctkentry', 'ctktextbox', 'spinbox', 'combobox'))
         except Exception:
@@ -128,16 +138,12 @@ class BarcodeService:
 
             elapsed = now - self._last_key_time
             
-            # Si es la primera tecla del buffer, no aplicamos filtro de velocidad
-            is_first_key = (self._last_key_time == 0.0)
-
             # Si hay pausa larga entre teclas, resetear buffer
             if self._buffer and elapsed > THRESHOLD_MS:
                 self._buffer.clear()
 
-            # Si hay foco en Entry y velocidad lenta → es escritura humana, ignorar
-            # EXCEPCIÓN: Si es la primera tecla, la dejamos pasar para iniciar el buffer
-            if not is_first_key and self._is_typing_in_entry() and elapsed > THRESHOLD_MS:
+            # Si hay foco en Entry VISIBLE y velocidad lenta → es escritura humana, ignorar
+            if self._is_typing_in_entry() and elapsed > THRESHOLD_MS:
                 return
 
             self._buffer.append(char)
