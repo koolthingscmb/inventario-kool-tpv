@@ -122,7 +122,7 @@ class BusquedaClientesUI:
         # Crear SearchablePaginatedNavList (columnas según el servicio existente)
         columns = [
             ('id', 50, 'ID'),
-            ('nombre', 300, 'NOMBRE'),
+            ('nombre', 300, 'NOMBRE', True),
             ('telefono', 140, 'TELÉFONO'),
             ('tesoro_total', 100, 'TESORO'),
             ('nivel_nombre', 120, 'NIVEL'),
@@ -188,13 +188,28 @@ class BusquedaClientesUI:
         """Mapear cliente a formato de fila para NavList - campos del servicio."""
         try:
             tesoro = cliente.get('tesoro_total', 0)
+            
+            # Formatear fecha: DD-MM-AA
+            fecha_str = cliente.get('fecha_alta') or 'N/A'
+            if fecha_str != 'N/A':
+                try:
+                    # Si viene con hora (YYYY-MM-DD HH:MM:SS), nos quedamos con la parte de la fecha
+                    parts = fecha_str.split(' ')
+                    date_part = parts[0]
+                    # Si el formato es YYYY-MM-DD
+                    if '-' in date_part:
+                        y, m, d = date_part.split('-')
+                        fecha_str = f"{d}-{m}-{y[2:]}"
+                except Exception:
+                    pass
+
             return {
                 'id': str(cliente.get('id') or ''),
                 'nombre': cliente.get('nombre') or '',
                 'telefono': cliente.get('telefono') or '',
                 'tesoro_total': f"{tesoro:.2f}€" if isinstance(tesoro, (int, float)) else f"{tesoro}€",
                 'nivel_nombre': cliente.get('nivel_nombre') or 'Forastero',
-                'fecha_alta': cliente.get('fecha_alta') or 'N/A',
+                'fecha_alta': fecha_str,
                 '_id': cliente.get('id')
             }
         except Exception:
