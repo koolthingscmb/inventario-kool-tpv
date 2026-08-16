@@ -429,7 +429,8 @@ class ProduccionView(BaseModuleView):
 			view = ProduccionStockBaseView(
 				self.central_area,
 				db=self.db,
-				on_cerrar=self._on_flow_cerrar
+				on_cerrar=self._on_flow_cerrar,
+				owner=self
 			)
 			self.actualizar_ruta('PRODUCCIÓN / STOCK BASES')
 			logging.info('Abriendo gestión de stock de bases...')

@@ -90,6 +90,10 @@ class ProduccionTiposVariantesService:
         """Eliminar una variante (soft delete)."""
         return self.repository.eliminar(variante_id)
 
+    def listar_variantes_con_coste(self, search_term: str = "") -> List[dict]:
+        """Obtener variantes con coste para la UI a través del repositorio."""
+        return self.repository.get_variantes_con_coste(search_term)
+
     def obtener_activos_como_dict(self) -> dict:
         """Obtener variantes activas como dict {id: "Tipo / Variante"} para UI."""
         variantes = self.repository.get_todos()

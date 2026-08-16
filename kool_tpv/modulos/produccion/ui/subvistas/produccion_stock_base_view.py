@@ -20,10 +20,11 @@ logger = logging.getLogger(__name__)
 class ProduccionStockBaseView:
 	"""UI para gestionar el stock base de producción."""
 
-	def __init__(self, parent, db, on_cerrar=None):
+	def __init__(self, parent, db, on_cerrar=None, owner=None):
 		self.parent = parent
 		self.db = db
 		self.on_cerrar = on_cerrar
+		self.owner = owner
 		self.service = ProduccionStockBaseService(db)
 		self.tipos_service = ProduccionTiposService(db)
 		
@@ -42,6 +43,10 @@ class ProduccionStockBaseView:
 		
 		self.container = ctk.CTkFrame(parent, fg_color="transparent")
 		self.container.pack(fill="both", expand=True)
+
+		# Vincular botón Power/Esc: la ProduccionView busca _volver en los hijos directos de central_area.
+		# Como self.container es el hijo directo, le asignamos un manejador persistente que delega según el estado.
+		self.container._volver = self._on_volver_proxied
 		
 		self.show_lista()
 
@@ -58,6 +63,8 @@ class ProduccionStockBaseView:
 		self._destruir_current()
 		
 		self._view_state = 'lista'
+		if self.owner and hasattr(self.owner, 'actualizar_ruta'):
+			self.owner.actualizar_ruta('PRODUCCIÓN / STOCK BASES')
 		
 		# Frame para la lista
 		lista_frame = ctk.CTkFrame(self.container, fg_color="transparent")
@@ -96,16 +103,24 @@ class ProduccionStockBaseView:
 		)
 		self.btn_export_pdf.pack(side="left", padx=5)
 
+		self.btn_costes = ButtonFactory.create_button(
+			btn_frame,
+			text="COSTES",
+			command=self.show_costes,
+			style_key="action_primary"
+		)
+		self.btn_costes.pack(side="left", padx=5)
+
 		# Fila de chips de tipos
 		self._crear_chips_tipos(lista_frame)
 
 		# Tabla de stock
 		columnas = [
-			("ARTÍCULO", 300),
-			("VARIANTE", 192),
-			("COLOR", 150),
+			("ARTÍCULO", 150),
+			("VARIANTE", 144),
+			("COLOR", 112),
 			("TALLA", 80),
-			("SKU SHOPIFY", 270),
+			("SKU SHOPIFY", 162, True),
 			("CANTIDAD", 100)
 		]
 		
@@ -229,6 +244,36 @@ class ProduccionStockBaseView:
 			on_guardado=self._on_guardado_flow,
 			item_data=item_data
 		)
+
+	def show_costes(self):
+		"""Mostrar la consulta de costes por variante."""
+		self._destruir_current()
+		
+		self._view_state = 'costes'
+		if self.owner and hasattr(self.owner, 'actualizar_ruta'):
+			self.owner.actualizar_ruta('PRODUCCIÓN / STOCK BASES / COSTES')
+		
+		from .produccion_stock_variante_costes import ProduccionStockVarianteCostesView
+		self.costes_view = ProduccionStockVarianteCostesView(
+			self.container,
+			db=self.db,
+			on_cerrar=self.show_lista
+		)
+		self._current_content = self.costes_view.frame
+
+	def _on_volver_proxied(self):
+		"""Manejador centralizado de volver que delega según el estado de la vista."""
+		if self._view_state == 'costes' and hasattr(self, 'costes_view'):
+			self.show_lista()
+		elif self._view_state == 'flow' and self._current_content:
+			# El flow suele tener su propia lógica de volver, si no, cerramos
+			if hasattr(self._current_content, '_on_volver_flow'):
+				self._current_content._on_volver_flow()
+			else:
+				self.show_lista()
+		else:
+			# Por defecto (lista), cerramos la vista completa (vuelve al menú principal)
+			self.destruir()
 
 	def _on_guardado_flow(self):
 		"""Refrescar la lista tras guardar una variante desde el flow."""

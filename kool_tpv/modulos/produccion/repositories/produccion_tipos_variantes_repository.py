@@ -122,13 +122,33 @@ class ProduccionTiposVariantesRepository:
             logging.exception(f"Error actualizando variante {variante.id}")
             return False
 
-    def eliminar(self, variante_id: int) -> bool:
-        """Eliminar una variante (soft delete)."""
-        try:
-            query = "UPDATE tipos_variantes SET activo = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
-            self.db.execute_query(query, (variante_id,))
-            return True
-        except Exception:
-            import logging
-            logging.exception(f"Error eliminando variante {variante_id}")
-            return False
+    def get_variantes_con_coste(self, search_term: str = "") -> List[dict]:
+        """Obtener variantes activas con su nombre de tipo y coste base para la UI."""
+        query = """
+            SELECT 
+                t.nombre as tipo_nombre,
+                v.nombre as variante_nombre,
+                v.coste_base
+            FROM tipos_variantes v
+            JOIN tipos t ON v.tipo_id = t.id
+            WHERE v.activo = 1
+        """
+        params = []
+        if search_term:
+            query += " AND (t.nombre LIKE ? OR v.nombre LIKE ?)"
+            term = f"%{search_term}%"
+            params.extend([term, term])
+            
+        query += " ORDER BY t.nombre, v.nombre"
+        
+        rows = self.db.fetch_all(query, tuple(params))
+        
+        resultados = []
+        from kool_tpv.base_datos.money_adapter import read_from_db
+        for r in rows:
+            resultados.append({
+                "tipo": r[0],
+                "variante": r[1],
+                "coste": float(read_from_db(r[2] or 0))
+            })
+        return resultados
