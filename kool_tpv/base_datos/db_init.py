@@ -283,6 +283,24 @@ def initialize_database(db_path: str) -> None:
 		except Exception:
 			logging.exception('Error aplicando migración 036 (Refuerzo FKs)')
 
+		# Migración 037: Añadir tipo_id y variante_id a produccion_disenos_metodos
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('produccion_disenos_metodos')") or [])]
+			if 'variante_id' not in cols:
+				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '037_disenos_metodos_variantes.sql'
+				if mig_path.exists():
+					logging.info('Aplicando migración 037: tipo_id/variante_id en produccion_disenos_metodos')
+					cur = db.connection.cursor()
+					cur.executescript(mig_path.read_text(encoding='utf-8'))
+					db.connection.commit()
+					logging.info('Migración 037 aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 037')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 
 
 		# Migration 015: tipos_variantes
