@@ -38,10 +38,11 @@ class DisenoNuevoView:
 		on_cerrar: Callback al cerrar/guardar correctamente.
 	"""
 
-	def __init__(self, parent, db: Database, on_cerrar: Optional[Callable[[Optional[ProduccionDiseno]], None]] = None):
+	def __init__(self, parent, db: Database, on_cerrar: Optional[Callable[[Optional[ProduccionDiseno]], None]] = None, owner=None):
 		self.parent = parent
 		self.db = db
 		self.on_cerrar = on_cerrar
+		self.owner = owner
 		self.service = ProduccionDisenosService(db)
 		self.tipos_service = ProduccionTiposService(db)
 		self.variantes_service = ProduccionTiposVariantesService(db)
@@ -85,6 +86,9 @@ class DisenoNuevoView:
 		self._crear_formulario()
 		self._render_chips_colecciones()
 		self._render_chips_sufijos()
+
+		# Vincular botón Power/Esc
+		self.frame._volver = self._volver
 
 		# Foco inicial
 		self.frame.after(100, lambda: self._entry_nombre.focus_set())
@@ -185,7 +189,7 @@ class DisenoNuevoView:
 
 		self._btn_mostrar = ctk.CTkButton(
 			controls_row,
-			text="MOSTRAR",
+			text="FILTRAR",
 			width=100,
 			font=self._get_font("button"),
 			fg_color=self.config.get("colors", {}).get("buttons", {}).get("nuevo", {}).get("bg", "#3498db"),
@@ -502,17 +506,66 @@ class DisenoNuevoView:
 				col = 0
 				row += 1
 
-		# Botón + MÉTODO
+		# Botón + MÉTODO y MOSTRAR COSTES
+		btns_metodos_frame = ctk.CTkFrame(self._frame_metodos, fg_color="transparent")
+		btns_metodos_frame.grid(row=row, column=0, columnspan=cols, pady=(10, 0), sticky="w")
+
 		btn_add = ctk.CTkButton(
-			self._frame_metodos,
+			btns_metodos_frame,
 			text="+ MÉTODO",
 			width=100,
 			fg_color=self.config.get("colors", {}).get("buttons", {}).get("nuevo", {}).get("bg", "#3498db"),
 			command=self._on_add_metodo
 		)
-		btn_add.grid(row=row, column=col, padx=10, pady=5, sticky="w")
+		btn_add.pack(side="left", padx=(0, 10))
+
+		self.btn_ver_costes = ctk.CTkButton(
+			btns_metodos_frame,
+			text="MOSTRAR COSTES",
+			width=140,
+			fg_color="#8e44ad",
+			hover_color="#7d3c98",
+			font=self._get_font("button_small"),
+			command=self._on_ver_costes_historial
+		)
+		self.btn_ver_costes.pack(side="left")
 		
 
+	def _on_ver_costes_historial(self):
+		"""Abrir subvista con el historial de costes del diseño seleccionado."""
+		if not self._diseno_cargado:
+			ToastWidget.show(self.frame, "Selecciona un diseño primero", tipo="warning")
+			return
+		
+		from kool_tpv.modulos.produccion.ui.subvistas.produccion_diseno_historial_costes import DisenoHistorialCostesView
+		
+		# Ocultar frame principal del diseño
+		self.frame.pack_forget()
+		
+		def on_volver():
+			# Limpiar subvista de historial de forma segura
+			if hasattr(self, 'historial_view') and self.historial_view:
+				if self.historial_view.frame.winfo_exists():
+					self.historial_view.frame.destroy()
+				self.historial_view = None
+			
+			# Mostrar de nuevo el frame principal si existe
+			if self.frame.winfo_exists():
+				self.frame.pack(fill="both", expand=True)
+				if self.owner and hasattr(self.owner, 'actualizar_ruta'):
+					self.owner.actualizar_ruta('PRODUCCIÓN / NUEVO DISEÑO')
+
+		# Instanciar el historial como hijo de self.frame (para una jerarquía limpia) 
+		# o del parent original pero gestionando bien el ruteo.
+		# Lo mantenemos en self.parent pero aseguramos que on_volver sea el único camino.
+		self.historial_view = DisenoHistorialCostesView(
+			self.parent, 
+			self.db, 
+			self._diseno_cargado,
+			on_cerrar=on_volver
+		)
+		# Vincular el comando _volver al frame del historial para Power/Esc
+		self.historial_view.frame._volver = on_volver
 	def _on_chip_coleccion_click(self, nombre):
 		"""Seleccionar/Deseleccionar chip de colección."""
 		if self._coleccion_seleccionada == nombre:
@@ -714,6 +767,16 @@ class DisenoNuevoView:
 			"total_producido": total_producido,
 			"obj": r
 		}
+
+	def _volver(self):
+		"""Manejador para el botón Power / Esc."""
+		if hasattr(self, 'historial_view') and self.historial_view:
+			# Si el historial está abierto, llamar a su manejador de volver
+			if hasattr(self.historial_view.frame, '_volver'):
+				self.historial_view.frame._volver()
+		else:
+			# Si no, cerrar el diseño completo y volver al menú principal
+			self._on_cancelar()
 
 	def _update_main_button(self):
 		"""Actualizar texto y estilo del botón principal según el estado."""

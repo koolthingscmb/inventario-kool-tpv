@@ -231,6 +231,7 @@ class ProduccionView(BaseModuleView):
 						self.central_area,
 						db=self.db,
 						on_cerrar=self._on_diseno_guardado,
+						owner=self
 					)
 				try:
 					self.actualizar_ruta('PRODUCCIÓN / NUEVO DISEÑO')
@@ -245,6 +246,11 @@ class ProduccionView(BaseModuleView):
 	def _on_diseno_guardado(self, diseno=None):
 		"""Tras guardar un diseno desde DISENO +: limpiar formulario y refrescar lista."""
 		try:
+			if diseno is None:
+				# Si es cancelación o Esc, cerramos la vista completa
+				self._on_flow_cerrar()
+				return
+
 			if hasattr(self, '_diseno_view') and self._diseno_view:
 				self._diseno_view._limpiar_formulario()
 		except Exception:

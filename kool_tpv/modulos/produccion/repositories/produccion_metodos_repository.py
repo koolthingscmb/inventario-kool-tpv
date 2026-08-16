@@ -33,14 +33,40 @@ class ProduccionMetodosRepository:
         rows = self.db.fetch_all(query, (diseno_codigo,))
         return {row[0]: row[1] for row in rows}
 
-    def guardar_coste_diseno(self, diseno_codigo: str, metodo_id: int, coste: int):
-        """Guardar o actualizar el coste de un método para un diseño."""
-        query = """
-            INSERT INTO produccion_disenos_metodos (diseno_codigo, metodo_id, coste)
-            VALUES (?, ?, ?)
-            ON CONFLICT(diseno_codigo, metodo_id) DO UPDATE SET coste = excluded.coste
-        """
-        self.db.execute_query(query, (diseno_codigo, metodo_id, coste))
+    def guardar_coste_diseno(self, diseno_codigo: str, metodo_id: int, coste: int, 
+                             tipo_id: Optional[int] = None, variante_id: Optional[int] = None):
+        """Guardar o actualizar el coste de un método para un diseño, opcionalmente por tipo/variante."""
+        try:
+            with self.db.transaction() as cur:
+                # 1. Borrar coincidencia exacta
+                if tipo_id is None and variante_id is None:
+                    cur.execute(
+                        "DELETE FROM produccion_disenos_metodos WHERE diseno_codigo = ? AND metodo_id = ? AND tipo_id IS NULL AND variante_id IS NULL",
+                        (diseno_codigo, metodo_id)
+                    )
+                elif tipo_id is not None and variante_id is None:
+                    cur.execute(
+                        "DELETE FROM produccion_disenos_metodos WHERE diseno_codigo = ? AND metodo_id = ? AND tipo_id = ? AND variante_id IS NULL",
+                        (diseno_codigo, metodo_id, tipo_id)
+                    )
+                else:
+                    cur.execute(
+                        "DELETE FROM produccion_disenos_metodos WHERE diseno_codigo = ? AND metodo_id = ? AND tipo_id = ? AND variante_id = ?",
+                        (diseno_codigo, metodo_id, tipo_id, variante_id)
+                    )
+
+                # 2. Insertar nuevo
+                cur.execute(
+                    """
+                    INSERT INTO produccion_disenos_metodos (diseno_codigo, metodo_id, tipo_id, variante_id, coste)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (diseno_codigo, metodo_id, tipo_id, variante_id, coste)
+                )
+        except Exception:
+            import logging
+            logging.exception(f"Error guardando coste diseño {diseno_codigo}")
+            raise
         
     def eliminar_costes_diseno(self, diseno_codigo: str):
         """Eliminar todos los costes de métodos para un diseño."""
