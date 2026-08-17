@@ -36,6 +36,10 @@ class ProduccionEntradaManualUI:
         self.proveedor_nombre = proveedor_nombre
         self.owner = owner
         self.albaran_id = albaran_id
+        
+        self._last_tipo_id = None
+        self._last_var_id = None
+        self._last_col_id = None
 
         self.lineas = [] # List[Dict] con las líneas del albarán
         self._editing_index = None # Índice de la línea en edición
@@ -115,11 +119,11 @@ class ProduccionEntradaManualUI:
         row1.pack(fill='x', padx=10, pady=(10, 5))
         
         ctk.CTkLabel(row1, text='Tipo:', width=60, anchor='w').pack(side='left', padx=5)
-        self.combo_tipo = SearchableCombo(row1, width=250, placeholder='Selecciona tipo...', command=self._on_tipo_change)
+        self.combo_tipo = SearchableCombo(row1, width=250, placeholder='Selecciona tipo...', command=self._on_tipo_change, module_name='produccion')
         self.combo_tipo.pack(side='left', padx=5)
         
         ctk.CTkLabel(row1, text='Variante:', width=80, anchor='w').pack(side='left', padx=(20, 5))
-        self.combo_variante = SearchableCombo(row1, width=250, placeholder='(Opcional)', command=self._on_variante_change)
+        self.combo_variante = SearchableCombo(row1, width=250, placeholder='(Opcional)', command=self._on_variante_change, module_name='produccion')
         self.combo_variante.pack(side='left', padx=5)
 
         # Fila 2: Color y Talla
@@ -127,11 +131,11 @@ class ProduccionEntradaManualUI:
         row2.pack(fill='x', padx=10, pady=5)
         
         ctk.CTkLabel(row2, text='Color:', width=60, anchor='w').pack(side='left', padx=5)
-        self.combo_color = SearchableCombo(row2, width=250, placeholder='Selecciona color...', command=self._on_color_change)
+        self.combo_color = SearchableCombo(row2, width=250, placeholder='Selecciona color...', command=self._on_color_change, module_name='produccion')
         self.combo_color.pack(side='left', padx=5)
         
         ctk.CTkLabel(row2, text='Talla:', width=80, anchor='w').pack(side='left', padx=(20, 5))
-        self.combo_talla = SearchableCombo(row2, width=250, placeholder='Selecciona talla...', command=self._on_talla_change)
+        self.combo_talla = SearchableCombo(row2, width=250, placeholder='Selecciona talla...', command=self._on_talla_change, module_name='produccion')
         self.combo_talla.pack(side='left', padx=5)
 
         # Fila 3: SKU, Cantidad y Coste
@@ -153,6 +157,7 @@ class ProduccionEntradaManualUI:
         self.entry_coste = ctk.CTkEntry(row3, width=80, font=(self.entry_font['family'], self.entry_font['size']))
         self.entry_coste.pack(side='left', padx=5)
         self.entry_coste.insert(0, '0.00')
+        self.entry_coste.bind('<Return>', lambda e: self._on_anadir_click())
         ctk.CTkLabel(row3, text='€').pack(side='left')
 
         self.btn_anadir = ButtonFactory.create_button(
@@ -277,10 +282,14 @@ class ProduccionEntradaManualUI:
 
     def _on_tipo_change(self, nombre_tipo):
         """Al cambiar el tipo, cargar variantes asociadas y configurar requisitos."""
-        self.combo_variante.clear()
-        
         tipo_id = self.tipo_map.get(nombre_tipo)
         if not tipo_id: return
+        
+        # Evitar re-procesar si es el mismo tipo (evita borrar combos al tabular)
+        if self._last_tipo_id == tipo_id:
+            return
+            
+        self._last_tipo_id = tipo_id
         
         tipo = self._tipos_data.get(tipo_id)
         
@@ -304,22 +313,82 @@ class ProduccionEntradaManualUI:
         self.variante_map = {v.nombre: v.id for v in variantes}
         self.combo_variante.set_options([(v.id, v.nombre) for v in variantes])
         
+        # 4. Filtrar colores y tallas inteligentes
+        self._filtrar_opciones_inteligentes()
+        
         self._actualizar_sku_preview()
 
     def _on_variante_change(self, nombre_var):
-        """Al cambiar la variante, recalcular SKU."""
+        """Al cambiar la variante, recalcular SKU y filtrar opciones."""
+        var_id = self.variante_map.get(nombre_var)
+        if self._last_var_id == var_id:
+            return
+        self._last_var_id = var_id
+        
+        self._filtrar_opciones_inteligentes()
         self._actualizar_sku_preview()
 
     def _on_color_change(self, nombre_color):
-        """Al cambiar el color, recalcular SKU."""
+        """Al cambiar el color, recalcular SKU y filtrar tallas."""
+        col_id = self.color_map.get(nombre_color)
+        if self._last_col_id == col_id:
+            return
+        self._last_col_id = col_id
+        
+        self._filtrar_opciones_inteligentes()
         self._actualizar_sku_preview()
 
     def _on_talla_change(self, nombre_talla):
         """Al cambiar la talla, recalcular SKU."""
         self._actualizar_sku_preview()
 
+    def _filtrar_opciones_inteligentes(self):
+        """Filtra colores y tallas según el tipo y variante seleccionados (Matriz 3D)."""
+        tipo_nom = self.combo_tipo.get()
+        var_nom = self.combo_variante.get()
+        col_nom = self.combo_color.get()
+        
+        tipo_id = self.tipo_map.get(tipo_nom)
+        if not tipo_id: return
+        
+        var_id = self.variante_map.get(var_nom) if var_nom else None
+        
+        # 1. Filtrar Colores
+        colores = self.colores_service.obtener_por_tipo_3d(tipo_id, var_id)
+        if colores:
+            # Si hay matriz, mostrar solo esos
+            self.color_map = {c.nombre: c.id for c in colores}
+            self.combo_color.set_options([(c.id, c.nombre) for c in colores])
+        else:
+            # Si no hay matriz, cargar todos los activos del sistema
+            colores_all = self.colores_service.obtener_activos()
+            self.color_map = {c.nombre: c.id for c in colores_all}
+            self.combo_color.set_options([(c.id, c.nombre) for c in colores_all])
+
+        # 2. Filtrar Tallas
+        col_id = self.color_map.get(col_nom) if col_nom else None
+        if col_id:
+            tallas = self.tallas_service.obtener_por_tipo_color_3d(tipo_id, col_id, var_id)
+            if tallas:
+                self.combo_talla.set_options([(t.id, t.nombre) for t in tallas])
+            else:
+                self.combo_talla.set_options([(t.id, t.nombre) for t in self.tallas_service.obtener_todas()])
+        else:
+            # Sin color, mostrar todas las tallas válidas para el tipo en la matriz
+            query = """SELECT DISTINCT talla_id FROM produccion_tipo_color_tallas 
+                       WHERE tipo_id = ? AND (variante_id = ? OR (variante_id IS NULL AND ? IS NULL))"""
+            rows = self.db.fetch_all(query, (tipo_id, var_id, var_id))
+            talla_ids = [r[0] for r in rows if r[0] is not None]
+            
+            if talla_ids:
+                tallas = [self.tallas_service.obtener_por_id(tid) for tid in talla_ids]
+                tallas = [t for t in tallas if t]
+                self.combo_talla.set_options([(t.id, t.nombre) for t in tallas])
+            else:
+                self.combo_talla.set_options([(t.id, t.nombre) for t in self.tallas_service.obtener_todas()])
+
     def _actualizar_sku_preview(self):
-        """Calcula y muestra el SKU generado según la selección actual."""
+        """Calcula y muestra el SKU generado y sugiere el coste base."""
         tipo_nom = self.combo_tipo.get()
         var_nom = self.combo_variante.get()
         col_nom = self.combo_color.get()
@@ -333,14 +402,55 @@ class ProduccionEntradaManualUI:
         var_id = self.variante_map.get(var_nom) if var_nom else None
         col_id = self.color_map.get(col_nom) if col_nom else None
         
+        # 1. Actualizar SKU
         sku = self.stock_service.generar_sku(
             tipo_id=tipo_id,
             color_id=col_id,
             talla=talla_nom,
             variante_id=var_id
         )
-        
         self._set_sku_text(sku)
+
+        # 2. Actualizar Coste Unitario (Prioridad: Variante > Tipo)
+        # Solo proceder si todos los campos requeridos tienen valor
+        tipo = self._tipos_data.get(tipo_id)
+        if not tipo: return
+        
+        req_color = getattr(tipo, 'requiere_color', 0) == 1
+        req_talla = getattr(tipo, 'requiere_talla', 0) == 1
+        has_variantes = bool(self.variante_map)
+        
+        # Si falta alguno de los combos "elegibles", no ponemos coste ni damos foco todavía
+        if (req_color and not col_nom) or (req_talla and not talla_nom) or (has_variantes and not var_nom):
+            return
+
+        coste_base = 0.0
+        if var_id:
+            variante = self.variantes_service.obtener_por_id(var_id)
+            if variante:
+                coste_base = float(read_from_db(variante.coste_base or 0))
+        
+        # Si no hay coste en variante o no hay variante, usar el del tipo
+        if coste_base <= 0:
+            coste_base = getattr(tipo, 'coste_base', 0.0)
+
+        self.entry_coste.delete(0, 'end')
+        self.entry_coste.insert(0, f"{coste_base:.2f}")
+        
+        # 3. Foco y selección en el coste (SOLO si estamos en el último paso de la cadena)
+        # Esto evita robar el foco si el usuario solo está tabulando por campos ya rellenos.
+        current_focus = str(self.container.focus_get())
+        
+        # Identificar el widget del último combo requerido
+        ultimo_combo = self.combo_tipo
+        if req_talla: ultimo_combo = self.combo_talla
+        elif req_color: ultimo_combo = self.combo_color
+        elif has_variantes: ultimo_combo = self.combo_variante
+        
+        # Solo saltamos al coste si el foco está en el combo que "cierra" la configuración
+        if hasattr(ultimo_combo, 'entry') and current_focus == str(ultimo_combo.entry._entry):
+            self.container.after(10, lambda: self.entry_coste.focus_set())
+            self.container.after(20, lambda: self.entry_coste._entry.selection_range(0, 'end'))
 
     def _set_sku_text(self, text):
         self.entry_sku.configure(state='normal')
@@ -441,19 +551,26 @@ class ProduccionEntradaManualUI:
             self.btn_guardar.configure(state='disabled')
 
     def _limpiar_campos_entrada(self):
-        """Limpia todos los campos y resetea el estado de edición."""
-        self.combo_tipo.set('')
-        self.combo_variante.clear()
-        self.combo_talla.clear()
-        self.combo_color.set('')
-        self._set_sku_text("")
+        """Limpia campos de entrada. Mantiene los valores de los combos para agilizar la entrada por lotes."""
+        # Si estábamos editando una línea existente (no añadiendo nueva), sí reseteamos
+        if self._editing_index is not None:
+            self.combo_tipo.set('')
+            self.combo_variante.clear()
+            self.combo_talla.clear()
+            self.combo_color.set('')
+            self._set_sku_text("")
+        
+        # Mantenemos los valores de los combos si es una entrada nueva correlativa
         self.entry_cant.delete(0, 'end')
         self.entry_cant.insert(0, '1')
         self.entry_coste.delete(0, 'end')
         self.entry_coste.insert(0, '0.00')
         self._editing_index = None
         self.btn_anadir.configure(text='AÑADIR LÍNEA')
-        self.combo_tipo.entry.focus_set()
+        
+        # Foco siempre en Tipo para permitir navegación rápida con Tab
+        self.container.after(100, lambda: self.combo_tipo.entry.focus_set())
+        self.container.after(110, lambda: self.combo_tipo.entry._entry.selection_range(0, 'end'))
 
     def _on_linea_double_click(self, item_data):
         """Al hacer doble clic en una línea, cargarla para editar."""
@@ -686,9 +803,8 @@ class ProduccionEntradaManualUI:
             if current_obj in self._tab_order:
                 idx = self._tab_order.index(current_obj)
                 
-                # Si es un combo y hay algo escrito, intentar validar antes de saltar
-                if hasattr(current_obj, '_on_focus_out'):
-                    current_obj._on_focus_out(event)
+                # Eliminado el llamado manual a _on_focus_out para evitar ejecuciones dobles 
+                # que podrían limpiar campos o robar el foco indebidamente.
 
                 if event.state & 0x1:  # Shift presionado
                     next_idx = (idx - 1) % len(self._tab_order)

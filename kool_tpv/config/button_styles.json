@@ -301,14 +301,15 @@
   "action_success": {
     "type": "solid",
     "bg_token": "green_success",
-    "text_token": "white_base",
+    "text_token": "black_base",
     "border_token": null,
-    "hover_token": "green_matrix",
+    "hover_token": "green_matrix_5",
     "height": 44,
     "min_width": 160,
     "corner_radius": 10,
     "border_width": 0,
-    "font_size": 16
+    "font_size": 16,
+    "width": 160
   },
   "action_warning": {
     "type": "solid",
