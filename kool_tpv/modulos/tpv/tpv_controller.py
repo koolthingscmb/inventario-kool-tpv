@@ -1322,15 +1322,28 @@ class TpvController:
                 ticket_id = result['ticket_id']
                 num_ticket = result['num_ticket']
 
-                # Marcar vale como usado si había uno aplicado
+                # Marcar/consumir vale si había uno aplicado
                 try:
                     vale_aplicado = carrito_service.get_vale_aplicado()
                     if vale_aplicado:
                         vale_id = vale_aplicado['id']
+                        cliente_id = vale_aplicado.get('cliente_id')
+                        importe_aplicar_cents = vale_aplicado.get(
+                            'importe_aplicar_cents', vale_aplicado.get('importe_cents', 0)
+                        )
                         from kool_tpv.modulos.tpv.vale_devolucion_service import ValeDevolucionService
                         vale_service = ValeDevolucionService()
-                        vale_service.marcar_usado(vale_id, str(num_ticket))
-                        logger.info(f"Vale {vale_id} marcado como usado en ticket {num_ticket}")
+
+                        if cliente_id:
+                            # Vale asignado a cliente: consumir solo el importe aplicado
+                            ok = vale_service.consumir_parcial(vale_id, int(importe_aplicar_cents), str(num_ticket))
+                            if ok:
+                                logger.info(f"Vale {vale_id} consumido parcialmente ({importe_aplicar_cents} céntimos) en ticket {num_ticket}")
+                        else:
+                            # Vale anónimo: gasto total como hasta ahora
+                            ok = vale_service.marcar_usado(vale_id, str(num_ticket))
+                            if ok:
+                                logger.info(f"Vale {vale_id} marcado como usado en ticket {num_ticket}")
                         
                         # PASO 7: Marcar pedido asociado como ENTREGADO si existe
                         try:

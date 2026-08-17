@@ -449,7 +449,10 @@ class CarritoService:
         if self._vale_aplicado:
             try:
                 from kool_tpv.base_datos.money_adapter import read_from_db
-                vale_euros = read_from_db(self._vale_aplicado['importe_cents'])
+                importe_a_descontar = self._vale_aplicado.get(
+                    'importe_aplicar_cents', self._vale_aplicado.get('importe_cents', 0)
+                )
+                vale_euros = read_from_db(importe_a_descontar)
                 total_actual = Decimal(str(resumen.get('total', '0')))
                 nuevo_total = total_actual - vale_euros
                 if nuevo_total < Decimal('0.00'):
@@ -457,6 +460,7 @@ class CarritoService:
                 resumen['total'] = nuevo_total
                 resumen['vale_euros'] = vale_euros
                 resumen['vale_id'] = self._vale_aplicado.get('id')
+                resumen['vale_aplicar_cents'] = importe_a_descontar
             except Exception:
                 logging.exception('Error aplicando vale al resumen financiero')
 
@@ -515,16 +519,26 @@ class CarritoService:
     # Vale de devolución
     # ------------------------------------------------------------------
     def aplicar_vale(self, vale_data: Dict) -> None:
-        """Aplica un vale de devolución al carrito.
+        """Aplica un vale de devolución al carrito, soportando importe parcial.
 
         vale_data: dict con al menos 'id' (str) e 'importe_cents' (int).
-        El importe se resta del total del carrito en get_resumen_financiero().
+        - 'importe_cents' es el importe total original del vale (para saber cuánto queda).
+        - 'importe_aplicar_cents' (opcional) es lo que se descuenta del carrito;
+          si no se pasa, se usa 'importe_cents' como antes.
+        - 'cliente_id' (opcional) se conserva para lógica de consumo parcial.
         """
-        if not vale_data or 'id' not in vale_data or 'importe_cents' not in vale_data:
-            raise ValueError('Datos de vale inválidos: requiere id e importe_cents')
+        if not vale_data or 'id' not in vale_data:
+            raise ValueError('Datos de vale inválidos: requiere id')
+
+        importe_total = int(vale_data.get('importe_cents', 0))
+        importe_aplicar = int(vale_data.get('importe_aplicar_cents', importe_total))
+
         self._vale_aplicado = {
             'id': vale_data['id'],
-            'importe_cents': int(vale_data['importe_cents']),
+            'importe_cents': importe_total,
+            'importe_aplicar_cents': importe_aplicar,
+            'importe_original_cents': int(vale_data.get('importe_original_cents', importe_total)),
+            'cliente_id': vale_data.get('cliente_id'),
         }
         logging.info(f"Vale aplicado al carrito: {self._vale_aplicado}")
 

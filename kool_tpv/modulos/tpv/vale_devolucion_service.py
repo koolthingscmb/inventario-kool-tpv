@@ -93,12 +93,15 @@ class ValeDevolucionService:
             'id': vale_id,
             'fecha': ts,
             'importe_cents': int(importe_cents),
+            'importe_original_cents': int(importe_cents),
+            'importe_restante_cents': int(importe_cents),
             'cliente_id': cliente_id,
             'cliente_nombre': cliente_nombre or '',
             'num_ticket_devolucion': str(num_ticket_devolucion),
             'usado': False,
             'num_ticket_venta_uso': None,
             'timestamp': ts,
+            'consumos': [],
         }
 
         path.write_text(
@@ -155,6 +158,57 @@ class ValeDevolucionService:
             return False
         except Exception:
             logger.warning(f'No se pudo eliminar vale por path: {path_str}')
+            return False
+
+    # ------------------------------------------------------------------
+    def consumir_parcial(self, vale_id: str, importe_cents: int, num_ticket_venta_uso: str) -> bool:
+        """Resta el importe consumido del saldo restante del vale.
+
+        Args:
+            vale_id: UUID del vale.
+            importe_cents: importe gastado en la venta (céntimos).
+            num_ticket_venta_uso: número de ticket de la venta donde se aplicó.
+
+        Returns:
+            True si se actualizó correctamente, False en caso contrario.
+        """
+        try:
+            path = self._find_file_by_id(vale_id)
+            if not path or not path.exists():
+                logger.warning(f'Vale no encontrado: {vale_id}')
+                return False
+
+            data = json.loads(path.read_text(encoding='utf-8'))
+            if data.get('usado'):
+                logger.warning(f'Vale {vale_id} ya está usado')
+                return False
+
+            saldo_actual = data.get('importe_restante_cents', data.get('importe_cents', 0))
+            if importe_cents > saldo_actual:
+                logger.warning(f'Importe a consumir ({importe_cents}) mayor que saldo ({saldo_actual})')
+                return False
+
+            data['importe_restante_cents'] = int(saldo_actual - importe_cents)
+            if 'consumos' not in data:
+                data['consumos'] = []
+            data['consumos'].append({
+                'num_ticket_venta_uso': str(num_ticket_venta_uso),
+                'fecha': datetime.now().isoformat(),
+                'importe_cents': int(importe_cents),
+            })
+
+            # Si el saldo llega a 0, marcar como usado reutilizando la lógica existente
+            if data['importe_restante_cents'] <= 0:
+                return self.marcar_usado(vale_id, num_ticket_venta_uso)
+
+            path.write_text(
+                json.dumps(data, ensure_ascii=False, indent=2),
+                encoding='utf-8',
+            )
+            logger.info(f'Vale {vale_id} consumido parcialmente: -{importe_cents} céntimos, restante: {data["importe_restante_cents"]}')
+            return True
+        except Exception:
+            logger.exception(f'Error consumiendo vale {vale_id} parcialmente')
             return False
 
     # ------------------------------------------------------------------

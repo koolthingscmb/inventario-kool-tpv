@@ -1,6 +1,9 @@
 from customtkinter import CTkFrame
 import logging
+from decimal import Decimal
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
+from kool_tpv.utils.dialogs.input_dialog import InputDialog
+from kool_tpv.base_datos.money_adapter import read_from_db, prepare_for_db
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +70,7 @@ class ValesListSubView(CTkFrame):
             ("importe", 90, "💰"),
             ("ticket_devolucion", 120, "DEVOLUCIÓN"),
             ("usado_check", 50, "📥"),
+            ("saldo", 120, "SALDO"),
         ]
 
         from kool_tpv.utils.widgets.searchable_paginated_navlist import SearchablePaginatedNavList
@@ -98,6 +102,82 @@ class ValesListSubView(CTkFrame):
             except Exception:
                 pass
 
+        # Setup Tab Navigation
+        self._setup_tab_nav()
+
+    def _setup_tab_nav(self):
+        """Configurar la navegación por Tab."""
+        try:
+            root = self.winfo_toplevel()
+            root.bind("<Tab>", self._on_tab_next)
+            root.bind("<Shift-Tab>", self._on_tab_prev)
+
+            self.bind("<Destroy>", self._on_view_destroy)
+        except Exception:
+            logging.exception("Error vinculando Tab en ValesListSubView")
+
+    def _on_view_destroy(self, event):
+        """Limpiar bindings globales al cerrar la vista."""
+        if event.widget == self:
+            try:
+                root = self.winfo_toplevel()
+                root.unbind("<Tab>")
+                root.unbind("<Shift-Tab>")
+            except Exception:
+                pass
+
+    def _get_navigable_widgets(self):
+        """Obtiene la lista de widgets navegables en orden."""
+        widgets = []
+        def add_widget(w):
+            if not w: return
+            if hasattr(w, '_entry'): widgets.append(w._entry)
+            elif hasattr(w, '_canvas'): widgets.append(w._canvas)
+            else: widgets.append(w)
+
+        add_widget(self.btn_select_all)
+        add_widget(self.btn_crear)
+        add_widget(self.btn_eliminar)
+        add_widget(self.btn_usar)
+
+        return [w for w in widgets if w.winfo_exists() and w.winfo_viewable()]
+
+    def _on_tab_next(self, event):
+        """Foco al siguiente widget."""
+        widgets = self._get_navigable_widgets()
+        if not widgets: return
+
+        try:
+            current = self.focus_get()
+            if current in widgets:
+                idx = widgets.index(current)
+                next_idx = (idx + 1) % len(widgets)
+                widgets[next_idx].focus_set()
+            else:
+                widgets[0].focus_set()
+        except Exception:
+            widgets[0].focus_set()
+
+        return "break"
+
+    def _on_tab_prev(self, event):
+        """Foco al widget anterior."""
+        widgets = self._get_navigable_widgets()
+        if not widgets: return
+
+        try:
+            current = self.focus_get()
+            if current in widgets:
+                idx = widgets.index(current)
+                prev_idx = (idx - 1) % len(widgets)
+                widgets[prev_idx].focus_set()
+            else:
+                widgets[-1].focus_set()
+        except Exception:
+            widgets[-1].focus_set()
+
+        return "break"
+
     def _buscar_vales(self, texto):
         try:
             vales = self.vale_service.listar_todos()
@@ -121,6 +201,10 @@ class ValesListSubView(CTkFrame):
             from pathlib import Path as _Path
             importe = read_from_db(vale.get('importe_cents', 0))
             
+            # Cálculo de saldo disponible
+            saldo_restante_cents = vale.get('importe_restante_cents', vale.get('importe_cents', 0))
+            saldo_euros = read_from_db(saldo_restante_cents)
+            
             # Formato fecha d-m-y
             raw_fecha = vale.get('fecha', '')
             if raw_fecha:
@@ -135,6 +219,11 @@ class ValesListSubView(CTkFrame):
 
             usado = vale.get('usado', False)
             usado_check = '✓' if usado else '✗'
+
+            # Si el vale está usado, el saldo es 0
+            if usado:
+                saldo_restante_cents = 0
+                saldo_euros = Decimal('0.00')
             
             # Obtener nombre del archivo sin extensión
             path_str = vale.get('path', '')
@@ -152,6 +241,9 @@ class ValesListSubView(CTkFrame):
                 'ticket_devolucion': vale.get('num_ticket_devolucion', '-'),
                 'usado_check': usado_check,
                 'usado': usado,
+                'saldo_cents': saldo_restante_cents,
+                'saldo_original_cents': vale.get('importe_original_cents', vale.get('importe_cents', 0)),
+                'saldo': f'{saldo_euros:.2f} €',
             }
         except Exception:
             return {}
@@ -192,7 +284,7 @@ class ValesListSubView(CTkFrame):
         items = self.search_list.get_selected_items()
         if not items or len(items) != 1:
             return
-        
+
         vale_data = items[0]
         if vale_data.get('usado'):
             ToastWidget.show(self, "El vale ya ha sido usado", tipo='warning')
@@ -205,21 +297,68 @@ class ValesListSubView(CTkFrame):
                 ToastWidget.show(self, "No se encontró el archivo del vale", tipo='error')
                 return
 
-            # 2. Aplicar al carrito
-            if hasattr(self.view, 'carrito_service'):
-                self.view.carrito_service.aplicar_vale(full_vale)
-                
-                # 3. Refrescar ticket
-                ticket = getattr(self.view, 'ticket_widget', None)
-                if ticket and hasattr(ticket, 'update_carrito'):
-                    ticket.update_carrito()
-                
-                # 4. Volver al TPV
-                if hasattr(self.view, 'pop_subview'):
-                    self.view.pop_subview()
-                    ToastWidget.show(self.view, "Vale aplicado al carrito", tipo='success')
-            else:
-                ToastWidget.show(self, "No se pudo acceder al carrito", tipo='error')
+            # 2. Determinar saldo disponible (nuevo o legacy)
+            importe_total_cents = full_vale.get('importe_cents', 0)
+            saldo_restante_cents = full_vale.get('importe_restante_cents', importe_total_cents)
+            saldo_euros = read_from_db(saldo_restante_cents)
+
+            # 3. Preguntar importe a aplicar
+            def _on_importe_decidido(valor_str):
+                if valor_str is None:
+                    return  # Cancelado
+
+                try:
+                    valor_str = valor_str.strip().replace(',', '.')
+                    if not valor_str:
+                        ToastWidget.show(self, "Debes introducir un importe", tipo='warning')
+                        return
+
+                    importe_euros = Decimal(valor_str)
+                    if importe_euros <= Decimal('0.00'):
+                        ToastWidget.show(self, "El importe debe ser mayor que 0", tipo='warning')
+                        return
+
+                    importe_aplicar_cents = prepare_for_db(importe_euros)
+
+                    if importe_aplicar_cents > saldo_restante_cents:
+                        ToastWidget.show(
+                            self,
+                            f"El importe ({importe_euros:.2f} €) supera el saldo disponible",
+                            tipo='warning'
+                        )
+                        return
+
+                    # 4. Aplicar al carrito con el importe decidido
+                    if hasattr(self.view, 'carrito_service'):
+                        self.view.carrito_service.aplicar_vale({
+                            'id': full_vale['id'],
+                            'importe_cents': importe_aplicar_cents,
+                            'importe_restante_cents': saldo_restante_cents,
+                            'cliente_id': full_vale.get('cliente_id'),
+                        })
+
+                        # 5. Refrescar ticket
+                        ticket = getattr(self.view, 'ticket_widget', None)
+                        if ticket and hasattr(ticket, 'update_carrito'):
+                            ticket.update_carrito()
+
+                        # 6. Volver al TPV
+                        if hasattr(self.view, 'pop_subview'):
+                            self.view.pop_subview()
+                            ToastWidget.show(self.view, f"Vale de {importe_euros:.2f} € aplicado", tipo='success')
+                    else:
+                        ToastWidget.show(self, "No se pudo acceder al carrito", tipo='error')
+                except Exception:
+                    logger.exception('Error aplicando vale')
+                    ToastWidget.show(self, "Error al aplicar el vale", tipo='error')
+
+            InputDialog(
+                parent=self.winfo_toplevel(),
+                titulo="IMPORTE A USAR",
+                mensaje=f"Saldo disponible: {saldo_euros:.2f} €",
+                valor_defecto=f"{saldo_euros:.2f}",
+                callback=_on_importe_decidido,
+            )
         except Exception:
             logger.exception('Error usando vale')
             ToastWidget.show(self, "Error al aplicar el vale", tipo='error')
