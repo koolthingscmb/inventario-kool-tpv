@@ -735,9 +735,14 @@ class App(ctk.CTk):
             attr = _map[config_name]
             setattr(self, attr, load_json_config(f"{config_name}.json"))
             logging.info(f"App.reload_configs: {config_name} recargado")
+            if config_name in ('colors_config', 'buttons_config'):
+                from kool_tpv.utils.factories.button_factory import ButtonFactory
+                ButtonFactory.reload_configs()
         elif config_name is None:
             for cn, attr in _map.items():
                 setattr(self, attr, load_json_config(f"{cn}.json"))
+            from kool_tpv.utils.factories.button_factory import ButtonFactory
+            ButtonFactory.reload_configs()
             logging.info("App.reload_configs: todas las configs recargadas")
 
     def reserve_power_space(self, container, margin=12):

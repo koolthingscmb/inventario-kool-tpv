@@ -103,10 +103,13 @@ class CanjearTesoroAction:
             logging.exception('Error obteniendo subtotal/IVA para validar canje')
             total_actual = Decimal('0.00')
 
-        # Mostrar diálogo de entrada personalizado
+        # Mostrar diálogo de entrada personalizado con saldo pre-rellenado
         prompt = f"Saldo disponible: {tesoro_formateado} €\n¿Cuánto deseas canjear?"
         try:
-            valor_str = show_input_dialog(parent_window, "Canjear Tesoro", prompt, tipo='success')
+            valor_str = show_input_dialog(
+                parent_window, "Canjear Tesoro", prompt,
+                tipo='success', valor_defecto=tesoro_formateado
+            )
         except Exception:
             logging.exception('Error mostrando diálogo de entrada personalizado')
             valor_str = None

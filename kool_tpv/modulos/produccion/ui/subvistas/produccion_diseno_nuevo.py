@@ -709,11 +709,14 @@ class DisenoNuevoView:
 		self._update_main_button()
 		
 		# Ejecutar búsqueda a través del widget
-		self._paginated_list.search(nombre)
-		
+		self._paginated_list.search(nombre, grab_focus=False)
+
 		# Mostrar toast si no hay resultados y hay un filtro
 		if nombre and not self._paginated_list.nav_list._all_data:
 			ToastWidget.show(self.frame, "NO SE ENCONTRÓ DISEÑO", tipo="warning")
+
+		# Mantener el foco en el entry para permitir búsquedas consecutivas
+		self._entry_nombre.focus_set()
 
 	def _buscar_disenos_paginado(self, filtro: str) -> List[ProduccionDiseno]:
 		"""Función de búsqueda para SearchablePaginatedNavList."""
