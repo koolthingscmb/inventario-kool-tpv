@@ -101,9 +101,9 @@ class ProduccionColoresService:
 		"""
 		return self.repository.eliminar(color_id)
 
-	def obtener_por_tipo_3d(self, tipo_id: int, variante_id: Optional[int] = None, solo_con_stock: bool = True) -> List[ProduccionColor]:
-		"""Obtener colores asignados a un tipo o variante (tabla stock base o matriz)."""
-		return self.repository.get_por_tipo_3d(tipo_id, variante_id, solo_con_stock)
+	def obtener_por_tipo_3d(self, tipo_id: int, variante_id: Optional[int] = None) -> List[ProduccionColor]:
+		"""Obtener colores asignados a un tipo o variante (tabla stock base)."""
+		return self.repository.get_por_tipo_3d(tipo_id, variante_id)
 
 	def obtener_como_dict(self, solo_activos: bool = True) -> List[dict]:
 		"""Obtener colores como diccionarios (útil para UI con comboboxes).

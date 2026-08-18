@@ -126,38 +126,23 @@ class ProduccionColoresRepository:
 			logging.exception(f"Error actualizando color {color.id}")
 			return False
 
-	def get_por_tipo_3d(self, tipo_id: int, variante_id: Optional[int] = None, solo_con_stock: bool = True) -> List[ProduccionColor]:
-		"""Obtener colores asignados a un tipo o variante.
-		
-		Args:
-			tipo_id: ID del tipo.
-			variante_id: ID de la variante (opcional).
-			solo_con_stock: Si es True, solo muestra colores con stock > 0.
-						   Si es False, muestra todos los configurados en la matriz.
-		"""
-		if solo_con_stock:
-			table = "produccion_stock_colores_tallas"
-			extra_where = "AND s.cantidad > 0"
-		else:
-			table = "produccion_tipo_color_tallas"
-			extra_where = ""
-
+	def get_por_tipo_3d(self, tipo_id: int, variante_id: Optional[int] = None) -> List[ProduccionColor]:
+		"""Obtener colores con stock disponible para un tipo o variante."""
 		if variante_id:
-			# Si hay variante, ignoramos el tipo_id para mayor robustez
-			query = f"""
+			query = """
 				SELECT DISTINCT c.id, c.nombre, c.codigo_hex
 				FROM produccion_colores c
-				JOIN {table} s ON c.id = s.color_id
-				WHERE s.variante_id = ? {extra_where}
+				JOIN produccion_stock_colores_tallas s ON c.id = s.color_id
+				WHERE s.tipo_id = ? AND s.variante_id = ? AND s.cantidad > 0
 				ORDER BY c.nombre
 			"""
-			params = (variante_id,)
+			params = (tipo_id, variante_id)
 		else:
-			query = f"""
+			query = """
 				SELECT DISTINCT c.id, c.nombre, c.codigo_hex
 				FROM produccion_colores c
-				JOIN {table} s ON c.id = s.color_id
-				WHERE s.tipo_id = ? AND s.variante_id IS NULL {extra_where}
+				JOIN produccion_stock_colores_tallas s ON c.id = s.color_id
+				WHERE s.tipo_id = ? AND s.variante_id IS NULL AND s.cantidad > 0
 				ORDER BY c.nombre
 			"""
 			params = (tipo_id,)
