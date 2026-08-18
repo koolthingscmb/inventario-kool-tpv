@@ -143,14 +143,15 @@ class ProduccionColoresRepository:
 			extra_where = ""
 
 		if variante_id:
+			# Si hay variante, ignoramos el tipo_id para mayor robustez
 			query = f"""
 				SELECT DISTINCT c.id, c.nombre, c.codigo_hex
 				FROM produccion_colores c
 				JOIN {table} s ON c.id = s.color_id
-				WHERE s.tipo_id = ? AND s.variante_id = ? {extra_where}
+				WHERE s.variante_id = ? {extra_where}
 				ORDER BY c.nombre
 			"""
-			params = (tipo_id, variante_id)
+			params = (variante_id,)
 		else:
 			query = f"""
 				SELECT DISTINCT c.id, c.nombre, c.codigo_hex
