@@ -127,13 +127,13 @@ class ProduccionColoresRepository:
 			return False
 
 	def get_por_tipo_3d(self, tipo_id: int, variante_id: Optional[int] = None) -> List[ProduccionColor]:
-		"""Obtener colores con stock disponible para un tipo o variante."""
+		"""Obtener colores asignados a un tipo o variante (matriz), sin filtrar por stock actual."""
 		if variante_id:
 			query = """
 				SELECT DISTINCT c.id, c.nombre, c.codigo_hex
 				FROM produccion_colores c
 				JOIN produccion_stock_colores_tallas s ON c.id = s.color_id
-				WHERE s.tipo_id = ? AND s.variante_id = ? AND s.cantidad > 0
+				WHERE s.tipo_id = ? AND s.variante_id = ?
 				ORDER BY c.nombre
 			"""
 			params = (tipo_id, variante_id)
@@ -142,7 +142,7 @@ class ProduccionColoresRepository:
 				SELECT DISTINCT c.id, c.nombre, c.codigo_hex
 				FROM produccion_colores c
 				JOIN produccion_stock_colores_tallas s ON c.id = s.color_id
-				WHERE s.tipo_id = ? AND s.variante_id IS NULL AND s.cantidad > 0
+				WHERE s.tipo_id = ? AND s.variante_id IS NULL
 				ORDER BY c.nombre
 			"""
 			params = (tipo_id,)
