@@ -1,6 +1,7 @@
 """UI unificada para configuración de mapeos de proveedor (CSV, Variantes, Colores, Tallas)."""
 import logging
 import json
+import tkinter as tk
 import customtkinter as ctk
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
 from kool_tpv.utils.config_loader import load_colors
@@ -8,6 +9,8 @@ from kool_tpv.utils.font_loader import get_font
 from kool_tpv.base_datos.proveedor_service import ProveedorService
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
 from kool_tpv.utils.factories.button_factory import ButtonFactory
+from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
+from kool_tpv.modulos.produccion.services.produccion_tipos_service import ProduccionTiposService
 from kool_tpv.modulos.produccion.services.produccion_tipos_variantes_service import ProduccionTiposVariantesService
 from kool_tpv.modulos.produccion.services.produccion_colores_service import ProduccionColoresService
 from kool_tpv.modulos.produccion.services.produccion_tallas_service import ProduccionTallasService
@@ -54,7 +57,14 @@ class ProduccionProveedoresConfigurador:
         self.tipos_seleccionados = None 
         self.temp_mapeo_datos = {} # Memoria temporal para no perder lo escrito al cambiar pestañas
         self._cache_tipos_sistema = None
-        
+        self._cache_tipos_producto = None
+
+        # Selección actual de los combos Tipo/Variante (se mantiene entre refrescos de la pestaña)
+        self._map_tipo_sel = ''
+        self._map_variante_sel = ''
+        self.combo_map_tipo = None
+        self.combo_map_variante = None
+
         self.show_tab(tab_inicial)
 
     def _get_variantes_sistema(self):
@@ -62,6 +72,13 @@ class ProduccionProveedoresConfigurador:
             svc = ProduccionTiposVariantesService(self.db)
             self._cache_tipos_sistema = svc.obtener_activos_como_dict()
         return self._cache_tipos_sistema
+
+    def _get_tipos_producto(self):
+        """Obtener tipos de producto activos del sistema (para el combo Tipo)."""
+        if self._cache_tipos_producto is None:
+            svc = ProduccionTiposService(self.db)
+            self._cache_tipos_producto = svc.obtener_activos()
+        return self._cache_tipos_producto
 
     def _setup_header(self):
         header = ctk.CTkFrame(self.container, fg_color='#1a1a1a', height=50)
@@ -194,15 +211,41 @@ class ProduccionProveedoresConfigurador:
             
             sel_frame = ctk.CTkFrame(container, fg_color='#1a1a1a')
             sel_frame.pack(fill='x', pady=(0, 5))
-            ctk.CTkLabel(sel_frame, text="VARIANTES ACTIVAS PARA ESTE PROVEEDOR:", font=('Courier New', 11, 'bold'), text_color=self.colors.get('primary', '#9b59b6')).pack(pady=5)
-            chips_f = ctk.CTkFrame(sel_frame, fg_color='transparent')
-            chips_f.pack(fill='x', padx=10, pady=5)
-            for i in range(4): chips_f.grid_columnconfigure(i, weight=1)
-            
-            for i, nom in enumerate(sorted(nombres_sistema)):
-                style = "chip_selected" if nom in self.tipos_seleccionados else "chip_default"
-                btn = ButtonFactory.create_button(chips_f, nom, command=lambda n=nom: self._toggle_tipo(n), style_key=style)
-                btn.grid(row=i//4, column=i%4, padx=2, pady=2, sticky='ew')
+            ctk.CTkLabel(sel_frame, text="AÑADIR VARIANTE AL MAPEO:", font=('Courier New', 11, 'bold'), text_color=self.colors.get('primary', '#9b59b6')).pack(pady=5)
+
+            pick_f = ctk.CTkFrame(sel_frame, fg_color='transparent')
+            pick_f.pack(fill='x', padx=10, pady=(0, 10))
+
+            tipos_producto = self._get_tipos_producto()
+            opciones_tipo = [(t.id, t.nombre) for t in tipos_producto]
+
+            self.combo_map_tipo = SearchableCombo(
+                pick_f, options=opciones_tipo, placeholder='Tipo...',
+                width=220, module_name=self.module_name,
+                command=self._on_map_tipo_seleccionado
+            )
+            self.combo_map_tipo.pack(side='left', padx=(0, 8))
+
+            self.combo_map_variante = SearchableCombo(
+                pick_f, options=[], placeholder='Variante...',
+                width=220, module_name=self.module_name
+            )
+            self.combo_map_variante.pack(side='left', padx=(0, 8))
+
+            btn_anadir_variante = ButtonFactory.create_button(pick_f, 'AÑADIR', self._on_add_variante_mapeo, style_key='action_success')
+            btn_anadir_variante.pack(side='left')
+
+            # Restaurar selección previa (tipo -> repobla combo variante -> variante)
+            if self._map_tipo_sel:
+                self.combo_map_tipo.set(self._map_tipo_sel)
+                self._on_map_tipo_seleccionado(self._map_tipo_sel)
+                if self._map_variante_sel:
+                    self.combo_map_variante.set(self._map_variante_sel)
+
+            self._setup_tab_navigation_variantes(pick_f, btn_anadir_variante)
+
+            # Foco inicial en Tipo para poder escribir directo al entrar en la pestaña
+            self.combo_map_tipo.after(100, lambda: self.combo_map_tipo.entry.focus_set())
 
         scroll = ctk.CTkScrollableFrame(container, fg_color='#111111')
         scroll.pack(fill='both', expand=True)
@@ -233,19 +276,129 @@ class ProduccionProveedoresConfigurador:
                 else:
                     inc = ", ".join(str(x) for x in val) if isinstance(val, list) else str(val or "")
                     exc = ""
-                self._add_variant_mapping_row(scroll, item, item, inc, exc, self.mapping_entries)
+                self._add_variant_mapping_row(scroll, item, item, inc, exc, self.mapping_entries, on_remove=self._on_remove_variante_mapeo)
             else:
                 self._add_form_row(scroll, item, item, ", ".join(val) if isinstance(val, list) else str(val), self.mapping_entries)
 
         ButtonFactory.create_button(scroll, f'GUARDAR MAPEO {tab_key}', lambda: self._save_mapping(mapping_type), style_key='action_success').pack(pady=20)
         return container
 
-    def _toggle_tipo(self, nombre):
-        self._update_temp_data()
-        if nombre in self.tipos_seleccionados: self.tipos_seleccionados.remove(nombre)
-        else: self.tipos_seleccionados.append(nombre)
-        self.current_widget = None
-        self.show_tab('VARIANTES')
+    def _on_map_tipo_seleccionado(self, tipo_nombre):
+        """Al elegir un Tipo, repoblar el combo de Variante con las variantes de ese tipo."""
+        try:
+            tipos_producto = self._get_tipos_producto()
+            tipo = next((t for t in tipos_producto if t.nombre == tipo_nombre), None)
+            if not tipo or not self.combo_map_variante:
+                return
+            svc_variantes = ProduccionTiposVariantesService(self.db)
+            variantes = svc_variantes.obtener_por_tipo(tipo.id)
+            self.combo_map_variante.set_options([(v.id, v.nombre) for v in variantes])
+        except Exception:
+            logger.exception('Error filtrando variantes por tipo')
+
+    def _setup_tab_navigation_variantes(self, pick_f, btn_anadir):
+        """Configura navegación manual con Tab/Shift+Tab entre Tipo, Variante y AÑADIR.
+
+        Replica el patrón usado en produccion_entrada_manual.py para que Tab
+        recorra los widgets reales (entry interno de los combos / canvas del botón).
+        """
+        tab_order = [self.combo_map_tipo, self.combo_map_variante, btn_anadir]
+
+        widget_map = {}
+        for w in tab_order:
+            if hasattr(w, 'entry') and hasattr(w.entry, '_entry'):
+                widget_map[str(w.entry._entry)] = w
+            elif hasattr(w, '_entry'):
+                widget_map[str(w._entry)] = w
+            elif hasattr(w, '_canvas'):
+                widget_map[str(w._canvas)] = w
+                if hasattr(w, '_text_label'):
+                    widget_map[str(w._text_label)] = w
+            else:
+                widget_map[str(w)] = w
+
+        def on_tab(event):
+            current_obj = widget_map.get(str(event.widget))
+            if current_obj in tab_order:
+                idx = tab_order.index(current_obj)
+                next_idx = (idx - 1) % len(tab_order) if (event.state & 0x1) else (idx + 1) % len(tab_order)
+                next_obj = tab_order[next_idx]
+
+                if hasattr(next_obj, 'entry'):
+                    next_obj.entry.focus_set()
+                    try: next_obj.entry._entry.selection_range(0, 'end')
+                    except Exception: pass
+                elif hasattr(next_obj, '_entry'):
+                    next_obj.focus_set()
+                    try: next_obj._entry.selection_range(0, 'end')
+                    except Exception: pass
+                else:
+                    next_obj.focus_set()
+                return 'break'
+            return None
+
+        for w in tab_order:
+            if hasattr(w, 'entry'):
+                w.entry._entry.bind('<Tab>', on_tab)
+                w.entry._entry.bind('<Shift-Tab>', on_tab)
+            elif hasattr(w, '_entry'):
+                w._entry.bind('<Tab>', on_tab)
+                w._entry.bind('<Shift-Tab>', on_tab)
+            elif hasattr(w, '_canvas'):
+                w._canvas.bind('<Tab>', on_tab)
+                w._canvas.bind('<Shift-Tab>', on_tab)
+                if hasattr(w, '_text_label'):
+                    w._text_label.bind('<Tab>', on_tab)
+                    w._text_label.bind('<Shift-Tab>', on_tab)
+            else:
+                w.bind('<Tab>', on_tab)
+                w.bind('<Shift-Tab>', on_tab)
+
+        # Desactivar takefocus en los frames intermedios para que Tab no se pierda en ellos
+        def disable_frame_focus(parent):
+            for child in parent.winfo_children():
+                if isinstance(child, (ctk.CTkFrame, tk.Frame)):
+                    try: child.configure(takefocus=0)
+                    except Exception: pass
+                    disable_frame_focus(child)
+        disable_frame_focus(pick_f)
+
+    def _on_add_variante_mapeo(self):
+        """Añadir la combinación Tipo/Variante seleccionada a la lista de mapeo."""
+        try:
+            tipo_nombre = self.combo_map_tipo.get().strip() if self.combo_map_tipo else ''
+            variante_nombre = self.combo_map_variante.get().strip() if self.combo_map_variante else ''
+            if not tipo_nombre or not variante_nombre:
+                ToastWidget.show(self.container, 'Selecciona Tipo y Variante', tipo='error')
+                return
+            if self.combo_map_variante.get_id() is None:
+                ToastWidget.show(self.container, 'Variante no válida para ese Tipo', tipo='error')
+                return
+
+            self._update_temp_data()
+            etiqueta = f"{tipo_nombre} / {variante_nombre}"
+            if etiqueta not in self.tipos_seleccionados:
+                self.tipos_seleccionados.append(etiqueta)
+
+            self._map_tipo_sel = tipo_nombre
+            self._map_variante_sel = variante_nombre
+            self.current_widget = None
+            self.show_tab('VARIANTES')
+        except Exception:
+            logger.exception('Error añadiendo variante al mapeo')
+
+    def _on_remove_variante_mapeo(self, etiqueta):
+        """Quitar una variante ya añadida al mapeo."""
+        try:
+            self._update_temp_data()
+            if etiqueta in self.tipos_seleccionados:
+                self.tipos_seleccionados.remove(etiqueta)
+            if 'VARIANTES' in self.temp_mapeo_datos:
+                self.temp_mapeo_datos['VARIANTES'].pop(etiqueta, None)
+            self.current_widget = None
+            self.show_tab('VARIANTES')
+        except Exception:
+            logger.exception('Error quitando variante del mapeo')
 
     def _add_section_header(self, parent, text):
         ctk.CTkLabel(parent, text=text, font=('Courier New', 14, 'bold'), text_color=self.colors.get('primary', '#9b59b6')).pack(anchor='w', padx=10, pady=(10, 2))
@@ -260,10 +413,15 @@ class ProduccionProveedoresConfigurador:
         entry.insert(0, str(value))
         storage[key] = entry
 
-    def _add_variant_mapping_row(self, parent, label, key, incluye_val, excluye_val, storage):
+    def _add_variant_mapping_row(self, parent, label, key, incluye_val, excluye_val, storage, on_remove=None):
         """Horizontal layout for variants: label | Incluye entry | Excluye entry (same row, uses horizontal space)."""
         row = ctk.CTkFrame(parent, fg_color='transparent')
         row.pack(fill='x', padx=10, pady=3)
+
+        if on_remove:
+            ctk.CTkButton(row, text='✕', width=26, height=26, fg_color='#7a1f1f', hover_color='#a52a2a',
+                          font=('Courier New', 11, 'bold'),
+                          command=lambda k=key: on_remove(k)).pack(side='left', padx=(0, 6))
 
         # Variant label (left)
         ctk.CTkLabel(row, text=label, width=200, anchor='w', font=('Courier New', 11)).pack(side='left')
