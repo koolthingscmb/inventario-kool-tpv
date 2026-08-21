@@ -888,41 +888,49 @@ class TicketCarrito(ctk.CTkFrame):
             if not self.carrito_service:
                 return
 
+            from decimal import Decimal
+
             if action == "add":
-                _line_tipo = str(item_data.get('line_tipo', 'venta')).lower()
-                if _line_tipo == 'devolucion':
-                    # Modo devolucion: item_data ya tiene line_tipo='devolucion',
-                    # add_item encuentra el item existente (mismo id + line_tipo) y suma +1
-                    item_delta = item_data.copy()
-                    item_delta['cantidad'] = 1
-                    self.carrito_service.add_item(item_delta)
-                else:
-                    # Modo venta normal: añadir +1 unidad
+                # Para añadir una unidad, NO volvemos a la base de datos (perderíamos precios manuales)
+                # Usamos los datos actuales de la línea, forzando cantidad 1 para el incremento
+                item_delta = item_data.copy()
+                item_delta['cantidad'] = 1
+                
+                # Extraer el precio numérico si viene como string formateado ("X.XX €")
+                pvp_raw = item_delta.get('pvp', 0)
+                if isinstance(pvp_raw, str):
                     try:
-                        if getattr(self, 'db', None) is not None:
-                            from kool_tpv.base_datos.producto_service import ProductoService
-                            ps = ProductoService(self.db)
-                            producto_para_carrito = ps.get_producto_para_carrito(item_data.get('id'), cantidad=1)
-                            self.carrito_service.add_item(producto_para_carrito)
-                        else:
-                            item_delta = item_data.copy()
-                            item_delta['cantidad'] = 1
-                            self.carrito_service.add_item(item_delta)
+                        clean_pvp = pvp_raw.replace('€', '').replace(' ', '').replace(',', '.')
+                        item_delta['pvp'] = Decimal(clean_pvp)
                     except Exception:
-                        try:
-                            item_delta = item_data.copy()
-                            item_delta['cantidad'] = 1
-                            self.carrito_service.add_item(item_delta)
-                        except Exception:
-                            logging.exception('Error añadiendo item via fallback')
+                        pass
+                
+                self.carrito_service.add_item(item_delta, parent_window=self.winfo_toplevel())
 
             elif action == "remove":
                 item_id = item_data.get("id")
                 item_line_tipo = str(item_data.get('line_tipo', 'venta')).lower()
-                items = self.carrito_service.get_items() or []
+                
+                # Extraer precio para comparar la línea exacta
+                item_pvp_raw = item_data.get('pvp', 0)
+                item_pvp = Decimal('0.00')
+                if isinstance(item_pvp_raw, str):
+                    try:
+                        clean_pvp = item_pvp_raw.replace('€', '').replace(' ', '').replace(',', '.')
+                        item_pvp = Decimal(clean_pvp)
+                    except Exception:
+                        pass
+                else:
+                    item_pvp = Decimal(str(item_pvp_raw))
 
+                items = self.carrito_service.get_items() or []
                 for idx, item in enumerate(items):
-                    if item.get("id") == item_id and str(item.get('line_tipo', 'venta')).lower() == item_line_tipo:
+                    # Comparar ID, tipo de línea Y precio (PVP) para encontrar la línea exacta
+                    match_id = item.get("id") == item_id
+                    match_tipo = str(item.get('line_tipo', 'venta')).lower() == item_line_tipo
+                    match_pvp = Decimal(str(item.get('pvp', 0))) == item_pvp
+
+                    if match_id and match_tipo and match_pvp:
                         current_qty = int(item.get("cantidad", 0))
                         if current_qty > 1:
                             self.carrito_service.update_cantidad(idx, current_qty - 1)

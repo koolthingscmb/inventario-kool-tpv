@@ -60,26 +60,26 @@ class CarritoService:
             # si hay error leyendo la bandera, no bloquear pero loguear
             logging.exception('Error comprobando estado de devolución antes de añadir item')
 
-        # Buscar ítem existente con mismo id y mismo tipo de línea
+        # Obtener PVP entrante para comparar (normalizado a Decimal)
+        pvp_raw = producto_data.get('pvp', 0.0)
+        try:
+            pvp_nuevo = Decimal(str(pvp_raw))
+        except Exception:
+            pvp_nuevo = Decimal('0.00')
+
+        # Buscar ítem existente con mismo id, mismo tipo de línea y MISMO PRECIO
         for item in self._items:
             try:
-                if item.get('id') == producto_id and item.get('line_tipo', 'venta') == line_tipo:
+                item_pvp = Decimal(str(item.get('pvp', 0)))
+                if item.get('id') == producto_id and item.get('line_tipo', 'venta') == line_tipo and item_pvp == pvp_nuevo:
                     # sumar cantidades
                     item['cantidad'] = int(item.get('cantidad', 0)) + cantidad_in
-                    # Normalizar pvp y total_linea a Decimal (evitar floats)
-                    pvp_dec = Decimal(str(item.get('pvp', 0)))
-                    item['pvp'] = pvp_dec
-                    item['total_linea'] = pvp_dec * Decimal(item['cantidad'])
+                    item['total_linea'] = pvp_nuevo * Decimal(item['cantidad'])
                     return True
             except Exception:
                 continue
 
-        # Use Decimal for internal calculations but keep pvp stored (Decimal-compatible)
-        pvp_raw = producto_data.get('pvp', 0.0)
-        try:
-            pvp_dec = Decimal(str(pvp_raw))
-        except Exception:
-            pvp_dec = Decimal('0.00')
+        pvp_dec = pvp_nuevo
 
         nuevo = {
             'id': producto_id,
