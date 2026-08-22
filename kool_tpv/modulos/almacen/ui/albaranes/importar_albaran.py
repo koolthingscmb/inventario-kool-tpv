@@ -31,11 +31,12 @@ class ImportarAlbaranUI:
         4. Configurar cabecera y guardar
     """
 
-    def __init__(self, parent, db=None, owner=None, module_name: str = 'almacen'):
+    def __init__(self, parent, db=None, owner=None, module_name: str = 'almacen', keyboard_manager=None):
         self.parent = parent
         self.db = db
         self.owner = owner
         self.module_name = module_name
+        self.keyboard_manager = keyboard_manager
         self.selected_file_path = None
         self.parse_result = None
         self._borrador_service = AlbaranBorradorService()
@@ -159,7 +160,7 @@ class ImportarAlbaranUI:
             self.container,
             columns=self.columns,
             module_name=self.module_name,
-            keyboard_manager=None,
+            keyboard_manager=self.keyboard_manager,
             on_double_click=None,
         )
         self.nav_list.pack(fill='both', expand=True, padx=20, pady=5)
@@ -531,7 +532,7 @@ class ImportarAlbaranUI:
             self.container,
             columns=[('EAN', 165), ('NOMBRE', 300, True), ('ESTADO', 100)],
             module_name=self.module_name,
-            keyboard_manager=None,
+            keyboard_manager=self.keyboard_manager,
             on_select=self._on_seleccionar_producto,
         )
         self.nav_list_crear.pack(fill='both', expand=True, padx=20, pady=5)
@@ -1063,7 +1064,7 @@ class ImportarAlbaranUI:
                 ('COSTE', 80), ('%IVA', 45), ('IVA', 70), ('PVPR', 80), ('TOTAL', 80)
             ],
             module_name=self.module_name,
-            keyboard_manager=None
+            keyboard_manager=self.keyboard_manager
         )
         self.nav_list_albaran.pack(fill='both', expand=True, padx=20, pady=10)
 

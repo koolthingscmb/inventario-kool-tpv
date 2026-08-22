@@ -465,7 +465,7 @@ class AlmacenView(BaseModuleView):
         try:
             from .ui.albaranes.importar_albaran import ImportarAlbaranUI
             try:
-                importar_ui = ImportarAlbaranUI(self.central_area, db=self.db, owner=self, module_name='almacen')
+                importar_ui = ImportarAlbaranUI(self.central_area, db=self.db, owner=self, module_name='almacen', keyboard_manager=self.keyboard_mgr)
                 if self.set_central_content(importar_ui):
                     self.actualizar_ruta('ALBARANES / IMPORTAR CSV', callbacks=self.breadcrumb_callbacks)
                     logging.info('Abriendo importar albarán...')
