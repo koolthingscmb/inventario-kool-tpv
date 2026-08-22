@@ -166,27 +166,41 @@ class TicketRepository:
         except Exception:
             logger.warning('payments table not present or insert failed')
 
-    def insert_audit_log(self, created_at: str, ticket_id: int, usuario: Optional[str], accion: str, detalles: str, cur=None):
+    def insert_audit_log(self, entidad: str, entidad_id: Optional[int], accion: str, 
+                         usuario_id: Optional[int] = None, datos_previos: Optional[str] = None, 
+                         datos_nuevos: Optional[str] = None, created_at: Optional[str] = None, cur=None):
+        """Insertar un registro en audit_logs siguiendo el esquema real:
+        (entidad, entidad_id, accion, usuario_id, datos_previos, datos_nuevos, created_at)
+        """
         try:
             # ensure created_at in UTC if not provided
             if created_at is None:
                 try:
+                    from datetime import datetime, timezone
                     created_at = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
                 except Exception:
                     try:
                         from kool_tpv.utils.time_utils import now_utc_str
                         created_at = now_utc_str()
                     except Exception:
+                        from datetime import datetime
                         created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
             use_external_cursor = cur is not None
             if not use_external_cursor:
                 cur = self.db.connection.cursor()
-            cur.execute('INSERT INTO audit_logs (created_at, ticket_id, usuario, accion, detalles) VALUES (?, ?, ?, ?, ?)', (created_at, ticket_id, usuario, accion, detalles))
+            
+            query = """
+            INSERT INTO audit_logs 
+            (entidad, entidad_id, accion, usuario_id, datos_previos, datos_nuevos, created_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """
+            cur.execute(query, (entidad, entidad_id, accion, usuario_id, datos_previos, datos_nuevos, created_at))
+            
             if not use_external_cursor:
                 self.db.connection.commit()
         except Exception:
-            logger.warning('audit_logs table not present or insert failed')
+            logger.exception('Error al insertar en audit_logs')
 
     def insert_points_movement_raw(self, cliente_id: int, puntos, motivo: str, ticket_id: int, usuario_id: Optional[int] = None, created_at: Optional[str] = None, cur=None):
         """Insertar movimiento de puntos en `points_movements`.

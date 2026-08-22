@@ -1003,6 +1003,7 @@ class TpvController:
             'created_at': created_at,
             'num_ticket': num_ticket,
             'cajero': kwargs.get('cajero'),
+            'cajero_full': kwargs.get('cajero_full'),
             'cliente': _cliente_name,
             'cliente_id': _cliente_id,
             'subtotal_cents': prepare_for_db(_dec(resumen.get('subtotal', '0'))),
@@ -1177,6 +1178,7 @@ class TpvController:
                 'efectivo': efectivo,
                 # cajero will be obtained from CarritoService (must be present)
                 'cajero': None,
+                'cajero_full': None,
                 'cliente': carrito_service.get_cliente(),
                 'forma_pago': forma_pago,
                 'importe_efectivo': importe_efectivo or 0.0,
@@ -1198,10 +1200,13 @@ class TpvController:
                 return
 
             # Usar nombre del cajero para el ticket (save_ticket espera un nombre)
+            # Y guardar el objeto completo para la auditoría (Fase 1 fix)
             try:
                 ticket_data['cajero'] = cajero_obj.get('nombre') if isinstance(cajero_obj, dict) else str(cajero_obj)
+                ticket_data['cajero_full'] = cajero_obj if isinstance(cajero_obj, dict) else None
             except Exception:
                 ticket_data['cajero'] = None
+                ticket_data['cajero_full'] = None
 
             # Delegar a TicketProcessors (reemplaza el antiguo save_ticket/tpv_service)
             logger.info(f'Finalizando venta forma_pago={forma_pago}')
@@ -1264,6 +1269,7 @@ class TpvController:
                 resumen,
                 efectivo,
                 cajero=ticket_data.get('cajero'),
+                cajero_full=ticket_data.get('cajero_full'),
                 cliente=ticket_data.get('cliente'),
                 cliente_id=cliente_id,
                 forma_pago=forma_pago,

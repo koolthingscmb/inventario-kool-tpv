@@ -100,7 +100,21 @@ class DevolucionProcessor(VentaProcessor):
                     self.repo.insert_payment(ticket_id, metodo, importe_cents, kwargs.get('created_at'), cur=cur)
 
                 # Registrar auditoría
-                self.repo.insert_audit_log(kwargs.get('created_at'), ticket_id, kwargs.get('cajero'), 'save_ticket', f'num_ticket={num_ticket}', cur=cur)
+                cajero_audit = kwargs.get('cajero_full') or kwargs.get('cajero')
+                usuario_id = cajero_audit.get('id') if isinstance(cajero_audit, dict) else None
+                try:
+                    import json
+                    self.repo.insert_audit_log(
+                        entidad='TICKET',
+                        entidad_id=ticket_id,
+                        accion='DEVOLUCION',
+                        usuario_id=usuario_id,
+                        datos_nuevos=json.dumps({'num_ticket': num_ticket}),
+                        created_at=kwargs.get('created_at'),
+                        cur=cur
+                    )
+                except Exception:
+                    logger.warning('Error al registrar auditoria en DevolucionProcessor (no critico)')
 
                 # Registrar en devoluciones y actualizar cliente/puntos dentro de la misma transacción
                 devuelto_cents = abs(kwargs.get('total_cents', 0) or 0)
