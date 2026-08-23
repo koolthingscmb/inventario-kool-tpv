@@ -321,6 +321,26 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migración 039: Agrupación de tallas en producción
+		try:
+			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table' AND name='produccion_tallas_grupo_items'")
+			if not rows:
+				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '039_produccion_tallas_grupos.sql'
+				if mig_path.exists():
+					logging.info('Aplicando migración 039: Agrupación de tallas en producción (N:M)')
+					cur = db.connection.cursor()
+					cur.executescript(mig_path.read_text(encoding='utf-8'))
+					db.connection.commit()
+					logging.info('Migración 039 aplicada correctamente')
+			else:
+				logging.info('Migración 039 ya existente en base de datos')
+		except Exception:
+			logging.exception('Error aplicando migración 039')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 
 
 		# Migration 015: tipos_variantes
