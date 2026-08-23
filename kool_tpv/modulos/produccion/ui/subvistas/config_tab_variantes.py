@@ -488,7 +488,6 @@ class ConfigTabVariantes:
         # Refrescar grupos antes de guardar para asegurar que el mapeo está al día
         grupos = self.config_service.obtener_todos_grupos_tallas()
         self._grupos_tallas = {g.nombre: g.id for g in grupos}
-        print(f"DEBUG_SAVE: Mapeo grupos: {self._grupos_tallas}", flush=True)
 
         try:
             coste_val = float(self._ent_coste.get().replace(",", ".") or "0")
@@ -506,11 +505,9 @@ class ConfigTabVariantes:
         grupo_nombre = self._combo_grupo.get()
         grupo_id = self._grupos_tallas.get(grupo_nombre)
         
-        print(f"DEBUG_SAVE: Botón Guardar pulsado para variante '{nombre}'", flush=True)
         logging.info(f"Guardando variante: '{nombre}' | Grupo: '{grupo_nombre}' -> ID: {grupo_id}")
 
         if self._variante_id_edit:
-            print(f"DEBUG_SAVE: Llamando a service.actualizar con ID: {self._variante_id_edit} y Grupo ID: {grupo_id}", flush=True)
             # ACTUALIZAR EXISTENTE
             ok = self.service.actualizar(
                 self._variante_id_edit, self._tipo_selected_id, nombre,
@@ -529,7 +526,6 @@ class ConfigTabVariantes:
             else:
                 ToastWidget.show(self.parent, "Error al actualizar", tipo="error")
         else:
-            print(f"DEBUG_SAVE: Llamando a service.crear para nueva variante con Grupo ID: {grupo_id}", flush=True)
             # CREAR NUEVA
             res_id = self.service.crear(
                 self._tipo_selected_id, nombre, coste_cents, pvp_cents,

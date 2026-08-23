@@ -77,7 +77,6 @@ class ProduccionTiposVariantesRepository:
     def crear(self, variante: ProduccionTipoVariante) -> Optional[int]:
         """Crear una nueva variante."""
         try:
-            print(f"DEBUG_SAVE: Creando variante '{variante.nombre}' con Grupo ID: {variante.grupo_talla_id}")
             query = """
                 INSERT INTO tipos_variantes
                 (tipo_id, nombre, coste_base, precio_recomendado, activo, 
@@ -101,11 +100,9 @@ class ProduccionTiposVariantesRepository:
     def actualizar(self, variante: ProduccionTipoVariante) -> bool:
         """Actualizar una variante existente."""
         if variante.id is None:
-            print("DEBUG_SAVE: Error - ID de variante es None")
             return False
 
         try:
-            print(f"DEBUG_SAVE: Actualizando variante {variante.id} ('{variante.nombre}') - Grupo ID: {variante.grupo_talla_id}")
             logging.info(f"REPO: Actualizando variante {variante.id} - Grupo ID: {variante.grupo_talla_id}")
             
             query = """
