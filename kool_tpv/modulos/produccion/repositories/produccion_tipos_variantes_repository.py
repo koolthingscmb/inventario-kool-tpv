@@ -103,6 +103,9 @@ class ProduccionTiposVariantesRepository:
             return False
 
         try:
+            import logging
+            logging.info(f"REPO: Actualizando variante {variante.id} - Grupo ID: {variante.grupo_talla_id}")
+            
             query = """
                 UPDATE tipos_variantes
                 SET tipo_id = ?, nombre = ?, coste_base = ?, 

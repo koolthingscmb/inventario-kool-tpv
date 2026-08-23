@@ -484,6 +484,10 @@ class ConfigTabVariantes:
             ToastWidget.show(self.parent, "El nombre es obligatorio", tipo="warning")
             return
 
+        # Refrescar grupos antes de guardar para asegurar que el mapeo está al día
+        grupos = self.config_service.obtener_todos_grupos_tallas()
+        self._grupos_tallas = {g.nombre: g.id for g in grupos}
+
         try:
             coste_val = float(self._ent_coste.get().replace(",", ".") or "0")
             pvp_val = float(self._ent_pvp.get().replace(",", ".") or "0")
@@ -499,6 +503,9 @@ class ConfigTabVariantes:
         
         grupo_nombre = self._combo_grupo.get()
         grupo_id = self._grupos_tallas.get(grupo_nombre)
+        
+        import logging
+        logging.info(f"Guardando variante: '{nombre}' | Grupo: '{grupo_nombre}' -> ID: {grupo_id}")
 
         if self._variante_id_edit:
             # ACTUALIZAR EXISTENTE
