@@ -95,7 +95,6 @@ class ProduccionTiposVariantesRepository:
                 return result[0][0]
             return None
         except Exception:
-            import logging
             logging.exception("Error creando variante de tipo")
             return None
 
@@ -125,7 +124,6 @@ class ProduccionTiposVariantesRepository:
             ))
             return True
         except Exception:
-            import logging
             logging.exception(f"Error actualizando variante {variante.id}")
             return False
 
