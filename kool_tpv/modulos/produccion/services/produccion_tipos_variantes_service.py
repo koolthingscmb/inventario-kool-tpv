@@ -35,7 +35,8 @@ class ProduccionTiposVariantesService:
 
     def crear(self, tipo_id: int, nombre: str, coste_base: int = 0,
               precio_recomendado: int = 0, shopify_variant_id: Optional[str] = None,
-              requiere_talla: int = 0, requiere_color: int = 0) -> Optional[int]:
+              requiere_talla: int = 0, requiere_color: int = 0,
+              grupo_talla_id: Optional[int] = None) -> Optional[int]:
         """Crear una nueva variante.
 
         Args:
@@ -46,6 +47,7 @@ class ProduccionTiposVariantesService:
             shopify_variant_id: ID externo opcional.
             requiere_talla: 1 si requiere talla.
             requiere_color: 1 si requiere color.
+            grupo_talla_id: ID del grupo de tallas opcional.
 
         Returns:
             ID de la variante creada o None si error.
@@ -61,14 +63,16 @@ class ProduccionTiposVariantesService:
             activo=1,
             shopify_variant_id=shopify_variant_id,
             requiere_talla=requiere_talla,
-            requiere_color=requiere_color
+            requiere_color=requiere_color,
+            grupo_talla_id=grupo_talla_id
         )
         return self.repository.crear(variante)
 
     def actualizar(self, variante_id: int, tipo_id: int, nombre: str,
                    coste_base: int = 0, precio_recomendado: int = 0,
                    activo: int = 1, shopify_variant_id: Optional[str] = None,
-                   requiere_talla: int = 0, requiere_color: int = 0) -> bool:
+                   requiere_talla: int = 0, requiere_color: int = 0,
+                   grupo_talla_id: Optional[int] = None) -> bool:
         """Actualizar una variante existente."""
         if not variante_id or not tipo_id or not nombre or not nombre.strip():
             return False
@@ -82,7 +86,8 @@ class ProduccionTiposVariantesService:
             activo=activo,
             shopify_variant_id=shopify_variant_id,
             requiere_talla=requiere_talla,
-            requiere_color=requiere_color
+            requiere_color=requiere_color,
+            grupo_talla_id=grupo_talla_id
         )
         return self.repository.actualizar(variante)
 

@@ -40,6 +40,7 @@ class ConfigTabVariantes:
         self._variante_id_edit = None
         self._variante_rows = {}
         self._metodo_vars = {} # {metodo_id: BooleanVar}
+        self._grupos_tallas = {} # {nombre: id}
        
         self._chip_cfg = get_chip_config(config, "producto")
 
@@ -146,6 +147,10 @@ class ConfigTabVariantes:
                                           font=get_font(self.config, "label"), height=24, checkbox_width=20, checkbox_height=20)
         self._chk_color.pack(side=tk.LEFT, padx=(0, 15))
 
+        tk.Label(f3, text="GRUPO:", font=get_font(self.config, "label"), fg=self._text, bg="#1a252f", width=6, anchor="w").pack(side=tk.LEFT)
+        self._combo_grupo = ctk.CTkComboBox(f3, values=["NINGUNO"], height=30, width=150)
+        self._combo_grupo.pack(side=tk.LEFT, padx=(5, 15))
+
         self._ent_shopify = ctk.CTkEntry(f3, placeholder_text="Shopify ID...", height=30)
         self._ent_shopify.pack(side=tk.LEFT, fill="x", expand=True)
 
@@ -165,6 +170,11 @@ class ConfigTabVariantes:
         for child in self._tipos_scroll.winfo_children():
             child.destroy()
         self._tipo_chips = {}
+
+        # Cargar grupos de tallas para el combo
+        grupos = self.config_service.obtener_todos_grupos_tallas()
+        self._grupos_tallas = {g.nombre: g.id for g in grupos}
+        self._combo_grupo.configure(values=["NINGUNO"] + sorted(self._grupos_tallas.keys()))
 
         self._all_tipos = self.config_service.obtener_tipos_de_menus_ordenados(solo_con_stock=False)
 
@@ -329,6 +339,13 @@ class ConfigTabVariantes:
             
             self._var_talla.set(bool(v.requiere_talla))
             self._var_color.set(bool(v.requiere_color))
+            
+            # Seleccionar grupo en combo
+            if v.grupo_talla_id:
+                nombre_grupo = next((n for n, gid in self._grupos_tallas.items() if gid == v.grupo_talla_id), "NINGUNO")
+                self._combo_grupo.set(nombre_grupo)
+            else:
+                self._combo_grupo.set("NINGUNO")
 
         # Ocultar label de aviso si existe y sigue vivo
         if hasattr(self, '_lbl_no_variante') and self._lbl_no_variante.winfo_exists():
@@ -479,12 +496,16 @@ class ConfigTabVariantes:
         shopify_id = self._ent_shopify.get().strip() or None
         req_talla = 1 if self._var_talla.get() else 0
         req_color = 1 if self._var_color.get() else 0
+        
+        grupo_nombre = self._combo_grupo.get()
+        grupo_id = self._grupos_tallas.get(grupo_nombre)
 
         if self._variante_id_edit:
             # ACTUALIZAR EXISTENTE
             ok = self.service.actualizar(
                 self._variante_id_edit, self._tipo_selected_id, nombre,
-                coste_cents, pvp_cents, 1, shopify_id, req_talla, req_color
+                coste_cents, pvp_cents, 1, shopify_id, req_talla, req_color,
+                grupo_id
             )
             
             # Sincronizar métodos
@@ -501,7 +522,7 @@ class ConfigTabVariantes:
             # CREAR NUEVA
             res_id = self.service.crear(
                 self._tipo_selected_id, nombre, coste_cents, pvp_cents,
-                shopify_id, req_talla, req_color
+                shopify_id, req_talla, req_color, grupo_id
             )
             if res_id:
                 ToastWidget.show(self.parent, "Nueva variante creada", tipo="success")

@@ -40,7 +40,7 @@ class ProduccionConfigView:
 
         # Estado de tabs
         self._main_tabs = ["TUTORIAL", "CATÁLOGO", "MATRIZ", "MENÚ", "VARIANTES", "EXTRAS", "PRODUCTOS TPV"]
-        self._sub_tabs = ["COLORES", "TALLAS"]
+        self._sub_tabs = ["COLORES", "TALLAS", "GRUPOS TALLAS"]
         self._current_main_tab = None
         self._current_sub_tab = None
         self._main_tab_labels = {}
@@ -207,6 +207,9 @@ class ProduccionConfigView:
             self._current_tab_obj = ConfigTabColores(**kwargs)
         elif sub_name == "TALLAS":
             self._current_tab_obj = ConfigTabTallas(**kwargs)
+        elif sub_name == "GRUPOS TALLAS":
+            from kool_tpv.modulos.produccion.ui.subvistas.config_tab_tallas_grupos import ConfigTabTallasGrupos
+            self._current_tab_obj = ConfigTabTallasGrupos(**kwargs)
         self.frame.after(50, self._refresh_current_nav)
 
     def _clear_content(self):

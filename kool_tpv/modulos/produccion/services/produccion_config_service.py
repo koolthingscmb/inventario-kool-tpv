@@ -14,6 +14,8 @@ from kool_tpv.modulos.produccion.repositories.produccion_menu_repository import 
 from kool_tpv.modulos.produccion.repositories.produccion_menu_tipos_repository import ProduccionMenuTiposRepository
 from kool_tpv.modulos.produccion.repositories.produccion_colecciones_repository import ProduccionColeccionesRepository, ProduccionColeccion
 from kool_tpv.modulos.produccion.repositories.produccion_sufijos_repository import ProduccionSufijosRepository, ProduccionSufijo
+from kool_tpv.modulos.produccion.repositories.produccion_tallas_grupos_repository import ProduccionTallasGruposRepository
+from kool_tpv.modulos.produccion.models.produccion_talla_grupo_model import ProduccionTallaGrupo
 from kool_tpv.modulos.produccion.models.produccion_menu_model import ProduccionMenuItem
 from kool_tpv.modulos.produccion.models.produccion_tipo_variante_model import ProduccionTipoVariante
 from kool_tpv.modulos.produccion.models.produccion_tipos_model import ProduccionTipo
@@ -30,6 +32,7 @@ class ProduccionConfigService:
         self.menu_tipos_repo = ProduccionMenuTiposRepository(db)
         self.colecciones_repo = ProduccionColeccionesRepository(db)
         self.sufijos_repo = ProduccionSufijosRepository(db)
+        self.tallas_grupos_repo = ProduccionTallasGruposRepository(db)
         self._stock_service = ProduccionStockBaseService(db)
 
     # --- Gestión de Colores ---
@@ -276,3 +279,24 @@ class ProduccionConfigService:
 
     def eliminar_sufijo(self, sufijo_id: int) -> bool:
         return self.sufijos_repo.eliminar(sufijo_id)
+
+    # --- Gestión de Grupos de Tallas ---
+    def obtener_todos_grupos_tallas(self) -> List[ProduccionTallaGrupo]:
+        """Obtener todos los grupos de tallas."""
+        return self.tallas_grupos_repo.get_todos()
+
+    def guardar_grupo_tallas(self, nombre: str, grupo_id: Optional[int] = None) -> Optional[int]:
+        """Crear un nuevo grupo de tallas."""
+        if grupo_id:
+            # Por ahora no hay actualización de nombre en el repo, pero lo implementaremos si es necesario.
+            # De momento solo creación.
+            return grupo_id
+        return self.tallas_grupos_repo.crear(nombre)
+
+    def eliminar_grupo_tallas(self, grupo_id: int) -> bool:
+        """Eliminar un grupo de tallas."""
+        return self.tallas_grupos_repo.eliminar(grupo_id)
+
+    def guardar_asociaciones_grupo_tallas(self, grupo_id: int, talla_ids: List[int]) -> bool:
+        """Sincronizar las tallas asignadas a un grupo."""
+        return self.tallas_grupos_repo.guardar_asociaciones(grupo_id, talla_ids)

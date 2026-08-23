@@ -12,6 +12,7 @@ class ProduccionTipoVariante:
     activo: int = 1
     requiere_talla: int = 0
     requiere_color: int = 0
+    grupo_talla_id: Optional[int] = None
     shopify_variant_id: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

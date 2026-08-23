@@ -6,6 +6,9 @@ from kool_tpv.modulos.produccion.models.produccion_talla_model import Produccion
 from kool_tpv.modulos.produccion.repositories.produccion_tallas_repository import (
     ProduccionTallasRepository,
 )
+from kool_tpv.modulos.produccion.repositories.produccion_tallas_grupos_repository import (
+    ProduccionTallasGruposRepository,
+)
 
 
 class ProduccionTallasService:
@@ -13,6 +16,7 @@ class ProduccionTallasService:
 
 	def __init__(self, db: Database):
 		self.repository = ProduccionTallasRepository(db)
+		self.grupos_repo = ProduccionTallasGruposRepository(db)
 
 	def obtener_todas(self) -> List[ProduccionTalla]:
 		"""Obtener todas las tallas."""
@@ -29,3 +33,15 @@ class ProduccionTallasService:
 	def obtener_por_nombre(self, nombre: str) -> Optional[ProduccionTalla]:
 		"""Obtener una talla por su nombre exacto."""
 		return self.repository.get_por_nombre(nombre)
+
+	def obtener_por_variante(self, variante_id: int) -> List[ProduccionTalla]:
+		"""Obtener las tallas permitidas para una variante según su grupo.
+		Si la variante no tiene grupo, devuelve una lista vacía.
+		"""
+		talla_ids = self.grupos_repo.get_tallas_por_variante(variante_id)
+		if not talla_ids:
+			return []
+		
+		# Obtener los modelos de talla correspondientes
+		todas = self.repository.get_todas()
+		return [t for t in todas if t.id in talla_ids]

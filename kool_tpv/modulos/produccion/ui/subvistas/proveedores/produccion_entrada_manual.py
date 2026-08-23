@@ -365,27 +365,16 @@ class ProduccionEntradaManualUI:
             self.color_map = {c.nombre: c.id for c in colores_all}
             self.combo_color.set_options([(c.id, c.nombre) for c in colores_all])
 
-        # 2. Filtrar Tallas
-        col_id = self.color_map.get(col_nom) if col_nom else None
-        if col_id:
-            tallas = self.tallas_service.obtener_por_tipo_color_3d(tipo_id, col_id, var_id)
-            if tallas:
-                self.combo_talla.set_options([(t.id, t.nombre) for t in tallas])
-            else:
-                self.combo_talla.set_options([(t.id, t.nombre) for t in self.tallas_service.obtener_todas()])
-        else:
-            # Sin color, mostrar todas las tallas válidas para el tipo en la matriz
-            query = """SELECT DISTINCT talla_id FROM produccion_tipo_color_tallas 
-                       WHERE tipo_id = ? AND (variante_id = ? OR (variante_id IS NULL AND ? IS NULL))"""
-            rows = self.db.fetch_all(query, (tipo_id, var_id, var_id))
-            talla_ids = [r[0] for r in rows if r[0] is not None]
-            
-            if talla_ids:
-                tallas = [self.tallas_service.obtener_por_id(tid) for tid in talla_ids]
-                tallas = [t for t in tallas if t]
-                self.combo_talla.set_options([(t.id, t.nombre) for t in tallas])
-            else:
-                self.combo_talla.set_options([(t.id, t.nombre) for t in self.tallas_service.obtener_todas()])
+        # 2. Filtrar Tallas (Basado estrictamente en grupos de tallas de la variante)
+        tallas = []
+        if var_id:
+            tallas = self.tallas_service.obtener_por_variante(var_id)
+        
+        if not tallas:
+            # Si la variante no tiene grupo o no se ha seleccionado variante, mostrar todas las del sistema
+            tallas = self.tallas_service.obtener_todas()
+
+        self.combo_talla.set_options([(t.id, t.nombre) for t in tallas])
 
     def _actualizar_sku_preview(self):
         """Calcula y muestra el SKU generado y sugiere el coste base."""

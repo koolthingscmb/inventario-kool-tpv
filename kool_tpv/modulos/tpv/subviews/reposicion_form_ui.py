@@ -508,7 +508,7 @@ class ReposicionFormUI(CTkFrame):
             self.entry_escudo.insert(0, le["escudo"])
 
     def _on_variante_changed(self, value):
-        """Al cambiar variante, filtramos colores por tipo + variante usando Matriz 3D (libro recetas)."""
+        """Al cambiar variante, filtramos colores por tipo + variante usando Matriz 3D y cargamos tallas por grupo."""
         if not self.tipo_actual:
             return
 
@@ -519,57 +519,33 @@ class ReposicionFormUI(CTkFrame):
             return
 
         try:
-            # Obtener IDs de colores permitidos en la matriz 3D (produccion_tipo_color_tallas)
+            # 1. Colores: Seguimos usando Matriz 3D (libro recetas)
             color_ids = self.relaciones_repo.get_colores_id_por_tipo_3d(self.tipo_actual.id, variante_id)
-            
             if color_ids:
                 colores_obj = []
                 for cid in color_ids:
                     c = self.colores_service.obtener_por_id(cid)
                     if c: colores_obj.append(c)
-                # Ordenar por nombre
                 colores_obj.sort(key=lambda x: x.nombre)
                 self.combo_color.set_options([(c.id, c.nombre) for c in colores_obj])
             else:
                 self.combo_color.set_options([])
+
+            # 2. Tallas: USAR GRUPOS DE TALLAS (Nueva lógica robusta)
+            tallas_mostradas = self.tallas_service.obtener_por_variante(variante_id)
+            if not tallas_mostradas:
+                # Fallback: si no tiene grupo, todas las del sistema
+                tallas_mostradas = self.tallas_service.obtener_todas()
             
-            # Limpiar tallas hasta que elijan color (no hace falta clear() del texto si está vacío)
-            self.combo_talla.set_options([])
+            self.combo_talla.set_options([(t.id, t.nombre) for t in tallas_mostradas])
             
             self.update_idletasks()
         except Exception:
-            logger.exception("Error actualizando colores por variante (3D)")
+            logger.exception("Error actualizando colores/tallas por variante")
 
     def _on_color_changed(self, value):
-        """Al cambiar color, filtramos tallas por tipo + variante + color usando Matriz 3D."""
-        if not self.tipo_actual:
-            return
-
-        variante_id = self.combo_variante.get_id()
-        color_id = self.combo_color.get_id()
-
-        if not variante_id or not color_id:
-            self.combo_talla.set_options([])
-            return
-
-        try:
-            # Obtener IDs de tallas permitidas en la matriz 3D
-            talla_ids = self.relaciones_repo.get_tallas_id_por_tipo_color_3d(self.tipo_actual.id, color_id, variante_id)
-            
-            if talla_ids:
-                tallas_obj = []
-                for tid in talla_ids:
-                    t = self.tallas_service.repository.get_por_id(tid) 
-                    if t: tallas_obj.append(t)
-                # Ordenar por orden de la talla
-                tallas_obj.sort(key=lambda x: x.orden)
-                self.combo_talla.set_options([(t.id, t.nombre) for t in tallas_obj])
-            else:
-                self.combo_talla.set_options([])
-            
-            self.update_idletasks()
-        except Exception:
-            logger.exception("Error actualizando tallas por color (3D)")
+        """Al cambiar color en reposición, ya NO filtramos tallas por stock (orden del usuario)."""
+        pass
 
     def _on_talla_changed(self, value):
         pass
