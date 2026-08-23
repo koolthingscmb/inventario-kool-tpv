@@ -3,6 +3,7 @@
 Contiene la clase `ProduccionTiposVariantesRepository` que expone métodos para consultar
 y gestionar variantes de tipos de producto desde la base de datos.
 """
+import logging
 from typing import List, Optional
 from datetime import datetime
 
@@ -76,6 +77,7 @@ class ProduccionTiposVariantesRepository:
     def crear(self, variante: ProduccionTipoVariante) -> Optional[int]:
         """Crear una nueva variante."""
         try:
+            print(f"DEBUG_SAVE: Creando variante '{variante.nombre}' con Grupo ID: {variante.grupo_talla_id}")
             query = """
                 INSERT INTO tipos_variantes
                 (tipo_id, nombre, coste_base, precio_recomendado, activo, 
@@ -99,11 +101,12 @@ class ProduccionTiposVariantesRepository:
 
     def actualizar(self, variante: ProduccionTipoVariante) -> bool:
         """Actualizar una variante existente."""
-        if not variante.id:
+        if variante.id is None:
+            print("DEBUG_SAVE: Error - ID de variante es None")
             return False
 
         try:
-            import logging
+            print(f"DEBUG_SAVE: Actualizando variante {variante.id} ('{variante.nombre}') - Grupo ID: {variante.grupo_talla_id}")
             logging.info(f"REPO: Actualizando variante {variante.id} - Grupo ID: {variante.grupo_talla_id}")
             
             query = """
