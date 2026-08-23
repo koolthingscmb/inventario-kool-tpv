@@ -39,5 +39,8 @@ kool_tpv/config/cloud/client_secrets.json
 kool_tpv/config/cloud/token.json
 kool_tpv/config/cloud/user_info.json
 
+# Archivos generados dinámicamente
+kool_tpv/assets/barcodes/
+
 # Scripts de test/utilidad locales
 stress_test_data.py
