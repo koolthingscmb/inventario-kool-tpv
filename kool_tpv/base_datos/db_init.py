@@ -321,28 +321,6 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
-		# Migración 039: Agrupación de tallas en producción
-		try:
-			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table' AND name='produccion_tallas_grupo_items'")
-			if not rows:
-				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '039_produccion_tallas_grupos.sql'
-				if mig_path.exists():
-					logging.info('Aplicando migración 039: Agrupación de tallas en producción (N:M)')
-					cur = db.connection.cursor()
-					cur.executescript(mig_path.read_text(encoding='utf-8'))
-					db.connection.commit()
-					logging.info('Migración 039 aplicada correctamente')
-			else:
-				logging.info('Migración 039 ya existente en base de datos')
-		except Exception:
-			logging.exception('Error aplicando migración 039')
-			try:
-				db.connection.rollback()
-			except Exception:
-				pass
-
-
-
 		# Migration 015: tipos_variantes
 		try:
 			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table' AND name='tipos_variantes'")
@@ -361,23 +339,6 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
-		# Migration 016: variante_id en produccion_lineas
-		try:
-			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('produccion_lineas')") or [])]
-			if 'variante_id' not in cols:
-				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '016_variante_id_produccion.sql'
-				if mig_path.exists():
-					logging.info('Aplicando migración 016: variante_id en produccion_lineas')
-					db.connection.execute('ALTER TABLE produccion_lineas ADD COLUMN variante_id INTEGER REFERENCES tipos_variantes(id)')
-					db.connection.commit()
-					logging.info('Migración 016 aplicada correctamente')
-		except Exception:
-			logging.exception('Error aplicando migración 016')
-			try:
-				db.connection.rollback()
-			except Exception:
-				pass
-
 		# Migration 017: requerimientos en tipos_variantes
 		try:
 			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('tipos_variantes')") or [])]
@@ -391,6 +352,32 @@ def initialize_database(db_path: str) -> None:
 					logging.info('Migración 017 aplicada correctamente')
 		except Exception:
 			logging.exception('Error aplicando migración 017')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
+		# Migración 039: Agrupación de tallas en producción
+		try:
+			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table' AND name='produccion_tallas_grupo_items'")
+			if not rows:
+				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '039_produccion_tallas_grupos.sql'
+				if mig_path.exists():
+					logging.info('Aplicando migración 039: Agrupación de tallas en producción (N:M)')
+					cur = db.connection.cursor()
+					cur.executescript(mig_path.read_text(encoding='utf-8'))
+					db.connection.commit()
+					logging.info('Migración 039 aplicada correctamente')
+			else:
+				# Si la tabla existe, asegurar que la columna grupo_talla_id está en tipos_variantes
+				cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('tipos_variantes')") or [])]
+				if 'grupo_talla_id' not in cols:
+					logging.info('Añadiendo columna grupo_talla_id a tipos_variantes (parche 039)')
+					db.connection.execute('ALTER TABLE tipos_variantes ADD COLUMN grupo_talla_id INTEGER REFERENCES produccion_tallas_grupos(id) ON DELETE SET NULL')
+					db.connection.commit()
+				logging.info('Migración 039 ya existente o actualizada en base de datos')
+		except Exception:
+			logging.exception('Error aplicando migración 039')
 			try:
 				db.connection.rollback()
 			except Exception:
