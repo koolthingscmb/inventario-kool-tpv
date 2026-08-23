@@ -7,6 +7,7 @@ from typing import Optional, List, Dict, Any
 from decimal import Decimal
 import json
 from datetime import datetime, timezone
+from kool_tpv.base_datos.audit_service import AuditService
 
 
 class CierreService:
@@ -70,6 +71,7 @@ class CierreService:
             db: instancia de `kool_tpv.base_datos.db_wrapper.Database`
         """
         self.db = db
+        self.audit = AuditService(db)
 
     def ensure_table(self):
         try:
@@ -476,6 +478,17 @@ class CierreService:
                 cur.execute(update_sql, params)
 
                 # commit handled by Database.transaction
+                
+                # Auditoría del cierre
+                self.audit.registrar(
+                    entidad='cierres',
+                    entidad_id=int(cierre_id),
+                    accion='CIERRE_CAJA',
+                    usuario_id=usuario_id,
+                    datos_nuevos=f"Cierre {cierre_num} - Total ingresos: {totals.get('total_ingresos', 0.0)}€",
+                    cur=cur
+                )
+                
                 return int(cierre_id)
             except Exception:
                 logging.exception('Error creando cierre atómico, transacción revertida')

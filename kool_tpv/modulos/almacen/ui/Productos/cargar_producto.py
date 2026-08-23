@@ -48,30 +48,51 @@ class CargarProductoUI:
             def _set_entry(w, value):
                 if w is None:
                     return
+                
+                # Gestión de estado para campos readonly/disabled
+                old_state = None
+                try:
+                    if hasattr(w, 'cget'):
+                        old_state = w.cget('state')
+                        if old_state in ['readonly', 'disabled']:
+                            w.configure(state='normal')
+                except Exception:
+                    pass
+
                 try:
                     if hasattr(w, 'set'):
                         # adapters / widgets with set()
                         w.set('' if value is None else str(value))
-                        return
-                except Exception:
-                    pass
-                try:
-                    # typical Entry-like widgets
-                    if hasattr(w, 'delete') and hasattr(w, 'insert'):
+                    elif hasattr(w, 'delete') and hasattr(w, 'insert'):
+                        # typical Entry-like widgets
                         w.delete(0, 'end')
                         w.insert(0, '' if value is None else str(value))
-                        return
+                    else:
+                        # attempt generic configure
+                        w.configure(text='' if value is None else str(value))
                 except Exception:
                     pass
-                try:
-                    # attempt generic configure
-                    w.configure(text='' if value is None else str(value))
-                except Exception:
-                    pass
+                finally:
+                    # Restaurar estado original
+                    if old_state in ['readonly', 'disabled']:
+                        try:
+                            w.configure(state=old_state)
+                        except Exception:
+                            pass
 
             def _set_textbox(w, value):
                 if w is None:
                     return
+                
+                old_state = None
+                try:
+                    if hasattr(w, 'cget'):
+                        old_state = w.cget('state')
+                        if old_state in ['readonly', 'disabled']:
+                            w.configure(state='normal')
+                except Exception:
+                    pass
+
                 try:
                     # CTkTextbox or tk.Text
                     if hasattr(w, 'delete') and hasattr(w, 'insert'):
@@ -89,13 +110,16 @@ class CargarProductoUI:
                                 w.insert(0, '' if value is None else str(value))
                             except Exception:
                                 pass
-                        return
+                    else:
+                        _set_entry(w, value)
                 except Exception:
                     pass
-                try:
-                    _set_entry(w, value)
-                except Exception:
-                    pass
+                finally:
+                    if old_state in ['readonly', 'disabled']:
+                        try:
+                            w.configure(state=old_state)
+                        except Exception:
+                            pass
 
             # Simple mappings
             try:

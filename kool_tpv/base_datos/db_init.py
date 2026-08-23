@@ -301,6 +301,26 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migración 038: usuario_id en stock_movements
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('stock_movements')") or [])]
+			if 'usuario_id' not in cols:
+				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '038_add_usuario_to_stock_movements.sql'
+				if mig_path.exists():
+					logging.info('Aplicando migración 038: usuario_id en stock_movements')
+					cur = db.connection.cursor()
+					cur.executescript(mig_path.read_text(encoding='utf-8'))
+					db.connection.commit()
+					logging.info('Migración 038 aplicada correctamente')
+			else:
+				logging.info('Migración 038 ya existente en base de datos')
+		except Exception:
+			logging.exception('Error aplicando migración 038')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 
 
 		# Migration 015: tipos_variantes

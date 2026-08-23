@@ -51,7 +51,7 @@ class AlbaranService:
             logging.exception('Error buscando producto por EAN')
             return None
 
-    def save_albaran(self, num_albaran, proveedor_id, fecha, lines, tipo='ENTRADA'):
+    def save_albaran(self, num_albaran, proveedor_id, fecha, lines, tipo='ENTRADA', usuario_id=None):
         """Guardar albarán con líneas y actualizar stock.
 
         Args:
@@ -59,6 +59,7 @@ class AlbaranService:
             proveedor_id: ID del proveedor
             fecha: Fecha en formato 'YYYY-MM-DD'
             lines: Lista de dicts con {producto_id, ean, nombre, cantidad, coste, descuento, tipo_iva}
+            usuario_id: ID del usuario que realiza la acción
 
         Returns:
             albaran_id si OK, None si error
@@ -123,7 +124,7 @@ class AlbaranService:
             }
 
             albaran_id = self.repo.guardar_albaran_completo(
-                num_albaran, proveedor_id, fecha, tipo, lineas_procesadas, totales
+                num_albaran, proveedor_id, fecha, tipo, lineas_procesadas, totales, usuario_id=usuario_id
             )
             
             # Hook para actualizar pedidos de clientes si ha entrado stock
@@ -344,7 +345,7 @@ class AlbaranService:
             logging.exception('Error obteniendo detalle de albarán')
             return None
 
-    def update_albaran_with_new_lines(self, albaran_id, all_lines, cur=None):
+    def update_albaran_with_new_lines(self, albaran_id, all_lines, usuario_id=None, cur=None):
         """Actualizar albarán con nuevas líneas añadidas y recalcular totales.
 
         Args:
@@ -352,17 +353,11 @@ class AlbaranService:
             all_lines (list): TODAS las líneas actuales del albarán (viejas con 'id' + nuevas sin 'id')
                              Cada línea debe tener: {producto_id, ean, nombre, cantidad, coste, descuento, tipo_iva}
                              Las líneas existentes tienen además: {'id': line_id}
+            usuario_id: ID del usuario que realiza la acción
             cur: cursor de transacción externa (opcional)
 
         Returns:
             bool: True si OK, False si error
-
-        Proceso:
-            1. Recalcular totales con TODAS las líneas
-            2. UPDATE cabecera albarán (totales)
-            3. Filtrar líneas nuevas (sin 'id')
-            4. INSERT líneas nuevas en albaran_lines
-            5. UPDATE stock de productos nuevos
         """
         try:
             # 1. RECALCULAR TOTALES con TODAS las líneas (viejas + nuevas)
@@ -417,7 +412,7 @@ class AlbaranService:
                 lineas_procesadas.append(item)
 
             # 3. Delegar escritura al repo (pasamos todas las líneas para que gestione borrados)
-            self.repo.actualizar_albaran_con_lineas(albaran_id, lineas_procesadas, totales, cur=cur)
+            self.repo.actualizar_albaran_con_lineas(albaran_id, lineas_procesadas, totales, usuario_id=usuario_id, cur=cur)
             logging.info(f'Albarán {albaran_id} actualizado: totales recalculados y líneas sincronizadas')
             return True
 

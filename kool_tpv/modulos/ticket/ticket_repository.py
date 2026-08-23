@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.base_datos.money_adapter import prepare_for_db
 from kool_tpv.base_datos.money_adapter import read_from_db
+from kool_tpv.base_datos.audit_service import AuditService
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 class TicketRepository:
     def __init__(self, db: Database):
         self.db = db
+        self.audit = AuditService(db)
 
     def insert_ticket(self, *, created_at, cajero, cliente, cliente_id, num_ticket,
                       subtotal_cents, forma_pago, total_cents, pagado_cents, cambio_cents,
@@ -25,7 +27,8 @@ class TicketRepository:
                       descuento_euros_cents, descuento_tipo, descuento_valor,
                       tesoro_ganado_str, tesoro_gastado_str, tesoro_total_ticket_cents=0,
                       ticket_text_snapshot=None,
-                      iva_desglose_json='{}', vale_id=None, vale_cents=None, cur=None):
+                      iva_desglose_json='{}', vale_id=None, vale_cents=None, usuario_id=None, 
+                      accion='VENTA', cur=None):
         # Ensure `cliente` is a string or None before binding to SQLite
         try:
             if cliente is None:
@@ -50,8 +53,8 @@ class TicketRepository:
         if not use_external_cursor:
             cur = self.db.connection.cursor()
         insert_ticket_q = (
-            "INSERT INTO tickets (created_at, cajero, cliente, cliente_id, num_ticket, subtotal, forma_pago, total, pagado, cambio, importe_efectivo, importe_tarjeta, importe_web, descuento_euros, descuento_tipo, descuento_valor, tesoro_ganado, tesoro_gastado, tesoro_total_ticket, ticket_text, iva_desglose, vale_id, vale_cents) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO tickets (created_at, cajero, cliente, cliente_id, num_ticket, subtotal, forma_pago, total, pagado, cambio, importe_efectivo, importe_tarjeta, importe_web, descuento_euros, descuento_tipo, descuento_valor, tesoro_ganado, tesoro_gastado, tesoro_total_ticket, ticket_text, iva_desglose, vale_id, vale_cents, usuario_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )
         # Prepare values allowing nullable fields (forma_pago and importes pueden ser None)
         importe_efectivo_val = int(importe_efectivo_cents) if importe_efectivo_cents is not None else None
@@ -84,12 +87,27 @@ class TicketRepository:
                 iva_desglose_json,
                 vale_id,
                 int(vale_cents) if vale_cents is not None else None,
+                usuario_id
             ),
         )
+
+        ticket_id = cur.lastrowid
+
+        # Auditoría del ticket
+        total_eur = read_from_db(int(total_cents))
+        self.audit.registrar(
+            entidad='tickets',
+            entidad_id=ticket_id,
+            accion=accion,
+            usuario_id=usuario_id,
+            datos_nuevos=f"Ticket {num_ticket} - Total: {total_eur}€ - Pago: {forma_pago}",
+            cur=cur
+        )
+
         # Commit only if we are not inside an external transaction
         if not use_external_cursor:
             self.db.connection.commit()
-        return cur.lastrowid
+        return ticket_id
 
     def insert_ticket_line(self, ticket_id: int, sku: Optional[str], nombre: str,
                            cantidad: int, precio_cents: int, iva: int, line_tipo: str, producto_id: Optional[int], cur=None):
@@ -112,7 +130,7 @@ class TicketRepository:
         if not use_external_cursor:
             self.db.connection.commit()
 
-    def update_stock_and_record_movement(self, producto_id: int, stock_change: int, ventas_change: int, motivo: str, ticket_line_id: Optional[int] = None, cur=None):
+    def update_stock_and_record_movement(self, producto_id: int, stock_change: int, ventas_change: int, motivo: str, ticket_line_id: Optional[int] = None, usuario_id: Optional[int] = None, cur=None):
         """Atomicamente actualizar stock/ventas y registrar movimiento de stock.
 
         Lanza excepción si falla, para que el caller (processor) pueda hacer rollback.
@@ -122,7 +140,7 @@ class TicketRepository:
             cur = self.db.connection.cursor()
         try:
             cur.execute('UPDATE productos SET stock_actual = COALESCE(stock_actual,0) + ?, ventas_totales = COALESCE(ventas_totales,0) + ? WHERE id = ?', (stock_change, ventas_change, producto_id))
-            cur.execute('INSERT INTO stock_movements (producto_id, cantidad, motivo, ticket_line_id) VALUES (?, ?, ?, ?)', (producto_id, stock_change, motivo, ticket_line_id))
+            cur.execute('INSERT INTO stock_movements (producto_id, cantidad, motivo, ticket_line_id, usuario_id) VALUES (?, ?, ?, ?, ?)', (producto_id, stock_change, motivo, ticket_line_id, usuario_id))
             if not use_external_cursor:
                 self.db.connection.commit()
         except Exception:
@@ -135,14 +153,14 @@ class TicketRepository:
                     pass
             raise
 
-    def insert_stock_movement(self, producto_id: int, cantidad: int, motivo: str, ticket_line_id: Optional[int], cur=None):
+    def insert_stock_movement(self, producto_id: int, cantidad: int, motivo: str, ticket_line_id: Optional[int], usuario_id: Optional[int] = None, cur=None):
         try:
             # Allow ticket_line_id to be None - the FK permits NULL. Insert and let callers
             # handle transactionality. Detailed exception logging is important for debugging.
             use_external_cursor = cur is not None
             if not use_external_cursor:
                 cur = self.db.connection.cursor()
-            cur.execute('INSERT INTO stock_movements (producto_id, cantidad, motivo, ticket_line_id) VALUES (?, ?, ?, ?)', (producto_id, cantidad, motivo, ticket_line_id))
+            cur.execute('INSERT INTO stock_movements (producto_id, cantidad, motivo, ticket_line_id, usuario_id) VALUES (?, ?, ?, ?, ?)', (producto_id, cantidad, motivo, ticket_line_id, usuario_id))
             if not use_external_cursor:
                 self.db.connection.commit()
         except Exception:

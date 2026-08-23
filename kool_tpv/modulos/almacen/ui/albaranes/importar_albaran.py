@@ -979,6 +979,8 @@ class ImportarAlbaranUI:
                         sku_final = generate_sku(self.db, cat_nombre, tipo_nombre, data['nombre'])
 
                     # Usar guardar_producto_completo del repository con force_insert
+                    # IMPORTANTE: Creamos el producto con stock 0 para que el albarán
+                    # sea quien sume el stock y genere el log de movimiento (stock_movements).
                     producto_id = repo.guardar_producto_completo(
                         nombre=data['nombre'],
                         nombre_boton=data['nombre'][:20],
@@ -987,7 +989,7 @@ class ImportarAlbaranUI:
                         tipo_id=data['tipo'],
                         proveedor_id=proveedor_id,
                         iva=data['tipo_iva'],
-                        stock_actual=stock_producto,
+                        stock_actual=0,
                         stock_min=0,
                         activo=1,
                         pvp=data.get('pvp', 0),
@@ -1122,14 +1124,29 @@ class ImportarAlbaranUI:
         self._mostrar_ui_vista_previa_albaran()
 
     def _on_guardar_albaran_final(self):
-        """Guardar el albarán completo en la base de datos usando AlbaranRepository."""
+        """Guardar el albarán completo en la base de datos usando AlbaranRepository con identificación de usuario."""
         try:
             from kool_tpv.modulos.almacen.albaran_repository import AlbaranRepository
+            from kool_tpv.utils.dialogs import show_password_dialog, show_error
+            from kool_tpv.utils.auth_service import AuthService
 
             cabecera = getattr(self, '_cabecera_data', {})
             if not cabecera:
                 self._mostrar_error('No hay datos de cabecera')
                 return
+
+            # Pedir identificación para auditoría
+            pwd = show_password_dialog(self.container, titulo="IDENTIFICACIÓN", mensaje="Introduce TU CONTRASEÑA para guardar el albarán:")
+            if not pwd:
+                return
+                
+            auth = AuthService(self.db)
+            valid, user = auth.authenticate_user_by_password(pwd)
+            if not valid or not user:
+                show_error(self.container, "ERROR", "Contraseña incorrecta o usuario no encontrado")
+                return
+            
+            usuario_id = user['id']
 
             # Preparar líneas para el repository
             lineas_repo = []
@@ -1179,7 +1196,8 @@ class ImportarAlbaranUI:
                 fecha=cabecera.get('fecha'),
                 tipo='ENTRADA',
                 lineas=lineas_repo,
-                totales=totales_repo
+                totales=totales_repo,
+                usuario_id=usuario_id
             )
 
             # Eliminar todos los borradores relacionados con este albarán

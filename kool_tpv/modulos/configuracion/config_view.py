@@ -295,23 +295,25 @@ class ConfigView(BaseModuleView):
                 return
 
             is_valid = False
+            user_data = None
             try:
                 if self.auth_service:
                     res = self.auth_service.validate_admin_password(password)
+                    if isinstance(res, tuple):
+                        is_valid, user_data = res
+                    else:
+                        is_valid = bool(res)
                 else:
-                    res = (False, None)
+                    is_valid = False
 
-                if isinstance(res, tuple):
-                    is_valid = bool(res[0])
-                else:
-                    is_valid = bool(res)
             except Exception:
                 is_valid = False
 
             if is_valid:
-                logging.info('Config: abriendo USUARIO (autenticado)...')
+                admin_id = user_data.get('id') if user_data else None
+                logging.info('Config: abriendo USUARIO (autenticado id=%s)...', admin_id)
                 try:
-                    self.show_usuarios()
+                    self.show_usuarios(responsable_id=admin_id)
                 except Exception:
                     logging.exception('Error mostrando UI de usuarios')
             else:
@@ -452,12 +454,12 @@ class ConfigView(BaseModuleView):
         except Exception:
             logging.exception('Error en show_impresora_config')
 
-    def show_usuarios(self):
+    def show_usuarios(self, responsable_id=None):
         """Mostrar gestión de usuarios (clon de ProveedoresUI)."""
         try:
             from kool_tpv.modulos.configuracion.usuarios.usuarios_ui import UsuariosUI
             try:
-                ui = UsuariosUI(self.central_area, db=self.db, module_name='config')
+                ui = UsuariosUI(self.central_area, db=self.db, module_name='config', responsable_id=responsable_id)
                 if self.set_central_content(ui):
                     try:
                         self.actualizar_ruta('CONFIG / USUARIOS', callbacks=self.breadcrumb_callbacks)

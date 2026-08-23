@@ -226,7 +226,7 @@ class PresenciaUI(ctk.CTkFrame):
         dt_utc = dt_local.astimezone(timezone.utc)
         timestamp_salida_utc = dt_utc.strftime('%Y-%m-%d %H:%M:%S')
 
-        res = self.presencia_service.corregir_fichaje(sesion_id, timestamp_salida_utc, nota)
+        res = self.presencia_service.corregir_fichaje(sesion_id, timestamp_salida_utc, nota, responsable_id=self.selected_user["id"])
         
         if res.get("success"):
             ToastWidget.show(self.winfo_toplevel(), "SESIÓN CORREGIDA. YA PUEDES FICHAR HOY.", tipo="success")

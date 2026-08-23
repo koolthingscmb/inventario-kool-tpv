@@ -541,11 +541,22 @@ class EntradaManualUI:
 
             line = self.lines[idx]
             # Rellenar inputs para editar
+            ean = line.get('ean', '')
             try:
                 self.e_ean.delete(0, 'end')
-                self.e_ean.insert(0, line.get('ean', ''))
+                self.e_ean.insert(0, ean)
             except Exception:
                 pass
+
+            # Cargar datos del producto completos usando el servicio
+            if ean:
+                try:
+                    producto = self.albaran_service.buscar_producto_by_ean(ean)
+                    if producto:
+                        self._current_producto = producto
+                except Exception:
+                    logger.exception("Error recuperando producto al editar línea")
+
             try:
                 self.e_nombre.configure(state='normal')
                 self.e_nombre.delete(0, 'end')
@@ -563,6 +574,19 @@ class EntradaManualUI:
                 self.e_coste.insert(0, f"{line.get('coste', 0.0):.2f}")
             except Exception:
                 pass
+
+            # Cargar el IVA guardado en la línea (para que no se pierda al editar)
+            try:
+                tipo_iva = line.get('tipo_iva', 21)
+                self.e_pct_iva.configure(state='normal')
+                self.e_pct_iva.delete(0, 'end')
+                self.e_pct_iva.insert(0, f"{tipo_iva}%")
+                self.e_pct_iva.configure(state='readonly')
+            except Exception:
+                pass
+
+            # Forzar recálculo para que se muestre el importe correcto
+            self._recalc_importe()
 
             # Marcar edición: reemplazaremos la línea al añadir
             try:
@@ -756,14 +780,31 @@ class EntradaManualUI:
                 logging.info('No hay líneas para guardar')
                 return
 
+            # Pedir identificación para auditoría
+            from kool_tpv.utils.dialogs import show_password_dialog, show_error
+            from kool_tpv.utils.auth_service import AuthService
+            
+            pwd = show_password_dialog(self.container, titulo="IDENTIFICACIÓN", mensaje="Introduce TU CONTRASEÑA para guardar:")
+            if not pwd:
+                return
+                
+            auth = AuthService(self.db)
+            valid, user = auth.authenticate_user_by_password(pwd)
+            if not valid or not user:
+                show_error(self.container, "ERROR", "Contraseña incorrecta o usuario no encontrado")
+                return
+            
+            usuario_id = user['id']
+
             # MODO EDICIÓN: actualizar albarán existente
             if self.albaran_id is not None:
                 success = self.albaran_service.update_albaran_with_new_lines(
                     self.albaran_id,
-                    self.lines
+                    self.lines,
+                    usuario_id=usuario_id
                 )
                 if success:
-                    logging.info(f'Albarán {self.albaran_id} actualizado correctamente')
+                    logging.info(f'Albarán {self.albaran_id} actualizado correctamente por usuario {usuario_id}')
                     ToastWidget.show(self.container, f'Albarán {self.albaran_id} actualizado', tipo='success')
                     self._load_albaran_existente()
                 else:
@@ -771,28 +812,53 @@ class EntradaManualUI:
                 return
 
             # MODO NUEVO
-            num = int(self.e_num_albaran.get())
-            prov_id = self.cb_proveedor.get_id()
-            fecha = self.e_fecha.get()
-
-            # Validar proveedor obligatorio
-            if not prov_id:
-                ToastWidget.show(self.container, f'DEBE SELECCIONAR UN PROVEEDOR PARA ALBARANES DE TIPO {self.tipo}', tipo='error')
+            try:
+                num = int(self.e_num_albaran.get())
+            except ValueError:
+                show_error(self.container, "ERROR", "Número de albarán inválido")
                 return
 
-            albaran_id = self.albaran_service.save_albaran(num, prov_id, fecha, self.lines, tipo=self.tipo)
+            prov_id = self.cb_proveedor.get_id()
+            if not prov_id:
+                show_error(self.container, "ERROR", "Debes seleccionar un proveedor")
+                return
+
+            fecha = self.e_fecha.get()
+
+            albaran_id = self.albaran_service.save_albaran(
+                num, prov_id, fecha, self.lines, tipo=self.tipo, usuario_id=usuario_id
+            )
             if albaran_id:
-                logging.info(f'Albarán guardado: {albaran_id}')
-                ToastWidget.show(self.container, f'Albarán {albaran_id} guardado', tipo='success')
+                logging.info(f'Albarán guardado: {num} por usuario {usuario_id}')
+                ToastWidget.show(self.container, f'Albarán {num} guardado correctamente', tipo='success')
                 self._cancel()
             else:
-                ToastWidget.show(self.container, 'NO SE PUDO GUARDAR EL ALBARÁN', tipo='error')
+                logging.error('Error al guardar albarán')
+                ToastWidget.show(self.container, 'Error al guardar albarán', tipo='error')
         except Exception:
-            logging.exception('Error guardando albarán')
+            logging.exception('Error en _save_albaran')
 
     def _cancel(self):
+        """Limpiar formulario y volver al estado inicial."""
         try:
             self.lines = []
+            self.albaran_id = None
+            self._editing_index = None
+            
+            # Limpiar campos cabecera
+            try:
+                self.e_num_albaran.configure(state='normal')
+                self.e_num_albaran.delete(0, 'end')
+                self.e_num_albaran.configure(state='readonly')
+            except Exception:
+                pass
+
+            try:
+                self.cb_proveedor.set('')
+            except Exception:
+                pass
+
+            # Limpiar campos línea
             self.e_ean.delete(0, 'end')
             try:
                 self.e_nombre.configure(state='normal')
@@ -800,14 +866,11 @@ class EntradaManualUI:
                 self.e_nombre.configure(state='readonly')
             except Exception:
                 pass
-            try:
-                self.cb_proveedor.set('')
-            except Exception:
-                pass
             self.e_uds.delete(0, 'end')
             self.e_coste.delete(0, 'end')
             self.e_coste.insert(0, '0.00')
-            # Limpiar %IVA, IVA y TOTAL
+
+            # Limpiar %IVA, IVA e Importe
             for entry, val in [(self.e_pct_iva, '0%'), (self.e_iva, '0.00'), (self.e_importe, '0.00')]:
                 try:
                     entry.configure(state='normal')
@@ -816,8 +879,11 @@ class EntradaManualUI:
                     entry.configure(state='readonly')
                 except Exception:
                     pass
+
             self._render_lines()
             self._update_totals()
             self._set_next_num()
+            self.e_ean.focus_set()
+            
         except Exception:
             logging.exception('Error en cancel')

@@ -428,13 +428,29 @@ class ProduccionImportarAlbaran:
             self.btn_importar.configure(state='disabled')
 
     def _on_importar_click(self):
-        """Guardar albarán y actualizar stock con coste medio en una sola transacción."""
+        """Guardar albarán y actualizar stock con coste medio en una sola transacción con identificación de usuario."""
         if not self.lineas_procesadas: return
         
         num_albaran = self.entry_num.get().strip()
         if not num_albaran:
             ToastWidget.show(self.container, 'INTRODUCE UN NÚMERO DE ALBARÁN', tipo='error')
             return
+
+        from kool_tpv.utils.dialogs import show_password_dialog, show_error
+        from kool_tpv.utils.auth_service import AuthService
+
+        # Pedir identificación para auditoría
+        pwd = show_password_dialog(self.container, titulo="IDENTIFICACIÓN", mensaje="Introduce TU CONTRASEÑA para importar el albarán de producción:")
+        if not pwd:
+            return
+            
+        auth = AuthService(self.db)
+        valid, user = auth.authenticate_user_by_password(pwd)
+        if not valid or not user:
+            show_error(self.container, "ERROR", "Contraseña incorrecta o usuario no encontrado")
+            return
+        
+        usuario_id = user['id']
             
         try:
             from kool_tpv.modulos.produccion.services.produccion_stock_base_service import ProduccionStockBaseService
@@ -482,6 +498,7 @@ class ProduccionImportarAlbaran:
                     tipo='ENTRADA_PROD',
                     lineas=lineas_albaran,
                     totales=totales,
+                    usuario_id=usuario_id,
                     cur=cur
                 )
                 

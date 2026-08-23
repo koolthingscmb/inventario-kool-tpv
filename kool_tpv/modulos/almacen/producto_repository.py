@@ -12,6 +12,9 @@ import logging
 from typing import Optional, Dict, Any, List
 
 from kool_tpv.base_datos.money_adapter import prepare_for_db, read_from_db
+from kool_tpv.base_datos.audit_service import AuditService
+
+logger = logging.getLogger(__name__)
 
 from kool_tpv.base_datos.db_wrapper import Database
 
@@ -24,6 +27,7 @@ class ProductoRepository:
 
     def __init__(self, db: Database):
         self.db = db
+        self.audit = AuditService(db)
         self._create_indexes()
 
     def _create_indexes(self) -> None:
@@ -384,12 +388,12 @@ WHERE 1=1
             else:
                 cur.execute(
                     '''UPDATE productos SET nombre=?, nombre_boton=?, sku=?, categoria=?, tipo=?,
-                        proveedor_id=?, shopify_taxonomy=?, tipo_iva=?, stock_actual=?,
+                        proveedor_id=?, shopify_taxonomy=?, tipo_iva=?,
                         stock_minimo=?, activo=?, pvp_variable=?, fabricado_por_nosotros=?, descripcion_shopify=?, titulo=?,
                         seo_title=?, seo_description=?, tipo_shop=?, etiquetas=?,
                         shop_link=?, pending_sync=1 WHERE id=?''',
                     (nombre, nombre_boton, sku, categoria_id, tipo_id, proveedor_id,
-                     shopify_taxonomy, iva, stock_actual, stock_min, activo, pvp_variable, fabricado_por_nosotros,
+                     shopify_taxonomy, iva, stock_min, activo, pvp_variable, fabricado_por_nosotros,
                      descripcion_shopify, titulo, seo_title, seo_description, tipo_shop,
                      etiquetas, shop_link, producto_id),
                 )
@@ -419,4 +423,40 @@ WHERE 1=1
         except Exception:
             self.db.connection.rollback()
             logging.exception('Error guardando producto completo id=%s', producto_id)
+            raise
+
+    def ajustar_stock_manual(self, producto_id: int, cantidad_ajuste: int, motivo: str, usuario_id: int) -> bool:
+        """Realiza un ajuste manual de stock y lo registra en stock_movements y audit_logs."""
+        try:
+            with self.db.transaction() as cur:
+                # 0. Obtener stock actual para auditoría
+                cur.execute("SELECT stock_actual, nombre FROM productos WHERE id = ?", (producto_id,))
+                row = cur.fetchone()
+                stock_previo = row[0] if row else 0
+                nombre_prod = row[1] if row else "Desconocido"
+
+                # 1. Actualizar stock en productos
+                cur.execute(
+                    "UPDATE productos SET stock_actual = stock_actual + ? WHERE id = ?",
+                    (cantidad_ajuste, producto_id)
+                )
+                # 2. Registrar movimiento técnico con usuario_id
+                cur.execute(
+                    "INSERT INTO stock_movements (producto_id, cantidad, motivo, usuario_id) VALUES (?, ?, ?, ?)",
+                    (producto_id, cantidad_ajuste, motivo, usuario_id)
+                )
+                
+                # 3. Auditoría de gestión
+                self.audit.registrar(
+                    entidad='productos',
+                    entidad_id=producto_id,
+                    accion='AJUSTE_STOCK_MANUAL',
+                    usuario_id=usuario_id,
+                    datos_previos=f"Stock previo: {stock_previo}",
+                    datos_nuevos=f"Ajuste: {cantidad_ajuste} ({motivo}). Nuevo stock: {stock_previo + cantidad_ajuste}",
+                    cur=cur
+                )
+            return True
+        except Exception:
+            logging.exception("Error en ajuste manual de stock para producto_id=%s", producto_id)
             raise

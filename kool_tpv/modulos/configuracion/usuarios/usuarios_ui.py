@@ -15,11 +15,12 @@ from kool_tpv.utils.utils import COLOR_BG_TERMINAL
 
 
 class UsuariosUI:
-    def __init__(self, parent, db=None, owner=None, module_name: str = 'config'):
+    def __init__(self, parent, db=None, owner=None, module_name: str = 'config', responsable_id=None):
         self.parent = parent
         self.db = db
         self.owner = owner
         self.module_name = module_name
+        self.responsable_id = responsable_id
         try:
             self.colors = load_colors(module_name)
         except Exception:
@@ -401,6 +402,26 @@ class UsuariosUI:
             except Exception:
                 id_val = None
 
+            # Obtener responsable_id (usar el de la sesión si existe, si no pedir contraseña)
+            responsable_id = self.responsable_id
+            
+            if not responsable_id:
+                # Pedir identificación para auditoría si no la tenemos de la entrada al módulo
+                from kool_tpv.utils.dialogs import show_password_dialog, show_error
+                from kool_tpv.utils.auth_service import AuthService
+                
+                pwd = show_password_dialog(self.container, titulo="IDENTIFICACIÓN", mensaje="Introduce TU CONTRASEÑA para autorizar esta acción:")
+                if not pwd:
+                    return
+                    
+                auth = AuthService(self.db)
+                valid, resp_user = auth.authenticate_user_by_password(pwd)
+                if not valid or not resp_user:
+                    show_error(self.container, "ERROR", "Contraseña incorrecta o usuario no encontrado")
+                    return
+                
+                responsable_id = resp_user['id']
+
             ok = False
             if id_val:
                 # Update: if password empty -> do not update password
@@ -415,6 +436,7 @@ class UsuariosUI:
                     'permiso_tickets': permiso_tickets,
                     'permiso_cajon': permiso_cajon,
                     'ui_color': ui_color,
+                    'responsable_id': responsable_id
                 }
                 if password:
                     data['password'] = password
@@ -435,7 +457,7 @@ class UsuariosUI:
                 ok = self.service.save_usuario(nombre, email=email, telefono=telefono, password=password, rol=rol,
                                                permiso_cierre=permiso_cierre, permiso_descuento=permiso_descuento,
                                                permiso_devolucion=permiso_devolucion, permiso_tickets=permiso_tickets,
-                                               permiso_cajon=permiso_cajon, ui_color=ui_color)
+                                               permiso_cajon=permiso_cajon, ui_color=ui_color, responsable_id=responsable_id)
                 
                 # Para nuevos usuarios, necesitamos obtener el ID generado para el barcode
                 if ok:
@@ -479,7 +501,28 @@ class UsuariosUI:
             id_val = int(id_text) if id_text else None
             if not id_val:
                 return
-            ok = self.service.delete_usuario(id_val)
+                
+            # Obtener responsable_id
+            responsable_id = self.responsable_id
+            
+            if not responsable_id:
+                # Pedir identificación para auditoría
+                from kool_tpv.utils.dialogs import show_password_dialog, show_error
+                from kool_tpv.utils.auth_service import AuthService
+                
+                pwd = show_password_dialog(self.container, titulo="IDENTIFICACIÓN", mensaje="Introduce TU CONTRASEÑA para autorizar el borrado:")
+                if not pwd:
+                    return
+                    
+                auth = AuthService(self.db)
+                valid, resp_user = auth.authenticate_user_by_password(pwd)
+                if not valid or not resp_user:
+                    show_error(self.container, "ERROR", "Contraseña incorrecta o usuario no encontrado")
+                    return
+                
+                responsable_id = resp_user['id']
+
+            ok = self.service.delete_usuario(id_val, responsable_id=responsable_id)
             if ok:
                 try:
                     parent = self.container.winfo_toplevel()

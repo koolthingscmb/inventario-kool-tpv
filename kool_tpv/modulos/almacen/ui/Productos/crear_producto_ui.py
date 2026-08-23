@@ -30,6 +30,8 @@ from kool_tpv.utils.config_loader import create_action_button
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
 from kool_tpv.utils.font_loader import get_font
+from kool_tpv.utils.dialogs.input_dialog import InputDialog
+from kool_tpv.utils.auth_service import AuthService
 from kool_tpv.modulos.almacen.producto_repository import ProductoRepository
 from kool_tpv.utils import barcode_gen_utils
 from kool_tpv.utils.sku_generator import generate_sku
@@ -138,8 +140,30 @@ class CrearProductoUI:
 
         # Fila 7: STOCK_ACTUAL (4 col) | STOCK_MINIMO (4 col)
         ctk.CTkLabel(self.general_frame, text="STOCK_ACTUAL:", text_color=self.colors['text'], font=lbl_font).grid(row=6, column=0, sticky='w', padx=6, pady=6)
-        self.e_stock_actual = ctk.CTkEntry(self.general_frame, placeholder_text='0', **entry_kwargs)
-        self.e_stock_actual.grid(row=6, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
+        
+        # Campo stock_actual como readonly para forzar uso del botón AJUSTAR
+        self.e_stock_actual = ctk.CTkEntry(
+            self.general_frame, 
+            placeholder_text='0', 
+            state='readonly',
+            fg_color=self.colors.get('background', COLOR_BG_TERMINAL),
+            text_color=self.colors.get('light', '#666666'),
+            border_color=self.colors.get('border', self.colors.get('light', '#666666')),
+            border_width=2
+        )
+        self.e_stock_actual.grid(row=6, column=1, columnspan=2, sticky='ew', padx=6, pady=6)
+        
+        # Botón AJUSTAR usando ButtonFactory ⭐
+        try:
+            self.btn_ajustar = ButtonFactory.create_button(
+                parent=self.general_frame,
+                text='AJUSTAR',
+                command=self._on_ajustar_stock,
+                style_key="mini_action"
+            )
+            self.btn_ajustar.grid(row=6, column=3, sticky='ew', padx=6, pady=6)
+        except Exception:
+            logger.exception('Error creando botón AJUSTAR')
 
         ctk.CTkLabel(self.general_frame, text="STOCK_MINIMO:", text_color=self.colors['text'], font=lbl_font).grid(row=6, column=4, sticky='w', padx=6, pady=6)
         self.e_stock_min = ctk.CTkEntry(self.general_frame, placeholder_text='0', **entry_kwargs)
@@ -408,6 +432,59 @@ class CrearProductoUI:
                 logger.debug(f"SKU auto-generado: {new_sku}")
             except Exception:
                 logging.exception("Error auto-generando SKU")
+
+    def _on_ajustar_stock(self):
+        """Orquestador profesional para ajuste manual de stock con seguridad y trazabilidad."""
+        if self.producto_id is None:
+            ToastWidget.show(self.container, "Guarda el producto antes de ajustar stock", tipo='warning')
+            return
+
+        from kool_tpv.utils.dialogs import show_password_dialog, show_input_dialog, show_error
+        
+        # 1. Autenticación de Usuario
+        pwd = show_password_dialog(self.container, titulo="AJUSTE DE STOCK", mensaje="Introduce TU CONTRASEÑA:")
+        if not pwd:
+            return
+            
+        auth = AuthService(self.db)
+        valid, user = auth.authenticate_user_by_password(pwd)
+        if not valid or not user:
+            show_error(self.container, "ERROR", "Contraseña incorrecta o usuario no encontrado")
+            return
+            
+        # 2. Cantidad de ajuste
+        uds_str = show_input_dialog(self.container, "CANTIDAD", "Unidades (+ para sumar, - para restar):", valor_defecto="0")
+        if uds_str is None:
+            return
+            
+        try:
+            uds = int(uds_str)
+            if uds == 0:
+                return
+        except ValueError:
+            show_error(self.container, "ERROR", "La cantidad debe ser un número entero")
+            return
+            
+        # 3. Motivo
+        motivo = show_input_dialog(self.container, "MOTIVO", "Introduce el motivo del ajuste:")
+        if not motivo:
+            show_error(self.container, "ERROR", "El motivo es obligatorio para la trazabilidad")
+            return
+            
+        # 4. Ejecutar ajuste via Repository
+        try:
+            if self.repo.ajustar_stock_manual(self.producto_id, uds, f"Ajuste manual: {motivo}", user['id']):
+                ToastWidget.show(self.container, "Stock ajustado correctamente", tipo='success')
+                
+                # 5. Refrescar UI usando el loader oficial
+                try:
+                    from kool_tpv.modulos.almacen.ui.Productos.cargar_producto import CargarProductoUI
+                    loader = CargarProductoUI(self.parent, self.db)
+                    loader.apply_to_ui(self.producto_id, self)
+                except Exception:
+                    logger.exception("Error refrescando UI tras ajuste")
+        except Exception:
+            show_error(self.container, "ERROR", "No se pudo realizar el ajuste en la base de datos")
 
     def _add_label_entry(self, parent, label, row, col, colspan, entry_kwargs, lbl_font, placeholder=''):
         ctk.CTkLabel(parent, text=f'{label}:', text_color=self.colors.get('text', COLOR_MATRIX), font=lbl_font).grid(row=row, column=col, sticky='w', padx=6, pady=6)

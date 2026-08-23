@@ -2,6 +2,7 @@ import logging
 from decimal import Decimal
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.base_datos.money_adapter import prepare_for_db
+from kool_tpv.base_datos.audit_service import AuditService
 
 logger = logging.getLogger(__name__)
 
@@ -9,19 +10,20 @@ logger = logging.getLogger(__name__)
 class AlbaranRepository:
     def __init__(self, db: Database):
         self.db = db
+        self.audit = AuditService(db)
 
     def guardar_albaran_completo(
-        self, num_albaran, proveedor_id, fecha, tipo, lineas, totales, cur=None
+        self, num_albaran, proveedor_id, fecha, tipo, lineas, totales, usuario_id=None, cur=None
     ) -> int:
         """Guarda albarán COMPLETO (cabecera + líneas + stock) en una transacción atómica."""
         if cur:
-            return self._guardar_logic(num_albaran, proveedor_id, fecha, tipo, lineas, totales, cur)
+            return self._guardar_logic(num_albaran, proveedor_id, fecha, tipo, lineas, totales, usuario_id, cur)
         else:
             with self.db.transaction() as cur:
-                return self._guardar_logic(num_albaran, proveedor_id, fecha, tipo, lineas, totales, cur)
+                return self._guardar_logic(num_albaran, proveedor_id, fecha, tipo, lineas, totales, usuario_id, cur)
 
     def _guardar_logic(
-        self, num_albaran, proveedor_id, fecha, tipo, lineas, totales, cur
+        self, num_albaran, proveedor_id, fecha, tipo, lineas, totales, usuario_id, cur
     ) -> int:
         try:
             tipo = tipo or 'ENTRADA'
@@ -43,6 +45,16 @@ class AlbaranRepository:
                 )
             )
             albaran_id = cur.lastrowid
+
+            # Auditoría
+            self.audit.registrar(
+                entidad='albaranes',
+                entidad_id=albaran_id,
+                accion='CREACION',
+                usuario_id=usuario_id,
+                datos_nuevos=f"Albarán {num_albaran} ({tipo}) - Total: {totales['total']}",
+                cur=cur
+            )
 
             for line in lineas:
                 cur.execute(
@@ -67,13 +79,18 @@ class AlbaranRepository:
                     )
                 )
 
-                # Solo sumar stock a productos EXISTENTES (no a nuevos creados desde albarán)
-                if line['producto_id'] and not line.get('es_producto_nuevo', False):
+                # Sumar stock a todos los productos (existentes y nuevos)
+                if line['producto_id']:
                     cantidad_ajuste = line['cantidad'] if tipo == 'ENTRADA' else -line['cantidad']
                     try:
                         cur.execute(
                             "UPDATE productos SET stock_actual = stock_actual + ? WHERE id = ?",
                             (cantidad_ajuste, line['producto_id'])
+                        )
+                        # Registrar movimiento de stock con usuario_id
+                        cur.execute(
+                            "INSERT INTO stock_movements (producto_id, cantidad, motivo, usuario_id) VALUES (?, ?, ?, ?)",
+                            (line['producto_id'], cantidad_ajuste, f"albaran:{num_albaran}", usuario_id)
                         )
                     except Exception as e:
                         logger.warning('Error actualizando stock producto %s: %s', line['producto_id'], e)
@@ -106,20 +123,27 @@ class AlbaranRepository:
             raise
 
     def actualizar_albaran_con_lineas(
-        self, albaran_id, todas_las_lineas, totales, cur=None
+        self, albaran_id, todas_las_lineas, totales, usuario_id=None, cur=None
     ) -> None:
         """Actualiza cabecera de albarán + gestiona líneas (borra faltantes e inserta nuevas)."""
         if cur:
-            self._actualizar_logic(albaran_id, todas_las_lineas, totales, cur)
+            self._actualizar_logic(albaran_id, todas_las_lineas, totales, usuario_id, cur)
         else:
             with self.db.transaction() as cur:
-                self._actualizar_logic(albaran_id, todas_las_lineas, totales, cur)
+                self._actualizar_logic(albaran_id, todas_las_lineas, totales, usuario_id, cur)
 
     def _actualizar_logic(
-        self, albaran_id, todas_las_lineas, totales, cur
+        self, albaran_id, todas_las_lineas, totales, usuario_id, cur
     ) -> None:
         try:
-            # 1. Actualizar cabecera
+            # 1. Obtener datos previos para auditoría y tipo albarán
+            cur.execute("SELECT tipo, num_albaran, total FROM albaranes WHERE id = ?", (albaran_id,))
+            row_alb = cur.fetchone()
+            tipo_alb = row_alb[0] if row_alb else 'ENTRADA'
+            num_albaran = row_alb[1] if row_alb else str(albaran_id)
+            old_total = row_alb[2] if row_alb else 0
+
+            # 2. Actualizar cabecera
             cur.execute(
                 """
                 UPDATE albaranes
@@ -137,42 +161,66 @@ class AlbaranRepository:
                 )
             )
 
-            # 2. Gestionar líneas
-            # Obtener IDs actuales en BD
+            # Auditoría
+            self.audit.registrar(
+                entidad='albaranes',
+                entidad_id=albaran_id,
+                accion='EDICION',
+                usuario_id=usuario_id,
+                datos_previos=f"Total previo: {old_total}",
+                datos_nuevos=f"Nuevo total: {totales['total']}",
+                cur=cur
+            )
+
+            # 3. Gestionar líneas (Sincronización de diferencias)
+            # Obtener líneas actuales en BD
             cur.execute("SELECT id, producto_id, cantidad FROM albaran_lines WHERE albaran_id = ?", (albaran_id,))
             db_lines = {row[0]: {'producto_id': row[1], 'cantidad': row[2]} for row in cur.fetchall()}
             
-            # IDs que nos llegan del service
-            new_ids = {l['id'] for l in todas_las_lineas if 'id' in l}
-            
-            # A. Borrar líneas que ya no están
-            ids_to_delete = set(db_lines.keys()) - new_ids
-            if ids_to_delete:
-                # Obtener tipo albarán para saber si revertir stock
-                cur.execute("SELECT tipo FROM albaranes WHERE id = ?", (albaran_id,))
-                row_tipo = cur.fetchone()
-                tipo_alb = row_tipo[0] if row_tipo else 'ENTRADA'
-                
-                for lid in ids_to_delete:
-                    old_l = db_lines[lid]
-                    if old_l['producto_id']:
-                        # Revertir stock (si era entrada, restamos; si era salida, sumamos)
-                        adj = -old_l['cantidad'] if tipo_alb == 'ENTRADA' else old_l['cantidad']
-                        try:
-                            cur.execute("UPDATE productos SET stock_actual = stock_actual + ? WHERE id = ?", (adj, old_l['producto_id']))
-                        except Exception as e:
-                            logger.warning('Error al revertir stock de línea borrada %s: %s', lid, e)
-                    
-                    cur.execute("DELETE FROM albaran_lines WHERE id = ?", (lid,))
-
-            # B. Insertar líneas nuevas (sin ID)
-            # Obtener tipo albarán de nuevo para el stock de las nuevas si no se obtuvo antes
-            cur.execute("SELECT tipo FROM albaranes WHERE id = ?", (albaran_id,))
-            row_tipo = cur.fetchone()
-            tipo_alb = row_tipo[0] if row_tipo else 'ENTRADA'
-
+            # Procesar las líneas que nos llegan
+            new_ids = set()
             for line in todas_las_lineas:
-                if 'id' not in line:
+                line_id = line.get('id')
+                producto_id = line.get('producto_id')
+                cantidad_nueva = line.get('cantidad', 0)
+
+                if line_id and line_id in db_lines:
+                    # LÍNEA EXISTENTE: Calcular diferencia neta
+                    new_ids.add(line_id)
+                    old_data = db_lines[line_id]
+                    cantidad_vieja = old_data['cantidad']
+                    
+                    if cantidad_nueva != cantidad_vieja:
+                        diff = cantidad_nueva - cantidad_vieja
+                        # El ajuste al stock es la diferencia (positiva o negativa)
+                        stock_adj = diff if tipo_alb == 'ENTRADA' else -diff
+                        
+                        if producto_id:
+                            cur.execute("UPDATE productos SET stock_actual = stock_actual + ? WHERE id = ?", (stock_adj, producto_id))
+                            # Log de movimiento con usuario_id
+                            cur.execute(
+                                "INSERT INTO stock_movements (producto_id, cantidad, motivo, usuario_id) VALUES (?, ?, ?, ?)",
+                                (producto_id, stock_adj, f"Edición Albarán {num_albaran} (Ajuste cantidad)", usuario_id)
+                            )
+                    
+                    # Actualizar la línea en BD
+                    cur.execute(
+                        """
+                        UPDATE albaran_lines 
+                        SET cantidad = ?, coste = ?, tipo_iva = ?, pvpr_cents = ?, sku = ?
+                        WHERE id = ?
+                        """,
+                        (
+                            cantidad_nueva,
+                            int(prepare_for_db(line['coste'])),
+                            line['tipo_iva'],
+                            int(line.get('pvpr_cents', 0)),
+                            line.get('sku', ''),
+                            line_id
+                        )
+                    )
+                else:
+                    # LÍNEA NUEVA: Insertar y sumar stock total
                     cur.execute(
                         """
                         INSERT INTO albaran_lines
@@ -182,10 +230,10 @@ class AlbaranRepository:
                         """,
                         (
                             albaran_id,
-                            line['producto_id'],
+                            producto_id,
                             line['ean'],
                             line['nombre'],
-                            line['cantidad'],
+                            cantidad_nueva,
                             int(prepare_for_db(line['coste'])),
                             line['tipo_iva'],
                             line.get('editorial', ''),
@@ -194,20 +242,29 @@ class AlbaranRepository:
                             line.get('sku', ''),
                         )
                     )
+                    if producto_id:
+                        stock_adj = cantidad_nueva if tipo_alb == 'ENTRADA' else -cantidad_nueva
+                        cur.execute("UPDATE productos SET stock_actual = stock_actual + ? WHERE id = ?", (stock_adj, producto_id))
+                        cur.execute(
+                            "INSERT INTO stock_movements (producto_id, cantidad, motivo, usuario_id) VALUES (?, ?, ?, ?)",
+                            (producto_id, stock_adj, f"Edición Albarán {num_albaran} (Línea añadida)", usuario_id)
+                        )
 
-                    # Update stock para líneas nuevas de productos generales
-                    if line['producto_id']:
-                        cantidad_ajuste = line['cantidad'] if tipo_alb == 'ENTRADA' else -line['cantidad']
-                        try:
-                            cur.execute(
-                                "UPDATE productos SET stock_actual = stock_actual + ? WHERE id = ?",
-                                (cantidad_ajuste, line['producto_id'])
-                            )
-                        except Exception as e:
-                            logger.warning('Error actualizando stock producto %s: %s', line['producto_id'], e)
+            # 4. Borrar líneas que ya no están en la lista (Líneas eliminadas)
+            ids_to_delete = set(db_lines.keys()) - new_ids
+            for lid in ids_to_delete:
+                old_l = db_lines[lid]
+                if old_l['producto_id']:
+                    # Revertir stock completamente
+                    adj = -old_l['cantidad'] if tipo_alb == 'ENTRADA' else old_l['cantidad']
+                    cur.execute("UPDATE productos SET stock_actual = stock_actual + ? WHERE id = ?", (adj, old_l['producto_id']))
+                    cur.execute(
+                        "INSERT INTO stock_movements (producto_id, cantidad, motivo, usuario_id) VALUES (?, ?, ?, ?)",
+                        (old_l['producto_id'], adj, f"Edición Albarán {num_albaran} (Línea eliminada)", usuario_id)
+                    )
+                cur.execute("DELETE FROM albaran_lines WHERE id = ?", (lid,))
 
-            logger.info('Albarán %s sincronizado: %s líneas borradas, %s líneas nuevas', 
-                        albaran_id, len(ids_to_delete), len([l for l in todas_las_lineas if 'id' not in l]))
+            logger.info('Albarán %s sincronizado correctamente', num_albaran)
 
         except Exception:
             logger.exception('Error actualizando albarán id=%s', albaran_id)

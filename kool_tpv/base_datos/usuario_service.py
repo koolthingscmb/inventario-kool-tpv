@@ -2,11 +2,13 @@
 import logging
 from datetime import datetime
 import hashlib
+from kool_tpv.base_datos.audit_service import AuditService
 
 
 class UsuarioService:
     def __init__(self, db):
         self.db = db
+        self.audit = AuditService(db)
 
     def get_all_usuarios(self) -> list:
         try:
@@ -72,7 +74,7 @@ class UsuarioService:
 
     def save_usuario(self, nombre, email='', telefono='', password='', rol='Cajero',
                      permiso_cierre=0, permiso_descuento=0, permiso_devolucion=0, permiso_tickets=0,
-                     permiso_cajon=0, ui_color='#00FF00', banner_path=None) -> bool:
+                     permiso_cajon=0, ui_color='#00FF00', banner_path=None, responsable_id=None) -> bool:
         try:
             if not nombre:
                 logging.warning('UsuarioService.save_usuario: nombre vacío')
@@ -84,18 +86,31 @@ class UsuarioService:
                 created_at = now_utc_str()
             except Exception:
                 created_at = datetime.now().isoformat(sep=' ', timespec='seconds')
-            query = """
-                INSERT INTO usuarios
-                (nombre, password, rol, permiso_cierre, permiso_descuento, permiso_devolucion, permiso_tickets, created_at, telefono, email, permiso_cajon, ui_color, banner_path)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """
-            self.db.execute_query(query, (nombre, password_hash, rol, int(permiso_cierre), int(permiso_descuento), int(permiso_devolucion), int(permiso_tickets), created_at, telefono, email, int(permiso_cajon), ui_color, banner_path))
+            
+            with self.db.transaction() as cur:
+                query = """
+                    INSERT INTO usuarios
+                    (nombre, password, rol, permiso_cierre, permiso_descuento, permiso_devolucion, permiso_tickets, created_at, telefono, email, permiso_cajon, ui_color, banner_path)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """
+                cur.execute(query, (nombre, password_hash, rol, int(permiso_cierre), int(permiso_descuento), int(permiso_devolucion), int(permiso_tickets), created_at, telefono, email, int(permiso_cajon), ui_color, banner_path))
+                new_user_id = cur.lastrowid
+
+                # Auditoría de creación
+                self.audit.registrar(
+                    entidad='usuarios',
+                    entidad_id=new_user_id,
+                    accion='CREACION_USUARIO',
+                    usuario_id=responsable_id,
+                    datos_nuevos=f"Usuario: {nombre} - Rol: {rol}",
+                    cur=cur
+                )
             return True
         except Exception:
             logging.exception('Error guardando usuario')
             return False
 
-    def update_usuario(self, user_id, **kwargs) -> bool:
+    def update_usuario(self, user_id, responsable_id=None, **kwargs) -> bool:
         try:
             if not user_id:
                 return False
@@ -107,18 +122,37 @@ class UsuarioService:
 
             updates = []
             params = []
+            cambios_audit = []
+            
+            # Obtener datos antiguos para auditoría
+            old_data = self.get_usuario(user_id)
+            if not old_data:
+                return False
+
             for k, v in kwargs.items():
                 if k not in allowed:
                     continue
+                
+                old_val = old_data.get(k)
+                
                 if k == 'password':
                     # If empty string provided -> skip updating password
                     if not v:
                         continue
-                    v = self.hash_password(v)
+                    new_hash = self.hash_password(v)
+                    if new_hash != old_val:
+                        updates.append(f"{k} = ?")
+                        params.append(new_hash)
+                        cambios_audit.append("password cambiado")
+                    continue
+
                 if k.startswith('permiso_'):
                     v = int(bool(v))
-                updates.append(f"{k} = ?")
-                params.append(v)
+                
+                if str(v) != str(old_val):
+                    updates.append(f"{k} = ?")
+                    params.append(v)
+                    cambios_audit.append(f"{k}: {old_val} -> {v}")
 
             if not updates:
                 logging.debug('UsuarioService.update_usuario: nada que actualizar')
@@ -126,16 +160,43 @@ class UsuarioService:
 
             params.append(user_id)
             query = f"UPDATE usuarios SET {', '.join(updates)} WHERE id = ?"
-            self.db.execute_query(query, tuple(params))
+            
+            with self.db.transaction() as cur:
+                cur.execute(query, tuple(params))
+                
+                # Auditoría de actualización
+                self.audit.registrar(
+                    entidad='usuarios',
+                    entidad_id=user_id,
+                    accion='ACTUALIZACION_USUARIO',
+                    usuario_id=responsable_id,
+                    datos_nuevos=" | ".join(cambios_audit),
+                    cur=cur
+                )
             return True
         except Exception:
             logging.exception(f'Error actualizando usuario {user_id}')
             return False
 
-    def delete_usuario(self, user_id: int) -> bool:
+    def delete_usuario(self, user_id: int, responsable_id=None) -> bool:
         try:
-            query = "DELETE FROM usuarios WHERE id = ?"
-            self.db.execute_query(query, (user_id,))
+            # Obtener nombre para auditoría antes de borrar
+            user = self.get_usuario(user_id)
+            nombre = user.get('nombre', 'Desconocido') if user else 'Desconocido'
+            
+            with self.db.transaction() as cur:
+                query = "DELETE FROM usuarios WHERE id = ?"
+                cur.execute(query, (user_id,))
+                
+                # Auditoría de eliminación
+                self.audit.registrar(
+                    entidad='usuarios',
+                    entidad_id=user_id,
+                    accion='ELIMINACION_USUARIO',
+                    usuario_id=responsable_id,
+                    datos_nuevos=f"Usuario eliminado: {nombre}",
+                    cur=cur
+                )
             return True
         except Exception:
             logging.exception(f'Error eliminando usuario {user_id}')

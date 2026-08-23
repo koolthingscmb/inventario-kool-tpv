@@ -22,6 +22,10 @@ class DevolucionProcessor(VentaProcessor):
         cajero = kwargs.get('cajero')
         cliente = kwargs.get('cliente')
         cliente_id = kwargs.get('cliente_id')
+        
+        # Extraer usuario_id del cajero (si viene como dict del controller)
+        cajero_data = kwargs.get('cajero_full') or cajero
+        usuario_id = cajero_data.get('id') if isinstance(cajero_data, dict) else kwargs.get('usuario_id')
 
         devol_repo = DevolucionRepository(self.db)
 
@@ -59,6 +63,8 @@ class DevolucionProcessor(VentaProcessor):
                     tesoro_gastado_str=kwargs.get('puntos_gastados_cents', 0),
                     ticket_text_snapshot=kwargs.get('ticket_text_snapshot'),
                     iva_desglose_json=kwargs.get('iva_desglose_json', '{}'),
+                    usuario_id=usuario_id,
+                    accion='DEVOLUCION',
                     cur=cur,
                 )
 
@@ -89,7 +95,7 @@ class DevolucionProcessor(VentaProcessor):
                         stock_change = int(it.get('cantidad', 0))
                         ventas_change = -int(it.get('cantidad', 0))
                         try:
-                            self.repo.update_stock_and_record_movement(prod_id, stock_change, ventas_change, f"ticket:{ticket_id}", ticket_line_id=line_id, cur=cur)
+                            self.repo.update_stock_and_record_movement(prod_id, stock_change, ventas_change, f"ticket:{ticket_id}", ticket_line_id=line_id, usuario_id=usuario_id, cur=cur)
                         except Exception:
                             logger.exception('Error updating stock and recording movement for producto_id=%s in ticket=%s', prod_id, ticket_id)
                             raise
@@ -99,22 +105,9 @@ class DevolucionProcessor(VentaProcessor):
                 for metodo, importe_cents in pagos:
                     self.repo.insert_payment(ticket_id, metodo, importe_cents, kwargs.get('created_at'), cur=cur)
 
-                # Registrar auditoría
-                cajero_audit = kwargs.get('cajero_full') or kwargs.get('cajero')
-                usuario_id = cajero_audit.get('id') if isinstance(cajero_audit, dict) else None
-                try:
-                    import json
-                    self.repo.insert_audit_log(
-                        entidad='TICKET',
-                        entidad_id=ticket_id,
-                        accion='DEVOLUCION',
-                        usuario_id=usuario_id,
-                        datos_nuevos=json.dumps({'num_ticket': num_ticket}),
-                        created_at=kwargs.get('created_at'),
-                        cur=cur
-                    )
-                except Exception:
-                    logger.warning('Error al registrar auditoria en DevolucionProcessor (no critico)')
+                # Auditoría (ya manejada por el Repository en insert_ticket)
+                # No es necesario insert_audit_log manual aquí si el repo ya lo hace
+                pass
 
                 # Registrar en devoluciones y actualizar cliente/puntos dentro de la misma transacción
                 devuelto_cents = abs(kwargs.get('total_cents', 0) or 0)

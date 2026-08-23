@@ -119,3 +119,27 @@ class AuthService:
         except Exception:
             logging.exception(f'Error validando password para usuario {user_id}')
             return False
+
+    def authenticate_user_by_password(self, password: str):
+        """Busca y autentica a CUALQUIER usuario que coincida con la contraseña.
+        
+        Útil para acciones rápidas donde no hay sesión activa pero se requiere identificación.
+        
+        Returns:
+            Tuple (is_valid: bool, user_obj: dict | None)
+        """
+        try:
+            password_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
+            query = "SELECT id, nombre, password FROM usuarios"
+            users = self.db.fetch_all(query) or []
+            
+            for u in users:
+                # fetch_all devuelve tuplas/Rows: índices 0=id, 1=nombre, 2=password
+                stored_hash = u[2] if len(u) > 2 else ''
+                if stored_hash and stored_hash.lower() == password_hash.lower():
+                    return True, {'id': u[0], 'nombre': u[1]}
+            
+            return False, None
+        except Exception:
+            logging.exception("Error en authenticate_user_by_password")
+            return False, None

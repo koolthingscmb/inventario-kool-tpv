@@ -304,6 +304,22 @@ class ConfigGeneralUI:
         if not self.db:
             return
 
+        from kool_tpv.utils.dialogs import show_password_dialog, show_error
+        from kool_tpv.utils.auth_service import AuthService
+
+        # Pedir identificación para auditoría
+        pwd = show_password_dialog(self.container, titulo="IDENTIFICACIÓN", mensaje="Introduce TU CONTRASEÑA para guardar los cambios:")
+        if not pwd:
+            return
+            
+        auth = AuthService(self.db)
+        valid, user = auth.authenticate_user_by_password(pwd)
+        if not valid or not user:
+            show_error(self.container, "ERROR", "Contraseña incorrecta o usuario no encontrado")
+            return
+        
+        usuario_id = user['id']
+
         campos = {
             'e_name': 'shop_name',
             'e_web': 'shop_web',
@@ -351,7 +367,7 @@ class ConfigGeneralUI:
             except Exception:
                 logging.warning('Error leyendo ui_density')
 
-            self.config_repo.guardar_multiples(cambios)
+            self.config_repo.guardar_multiples(cambios, usuario_id=usuario_id)
 
             ToastWidget.show(self.parent, 'Configuración guardada', tipo='success')
 

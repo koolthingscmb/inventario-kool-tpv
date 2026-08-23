@@ -622,7 +622,7 @@ class ProduccionEntradaManualUI:
             self._actualizar_tabla()
 
     def _on_guardar_click(self):
-        """Guarda el albarán completo (nuevo o actualización) y actualiza stock."""
+        """Guarda el albarán completo (nuevo o actualización) y actualiza stock con identificación de usuario."""
         if not self.lineas: return
         
         num_albaran = self.entry_num.get().strip()
@@ -635,6 +635,22 @@ class ProduccionEntradaManualUI:
         if not self.proveedor_id:
             ToastWidget.show(self.container, 'ERROR: NO SE HA DETECTADO EL PROVEEDOR', tipo='error')
             return
+
+        from kool_tpv.utils.dialogs import show_password_dialog, show_error
+        from kool_tpv.utils.auth_service import AuthService
+
+        # Pedir identificación para auditoría
+        pwd = show_password_dialog(self.container, titulo="IDENTIFICACIÓN", mensaje="Introduce TU CONTRASEÑA para guardar el albarán de producción:")
+        if not pwd:
+            return
+            
+        auth = AuthService(self.db)
+        valid, user = auth.authenticate_user_by_password(pwd)
+        if not valid or not user:
+            show_error(self.container, "ERROR", "Contraseña incorrecta o usuario no encontrado")
+            return
+        
+        usuario_id = user['id']
 
         try:
             if self.albaran_id:
@@ -673,7 +689,7 @@ class ProduccionEntradaManualUI:
 
                 with self.db.transaction() as cur:
                     # 1. Actualizar albarán (cabecera + líneas nuevas + borrados gestionados por repo)
-                    self.albaran_service.update_albaran_with_new_lines(self.albaran_id, all_lines, cur=cur)
+                    self.albaran_service.update_albaran_with_new_lines(self.albaran_id, all_lines, usuario_id=usuario_id, cur=cur)
                     
                     # 2. Revertir stock de líneas BORRADAS (solo materia prima de producción)
                     for dl in deleted_lines:
@@ -736,6 +752,7 @@ class ProduccionEntradaManualUI:
                         tipo='ENTRADA_PROD',
                         lineas=lineas_albaran,
                         totales=totales,
+                        usuario_id=usuario_id,
                         cur=cur
                     )
                     

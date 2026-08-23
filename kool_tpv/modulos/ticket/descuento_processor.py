@@ -3,15 +3,22 @@ from typing import Any
 
 from kool_tpv.modulos.ticket.base_processor import TicketProcessor
 from kool_tpv.modulos.descuento.descuento_repository import DescuentoRepository
+from kool_tpv.base_datos.audit_service import AuditService
+from kool_tpv.base_datos.money_adapter import read_from_db
 import logging
 
 logger = logging.getLogger(__name__)
 
 
 class DescuentoProcessor(TicketProcessor):
+    def __init__(self, db):
+        super().__init__(db)
+        self.audit = AuditService(db)
+
     def process(self, **kwargs):
         ticket_id = kwargs.get('ticket_id')
         descuentos = kwargs.get('descuentos', []) or []
+        usuario_id = kwargs.get('usuario_id')
 
         if not ticket_id or not descuentos:
             return ticket_id
@@ -88,6 +95,17 @@ class DescuentoProcessor(TicketProcessor):
                     try:
                         dto_id = dto.get('id')
                         desc_repo.apply_to_ticket(ticket_id, dto_id, dto.get('tipo'), descuento_val, monto, cur=cur)
+                        
+                        # Auditoría del descuento
+                        monto_eur = read_from_db(int(monto))
+                        self.audit.registrar(
+                            entidad='tickets',
+                            entidad_id=ticket_id,
+                            accion='DESCUENTO_MANUAL',
+                            usuario_id=usuario_id,
+                            datos_nuevos=f"Descuento: {dto.get('nombre', 'Manual')} - Importe: {monto_eur}€",
+                            cur=cur
+                        )
                     except Exception:
                         logger.exception('DescuentoProcessor: error guardando snapshot de descuento en ticket')
                         raise
