@@ -44,6 +44,7 @@ class ItemProduccion:
     metodo_nombre: Optional[str] = None
     origen: str = "KOOL"
     usuario_nombre: Optional[str] = None
+    reposicion_id: Optional[str] = None  # ID de la línea de reposición vinculada manualmente
 
 class ProduccionOrdenesService:
     def __init__(self, db: Database):
@@ -129,8 +130,17 @@ class ProduccionOrdenesService:
                     if item.variante_id:
                         self._actualizar_stock_tpv_vinculado(item)
 
-                    # 6. REPOSICIÓN: Borrar línea coincidente del JSON
-                    borrado = self._borrar_reposicion_coincidente(item)
+                    # 6. REPOSICIÓN: Borrar línea vinculada o coincidente
+                    borrado = False
+                    if item.reposicion_id:
+                        # Si hay vínculo manual, borrar ese ID específico
+                        borrado = self.reposicion_store.borrar(item.reposicion_id)
+                        if borrado:
+                            self.logger.info(f"REPOSICIÓN: Borrada línea vinculada manualmente ID {item.reposicion_id}")
+                    else:
+                        # Si no hay vínculo, intentar borrado automático por coincidencia
+                        borrado = self._borrar_reposicion_coincidente(item)
+                    
                     if borrado:
                         lineas_borradas += 1
 

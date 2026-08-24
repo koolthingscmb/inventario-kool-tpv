@@ -13,6 +13,8 @@ from kool_tpv.modulos.produccion.services.produccion_ordenes_service import Item
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font, get_nav_button_config, get_nav_button_style
 from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
+from kool_tpv.modulos.tpv.services.reposicion_store import ReposicionStore
+from kool_tpv.utils.dialogs.helpers import show_info, show_warning
 
 
 class NuevaProduccionResumenView:
@@ -34,6 +36,8 @@ class NuevaProduccionResumenView:
 		self.on_confirmar = on_confirmar
 		self.on_volver = on_volver
 		self.items: List[ItemProduccion] = []
+		self.reposicion_store = ReposicionStore()
+		self._reposicion_pendientes = self.reposicion_store.cargar()
 
 		# Cargar configuración
 		self.config = cargar_config_produccion()
@@ -84,6 +88,7 @@ class NuevaProduccionResumenView:
 			("cantidad", 60, "Cant"),
 			("tipo", 120, "Tipo"),
 			("variante", 100, "Variante"),
+			("repos", 100, "Repos."),
 			("color", 100, "Color"),
 			("talla", 60, "Talla"),
 			("extra", 100, "Extra"),
@@ -103,6 +108,7 @@ class NuevaProduccionResumenView:
 			module_name="produccion",
 			keyboard_manager=km,
 			on_double_click=self._on_item_double_click,
+			row_color_callback=self._row_color_callback,
 			multi_select=True
 		)
 		self.nav_list.pack(expand=True, fill="both")
@@ -111,9 +117,99 @@ class NuevaProduccionResumenView:
 		self.nav_list.bind('<Delete>', lambda e: self._on_eliminar_teclado())
 
 	def _on_item_double_click(self, data):
-		"""Doble clic para editar (implementar en el futuro)."""
-		# Por ahora desactivamos el borrado automático por doble clic
-		pass
+		"""Doble clic para vincular o editar."""
+		idx = data.get("_idx")
+		if idx is not None:
+			self._vincular_item(idx)
+
+	def _on_vincular_click(self):
+		"""Vincular los ítems seleccionados."""
+		selected = self.nav_list.get_selected_items()
+		if not selected:
+			ToastWidget.show(self.frame, "Seleccione una línea para vincular", tipo='warning')
+			return
+		
+		# Si hay varios seleccionados, ir uno a uno o avisar
+		if len(selected) > 1:
+			ToastWidget.show(self.frame, "Por favor, vincule las líneas una a una", tipo='info')
+		
+		idx = selected[0].get("_idx")
+		if idx is not None:
+			self._vincular_item(idx)
+
+	def _vincular_item(self, idx: int):
+		"""Lógica de vinculación manual inteligente."""
+		if not (0 <= idx < len(self.items)):
+			return
+		
+		item = self.items[idx]
+		
+		# 1. Buscar potenciales coincidencias en reposición
+		# Deben coincidir Tipo y Variante obligatoriamente
+		potenciales = []
+		for r in self._reposicion_pendientes:
+			if (r.get('tipo_id') == item.tipo_id and 
+				r.get('variante_id') == item.variante_id):
+				potenciales.append(r)
+		
+		if not potenciales:
+			show_info(self.frame, "Vincular Reposición", 
+					 f"No se han encontrado líneas de reposición pendientes para:\n{item.tipo_nombre} {item.variante_nombre or ''}")
+			return
+
+		# 2. Si hay potenciales, mostrar diálogo de selección
+		sugerencia = None
+		for p in potenciales:
+			# Si no tiene diseño, es el candidato ideal
+			if not p.get('diseno_codigo'):
+				sugerencia = p
+				break
+			# Si el comentario menciona algo del diseño
+			comentario = (p.get('comentarios') or "").lower()
+			if item.diseno_nombre and item.diseno_nombre.lower() in comentario:
+				sugerencia = p
+				break
+		
+		if sugerencia:
+			res = show_warning(self.frame, "Sugerencia de Vínculo", 
+							  f"He encontrado una reposición pendiente:\n"
+							  f"- Comentario: {sugerencia.get('comentarios') or '(vacío)'}\n"
+							  f"- Fecha: {sugerencia.get('fecha')[:10]}\n\n"
+							  f"¿Corresponde esta producción a esa reposición?",
+							  confirm=True)
+			if res:
+				item.reposicion_id = sugerencia.get('id')
+				ToastWidget.show(self.frame, "Línea vinculada manualmente", tipo='success')
+				self._refrescar_lista()
+				return
+		
+		# Si no hay sugerencia clara o el usuario dijo no, mostrar lista de todos
+		texto_lista = "Reposiciones pendientes para este tipo:\n\n"
+		for i, p in enumerate(potenciales[:5]):
+			dis_txt = p.get('diseno_codigo') or "SIN DISEÑO"
+			texto_lista += f"{i+1}. [{dis_txt}] - {p.get('comentarios') or ''}\n"
+		
+		show_info(self.frame, "Vínculos Disponibles", 
+				 f"Hay {len(potenciales)} líneas pendientes.\n"
+				 f"Para una prueba futura, aquí permitiríamos elegir una.\n\n"
+				 + texto_lista)
+
+	def _row_color_callback(self, data, index):
+		"""Colorear filas según su estado de vinculación."""
+		idx = data.get("_idx")
+		if idx is not None and 0 <= idx < len(self.items):
+			item = self.items[idx]
+			if item.reposicion_id:
+				return {'bg': '#1b5e20', 'fg': '#ffffff'} # Verde oscuro (Vinculado)
+			
+			# Verificar si hay potenciales (sugerencia)
+			for r in self._reposicion_pendientes:
+				if (r.get('tipo_id') == item.tipo_id and 
+					r.get('variante_id') == item.variante_id and
+					not r.get('diseno_codigo')):
+					return {'bg': '#7f5a00', 'fg': '#ffffff'} # Marrón/Naranja oscuro (Sugerencia)
+		
+		return None
 
 	def _on_eliminar_teclado(self):
 		"""Eliminar los ítems seleccionados con la tecla Supr."""
@@ -125,9 +221,6 @@ class NuevaProduccionResumenView:
 		if not selected:
 			ToastWidget.show(self.frame, "Seleccione al menos una línea para eliminar", tipo='warning')
 			return
-		
-		# Confirmación (opcional, pero profesional)
-		# De momento borramos directamente como se pedía
 		
 		# Obtener índices reales y ordenarlos de mayor a menor para no romper el pop()
 		indices = sorted([d.get("_idx") for d in selected if d.get("_idx") is not None], reverse=True)
@@ -209,6 +302,21 @@ class NuevaProduccionResumenView:
 		)
 		self.btn_eliminar.pack(side=tk.LEFT, padx=10)
 
+		# Botón VINCULAR REPOSICIÓN
+		self.btn_vincular = ctk.CTkButton(
+			frame_nav,
+			text="VINCULAR REPOS.",
+			font=self._get_font("button"),
+			fg_color="#f39c12", # Naranja
+			text_color="#FFFFFF",
+			hover_color="#e67e22",
+			width=140,
+			height=nav_anadir.get("height", 2) * 20,
+			cursor="hand2",
+			command=self._on_vincular_click
+		)
+		self.btn_vincular.pack(side=tk.LEFT, padx=10)
+
 		# Botón CONFIRMAR
 		nav_conf = get_nav_button_config(self.config, "confirmar")
 		style_confirmar = get_nav_button_style(self.config, nav_conf.get("style_key", "confirmar"))
@@ -245,12 +353,34 @@ class NuevaProduccionResumenView:
 		"""Refrescar la tabla virtual de ítems."""
 		rows = []
 		for idx, item in enumerate(self.items):
+			# Estado reposición
+			repos_status = "-"
+			if item.reposicion_id:
+				repos_status = "VINCULADO"
+			else:
+				# Ver si hay coincidencia automática (por diseño_codigo)
+				auto_match = any(r.get('tipo_id') == item.tipo_id and 
+								r.get('variante_id') == item.variante_id and 
+								r.get('diseno_codigo') == item.diseno_codigo 
+								for r in self._reposicion_pendientes)
+				if auto_match:
+					repos_status = "AUTO"
+				else:
+					# Ver si hay potencial (mismo tipo/variante pero sin diseño)
+					potential = any(r.get('tipo_id') == item.tipo_id and 
+								   r.get('variante_id') == item.variante_id and 
+								   not r.get('diseno_codigo') 
+								   for r in self._reposicion_pendientes)
+					if potential:
+						repos_status = "VINCULAR?"
+
 			rows.append({
 				"usuario": getattr(item, 'usuario_nombre', '') or '',
 				"origen": getattr(item, 'origen', '') or '',
 				"cantidad": str(item.cantidad),
 				"tipo": item.tipo_nombre or "",
 				"variante": item.variante_nombre or "-",
+				"repos": repos_status,
 				"color": item.color_nombre or "",
 				"talla": item.talla or "",
 				"extra": getattr(item, 'extra_nombre', '-') or ('Mixta' if item.produccion_mixta else '-'),
@@ -273,8 +403,8 @@ class NuevaProduccionResumenView:
 
 	def _setup_keyboard_nav(self):
 		"""Configurar bindings de navegación por teclado."""
-		self._nav_buttons = [self.btn_volver, self.btn_anadir, self.btn_eliminar, self.btn_confirmar]
-		self._nav_callbacks = [self._on_volver, self._on_anadir, self._on_eliminar_click, self._on_confirmar]
+		self._nav_buttons = [self.btn_volver, self.btn_anadir, self.btn_eliminar, self.btn_vincular, self.btn_confirmar]
+		self._nav_callbacks = [self._on_volver, self._on_anadir, self._on_eliminar_click, self._on_vincular_click, self._on_confirmar]
 		self._nav_index = -1
 
 		toplevel = self.frame.winfo_toplevel()

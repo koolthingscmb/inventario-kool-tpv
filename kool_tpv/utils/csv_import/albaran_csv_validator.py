@@ -29,6 +29,8 @@ class CsvAlbaranLine:
     pvpr_cents: int = 0  # PVP recomendado en céntimos
     existe_en_bd: bool = False
     producto_id: Optional[int] = None
+    sugerencia_id: Optional[int] = None  # ID de producto sugerido por coincidencia de nombre
+    sugerencia_nombre: str = ''          # Nombre del producto sugerido
     errores: List[str] = field(default_factory=list)
 
     @property
@@ -42,6 +44,7 @@ class CsvImportResult:
     """Resultado completo del análisis de un CSV de albarán."""
     lineas: List[CsvAlbaranLine] = field(default_factory=list)
     productos_existentes: List[CsvAlbaranLine] = field(default_factory=list)
+    productos_sugeridos: List[CsvAlbaranLine] = field(default_factory=list) # Productos que coinciden por nombre pero no por EAN
     productos_nuevos: List[CsvAlbaranLine] = field(default_factory=list)
     errores_parseo: List[str] = field(default_factory=list)
     totales: Dict[str, Decimal] = field(default_factory=dict)
@@ -148,8 +151,16 @@ class AlbaranCsvValidator:
                         linea.nombre = producto['nombre']
                     resultado.productos_existentes.append(linea)
                 else:
-                    linea.existe_en_bd = False
-                    resultado.productos_nuevos.append(linea)
+                    # Búsqueda Pro: si no hay EAN, buscar por nombre exacto
+                    sugerencia = self._buscar_producto_por_nombre(linea.nombre)
+                    if sugerencia:
+                        linea.existe_en_bd = False
+                        linea.sugerencia_id = sugerencia.get('id')
+                        linea.sugerencia_nombre = sugerencia.get('nombre', '')
+                        resultado.productos_sugeridos.append(linea)
+                    else:
+                        linea.existe_en_bd = False
+                        resultado.productos_nuevos.append(linea)
             except Exception as e:
                 logger.warning(f"Error buscando producto EAN {linea.ean}: {e}")
                 linea.existe_en_bd = False
@@ -189,6 +200,51 @@ class AlbaranCsvValidator:
             return None
         except Exception as e:
             logger.warning(f"Error en query EAN {ean}: {e}")
+            return None
+
+    def _buscar_producto_por_nombre(self, nombre: str) -> Optional[Dict[str, Any]]:
+        """Busca un producto por su nombre exacto (case-insensitive) para detectar posibles duplicados.
+        Incluye normalización inteligente para ceros a la izquierda en números."""
+        if not nombre or len(nombre.strip()) < 3:
+            return None
+            
+        def normalizar(s: str) -> str:
+            import re
+            # 1. Quitar espacios al inicio/final y pasar a mayúsculas
+            s = s.strip().upper()
+            # 2. Sustituir múltiples espacios por uno solo
+            s = re.sub(r'\s+', ' ', s)
+            # 3. Normalizar números con ceros a la izquierda (ej: "08" -> "8")
+            # Buscamos números precedidos de espacio o inicio de cadena que tengan ceros
+            s = re.sub(r'(^|\s)0+(\d+)', r'\1\2', s)
+            return s
+
+        nombre_norm = normalizar(nombre)
+
+        try:
+            # 1. Primero intentar coincidencia exacta (con strip)
+            query = "SELECT id, nombre, tipo_iva FROM productos WHERE nombre = ? COLLATE NOCASE LIMIT 1"
+            row = self.db.fetch_one(query, (nombre.strip(),))
+            if row:
+                return {'id': row[0], 'nombre': row[1], 'tipo_iva': int(row[2] or 21)}
+
+            # 2. Si falla, buscar todos los productos que empiecen parecido para normalizar en memoria
+            # (Limitamos para no saturar si hay miles, pero los nombres de manga suelen ser específicos)
+            palabras = nombre.strip().split()
+            if not palabras:
+                return None
+            
+            primer_termino = palabras[0]
+            query_similar = "SELECT id, nombre, tipo_iva FROM productos WHERE nombre LIKE ? COLLATE NOCASE LIMIT 200"
+            rows = self.db.fetch_all(query_similar, (f"{primer_termino}%",))
+            
+            for r in rows or []:
+                if normalizar(r[1]) == nombre_norm:
+                    return {'id': r[0], 'nombre': r[1], 'tipo_iva': int(r[2] or 21)}
+            
+            return None
+        except Exception as e:
+            logger.warning(f"Error en query Nombre {nombre}: {e}")
             return None
 
     def validar_para_guardado(self, resultado: CsvImportResult) -> Tuple[bool, List[str]]:

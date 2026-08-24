@@ -81,6 +81,20 @@ class AlbaranRepository:
 
                 # Sumar stock a todos los productos (existentes y nuevos)
                 if line['producto_id']:
+                    # Vínculo Pro: Asegurar que el EAN esté asociado al producto
+                    if line.get('ean'):
+                        try:
+                            # Verificar si ya existe este EAN para este producto
+                            cur.execute("SELECT 1 FROM codigos_barras WHERE producto_id = ? AND ean = ?", (line['producto_id'], line['ean']))
+                            if not cur.fetchone():
+                                logger.info(f"VINCULO PRO: Intentando vincular EAN {line['ean']} a producto_id {line['producto_id']}")
+                                cur.execute("INSERT INTO codigos_barras (producto_id, ean) VALUES (?, ?)", (line['producto_id'], line['ean']))
+                                logger.info(f"VINCULO PRO: OK - Nuevo EAN {line['ean']} vinculado a producto {line['producto_id']}")
+                            else:
+                                logger.debug(f"VINCULO PRO: EAN {line['ean']} ya estaba asociado al producto {line['producto_id']}")
+                        except Exception as e:
+                            logger.error(f"VINCULO PRO: ERROR vinculando EAN {line['ean']} a producto {line['producto_id']}: {e}")
+
                     cantidad_ajuste = line['cantidad'] if tipo == 'ENTRADA' else -line['cantidad']
                     try:
                         cur.execute(
@@ -243,6 +257,19 @@ class AlbaranRepository:
                         )
                     )
                     if producto_id:
+                        # Vínculo Pro: Asegurar que el EAN esté asociado al producto
+                        if line.get('ean'):
+                            try:
+                                cur.execute("SELECT 1 FROM codigos_barras WHERE producto_id = ? AND ean = ?", (producto_id, line['ean']))
+                                if not cur.fetchone():
+                                    logger.info(f"VINCULO PRO (Edición): Intentando vincular EAN {line['ean']} a producto_id {producto_id}")
+                                    cur.execute("INSERT INTO codigos_barras (producto_id, ean) VALUES (?, ?)", (producto_id, line['ean']))
+                                    logger.info(f"VINCULO PRO (Edición): OK - Nuevo EAN {line['ean']} vinculado a producto {producto_id}")
+                                else:
+                                    logger.debug(f"VINCULO PRO (Edición): EAN {line['ean']} ya estaba asociado al producto {producto_id}")
+                            except Exception as e:
+                                logger.error(f"VINCULO PRO (Edición): ERROR vinculando EAN {line['ean']} a producto {producto_id}: {e}")
+
                         stock_adj = cantidad_nueva if tipo_alb == 'ENTRADA' else -cantidad_nueva
                         cur.execute("UPDATE productos SET stock_actual = stock_actual + ? WHERE id = ?", (stock_adj, producto_id))
                         cur.execute(

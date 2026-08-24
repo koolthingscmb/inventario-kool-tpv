@@ -318,6 +318,40 @@ WHERE 1=1
             return []
         return [dict(row) for row in rows]
 
+    def get_by_nombre_exacto(self, nombre: str) -> Optional[Dict[str, Any]]:
+        """Busca un producto por su nombre exacto (case-insensitive)."""
+        query = "SELECT * FROM productos WHERE nombre = ? COLLATE NOCASE LIMIT 1"
+        row = self.db.fetch_one(query, (nombre.strip(),))
+        if row is None:
+            return None
+        return dict(row)
+
+    def add_ean_to_producto(self, producto_id: int, ean: str, cur=None) -> bool:
+        """Añade un nuevo código EAN a un producto existente si no lo tiene ya."""
+        try:
+            # Verificar si ya existe el EAN para este producto
+            query_check = "SELECT 1 FROM codigos_barras WHERE producto_id = ? AND ean = ?"
+            if cur:
+                cur.execute(query_check, (producto_id, ean))
+                exists = cur.fetchone()
+            else:
+                exists = self.db.fetch_one(query_check, (producto_id, ean))
+            
+            if exists:
+                return True
+            
+            # Insertar nuevo EAN
+            query_insert = "INSERT INTO codigos_barras (producto_id, ean) VALUES (?, ?)"
+            if cur:
+                cur.execute(query_insert, (producto_id, ean))
+            else:
+                self.db.execute_query(query_insert, (producto_id, ean))
+            
+            return True
+        except Exception:
+            logger.exception(f"Error añadiendo EAN {ean} a producto {producto_id}")
+            raise
+
     def guardar_producto_completo(
         self,
         nombre: str,
