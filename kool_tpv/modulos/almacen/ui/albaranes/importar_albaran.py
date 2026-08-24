@@ -15,6 +15,7 @@ from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
 from kool_tpv.modulos.almacen.ui.albaranes.albaran_borrador import AlbaranBorradorService
+from kool_tpv.modulos.almacen.ui.albaranes.importar_albaran_seguridad import AlbaranBusquedaSeguridadView
 from kool_tpv.utils.sku_generator import generate_sku
 
 logger = logging.getLogger(__name__)
@@ -294,6 +295,7 @@ class ImportarAlbaranUI:
     def _mostrar_resumen(self):
         """Mostrar resumen del análisis."""
         existentes = len(self.parse_result.productos_existentes)
+        sugeridos = len(getattr(self.parse_result, 'productos_sugeridos', []))
         nuevos = len(self.parse_result.productos_nuevos)
         total = len(self.parse_result.lineas)
 
@@ -306,6 +308,11 @@ class ImportarAlbaranUI:
             f'Total: {total} líneas | '
             f'Uds: {total_uds} | '
             f'Existentes: {existentes} | '
+        )
+        if sugeridos > 0:
+            resumen_text += f'Sugeridos: {sugeridos} | '
+            
+        resumen_text += (
             f'Nuevos: {nuevos} | '
             f'Total albarán: {total_str}'
         )
@@ -338,6 +345,8 @@ class ImportarAlbaranUI:
 
             if getattr(linea, 'existe_en_bd', False):
                 estado = '✓ Existe'
+            elif getattr(linea, 'sugerencia_id', None):
+                estado = '⚠ Sugerido'
             else:
                 estado = '⚠ Nuevo'
 
@@ -386,11 +395,49 @@ class ImportarAlbaranUI:
 
         # Ahora ir a crear productos nuevos si los hay
         nuevos = len(self.parse_result.productos_nuevos)
-        if nuevos > 0:
+        sugeridos = len(getattr(self.parse_result, 'productos_sugeridos', []))
+        
+        if sugeridos > 0:
+            self._mostrar_dialogo_sugeridos()
+        elif nuevos > 0:
             self._iniciar_creacion_productos()
         else:
-            # Si no hay productos nuevos, ir directamente a la vista de guardar
+            # Si no hay productos nuevos ni sugeridos, ir directamente a la vista de guardar
             self._mostrar_ui_guardar_albaran()
+            
+    def _mostrar_dialogo_sugeridos(self):
+        """Muestra un diálogo informando sobre productos sugeridos."""
+        from kool_tpv.utils.dialogs import show_warning, show_info
+        sugeridos = self.parse_result.productos_sugeridos
+        total_sugeridos = len(sugeridos)
+        
+        msg = f"Se han detectado {total_sugeridos} productos que ya existen en la base de datos con el mismo nombre, pero con un código de barras diferente.\n\n"
+        msg += "¿Deseas VINCULAR el nuevo código de barras a los productos existentes?\n\n"
+        msg += "SI: Los vincula (RECOMENDADO)\n"
+        msg += "NO: Los tratará como productos NUEVOS"
+        
+        if show_warning(self.container, "Productos Duplicados Detectados", msg, confirm=True):
+            # Marcar sugeridos como existentes para el flujo de guardado
+            for linea in sugeridos:
+                linea.existe_en_bd = True
+                linea.producto_id = linea.sugerencia_id
+                # Añadir a existentes para que el flujo final lo encuentre
+                self.parse_result.productos_existentes.append(linea)
+            
+            # Limpiar la lista de sugeridos (ya procesados como vínculos)
+            self.parse_result.productos_sugeridos = []
+            
+            # Continuar con el flujo normal
+            self._on_continuar_click()
+        else:
+            # Tratarlos como nuevos: mover de productos_sugeridos a productos_nuevos
+            for linea in sugeridos:
+                self.parse_result.productos_nuevos.append(linea)
+            
+            self.parse_result.productos_sugeridos = []
+            
+            # Continuar con el flujo normal (ahora irán a creación de productos)
+            self._on_continuar_click()
 
     def _set_next_num(self):
         """Obtener el siguiente número de albarán disponible."""
@@ -664,6 +711,14 @@ class ImportarAlbaranUI:
         )
         self.btn_guardar.pack(side='left', padx=5)
 
+        self.btn_seguridad = ButtonFactory.create_button(
+            parent=btn_frame,
+            text='SEGURIDAD',
+            command=self._on_seguridad_click,
+            style_key='action_primary'
+        )
+        self.btn_seguridad.pack(side='left', padx=5)
+
         self.btn_crear_todos = ButtonFactory.create_button(
             parent=btn_frame,
             text=f'CREAR {total} PRODUCTOS',
@@ -732,7 +787,9 @@ class ImportarAlbaranUI:
         rows = []
 
         for ean, data in self._productos_data.items():
-            if data['completado']:
+            if data.get('vinculado'):
+                estado = '✓ VINCULADO'
+            elif data['completado']:
                 estado = '✓ OK'
             else:
                 estado = 'PENDIENTE'
@@ -901,7 +958,7 @@ class ImportarAlbaranUI:
         cantidad_final = cantidad_original * factor
 
         # Guardar en memoria (coste ya está en euros desde _iniciar_creacion_productos)
-        self._productos_data[ean] = {
+        new_data = {
             'ean': ean,
             'nombre': nombre,
             'sku': sku,
@@ -918,6 +975,13 @@ class ImportarAlbaranUI:
             'factor_conversion': factor,
             'cantidad_final': cantidad_final
         }
+
+        # Preservar vinculación si existía
+        if data.get('vinculado'):
+            new_data['vinculado'] = True
+            new_data['producto_id'] = data.get('producto_id')
+
+        self._productos_data[ean] = new_data
 
         # Actualizar tabla
         self._cargar_tabla_productos_nuevos()
@@ -945,6 +1009,68 @@ class ImportarAlbaranUI:
 
         logger.info(f'Producto {ean} guardado en memoria')
 
+    def _on_seguridad_click(self):
+        """Abrir el buscador de seguridad para vincular un producto existente."""
+        items = list(self._productos_data.items())
+        if self._current_producto_idx >= len(items):
+            return
+            
+        ean, data = items[self._current_producto_idx]
+        nombre_busqueda = data.get('nombre', '')
+        
+        def _callback_vinculacion(resultado):
+            if not resultado:
+                return
+            
+            # Actualizar datos en memoria
+            self._productos_data[ean].update({
+                'producto_id': resultado['producto_id'],
+                'nombre': resultado['nombre'], # Usar nombre real de la BD
+                'sku': resultado['sku'],
+                'pvp': Decimal(str(resultado['pvp'])),
+                'completado': True,
+                'vinculado': True
+            })
+
+            # ACTUALIZACIÓN CRÍTICA: Sincronizar el nombre en las líneas del albarán
+            # para que en la vista previa aparezca el nombre real de la BD
+            if hasattr(self, 'parse_result') and self.parse_result.lineas:
+                for linea in self.parse_result.lineas:
+                    if linea.ean == ean:
+                        linea.nombre = resultado['nombre']
+            
+            # Volver a la vista de creación
+            self._mostrar_ui_creacion_productos()
+            
+            # Seleccionar el mismo producto para ver los cambios
+            self._seleccionar_producto_por_idx(self._current_producto_idx)
+            
+            ToastWidget.show(self.container, f"Vinculado a: {resultado['nombre']}", tipo='success')
+            
+            # Si todos completados, habilitar botón final
+            completados = sum(1 for d in self._productos_data.values() if d['completado'])
+            if completados == len(self._productos_data):
+                self.btn_crear_todos.configure(state='normal')
+
+        def _callback_cancelar():
+            self._mostrar_ui_creacion_productos()
+            self._seleccionar_producto_por_idx(self._current_producto_idx)
+
+        # Limpiar container y cargar la subvista de seguridad (SIN VENTANAS FLOTANTES)
+        for widget in self.container.winfo_children():
+            widget.destroy()
+
+        from kool_tpv.modulos.almacen.ui.albaranes.importar_albaran_seguridad import AlbaranBusquedaSeguridadView
+        
+        busqueda_view = AlbaranBusquedaSeguridadView(
+            parent=self.container,
+            db=self.db,
+            query_inicial=nombre_busqueda,
+            on_vincular=_callback_vinculacion,
+            on_cancelar=_callback_cancelar
+        )
+        busqueda_view.pack(fill='both', expand=True)
+
     def _on_crear_todos_productos(self):
         """Crear todos los productos en la base de datos usando el repository."""
         try:
@@ -961,6 +1087,18 @@ class ImportarAlbaranUI:
             creados = 0
 
             for data in completados:
+                # Si el producto ya está vinculado, saltar la creación
+                if data.get('vinculado'):
+                    creados += 1
+                    logger.info(f"Producto ya vinculado: {data['ean']} -> ID {data['producto_id']}")
+                    
+                    # Sincronizar nombre en lineas del albarán por si acaso
+                    if hasattr(self, 'parse_result') and self.parse_result.lineas:
+                        for linea in self.parse_result.lineas:
+                            if linea.ean == data['ean']:
+                                linea.nombre = data['nombre']
+                    continue
+
                 try:
                     # Usar cantidad_final (con conversión aplicada) como stock
                     stock_producto = data.get('cantidad_final', 1)
@@ -1001,6 +1139,12 @@ class ImportarAlbaranUI:
                     data['producto_id'] = producto_id
                     creados += 1
                     logger.info(f'Producto creado: {data["ean"]} -> ID {producto_id}')
+
+                    # Sincronizar nombre en lineas del albarán (usar el nombre final editado)
+                    if hasattr(self, 'parse_result') and self.parse_result.lineas:
+                        for linea in self.parse_result.lineas:
+                            if linea.ean == data['ean']:
+                                linea.nombre = data['nombre']
                 except Exception as e:
                     logger.error(f'Error creando producto {data["ean"]}: {e}')
                     ToastWidget.show(self.container, f'Error creando {data["ean"]}: {e}', tipo='error')
@@ -1150,19 +1294,36 @@ class ImportarAlbaranUI:
 
             # Preparar líneas para el repository
             lineas_repo = []
-            for linea in self.parse_result.lineas:
-                # Buscar producto_id (productos nuevos ya tienen ID, existentes hay que buscar)
+            logger.info(f"DEBUG GUARDAR: Procesando {len(self.parse_result.lineas)} líneas para el repositorio")
+            
+            for i, linea in enumerate(self.parse_result.lineas):
                 producto_id = None
                 es_producto_nuevo = False
+                
+                # 1. ¿Es un producto que acabamos de completar en la UI de "Productos Nuevos"?
                 if hasattr(self, '_productos_data') and linea.ean in self._productos_data:
-                    producto_id = self._productos_data[linea.ean].get('producto_id')
-                    es_producto_nuevo = True  # Viene de productos_data = producto nuevo
-                # Si no está en productos nuevos, buscar en productos_existentes
+                    p_data = self._productos_data[linea.ean]
+                    producto_id = p_data.get('producto_id')
+                    es_producto_nuevo = True
+                    logger.info(f"DEBUG LÍNEA {i}: Producto NUEVO detectado. EAN={linea.ean}, ID={producto_id}")
+                
+                # 2. Si no, ¿ya tenía un producto_id (vinculado o existente)?
                 if not producto_id:
-                    for prod in self.parse_result.productos_existentes:
-                        if prod.ean == linea.ean:
-                            producto_id = prod.producto_id
+                    producto_id = getattr(linea, 'producto_id', None)
+                    if producto_id:
+                        logger.info(f"DEBUG LÍNEA {i}: Producto EXISTENTE/VINCULADO detectado en el objeto linea. EAN={linea.ean}, ID={producto_id}")
+                
+                # 3. Fallback de seguridad: buscar en todas las listas del resultado
+                if not producto_id:
+                    # Buscar en existentes
+                    for p in self.parse_result.productos_existentes:
+                        if p.ean == linea.ean:
+                            producto_id = p.producto_id
+                            logger.info(f"DEBUG LÍNEA {i}: Producto encontrado en productos_existentes. EAN={linea.ean}, ID={producto_id}")
                             break
+                
+                if not producto_id:
+                    logger.warning(f"DEBUG LÍNEA {i}: NO SE HA ENCONTRADO PRODUCTO_ID para EAN={linea.ean} ({linea.nombre})")
 
                 lineas_repo.append({
                     'producto_id': producto_id,
