@@ -34,6 +34,7 @@ class ConfigView(BaseModuleView):
             'open_config_reset': getattr(self, 'show_reset', None),
             'show_diseno_ui': getattr(self, 'show_diseno_ui', None),
             'open_config_nube': getattr(self, 'show_nube', None),
+            'open_config_audit': getattr(self, 'show_audit', None),
             'show_fidelizacion_general': getattr(self, 'show_fidelizacion_general', None),
             'show_fidelizacion_categorias': getattr(self, 'show_fidelizacion_categorias', None),
             'show_fidelizacion_tipos': getattr(self, 'show_fidelizacion_tipos', None),
@@ -193,6 +194,7 @@ class ConfigView(BaseModuleView):
             'PLANTILLAS': self.show_plantillas,
             'WASSAP': self.show_whatsapp_templates,
             'PLANTILLAS INFORMES': self.show_plantillas_informes,
+            'AUDITORÍA': self._show_audit_view,
         }
 
         try:
@@ -326,6 +328,62 @@ class ConfigView(BaseModuleView):
 
         except Exception:
             logging.exception('Error en show_usuario')
+
+    def show_audit(self):
+        """Mostrar logs de auditoría (protegido por password admin)."""
+        try:
+            parent = self._get_dialog_parent()
+            from kool_tpv.utils.dialogs import show_password_dialog, show_warning
+
+            password = show_password_dialog(
+                parent,
+                titulo="Autenticación Admin",
+                mensaje="Acceso a Logs de Auditoría\nIntroduce contraseña de administrador:"
+            )
+
+            if password is None or password == "":
+                return
+
+            is_valid = False
+            try:
+                if self.auth_service:
+                    res = self.auth_service.validate_admin_password(password)
+                    if isinstance(res, tuple):
+                        is_valid = bool(res[0])
+                    else:
+                        is_valid = bool(res)
+                else:
+                    is_valid = False
+            except Exception:
+                is_valid = False
+
+            if is_valid:
+                logging.info('Config: abriendo AUDITORÍA (autenticado)...')
+                self._show_audit_view()
+            else:
+                show_warning(
+                    parent,
+                    "ACCESO DENEGADO",
+                    "Contraseña incorrecta.\nInténtalo de nuevo.",
+                    callback=self.show_audit
+                )
+
+        except Exception:
+            logging.exception('Error en show_audit')
+
+    def _show_audit_view(self):
+        """Carga la vista de auditoría en el área central."""
+        try:
+            from kool_tpv.modulos.configuracion.audit_logs_ui import AuditLogsUI
+            ui = AuditLogsUI(self.central_area, db=self.db, module_name='config', keyboard_manager=self.keyboard_mgr)
+            if self.set_central_content(ui):
+                try:
+                    self.actualizar_ruta('CONFIG / AUDITORÍA', callbacks=self.breadcrumb_callbacks)
+                except Exception:
+                    pass
+                logging.info('Config: vista de AUDITORÍA cargada.')
+        except Exception:
+            logging.exception('Error cargando AuditLogsUI')
 
     def show_fidelizacion(self):
         """Abrir submenu de Fidelización: cambia sidebar y muestra opciones."""
@@ -597,6 +655,7 @@ class ConfigView(BaseModuleView):
                 'show_usuarios': self.show_usuarios,
                 'open_config_fidelizacion': self.show_fidelizacion,
                 'open_config_nube': self.show_nube,
+                'open_config_audit': self.show_audit,
                 'open_config_reset': self.show_reset,
                 'show_diseno_ui': self.show_diseno_ui,
             }

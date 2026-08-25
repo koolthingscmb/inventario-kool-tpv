@@ -58,6 +58,7 @@
       {"id": "fidelizacion", "text": "FIDELIZACIÓN", "action": "open_config_fidelizacion"},
       {"id": "diseno_ui", "text": "DISEÑO UI", "action": "show_diseno_ui"},
       {"id": "nube", "text": "NUBE", "action": "open_config_nube"},
+      {"id": "audit", "text": "AUDITORÍA", "action": "open_config_audit"},
       {"id": "reset", "text": "RESET", "action": "open_config_reset"}
     ],
     "impresion_submenu": {
