@@ -42,11 +42,12 @@ logger = logging.getLogger(__name__)
 
 
 class CrearProductoUI:
-    def __init__(self, parent, db: Optional[object] = None, producto_id: Optional[int] = None, module_name: str = 'almacen'):
+    def __init__(self, parent, db: Optional[object] = None, producto_id: Optional[int] = None, module_name: str = 'almacen', owner=None):
         self.parent = parent
         self.db = db
         self.module_name = module_name
         self.producto_id = producto_id
+        self.owner = owner
         self.repo = ProductoRepository(db) if db is not None else None
         from kool_tpv.utils.config_loader import load_colors
         try:
@@ -384,6 +385,11 @@ class CrearProductoUI:
         # Guardar (desde config)
         self.btn_guardar = create_action_button(self.btn_frame, 'guardar', self._on_save)
         self.btn_guardar.pack(side='left', padx=8)
+        # Movimientos (nuevo)
+        self.btn_movimientos = create_action_button(self.btn_frame, 'buscar_articulo', self._on_ver_movimientos)
+        self.btn_movimientos.configure(text='MOVIMIENTOS')
+        self.btn_movimientos.pack(side='left', padx=8)
+
         # Sincronizar (desde config)
         self.btn_sync = create_action_button(self.btn_frame, 'sincronizar', self._on_sync)
         self.btn_sync.pack(side='left', padx=8)
@@ -404,6 +410,31 @@ class CrearProductoUI:
             self.cb_proveedor.entry.bind('<Return>', lambda e: self._validate_combo_focus(self.cb_proveedor))
         except Exception:
             pass
+
+    def _on_ver_movimientos(self):
+        """Abre la subvista de movimientos previo paso por password de admin."""
+        if self.producto_id is None:
+            ToastWidget.show(self.container, "Guarda el producto primero", tipo='warning')
+            return
+
+        from kool_tpv.utils.dialogs import show_password_dialog, show_error
+        
+        # 1. Autenticación de Admin
+        pwd = show_password_dialog(self.container, titulo="ACCESO HISTORIAL", mensaje="Introduce CONTRASEÑA de administrador:")
+        if not pwd:
+            return
+            
+        auth = AuthService(self.db)
+        valid, user = auth.validate_admin_password(pwd)
+        if not valid:
+            show_error(self.container, "ERROR", "Contraseña incorrecta o permisos insuficientes")
+            return
+            
+        # 2. Abrir vista via Owner (AlmacenView)
+        if self.owner and hasattr(self.owner, 'show_movimientos_producto'):
+            self.owner.show_movimientos_producto(self.producto_id)
+        else:
+            logger.error("No hay referencia al owner o método show_movimientos_producto")
 
     def _auto_generate_sku(self):
         """Genera automáticamente el SKU si el producto es nuevo y los campos base están presentes."""

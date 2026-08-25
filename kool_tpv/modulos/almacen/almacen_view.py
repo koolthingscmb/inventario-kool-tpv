@@ -260,7 +260,7 @@ class AlmacenView(BaseModuleView):
                 self._nav_stack.append(lambda t=termino, f=filtros: self._show_busqueda_with_state(t, f))
 
             try:
-                crear_ui = CrearProductoUI(self.central_area, db=self.db, producto_id=producto_id, module_name='almacen')
+                crear_ui = CrearProductoUI(self.central_area, db=self.db, producto_id=producto_id, module_name='almacen', owner=self)
                 widget = crear_ui.get_widget() if hasattr(crear_ui, 'get_widget') else crear_ui
                 if self.set_central_content(widget):
                     self.actualizar_ruta('ALMACEN / CREAR_PRODUCTO', callbacks=self.breadcrumb_callbacks)
@@ -310,6 +310,17 @@ class AlmacenView(BaseModuleView):
             logging.info('Abriendo búsqueda...')
         except Exception:
             logging.exception('Error abriendo busqueda en AlmacenView')
+
+    def show_movimientos_producto(self, producto_id: int):
+        """Muestra el historial de movimientos de un producto."""
+        try:
+            from .ui.Productos.producto_movimientos_ui import ProductoMovimientosUI
+            ui = ProductoMovimientosUI(self.central_area, db=self.db, producto_id=producto_id, module_name='almacen')
+            if self.set_central_content(ui.get_widget()):
+                self.actualizar_ruta(f'ALMACEN / MOVIMIENTOS', callbacks=self.breadcrumb_callbacks)
+                logging.info(f'Mostrando movimientos del producto id={producto_id}')
+        except Exception:
+            logging.exception(f'Error mostrando movimientos del producto id={producto_id}')
 
     def show_albaranes(self):
         """Vista top-level: limpia el stack."""
