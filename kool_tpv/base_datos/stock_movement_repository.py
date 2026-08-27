@@ -19,7 +19,8 @@ class StockMovementRepository:
                     sm.motivo,
                     sm.usuario_id,
                     sm.created_at,
-                    u.nombre as usuario_nombre
+                    u.nombre as usuario_nombre,
+                    sm.ticket_line_id
                 FROM stock_movements sm
                 LEFT JOIN usuarios u ON sm.usuario_id = u.id
                 WHERE sm.producto_id = ?
@@ -36,22 +37,26 @@ class StockMovementRepository:
                     'motivo': row[3],
                     'usuario_id': row[4],
                     'created_at': row[5],
-                    'usuario_nombre': row[6] or 'Sistema/Auto'
+                    'usuario_nombre': row[6] or 'Sistema/Auto',
+                    'ticket_line_id': row[7]
                 })
             return result
         except Exception:
             logger.exception(f"Error obteniendo movimientos para producto_id={producto_id}")
             return []
 
-    def registrar_movimiento(self, producto_id: int, cantidad: int, motivo: str, usuario_id: Optional[int] = None, cur=None) -> bool:
+    def registrar_movimiento(self, producto_id: int, cantidad: int, motivo: str, 
+                             usuario_id: Optional[int] = None, 
+                             ticket_line_id: Optional[int] = None,
+                             cur=None) -> bool:
         """Registra un nuevo movimiento de stock."""
         try:
             query = """
-                INSERT INTO stock_movements (producto_id, cantidad, motivo, usuario_id, created_at)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO stock_movements (producto_id, cantidad, motivo, usuario_id, ticket_line_id, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
             """
             created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            params = (producto_id, cantidad, motivo, usuario_id, created_at)
+            params = (producto_id, cantidad, motivo, usuario_id, ticket_line_id, created_at)
             
             if cur:
                 cur.execute(query, params)

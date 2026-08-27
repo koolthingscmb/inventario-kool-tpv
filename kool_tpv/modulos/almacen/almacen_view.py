@@ -313,9 +313,12 @@ class AlmacenView(BaseModuleView):
 
     def show_movimientos_producto(self, producto_id: int):
         """Muestra el historial de movimientos de un producto."""
+        # Guardar callback para volver a la ficha del producto
+        self._nav_stack.append(lambda: self.show_crear(producto_id=producto_id))
+        
         try:
             from .ui.Productos.producto_movimientos_ui import ProductoMovimientosUI
-            ui = ProductoMovimientosUI(self.central_area, db=self.db, producto_id=producto_id, module_name='almacen')
+            ui = ProductoMovimientosUI(self.central_area, db=self.db, producto_id=producto_id, module_name='almacen', owner=self)
             if self.set_central_content(ui.get_widget()):
                 self.actualizar_ruta(f'ALMACEN / MOVIMIENTOS', callbacks=self.breadcrumb_callbacks)
                 logging.info(f'Mostrando movimientos del producto id={producto_id}')
@@ -423,13 +426,27 @@ class AlmacenView(BaseModuleView):
         except Exception:
             logging.exception('Error abriendo configurador de mapeos en AlmacenView')
 
-    def show_entrada_manual(self, albaran_id=None):
-        """Sub-vista de albaranes: push show_albaranes al stack."""
-        self._nav_stack.append(lambda: self.show_albaranes())
+    def show_entrada_manual(self, albaran_id=None, back_callback=None):
+        """Sub-vista de albaranes.
+        
+        Args:
+            albaran_id: ID del albarán a editar/ver.
+            back_callback: Función a ejecutar al pulsar 'Volver'. Si es None, vuelve a show_albaranes.
+        """
+        # Determinar a dónde volver
+        cb_volver = back_callback if back_callback else lambda: self.show_albaranes()
+        self._nav_stack.append(cb_volver)
+        
         try:
             from .ui.albaranes.entrada_manual import EntradaManualUI
             try:
-                entrada_ui = EntradaManualUI(self.central_area, db=self.db, module_name='almacen', albaran_id=albaran_id)
+                entrada_ui = EntradaManualUI(
+                    self.central_area, 
+                    db=self.db, 
+                    module_name='almacen', 
+                    albaran_id=albaran_id,
+                    keyboard_manager=self.keyboard_mgr
+                )
                 if self.set_central_content(entrada_ui):
                     ruta = 'ALBARANES / EDITAR ALBARÁN' if albaran_id else 'ALBARANES / ENTRADA MANUAL'
                     self.actualizar_ruta(ruta, callbacks=self.breadcrumb_callbacks)

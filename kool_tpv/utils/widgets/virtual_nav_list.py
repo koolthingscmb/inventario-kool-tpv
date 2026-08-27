@@ -376,8 +376,8 @@ class VirtualNavList(ctk.CTkFrame):
         
         # Bindings (clic, doble clic, scroll)
         for w in [row_frame] + labels:
-            w.bind('<Button-1>', lambda e, i=idx_in_pool: self._on_row_click(i, e))
-            w.bind('<Double-Button-1>', lambda e, i=idx_in_pool: self._on_row_double_click(i))
+            w.bind('<Button-1>', lambda e=None, i=idx_in_pool: self._on_row_click(i, e))
+            w.bind('<Double-Button-1>', lambda e=None, i=idx_in_pool: self._on_row_double_click(i))
             w.bind('<MouseWheel>', self._on_mousewheel)
             w.bind('<Button-4>',   self._on_mousewheel)
             w.bind('<Button-5>',   self._on_mousewheel)

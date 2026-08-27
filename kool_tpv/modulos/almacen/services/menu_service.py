@@ -2,6 +2,7 @@ from typing import List, Dict, Optional, Tuple
 import logging
 from kool_tpv.modulos.almacen.producto_repository import ProductoRepository
 from kool_tpv.modulos.almacen.menu_repository import MenuRepository
+from kool_tpv.base_datos.stock_movement_repository import StockMovementRepository
 from kool_tpv.base_datos.money_adapter import prepare_for_db, read_from_db
 
 logger = logging.getLogger(__name__)
@@ -13,6 +14,7 @@ class MenuService:
         self.db = db
         self.prod_repo = ProductoRepository(db)
         self.menu_repo = MenuRepository(db)
+        self.stock_movements = StockMovementRepository(db)
 
     def guardar_menu(self, 
                      nombre: str, 
@@ -136,9 +138,11 @@ class MenuService:
                     'UPDATE productos SET stock_actual = COALESCE(stock_actual, 0) + ? WHERE id = ?',
                     (stock_change, componente_id)
                 )
-                cur.execute(
-                    'INSERT INTO stock_movements (producto_id, cantidad, motivo, ticket_line_id) VALUES (?, ?, ?, ?)',
-                    (componente_id, stock_change, f'menu:{ticket_id}', None)
+                self.stock_movements.registrar_movimiento(
+                    producto_id=componente_id,
+                    cantidad=stock_change,
+                    motivo=f'menu:{ticket_id}',
+                    cur=cur
                 )
         except Exception:
             logger.exception("Error descontando componentes del menú id=%s", producto_id)

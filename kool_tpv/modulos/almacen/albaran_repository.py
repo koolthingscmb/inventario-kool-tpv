@@ -3,6 +3,7 @@ from decimal import Decimal
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.base_datos.money_adapter import prepare_for_db
 from kool_tpv.base_datos.audit_service import AuditService
+from kool_tpv.base_datos.stock_movement_repository import StockMovementRepository
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +12,7 @@ class AlbaranRepository:
     def __init__(self, db: Database):
         self.db = db
         self.audit = AuditService(db)
+        self.stock_movements = StockMovementRepository(db)
 
     def guardar_albaran_completo(
         self, num_albaran, proveedor_id, fecha, tipo, lineas, totales, usuario_id=None, cur=None
@@ -102,9 +104,12 @@ class AlbaranRepository:
                             (cantidad_ajuste, line['producto_id'])
                         )
                         # Registrar movimiento de stock con usuario_id
-                        cur.execute(
-                            "INSERT INTO stock_movements (producto_id, cantidad, motivo, usuario_id) VALUES (?, ?, ?, ?)",
-                            (line['producto_id'], cantidad_ajuste, f"albaran:{num_albaran}", usuario_id)
+                        self.stock_movements.registrar_movimiento(
+                            producto_id=line['producto_id'],
+                            cantidad=cantidad_ajuste,
+                            motivo=f"albaran:{num_albaran}",
+                            usuario_id=usuario_id,
+                            cur=cur
                         )
                     except Exception as e:
                         logger.warning('Error actualizando stock producto %s: %s', line['producto_id'], e)
@@ -212,9 +217,12 @@ class AlbaranRepository:
                         if producto_id:
                             cur.execute("UPDATE productos SET stock_actual = stock_actual + ? WHERE id = ?", (stock_adj, producto_id))
                             # Log de movimiento con usuario_id
-                            cur.execute(
-                                "INSERT INTO stock_movements (producto_id, cantidad, motivo, usuario_id) VALUES (?, ?, ?, ?)",
-                                (producto_id, stock_adj, f"Edición Albarán {num_albaran} (Ajuste cantidad)", usuario_id)
+                            self.stock_movements.registrar_movimiento(
+                                producto_id=producto_id,
+                                cantidad=stock_adj,
+                                motivo=f"Edición Albarán {num_albaran} (Ajuste cantidad)",
+                                usuario_id=usuario_id,
+                                cur=cur
                             )
                     
                     # Actualizar la línea en BD
@@ -272,9 +280,12 @@ class AlbaranRepository:
 
                         stock_adj = cantidad_nueva if tipo_alb == 'ENTRADA' else -cantidad_nueva
                         cur.execute("UPDATE productos SET stock_actual = stock_actual + ? WHERE id = ?", (stock_adj, producto_id))
-                        cur.execute(
-                            "INSERT INTO stock_movements (producto_id, cantidad, motivo, usuario_id) VALUES (?, ?, ?, ?)",
-                            (producto_id, stock_adj, f"Edición Albarán {num_albaran} (Línea añadida)", usuario_id)
+                        self.stock_movements.registrar_movimiento(
+                            producto_id=producto_id,
+                            cantidad=stock_adj,
+                            motivo=f"Edición Albarán {num_albaran} (Línea añadida)",
+                            usuario_id=usuario_id,
+                            cur=cur
                         )
 
             # 4. Borrar líneas que ya no están en la lista (Líneas eliminadas)
@@ -285,9 +296,12 @@ class AlbaranRepository:
                     # Revertir stock completamente
                     adj = -old_l['cantidad'] if tipo_alb == 'ENTRADA' else old_l['cantidad']
                     cur.execute("UPDATE productos SET stock_actual = stock_actual + ? WHERE id = ?", (adj, old_l['producto_id']))
-                    cur.execute(
-                        "INSERT INTO stock_movements (producto_id, cantidad, motivo, usuario_id) VALUES (?, ?, ?, ?)",
-                        (old_l['producto_id'], adj, f"Edición Albarán {num_albaran} (Línea eliminada)", usuario_id)
+                    self.stock_movements.registrar_movimiento(
+                        producto_id=old_l['producto_id'],
+                        cantidad=adj,
+                        motivo=f"Edición Albarán {num_albaran} (Línea eliminada)",
+                        usuario_id=usuario_id,
+                        cur=cur
                     )
                 cur.execute("DELETE FROM albaran_lines WHERE id = ?", (lid,))
 

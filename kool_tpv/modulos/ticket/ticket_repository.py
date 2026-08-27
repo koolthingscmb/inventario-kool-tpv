@@ -12,6 +12,7 @@ from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.base_datos.money_adapter import prepare_for_db
 from kool_tpv.base_datos.money_adapter import read_from_db
 from kool_tpv.base_datos.audit_service import AuditService
+from kool_tpv.base_datos.stock_movement_repository import StockMovementRepository
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,7 @@ class TicketRepository:
     def __init__(self, db: Database):
         self.db = db
         self.audit = AuditService(db)
+        self.stock_movements = StockMovementRepository(db)
 
     def insert_ticket(self, *, created_at, cajero, cliente, cliente_id, num_ticket,
                       subtotal_cents, forma_pago, total_cents, pagado_cents, cambio_cents,
@@ -140,7 +142,14 @@ class TicketRepository:
             cur = self.db.connection.cursor()
         try:
             cur.execute('UPDATE productos SET stock_actual = COALESCE(stock_actual,0) + ?, ventas_totales = COALESCE(ventas_totales,0) + ? WHERE id = ?', (stock_change, ventas_change, producto_id))
-            cur.execute('INSERT INTO stock_movements (producto_id, cantidad, motivo, ticket_line_id, usuario_id) VALUES (?, ?, ?, ?, ?)', (producto_id, stock_change, motivo, ticket_line_id, usuario_id))
+            self.stock_movements.registrar_movimiento(
+                producto_id=producto_id,
+                cantidad=stock_change,
+                motivo=motivo,
+                usuario_id=usuario_id,
+                ticket_line_id=ticket_line_id,
+                cur=cur
+            )
             if not use_external_cursor:
                 self.db.connection.commit()
         except Exception:
@@ -155,14 +164,14 @@ class TicketRepository:
 
     def insert_stock_movement(self, producto_id: int, cantidad: int, motivo: str, ticket_line_id: Optional[int], usuario_id: Optional[int] = None, cur=None):
         try:
-            # Allow ticket_line_id to be None - the FK permits NULL. Insert and let callers
-            # handle transactionality. Detailed exception logging is important for debugging.
-            use_external_cursor = cur is not None
-            if not use_external_cursor:
-                cur = self.db.connection.cursor()
-            cur.execute('INSERT INTO stock_movements (producto_id, cantidad, motivo, ticket_line_id, usuario_id) VALUES (?, ?, ?, ?, ?)', (producto_id, cantidad, motivo, ticket_line_id, usuario_id))
-            if not use_external_cursor:
-                self.db.connection.commit()
+            self.stock_movements.registrar_movimiento(
+                producto_id=producto_id,
+                cantidad=cantidad,
+                motivo=motivo,
+                usuario_id=usuario_id,
+                ticket_line_id=ticket_line_id,
+                cur=cur
+            )
         except Exception:
             logger.exception('insert_stock_movement failed for producto_id=%s, ticket_line_id=%s', producto_id, ticket_line_id)
 

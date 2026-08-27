@@ -32,9 +32,20 @@ class EntradaManualUI:
         self.albaran_id = albaran_id  # None = nuevo albarán, int = edición
         from kool_tpv.utils.config_loader import load_colors
         try:
-            self.colors = load_colors(module_name)
+            self.colors = load_colors(module_name) or {}
+            # Asegurar claves mínimas para evitar KeyError
+            for k in ['text', 'primary', 'secondary', 'accent', 'bg_dark', 'background']:
+                if k not in self.colors:
+                    self.colors[k] = COLOR_MATRIX if k != 'background' and k != 'bg_dark' else COLOR_BG_TERMINAL
         except Exception:
-            self.colors = {'text': COLOR_MATRIX, 'primary': COLOR_MATRIX, 'secondary': COLOR_MATRIX, 'accent': COLOR_MATRIX}
+            self.colors = {
+                'text': COLOR_MATRIX, 
+                'primary': COLOR_MATRIX, 
+                'secondary': COLOR_MATRIX, 
+                'accent': COLOR_MATRIX,
+                'bg_dark': COLOR_BG_TERMINAL,
+                'background': COLOR_BG_TERMINAL
+            }
         self.albaran_service = AlbaranService(db)
         self.proveedor_service = ProveedorService(db)
         from kool_tpv.modulos.almacen.producto_repository import ProductoRepository
@@ -71,9 +82,9 @@ class EntradaManualUI:
         )
         btn_siguiente.pack(side='left', padx=(0, 20))
 
-        ctk.CTkLabel(header_frame, text='PROVEEDOR:', text_color=self.colors['text'],
+        ctk.CTkLabel(header_frame, text='PROVEEDOR:', text_color=self.colors.get('text', COLOR_MATRIX),
                  font=get_font('label', module=self.module_name)).pack(side='left', padx=(0, 6))
-        self.cb_proveedor = SearchableCombo(header_frame, options=[], placeholder='Buscar proveedor', width=250)
+        self.cb_proveedor = SearchableCombo(header_frame, options=[], placeholder='Buscar proveedor', width=250, module_name=self.module_name)
         self.cb_proveedor.pack(side='left', padx=(0, 20))
         self._load_proveedores()
 
@@ -92,7 +103,7 @@ class EntradaManualUI:
         texto_titulo = titulos.get(self.tipo, 'INTRODUCIR DATOS LÍNEA ALBARÁN')
 
         lbl_entrada = ctk.CTkLabel(self.container, text=texto_titulo,
-                       text_color=self.colors['text'], font=get_font('label', module=self.module_name), anchor='w')
+                       text_color=self.colors.get('text', COLOR_MATRIX), font=get_font('label', module=self.module_name), anchor='w')
         lbl_entrada.pack(fill='x', padx=6, pady=(6, 2))
 
         # Layout principal: dos columnas (buscador izquierda | entrada+líneas derecha)
@@ -152,7 +163,7 @@ class EntradaManualUI:
 
         x = 6
         for i, h in enumerate(headers_input):
-            lbl = ctk.CTkLabel(cab_frame, text=h, text_color=self.colors['text'], anchor='w',
+            lbl = ctk.CTkLabel(cab_frame, text=h, text_color=self.colors.get('text', COLOR_MATRIX), anchor='w',
                               font=get_font('small', module=self.module_name), width=col_widths[i]-8)
             lbl.place(x=x, y=0)
             x += col_widths[i]
@@ -276,13 +287,13 @@ class EntradaManualUI:
         totales_frame.pack(fill='x', pady=12)
         totales_frame.pack_propagate(False)
 
-        self.lbl_neto = ctk.CTkLabel(totales_frame, text='Neto: 0.00€', text_color=self.colors['text'], font=font_tuple)
+        self.lbl_neto = ctk.CTkLabel(totales_frame, text='Neto: 0.00€', text_color=self.colors.get('text', COLOR_MATRIX), font=font_tuple)
         self.lbl_neto.pack(side='left', padx=12)
-        self.lbl_iva4 = ctk.CTkLabel(totales_frame, text='IVA 4%: 0.00€', text_color=self.colors['text'], font=font_tuple)
+        self.lbl_iva4 = ctk.CTkLabel(totales_frame, text='IVA 4%: 0.00€', text_color=self.colors.get('text', COLOR_MATRIX), font=font_tuple)
         self.lbl_iva4.pack(side='left', padx=12)
-        self.lbl_iva10 = ctk.CTkLabel(totales_frame, text='IVA 10%: 0.00€', text_color=self.colors['text'], font=font_tuple)
+        self.lbl_iva10 = ctk.CTkLabel(totales_frame, text='IVA 10%: 0.00€', text_color=self.colors.get('text', COLOR_MATRIX), font=font_tuple)
         self.lbl_iva10.pack(side='left', padx=12)
-        self.lbl_iva21 = ctk.CTkLabel(totales_frame, text='IVA 21%: 0.00€', text_color=self.colors['text'], font=font_tuple)
+        self.lbl_iva21 = ctk.CTkLabel(totales_frame, text='IVA 21%: 0.00€', text_color=self.colors.get('text', COLOR_MATRIX), font=font_tuple)
         self.lbl_iva21.pack(side='left', padx=12)
         self.lbl_total = ctk.CTkLabel(totales_frame, text='TOTAL: 0.00€', text_color=self.colors.get('error', '#e74c3c'), font=font_tuple)
         self.lbl_total.pack(side='left', padx=20)

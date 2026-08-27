@@ -13,6 +13,7 @@ from typing import Optional, Dict, Any, List
 
 from kool_tpv.base_datos.money_adapter import prepare_for_db, read_from_db
 from kool_tpv.base_datos.audit_service import AuditService
+from kool_tpv.base_datos.stock_movement_repository import StockMovementRepository
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,7 @@ class ProductoRepository:
     def __init__(self, db: Database):
         self.db = db
         self.audit = AuditService(db)
+        self.stock_movements = StockMovementRepository(db)
         self._create_indexes()
 
     def _create_indexes(self) -> None:
@@ -475,9 +477,12 @@ WHERE 1=1
                     (cantidad_ajuste, producto_id)
                 )
                 # 2. Registrar movimiento técnico con usuario_id
-                cur.execute(
-                    "INSERT INTO stock_movements (producto_id, cantidad, motivo, usuario_id) VALUES (?, ?, ?, ?)",
-                    (producto_id, cantidad_ajuste, motivo, usuario_id)
+                self.stock_movements.registrar_movimiento(
+                    producto_id=producto_id,
+                    cantidad=cantidad_ajuste,
+                    motivo=motivo,
+                    usuario_id=usuario_id,
+                    cur=cur
                 )
                 
                 # 3. Auditoría de gestión
