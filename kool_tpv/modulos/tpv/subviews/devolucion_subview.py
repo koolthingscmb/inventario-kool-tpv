@@ -1,5 +1,8 @@
 from customtkinter import CTkFrame, CTkLabel
 import logging
+from decimal import Decimal
+from kool_tpv.utils.widgets.notificaciones import ToastWidget
+from kool_tpv.utils.dialogs import show_input_dialog
 
 logger = logging.getLogger(__name__)
 
@@ -199,6 +202,31 @@ class DevolucionSubView(CTkFrame):
         except Exception:
             logging.exception('Error en boton cliente')
 
+    def _after_item_added(self):
+        """Refresca la UI y cierra la subvista tras añadir un item."""
+        try:
+            if getattr(self.view, 'ticket_carrito', None):
+                self.view.ticket_carrito.update_carrito()
+            top = self.winfo_toplevel()
+            if getattr(top, 'carrito_ui', None) is not None:
+                top.carrito_ui.update_display()
+        except Exception:
+            pass
+
+        # Close subview (pop)
+        try:
+            if getattr(self, 'view', None) is not None and hasattr(self.view, 'pop_subview'):
+                self.view.pop_subview()
+        except Exception:
+            pass
+
+        # Mostrar indicador MODO DEVOLUCIÓN en payment_area
+        try:
+            from kool_tpv.modulos.tpv.button_action_mapper import _activate_payment
+            _activate_payment(self.view, 'devolucion')
+        except Exception:
+            pass
+
     def _on_producto_double_click(self, data):
         try:
             # If no data provided, use selected row
@@ -220,45 +248,55 @@ class DevolucionSubView(CTkFrame):
             except Exception:
                 producto = data
 
-            added = False
-            try:
-                if getattr(self, 'devoluciones_service', None) is not None:
-                    added = self.devoluciones_service.add_devolucion_item(producto, cantidad=1)
-                else:
-                    # fallback: use carrito_service but mark as devolucion
-                    prod = producto.copy()
+            def _finalizar_devolucion(prod_final):
+                added = False
+                try:
+                    if getattr(self, 'devoluciones_service', None) is not None:
+                        added = self.devoluciones_service.add_devolucion_item(prod_final, cantidad=1)
+                    else:
+                        # fallback: use carrito_service but mark as devolucion
+                        prod = prod_final.copy()
+                        try:
+                            producto_para_carrito = self.producto_service.get_producto_para_carrito(prod, cantidad=1, line_tipo='devolucion')
+                            added = self.carrito_service.add_item(producto_para_carrito)
+                        except Exception:
+                            logging.exception('DevolucionSubView: error añadiendo via carrito fallback')
+                except Exception:
+                    logging.exception('DevolucionSubView: error añadiendo devolucion')
+
+                if added:
+                    self._after_item_added()
+
+            # Si el PVP es variable, preguntar precio
+            if int(producto.get('pvp_variable', 0)) == 1:
+                def on_price_entered(valor):
+                    if valor is None:
+                        return
                     try:
-                        producto_para_carrito = self.producto_service.get_producto_para_carrito(prod, cantidad=1, line_tipo='devolucion')
-                        added = self.carrito_service.add_item(producto_para_carrito)
+                        # Normalizar separador decimal (coma a punto)
+                        valor_limpio = str(valor).replace(',', '.')
+                        nuevo_pvp = Decimal(valor_limpio)
+                        if nuevo_pvp < 0:
+                            ToastWidget.show(self.view, "EL PRECIO NO PUEDE SER NEGATIVO", tipo='error')
+                            return
+                        
+                        # Actualizar PVP y añadir
+                        producto['pvp'] = nuevo_pvp
+                        _finalizar_devolucion(producto)
                     except Exception:
-                        logging.exception('DevolucionSubView: error añadiendo via carrito fallback')
-            except Exception:
-                logging.exception('DevolucionSubView: error añadiendo devolucion')
+                        ToastWidget.show(self.view, "PRECIO INVÁLIDO", tipo='error')
 
-            if added:
-                # refresh carrito UI if available
-                try:
-                    if getattr(self.view, 'ticket_carrito', None):
-                        self.view.ticket_carrito.update_carrito()
-                    top = self.winfo_toplevel()
-                    if getattr(top, 'carrito_ui', None) is not None:
-                        top.carrito_ui.update_display()
-                except Exception:
-                    pass
-
-                # Close subview (pop)
-                try:
-                    if getattr(self, 'view', None) is not None and hasattr(self.view, 'pop_subview'):
-                        self.view.pop_subview()
-                except Exception:
-                    pass
-
-                # Mostrar indicador MODO DEVOLUCIÓN en payment_area
-                try:
-                    from kool_tpv.modulos.tpv.button_action_mapper import _activate_payment
-                    _activate_payment(self.view, 'devolucion')
-                except Exception:
-                    pass
+                show_input_dialog(
+                    parent=self.view,
+                    tipo='info',
+                    titulo='PRECIO VARIABLE',
+                    mensaje=f"INTRODUCE EL PRECIO PARA:\n{producto.get('nombre', '').upper()}",
+                    valor_defecto="",
+                    callback=on_price_entered,
+                    window_title="PVP VARIABLE"
+                )
+            else:
+                _finalizar_devolucion(producto)
 
         except Exception:
             logging.exception('Error añadiendo producto al carrito desde DevolucionSubView')
@@ -295,12 +333,7 @@ class DevolucionSubView(CTkFrame):
         except Exception:
             return {}
 
-    # NOTE: _handle_power removed - TpvView handles power button via pop_subview()
-    # Individual subviews don't need their own power handlers
-
     def destroy(self):
-        # NOTE: No need to unregister - we don't register in __init__ anymore
-        # TpvView manages power handling for all subviews
         try:
             if getattr(self, 'devoluciones_service', None) is not None:
                 self.devoluciones_service.end_devolucion()
