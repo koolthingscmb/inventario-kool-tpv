@@ -318,7 +318,14 @@ class AlmacenView(BaseModuleView):
         
         try:
             from .ui.Productos.producto_movimientos_ui import ProductoMovimientosUI
-            ui = ProductoMovimientosUI(self.central_area, db=self.db, producto_id=producto_id, module_name='almacen', owner=self)
+            ui = ProductoMovimientosUI(
+                self.central_area, 
+                db=self.db, 
+                producto_id=producto_id, 
+                module_name='almacen', 
+                owner=self,
+                keyboard_manager=self.keyboard_mgr
+            )
             if self.set_central_content(ui.get_widget()):
                 self.actualizar_ruta(f'ALMACEN / MOVIMIENTOS', callbacks=self.breadcrumb_callbacks)
                 logging.info(f'Mostrando movimientos del producto id={producto_id}')

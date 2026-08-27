@@ -15,9 +15,10 @@ from kool_tpv.modulos.impresion.impresora_service import ImpresoraService
 logger = logging.getLogger(__name__)
 
 class ProductoMovimientosUI(PaginaConVisor):
-    def __init__(self, parent, db, producto_id: int, module_name: str = 'almacen', owner=None):
+    def __init__(self, parent, db, producto_id: int, module_name: str = 'almacen', owner=None, keyboard_manager=None):
         self.producto_id = producto_id
         self.owner = owner
+        self.keyboard_manager = keyboard_manager
         self.service = StockMovementService(db)
         
         # Heredar de plantilla (esto llama a _build_header, _build_grid y _build_footer)
@@ -69,7 +70,8 @@ class ProductoMovimientosUI(PaginaConVisor):
             self.grid_scroll,
             columns=columns,
             module_name=self.module_name,
-            on_select=self._on_row_select
+            on_select=self._on_row_select,
+            keyboard_manager=self.keyboard_manager
         )
         self.nav_list.pack(fill='both', expand=True, padx=2, pady=2)
 
