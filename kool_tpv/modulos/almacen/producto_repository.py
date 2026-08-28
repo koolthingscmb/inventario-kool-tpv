@@ -266,7 +266,7 @@ SELECT p.id,
        (SELECT GROUP_CONCAT(cb2.ean, ', ') FROM codigos_barras cb2 WHERE cb2.producto_id = p.id) AS ean,
        COALESCE(pr.pvp, 0.0) AS pvp,
        COALESCE(p.stock_actual, 0) AS stock_actual,
-       COALESCE((SELECT SUM(tl.cantidad) FROM ticket_lines tl WHERE tl.sku = p.sku), 0) AS ventas,
+       COALESCE(p.ventas_totales, 0) AS ventas,
        CASE
            WHEN p.activo = 0 THEN 'Archivado'
            WHEN p.activo = 1 AND p.stock_actual <= 0 THEN 'Sin Stock'
