@@ -183,16 +183,14 @@ class NuevaProduccionResumenView:
 				self._refrescar_lista()
 				return
 		
-		# Si no hay sugerencia clara o el usuario dijo no, mostrar lista de todos
-		texto_lista = "Reposiciones pendientes para este tipo:\n\n"
-		for i, p in enumerate(potenciales[:5]):
-			dis_txt = p.get('diseno_codigo') or "SIN DISEÑO"
-			texto_lista += f"{i+1}. [{dis_txt}] - {p.get('comentarios') or ''}\n"
+		# Si no hay sugerencia clara o el usuario dijo no, mostrar lista de todos para selección
+		from kool_tpv.utils.dialogs.reposicion_select_dialog import show_reposicion_select_dialog
 		
-		show_info(self.frame, "Vínculos Disponibles", 
-				 f"Hay {len(potenciales)} líneas pendientes.\n"
-				 f"Para una prueba futura, aquí permitiríamos elegir una.\n\n"
-				 + texto_lista)
+		seleccion_id = show_reposicion_select_dialog(self.frame, potenciales)
+		if seleccion_id:
+			item.reposicion_id = seleccion_id
+			ToastWidget.show(self.frame, "Línea vinculada manualmente", tipo='success')
+			self._refrescar_lista()
 
 	def _row_color_callback(self, data, index):
 		"""Colorear filas según su estado de vinculación."""
