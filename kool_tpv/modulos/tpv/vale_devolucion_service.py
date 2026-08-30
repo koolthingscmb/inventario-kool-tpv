@@ -3,11 +3,12 @@ import json
 import logging
 import uuid
 from datetime import datetime
-from pathlib import Path
+from kool_tpv.paths import BORRADORES_DIR
 
 logger = logging.getLogger(__name__)
 
-VALES_DIR = Path(__file__).resolve().parents[3] / 'kool_tpv' / 'borradores'
+# VALES_DIR usa la misma carpeta de borradores centralizada
+VALES_DIR = BORRADORES_DIR
 
 
 class ValeDevolucionService:
@@ -19,13 +20,15 @@ class ValeDevolucionService:
     def _iter_vale_files(self):
         """Itera sobre todos los archivos de vale (activos)."""
         for f in VALES_DIR.glob('*.json'):
-            if f.name.startswith('USADO_'):
+            if f.name.startswith('USADO_') or 'reposicion' in f.name:
                 continue
             yield f
 
     def _find_file_by_id(self, vale_id: str) -> Path | None:
         """Encuentra el archivo de vale por su UUID (busca en todos, activos y usados)."""
         for f in VALES_DIR.glob('*.json'):
+            if 'reposicion' in f.name:
+                continue
             try:
                 data = json.loads(f.read_text(encoding='utf-8'))
                 if data.get('id') == vale_id:
@@ -138,6 +141,8 @@ class ValeDevolucionService:
         """Devuelve todos los vales (activos + usados), del más reciente al más antiguo."""
         result = []
         for f in sorted(VALES_DIR.glob('*.json'), reverse=True):
+            if 'reposicion' in f.name:
+                continue
             try:
                 data = json.loads(f.read_text(encoding='utf-8'))
                 data['path'] = str(f)

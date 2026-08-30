@@ -7,6 +7,7 @@ cargan desde `buttons_menu.json` (sección `produccion`).
 import json
 import logging
 from pathlib import Path
+from kool_tpv.paths import CONFIG_DIR
 import unicodedata
 
 from kool_tpv.modulos.produccion.services.produccion_main_service import ProduccionMainService
@@ -50,8 +51,7 @@ class ProduccionView(BaseModuleView):
 
 		# Rebind menu buttons to local handlers
 		try:
-			base = Path(__file__).resolve().parents[3]
-			cfg_file = base / 'config' / 'buttons_menu.json'
+			cfg_file = CONFIG_DIR / 'buttons_menu.json'
 			cfg = {}
 			if cfg_file.exists():
 				with cfg_file.open('r', encoding='utf-8') as fh:
@@ -297,6 +297,10 @@ class ProduccionView(BaseModuleView):
 			logging.info('Abriendo gestión de proveedores...')
 		except Exception:
 			logging.exception('Error abriendo show_proveedores en ProduccionView')
+
+	def show_colores(self):
+		"""Alias para show_proveedores (compatibilidad con botones_menu.json)."""
+		self.show_proveedores()
 
 	def show_configurar_mapeos(self, proveedor_id, proveedor_nombre='', tab_inicial='CSV'):
 		"""Mostrar configurador unificado de mapeos para un proveedor."""

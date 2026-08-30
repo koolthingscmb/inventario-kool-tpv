@@ -17,10 +17,9 @@ from kool_tpv.modulos.tpv.carrito.carrito_service import CarritoService
 # 2. IMPORTACIÓN EXACTA (SOLUCIÓN)
 from kool_tpv.modulos.tpv.actions.Favoritos.favoritos_subview import FavoritosSubView
 from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
+from kool_tpv.paths import CONFIG_DIR
 
 # --- RUTA CONFIG ---
-BASE_DIR = Path(__file__).resolve().parents[2] 
-CONFIG_DIR = BASE_DIR / "config"
 
 # Central ButtonFactory
 from kool_tpv.utils.factories.button_factory import ButtonFactory

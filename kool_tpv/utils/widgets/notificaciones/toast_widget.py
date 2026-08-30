@@ -2,6 +2,7 @@
 import tkinter as tk
 from pathlib import Path
 from typing import Literal, Callable, Optional
+from kool_tpv.paths import ASSETS_DIR
 
 try:
     from PIL import Image, ImageTk
@@ -10,7 +11,6 @@ except Exception:
     ImageTk = None
 
 from kool_tpv.config.notificaciones_config import load_notificaciones_config
-
 ToastType = Literal['success', 'info', 'warning', 'error']
 
 _ICONOS = {'success': '✅', 'info': 'ℹ', 'warning': '⚠', 'error': '✕'}
@@ -20,13 +20,13 @@ _COLORES_BG = {
     'warning': 'toast_warning_bg',
     'error': 'toast_error_bg',
 }
-_ICONO_PATHS_DEFAULT = {
+_ICON_MAP = {
     'success': 'dialog_success.png',
     'info': 'dialog_info.png',
     'warning': 'dialog_warning.png',
     'error': 'dialog_error.png',
 }
-_ASSETS_DIR = Path(__file__).resolve().parents[3] / 'assets' / 'dialogs'
+_ASSETS_DIR = ASSETS_DIR / 'dialogs'
 
 
 class ToastWidget:

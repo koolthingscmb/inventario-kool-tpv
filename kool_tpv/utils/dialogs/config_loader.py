@@ -6,6 +6,7 @@ Implementa patrón singleton/cache: los JSON se leen una sola vez en memoria.
 from pathlib import Path
 import logging
 import json
+from kool_tpv.paths import get_resource_path
 
 # Importar nuevo loader de ui_dialogs.json (cuando esté disponible)
 try:
@@ -182,7 +183,7 @@ def reload_dialog_config(ui_data: dict = None):
 
     # PASO 2: Fallback a los 3 JSONs separados (legacy)
     try:
-        config_dir = Path(__file__).resolve().parents[2] / "config"
+        config_dir = get_resource_path("kool_tpv", "config")
 
         # Cargar colores
         with open(config_dir / "colors_config.json", 'r', encoding='utf-8') as f:

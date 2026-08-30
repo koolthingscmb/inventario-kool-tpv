@@ -2,11 +2,11 @@ import logging
 from pathlib import Path
 
 from .db_wrapper import Database
+from kool_tpv.paths import get_resource_path, MIGRACIONES_DIR
 
 
 def _read_migrations_sql() -> str:
-	base = Path(__file__).resolve().parents[0]
-	sql_path = base / "migraciones" / "base.sql"
+	sql_path = MIGRACIONES_DIR / "base.sql"
 	if not sql_path.exists():
 		raise FileNotFoundError(f"Migration file not found: {sql_path}")
 	return sql_path.read_text(encoding="utf-8")
@@ -67,7 +67,7 @@ def initialize_database(db_path: str) -> None:
 					break
 			if col_type and 'INT' in col_type:
 				# apply migration file 002 if present
-				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '002_num_ticket_text.sql'
+				mig_path = MIGRACIONES_DIR / '002_num_ticket_text.sql'
 				if mig_path.exists():
 					try:
 						logging.info('num_ticket column is INTEGER; applying 002_num_ticket_text.sql migration')
@@ -90,7 +90,7 @@ def initialize_database(db_path: str) -> None:
 		try:
 			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('clientes')") or [])]
 			if 'total_devoluciones' not in cols:
-				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '003_devoluciones.sql'
+				mig_path = MIGRACIONES_DIR / '003_devoluciones.sql'
 				if mig_path.exists():
 					logging.info('Aplicando migración 003: devoluciones')
 					db.connection.execute('ALTER TABLE clientes ADD COLUMN total_devoluciones INTEGER DEFAULT 0')
@@ -113,7 +113,7 @@ def initialize_database(db_path: str) -> None:
 		try:
 			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table' AND name='presencia'")
 			if not rows:
-				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '004_presencia.sql'
+				mig_path = get_resource_path("kool_tpv", "base_datos", "migraciones") / '004_presencia.sql'
 				if mig_path.exists():
 					logging.info('Aplicando migración 004: control de presencia')
 					cur = db.connection.cursor()
@@ -287,7 +287,7 @@ def initialize_database(db_path: str) -> None:
 		try:
 			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('produccion_disenos_metodos')") or [])]
 			if 'variante_id' not in cols:
-				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '037_disenos_metodos_variantes.sql'
+				mig_path = get_resource_path("kool_tpv", "base_datos", "migraciones") / '037_disenos_metodos_variantes.sql'
 				if mig_path.exists():
 					logging.info('Aplicando migración 037: tipo_id/variante_id en produccion_disenos_metodos')
 					cur = db.connection.cursor()
@@ -305,7 +305,7 @@ def initialize_database(db_path: str) -> None:
 		try:
 			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('stock_movements')") or [])]
 			if 'usuario_id' not in cols:
-				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '038_add_usuario_to_stock_movements.sql'
+				mig_path = get_resource_path("kool_tpv", "base_datos", "migraciones") / '038_add_usuario_to_stock_movements.sql'
 				if mig_path.exists():
 					logging.info('Aplicando migración 038: usuario_id en stock_movements')
 					cur = db.connection.cursor()
@@ -325,7 +325,7 @@ def initialize_database(db_path: str) -> None:
 		try:
 			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table' AND name='tipos_variantes'")
 			if not rows:
-				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '015_tipos_variantes.sql'
+				mig_path = get_resource_path("kool_tpv", "base_datos", "migraciones") / '015_tipos_variantes.sql'
 				if mig_path.exists():
 					logging.info('Aplicando migración 015: tipos_variantes')
 					cur = db.connection.cursor()
@@ -343,7 +343,7 @@ def initialize_database(db_path: str) -> None:
 		try:
 			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('tipos_variantes')") or [])]
 			if 'requiere_talla' not in cols:
-				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '017_tipos_variantes_requerimientos.sql'
+				mig_path = get_resource_path("kool_tpv", "base_datos", "migraciones") / '017_tipos_variantes_requerimientos.sql'
 				if mig_path.exists():
 					logging.info('Aplicando migración 017: requiere_talla/color en tipos_variantes')
 					cur = db.connection.cursor()
@@ -361,7 +361,7 @@ def initialize_database(db_path: str) -> None:
 		try:
 			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table' AND name='produccion_tallas_grupo_items'")
 			if not rows:
-				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '039_produccion_tallas_grupos.sql'
+				mig_path = get_resource_path("kool_tpv", "base_datos", "migraciones") / '039_produccion_tallas_grupos.sql'
 				if mig_path.exists():
 					logging.info('Aplicando migración 039: Agrupación de tallas en producción (N:M)')
 					cur = db.connection.cursor()
@@ -459,7 +459,7 @@ def initialize_database(db_path: str) -> None:
 		try:
 			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table' AND name='produccion_tipo_color_tallas'")
 			if not rows:
-				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '023_matriz_config_table.sql'
+				mig_path = get_resource_path("kool_tpv", "base_datos", "migraciones") / '023_matriz_config_table.sql'
 				if mig_path.exists():
 					logging.info('Aplicando migración 023: Tabla produccion_tipo_color_tallas y limpieza stock')
 					cur = db.connection.cursor()
@@ -477,7 +477,7 @@ def initialize_database(db_path: str) -> None:
 		try:
 			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('niveles_fidelidad')") or [])]
 			if 'lore_recompensa' not in cols:
-				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '027_lore_recompensa.sql'
+				mig_path = get_resource_path("kool_tpv", "base_datos", "migraciones") / '027_lore_recompensa.sql'
 				if mig_path.exists():
 					logging.info('Aplicando migración 027: lore_recompensa en niveles_fidelidad')
 					cur = db.connection.cursor()
@@ -512,7 +512,7 @@ def initialize_database(db_path: str) -> None:
 		try:
 			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table' AND name='pedidos_clientes'")
 			if not rows:
-				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '029_pedidos_clientes.sql'
+				mig_path = get_resource_path("kool_tpv", "base_datos", "migraciones") / '029_pedidos_clientes.sql'
 				if mig_path.exists():
 					logging.info('Aplicando migración 029: pedidos_clientes')
 					cur = db.connection.cursor()
@@ -530,7 +530,7 @@ def initialize_database(db_path: str) -> None:
 		try:
 			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('pedidos_clientes')") or [])]
 			if 'contacto_email' not in cols:
-				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '030_pedidos_clientes_v2.sql'
+				mig_path = get_resource_path("kool_tpv", "base_datos", "migraciones") / '030_pedidos_clientes_v2.sql'
 				if mig_path.exists():
 					logging.info('Aplicando migración 030: pedidos_clientes_v2')
 					cur = db.connection.cursor()
@@ -548,7 +548,7 @@ def initialize_database(db_path: str) -> None:
 		try:
 			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('pedidos_clientes_lines')") or [])]
 			if 'tipo_id' not in cols:
-				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '031_pedidos_v3.sql'
+				mig_path = get_resource_path("kool_tpv", "base_datos", "migraciones") / '031_pedidos_v3.sql'
 				if mig_path.exists():
 					logging.info('Aplicando migración 031: IDs de tipo/proveedor en pedidos')
 					cur = db.connection.cursor()
@@ -566,7 +566,7 @@ def initialize_database(db_path: str) -> None:
 		try:
 			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('pedidos_clientes')") or [])]
 			if cols and 'vale_id' not in cols:
-				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '032_pedidos_vale_id.sql'
+				mig_path = get_resource_path("kool_tpv", "base_datos", "migraciones") / '032_pedidos_vale_id.sql'
 				if mig_path.exists():
 					logging.info('Aplicando migración 032: vale_id en pedidos_clientes')
 					cur = db.connection.cursor()
@@ -584,7 +584,7 @@ def initialize_database(db_path: str) -> None:
 		try:
 			cols = db.fetch_all("SELECT clave FROM configuracion WHERE clave IN ('backup_drive_enabled', 'backup_drive_folder_name')")
 			if not cols or len(cols) < 2:
-				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '033_google_drive_config.sql'
+				mig_path = get_resource_path("kool_tpv", "base_datos", "migraciones") / '033_google_drive_config.sql'
 				if mig_path.exists():
 					logging.info('Aplicando migración 033: Google Drive Config')
 					cur = db.connection.cursor()
@@ -602,7 +602,7 @@ def initialize_database(db_path: str) -> None:
 		try:
 			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('usuarios')") or [])]
 			if 'ui_color' not in cols:
-				mig_path = Path(__file__).resolve().parents[0] / 'migraciones' / '034_usuarios_visual_customization.sql'
+				mig_path = get_resource_path("kool_tpv", "base_datos", "migraciones") / '034_usuarios_visual_customization.sql'
 				if mig_path.exists():
 					logging.info('Aplicando migración 034: ui_color/banner_path en usuarios')
 					cur = db.connection.cursor()

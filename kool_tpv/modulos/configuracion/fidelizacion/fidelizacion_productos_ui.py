@@ -184,6 +184,7 @@ class FidelizacionProductosUI:
             rows = self.db.fetch_all(query, selected_ids)
 
             self.nav_list.clear_items()
+            items_to_set = []
 
             for row in rows:
                 try:
@@ -195,14 +196,16 @@ class FidelizacionProductosUI:
                     # Formatear tipo para display
                     tipo_display = '%' if tipo == 'porcentaje' else 'Fijo'
 
-                    self.nav_list.add_item({
+                    items_to_set.append({
                         'id': prod_id,
                         'nombre': nombre,
                         'fidelizacion_tipo': tipo_display,
                         'fidelizacion_valor': str(valor)
                     })
                 except Exception:
-                    logging.exception('Error añadiendo producto a NavList')
+                    logging.exception('Error procesando producto para NavList')
+            
+            self.nav_list.set_items(items_to_set)
 
         except Exception:
             logging.exception('Error actualizando NavList')

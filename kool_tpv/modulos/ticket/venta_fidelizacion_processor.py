@@ -107,8 +107,8 @@ class VentaFidelizacionProcessor(VentaProcessor):
                         badge_path = None
                         grafismo = nivel_nue.get('grafismo_nivel')
                         if grafismo:
-                            base_dir = Path(__file__).resolve().parents[2]
-                            candidate = base_dir / "assets" / "badges" / grafismo
+                            from kool_tpv.paths import BADGES_DIR
+                            candidate = BADGES_DIR / grafismo
                             if candidate.exists():
                                 badge_path = candidate
 

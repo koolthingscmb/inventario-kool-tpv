@@ -7,21 +7,20 @@ from pathlib import Path
 import customtkinter as ctk
 from typing import Optional, Any
 
+from kool_tpv.paths import get_resource_path
+
 logger = logging.getLogger(__name__)
 
 
 class ButtonFactory:
     """Factory para crear botones `CTkButton` con parámetros limpios y predecibles.
-
-    El método `create_button` sólo prepara los argumentos y devuelve el widget;
-    no realiza lecturas de archivos ni lógica de negocio.
-
+    
     Los JSONs de configuración (button_styles, design_tokens, colors_config)
     se cargan una sola vez en memoria (caché de clase) y se reutilizan en
     todas las llamadas. Usar `reload_configs()` para invalidar el caché.
     """
 
-    _config_dir: Path = Path(__file__).resolve().parents[2] / "config"
+    _config_dir: Path = get_resource_path("kool_tpv", "config")
     _button_styles: dict | None = None
     _design_tokens: dict | None = None
     _colors_config: dict | None = None

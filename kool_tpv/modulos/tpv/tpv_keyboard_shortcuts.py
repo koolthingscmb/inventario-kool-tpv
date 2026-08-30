@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 
 def _load_layout_config() -> dict:
     try:
-        path = Path(__file__).resolve().parents[3] / 'kool_tpv' / 'config' / 'layout_config.json'
+        from kool_tpv.paths import CONFIG_DIR
+        path = CONFIG_DIR / 'layout_config.json'
         with open(path, 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception:

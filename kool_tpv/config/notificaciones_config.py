@@ -1,9 +1,9 @@
 """Configuración global para widgets de notificación (Toast, Banner, etc.)."""
 import json
 import logging
-from pathlib import Path
+from kool_tpv.paths import get_resource_path
 
-_CONFIG_PATH = Path(__file__).resolve().parent / 'notificaciones_config.json'
+_CONFIG_PATH = get_resource_path("kool_tpv", "config", "notificaciones_config.json")
 
 _DEFAULTS = {
     'toast_posicion': 'bottom-right',

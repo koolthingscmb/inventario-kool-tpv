@@ -2,7 +2,7 @@
 import logging
 import os
 from datetime import datetime
-from pathlib import Path
+from kool_tpv.paths import ASSETS_DIR
 from tkinter import filedialog
 from typing import List, Dict, Any, Optional
 
@@ -37,8 +37,7 @@ class ExportadorPDF:
         self.mostrar_logo = plantilla.get('albaran_pdf_mostrar_logo', '0') == '1'
 
         logo_file = plantilla.get('logo_pdf_filename', '')
-        assets_dir = Path(__file__).resolve().parents[5] / 'assets'
-        logo_path = assets_dir / logo_file if logo_file else None
+        logo_path = ASSETS_DIR / logo_file if logo_file else None
         self.logo_path = logo_path if (logo_path and logo_path.exists()) else None
 
         # Cargar fuente desde configuración (mapear a nombres ReportLab compatibles)

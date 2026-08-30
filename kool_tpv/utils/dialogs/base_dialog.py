@@ -435,8 +435,8 @@ class BaseDialog(ctk.CTkToplevel):
     def _cargar_icono(self, size=None):
         """Cargar icono según tipo, redimensionado al tamaño indicado."""
         try:
-            base = Path(__file__).resolve().parents[2]
-            icons_dir = base / "assets" / "dialogs"
+            from kool_tpv.paths import ASSETS_DIR
+            icons_dir = ASSETS_DIR / "dialogs"
             preferred = icons_dir / f"dialog_{self.tipo}.png"
 
             tried = [preferred]

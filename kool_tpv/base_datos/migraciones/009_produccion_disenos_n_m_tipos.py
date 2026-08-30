@@ -104,8 +104,8 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         db_arg = sys.argv[1]
     else:
-        here = Path(__file__).resolve().parents[2]
-        db_arg = str(here / 'base_datos' / 'kool_bd.db')
+        from kool_tpv.paths import DB_PATH
+        db_arg = str(DB_PATH)
 
     print(f'Running migration 009 against DB: {db_arg}')
     migrate(db_arg)

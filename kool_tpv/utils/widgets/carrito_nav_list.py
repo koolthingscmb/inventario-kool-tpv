@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 def load_config(config_name: str) -> dict:
     """Cargar archivo de configuración."""
     try:
-        base = Path(__file__).resolve().parents[2]
-        config_path = base / "config" / config_name
+        from kool_tpv.paths import CONFIG_DIR
+        config_path = CONFIG_DIR / config_name
         with open(config_path, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception:

@@ -146,8 +146,8 @@ class TextViewDialog(BaseDialog):
     def _cargar_icono(self):
         """Cargar icono dialog_info.png (libro mágico azul)."""
         try:
-            base = Path(__file__).resolve().parents[1]  # kool_tpv/
-            icon_path = base / "assets" / "dialogs" / "dialog_info.png"
+            from kool_tpv.paths import ASSETS_DIR
+            icon_path = ASSETS_DIR / "dialogs" / "dialog_info.png"
 
             if icon_path.exists():
                 img = Image.open(icon_path)

@@ -2,7 +2,7 @@
 import tkinter as tk
 from tkinter import filedialog
 import shutil
-from pathlib import Path
+from kool_tpv.paths import ASSETS_DIR
 from typing import Any, Dict
 
 import customtkinter as ctk
@@ -411,7 +411,7 @@ class ToastsTab:
         ("warning", "Warning", "#B8870B"),
         ("error", "Error", "#C0392B"),
     ]
-    _ASSETS_DIR = Path(__file__).resolve().parents[4] / 'assets' / 'dialogs'
+    _ASSETS_DIR = ASSETS_DIR / 'dialogs'
 
     def _render_iconos(self, parent):
         self._section_header(parent, "ICONOS", "#f39c12")

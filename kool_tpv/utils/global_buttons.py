@@ -1,9 +1,9 @@
 import customtkinter as ctk
 import json
 import os
-from pathlib import Path
-from PIL import Image
 import logging
+from PIL import Image
+from kool_tpv.paths import get_resource_path
 
 def create_global_close_button(parent, command=None):
     """
@@ -13,8 +13,7 @@ def create_global_close_button(parent, command=None):
     # Leer configuración desde JSON (OBLIGATORIO usar global_buttons["power"])
     btn_cfg = None
     try:
-        kool_base = Path(__file__).resolve().parents[1]  # kool_tpv/
-        cfg_file = kool_base / "config" / "buttons_config.json"
+        cfg_file = get_resource_path("kool_tpv", "config", "buttons_config.json")
         if cfg_file.exists():
             with cfg_file.open("r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -84,7 +83,7 @@ def create_global_close_button(parent, command=None):
     
     # Cargar imagen desde kool_tpv/assets/
     try:
-        base_assets = kool_base / "assets"
+        base_assets = get_resource_path("kool_tpv", "assets")
         img_path = btn_cfg.get("image", "power.png")
         # Si img_path contiene "assets/", quitarlo (limpieza)
         img_name = img_path.replace("assets/", "") if isinstance(img_path, str) else img_path

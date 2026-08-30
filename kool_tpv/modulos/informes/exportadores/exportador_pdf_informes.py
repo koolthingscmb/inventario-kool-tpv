@@ -12,10 +12,9 @@ from reportlab.lib.units import cm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle, HRFlowable
 
 from kool_tpv.base_datos.configuracion_repository import ConfiguracionRepository
+from kool_tpv.paths import ASSETS_DIR
 
 logger = logging.getLogger(__name__)
-
-ASSETS_DIR = Path(__file__).resolve().parents[3] / 'assets'
 
 CLAVES_PLANTILLA = {
     'informes_pdf_titulo': 'INFORME DE VENTAS',

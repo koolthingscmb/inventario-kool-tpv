@@ -7,6 +7,7 @@ import logging
 from typing import Optional, Dict
 from PIL import Image
 from pathlib import Path
+from kool_tpv.paths import ICONOS_DIR
 
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from .favoritos_service import FavoritosService
@@ -38,7 +39,7 @@ class FavoritosSubView(ctk.CTkFrame, KeyboardNavigableMixin):
         self._categoria_buttons = {}  # Botones de filtro por ID de categoría
         
         self._icon_cache: Dict[str, ctk.CTkImage] = {}
-        self._icons_dir = Path(__file__).resolve().parent.parent.parent.parent / "assets" / "iconos"
+        self._icons_dir = ICONOS_DIR
         
         self._setup_ui()
         self.cargar_favoritos()

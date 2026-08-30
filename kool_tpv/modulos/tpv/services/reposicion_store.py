@@ -13,11 +13,12 @@ from typing import List, Dict, Optional, Any
 import logging
 
 from kool_tpv.base_datos.money_adapter import prepare_for_db
+from kool_tpv.paths import BORRADORES_DIR
 
 logger = logging.getLogger(__name__)
 
-# Directorio para archivos de reposición (misma ubicación que borradores)
-REPOSICION_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'borradores')
+# Directorio para archivos de reposición (fuera del paquete en EXE)
+REPOSICION_DIR = BORRADORES_DIR
 REPOSICION_FILE = os.path.join(REPOSICION_DIR, 'reposicion_pendiente.json')
 TEMP_FILE = os.path.join(REPOSICION_DIR, 'reposicion_pendientes_temp.json')
 

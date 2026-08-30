@@ -22,8 +22,8 @@ from kool_tpv.utils.badge_loader import load_badge_image
 def load_config(config_name: str) -> dict:
     """Cargar archivo de configuración."""
     try:
-        base = Path(__file__).resolve().parents[2]
-        config_path = base / "config" / config_name
+        from kool_tpv.paths import CONFIG_DIR
+        config_path = CONFIG_DIR / config_name
         with open(config_path, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception:
@@ -237,7 +237,8 @@ class TicketCarrito(ctk.CTkFrame):
 
         # Cargar iconos desde assets (si están disponibles)
         from PIL import Image
-        base_assets = Path(__file__).resolve().parents[2] / "assets"
+        from kool_tpv.paths import ASSETS_DIR
+        base_assets = ASSETS_DIR
 
         try:
             user_img = Image.open(base_assets / "user_icon.png").resize((20, 20), Image.LANCZOS)

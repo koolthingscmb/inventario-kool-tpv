@@ -425,7 +425,7 @@ class TiposUI:
         from tkinter import filedialog
         import os
         import shutil
-        from pathlib import Path
+        from kool_tpv.paths import ICONOS_DIR
 
         file_types = [('Imágenes', '*.png *.jpg *.jpeg *.svg')]
         file_path = filedialog.askopenfilename(title="Seleccionar icono", filetypes=file_types)
@@ -435,8 +435,7 @@ class TiposUI:
 
         try:
             # Asegurar que la carpeta existe
-            dest_dir = Path(__file__).resolve().parent.parent.parent / "assets" / "iconos"
-            dest_dir.mkdir(parents=True, exist_ok=True)
+            ICONOS_DIR.mkdir(parents=True, exist_ok=True)
 
             # Nombre destino: tipo_id_nombre.ext o solo nombre.ext si es nuevo
             ext = os.path.splitext(file_path)[1].lower()
@@ -444,7 +443,7 @@ class TiposUI:
             id_val = self.e_id.get() or "temp"
             
             dest_filename = f"tipo_{id_val}_{nombre_limpio}{ext}"
-            dest_path = dest_dir / dest_filename
+            dest_path = ICONOS_DIR / dest_filename
 
             # Copiar archivo
             shutil.copy2(file_path, dest_path)

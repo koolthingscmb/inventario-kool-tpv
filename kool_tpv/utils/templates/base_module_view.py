@@ -129,8 +129,8 @@ class BaseModuleView:
 
         # Load buttons from config file `buttons_menu.json` using provided section
         try:
-            base = Path(__file__).resolve().parents[2]
-            cfg_file = base / 'config' / 'buttons_menu.json'
+            from kool_tpv.paths import CONFIG_DIR
+            cfg_file = CONFIG_DIR / 'buttons_menu.json'
             cfg = {}
             if cfg_file.exists():
                 with cfg_file.open('r', encoding='utf-8') as fh:

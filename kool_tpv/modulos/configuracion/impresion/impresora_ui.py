@@ -4,7 +4,7 @@ Interfaz de configuración de impresora para CONFIG -> IMPRESIÓN -> IMPRESORA
 import logging
 import tkinter as tk
 import customtkinter as ctk
-from pathlib import Path
+from kool_tpv.paths import ASSETS_DIR
 from tkinter import filedialog
 from PIL import Image, ImageTk
 from datetime import datetime
@@ -465,8 +465,7 @@ class ImpresoraUI:
 
             self.logo_filename = config.get('logo_filename')
             if self.logo_filename:
-                base_dir = Path(__file__).resolve().parents[3]
-                logo_path = base_dir / 'assets' / 'logo' / self.logo_filename
+                logo_path = ASSETS_DIR / 'logo' / self.logo_filename
                 if logo_path.exists():
                     try:
                         self._mostrar_preview(logo_path)
@@ -487,8 +486,7 @@ class ImpresoraUI:
 
             self.logo_nivel_filename = config.get('logo_nivel_filename')
             if self.logo_nivel_filename:
-                base_dir = Path(__file__).resolve().parents[3]
-                logo_path = base_dir / 'assets' / 'logo' / self.logo_nivel_filename
+                logo_path = ASSETS_DIR / 'logo' / self.logo_nivel_filename
                 if logo_path.exists():
                     try:
                         self._mostrar_preview_nivel(logo_path)
@@ -616,8 +614,7 @@ class ImpresoraUI:
                 return
 
             # Crear carpeta assets/logo si no existe
-            base_dir = Path(__file__).resolve().parents[3]
-            logo_dir = base_dir / 'assets' / 'logo'
+            logo_dir = ASSETS_DIR / 'logo'
             logo_dir.mkdir(parents=True, exist_ok=True)
 
             # Copiar archivo con nombre fijo
@@ -663,8 +660,7 @@ class ImpresoraUI:
                 return
 
             # Crear carpeta assets/logo si no existe
-            base_dir = Path(__file__).resolve().parents[3]
-            logo_dir = base_dir / 'assets' / 'logo'
+            logo_dir = ASSETS_DIR / 'logo'
             logo_dir.mkdir(parents=True, exist_ok=True)
 
             # Copiar archivo con nombre específico para nivel

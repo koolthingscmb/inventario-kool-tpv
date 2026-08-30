@@ -6,8 +6,9 @@ navegación desde `config_produccion.json`, evitando hardcoded en las vistas.
 import json
 import os
 from typing import Optional
+from kool_tpv.paths import get_resource_path
 
-_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "config", "config_produccion.json")
+_CONFIG_PATH = get_resource_path("kool_tpv", "config", "config_produccion.json")
 
 
 def cargar_config_produccion() -> dict:

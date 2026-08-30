@@ -2,7 +2,7 @@
 import json
 import shutil
 from datetime import datetime
-from pathlib import Path
+from kool_tpv.paths import get_resource_path, BACKUP_DIR
 from typing import Callable, Dict, List, Optional
 
 
@@ -10,9 +10,8 @@ class UIConfigService:
     """Gestiona lectura/escritura de config UI desde JSON. Sin BD."""
 
     # Determinar ruta config de forma relativa
-    BASE_DIR = Path(__file__).resolve().parents[4]
-    CONFIG_DIR = BASE_DIR / "config"
-    BACKUP_DIR = CONFIG_DIR / "backups"
+    CONFIG_DIR = get_resource_path("kool_tpv", "config")
+    # BACKUP_DIR importado desde paths.py
     
     # Observadores compartidos entre instancias (estático)
     _observers: Dict[str, List[Callable]] = {}

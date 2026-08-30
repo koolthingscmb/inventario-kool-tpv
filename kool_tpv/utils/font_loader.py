@@ -9,6 +9,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
+from kool_tpv.paths import get_resource_path
 
 
 _FONT_CONFIG: Optional[Dict[str, Any]] = None
@@ -21,8 +22,7 @@ def reload_font_cache() -> None:
 
 
 def _get_config_path() -> Path:
-    # kool_tpv/utils -> parents[1] == kool_tpv
-    return Path(__file__).resolve().parents[1] / 'config' / 'font_config.json'
+    return get_resource_path("kool_tpv", "config", "font_config.json")
 
 
 def load_font_config() -> Dict[str, Any]:

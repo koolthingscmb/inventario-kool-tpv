@@ -11,15 +11,14 @@ Uso:
             self._navigable_buttons = [(btn1, cmd1), (btn2, cmd2), ...]
             self._setup_keyboard_navigation()
 """
-from pathlib import Path
+from kool_tpv.paths import get_resource_path
 import json
 
 
 def _load_keyboard_nav_config():
     """Cargar configuración de navegación por teclado desde layout_config.json."""
     try:
-        # Desde utils/ subir a kool_tpv/ y entrar en config/
-        config_path = Path(__file__).resolve().parents[1] / "config" / "layout_config.json"
+        config_path = get_resource_path("kool_tpv", "config", "layout_config.json")
         with open(config_path, 'r', encoding='utf-8') as f:
             config = json.load(f)
         return config.get("global", {}).get("keyboard_navigation", {})

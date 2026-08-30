@@ -550,8 +550,8 @@ class ExportService:
             logging.info('PDF export: mostrar_logo=%s, logo_filename=%s', plantilla.get('mostrar_logo'), plantilla.get('logo_filename'))
             if plantilla.get('mostrar_logo'):
                 try:
-                    from pathlib import Path
-                    logo_path = Path(__file__).resolve().parents[2] / 'assets' / plantilla.get('logo_filename', '')
+                    from kool_tpv.paths import ASSETS_DIR
+                    logo_path = ASSETS_DIR / plantilla.get('logo_filename', '')
                     logging.info('PDF export: logo_path=%s, exists=%s', logo_path, logo_path.exists())
                     if logo_path.exists():
                         try:

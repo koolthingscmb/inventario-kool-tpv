@@ -1,7 +1,7 @@
 import logging
 import os
 import shutil
-from pathlib import Path
+from kool_tpv.paths import BADGES_DIR
 import customtkinter as ctk
 from kool_tpv.utils.config_loader import load_colors, create_action_button
 from kool_tpv.utils.font_loader import get_font
@@ -533,12 +533,11 @@ class FidelizacionNivelesUI:
 
         try:
             # Ruta relativa robusta a assets/badges
-            dest_dir = Path(__file__).resolve().parent.parent.parent.parent / "assets" / "badges"
-            dest_dir.mkdir(parents=True, exist_ok=True)
+            BADGES_DIR.mkdir(parents=True, exist_ok=True)
 
             ext = os.path.splitext(file_path)[1].lower()
             dest_filename = f"badge_level_{level}{ext}"
-            dest_path = dest_dir / dest_filename
+            dest_path = BADGES_DIR / dest_filename
 
             # Copiar archivo
             shutil.copy2(file_path, dest_path)
@@ -569,8 +568,7 @@ class FidelizacionNivelesUI:
             self.badge_preview.configure(image='')
             return
         try:
-            badge_dir = Path(__file__).resolve().parent.parent.parent.parent / "assets" / "badges"
-            img_path = badge_dir / filename
+            img_path = BADGES_DIR / filename
             if img_path.exists():
                 from PIL import Image
                 pil_img = Image.open(img_path)

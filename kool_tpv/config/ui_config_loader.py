@@ -3,7 +3,7 @@ Loader para ui_dialogs.json - Configuración unificada de dialogs.
 
 Patrón singleton/cache: el JSON se lee una sola vez en memoria.
 """
-from pathlib import Path
+from kool_tpv.paths import get_resource_path
 import logging
 import json
 from typing import Dict, Any, Optional
@@ -25,8 +25,7 @@ def load_ui_dialogs() -> Dict[str, Any]:
         return _UI_DIALOGS_CACHE
 
     try:
-        config_dir = Path(__file__).resolve().parent
-        ui_dialogs_path = config_dir / "ui_dialogs.json"
+        ui_dialogs_path = get_resource_path("kool_tpv", "config", "ui_dialogs.json")
 
         with open(ui_dialogs_path, 'r', encoding='utf-8') as f:
             data = json.load(f)

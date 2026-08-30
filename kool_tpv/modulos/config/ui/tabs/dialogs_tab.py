@@ -3,7 +3,7 @@ import tkinter as tk
 from typing import Any, Dict
 import logging
 import shutil
-from pathlib import Path
+from kool_tpv.paths import ASSETS_DIR
 from PIL import Image
 
 import customtkinter as ctk
@@ -374,10 +374,9 @@ class DialogsTab:
         
         def _load_current_icon():
             try:
-                base = Path(__file__).resolve().parents[4]
-                icon_path = base / "assets" / "dialogs" / f"dialog_{dlg_type}.png"
+                icon_path = ASSETS_DIR / "dialogs" / f"dialog_{dlg_type}.png"
                 if not icon_path.exists():
-                    icon_path = base / "assets" / "dialogs" / "dialog_error.png"
+                    icon_path = ASSETS_DIR / "dialogs" / "dialog_error.png"
                 
                 if icon_path.exists():
                     from PIL import ImageTk
@@ -414,8 +413,7 @@ class DialogsTab:
             )
             if file_path:
                 try:
-                    base = Path(__file__).resolve().parents[4]
-                    dest_dir = base / "assets" / "dialogs"
+                    dest_dir = ASSETS_DIR / "dialogs"
                     dest_dir.mkdir(parents=True, exist_ok=True)
                     dest_path = dest_dir / f"dialog_{dlg_type}.png"
                     

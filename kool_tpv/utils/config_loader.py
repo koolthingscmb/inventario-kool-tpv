@@ -18,13 +18,13 @@ logger = logging.getLogger(__name__)
 
 # Delegate creation to ButtonFactory instead of old palette/layout system
 from kool_tpv.utils.factories.button_factory import ButtonFactory
+from kool_tpv.paths import CONFIG_DIR
 
 # Paths a archivos de configuración
-_CONFIG_DIR = Path(__file__).resolve().parents[1] / "config"
-_COLORS_CONFIG = _CONFIG_DIR / "colors_config.json"
-_FONT_CONFIG = _CONFIG_DIR / "font_config.json"
-_LAYOUT_CONFIG = _CONFIG_DIR / "layout_config.json"
-_BUTTONS_ACTIONS_CONFIG = _CONFIG_DIR / "buttons_actions_config.json"
+_COLORS_CONFIG = CONFIG_DIR / "colors_config.json"
+_FONT_CONFIG = CONFIG_DIR / "font_config.json"
+_LAYOUT_CONFIG = CONFIG_DIR / "layout_config.json"
+_BUTTONS_ACTIONS_CONFIG = CONFIG_DIR / "buttons_actions_config.json"
 
 # Cache para evitar leer JSON múltiples veces
 _colors_cache: Optional[Dict[str, Any]] = None

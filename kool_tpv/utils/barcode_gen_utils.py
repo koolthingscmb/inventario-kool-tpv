@@ -9,12 +9,12 @@ import random
 from typing import Optional
 import barcode
 from barcode.writer import ImageWriter
+from kool_tpv.paths import get_app_root
 
 logger = logging.getLogger(__name__)
 
-# Directorio base para los assets de códigos de barras
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-BARCODES_DIR = os.path.join(BASE_DIR, 'assets', 'barcodes')
+# Directorio base para los assets de códigos de barras (fuera del paquete en EXE)
+BARCODES_DIR = get_app_root() / "kool_tpv" / "assets" / "barcodes"
 
 def ensure_barcodes_dir():
     """Asegura que el directorio de códigos de barras existe."""

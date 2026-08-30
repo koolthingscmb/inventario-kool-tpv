@@ -2,8 +2,7 @@ from __future__ import annotations
 import sqlite3
 import os
 from typing import Optional, List, Dict, Any
-
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'base_datos', 'kool_bd.db')
+from kool_tpv.paths import DB_PATH
 
 
 def _dict_factory(cursor, row):

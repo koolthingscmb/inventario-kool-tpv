@@ -1,6 +1,6 @@
 import logging
 import json
-from pathlib import Path
+from kool_tpv.paths import get_resource_path, CONFIG_DIR
 import unicodedata
 import customtkinter as ctk
 
@@ -74,8 +74,7 @@ class ConfigView(BaseModuleView):
 
         # Load menu buttons for this module and rebind to local handlers
         try:
-            base = Path(__file__).resolve().parents[2]
-            cfg_file = base / 'config' / 'buttons_menu.json'
+            cfg_file = CONFIG_DIR / 'buttons_menu.json'
             cfg = {}
             if cfg_file.exists():
                 with cfg_file.open('r', encoding='utf-8') as fh:
@@ -97,11 +96,9 @@ class ConfigView(BaseModuleView):
 
             # Cargar configs de estilos
             try:
-                base_cfg = Path(__file__).resolve().parents[2]
-
                 # Colors
                 colors_cfg = {}
-                cfile = base_cfg / 'config' / 'colors_config.json'
+                cfile = CONFIG_DIR / 'colors_config.json'
                 if cfile.exists():
                     with cfile.open('r', encoding='utf-8') as fh:
                         colors_cfg = json.load(fh) or {}
@@ -115,7 +112,7 @@ class ConfigView(BaseModuleView):
             try:
                 # Fonts
                 font_cfg = {}
-                ffile = base_cfg / 'config' / 'font_config.json'
+                ffile = CONFIG_DIR / 'font_config.json'
                 if ffile.exists():
                     with ffile.open('r', encoding='utf-8') as fh:
                         font_cfg = json.load(fh) or {}
@@ -129,7 +126,7 @@ class ConfigView(BaseModuleView):
             try:
                 # Layout
                 layout_cfg = {}
-                lfile = base_cfg / 'config' / 'layout_config.json'
+                lfile = CONFIG_DIR / 'layout_config.json'
                 if lfile.exists():
                     with lfile.open('r', encoding='utf-8') as fh:
                         layout_cfg = json.load(fh) or {}
@@ -224,8 +221,7 @@ class ConfigView(BaseModuleView):
         """Abrir submenu de Impresión: cambia sidebar y muestra opciones."""
         try:
             # Cargar submenu buttons desde JSON
-            base = Path(__file__).resolve().parents[2]
-            cfg_file = base / 'config' / 'buttons_menu.json'
+            cfg_file = CONFIG_DIR / 'buttons_menu.json'
             cfg = {}
             if cfg_file.exists():
                 with cfg_file.open('r', encoding='utf-8') as fh:
@@ -424,8 +420,7 @@ class ConfigView(BaseModuleView):
                 return
 
             # Autenticado: cargar submenu
-            base = Path(__file__).resolve().parents[2]
-            cfg_file = base / 'config' / 'buttons_menu.json'
+            cfg_file = CONFIG_DIR / 'buttons_menu.json'
             cfg = {}
             if cfg_file.exists():
                 with cfg_file.open('r', encoding='utf-8') as fh:
@@ -630,8 +625,7 @@ class ConfigView(BaseModuleView):
         """Volver a vista raíz de Config (limpiar sidebar y central)."""
         try:
             # Recargar sidebar original de config
-            base = Path(__file__).resolve().parents[2]
-            cfg_file = base / 'config' / 'buttons_menu.json'
+            cfg_file = CONFIG_DIR / 'buttons_menu.json'
             cfg = {}
             if cfg_file.exists():
                 with cfg_file.open('r', encoding='utf-8') as fh:

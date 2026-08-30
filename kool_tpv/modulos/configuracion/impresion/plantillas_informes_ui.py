@@ -1,7 +1,7 @@
 """PlantillasInformesUI: configuracion plantilla visual para PDF de informes."""
 import logging
 import shutil
-from pathlib import Path
+from kool_tpv.paths import ASSETS_DIR
 from tkinter import filedialog
 import customtkinter as ctk
 from PIL import Image
@@ -10,8 +10,6 @@ from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.base_datos.configuracion_repository import ConfiguracionRepository
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
-
-ASSETS_DIR = Path(__file__).resolve().parents[3] / 'assets'
 LOGO_PDF_FILENAME = 'logo_pdf.png'
 
 CLAVES_PLANTILLA = {

@@ -14,6 +14,7 @@ try:
     from kool_tpv.modulos.clientes.cliente_service import ClienteService
 except Exception:  # pragma: no cover - optional dependency during early UI dev
     ClienteService = None
+from kool_tpv.paths import ASSETS_DIR, ICONOS_DIR
 from kool_tpv.utils.utils import (
     COLOR_BG_TERMINAL,
     COLOR_MATRIX,
@@ -206,17 +207,8 @@ class CrearClienteUI:
             from pathlib import Path
             from PIL import Image
 
-            # Buscar la carpeta root del paquete `kool_tpv` para localizar `assets` de forma robusta
-            assets_base = None
-            this_path = Path(__file__).resolve()
-            for p in this_path.parents:
-                if (p / '__init__.py').exists() and p.name == 'kool_tpv':
-                    assets_base = p / 'assets'
-                    break
-            if assets_base is None:
-                # Fallback al comportamiento anterior
-                assets_base = this_path.parents[4] / 'assets'
-
+            # Usar ASSETS_DIR de paths.py de forma robusta
+            assets_base = ASSETS_DIR
             assets_dialogs = assets_base / 'dialogs'
             img_tesoro_path = assets_dialogs / 'dialog_tesoro.png'
 
@@ -283,16 +275,8 @@ class CrearClienteUI:
         valores_frame.grid_columnconfigure(0, weight=1)
         valores_frame.grid_columnconfigure(1, weight=1)
 
-        # Localizar carpeta de iconos dentro de `kool_tpv/assets/iconos` de forma robusta
-        from pathlib import Path
-        this_path = Path(__file__).resolve()
-        iconos_path = None
-        for p in this_path.parents:
-            if (p / '__init__.py').exists() and p.name == 'kool_tpv':
-                iconos_path = p / 'assets' / 'iconos'
-                break
-        if iconos_path is None:
-            iconos_path = this_path.parents[4] / 'assets' / 'iconos'
+        # Usar ICONOS_DIR de paths.py de forma robusta
+        iconos_path = ICONOS_DIR
 
         # === FILA 0, COLUMNA 0: TESORO ACTUAL ===
         fila0_col0 = ctk.CTkFrame(valores_frame, fg_color='transparent')

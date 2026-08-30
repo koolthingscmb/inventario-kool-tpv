@@ -3,19 +3,13 @@ import logging
 import customtkinter as ctk
 from pathlib import Path
 from PIL import Image
+from kool_tpv.paths import get_resource_path
 
 logger = logging.getLogger(__name__)
 
 def get_badges_path() -> Path:
     """Obtener la ruta a la carpeta de badges de forma robusta."""
-    this_path = Path(__file__).resolve()
-    # Buscar la carpeta root del paquete `kool_tpv`
-    for p in this_path.parents:
-        if (p / '__init__.py').exists() and p.name == 'kool_tpv':
-            return p / 'assets' / 'badges'
-    
-    # Fallback si no se encuentra (entorno de desarrollo/test)
-    return this_path.parents[1] / 'assets' / 'badges'
+    return get_resource_path("kool_tpv", "assets", "badges")
 
 def load_badge_image(filename: str, size: tuple = (64, 64)) -> ctk.CTkImage:
     """Cargar un badge desde assets/badges/ como CTkImage.

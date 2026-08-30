@@ -3,11 +3,11 @@ import json
 import logging
 from datetime import datetime
 from decimal import Decimal
-from pathlib import Path
+from kool_tpv.paths import BORRADORES_DIR
 
 logger = logging.getLogger(__name__)
 
-BORRADORES_DIR = Path(__file__).resolve().parents[5] / 'kool_tpv' / 'borradores'
+# BORRADORES_DIR importado desde paths.py
 
 
 class _DecimalEncoder(json.JSONEncoder):

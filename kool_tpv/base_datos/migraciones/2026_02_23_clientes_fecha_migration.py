@@ -117,8 +117,8 @@ if __name__ == '__main__':
         db_arg = sys.argv[1]
     else:
         # default location relative to repository
-        here = Path(__file__).resolve().parents[2]
-        db_arg = str(here / 'kool_bd.db')
+        from kool_tpv.paths import DB_PATH
+        db_arg = str(DB_PATH)
 
     print(f'Running migration against DB: {db_arg}')
     migrate(db_arg)

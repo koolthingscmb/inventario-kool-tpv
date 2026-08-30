@@ -9,7 +9,7 @@ from kool_tpv.modulos.impresion.cierre_ticket_generator import CierreTicketGener
 from kool_tpv.modulos.impresion.ticket_type import TicketType
 import logging
 from typing import Optional
-from pathlib import Path
+from kool_tpv.paths import ASSETS_DIR, BADGES_DIR
 
 # Optional ESC/POS support (import at runtime)
 try:
@@ -279,8 +279,7 @@ class ImpresoraService:
         try:
             badge_file = cliente_data.get('grafismo') or cliente_data.get('nivel_grafismo') or ''
             if badge_file:
-                base_dir = Path(__file__).resolve().parents[2]
-                candidate = base_dir / "assets" / "badges" / badge_file
+                candidate = BADGES_DIR / badge_file
                 if candidate.exists():
                     self.logger.info(f"Badge encontrado para cliente: {badge_file}")
                     return candidate
@@ -320,8 +319,7 @@ class ImpresoraService:
                 return None
 
             badge_file = row2[0]
-            base_dir = Path(__file__).resolve().parents[2]
-            candidate = base_dir / "assets" / "badges" / badge_file
+            candidate = BADGES_DIR / badge_file
             if candidate.exists():
                 self.logger.info(f"Badge encontrado para ticket {ticket_id}: {badge_file}")
                 return candidate
@@ -943,9 +941,7 @@ class ImpresoraService:
                     self.logger.info("Usando logo de nivel (override): %s", str(logo_path))
                 # 2) Fallback al logo global si no hay override o no existe
                 elif getattr(self, 'logo_enabled', False) and getattr(self, 'logo_filename', ''):
-                    # Construcción de ruta absoluta desde ubicación del módulo
-                    base_dir = Path(__file__).resolve().parents[2]
-                    candidate = base_dir / "assets" / "logo" / self.logo_filename
+                    candidate = ASSETS_DIR / "logo" / self.logo_filename
 
                     self.logger.info(f"Buscando logo global en: {candidate}")
 
@@ -1030,8 +1026,7 @@ class ImpresoraService:
             logo_nivel_enabled = self.config.get('logo_nivel_enabled', '0') == '1'
             logo_nivel_filename = self.config.get('logo_nivel_filename', '')
             if logo_nivel_enabled and logo_nivel_filename:
-                base_dir = Path(__file__).resolve().parents[2]
-                candidate = base_dir / "assets" / "logo" / logo_nivel_filename
+                candidate = ASSETS_DIR / "logo" / logo_nivel_filename
                 if candidate.exists():
                     override_logo_path = candidate
         except Exception:
