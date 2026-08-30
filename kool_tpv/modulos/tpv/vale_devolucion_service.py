@@ -3,6 +3,7 @@ import json
 import logging
 import uuid
 from datetime import datetime
+from pathlib import Path
 from kool_tpv.paths import BORRADORES_DIR
 
 logger = logging.getLogger(__name__)
