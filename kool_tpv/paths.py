@@ -47,7 +47,7 @@ BACKUP_DIR = PROJECT_ROOT / "kool_tpv" / "config" / "backups"
 # Rutas de recursos específicos (Atajos)
 MIGRACIONES_DIR = get_resource_path("kool_tpv", "base_datos", "migraciones")
 ICONOS_DIR = ASSETS_DIR / "iconos"
-BADGES_DIR = ASSETS_DIR / "badges"
+BADGES_DIR = PROJECT_ROOT / "kool_tpv" / "assets" / "badges"
 
 # Rutas alternativas de assets (legacy/compatibilidad)
 PROJECT_ROOT_ASSETS = PROJECT_ROOT / "kool_tpv-assets"

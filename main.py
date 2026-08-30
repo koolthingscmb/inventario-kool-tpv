@@ -15,7 +15,7 @@ from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.barcode_service import BarcodeService
 from kool_tpv.paths import (
     CONFIG_DIR, DB_PATH, ASSETS_DIR, LOGS_DIR, 
-    PROJECT_ROOT, PROJECT_ROOT_ASSETS, BORRADORES_DIR, BACKUP_DIR
+    PROJECT_ROOT, PROJECT_ROOT_ASSETS, BORRADORES_DIR, BACKUP_DIR, BADGES_DIR
 )
 from PIL import Image
 
@@ -26,6 +26,7 @@ LOGS_DIR.mkdir(exist_ok=True)
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 BORRADORES_DIR.mkdir(parents=True, exist_ok=True)
 BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+BADGES_DIR.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(
     level=logging.INFO,
