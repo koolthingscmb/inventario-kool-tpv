@@ -13,6 +13,7 @@ Desde Resumen: AÑADIR vuelve al paso 1, CONFIRMAR guarda la orden.
 """
 import tkinter as tk
 from typing import Callable, List, Optional
+import customtkinter as ctk
 
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.produccion.models.produccion_tipos_model import ProduccionTipo
@@ -42,6 +43,8 @@ from kool_tpv.modulos.produccion.services.tipos_variantes_metodos_service import
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_metodo import NuevaProduccionMetodoView, MetodoSeleccion
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_cantidad import NuevaProduccionCantidadView, CantidadSeleccion
 from kool_tpv.modulos.produccion.ui.subvistas.produccion_nueva_produccion_resumen import NuevaProduccionResumenView
+from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 
 # Pasos del flujo
 PASO_CAJERO = -1
@@ -118,23 +121,19 @@ class NuevoProduccionFlow:
         self._header.pack(fill="x", side=tk.TOP)
 
         # Botón HISTORIAL (izquierda) - Estilo integrado en el header
-        import customtkinter as ctk
-        from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font
         config = cargar_config_produccion()
         
-        self._btn_historial = ctk.CTkButton(
-            self._header,
+        self._btn_historial = ButtonFactory.create_button(
+            parent=self._header,
             text="HISTORIAL",
-            font=get_font(config, "button"),
-            fg_color="transparent",
-            text_color="#C77BFF",
-            hover_color="#34495e",
-            border_color="#C77BFF",
-            border_width=1,
+            command=self._on_historial_click,
             width=100,
             height=30,
-            cursor="hand2",
-            command=self._on_historial_click
+            font=get_font(config, "button"),
+            style_key="action_secondary",
+            module="produccion",
+            palette_key="primary",
+            cursor="hand2"
         )
         self._btn_historial.pack(side=tk.LEFT, padx=20, pady=(10, 0))
 

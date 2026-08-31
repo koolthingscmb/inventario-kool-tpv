@@ -484,10 +484,10 @@
         "border": "#552583"
       },
       "accent": {
-        "bg": "#C77BFF",
+        "bg": "#FF33D4",
         "hover": "#8E44AD",
         "text": "#000000",
-        "border": "#552583"
+        "border": "#DEDAFF"
       }
     },
     "nav_list": {

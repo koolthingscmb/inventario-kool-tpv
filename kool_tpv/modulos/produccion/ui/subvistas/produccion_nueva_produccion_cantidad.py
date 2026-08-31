@@ -10,8 +10,10 @@ from typing import Callable, Optional
 
 import customtkinter as ctk
 
+from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font, get_chip_config, get_chip_style, get_nav_button_config, get_nav_button_style
 from kool_tpv.utils.keyboard_nav_mixin import KeyboardNavigableMixin
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 
 
 @dataclass
@@ -286,58 +288,49 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 
 		# Botón VOLVER
 		nav_volver = get_nav_button_config(self.config, "volver")
-		style_volver = get_nav_button_style(self.config, nav_volver.get("style_key", "volver"))
-		self.btn_volver = ctk.CTkButton(
-			frame_nav,
+		self.btn_volver = ButtonFactory.create_button(
+			parent=frame_nav,
 			text=nav_volver.get("text", "VOLVER"),
-			font=self._get_font(nav_volver.get("font_key", "button")),
-			fg_color=style_volver.get("bg", "#e74c3c"),
-			text_color=style_volver.get("text", "#FFFFFF"),
-			hover_color=style_volver.get("hover", "#c0392b"),
-			border_color=style_volver.get("border", "#e74c3c"),
-			border_width=style_volver.get("focus_thickness", 0),
+			command=self._on_volver,
 			width=nav_volver.get("width", 15) * 10,
 			height=nav_volver.get("height", 2) * 20,
-			cursor="hand2",
-			command=self._on_volver
+			font=self._get_font(nav_volver.get("font_key", "button")),
+			style_key="action_confirm",
+			module="produccion",
+			palette_key="primary",
+			cursor="hand2"
 		)
 		self.btn_volver.pack(side=tk.LEFT, padx=10)
 
 		# Botón AÑADIR LOTE
 		nav_anadir = get_nav_button_config(self.config, "anadir")
-		style_anadir = get_nav_button_style(self.config, nav_anadir.get("style_key", "anadir"))
-		self.btn_lote = ctk.CTkButton(
-			frame_nav,
+		self.btn_lote = ButtonFactory.create_button(
+			parent=frame_nav,
 			text="AÑADIR LOTE",
-			font=self._get_font(nav_anadir.get("font_key", "button")),
-			fg_color=style_anadir.get("bg", "#27ae60"),
-			text_color=style_anadir.get("text", "#FFFFFF"),
-			hover_color=style_anadir.get("hover", "#2ecc71"),
-			border_color=style_anadir.get("border", "#27ae60"),
-			border_width=style_anadir.get("focus_thickness", 0),
+			command=self._on_lote,
 			width=nav_anadir.get("width", 15) * 10,
 			height=nav_anadir.get("height", 2) * 20,
-			cursor="hand2",
-			command=self._on_lote
+			font=self._get_font(nav_anadir.get("font_key", "button")),
+			style_key="action_confirm",
+			module="produccion",
+			palette_key="primary",
+			cursor="hand2"
 		)
 		self.btn_lote.pack(side=tk.LEFT, padx=10)
 
 		# Botón SIGUIENTE
 		nav_sig = get_nav_button_config(self.config, "siguiente")
-		style_siguiente = get_nav_button_style(self.config, nav_sig.get("style_key", "siguiente"))
-		self.btn_siguiente = ctk.CTkButton(
-			frame_nav,
+		self.btn_siguiente = ButtonFactory.create_button(
+			parent=frame_nav,
 			text=nav_sig.get("text", "SIGUIENTE"),
-			font=self._get_font(nav_sig.get("font_key", "button")),
-			fg_color=style_siguiente.get("bg", "#27ae60"),
-			text_color=style_siguiente.get("text", "#FFFFFF"),
-			hover_color=style_siguiente.get("hover", "#2ecc71"),
-			border_color=style_siguiente.get("border", "#1C0629"),
-			border_width=style_siguiente.get("focus_thickness", 0),
+			command=self._on_siguiente,
 			width=nav_sig.get("width", 15) * 10,
 			height=nav_sig.get("height", 2) * 20,
-			cursor="hand2",
-			command=self._on_siguiente
+			font=self._get_font(nav_sig.get("font_key", "button")),
+			style_key="action_confirm",
+			module="produccion",
+			palette_key="primary",
+			cursor="hand2"
 		)
 		self.btn_siguiente.pack(side=tk.RIGHT, padx=10)
 

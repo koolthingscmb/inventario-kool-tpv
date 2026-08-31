@@ -15,6 +15,7 @@ from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
 from kool_tpv.modulos.tpv.services.reposicion_store import ReposicionStore
 from kool_tpv.utils.dialogs.helpers import show_info, show_warning
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 
 
 class NuevaProduccionResumenView:
@@ -249,88 +250,79 @@ class NuevaProduccionResumenView:
 
 		# Botón VOLVER
 		nav_volver = get_nav_button_config(self.config, "volver")
-		style_volver = get_nav_button_style(self.config, nav_volver.get("style_key", "volver"))
-		self.btn_volver = ctk.CTkButton(
-			frame_nav,
+		self.btn_volver = ButtonFactory.create_button(
+			parent=frame_nav,
 			text=nav_volver.get("text", "VOLVER"),
-			font=self._get_font(nav_volver.get("font_key", "button")),
-			fg_color=style_volver.get("bg", "#e74c3c"),
-			text_color=style_volver.get("text", "#FFFFFF"),
-			hover_color=style_volver.get("hover", "#c0392b"),
-			border_color=style_volver.get("border", "#e74c3c"),
-			border_width=style_volver.get("focus_thickness", 0),
+			command=self._on_volver,
 			width=nav_volver.get("width", 15) * 10,
 			height=nav_volver.get("height", 2) * 20,
-			cursor="hand2",
-			command=self._on_volver
+			font=self._get_font(nav_volver.get("font_key", "button")),
+			style_key="action_confirm",
+			module="produccion",
+			palette_key="primary",
+			cursor="hand2"
 		)
 		self.btn_volver.pack(side=tk.LEFT, padx=10)
 
 		# Botón AÑADIR
 		nav_anadir = get_nav_button_config(self.config, "anadir")
-		style_anadir = get_nav_button_style(self.config, nav_anadir.get("style_key", "anadir"))
-		self.btn_anadir = ctk.CTkButton(
-			frame_nav,
+		self.btn_anadir = ButtonFactory.create_button(
+			parent=frame_nav,
 			text=nav_anadir.get("text", "AÑADIR"),
-			font=self._get_font(nav_anadir.get("font_key", "button")),
-			fg_color=style_anadir.get("bg", "#27ae60"),
-			text_color=style_anadir.get("text", "#FFFFFF"),
-			hover_color=style_anadir.get("hover", "#2ecc71"),
-			border_color=style_anadir.get("border", "#27ae60"),
-			border_width=style_anadir.get("focus_thickness", 0),
+			command=self._on_anadir,
 			width=nav_anadir.get("width", 15) * 10,
 			height=nav_anadir.get("height", 2) * 20,
-			cursor="hand2",
-			command=self._on_anadir
+			font=self._get_font(nav_anadir.get("font_key", "button")),
+			style_key="action_confirm",
+			module="produccion",
+			palette_key="primary",
+			cursor="hand2"
 		)
 		self.btn_anadir.pack(side=tk.LEFT, padx=(10, 10))
 
 		# Botón ELIMINAR
-		self.btn_eliminar = ctk.CTkButton(
-			frame_nav,
+		self.btn_eliminar = ButtonFactory.create_button(
+			parent=frame_nav,
 			text="ELIMINAR",
-			font=self._get_font("button"),
-			fg_color="#e74c3c",
-			text_color="#FFFFFF",
-			hover_color="#c0392b",
+			command=self._on_eliminar_click,
 			width=120,
 			height=nav_anadir.get("height", 2) * 20,
-			cursor="hand2",
-			command=self._on_eliminar_click
+			font=self._get_font("button"),
+			style_key="action_secondary",
+			module="produccion",
+			palette_key="accent",
+			cursor="hand2"
 		)
 		self.btn_eliminar.pack(side=tk.LEFT, padx=10)
 
 		# Botón VINCULAR REPOSICIÓN
-		self.btn_vincular = ctk.CTkButton(
-			frame_nav,
+		self.btn_vincular = ButtonFactory.create_button(
+			parent=frame_nav,
 			text="VINCULAR REPOS.",
-			font=self._get_font("button"),
-			fg_color="#f39c12", # Naranja
-			text_color="#FFFFFF",
-			hover_color="#e67e22",
+			command=self._on_vincular_click,
 			width=140,
 			height=nav_anadir.get("height", 2) * 20,
-			cursor="hand2",
-			command=self._on_vincular_click
+			font=self._get_font("button"),
+			style_key="action_secondary",
+			module="produccion",
+			palette_key="primary",
+			cursor="hand2"
 		)
 		self.btn_vincular.pack(side=tk.LEFT, padx=10)
 
 		# Botón CONFIRMAR
 		nav_conf = get_nav_button_config(self.config, "confirmar")
-		style_confirmar = get_nav_button_style(self.config, nav_conf.get("style_key", "confirmar"))
-		self.btn_confirmar = ctk.CTkButton(
-			frame_nav,
+		self.btn_confirmar = ButtonFactory.create_button(
+			parent=frame_nav,
 			text=nav_conf.get("text", "CONFIRMAR"),
-			font=self._get_font(nav_conf.get("font_key", "button")),
-			fg_color=style_confirmar.get("bg", "#27ae60"),
-			text_color=style_confirmar.get("text", "#FFFFFF"),
-			hover_color=style_confirmar.get("hover", "#2ecc71"),
-			border_color=style_confirmar.get("border", "#27ae60"),
-			border_width=style_confirmar.get("focus_thickness", 0),
+			command=self._on_confirmar,
 			width=nav_conf.get("width", 15) * 10,
 			height=nav_conf.get("height", 2) * 20,
-			cursor="hand2",
-			command=self._on_confirmar
+			font=self._get_font(nav_conf.get("font_key", "button")),
+			style_key="action_confirm",
+			module="produccion",
+			palette_key="primary",
+			cursor="hand2"
 		)
 		self.btn_confirmar.pack(side=tk.RIGHT, padx=10)
 

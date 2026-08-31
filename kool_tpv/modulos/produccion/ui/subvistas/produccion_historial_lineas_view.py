@@ -16,6 +16,7 @@ from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config
 from kool_tpv.utils.widgets.searchable_paginated_navlist import SearchablePaginatedNavList
 from kool_tpv.utils.config_loader import load_layout_config
 from kool_tpv.base_datos.money_adapter import read_from_db
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 
 
 class ProduccionHistorialLineasView:
@@ -183,20 +184,18 @@ class ProduccionHistorialLineasView:
 		frame_nav.pack(fill="x", padx=40, pady=20)
 
 		nav_volver = self.config.get("nav_buttons", {}).get("volver", {})
-		style_volver = nav_volver.get("style", {})
-		btn_volver = ctk.CTkButton(
-			frame_nav,
+		
+		btn_volver = ButtonFactory.create_button(
+			parent=frame_nav,
 			text=nav_volver.get("text", "VOLVER"),
-			font=self._get_font(nav_volver.get("font_key", "button")),
-			fg_color=style_volver.get("bg", "#e74c3c"),
-			text_color=style_volver.get("text", "#FFFFFF"),
-			hover_color=style_volver.get("hover", "#c0392b"),
-			border_color=style_volver.get("border", "#e74c3c"),
-			border_width=style_volver.get("focus_thickness", 0),
+			command=self._on_volver,
 			width=nav_volver.get("width", 15) * 10,
 			height=nav_volver.get("height", 2) * 20,
-			cursor="hand2",
-			command=self._on_volver
+			font=self._get_font(nav_volver.get("font_key", "button")),
+			style_key="action_confirm",  # Usar estilo sólido
+			module="produccion",
+			palette_key="primary",
+			cursor="hand2"
 		)
 		btn_volver.pack(side=tk.LEFT, padx=10)
 

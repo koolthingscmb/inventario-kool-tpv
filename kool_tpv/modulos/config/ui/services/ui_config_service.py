@@ -1,6 +1,7 @@
 """Servicio centralizado para gestionar archivos JSON de configuración UI."""
 import json
 import shutil
+from pathlib import Path
 from datetime import datetime
 from kool_tpv.paths import get_resource_path, BACKUP_DIR
 from typing import Callable, Dict, List, Optional

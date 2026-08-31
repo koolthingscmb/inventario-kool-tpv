@@ -228,7 +228,9 @@ class ButtonFactory:
             palette = cls._get_module_palette(module, palette_key)
             if palette:
                 if style_type == "outline":
-                    # outline: fondo se mantiene, text/border/hover del módulo
+                    # outline: text/border/hover del módulo.
+                    # También permitimos bg si el módulo lo define explícitamente.
+                    bg_val = palette.get("bg", bg_val)
                     text_val = palette.get("text", text_val)
                     border_val = palette.get("border", border_val)
                     hover_val = palette.get("hover", hover_val)

@@ -17,6 +17,7 @@ from kool_tpv.utils.keyboard_nav_mixin import KeyboardNavigableMixin
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import (
 	cargar_config_produccion, get_font, get_chip_config, get_chip_style, get_nav_button_config, get_nav_button_style
 )
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 
 
 class CajeroAuthView(ctk.CTkFrame, KeyboardNavigableMixin):
@@ -211,20 +212,17 @@ class CajeroAuthView(ctk.CTkFrame, KeyboardNavigableMixin):
 
 		# Botón VOLVER
 		nav_volver = get_nav_button_config(self.config, "volver")
-		style_volver = get_nav_button_style(self.config, nav_volver.get("style_key", "volver"))
-		self.btn_volver = ctk.CTkButton(
-			frame_nav,
+		self.btn_volver = ButtonFactory.create_button(
+			parent=frame_nav,
 			text=nav_volver.get("text", "VOLVER"),
-			font=get_font(self.config, nav_volver.get("font_key", "button")),
-			fg_color=style_volver.get("bg", "#e74c3c"),
-			text_color=style_volver.get("text", "#FFFFFF"),
-			hover_color=style_volver.get("hover", "#c0392b"),
-			border_color=style_volver.get("border", "#e74c3c"),
-			border_width=style_volver.get("focus_thickness", 0),
+			command=self._on_volver_handler,
 			width=nav_volver.get("width", 15) * 10,
 			height=nav_volver.get("height", 2) * 20,
-			cursor="hand2",
-			command=self._on_volver_handler
+			font=get_font(self.config, nav_volver.get("font_key", "button")),
+			style_key="action_confirm",
+			module="produccion",
+			palette_key="primary",
+			cursor="hand2"
 		)
 		self.btn_volver.pack(side="left", padx=10)
 
