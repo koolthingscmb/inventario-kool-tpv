@@ -454,8 +454,9 @@ class VirtualNavList(ctk.CTkFrame):
                             'fg': data.get('_row_fg')
                         }
                 
-                if custom_colors:
-                    # Si la fila tiene color personalizado, MANDAR sobre el resto (seleccion, cebra, etc)
+                if custom_colors and not is_sel:
+                    # Si la fila tiene color personalizado, MANDAR sobre el resto (cebra, etc)
+                    # pero NO sobre la selección, para que el usuario vea el foco.
                     if custom_colors.get('bg'): bg = custom_colors['bg']
                     if custom_colors.get('fg'): fg = custom_colors['fg']
                 

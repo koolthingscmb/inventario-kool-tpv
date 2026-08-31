@@ -5,7 +5,7 @@ añadidos a la orden de producción y botones de AÑADIR / CONFIRMAR / VOLVER.
 """
 import tkinter as tk
 from dataclasses import dataclass, field
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Dict
 
 import customtkinter as ctk
 
@@ -28,17 +28,25 @@ class NuevaProduccionResumenView:
 		on_volver: Callback cuando se pulsa VOLVER.
 	"""
 
-	def __init__(self, parent,
+	def __init__(self, parent, db: Database,
 	             on_anadir: Optional[Callable] = None,
 	             on_confirmar: Optional[Callable[[List[ItemProduccion]], None]] = None,
 	             on_volver: Optional[Callable] = None):
 		self.parent = parent
+		self.db = db
 		self.on_anadir = on_anadir
 		self.on_confirmar = on_confirmar
 		self.on_volver = on_volver
 		self.items: List[ItemProduccion] = []
 		self.reposicion_store = ReposicionStore()
 		self._reposicion_pendientes = self.reposicion_store.cargar()
+
+		# Animación de pulso para el botón VINCULAR
+		self._pulse_active = False
+		self._pulse_after_id = None
+		self._pulse_state = False
+		self._accent_color = "#FFD700"  # Default gold
+		self._original_border_color = None
 
 		# Cargar configuración
 		self.config = cargar_config_produccion()
@@ -58,6 +66,19 @@ class NuevaProduccionResumenView:
 
 		# Botones de navegación
 		self._crear_botones_navegacion()
+
+		# Obtener colores para el pulso desde la factoría
+		try:
+			prod_accent = ButtonFactory.get_module_colors("produccion").get("buttons", {}).get("accent", {})
+			if prod_accent.get("bg"):
+				self._accent_color = prod_accent["bg"]
+			
+			# Guardar el color de borde original del botón vincular para restaurarlo
+			# El botón vincular usa palette_key="primary" y style_key="action_secondary" (outline)
+			prod_primary = ButtonFactory.get_module_colors("produccion").get("buttons", {}).get("primary", {})
+			self._original_border_color = prod_primary.get("border")
+		except Exception:
+			pass
 
 		# Navegación por teclado
 		self._setup_keyboard_nav()
@@ -138,6 +159,15 @@ class NuevaProduccionResumenView:
 		if idx is not None:
 			self._vincular_item(idx)
 
+	def _find_potenciales(self, item) -> List[Dict]:
+		"""
+		Busca líneas de reposición pendientes que coinciden con el ítem de producción.
+		Criterio: Deben coincidir Tipo y Variante obligatoriamente.
+		"""
+		return [r for r in self._reposicion_pendientes 
+				if r.get('tipo_id') == item.tipo_id and 
+				   r.get('variante_id') == item.variante_id]
+
 	def _vincular_item(self, idx: int):
 		"""Lógica de vinculación manual inteligente."""
 		if not (0 <= idx < len(self.items)):
@@ -146,47 +176,31 @@ class NuevaProduccionResumenView:
 		item = self.items[idx]
 		
 		# 1. Buscar potenciales coincidencias en reposición
-		# Deben coincidir Tipo y Variante obligatoriamente
-		potenciales = []
-		for r in self._reposicion_pendientes:
-			if (r.get('tipo_id') == item.tipo_id and 
-				r.get('variante_id') == item.variante_id):
-				potenciales.append(r)
+		potenciales = self._find_potenciales(item)
 		
 		if not potenciales:
 			show_info(self.frame, "Vincular Reposición", 
 					 f"No se han encontrado líneas de reposición pendientes para:\n{item.tipo_nombre} {item.variante_nombre or ''}")
 			return
 
-		# 2. Si hay potenciales, mostrar diálogo de selección
-		sugerencia = None
-		for p in potenciales:
-			# Si no tiene diseño, es el candidato ideal
-			if not p.get('diseno_codigo'):
-				sugerencia = p
-				break
-			# Si el comentario menciona algo del diseño
-			comentario = (p.get('comentarios') or "").lower()
-			if item.diseno_nombre and item.diseno_nombre.lower() in comentario:
-				sugerencia = p
-				break
-		
-		if sugerencia:
-			res = show_warning(self.frame, "Sugerencia de Vínculo", 
-							  f"He encontrado una reposición pendiente:\n"
-							  f"- Comentario: {sugerencia.get('comentarios') or '(vacío)'}\n"
-							  f"- Fecha: {sugerencia.get('fecha')[:10]}\n\n"
-							  f"¿Corresponde esta producción a esa reposición?",
-							  confirm=True)
-			if res:
-				item.reposicion_id = sugerencia.get('id')
-				ToastWidget.show(self.frame, "Línea vinculada manualmente", tipo='success')
-				self._refrescar_lista()
-				return
-		
-		# Si no hay sugerencia clara o el usuario dijo no, mostrar lista de todos para selección
+		# 2. Enriquecer potenciales con nombre de diseño desde la BD
 		from kool_tpv.utils.dialogs.reposicion_select_dialog import show_reposicion_select_dialog
+		from kool_tpv.modulos.produccion.repositories.produccion_disenos_repository import ProduccionDisenosRepository
 		
+		repo_disenos = ProduccionDisenosRepository(self.db)
+		
+		# Enriquecer potenciales con diseno_nombre
+		for p in potenciales:
+			codigo = p.get('diseno_codigo')
+			if codigo:
+				try:
+					dis = repo_disenos.get_por_codigo(codigo)
+					if dis:
+						p['_diseno_nombre_db'] = dis.nombre
+				except Exception:
+					pass
+		
+		# 3. Mostrar diálogo de selección (siempre, aunque solo haya una opción)
 		seleccion_id = show_reposicion_select_dialog(self.frame, potenciales)
 		if seleccion_id:
 			item.reposicion_id = seleccion_id
@@ -201,12 +215,9 @@ class NuevaProduccionResumenView:
 			if item.reposicion_id:
 				return {'bg': '#1b5e20', 'fg': '#ffffff'} # Verde oscuro (Vinculado)
 			
-			# Verificar si hay potenciales (sugerencia)
-			for r in self._reposicion_pendientes:
-				if (r.get('tipo_id') == item.tipo_id and 
-					r.get('variante_id') == item.variante_id and
-					not r.get('diseno_codigo')):
-					return {'bg': '#7f5a00', 'fg': '#ffffff'} # Marrón/Naranja oscuro (Sugerencia)
+			# Verificar si hay potenciales mediante el método centralizado
+			if self._find_potenciales(item):
+				return {'bg': '#7f5a00', 'fg': '#ffffff'} # Marrón/Naranja oscuro (Sugerencia)
 		
 		return None
 
@@ -342,27 +353,26 @@ class NuevaProduccionResumenView:
 	def _refrescar_lista(self):
 		"""Refrescar la tabla virtual de ítems."""
 		rows = []
+		any_to_link = False
 		for idx, item in enumerate(self.items):
 			# Estado reposición
 			repos_status = "-"
 			if item.reposicion_id:
 				repos_status = "VINCULADO"
 			else:
+				# Obtener todos los potenciales para este ítem
+				potenciales = self._find_potenciales(item)
+				
 				# Ver si hay coincidencia automática (por diseño_codigo)
-				auto_match = any(r.get('tipo_id') == item.tipo_id and 
-								r.get('variante_id') == item.variante_id and 
-								r.get('diseno_codigo') == item.diseno_codigo 
-								for r in self._reposicion_pendientes)
+				auto_match = any(r.get('diseno_codigo') == item.diseno_codigo 
+								for r in potenciales if r.get('diseno_codigo'))
+				
 				if auto_match:
 					repos_status = "AUTO"
-				else:
-					# Ver si hay potencial (mismo tipo/variante pero sin diseño)
-					potential = any(r.get('tipo_id') == item.tipo_id and 
-								   r.get('variante_id') == item.variante_id and 
-								   not r.get('diseno_codigo') 
-								   for r in self._reposicion_pendientes)
-					if potential:
-						repos_status = "VINCULAR?"
+				elif potenciales:
+					# Si hay potenciales (aunque tengan otro diseño o ninguno), es vinculable
+					repos_status = "VINCULAR?"
+					any_to_link = True
 
 			rows.append({
 				"usuario": getattr(item, 'usuario_nombre', '') or '',
@@ -383,6 +393,60 @@ class NuevaProduccionResumenView:
 		
 		self.nav_list.set_items(rows)
 		self._actualizar_total()
+
+		# Gestionar animación de pulso
+		if any_to_link:
+			self._start_pulse()
+		else:
+			self._stop_pulse()
+
+	def _start_pulse(self):
+		"""Iniciar la animación de pulso en el botón VINCULAR."""
+		if not self._pulse_active:
+			self._pulse_active = True
+			self._toggle_pulse()
+
+	def _stop_pulse(self):
+		"""Detener la animación de pulso y restaurar estado original."""
+		self._pulse_active = False
+		if self._pulse_after_id:
+			self.frame.after_cancel(self._pulse_after_id)
+			self._pulse_after_id = None
+		
+		# Restaurar estado visual original del botón
+		try:
+			self.btn_vincular.configure(
+				border_width=1,
+				border_color=self._original_border_color or "transparent"
+			)
+		except Exception:
+			pass
+
+	def _toggle_pulse(self):
+		"""Alternar el estado visual del pulso."""
+		if not self._pulse_active or not self.btn_vincular.winfo_exists():
+			return
+
+		self._pulse_state = not self._pulse_state
+		
+		try:
+			if self._pulse_state:
+				# Estado de atención
+				self.btn_vincular.configure(
+					border_width=3,
+					border_color=self._accent_color
+				)
+			else:
+				# Estado normal
+				self.btn_vincular.configure(
+					border_width=1,
+					border_color=self._original_border_color or "transparent"
+				)
+		except Exception:
+			self._pulse_active = False
+			return
+
+		self._pulse_after_id = self.frame.after(800, self._toggle_pulse)
 
 	def _actualizar_total(self):
 		"""Actualizar el label del total de unidades."""
@@ -475,5 +539,6 @@ class NuevaProduccionResumenView:
 
 	def destruir(self):
 		"""Destruir la subvista y limpiar recursos."""
+		self._stop_pulse()
 		self._on_destroy()
 		self.frame.destroy()

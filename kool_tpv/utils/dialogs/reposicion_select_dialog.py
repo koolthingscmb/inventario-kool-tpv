@@ -65,13 +65,14 @@ class ReposicionSelectDialog(BaseDialog):
         # Listado de reposiciones
         for p in self.potenciales:
             repo_id = p.get('id')
-            diseno = p.get('diseno_codigo') or "SIN DISEÑO"
+            # Intentar usar el nombre enriquecido que pasamos desde el resumen
+            diseno = p.get('_diseno_nombre_db') or p.get('diseno_codigo') or "SIN DISEÑO"
             comentarios = p.get('comentarios') or "(Sin comentarios)"
             fecha = p.get('fecha', '')[:10]
             cantidad = p.get('cantidad', 0)
             
             # Texto descriptivo
-            label_text = f"[{diseno}] - Cant: {cantidad} - {fecha}\n   {comentarios}"
+            label_text = f"{diseno} - Cant: {cantidad} - {fecha}\n   {comentarios}"
             
             rb = ctk.CTkRadioButton(
                 scroll_frame,

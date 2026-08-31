@@ -313,6 +313,7 @@ class NuevoProduccionFlow:
         elif paso == PASO_RESUMEN:
             self._vista_actual = NuevaProduccionResumenView(
                 self._content_frame,
+                db=self.db,
                 on_anadir=self._on_resumen_anadir,
                 on_confirmar=self._on_resumen_confirmar,
                 on_volver=lambda: self._mostrar_paso(PASO_CANTIDAD)
