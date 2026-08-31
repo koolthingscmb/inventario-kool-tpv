@@ -6,6 +6,7 @@ from typing import Callable, List, Dict, Any
 
 import customtkinter as ctk
 
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font
 from kool_tpv.utils.widgets.searchable_paginated_navlist import SearchablePaginatedNavList
@@ -50,11 +51,12 @@ class ProduccionStockVarianteCostesView:
         header = ctk.CTkFrame(self.frame, fg_color="transparent")
         header.pack(fill="x", padx=40, pady=(20, 10))
         
-        btn_volver = ctk.CTkButton(
-            header, text="VOLVER", width=100,
-            fg_color="#34495e",
-            hover_color="#2c3e50",
-            command=self.on_cerrar
+        btn_volver = ButtonFactory.create_button(
+            header, text="VOLVER", 
+            command=self.on_cerrar,
+            module="produccion",
+            palette_key="primary",
+            style_key="action_secondary"
         )
         btn_volver.pack(side="left")
         

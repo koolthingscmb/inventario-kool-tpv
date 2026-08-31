@@ -3,15 +3,16 @@
 Contiene la clase `NuevaProduccionTiposView` que muestra chips de tipos
 cargados desde la base de datos según el menú seleccionado.
 """
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Dict
 
 import customtkinter as ctk
 
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.produccion.models.produccion_tipos_model import ProduccionTipo
 from kool_tpv.modulos.produccion.services.produccion_menu_service import ProduccionMenuService
-from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font, get_chip_config, get_chip_style
+from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font, get_chip_config, get_chip_style, get_nav_button_config
 from kool_tpv.utils.keyboard_nav_mixin import KeyboardNavigableMixin
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 
 
 class NuevaProduccionTiposView(ctk.CTkFrame, KeyboardNavigableMixin):
@@ -160,45 +161,38 @@ class NuevaProduccionTiposView(ctk.CTkFrame, KeyboardNavigableMixin):
 		)
 
 	def _crear_botones_navegacion(self):
-		from kool_tpv.modulos.produccion.ui.subvistas.config_helper import get_nav_button_config, get_nav_button_style
 		frame_nav = ctk.CTkFrame(self, fg_color=self._bg)
 		frame_nav.pack(fill="x", padx=40, pady=20)
 
 		# Botón VOLVER
 		nav_volver = get_nav_button_config(self.config, "volver")
-		style_volver = get_nav_button_style(self.config, nav_volver.get("style_key", "volver"))
-		self.btn_volver = ctk.CTkButton(
-			frame_nav,
+		self.btn_volver = ButtonFactory.create_button(
+			parent=frame_nav,
 			text=nav_volver.get("text", "VOLVER"),
-			font=get_font(self.config, nav_volver.get("font_key", "button")),
-			fg_color=style_volver.get("bg", "#e74c3c"),
-			text_color=style_volver.get("text", "#FFFFFF"),
-			hover_color=style_volver.get("hover", "#c0392b"),
-			border_color=style_volver.get("border", "#e74c3c"),
-			border_width=style_volver.get("focus_thickness", 0),
+			command=self._on_volver_handler,
 			width=nav_volver.get("width", 15) * 10,
 			height=nav_volver.get("height", 2) * 20,
-			cursor="hand2",
-			command=self._on_volver_handler
+			font=get_font(self.config, nav_volver.get("font_key", "button")),
+			style_key="action_confirm",
+			module="produccion",
+			palette_key="primary",
+			cursor="hand2"
 		)
 		self.btn_volver.pack(side="left", padx=10)
 
 		# Botón SIGUIENTE
 		nav_sig = get_nav_button_config(self.config, "siguiente")
-		style_siguiente = get_nav_button_style(self.config, nav_sig.get("style_key", "siguiente"))
-		self.btn_siguiente = ctk.CTkButton(
-			frame_nav,
+		self.btn_siguiente = ButtonFactory.create_button(
+			parent=frame_nav,
 			text=nav_sig.get("text", "SIGUIENTE"),
-			font=get_font(self.config, nav_sig.get("font_key", "button")),
-			fg_color=style_siguiente.get("bg", "#27ae60"),
-			text_color=style_siguiente.get("text", "#FFFFFF"),
-			hover_color=style_siguiente.get("hover", "#2ecc71"),
-			border_color=style_siguiente.get("border", "#1C0629"),
-			border_width=style_siguiente.get("focus_thickness", 0),
+			command=self._on_siguiente_handler,
 			width=nav_sig.get("width", 15) * 10,
 			height=nav_sig.get("height", 2) * 20,
-			cursor="hand2",
-			command=self._on_siguiente_handler
+			font=get_font(self.config, nav_sig.get("font_key", "button")),
+			style_key="action_confirm",
+			module="produccion",
+			palette_key="primary",
+			cursor="hand2"
 		)
 		self.btn_siguiente.pack(side="right", padx=10)
 

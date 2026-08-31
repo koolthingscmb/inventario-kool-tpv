@@ -91,7 +91,9 @@ class ProduccionStockBaseView:
 			btn_frame, 
 			text="+ NUEVA BASE", 
 			command=self.show_formulario,
-			style_key="action_success"
+			module="produccion",
+			palette_key="secondary",
+			style_key="action_secondary"
 		)
 		self.btn_nuevo.pack(side="left", padx=5)
 
@@ -99,6 +101,8 @@ class ProduccionStockBaseView:
 			btn_frame,
 			text="Exportar PDF",
 			command=self._on_exportar_pdf,
+			module="produccion",
+			palette_key="secondary",
 			style_key="action_secondary"
 		)
 		self.btn_export_pdf.pack(side="left", padx=5)
@@ -107,7 +111,9 @@ class ProduccionStockBaseView:
 			btn_frame,
 			text="COSTES",
 			command=self.show_costes,
-			style_key="action_primary"
+			module="produccion",
+			palette_key="secondary",
+			style_key="action_secondary"
 		)
 		self.btn_costes.pack(side="left", padx=5)
 

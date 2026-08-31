@@ -2,6 +2,7 @@
 import tkinter as tk
 import customtkinter as ctk
 
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import get_font, get_chip_config, get_chip_style
 
 
@@ -69,15 +70,16 @@ class ConfigTabMatriz:
         lh = tk.Frame(lp, bg="#34495e")
         lh.pack(fill="x", padx=8, pady=(8, 3))
         self.lbl_colores_title = tk.Label(lh, text="COLORES", font=get_font(self.config, "label"),
-                                         fg="#FFD700", bg="#34495e")
+                                         fg="#FFFFFF", bg="#34495e")
         self.lbl_colores_title.pack(side="left")
         
-        ctk.CTkButton(lh, text="+ TODOS", width=70, height=26,
-                      fg_color="#2980b9", hover_color="#3498db",
-                      command=self._add_all_colores).pack(side="right", padx=(4, 0))
-        ctk.CTkButton(lh, text="+ AÑADIR", width=80, height=26,
-                      fg_color="#27ae60", hover_color="#2ecc71",
-                      command=self._add_color_dialog).pack(side="right")
+        ButtonFactory.create_button(lh, text="+ TODOS", width=70, height=26,
+                                  module="produccion", palette_key="secondary", style_key="action_confirm",
+                                  command=self._add_all_colores).pack(side="right", padx=(4, 0))
+        
+        ButtonFactory.create_button(lh, text="+ AÑADIR", width=80, height=26,
+                                  module="produccion", palette_key="secondary", style_key="action_confirm",
+                                  command=self._add_color_dialog).pack(side="right")
         self._colores_scroll = ctk.CTkScrollableFrame(lp, fg_color="#34495e")
         self._colores_scroll.pack(fill=tk.BOTH, expand=True, padx=8, pady=(0, 8))
 
@@ -85,16 +87,16 @@ class ConfigTabMatriz:
         rp = tk.Frame(self._paneles_frame, bg="#34495e", bd=0, highlightthickness=0)
         rp.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(8, 0))
         self._tallas_label = tk.Label(rp, text="TALLAS", font=get_font(self.config, "label"),
-                                      fg="#FFD700", bg="#34495e")
+                                      fg="#FFFFFF", bg="#34495e")
         self._tallas_label.pack(pady=(8, 3))
         self._tallas_scroll = ctk.CTkScrollableFrame(rp, fg_color="#34495e")
         self._tallas_scroll.pack(fill=tk.BOTH, expand=True, padx=8, pady=(0, 8))
 
-        # Botón guardar
         bf = tk.Frame(self.parent, bg=self._bg)
         bf.pack(pady=(5, 10))
-        ctk.CTkButton(bf, text="GUARDAR", fg_color="#27ae60", hover_color="#2ecc71",
-                      width=180, command=self._guardar).pack()
+        ButtonFactory.create_button(bf, text="GUARDAR", 
+                                  module="produccion", palette_key="primary", style_key="action_confirm",
+                                  width=180, command=self._guardar).pack()
 
         # Cargar datos iniciales
         self._rebuild_chips()
@@ -296,7 +298,7 @@ class ConfigTabMatriz:
             
             tk.Label(f_stock, text=f"CANTIDAD: {cant} unidades", 
                      font=("Courier New", 18, "bold"),
-                     fg="#2ecc71", bg="#1a1a2e").pack(pady=(5, 15))
+                     fg="#552583", bg="#1a1a2e").pack(pady=(5, 15))
             return
 
         for cid in sorted(self._colores_asignados, key=lambda c: self._all_colores[c].nombre if c in self._all_colores else ""):
@@ -314,7 +316,7 @@ class ConfigTabMatriz:
             lbl.bind("<Button-1>", lambda e, c=cid: self._select_color(c))
             row.bind("<Button-1>", lambda e, c=cid: self._select_color(c))
             btn_x = tk.Label(row, text="✕", font=get_font(self.config, "label"),
-                             fg="#e74c3c", bg="#34495e", cursor="hand2", padx=8)
+                             fg=self._colors.get("accent", "#e74c3c"), bg="#34495e", cursor="hand2", padx=8)
             btn_x.pack(side="right")
             btn_x.bind("<Button-1>", lambda e, c=cid: self._remove_color(cid))
             self._color_rows[cid] = {"row": row, "lbl": lbl, "swatch": swatch}
@@ -388,7 +390,7 @@ class ConfigTabMatriz:
             
             tk.Label(f_stock, text=f"CANTIDAD: {stock} unidades", 
                      font=("Courier New", 18, "bold"),
-                     fg="#2ecc71", bg="#1a1a2e").pack(pady=(5, 15))
+                     fg="#552583", bg="#1a1a2e").pack(pady=(5, 15))
             return
 
         tallas_orden = sorted(self._all_tallas.keys(),

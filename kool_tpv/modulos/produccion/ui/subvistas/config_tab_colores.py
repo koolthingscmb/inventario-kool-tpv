@@ -4,6 +4,7 @@ from tkinter import colorchooser
 import customtkinter as ctk
 from typing import Optional
 
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import get_font
 
 
@@ -34,7 +35,7 @@ class ConfigTabColores:
         frame_chips.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
 
         tk.Label(frame_chips, text="COLORES", font=get_font(self.config, "label"),
-                 fg="#FFD700", bg="#34495e").pack(pady=(8, 3), padx=8, anchor="w")
+                 fg="#FFFFFF", bg="#34495e").pack(pady=(8, 3), padx=8, anchor="w")
 
         self._chips_scroll = ctk.CTkScrollableFrame(frame_chips, fg_color="#34495e")
         self._chips_scroll.pack(fill=tk.BOTH, expand=True, padx=8, pady=(0, 8))
@@ -64,14 +65,41 @@ class ConfigTabColores:
         self._entry_hex.bind("<KeyRelease>", lambda e: self._actualizar_preview())
 
         frame_btns = tk.Frame(frame_form, bg="#34495e")
-        frame_btns.pack(pady=15, padx=20, fill=tk.X)
+        frame_btns.pack(pady=(15, 5), padx=20, fill=tk.X)
 
-        ctk.CTkButton(frame_btns, text="GUARDAR", fg_color="#27ae60", hover_color="#2ecc71",
-                      command=self._guardar).pack(side=tk.LEFT, padx=(0, 5), expand=True, fill=tk.X)
-        ctk.CTkButton(frame_btns, text="NUEVO", fg_color="#2980b9", hover_color="#3498db",
-                      command=self._limpiar).pack(side=tk.LEFT, padx=(5, 0), expand=True, fill=tk.X)
-        ctk.CTkButton(frame_btns, text="ELIMINAR", fg_color="#e74c3c", hover_color="#c0392b",
-                      command=self._eliminar).pack(side=tk.LEFT, padx=(5, 0), expand=True, fill=tk.X)
+        self.btn_guardar = ButtonFactory.create_button(
+            frame_btns, 
+            text="GUARDAR", 
+            command=self._guardar,
+            module="produccion",
+            palette_key="primary",
+            style_key="action_confirm"
+        )
+        self.btn_guardar.pack(side=tk.LEFT, padx=(0, 5), expand=True, fill=tk.X)
+
+        self.btn_nuevo = ButtonFactory.create_button(
+            frame_btns, 
+            text="NUEVO", 
+            command=self._limpiar,
+            module="produccion",
+            palette_key="primary",
+            style_key="action_confirm"
+        )
+        self.btn_nuevo.pack(side=tk.LEFT, padx=(5, 0), expand=True, fill=tk.X)
+
+        # Fila para botón ELIMINAR
+        frame_btns_del = tk.Frame(frame_form, bg="#34495e")
+        frame_btns_del.pack(pady=(0, 15), padx=20, fill=tk.X)
+
+        self.btn_eliminar = ButtonFactory.create_button(
+            frame_btns_del, 
+            text="ELIMINAR", 
+            command=self._eliminar,
+            module="produccion",
+            palette_key="accent",
+            style_key="action_confirm"
+        )
+        self.btn_eliminar.pack(side=tk.LEFT, expand=True, fill=tk.X)
 
         self._cargar_chips()
 
@@ -91,10 +119,19 @@ class ConfigTabColores:
         for c in range(8):
             self._chips_scroll.grid_columnconfigure(c, weight=1)
 
-        # Obtener estilos de chips desde config (igual que produccion_diseno_nuevo)
-        chips_cfg = self.config.get("chips", {})
-        default_cfg = chips_cfg.get("default", {})
-        selected_cfg = chips_cfg.get("selected", {})
+        # Estilos chips unificados
+        self._chip_style_default = {
+            "bg": "#1a1a2e",
+            "text": "#cccccc",
+            "border": "#333333",
+            "hover": "#C77BFF"
+        }
+        self._chip_style_selected = {
+            "bg": "#552583",
+            "text": "#ffffff",
+            "border": "#C77BFF",
+            "hover": "#8E44AD"
+        }
 
         for i, cid in enumerate(self._colores_order):
             color = self._colores[cid]
@@ -102,28 +139,22 @@ class ConfigTabColores:
             col = i % 8
 
             is_selected = (cid == self._color_id_edit)
-
-            bg_color = selected_cfg.get("bg", "#552583") if is_selected else default_cfg.get("bg", "#1a1a2e")
-            text_color = selected_cfg.get("text_color", "#ffffff") if is_selected else default_cfg.get("text_color", "#cccccc")
-            border_color = selected_cfg.get("border_color", "#8888ff") if is_selected else default_cfg.get("border_color", "#333333")
-            border_width = selected_cfg.get("border_width", 2) if is_selected else default_cfg.get("border_width", 1)
+            style = self._chip_style_selected if is_selected else self._chip_style_default
 
             # Usar el codigo_hex como borde si existe
-            if color.codigo_hex:
-                border_color = color.codigo_hex
-                border_width = 2
+            border_color = color.codigo_hex if color.codigo_hex else style["border"]
 
             chip = ctk.CTkButton(
                 self._chips_scroll,
                 text=color.nombre,
                 font=get_font(self.config, "label"),
-                fg_color=bg_color,
-                text_color=text_color,
+                fg_color=style["bg"],
+                text_color=style["text"],
                 border_color=border_color,
-                border_width=border_width,
+                border_width=2 if (is_selected or color.codigo_hex) else 1,
                 corner_radius=8,
                 height=36,
-                hover_color=bg_color
+                hover_color=style["hover"]
             )
             chip.grid(row=row, column=col, padx=5, pady=5, sticky="nsew")
             chip.bind("<Button-1>", lambda e, c=cid: self._select_chip(c))
@@ -139,21 +170,20 @@ class ConfigTabColores:
             self._entry_hex.insert(0, color.codigo_hex or "")
             self._actualizar_preview()
 
-        # Actualizar estilos de chips sin recargar (evita recursión infinita)
-        chips_cfg = self.config.get("chips", {})
-        default_cfg = chips_cfg.get("default", {})
-        selected_cfg = chips_cfg.get("selected", {})
+        # Actualizar estilos de chips
         for cid, chip in self._chip_widgets.items():
             is_sel = (cid == color_id)
-            bg = selected_cfg.get("bg", "#552583") if is_sel else default_cfg.get("bg", "#1a1a2e")
-            color = self._colores.get(cid)
-            border_color = color.codigo_hex if color and color.codigo_hex else (selected_cfg.get("border_color", "#8888ff") if is_sel else default_cfg.get("border_color", "#333333"))
+            style = self._chip_style_selected if is_sel else self._chip_style_default
+            
+            c_data = self._colores.get(cid)
+            border_color = c_data.codigo_hex if c_data and c_data.codigo_hex else style["border"]
+            
             chip.configure(
-                fg_color=bg,
-                text_color=selected_cfg.get("text_color", "#ffffff") if is_sel else default_cfg.get("text_color", "#cccccc"),
+                fg_color=style["bg"],
+                text_color=style["text"],
                 border_color=border_color,
-                border_width=2,
-                hover_color=bg
+                border_width=2 if (is_sel or (c_data and c_data.codigo_hex)) else 1,
+                hover_color=style["hover"]
             )
 
     def _actualizar_preview(self):

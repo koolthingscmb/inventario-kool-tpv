@@ -161,7 +161,8 @@ class ProduccionEntradaManualUI:
         ctk.CTkLabel(row3, text='€').pack(side='left')
 
         self.btn_anadir = ButtonFactory.create_button(
-            row3, 'AÑADIR LÍNEA', self._on_anadir_click, style_key='action_confirm'
+            row3, 'AÑADIR LÍNEA', self._on_anadir_click, 
+            module='produccion', palette_key='accent', style_key='action_confirm'
         )
         self.btn_anadir.pack(side='right', padx=10)
 
@@ -191,18 +192,21 @@ class ProduccionEntradaManualUI:
         footer.pack(fill='x', padx=20, pady=15)
         
         self.btn_guardar = ButtonFactory.create_button(
-            footer, 'GUARDAR ALBARÁN', self._on_guardar_click, style_key='action_success'
+            footer, 'GUARDAR ALBARÁN', self._on_guardar_click, 
+            module='produccion', palette_key='primary', style_key='action_confirm'
         )
         self.btn_guardar.pack(side='right')
         self.btn_guardar.configure(state='disabled')
         
         self.btn_eliminar = ButtonFactory.create_button(
-            footer, 'ELIMINAR LÍNEA', self._on_eliminar_linea_click, style_key='action_danger'
+            footer, 'ELIMINAR LÍNEA', self._on_eliminar_linea_click, 
+            module='produccion', palette_key='accent', style_key='action_secondary'
         )
         self.btn_eliminar.pack(side='right', padx=20)
         
         self.btn_volver = ButtonFactory.create_button(
-            footer, 'VOLVER', self._on_volver_click, style_key='action_secondary'
+            footer, 'VOLVER', self._on_volver_click, 
+            module='produccion', palette_key='primary', style_key='action_secondary'
         )
         self.btn_volver.pack(side='left')
 

@@ -95,20 +95,26 @@ class ProduccionConfigView:
 
     # --- Sistema de tabs ---
 
-    _TAB_BG_NORMAL = "#34495e"
-    _TAB_BG_SELECTED = "#3498db"
-    _TAB_BG_SUB_NORMAL = "#2c3e50"
-    _TAB_BG_SUB_SELECTED = "#9b59b6"
+    _TAB_BG_NORMAL = "#C77BFF"
+    _TAB_BG_SELECTED = "#552583"
+    _TAB_BG_SUB_NORMAL = "#C77BFF"
+    _TAB_BG_SUB_SELECTED = "#552583"
 
     def _crear_tab_bar(self):
         bar = tk.Frame(self.frame, bg=self._bg, height=36)
         bar.pack(fill="x", padx=20, pady=(5, 0))
         bar.pack_propagate(False)
 
+        # Colores del módulo
+        from kool_tpv.utils.factories.button_factory import ButtonFactory
+        module_colors = ButtonFactory.get_module_colors("produccion")
+        self._TAB_BG_NORMAL = module_colors.get("secondary", "#C77BFF") # Morado claro
+        self._TAB_BG_SELECTED = module_colors.get("primary", "#552583") # Morado oscuro (Primary)
+
         for tab_name in self._main_tabs:
             lbl = tk.Label(
                 bar, text=tab_name, font=get_font(self.config, "label"),
-                fg=self._text, bg=self._TAB_BG_NORMAL,
+                fg="#FFFFFF", bg=self._TAB_BG_NORMAL,
                 padx=20, pady=6, cursor="hand2"
             )
             lbl.pack(side="left", padx=(0, 4))
@@ -119,10 +125,16 @@ class ProduccionConfigView:
         self._sub_tab_bar = tk.Frame(self.frame, bg=self._bg, height=30)
         self._sub_tab_bar.pack_propagate(False)
 
+        # Colores del módulo para sub-tabs
+        from kool_tpv.utils.factories.button_factory import ButtonFactory
+        module_colors = ButtonFactory.get_module_colors("produccion")
+        self._TAB_BG_SUB_NORMAL = module_colors.get("secondary", "#C77BFF")
+        self._TAB_BG_SUB_SELECTED = module_colors.get("primary", "#552583")
+
         for sub_name in self._sub_tabs:
             lbl = tk.Label(
                 self._sub_tab_bar, text=sub_name, font=get_font(self.config, "label"),
-                fg=self._text, bg=self._TAB_BG_SUB_NORMAL,
+                fg="#FFFFFF", bg=self._TAB_BG_SUB_NORMAL,
                 padx=16, pady=5, cursor="hand2"
             )
             lbl.pack(side="left", padx=(0, 4))

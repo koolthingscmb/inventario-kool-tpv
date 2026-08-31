@@ -132,7 +132,7 @@ class NuevoProduccionFlow:
             font=get_font(config, "button"),
             style_key="action_secondary",
             module="produccion",
-            palette_key="primary",
+            palette_key="secondary",
             cursor="hand2"
         )
         self._btn_historial.pack(side=tk.LEFT, padx=20, pady=(10, 0))

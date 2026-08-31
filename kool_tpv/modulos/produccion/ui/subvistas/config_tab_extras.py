@@ -3,6 +3,7 @@ import tkinter as tk
 import customtkinter as ctk
 from typing import Optional, List
 
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import get_font
 from kool_tpv.modulos.produccion.services.produccion_extras_service import ProduccionExtrasService, ProduccionExtra
 from kool_tpv.base_datos.money_adapter import read_from_db, prepare_for_db
@@ -72,7 +73,9 @@ class ConfigTabExtras:
         self._entry_desc.grid(row=1, column=0, columnspan=2, pady=10, sticky="ew")
 
         # Fila 3: Activo
-        self._switch_activo = ctk.CTkSwitch(grid_frame, text="Extra Activo", font=get_font(self.config, "label"))
+        self._switch_activo = ctk.CTkCheckBox(grid_frame, text="Extra Activo", 
+                                             font=get_font(self.config, "label"),
+                                             fg_color="#552583", hover_color="#C77BFF", text_color="#FFFFFF")
         self._switch_activo.grid(row=2, column=0, pady=10, sticky="w")
         self._switch_activo.select()
 
@@ -80,27 +83,24 @@ class ConfigTabExtras:
         btn_frame = ctk.CTkFrame(self._frame_form, fg_color="transparent")
         btn_frame.pack(fill="x", padx=40, pady=30)
 
-        self._btn_guardar = ctk.CTkButton(
+        self._btn_guardar = ButtonFactory.create_button(
             btn_frame, text="GUARDAR EXTRA", 
-            fg_color="#27ae60", hover_color="#2ecc71",
-            height=50, font=get_font(self.config, "label"),
-            command=self._guardar
+            module="produccion", palette_key="primary", style_key="action_confirm",
+            height=50, command=self._guardar
         )
         self._btn_guardar.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
-        self._btn_nuevo = ctk.CTkButton(
+        self._btn_nuevo = ButtonFactory.create_button(
             btn_frame, text="AÑADIR EXTRA", 
-            fg_color="#2980b9", hover_color="#3498db",
-            height=50, font=get_font(self.config, "label"),
-            command=self._limpiar
+            module="produccion", palette_key="secondary", style_key="action_confirm",
+            height=50, command=self._limpiar
         )
         self._btn_nuevo.pack(side="left", fill="x", expand=True, padx=10)
 
-        self._btn_eliminar = ctk.CTkButton(
+        self._btn_eliminar = ButtonFactory.create_button(
             btn_frame, text="ELIMINAR EXTRA", 
-            fg_color="#e74c3c", hover_color="#c0392b",
-            height=50, font=get_font(self.config, "label"),
-            command=self._eliminar
+            module="produccion", palette_key="accent", style_key="action_confirm",
+            height=50, command=self._eliminar
         )
         self._btn_eliminar.pack(side="left", fill="x", expand=True, padx=(10, 0))
 

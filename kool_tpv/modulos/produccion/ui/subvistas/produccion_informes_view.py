@@ -90,13 +90,13 @@ class ProduccionInformesView:
         self.lbl_desde = ctk.CTkLabel(self.dates_frame, text='Desde:', font=get_font('label'), text_color=self.colors.get('text'))
         self.lbl_desde.pack(side='left', padx=(0, 6))
         
-        self.entry_desde = DatePickerEntry(self.dates_frame, width=120, default_mode='first_day_of_month')
+        self.entry_desde = DatePickerEntry(self.dates_frame, module_name='produccion', width=120, default_mode='first_day_of_month')
         self.entry_desde.pack(side='left', padx=(0, 12))
         
         self.lbl_hasta = ctk.CTkLabel(self.dates_frame, text='Hasta:', font=get_font('label'), text_color=self.colors.get('text'))
         self.lbl_hasta.pack(side='left', padx=(0, 6))
         
-        self.entry_hasta = DatePickerEntry(self.dates_frame, width=120, default_mode='today')
+        self.entry_hasta = DatePickerEntry(self.dates_frame, module_name='produccion', width=120, default_mode='today')
         self.entry_hasta.pack(side='left', padx=(0, 12))
         
         # Botón Generar
@@ -104,6 +104,8 @@ class ProduccionInformesView:
             self.filters_frame,
             text='GENERAR',
             command=self._on_generar_click,
+            module='produccion',
+            palette_key='primary',
             style_key='action_primary'
         )
         self.btn_generar.pack(side='right', padx=10)
@@ -137,18 +139,10 @@ class ProduccionInformesView:
         # NavList para los datos del informe
         self.nav_list = VirtualNavList(
             self.viewer_frame,
-            columns=[('placeholder', 100)],
+            columns=[],
             module_name='produccion'
         )
         self.nav_list.pack(fill='both', expand=True, padx=10, pady=(0, 10))
-        
-        # Placeholder inicial
-        self.lbl_placeholder = ctk.CTkLabel(
-            self.viewer_frame, text='Genera un informe para ver los resultados',
-            font=(get_font('label')[0], 14),
-            text_color=self.colors.get('text_secondary', 'gray60')
-        )
-        self.lbl_placeholder.place(relx=0.5, rely=0.6, anchor='center')
         
         # --- Footer con Exportación ---
         self.footer_frame = ctk.CTkFrame(self.container, fg_color='transparent', height=50)
@@ -158,6 +152,8 @@ class ProduccionInformesView:
             self.footer_frame,
             text='EXPORTAR CSV',
             command=lambda: self._exportar('csv'),
+            module='produccion',
+            palette_key='secondary',
             style_key='action_secondary'
         )
         self.btn_export_csv.pack(side='left', padx=10)
@@ -167,6 +163,8 @@ class ProduccionInformesView:
             self.footer_frame,
             text='EXPORTAR PDF',
             command=lambda: self._exportar('pdf'),
+            module='produccion',
+            palette_key='secondary',
             style_key='action_secondary'
         )
         self.btn_export_pdf.pack(side='left', padx=10)
@@ -302,12 +300,6 @@ class ProduccionInformesView:
             
     def _render_report(self, report_data):
         """Renderizar el informe usando VirtualNavList con cabecera y resumen."""
-        # Ocultar placeholder
-        try:
-            self.lbl_placeholder.place_forget()
-        except Exception:
-            pass
-
         # Cabecera
         self.lbl_informe_titulo.configure(text=report_data.get('titulo', ''))
         self.lbl_informe_fecha.configure(text=f"Generado: {report_data.get('fecha_generacion', '')}")

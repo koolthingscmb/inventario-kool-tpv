@@ -546,6 +546,15 @@ class VirtualNavList(ctk.CTkFrame):
         self.selected_indices.clear()
         self._refresh_ui()
 
+    def get_selected_index(self) -> Optional[int]:
+        """Obtener el índice del elemento seleccionado.
+        En modo multi-select, devuelve el último índice enfocado.
+        """
+        if self.multi_select:
+            return self.selected_index if self.selected_index >= 0 else None
+        
+        return self.selected_index if self.selected_index >= 0 else None
+
     def get_selected_data(self) -> Optional[dict]:
         if 0 <= self.selected_index < len(self._all_data):
             return self._all_data[self.selected_index]

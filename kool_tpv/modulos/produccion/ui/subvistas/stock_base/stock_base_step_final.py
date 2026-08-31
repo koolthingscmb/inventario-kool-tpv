@@ -73,7 +73,7 @@ class StockBaseStepFinal(KeyboardNavigableMixin):
                 self.frame,
                 text=self.resumen,
                 font=get_font(self.config, "label"),
-                text_color=self._focus_border,
+                text_color="#FFFFFF",
                 fg_color=self._bg
             )
             lbl_resumen.pack(pady=(0, 20))
@@ -133,60 +133,31 @@ class StockBaseStepFinal(KeyboardNavigableMixin):
         frame_nav = ctk.CTkFrame(self.frame, fg_color=self._bg)
         frame_nav.pack(fill="x", padx=40, pady=20)
 
-        # VOLVER
-        nav_volver = get_nav_button_config(self.config, "volver")
-        style_volver = get_nav_button_style(self.config, nav_volver.get("style_key", "volver"))
-        btn_volver = ctk.CTkButton(
-            frame_nav,
-            text=nav_volver.get("text", "VOLVER"),
-            font=get_font(self.config, nav_volver.get("font_key", "button")),
-            fg_color=style_volver.get("bg", "#e74c3c"),
-            text_color=style_volver.get("text", "#FFFFFF"),
-            hover_color=style_volver.get("hover", "#c0392b"),
-            border_color=style_volver.get("border", "#e74c3c"),
-            border_width=style_volver.get("focus_thickness", 0),
-            width=nav_volver.get("width", 15) * 10,
-            height=nav_volver.get("height", 2) * 20,
-            cursor="hand2",
-            command=self._on_volver_click
-        )
-        btn_volver.pack(side=tk.LEFT, padx=10)
+        from kool_tpv.utils.factories.button_factory import ButtonFactory
 
-        # OTRA VARIANTE
-        btn_otro = ctk.CTkButton(
-            frame_nav,
-            text="OTRA VARIANTE",
-            font=get_font(self.config, "button"),
-            fg_color="#552583",
-            text_color="#FFFFFF",
-            hover_color="#8e44ad",
-            border_color="#C77BFF",
-            border_width=0,
-            width=150,
-            height=40,
-            cursor="hand2",
-            command=self._on_otro_click
+        # VOLVER
+        self.btn_volver = ButtonFactory.create_button(
+            parent=frame_nav,
+            text="VOLVER",
+            command=self._on_volver_click,
+            style_key="action_secondary",
+            module="produccion",
+            palette_key="primary",
+            cursor="hand2"
         )
-        btn_otro.pack(side=tk.LEFT, padx=10)
+        self.btn_volver.pack(side=tk.LEFT, padx=10)
 
         # GUARDAR
-        nav_sig = get_nav_button_config(self.config, "confirmar")
-        style_guardar = get_nav_button_style(self.config, nav_sig.get("style_key", "siguiente"))
-        btn_guardar = ctk.CTkButton(
-            frame_nav,
+        self.btn_guardar = ButtonFactory.create_button(
+            parent=frame_nav,
             text="GUARDAR",
-            font=get_font(self.config, nav_sig.get("font_key", "button")),
-            fg_color=style_guardar.get("bg", "#27ae60"),
-            text_color=style_guardar.get("text", "#FFFFFF"),
-            hover_color=style_guardar.get("hover", "#2ecc71"),
-            border_color=style_guardar.get("border", "#1C0629"),
-            border_width=style_guardar.get("focus_thickness", 0),
-            width=nav_sig.get("width", 15) * 10,
-            height=nav_sig.get("height", 2) * 20,
-            cursor="hand2",
-            command=self._on_guardar
+            command=self._on_guardar,
+            style_key="action_secondary",
+            module="produccion",
+            palette_key="primary",
+            cursor="hand2"
         )
-        btn_guardar.pack(side=tk.RIGHT, padx=10)
+        self.btn_guardar.pack(side=tk.RIGHT, padx=10)
 
     def _setup_keyboard_nav(self):
         self._navigable_buttons = [

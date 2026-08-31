@@ -74,9 +74,9 @@ class NuevaProduccionResumenView:
 				self._accent_color = prod_accent["bg"]
 			
 			# Guardar el color de borde original del botón vincular para restaurarlo
-			# El botón vincular usa palette_key="primary" y style_key="action_secondary" (outline)
-			prod_primary = ButtonFactory.get_module_colors("produccion").get("buttons", {}).get("primary", {})
-			self._original_border_color = prod_primary.get("border")
+			# El botón vincular usa palette_key="secondary" y style_key="action_secondary" (outline)
+			prod_secondary = ButtonFactory.get_module_colors("produccion").get("buttons", {}).get("secondary", {})
+			self._original_border_color = prod_secondary.get("border")
 		except Exception:
 			pass
 
@@ -316,7 +316,7 @@ class NuevaProduccionResumenView:
 			font=self._get_font("button"),
 			style_key="action_secondary",
 			module="produccion",
-			palette_key="primary",
+			palette_key="secondary",
 			cursor="hand2"
 		)
 		self.btn_vincular.pack(side=tk.LEFT, padx=10)

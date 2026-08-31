@@ -4,6 +4,7 @@ import tkinter.messagebox
 import customtkinter as ctk
 from typing import List, Dict, Set
 
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import get_font
 from kool_tpv.utils.dialogs.input_dialog import InputDialog
 from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
@@ -42,7 +43,7 @@ class ConfigTabTallasGrupos:
         frame_tallas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
 
         tk.Label(frame_tallas, text="SELECCIONAR TALLAS", font=get_font(self.config, "label"),
-                 fg="#FFD700", bg="#34495e").pack(pady=(8, 3), padx=8, anchor="w")
+                 fg="#FFFFFF", bg="#34495e").pack(pady=(8, 3), padx=8, anchor="w")
 
         self._scroll_tallas = ctk.CTkScrollableFrame(frame_tallas, fg_color="#34495e")
         self._scroll_tallas.pack(fill=tk.BOTH, expand=True, padx=8, pady=(0, 8))
@@ -55,12 +56,19 @@ class ConfigTabTallasGrupos:
         header_grupos.pack(fill=tk.X, pady=(8, 3), padx=8)
 
         tk.Label(header_grupos, text="GRUPOS", font=get_font(self.config, "label"),
-                 fg="#FFD700", bg="#34495e").pack(side=tk.LEFT)
+                 fg="#FFFFFF", bg="#34495e").pack(side=tk.LEFT)
 
-        btn_mas = ctk.CTkButton(header_grupos, text="+ GRUPO", width=80, height=28,
-                               fg_color="#27ae60", hover_color="#2ecc71",
-                               command=self._crear_grupo)
-        btn_mas.pack(side=tk.RIGHT)
+        self.btn_mas = ButtonFactory.create_button(
+            header_grupos, text="+ GRUPO",
+            command=self._crear_grupo,
+            module="produccion",
+            palette_key="primary",
+            style_key="action_confirm"
+        )
+        # Ajustar ancho/alto manual para que encaje en el header si es necesario, 
+        # pero ButtonFactory ya da un tamaño base.
+        self.btn_mas.configure(width=100, height=32) 
+        self.btn_mas.pack(side=tk.RIGHT)
 
         self._scroll_grupos = ctk.CTkScrollableFrame(frame_grupos, fg_color="#34495e")
         self._scroll_grupos.pack(fill=tk.BOTH, expand=True, padx=8, pady=(0, 8))
@@ -69,16 +77,24 @@ class ConfigTabTallasGrupos:
         footer_grupos = tk.Frame(frame_grupos, bg="#34495e")
         footer_grupos.pack(fill=tk.X, side=tk.BOTTOM, padx=8, pady=8)
 
-        self._btn_guardar = ctk.CTkButton(footer_grupos, text="GUARDAR ASOCIACIÓN", 
-                                        fg_color="#2980b9", hover_color="#3498db",
-                                        state="disabled",
-                                        command=self._guardar_asociacion)
+        self._btn_guardar = ButtonFactory.create_button(
+            footer_grupos, text="GUARDAR ASOCIACIÓN", 
+            command=self._guardar_asociacion,
+            module="produccion",
+            palette_key="primary",
+            style_key="action_confirm"
+        )
+        self._btn_guardar.configure(state="disabled")
         self._btn_guardar.pack(side=tk.RIGHT, padx=(5, 0))
 
-        self._btn_eliminar = ctk.CTkButton(footer_grupos, text="ELIMINAR GRUPO", 
-                                         fg_color="#e74c3c", hover_color="#c0392b",
-                                         state="disabled",
-                                         command=self._eliminar_grupo)
+        self._btn_eliminar = ButtonFactory.create_button(
+            footer_grupos, text="ELIMINAR GRUPO", 
+            command=self._eliminar_grupo,
+            module="produccion",
+            palette_key="accent",
+            style_key="action_confirm"
+        )
+        self._btn_eliminar.configure(state="disabled")
         self._btn_eliminar.pack(side=tk.LEFT)
 
         self._cargar_datos()
@@ -100,20 +116,34 @@ class ConfigTabTallasGrupos:
         self._grupos = {g.id: g for g in grupos}
         self._grupos_order = [g.id for g in grupos]
 
-        # Estilos chips
-        chips_cfg = self.config.get("chips", {})
-        self._style_default = chips_cfg.get("default", {"bg": "#1a1a2e", "text_color": "#cccccc", "border_color": "#333333"})
-        self._style_selected = chips_cfg.get("selected", {"bg": "#552583", "text_color": "#ffffff", "border_color": "#8888ff"})
-        self._style_active = {"bg": "#27ae60", "text_color": "#ffffff", "border_color": "#2ecc71"} # Para tallas marcadas
+        # Estilos chips unificados
+        self._style_default = {
+            "bg": "#1a1a2e",
+            "text": "#cccccc",
+            "border": "#333333",
+            "hover": "#C77BFF"
+        }
+        self._style_selected = {
+            "bg": "#552583",
+            "text": "#ffffff",
+            "border": "#C77BFF",
+            "hover": "#8E44AD"
+        }
+        self._style_active = {
+            "bg": "#552583",
+            "text": "#ffffff",
+            "border": "#C77BFF",
+            "hover": "#8E44AD"
+        }
 
         # Grid tallas (4 columnas)
         for c in range(4): self._scroll_tallas.grid_columnconfigure(c, weight=1)
         for i, tid in enumerate(self._tallas_order):
             t = self._tallas[tid]
             chip = ctk.CTkButton(self._scroll_tallas, text=t.nombre, font=get_font(self.config, "label"),
-                               fg_color=self._style_default["bg"], text_color=self._style_default["text_color"],
-                               border_color=self._style_default["border_color"], border_width=1,
-                               corner_radius=8, height=36, hover_color=self._style_default["bg"])
+                               fg_color=self._style_default["bg"], text_color=self._style_default["text"],
+                               border_color=self._style_default["border"], border_width=1,
+                               corner_radius=8, height=36, hover_color=self._style_default["hover"])
             chip.grid(row=i // 4, column=i % 4, padx=4, pady=4, sticky="nsew")
             chip.bind("<Button-1>", lambda e, t=tid: self._toggle_talla(t))
             self._chip_tallas_widgets[tid] = chip
@@ -123,9 +153,9 @@ class ConfigTabTallasGrupos:
         for i, gid in enumerate(self._grupos_order):
             g = self._grupos[gid]
             chip = ctk.CTkButton(self._scroll_grupos, text=g.nombre, font=get_font(self.config, "label"),
-                               fg_color=self._style_default["bg"], text_color=self._style_default["text_color"],
-                               border_color=self._style_default["border_color"], border_width=1,
-                               corner_radius=8, height=36, hover_color=self._style_default["bg"])
+                               fg_color=self._style_default["bg"], text_color=self._style_default["text"],
+                               border_color=self._style_default["border"], border_width=1,
+                               corner_radius=8, height=36, hover_color=self._style_default["hover"])
             chip.grid(row=i // 2, column=i % 2, padx=4, pady=4, sticky="nsew")
             chip.bind("<Button-1>", lambda e, g=gid: self._select_grupo(g))
             self._chip_grupos_widgets[gid] = chip
@@ -144,9 +174,9 @@ class ConfigTabTallasGrupos:
         for gid, chip in self._chip_grupos_widgets.items():
             is_sel = (gid == grupo_id)
             style = self._style_selected if is_sel else self._style_default
-            chip.configure(fg_color=style["bg"], text_color=style["text_color"], 
-                         border_color=style["border_color"], border_width=2 if is_sel else 1,
-                         hover_color=style["bg"])
+            chip.configure(fg_color=style["bg"], text_color=style["text"], 
+                         border_color=style["border"], border_width=2 if is_sel else 1,
+                         hover_color=style["hover"])
 
         # Cargar tallas del grupo
         self._tallas_seleccionadas = set(grupo.talla_ids)
@@ -171,9 +201,9 @@ class ConfigTabTallasGrupos:
         for tid, chip in self._chip_tallas_widgets.items():
             is_active = (tid in self._tallas_seleccionadas)
             style = self._style_active if is_active else self._style_default
-            chip.configure(fg_color=style["bg"], text_color=style["text_color"],
-                         border_color=style["border_color"], border_width=2 if is_active else 1,
-                         hover_color=style["bg"])
+            chip.configure(fg_color=style["bg"], text_color=style["text"],
+                         border_color=style["border"], border_width=2 if is_active else 1,
+                         hover_color=style["hover"])
 
     def _crear_grupo(self):
         d = InputDialog(self.parent, "Nuevo Grupo", "Nombre del grupo (ej: Hombre, Mujer...):")

@@ -7,6 +7,7 @@ import customtkinter as ctk
 import logging
 from typing import List, Optional
 
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import get_font, get_chip_config, get_chip_style
 from kool_tpv.modulos.produccion.services.produccion_tipos_service import ProduccionTiposService
 from kool_tpv.modulos.produccion.services.produccion_tipos_variantes_service import ProduccionTiposVariantesService
@@ -69,13 +70,12 @@ class ConfigTabProductosTpv:
         self.frame_links.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 4))
         
         tk.Label(self.frame_links, text="VINCULACIONES ACTUALES", font=get_font(self.config, "label_bold"),
-                 fg="#FFD700", bg="#1a1a2e").pack(pady=(12, 8))
+                 fg="#FFFFFF", bg="#1a1a2e").pack(pady=(12, 8))
 
-        self.btn_nuevo = ctk.CTkButton(
+        self.btn_nuevo = ButtonFactory.create_button(
             self.frame_links, text="+ NUEVA VINCULACIÓN",
-            fg_color="#34495e", hover_color="#2c3e50",
-            font=get_font(self.config, "button_small"), height=30,
-            command=self._on_nueva_vinculacion
+            module="produccion", palette_key="primary", style_key="action_confirm",
+            height=30, command=self._on_nueva_vinculacion
         )
         self.btn_nuevo.pack(fill="x", padx=10, pady=(0, 10))
 
@@ -100,7 +100,7 @@ class ConfigTabProductosTpv:
         
         # PASO 1: BUSCADOR TPV
         tk.Label(self.frame_center, text="PASO 1: BUSCA UN PRODUCTO", font=get_font(self.config, "label_bold"),
-                 fg="#FFD700", bg="#2c3e50").pack(pady=(12, 4))
+                 fg="#FFFFFF", bg="#2c3e50").pack(pady=(12, 4))
         
         self._search_entry = ctk.CTkEntry(
             self.frame_center, placeholder_text="Nombre o SKU + ENTER...",
@@ -129,18 +129,17 @@ class ConfigTabProductosTpv:
                                      font=get_font(self.config, "label_small"), fg="#95a5a6", bg="#1a1a2e")
         self.lbl_prod_sel.pack(pady=10)
         
-        self.btn_guardar = ctk.CTkButton(
+        self.btn_guardar = ButtonFactory.create_button(
             self.selection_status_frame, text="GUARDAR VINCULACIÓN",
-            fg_color="#27ae60", hover_color="#2ecc71",
-            font=get_font(self.config, "button"), height=40,
-            command=self._on_guardar_click,
-            state="disabled"
+            module="produccion", palette_key="primary", style_key="action_confirm",
+            height=40, command=self._on_guardar_click
         )
+        self.btn_guardar.configure(state="disabled")
         self.btn_guardar.pack(fill="x", padx=20, pady=(0, 10))
 
         # PASO 2: SELECCIONA UN TIPO (Debajo del buscador)
         tk.Label(self.frame_center, text="PASO 2: SELECCIONA UN TIPO", font=get_font(self.config, "label_bold"),
-                 fg="#FFD700", bg="#2c3e50").pack(pady=(10, 4))
+                 fg="#FFFFFF", bg="#2c3e50").pack(pady=(10, 4))
         
         self._tipos_scroll = ctk.CTkScrollableFrame(self.frame_center, fg_color="#34495e", height=150)
         self._tipos_scroll.pack(fill="x", padx=6, pady=5)
@@ -151,31 +150,30 @@ class ConfigTabProductosTpv:
 
         # PASO 3: VARIANTES (40%)
         tk.Label(self.frame_right, text="PASO 3: SELECCIONA UNA VARIANTE", font=get_font(self.config, "label_bold"),
-                 fg="#FFD700", bg="#2c3e50").pack(pady=(12, 4))
+                 fg="#FFFFFF", bg="#2c3e50").pack(pady=(12, 4))
         self._variantes_scroll = ctk.CTkScrollableFrame(self.frame_right, fg_color="#34495e", height=200)
         self._variantes_scroll.pack(fill="x", padx=6, pady=5)
 
         # PASO 4: EXTRAS (20%)
         tk.Label(self.frame_right, text="PASO 4: SELECCIONA UN EXTRA", font=get_font(self.config, "label_bold"),
-                 fg="#FFD700", bg="#2c3e50").pack(pady=(8, 4))
+                 fg="#FFFFFF", bg="#2c3e50").pack(pady=(8, 4))
         self._extras_frame = tk.Frame(self.frame_right, bg="#34495e", height=80)
         self._extras_frame.pack(fill="x", padx=6, pady=5)
         self._extras_frame.pack_propagate(False)
 
         # PASO 5: COLECCIONES (Resto)
         tk.Label(self.frame_right, text="PASO 5: SELECCIONA UNA COLECCIÓN", font=get_font(self.config, "label_bold"),
-                 fg="#FFD700", bg="#2c3e50").pack(pady=(8, 4))
+                 fg="#FFFFFF", bg="#2c3e50").pack(pady=(8, 4))
         self._colecciones_scroll = ctk.CTkScrollableFrame(self.frame_right, fg_color="#34495e")
         self._colecciones_scroll.pack(fill=tk.BOTH, expand=True, padx=6, pady=5)
 
         # Botón Eliminar en el footer derecho
-        self.btn_eliminar = ctk.CTkButton(
+        self.btn_eliminar = ButtonFactory.create_button(
             self.frame_right, text="ELIMINAR VINCULACIÓN ACTUAL",
-            fg_color="#e74c3c", hover_color="#c0392b",
-            font=get_font(self.config, "button_small"), height=35,
-            command=self._on_eliminar_link,
-            state="disabled"
+            module="produccion", palette_key="accent", style_key="action_confirm",
+            height=35, command=self._on_eliminar_link
         )
+        self.btn_eliminar.configure(state="disabled")
         self.btn_eliminar.pack(fill="x", padx=20, pady=15)
 
         # Cargar datos iniciales
@@ -319,7 +317,7 @@ class ConfigTabProductosTpv:
         self._producto_selected_data = item_data
         self.lbl_prod_sel.configure(
             text=f"PRODUCTO: {item_data['nombre']}", 
-            fg="#2ecc71"
+            fg="#552583"
         )
         self._check_ready_to_save()
 
@@ -351,7 +349,7 @@ class ConfigTabProductosTpv:
         self._extra_selected_id = link.extra_id
         self._coleccion_selected_id = link.coleccion_id
         self._producto_selected_data = {"id": link.producto_id, "nombre": link.producto_nombre}
-        self.lbl_prod_sel.configure(text=f"PRODUCTO: {link.producto_nombre}", fg="#2ecc71")
+        self.lbl_prod_sel.configure(text=f"PRODUCTO: {link.producto_nombre}", fg="#552583")
 
         # 2. Buscar TODAS las variantes vinculadas a este producto con esta combinación
         links_comb = self.link_service.get_por_producto_combinacion(
@@ -410,16 +408,17 @@ class ConfigTabProductosTpv:
             
             if links_actuales:
                 self._link_actual = links_actuales[0] # Referencia para el ID si hiciera falta (eliminar total)
-                self.btn_guardar.configure(text=f"ACTUALIZAR VINCULACIÓN ({len(self._variantes_selected_ids)} vars)", 
-                                           fg_color="#3498db", hover_color="#2980b9")
+                self.btn_guardar.configure(text=f"ACTUALIZAR VINCULACIÓN ({len(self._variantes_selected_ids)} vars)")
+                ButtonFactory.apply_style(self.btn_guardar, style_key="action_confirm", module="produccion", palette_key="secondary")
                 self.btn_eliminar.configure(state="normal")
             else:
                 self._link_actual = None
-                self.btn_guardar.configure(text=f"GUARDAR VINCULACIÓN ({len(self._variantes_selected_ids)} vars)", 
-                                           fg_color="#27ae60", hover_color="#2ecc71")
+                self.btn_guardar.configure(text=f"GUARDAR VINCULACIÓN ({len(self._variantes_selected_ids)} vars)")
+                ButtonFactory.apply_style(self.btn_guardar, style_key="action_confirm", module="produccion", palette_key="primary")
                 self.btn_eliminar.configure(state="disabled")
         else:
-            self.btn_guardar.configure(state="disabled", text="GUARDAR VINCULACIÓN", fg_color="#27ae60")
+            self.btn_guardar.configure(state="disabled", text="GUARDAR VINCULACIÓN")
+            ButtonFactory.apply_style(self.btn_guardar, style_key="action_confirm", module="produccion", palette_key="primary")
             self.btn_eliminar.configure(state="disabled")
 
     def _on_eliminar_link(self):

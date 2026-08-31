@@ -22,6 +22,7 @@ from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config
 from kool_tpv.utils.widgets.searchable_paginated_navlist import SearchablePaginatedNavList
 from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
 from kool_tpv.base_datos.money_adapter import prepare_for_db, read_from_db
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 
 
 def _normalizar(texto: str) -> str:
@@ -157,44 +158,48 @@ class DisenoNuevoView:
 		# No empaquetamos el botón, lo dejamos solo para el binding de Return si fuera necesario, 
 		# pero el usuario prefiere el botón abajo. Lo eliminamos visualmente.
 
-		self._btn_add_coleccion = ctk.CTkButton(
-			controls_row,
+		self._btn_add_coleccion = ButtonFactory.create_button(
+			parent=controls_row,
 			text="+ COLECCIÓN",
 			width=140,
-			font=self._get_font("button"),
-			command=self._on_add_coleccion
+			command=self._on_add_coleccion,
+			module="produccion",
+			palette_key="secondary",
+			style_key="action_secondary"
 		)
 		self._btn_add_coleccion.pack(side="left", padx=(0, 10))
 
-		self._btn_add_sufijo = ctk.CTkButton(
-			controls_row,
+		self._btn_add_sufijo = ButtonFactory.create_button(
+			parent=controls_row,
 			text="+ SUFIJO",
 			width=140,
-			font=self._get_font("button"),
-			command=self._on_add_sufijo
+			command=self._on_add_sufijo,
+			module="produccion",
+			palette_key="secondary",
+			style_key="action_secondary"
 		)
 		self._btn_add_sufijo.pack(side="left")
 
 		# Botones Eliminar y Mostrar
-		self._btn_eliminar = ctk.CTkButton(
-			controls_row,
+		self._btn_eliminar = ButtonFactory.create_button(
+			parent=controls_row,
 			text="ELIMINAR",
 			width=100,
-			font=self._get_font("button"),
-			fg_color=self.config.get("colors", {}).get("buttons", {}).get("cancelar", {}).get("bg", "#e74c3c"),
-			hover_color=self.config.get("colors", {}).get("buttons", {}).get("cancelar", {}).get("hover", "#c0392b"),
-			command=self._on_eliminar
+			command=self._on_eliminar,
+			module="produccion",
+			palette_key="accent",
+			style_key="action_secondary"
 		)
 		self._btn_eliminar.pack(side="left", padx=(20, 10))
 
-		self._btn_mostrar = ctk.CTkButton(
-			controls_row,
+		self._btn_mostrar = ButtonFactory.create_button(
+			parent=controls_row,
 			text="FILTRAR",
 			width=100,
-			font=self._get_font("button"),
-			fg_color=self.config.get("colors", {}).get("buttons", {}).get("nuevo", {}).get("bg", "#3498db"),
-			hover_color=self.config.get("colors", {}).get("buttons", {}).get("nuevo", {}).get("hover", "#2980b9"),
-			command=self._on_mostrar
+			command=self._on_mostrar,
+			module="produccion",
+			palette_key="secondary",
+			style_key="action_secondary"
 		)
 		self._btn_mostrar.pack(side="left")
 
@@ -246,24 +251,26 @@ class DisenoNuevoView:
 		buttons_row = ctk.CTkFrame(self.bottom_frame, fg_color="transparent")
 		buttons_row.pack(fill="x", pady=10)
 
-		self.btn_cancelar = ctk.CTkButton(
-			buttons_row,
+		self.btn_cancelar = ButtonFactory.create_button(
+			parent=buttons_row,
 			text="CANCELAR",
 			width=150,
 			height=50,
-			font=self._get_font("button"),
-			fg_color=self.config.get("colors", {}).get("buttons", {}).get("cancelar", {}).get("bg", "#e74c3c"),
-			hover_color=self.config.get("colors", {}).get("buttons", {}).get("cancelar", {}).get("hover", "#c0392b"),
-			command=self._on_cancelar
+			command=self._on_cancelar,
+			module="produccion",
+			palette_key="primary",
+			style_key="action_secondary"
 		)
 		self.btn_cancelar.pack(side="left", padx=(0, 10))
 
-		self.btn_accion_principal = ctk.CTkButton(
-			buttons_row,
+		self.btn_accion_principal = ButtonFactory.create_button(
+			parent=buttons_row,
 			text="GUARDAR NUEVO DISEÑO",
 			height=50,
-			font=self._get_font("button"),
-			command=self._on_accion_principal
+			command=self._on_accion_principal,
+			module="produccion",
+			palette_key="primary",
+			style_key="action_confirm"
 		)
 		self.btn_accion_principal.pack(side="left", fill="x", expand=True)
 		self._update_main_button()
@@ -510,23 +517,25 @@ class DisenoNuevoView:
 		btns_metodos_frame = ctk.CTkFrame(self._frame_metodos, fg_color="transparent")
 		btns_metodos_frame.grid(row=row, column=0, columnspan=cols, pady=(10, 0), sticky="w")
 
-		btn_add = ctk.CTkButton(
-			btns_metodos_frame,
+		btn_add = ButtonFactory.create_button(
+			parent=btns_metodos_frame,
 			text="+ MÉTODO",
 			width=100,
-			fg_color=self.config.get("colors", {}).get("buttons", {}).get("nuevo", {}).get("bg", "#3498db"),
-			command=self._on_add_metodo
+			command=self._on_add_metodo,
+			module="produccion",
+			palette_key="secondary",
+			style_key="action_secondary"
 		)
 		btn_add.pack(side="left", padx=(0, 10))
 
-		self.btn_ver_costes = ctk.CTkButton(
-			btns_metodos_frame,
+		self.btn_ver_costes = ButtonFactory.create_button(
+			parent=btns_metodos_frame,
 			text="MOSTRAR COSTES",
 			width=140,
-			fg_color="#8e44ad",
-			hover_color="#7d3c98",
-			font=self._get_font("button_small"),
-			command=self._on_ver_costes_historial
+			command=self._on_ver_costes_historial,
+			module="produccion",
+			palette_key="accent",
+			style_key="action_secondary"
 		)
 		self.btn_ver_costes.pack(side="left")
 		
@@ -785,15 +794,15 @@ class DisenoNuevoView:
 		"""Actualizar texto y estilo del botón principal según el estado."""
 		if self._diseno_cargado:
 			self.btn_accion_principal.configure(
-				text="MODIFICAR DISEÑO",
-				fg_color=self.config.get("colors", {}).get("buttons", {}).get("costes", {}).get("bg", "#f39c12"),
-				hover_color=self.config.get("colors", {}).get("buttons", {}).get("costes", {}).get("hover", "#d68910")
+				text="MODIFICAR DISEÑO"
 			)
+			# Cambiamos a estilo "costes" o similar si queremos distinguir, 
+			# pero el usuario ha pedido PRIMARY para ambos.
+			# Si quisiéramos cambiar la paleta dinámicamente:
+			# ButtonFactory.apply_style(self.btn_accion_principal, "produccion", "primary", "action_confirm")
 		else:
 			self.btn_accion_principal.configure(
-				text="GUARDAR NUEVO DISEÑO",
-				fg_color=self.config.get("colors", {}).get("buttons", {}).get("confirmar", {}).get("bg", "#27ae60"),
-				hover_color=self.config.get("colors", {}).get("buttons", {}).get("confirmar", {}).get("hover", "#2ecc71")
+				text="GUARDAR NUEVO DISEÑO"
 			)
 
 	def _on_cancelar(self):

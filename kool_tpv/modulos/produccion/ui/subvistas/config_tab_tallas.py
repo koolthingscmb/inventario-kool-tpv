@@ -2,6 +2,7 @@
 import tkinter as tk
 import customtkinter as ctk
 
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import get_font
 
 
@@ -32,7 +33,7 @@ class ConfigTabTallas:
         frame_chips.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
 
         tk.Label(frame_chips, text="TALLAS", font=get_font(self.config, "label"),
-                 fg="#FFD700", bg="#34495e").pack(pady=(8, 3), padx=8, anchor="w")
+                 fg="#FFFFFF", bg="#34495e").pack(pady=(8, 3), padx=8, anchor="w")
 
         self._chips_scroll = ctk.CTkScrollableFrame(frame_chips, fg_color="#34495e")
         self._chips_scroll.pack(fill=tk.BOTH, expand=True, padx=8, pady=(0, 8))
@@ -49,35 +50,81 @@ class ConfigTabTallas:
         self._entry_nombre.pack(pady=5, padx=20)
 
         self._var_activo = ctk.IntVar(value=1)
+        
+        # Obtener color primario para el checkbox
+        module_colors = ButtonFactory.get_module_colors("produccion")
+        primary_color = module_colors.get("primary", "#552583")
+        
         ctk.CTkCheckBox(frame_form, text="Activo", variable=self._var_activo,
-                        fg_color="#27ae60", text_color=self._text).pack(pady=5, padx=20, anchor="w")
+                        fg_color=primary_color, 
+                        hover_color=primary_color,
+                        text_color=self._text).pack(pady=5, padx=20, anchor="w")
 
         frame_reorder = tk.Frame(frame_form, bg="#34495e")
         frame_reorder.pack(pady=(5, 0), padx=20, fill=tk.X)
-        ctk.CTkButton(frame_reorder, text="◀ IZQUIERDA", fg_color="#7f8c8d", hover_color="#95a5a6",
-                      command=lambda: self._mover(-1)).pack(side=tk.LEFT, padx=(0, 5), expand=True, fill=tk.X)
-        ctk.CTkButton(frame_reorder, text="DERECHA ▶", fg_color="#7f8c8d", hover_color="#95a5a6",
-                      command=lambda: self._mover(1)).pack(side=tk.LEFT, padx=(5, 0), expand=True, fill=tk.X)
+        self.btn_izq = ButtonFactory.create_button(
+            frame_reorder, text="◀ IZQUIERDA", 
+            command=lambda: self._mover(-1),
+            module="produccion",
+            palette_key="secondary",
+            style_key="action_confirm"
+        )
+        self.btn_izq.pack(side=tk.LEFT, padx=(0, 5), expand=True, fill=tk.X)
+        
+        self.btn_der = ButtonFactory.create_button(
+            frame_reorder, text="DERECHA ▶", 
+            command=lambda: self._mover(1),
+            module="produccion",
+            palette_key="secondary",
+            style_key="action_confirm"
+        )
+        self.btn_der.pack(side=tk.LEFT, padx=(5, 0), expand=True, fill=tk.X)
 
         frame_btns = tk.Frame(frame_form, bg="#34495e")
         frame_btns.pack(pady=15, padx=20, fill=tk.X)
 
-        ctk.CTkButton(frame_btns, text="GUARDAR", fg_color="#27ae60", hover_color="#2ecc71",
-                      command=self._guardar).pack(side=tk.LEFT, padx=(0, 5), expand=True, fill=tk.X)
-        ctk.CTkButton(frame_btns, text="NUEVO", fg_color="#2980b9", hover_color="#3498db",
-                      command=self._limpiar).pack(side=tk.LEFT, padx=(5, 0), expand=True, fill=tk.X)
+        self.btn_guardar = ButtonFactory.create_button(
+            frame_btns, text="GUARDAR", 
+            command=self._guardar,
+            module="produccion",
+            palette_key="primary",
+            style_key="action_confirm"
+        )
+        self.btn_guardar.pack(side=tk.LEFT, padx=(0, 5), expand=True, fill=tk.X)
 
-        ctk.CTkButton(frame_form, text="ELIMINAR", fg_color="#e74c3c", hover_color="#c0392b",
-                      command=self._eliminar, width=250).pack(pady=(0, 10), padx=20, fill=tk.X)
+        self.btn_nuevo = ButtonFactory.create_button(
+            frame_btns, text="NUEVO", 
+            command=self._limpiar,
+            module="produccion",
+            palette_key="primary",
+            style_key="action_confirm"
+        )
+        self.btn_nuevo.pack(side=tk.LEFT, padx=(5, 0), expand=True, fill=tk.X)
+
+        self.btn_eliminar = ButtonFactory.create_button(
+            frame_form, text="ELIMINAR", 
+            command=self._eliminar,
+            module="produccion",
+            palette_key="accent",
+            style_key="action_confirm"
+        )
+        self.btn_eliminar.pack(pady=(0, 10), padx=20, fill=tk.X)
 
         # --- Añadir múltiples tallas ---
-        tk.Label(frame_form, text="Añadir varias (separadas por coma):",
-                 font=get_font(self.config, "small"), fg=self._text, bg="#34495e").pack(pady=(5, 2), padx=20, anchor="w")
+        tk.Label(frame_form, text="Añadir varias\n(separadas por coma):",
+                 font=get_font(self.config, "small"), fg=self._text, bg="#34495e", justify="left").pack(pady=(5, 2), padx=20, anchor="w")
         self._entry_bulk = ctk.CTkEntry(frame_form, placeholder_text="S, M, L, XL, XXL...", width=250)
         self._entry_bulk.pack(pady=2, padx=20, fill=tk.X)
         self._entry_bulk.bind('<Return>', lambda e: self._anadir_bulk())
-        ctk.CTkButton(frame_form, text="AÑADIR VARIAS", fg_color="#8e44ad", hover_color="#9b59b6",
-                      command=self._anadir_bulk, width=250).pack(pady=(2, 15), padx=20, fill=tk.X)
+        
+        self.btn_bulk = ButtonFactory.create_button(
+            frame_form, text="AÑADIR VARIAS", 
+            command=self._anadir_bulk,
+            module="produccion",
+            palette_key="primary",
+            style_key="action_confirm"
+        )
+        self.btn_bulk.pack(pady=(2, 15), padx=20, fill=tk.X)
 
         self._cargar_chips()
 
@@ -97,10 +144,19 @@ class ConfigTabTallas:
         for c in range(8):
             self._chips_scroll.grid_columnconfigure(c, weight=1)
 
-        # Obtener estilos de chips desde config (igual que produccion_diseno_nuevo)
-        chips_cfg = self.config.get("chips", {})
-        default_cfg = chips_cfg.get("default", {})
-        selected_cfg = chips_cfg.get("selected", {})
+        # Estilos chips unificados
+        self._chip_style_default = {
+            "bg": "#1a1a2e",
+            "text": "#cccccc",
+            "border": "#333333",
+            "hover": "#C77BFF"
+        }
+        self._chip_style_selected = {
+            "bg": "#552583",
+            "text": "#ffffff",
+            "border": "#C77BFF",
+            "hover": "#8E44AD"
+        }
 
         for i, tid in enumerate(self._tallas_order):
             talla = self._tallas[tid]
@@ -108,34 +164,23 @@ class ConfigTabTallas:
             col = i % 8
             
             is_selected = (tid == self._talla_id_edit)
+            style = self._chip_style_selected if is_selected else self._chip_style_default
             
-            bg_color = selected_cfg.get("bg", "#552583") if is_selected else default_cfg.get("bg", "#1a1a2e")
-            text_color = selected_cfg.get("text_color", "#ffffff") if is_selected else default_cfg.get("text_color", "#cccccc")
-            border_color = selected_cfg.get("border_color", "#8888ff") if is_selected else default_cfg.get("border_color", "#333333")
-            border_width = selected_cfg.get("border_width", 2) if is_selected else default_cfg.get("border_width", 1)
-
             chip = ctk.CTkButton(
                 self._chips_scroll,
                 text=talla.nombre,
                 font=get_font(self.config, "label"),
-                fg_color=bg_color,
-                text_color=text_color,
-                border_color=border_color,
-                border_width=border_width,
+                fg_color=style["bg"],
+                text_color=style["text"],
+                border_color=style["border"],
+                border_width=2 if is_selected else 1,
                 corner_radius=8,
                 height=36,
-                hover_color=bg_color
+                hover_color=style["hover"]
             )
             chip.grid(row=row, column=col, padx=5, pady=5, sticky="nsew")
             chip.bind("<Button-1>", lambda e, t=tid: self._select_chip(t))
             self._chip_widgets[tid] = chip
-
-        if self._tallas_order:
-            select_id = select_id if select_id is not None else self._tallas_order[0]
-            if select_id in self._tallas:
-                self._select_chip(select_id)
-            else:
-                self._select_chip(self._tallas_order[0])
 
     def _select_chip(self, talla_id):
         self._talla_id_edit = talla_id
@@ -145,19 +190,16 @@ class ConfigTabTallas:
             self._entry_nombre.insert(0, talla.nombre)
             self._var_activo.set(talla.activo)
 
-        # Actualizar estilos de chips sin recargar (evita recursión infinita)
-        chips_cfg = self.config.get("chips", {})
-        default_cfg = chips_cfg.get("default", {})
-        selected_cfg = chips_cfg.get("selected", {})
+        # Actualizar estilos de chips
         for tid, chip in self._chip_widgets.items():
             is_sel = (tid == talla_id)
-            bg = selected_cfg.get("bg", "#552583") if is_sel else default_cfg.get("bg", "#1a1a2e")
+            style = self._chip_style_selected if is_sel else self._chip_style_default
             chip.configure(
-                fg_color=bg,
-                text_color=selected_cfg.get("text_color", "#ffffff") if is_sel else default_cfg.get("text_color", "#cccccc"),
-                border_color=selected_cfg.get("border_color", "#8888ff") if is_sel else default_cfg.get("border_color", "#333333"),
-                border_width=selected_cfg.get("border_width", 2) if is_sel else default_cfg.get("border_width", 1),
-                hover_color=bg
+                fg_color=style["bg"],
+                text_color=style["text"],
+                border_color=style["border"],
+                border_width=2 if is_sel else 1,
+                hover_color=style["hover"]
             )
 
     def _mover(self, direccion: int):

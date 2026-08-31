@@ -8,7 +8,6 @@ import customtkinter as ctk
 from kool_tpv.base_datos.proveedor_service import ProveedorService
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
 from kool_tpv.utils.font_loader import get_font
-from kool_tpv.utils.config_loader import create_action_button
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 
 
@@ -91,7 +90,14 @@ class ProduccionProveedoresView:
         ctk.CTkLabel(self.grid_frame, text='WEB:', text_color=self.colors['text'], font=lbl_font).grid(row=7, column=0, sticky='w', padx=6, pady=6)
         self.e_web = ctk.CTkEntry(self.grid_frame, placeholder_text='https://...', **ekw)
         self.e_web.grid(row=7, column=1, columnspan=6, sticky='ew', padx=6, pady=6)
-        self.btn_ir_web = ButtonFactory.create_button(parent=self.grid_frame, text='IR', command=self._abrir_web, style_key="mini_action")
+        self.btn_ir_web = ButtonFactory.create_button(
+            parent=self.grid_frame, 
+            text='IR', 
+            command=self._abrir_web, 
+            module=self.module_name,
+            palette_key="secondary",
+            style_key="mini_action"
+        )
         self.btn_ir_web.grid(row=7, column=7, sticky='ew', padx=6, pady=6)
         # Fila 8: NOTAS | PRODUCCIÓN
         ctk.CTkLabel(self.grid_frame, text='NOTAS:', text_color=self.colors['text'], font=lbl_font).grid(row=8, column=0, sticky='w', padx=6, pady=6)
@@ -107,22 +113,58 @@ class ProduccionProveedoresView:
     def _build_footer(self):
         self.footer = ctk.CTkFrame(self.container, fg_color='transparent')
         self.footer.pack(side='bottom', fill='x', padx=12, pady=12)
-        self.btn_nuevo = create_action_button(self.footer, 'nuevo_limpiar', self.clear)
+
+        # Contenedor para botones a la izquierda
+        self.footer_left = ctk.CTkFrame(self.footer, fg_color='transparent')
+        self.footer_left.pack(side='left', fill='y')
+
+        # Contenedor para botones a la derecha
+        self.footer_right = ctk.CTkFrame(self.footer, fg_color='transparent')
+        self.footer_right.pack(side='right', fill='y')
+
+        # Botones Izquierda
+        self.btn_nuevo = ButtonFactory.create_button(
+            parent=self.footer_left, text='NUEVO / LIMPIAR', command=self.clear,
+            module=self.module_name, palette_key='primary', style_key='action_confirm'
+        )
         self.btn_nuevo.pack(side='left', padx=8)
-        self.btn_guardar = create_action_button(self.footer, 'guardar', self.save)
+
+        self.btn_guardar = ButtonFactory.create_button(
+            parent=self.footer_left, text='GUARDAR', command=self.save,
+            module=self.module_name, palette_key='primary', style_key='action_confirm'
+        )
         self.btn_guardar.pack(side='left', padx=8)
-        self.btn_eliminar = create_action_button(self.footer, 'eliminar', self.delete)
+
+        self.btn_eliminar = ButtonFactory.create_button(
+            parent=self.footer_left, text='ELIMINAR', command=self.delete,
+            module=self.module_name, palette_key='accent', style_key='action_secondary'
+        )
         self.btn_eliminar.pack(side='left', padx=8)
-        self.btn_albaranes = create_action_button(self.footer, 'consultar_albaranes', self._mostrar_albaranes)
-        self.btn_albaranes.pack(side='left', padx=8)
-        self.btn_config_mapeos = create_action_button(self.footer, 'configurar_mapeos', self._abrir_configurador_mapeos)
+
+        self.btn_config_mapeos = ButtonFactory.create_button(
+            parent=self.footer_left, text='CONFIGURAR MAPEOS', command=self._abrir_configurador_mapeos,
+            module=self.module_name, palette_key='secondary', style_key='action_secondary'
+        )
         self.btn_config_mapeos.pack(side='left', padx=8)
 
-        self.btn_entrada_manual = create_action_button(self.footer, 'entrada_manual_albaran', self._entrada_manual_albaran)
-        self.btn_entrada_manual.pack(side='left', padx=8)
-
-        self.btn_importar = create_action_button(self.footer, 'importar_albaran', self._importar_albaran)
+        # Botones Derecha (Alineados juntos a la derecha)
+        self.btn_importar = ButtonFactory.create_button(
+            parent=self.footer_right, text='IMPORTAR ALBARÁN', command=self._importar_albaran,
+            module=self.module_name, palette_key='primary', style_key='action_confirm'
+        )
         self.btn_importar.pack(side='right', padx=8)
+
+        self.btn_entrada_manual = ButtonFactory.create_button(
+            parent=self.footer_right, text='ENTRADA MANUAL', command=self._entrada_manual_albaran,
+            module=self.module_name, palette_key='primary', style_key='action_confirm'
+        )
+        self.btn_entrada_manual.pack(side='right', padx=8)
+
+        self.btn_albaranes = ButtonFactory.create_button(
+            parent=self.footer_right, text='CONSULTAR ALBARANES', command=self._mostrar_albaranes,
+            module=self.module_name, palette_key='secondary', style_key='action_secondary'
+        )
+        self.btn_albaranes.pack(side='right', padx=8)
 
     def _abrir_configurador_mapeos(self):
         try:

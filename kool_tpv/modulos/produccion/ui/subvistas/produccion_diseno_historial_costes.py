@@ -16,6 +16,7 @@ from kool_tpv.base_datos.producto_service import ProductoService
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font
 from kool_tpv.utils.widgets.searchable_paginated_navlist import SearchablePaginatedNavList
 from kool_tpv.base_datos.money_adapter import read_from_db
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 
 class DisenoHistorialCostesView:
     def __init__(self, parent, db: Database, diseno: ProduccionDiseno, on_cerrar: Callable[[], None]):
@@ -55,10 +56,12 @@ class DisenoHistorialCostesView:
         header = ctk.CTkFrame(self.frame, fg_color="transparent")
         header.pack(fill="x", padx=40, pady=(20, 10))
         
-        btn_volver = ctk.CTkButton(
+        btn_volver = ButtonFactory.create_button(
             header, text="VOLVER", width=100,
-            fg_color="#34495e",
-            command=self.on_cerrar
+            command=self.on_cerrar,
+            module="produccion",
+            palette_key="primary",
+            style_key="action_secondary"
         )
         btn_volver.pack(side="left")
         
@@ -151,14 +154,15 @@ class DisenoHistorialCostesView:
         self._entry_nuevo_coste.pack(side="left", padx=10)
         self._entry_nuevo_coste.bind("<Return>", lambda e: self._guardar_nuevo_coste())
         
-        self._btn_guardar_edit = ctk.CTkButton(
+        self._btn_guardar_edit = ButtonFactory.create_button(
             inputs_row, text="ACTUALIZAR COSTE",
             width=150,
-            fg_color="#27ae60",
-            hover_color="#2ecc71",
             command=self._guardar_nuevo_coste,
-            state="disabled"
+            module="produccion",
+            palette_key="primary",
+            style_key="action_confirm"
         )
+        self._btn_guardar_edit.configure(state="disabled")
         self._btn_guardar_edit.pack(side="left", padx=10)
         
         # Estado de edición actual

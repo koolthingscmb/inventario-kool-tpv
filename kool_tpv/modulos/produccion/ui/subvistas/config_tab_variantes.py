@@ -8,6 +8,7 @@ import tkinter as tk
 import customtkinter as ctk
 from typing import List, Optional
 
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import get_font, get_chip_config, get_chip_style
 from kool_tpv.modulos.produccion.services.produccion_tipos_variantes_service import ProduccionTiposVariantesService
 from kool_tpv.modulos.produccion.services.tipos_variantes_metodos_service import TiposVariantesMetodosService
@@ -56,7 +57,7 @@ class ConfigTabVariantes:
         frame_left.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 6))
 
         tk.Label(frame_left, text="TIPOS (de menús)", font=get_font(self.config, "label"),
-                 fg="#FFD700", bg="#34495e").pack(pady=(8, 4))
+                 fg="#FFFFFF", bg="#34495e").pack(pady=(8, 4))
 
         self._tipos_scroll = ctk.CTkScrollableFrame(frame_left, fg_color="#2c3e50")
         self._tipos_scroll.pack(fill=tk.BOTH, expand=True, padx=6, pady=(0, 6))
@@ -79,10 +80,12 @@ class ConfigTabVariantes:
         header_v.pack(fill="x", pady=(5, 2))
         self._lbl_tipo_nombre = tk.Label(header_v, text="Selecciona un tipo →",
                                           font=get_font(self.config, "label"),
-                                          fg="#FFD700", bg="#34495e")
+                                          fg="#FFFFFF", bg="#34495e")
         self._lbl_tipo_nombre.pack(side=tk.LEFT)
-        ctk.CTkButton(header_v, text="+ AÑADIR", fg_color="#2980b9", hover_color="#3498db",
-                      width=80, height=28, command=self._nuevo_registro).pack(side=tk.RIGHT)
+        
+        ButtonFactory.create_button(header_v, text="+ AÑADIR", 
+                                  module="produccion", palette_key="secondary", style_key="action_confirm",
+                                  width=80, height=28, command=self._nuevo_registro).pack(side=tk.RIGHT)
 
         self._variantes_scroll = ctk.CTkScrollableFrame(self._zona_variantes, fg_color="#2c3e50")
         self._variantes_scroll.pack(fill=tk.BOTH, expand=True, pady=(2, 5))
@@ -98,7 +101,7 @@ class ConfigTabVariantes:
         self._frame_metodos.grid(row=2, column=0, sticky="nsew", padx=10, pady=5)
         
         tk.Label(self._frame_metodos, text="MÉTODOS DE IMPRESIÓN DISPONIBLES", 
-                 font=get_font(self.config, "label"), fg="#FFD700", bg="#34495e").pack(pady=(8, 4))
+                 font=get_font(self.config, "label"), fg="#FFFFFF", bg="#34495e").pack(pady=(8, 4))
         
         self._metodos_container = tk.Frame(self._frame_metodos, bg="#34495e")
         self._metodos_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
@@ -159,12 +162,14 @@ class ConfigTabVariantes:
         f4 = tk.Frame(container, bg="#1a252f")
         f4.pack(fill="x", pady=(10, 0))
         
-        self._btn_guardar = ctk.CTkButton(f4, text="GUARDAR", fg_color="#27ae60", hover_color="#2ecc71",
-                                          font=get_font(self.config, "button"), height=36, command=self._guardar_edicion)
+        self._btn_guardar = ButtonFactory.create_button(f4, text="GUARDAR", 
+                                                      module="produccion", palette_key="primary", style_key="action_confirm",
+                                                      height=36, command=self._guardar_edicion)
         self._btn_guardar.pack(side=tk.LEFT, fill="x", expand=True, padx=(0, 5))
         
-        self._btn_eliminar = ctk.CTkButton(f4, text="ELIMINAR", fg_color="#e74c3c", hover_color="#c0392b",
-                                           font=get_font(self.config, "button"), height=36, command=self._confirmar_eliminar)
+        self._btn_eliminar = ButtonFactory.create_button(f4, text="ELIMINAR", 
+                                                       module="produccion", palette_key="accent", style_key="action_confirm",
+                                                       height=36, command=self._confirmar_eliminar)
         self._btn_eliminar.pack(side=tk.LEFT, fill="x", expand=True, padx=(5, 0))
 
     def _cargar_tipos(self):

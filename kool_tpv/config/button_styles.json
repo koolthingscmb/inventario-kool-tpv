@@ -284,7 +284,8 @@
     "min_width": 160,
     "corner_radius": 10,
     "border_width": 2,
-    "font_size": 16
+    "font_size": 16,
+    "width": 160
   },
   "action_secondary": {
     "type": "outline",
@@ -296,7 +297,8 @@
     "min_width": 160,
     "corner_radius": 10,
     "border_width": 2,
-    "font_size": 16
+    "font_size": 16,
+    "width": 160
   },
   "action_success": {
     "type": "solid",

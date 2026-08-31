@@ -97,15 +97,29 @@ class ProduccionProveedoresConfigurador:
             self.tabs = ['CSV', 'VARIANTES', 'COLORES', 'TALLAS']
         self.tab_buttons = {}
         for tab in self.tabs:
-            btn = ctk.CTkButton(menu_frame, text=tab, width=100, height=32,
-                                font=('Courier New', 13, 'bold'), fg_color='#333333', text_color='black',
-                                command=lambda t=tab: self.show_tab(t))
+            btn = ButtonFactory.create_button(
+                parent=menu_frame,
+                text=tab,
+                width=100,
+                height=32,
+                command=lambda t=tab: self.show_tab(t),
+                module=self.module_name,
+                palette_key="secondary",
+                style_key="action_secondary"
+            )
             btn.pack(side='left', padx=4)
             self.tab_buttons[tab] = btn
 
-        ctk.CTkButton(menu_frame, text="VOLVER", width=80, height=32,
-                      font=('Courier New', 11, 'bold'), fg_color='#555555',
-                      command=self._on_volver).pack(side='right', padx=4)
+        ButtonFactory.create_button(
+            parent=menu_frame,
+            text="VOLVER",
+            width=80,
+            height=32,
+            command=self._on_volver,
+            module=self.module_name,
+            palette_key="primary",
+            style_key="action_secondary"
+        ).pack(side='right', padx=4)
 
     def show_tab(self, tab_name):
         if self.current_tab == tab_name and self.current_widget: return
@@ -114,9 +128,12 @@ class ProduccionProveedoresConfigurador:
         if self.current_tab in ['VARIANTES', 'COLORES', 'TALLAS'] and hasattr(self, 'mapping_entries'):
             self._update_temp_data()
 
-        # Actualizar botones
+        # Actualizar botones (Highlight de pestaña activa)
         for name, btn in self.tab_buttons.items():
-            btn.configure(fg_color=self.colors.get('primary', '#9b59b6') if name == tab_name else '#333333')
+            if name == tab_name:
+                ButtonFactory.apply_style(btn, "action_confirm", module=self.module_name, palette_key="primary")
+            else:
+                ButtonFactory.apply_style(btn, "action_secondary", module=self.module_name, palette_key="secondary")
         
         for child in self.content_area.winfo_children(): child.destroy()
         self.current_tab = tab_name
@@ -177,7 +194,14 @@ class ProduccionProveedoresConfigurador:
         self._add_check_row(scroll, "Calcular Coste desde Precio + Dto", "calcular_coste_desde_precio_dto", mapeo.get('calcular_coste_desde_precio_dto', False), self.csv_checks)
         self._add_check_row(scroll, "Calcular PVPR desde Precio + IVA", "calcular_pvpr_desde_precio_iva", mapeo.get('calcular_pvpr_desde_precio_iva', False), self.csv_checks)
         
-        ButtonFactory.create_button(scroll, 'GUARDAR CONFIG CSV', self._save_csv, style_key='action_success').pack(pady=20)
+        ButtonFactory.create_button(
+            parent=scroll,
+            text='GUARDAR CONFIG CSV',
+            command=self._save_csv,
+            module=self.module_name,
+            palette_key='primary',
+            style_key='action_confirm'
+        ).pack(pady=20)
         return scroll
 
     def _build_mapping_tab(self, mapping_type):
@@ -232,7 +256,14 @@ class ProduccionProveedoresConfigurador:
             )
             self.combo_map_variante.pack(side='left', padx=(0, 8))
 
-            btn_anadir_variante = ButtonFactory.create_button(pick_f, 'AÑADIR', self._on_add_variante_mapeo, style_key='action_success')
+            btn_anadir_variante = ButtonFactory.create_button(
+                parent=pick_f,
+                text='AÑADIR',
+                command=self._on_add_variante_mapeo,
+                module=self.module_name,
+                palette_key='primary',
+                style_key='action_confirm'
+            )
             btn_anadir_variante.pack(side='left')
 
             # Restaurar selección previa (tipo -> repobla combo variante -> variante)
@@ -280,7 +311,14 @@ class ProduccionProveedoresConfigurador:
             else:
                 self._add_form_row(scroll, item, item, ", ".join(val) if isinstance(val, list) else str(val), self.mapping_entries)
 
-        ButtonFactory.create_button(scroll, f'GUARDAR MAPEO {tab_key}', lambda: self._save_mapping(mapping_type), style_key='action_success').pack(pady=20)
+        ButtonFactory.create_button(
+            parent=scroll,
+            text=f'GUARDAR MAPEO {tab_key}',
+            command=lambda: self._save_mapping(mapping_type),
+            module=self.module_name,
+            palette_key='primary',
+            style_key='action_confirm'
+        ).pack(pady=20)
         return container
 
     def _on_map_tipo_seleccionado(self, tipo_nombre):
@@ -419,9 +457,17 @@ class ProduccionProveedoresConfigurador:
         row.pack(fill='x', padx=10, pady=3)
 
         if on_remove:
-            ctk.CTkButton(row, text='✕', width=26, height=26, fg_color='#7a1f1f', hover_color='#a52a2a',
-                          font=('Courier New', 11, 'bold'),
-                          command=lambda k=key: on_remove(k)).pack(side='left', padx=(0, 6))
+            btn_del = ButtonFactory.create_button(
+                parent=row,
+                text='✕',
+                width=26,
+                height=26,
+                command=lambda k=key: on_remove(k),
+                module=self.module_name,
+                palette_key='accent',
+                style_key='action_secondary'
+            )
+            btn_del.pack(side='left', padx=(0, 6))
 
         # Variant label (left)
         ctk.CTkLabel(row, text=label, width=200, anchor='w', font=('Courier New', 11)).pack(side='left')

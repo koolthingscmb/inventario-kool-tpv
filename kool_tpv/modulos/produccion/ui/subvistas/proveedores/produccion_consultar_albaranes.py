@@ -76,6 +76,8 @@ class ProduccionConsultarAlbaranesUI:
             parent=footer,
             text='VOLVER',
             command=self._on_volver_click,
+            module='produccion',
+            palette_key='primary',
             style_key='action_secondary'
         )
         self.btn_volver.pack(side='left')
@@ -84,7 +86,9 @@ class ProduccionConsultarAlbaranesUI:
             parent=footer,
             text='EDITAR / VER DETALLE',
             command=self._on_editar_click,
-            style_key='action_confirm'
+            module='produccion',
+            palette_key='secondary',
+            style_key='action_secondary'
         )
         self.btn_editar.pack(side='right')
 

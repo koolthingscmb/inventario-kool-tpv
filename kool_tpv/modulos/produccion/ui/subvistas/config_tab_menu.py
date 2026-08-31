@@ -2,6 +2,7 @@
 import tkinter as tk
 import customtkinter as ctk
 
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import get_font, get_chip_config, get_chip_style
 from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 
@@ -52,10 +53,14 @@ class ConfigTabMenu:
         # Botones CRUD debajo de la lista
         frame_btns_left = tk.Frame(frame_lista, bg="#34495e")
         frame_btns_left.pack(fill="x", padx=6, pady=(0, 6))
-        ctk.CTkButton(frame_btns_left, text="NUEVO", fg_color="#2980b9", hover_color="#3498db",
-                      command=self._limpiar).pack(side=tk.LEFT, padx=(0, 4), expand=True, fill=tk.X)
-        ctk.CTkButton(frame_btns_left, text="ELIMINAR", fg_color="#e74c3c", hover_color="#c0392b",
-                      command=self._eliminar).pack(side=tk.LEFT, padx=(4, 0), expand=True, fill=tk.X)
+        
+        ButtonFactory.create_button(frame_btns_left, text="NUEVO", 
+                                  module="produccion", palette_key="primary", style_key="action_confirm",
+                                  command=self._limpiar).pack(side=tk.LEFT, padx=(0, 4), expand=True, fill=tk.X)
+                                  
+        ButtonFactory.create_button(frame_btns_left, text="ELIMINAR", 
+                                  module="produccion", palette_key="accent", style_key="action_confirm",
+                                  command=self._eliminar).pack(side=tk.LEFT, padx=(4, 0), expand=True, fill=tk.X)
 
         # --- DERECHA: formulario compacto + chips de tipos (50%) ---
         frame_right = tk.Frame(content, bg="#34495e", bd=0, highlightthickness=0)
@@ -70,18 +75,23 @@ class ConfigTabMenu:
 
         self._var_activo = ctk.IntVar(value=1)
         ctk.CTkCheckBox(form_top, text="Activo", variable=self._var_activo,
-                        fg_color="#27ae60", text_color=self._text).pack(side=tk.LEFT, padx=(0, 4))
+                        fg_color="#552583", hover_color="#C77BFF", text_color="#FFFFFF").pack(side=tk.LEFT, padx=(0, 4))
 
-        ctk.CTkButton(form_top, text="GUARDAR", fg_color="#27ae60", hover_color="#2ecc71",
-                      width=90, command=self._guardar).pack(side=tk.LEFT)
+        ButtonFactory.create_button(form_top, text="GUARDAR", 
+                                  module="produccion", palette_key="primary", style_key="action_confirm",
+                                  width=90, command=self._guardar).pack(side=tk.LEFT)
 
         # Botones de reordenación
         frame_reorder = tk.Frame(frame_right, bg="#34495e")
         frame_reorder.pack(fill="x", padx=10, pady=(0, 4))
-        ctk.CTkButton(frame_reorder, text="⬆ SUBIR", fg_color="#7f8c8d", hover_color="#95a5a6",
-                      command=lambda: self._mover(-1)).pack(side=tk.LEFT, padx=(0, 5), expand=True, fill=tk.X)
-        ctk.CTkButton(frame_reorder, text="⬇ BAJAR", fg_color="#7f8c8d", hover_color="#95a5a6",
-                      command=lambda: self._mover(1)).pack(side=tk.LEFT, padx=(5, 0), expand=True, fill=tk.X)
+        
+        ButtonFactory.create_button(frame_reorder, text="⬆ SUBIR", 
+                                  module="produccion", palette_key="secondary", style_key="action_confirm",
+                                  command=lambda: self._mover(-1)).pack(side=tk.LEFT, padx=(0, 5), expand=True, fill=tk.X)
+                                  
+        ButtonFactory.create_button(frame_reorder, text="⬇ BAJAR", 
+                                  module="produccion", palette_key="secondary", style_key="action_confirm",
+                                  command=lambda: self._mover(1)).pack(side=tk.LEFT, padx=(5, 0), expand=True, fill=tk.X)
 
         # Separador
         sep = tk.Frame(frame_right, bg="#1a252f", height=2)
@@ -90,7 +100,7 @@ class ConfigTabMenu:
         # Label de tipos
         tk.Label(frame_right, text="TIPOS ASOCIADOS (click para toggle):",
                  font=get_font(self.config, "label"),
-                 fg="#FFD700", bg="#34495e").pack(padx=10, pady=(4, 2), anchor="w")
+                 fg="#FFFFFF", bg="#34495e").pack(padx=10, pady=(4, 2), anchor="w")
 
         # Chips de tipos — scrollable, ocupa el resto
         self._tipos_scroll = ctk.CTkScrollableFrame(frame_right, fg_color="#2c3e50")

@@ -8,7 +8,12 @@ class ConfigTabTutorial:
     def __init__(self, parent, config, colors, km, layout_config):
         self.parent = parent
         self.config = config
-        self._bg = colors.get("background", "#2c3e50")
+        
+        # Cargar colores del módulo para el texto
+        from kool_tpv.utils.config_loader import load_colors
+        self.mod_colors = load_colors("produccion")
+        
+        self._bg = self.mod_colors.get("background", "#1A1A2E")
         self.build()
 
     def build(self):
@@ -21,18 +26,26 @@ class ConfigTabTutorial:
         bf = get_font(self.config, "entry")
         sf = (bf[0], bf[1] - 1, "normal")
 
+        # Colores dinámicos del módulo
+        primary = self.mod_colors.get("primary", "#552583")
+        secondary = self.mod_colors.get("secondary", "#C77BFF")
+        text = self.mod_colors.get("text", "#ECF0F1")
+        text_sec = self.mod_colors.get("text_secondary", "#95a5a6")
+        warning = self.mod_colors.get("warning", "#F39C12")
+        success = self.mod_colors.get("success", "#2ECC71")
+
         def _t(txt):
-            tk.Label(s, text=txt, font=tf, fg="#FFD700", bg=self._bg, justify="left", anchor="w", wraplength=900).pack(fill="x", pady=(20, 6))
+            tk.Label(s, text=txt, font=tf, fg=secondary, bg=self._bg, justify="left", anchor="w", wraplength=900).pack(fill="x", pady=(20, 6))
         def _b(txt):
-            tk.Label(s, text=txt, font=bf, fg="#ecf0f1", bg=self._bg, justify="left", anchor="w", wraplength=900).pack(fill="x", pady=(0, 4))
+            tk.Label(s, text=txt, font=bf, fg=text, bg=self._bg, justify="left", anchor="w", wraplength=900).pack(fill="x", pady=(0, 4))
         def _ul(txt):
-            tk.Label(s, text=f"  - {txt}", font=sf, fg="#bdc3c7", bg=self._bg, justify="left", anchor="w", wraplength=880).pack(fill="x", padx=(16, 0), pady=(0, 2))
+            tk.Label(s, text=f"  - {txt}", font=sf, fg=text_sec, bg=self._bg, justify="left", anchor="w", wraplength=880).pack(fill="x", padx=(16, 0), pady=(0, 2))
         def _w(txt):
-            tk.Label(s, text=f"ATENCIÓN: {txt}", font=bf, fg="#e67e22", bg=self._bg, justify="left", anchor="w", wraplength=900).pack(fill="x", pady=(4, 4))
+            tk.Label(s, text=f"ATENCIÓN: {txt}", font=bf, fg=warning, bg=self._bg, justify="left", anchor="w", wraplength=900).pack(fill="x", pady=(4, 4))
         def _ok(txt):
-            tk.Label(s, text=f"OK: {txt}", font=bf, fg="#2ecc71", bg=self._bg, justify="left", anchor="w", wraplength=900).pack(fill="x", pady=(4, 4))
+            tk.Label(s, text=f"OK: {txt}", font=bf, fg=success, bg=self._bg, justify="left", anchor="w", wraplength=900).pack(fill="x", pady=(4, 4))
         def _sep():
-            tk.Frame(s, height=1, bg="#34495e").pack(fill="x", pady=12)
+            tk.Frame(s, height=1, bg=primary).pack(fill="x", pady=12)
 
         _t("TALLER DE PRODUCCIÓN — GUÍA COMPLETA")
         _b("Sigue los pasos en orden. Cada pestaña del taller corresponde a un paso.")
