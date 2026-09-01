@@ -5,6 +5,7 @@ from typing import Any, Dict, List
 import customtkinter as ctk
 
 from kool_tpv.modulos.config.ui.services.ui_config_service import UIConfigService
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 
 
 class ButtonsTab:
@@ -306,9 +307,9 @@ class ButtonsTab:
         )
         self._status_label.pack(side=tk.LEFT, padx=(0, 8))
 
-        ctk.CTkButton(
+        ButtonFactory.create_button(
             bar, text="APLICAR", width=100, height=32,
-            fg_color="#2ecc71", hover_color="#27ae60",
+            module="config", palette_key="primary", style_key="action_success",
             command=self._on_aplicar
         ).pack(side=tk.RIGHT)
 

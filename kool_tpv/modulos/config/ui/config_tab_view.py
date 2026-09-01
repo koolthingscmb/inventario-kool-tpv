@@ -6,8 +6,8 @@ dinámico por tab. No usa base de datos, solo el UIConfigService.
 import tkinter as tk
 import customtkinter as ctk
 from typing import Callable, Optional
-
 from kool_tpv.modulos.config.ui.services.ui_config_service import UIConfigService
+from kool_tpv.utils.config_loader import load_colors
 
 
 class ConfigTabView:
@@ -24,6 +24,16 @@ class ConfigTabView:
         self.parent = parent
         self.on_cerrar = on_cerrar
         self.service = UIConfigService()
+        
+        # Paleta dinámica del módulo config
+        try:
+            colors = load_colors('config')
+            self._TAB_BG_SELECTED = colors.get('buttons', {}).get('primary', {}).get('bg', '#FF9800')
+            self._TAB_BG_NORMAL = colors.get('buttons', {}).get('secondary', {}).get('bg', '#643300')
+        except Exception:
+            self._TAB_BG_SELECTED = "#FF9800"
+            self._TAB_BG_NORMAL = "#643300"
+
         self._bg = "#2c3e50"
         self._text = "#ecf0f1"
         self._current_tab = None
