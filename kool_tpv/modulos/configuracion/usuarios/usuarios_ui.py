@@ -81,7 +81,7 @@ class UsuariosUI:
         self.cb_rol.grid(row=2, column=6, columnspan=2, sticky='ew', padx=6, pady=6)
 
         # Row3: Label PERMISOS:
-        ctk.CTkLabel(self.grid_frame, text='PERMISOS:', text_color=self.colors.get('text'), font=get_font('label', module='config')).grid(row=3, column=0, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.grid_frame, text='PERMISOS:', text_color="#FFFFFF", font=get_font('label', module='config')).grid(row=3, column=0, sticky='w', padx=6, pady=6)
 
         # Row4: Switches (5 permisos en una fila)
         self.sw_cierre = ctk.CTkSwitch(self.grid_frame, text='Cierre caja')
@@ -136,17 +136,48 @@ class UsuariosUI:
         self.footer = ctk.CTkFrame(self.container, fg_color='transparent')
         self.footer.pack(side='bottom', fill='x', padx=12, pady=12)
 
-        self.btn_nuevo = create_action_button(self.footer, 'nuevo_limpiar', self.clear)
+        self.btn_nuevo = ButtonFactory.create_button(
+            self.footer,
+            text="NUEVO",
+            command=self.clear,
+            module="config",
+            palette_key="secondary",
+            style_key="action_success",
+            width=100
+        )
         self.btn_nuevo.pack(side='left', padx=8)
 
-        self.btn_guardar = create_action_button(self.footer, 'guardar', self.save)
+        self.btn_guardar = ButtonFactory.create_button(
+            self.footer,
+            text="GUARDAR",
+            command=self.save,
+            module="config",
+            palette_key="primary",
+            style_key="action_success",
+            width=100
+        )
         self.btn_guardar.pack(side='left', padx=8)
 
-        self.btn_eliminar = create_action_button(self.footer, 'eliminar', self.delete)
+        self.btn_eliminar = ButtonFactory.create_button(
+            self.footer,
+            text="ELIMINAR",
+            command=self.delete,
+            module="config",
+            palette_key="accent",
+            style_key="action_success",
+            width=100
+        )
         self.btn_eliminar.pack(side='left', padx=8)
 
-        self.btn_tarjeta = create_action_button(self.footer, 'buscar_articulo', self.generate_card_manual)
-        self.btn_tarjeta.configure(text='GENERAR TARJETA')
+        self.btn_tarjeta = ButtonFactory.create_button(
+            self.footer,
+            text="GENERAR TARJETA",
+            command=self.generate_card_manual,
+            module="config",
+            palette_key="primary",
+            style_key="action_success",
+            width=180
+        )
         self.btn_tarjeta.pack(side='right', padx=8)
 
         # state

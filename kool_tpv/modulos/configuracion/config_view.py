@@ -158,7 +158,15 @@ class ConfigView(BaseModuleView):
                                     return _wrapped
 
                                 # Styling is delegated to ButtonFactory via style_key.
-                                # Removed inline style construction and child.configure(**cfg).
+                                try:
+                                    ButtonFactory.apply_style(
+                                        child, 
+                                        style_key='module_config', 
+                                        module='config', 
+                                        palette_key='primary'
+                                    )
+                                except Exception:
+                                    logging.exception("Error aplicando estilo a botón sidebar")
 
                                 try:
                                     child.configure(command=_wrap(action_map[action]))
@@ -260,7 +268,8 @@ class ConfigView(BaseModuleView):
                     parent=self._menu_frame,
                     text=text,
                     command=action_map.get(action),
-                    style_key='module_config'
+                    style_key='module_config',
+                    module='config'
                 )
 
                 btn.pack(pady=8, padx=12, fill='x')
@@ -459,7 +468,8 @@ class ConfigView(BaseModuleView):
                     parent=self._menu_frame,
                     text=text,
                     command=action_map.get(action),
-                    style_key='module_config'
+                    style_key='module_config',
+                    module='config'
                 )
 
                 btn.pack(pady=8, padx=12, fill='x')
@@ -662,7 +672,8 @@ class ConfigView(BaseModuleView):
                     parent=self._menu_frame,
                     text=text,
                     command=action_map.get(action),
-                    style_key='module_config'
+                    style_key='module_config',
+                    module='config'
                 )
 
                 btn.pack(pady=8, padx=12, fill='x')

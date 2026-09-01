@@ -404,8 +404,8 @@
     "border": "#FF9800",
     "text": "#FF9800",
     "background": "#000000",
-    "bg_dark": "#0d0d0d",
-    "bg_medium": "#1a1a1a",
+    "bg_dark": "#0D0D0D",
+    "bg_medium": "#1A1A1A",
     "warning": "#f39c12",
     "error": "#e74c3c",
     "description": "Naranja - Configuración del sistema",
@@ -414,16 +414,16 @@
         "bg": "#FF9800",
         "hover": "#F57C00",
         "text": "#000000",
-        "border": "#E06700"
+        "border": "#E0D4B2"
       },
       "secondary": {
-        "bg": "#F57C00",
+        "bg": "#643300",
         "hover": "#EB6A00",
-        "text": "#000000",
+        "text": "#FFFFFF",
         "border": "#D65D00"
       },
       "accent": {
-        "bg": "#FFB74D",
+        "bg": "#FF4300",
         "hover": "#FFAA33",
         "text": "#000000",
         "border": "#FFA033"

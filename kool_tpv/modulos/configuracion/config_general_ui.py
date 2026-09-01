@@ -5,6 +5,7 @@ from pathlib import Path
 
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX, FONT_TERMINAL
 from kool_tpv.utils.config_loader import load_colors
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.base_datos.configuracion_repository import ConfiguracionRepository
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
@@ -162,7 +163,7 @@ class ConfigGeneralUI:
         self.e_re_superreducido.insert(0, '0.5')
 
         # Row 0: NOMBRE FISCAL
-        lbl_fiscal_name = ctk.CTkLabel(self.fiscal_frame, text='NOMBRE FISCAL', font=lbl_font, text_color=self.colors.get('text'))
+        lbl_fiscal_name = ctk.CTkLabel(self.fiscal_frame, text='NOMBRE FISCAL', font=lbl_font, text_color="#FFFFFF")
         lbl_fiscal_name.grid(row=0, column=0, sticky='w', padx=6, pady=6)
         self.e_fiscal_name = ctk.CTkEntry(self.fiscal_frame, **entry_kwargs)
         self.e_fiscal_name.grid(row=0, column=1, columnspan=7, sticky='we', padx=6, pady=6)
@@ -230,9 +231,16 @@ class ConfigGeneralUI:
         self.btn_frame = ctk.CTkFrame(self.scrollable, fg_color=bg)
         self.btn_frame.pack(fill='x', padx=12, pady=12)
 
-        from kool_tpv.utils.config_loader import create_action_button
-        btn_save = create_action_button(self.btn_frame, 'guardar', self._on_save)
-        btn_save.pack(side='left', padx=8)
+        self.btn_save = ButtonFactory.create_button(
+            self.btn_frame,
+            text="GUARDAR",
+            command=self._on_save,
+            module="config",
+            palette_key="primary",
+            style_key="action_success",
+            width=120
+        )
+        self.btn_save.pack(side='left', padx=8)
 
         # Load existing values
         try:

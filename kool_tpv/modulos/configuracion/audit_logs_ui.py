@@ -4,6 +4,7 @@ from typing import Optional, Dict, Any
 
 from kool_tpv.base_datos.audit_repository import AuditRepository
 from kool_tpv.utils.config_loader import load_colors
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.widgets.date_picker_entry import DatePickerEntry
 from kool_tpv.utils.font_loader import get_font
@@ -44,37 +45,60 @@ class AuditLogsUI:
         """Configura la barra superior de filtros."""
         # Columna de Entidad
         entidades = ["TODAS"] + self.repository.obtener_entidades()
-        ctk.CTkLabel(self.filter_frame, text="ENTIDAD:", font=get_font('label', module='config')).pack(side='left', padx=(0, 5))
+        ctk.CTkLabel(self.filter_frame, text="ENTIDAD:", font=get_font('label', module='config'), text_color="#FFFFFF").pack(side='left', padx=(0, 5))
         self.cb_entidad = ctk.CTkComboBox(self.filter_frame, values=entidades, width=140, font=get_font('entry', module='config'))
         self.cb_entidad.set("TODAS")
         self.cb_entidad.pack(side='left', padx=(0, 15))
 
         # Columna de Acción
         acciones = ["TODAS"] + self.repository.obtener_acciones()
-        ctk.CTkLabel(self.filter_frame, text="ACCIÓN:", font=get_font('label', module='config')).pack(side='left', padx=(0, 5))
+        ctk.CTkLabel(self.filter_frame, text="ACCIÓN:", font=get_font('label', module='config'), text_color="#FFFFFF").pack(side='left', padx=(0, 5))
         self.cb_accion = ctk.CTkComboBox(self.filter_frame, values=acciones, width=140, font=get_font('entry', module='config'))
         self.cb_accion.set("TODAS")
         self.cb_accion.pack(side='left', padx=(0, 15))
 
         # Fecha Inicio
-        ctk.CTkLabel(self.filter_frame, text="DESDE:", font=get_font('label', module='config')).pack(side='left', padx=(0, 5))
-        self.dp_inicio = DatePickerEntry(self.filter_frame, module_name=self.module_name, width=120)
+        ctk.CTkLabel(self.filter_frame, text="DESDE:", font=get_font('label', module='config'), text_color="#FFFFFF").pack(side='left', padx=(0, 5))
+        self.dp_inicio = DatePickerEntry(
+            self.filter_frame, 
+            module_name=self.module_name, 
+            width=120,
+            default_mode='first_day_of_month'
+        )
         self.dp_inicio.pack(side='left', padx=(0, 15))
 
         # Fecha Fin
-        ctk.CTkLabel(self.filter_frame, text="HASTA:", font=get_font('label', module='config')).pack(side='left', padx=(0, 5))
-        self.dp_fin = DatePickerEntry(self.filter_frame, module_name=self.module_name, width=120)
+        ctk.CTkLabel(self.filter_frame, text="HASTA:", font=get_font('label', module='config'), text_color="#FFFFFF").pack(side='left', padx=(0, 5))
+        self.dp_fin = DatePickerEntry(
+            self.filter_frame, 
+            module_name=self.module_name, 
+            width=120,
+            default_mode='today'
+        )
         self.dp_fin.pack(side='left', padx=(0, 15))
 
         # Botón Buscar
-        from kool_tpv.utils.config_loader import create_action_button
-        self.btn_buscar = create_action_button(self.filter_frame, 'buscar_articulo', self.ejecutar_busqueda)
-        self.btn_buscar.configure(text="BUSCAR", width=100)
+        self.btn_buscar = ButtonFactory.create_button(
+            self.filter_frame,
+            text="BUSCAR",
+            command=self.ejecutar_busqueda,
+            module="config",
+            palette_key="primary",
+            style_key="action_success",
+            width=100
+        )
         self.btn_buscar.pack(side='left', padx=10)
 
         # Botón Limpiar
-        self.btn_limpiar = create_action_button(self.filter_frame, 'nuevo_limpiar', self.limpiar_filtros)
-        self.btn_limpiar.configure(text="LIMPIAR", width=100)
+        self.btn_limpiar = ButtonFactory.create_button(
+            self.filter_frame,
+            text="LIMPIAR",
+            command=self.limpiar_filtros,
+            module="config",
+            palette_key="secondary",
+            style_key="action_success",
+            width=100
+        )
         self.btn_limpiar.pack(side='left')
 
     def _setup_list(self):
@@ -142,10 +166,14 @@ class AuditLogsUI:
 
     def limpiar_filtros(self):
         """Resetea los filtros y recarga."""
+        import datetime
+        today = datetime.date.today()
+        first_day = today.replace(day=1)
+        
         self.cb_entidad.set("TODAS")
         self.cb_accion.set("TODAS")
-        self.dp_inicio.clear()
-        self.dp_fin.clear()
+        self.dp_inicio.set(first_day.isoformat())
+        self.dp_fin.set(today.isoformat())
         self.ejecutar_busqueda()
 
     def _on_log_double_click(self, item):

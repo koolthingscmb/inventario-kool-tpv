@@ -8,7 +8,8 @@ from kool_tpv.base_datos.configuracion_repository import ConfiguracionRepository
 from kool_tpv.services.cloud_backup_service import CloudBackupService
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL
 from kool_tpv.paths import DB_PATH
-from kool_tpv.utils.config_loader import load_colors, create_action_button
+from kool_tpv.utils.config_loader import load_colors
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
 
@@ -104,16 +105,30 @@ class NubeTab(ctk.CTkFrame):
         
         self.email_lbl = ctk.CTkLabel(info_row, textvariable=self._linked_email, 
                                      font=get_font('entry', module=self.module_name), 
-                                     text_color="#2ecc71" if self._account_linked.get() else "#e74c3c")
+                                     text_color=self.colors.get('primary'))
         self.email_lbl.pack(side='left', padx=10)
 
         btn_row = ctk.CTkFrame(acc_frame, fg_color='transparent')
         btn_row.pack(fill='x', padx=6, pady=(15, 5))
 
-        self.btn_link = create_action_button(btn_row, 'VINCULAR CUENTA', self._vincular_cuenta)
+        self.btn_link = ButtonFactory.create_button(
+            btn_row,
+            text='VINCULAR CUENTA',
+            command=self._vincular_cuenta,
+            module="config",
+            palette_key="primary",
+            style_key="action_success"
+        )
         self.btn_link.pack(side='left', padx=(0, 10))
 
-        self.btn_unlink = create_action_button(btn_row, 'DESVINCULAR / CAMBIAR', self._desvincular_cuenta)
+        self.btn_unlink = ButtonFactory.create_button(
+            btn_row,
+            text='DESVINCULAR / CAMBIAR',
+            command=self._desvincular_cuenta,
+            module="config",
+            palette_key="accent",
+            style_key="action_success"
+        )
         self.btn_unlink.pack(side='left')
 
         # --- SECCIÓN CONFIGURACIÓN ---
@@ -123,15 +138,16 @@ class NubeTab(ctk.CTkFrame):
         ctk.CTkLabel(cfg_frame, text='CONFIGURACIÓN DE BACKUP', 
                      font=title_font, text_color=self.colors.get('secondary', '#FFB74D')).pack(anchor='w', padx=6, pady=(0, 10))
 
-        # Switch habilitar
+        # Checkbox habilitar
         sw_row = ctk.CTkFrame(cfg_frame, fg_color='transparent')
         sw_row.pack(fill='x', padx=6, pady=5)
         
-        self.sw_backup = ctk.CTkSwitch(
+        self.sw_backup = ctk.CTkCheckBox(
             sw_row, text="Activar copia de seguridad automática al cerrar",
             variable=self._backup_enabled,
             command=self._save_settings,
-            progress_color="#2ecc71",
+            fg_color=self.colors.get('primary', '#FF9800'),
+            hover_color=self.colors.get('secondary', '#F57C00'),
             font=lbl_font,
             text_color=self.colors.get('text')
         )
@@ -155,7 +171,14 @@ class NubeTab(ctk.CTkFrame):
         ctk.CTkLabel(act_frame, text='ACCIONES MANUALES', 
                      font=title_font, text_color=self.colors.get('secondary', '#FFB74D')).pack(anchor='w', padx=6, pady=(0, 10))
 
-        self.btn_test = create_action_button(act_frame, 'PROBAR SUBIDA AHORA', self._probar_subida)
+        self.btn_test = ButtonFactory.create_button(
+            act_frame,
+            text='PROBAR SUBIDA AHORA',
+            command=self._probar_subida,
+            module="config",
+            palette_key="secondary",
+            style_key="action_success"
+        )
         self.btn_test.pack(side='left', padx=6, pady=5)
 
     def _vincular_cuenta(self):
@@ -168,10 +191,6 @@ class NubeTab(ctk.CTkFrame):
             self._account_linked.set(True)
             email = self.backup_service.obtener_email_vinculado() or "Cuenta vinculada"
             self._linked_email.set(email)
-            try:
-                self.email_lbl.configure(text_color="#2ecc71")
-            except Exception:
-                pass
             ToastWidget.show(self.parent, "Cuenta vinculada con éxito", tipo='success')
         else:
             ToastWidget.show(self.parent, "Error al vincular cuenta", tipo='error')
@@ -181,10 +200,6 @@ class NubeTab(ctk.CTkFrame):
         if self.backup_service.desvincular_cuenta():
             self._account_linked.set(False)
             self._linked_email.set("No vinculada")
-            try:
-                self.email_lbl.configure(text_color="#e74c3c")
-            except Exception:
-                pass
             ToastWidget.show(self.parent, "Cuenta desvinculada", tipo='info')
         else:
             ToastWidget.show(self.parent, "Error al desvincular", tipo='error')
