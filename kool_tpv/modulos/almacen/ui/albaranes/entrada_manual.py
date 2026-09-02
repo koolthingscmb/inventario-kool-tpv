@@ -287,6 +287,8 @@ class EntradaManualUI:
         totales_frame.pack(fill='x', pady=12)
         totales_frame.pack_propagate(False)
 
+        self.lbl_uds = ctk.CTkLabel(totales_frame, text='UDS: 0', text_color=self.colors.get('text', COLOR_MATRIX), font=font_tuple)
+        self.lbl_uds.pack(side='left', padx=12)
         self.lbl_neto = ctk.CTkLabel(totales_frame, text='Neto: 0.00€', text_color=self.colors.get('text', COLOR_MATRIX), font=font_tuple)
         self.lbl_neto.pack(side='left', padx=12)
         self.lbl_iva4 = ctk.CTkLabel(totales_frame, text='IVA 4%: 0.00€', text_color=self.colors.get('text', COLOR_MATRIX), font=font_tuple)
@@ -673,6 +675,10 @@ class EntradaManualUI:
             self._render_lines()
             self._update_totals()
 
+            # Seleccionar la línea recién añadida
+            if self.lines:
+                self.nav_list.select_index(len(self.lines) - 1)
+
             # Limpiar
             self.e_ean.delete(0, 'end')
             try:
@@ -685,7 +691,9 @@ class EntradaManualUI:
             self.e_coste.delete(0, 'end')
             self.e_coste.insert(0, '0.00')
             self._current_producto = None
-            self.e_ean.focus_set()
+            
+            # Devolver foco al EAN con un pequeño retardo para asegurar que no se pierda
+            self.container.after(10, lambda: self.e_ean.focus_set())
 
         except Exception:
             logging.exception('Error añadiendo línea')
@@ -711,8 +719,10 @@ class EntradaManualUI:
             iva10 = Decimal('0')
             iva21 = Decimal('0')
 
+            total_uds = 0
             for line in self.lines:
                 cantidad = Decimal(str(line.get('cantidad', 0)))
+                total_uds += int(cantidad)
                 coste = line.get('coste', 0)
                 if not isinstance(coste, Decimal):
                     coste = Decimal(str(coste))
@@ -732,6 +742,7 @@ class EntradaManualUI:
 
             total = neto + iva4 + iva10 + iva21
 
+            self.lbl_uds.configure(text=f'UDS: {total_uds}')
             self.lbl_neto.configure(text=f'Neto: {neto:.2f}€')
             self.lbl_iva4.configure(text=f'IVA 4%: {iva4:.2f}€')
             self.lbl_iva10.configure(text=f'IVA 10%: {iva10:.2f}€')
@@ -882,6 +893,7 @@ class EntradaManualUI:
             self.e_coste.insert(0, '0.00')
 
             # Limpiar %IVA, IVA e Importe
+            self.lbl_uds.configure(text='UDS: 0')
             for entry, val in [(self.e_pct_iva, '0%'), (self.e_iva, '0.00'), (self.e_importe, '0.00')]:
                 try:
                     entry.configure(state='normal')
