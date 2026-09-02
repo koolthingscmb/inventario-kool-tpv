@@ -115,7 +115,9 @@ class BusquedaClientesUI:
             parent=filter_frame,
             text='BUSCAR',
             command=self._on_search,
-            style_key='action_primary'
+            style_key='action_primary',
+            module='clientes',
+            palette_key='primary'
         )
         self.btn_buscar.pack(side='right', padx=12)
 

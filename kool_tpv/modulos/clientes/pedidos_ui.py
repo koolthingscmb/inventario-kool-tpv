@@ -57,7 +57,9 @@ class PedidosUI:
             parent=top_frame,
             text='+ PEDIDO',
             command=self._on_nuevo_pedido,
-            style_key='action_primary'
+            style_key='mini_outline_clientes',
+            module='clientes',
+            palette_key='primary'
         )
         self.btn_nuevo.pack(side='right', padx=5)
 
@@ -65,7 +67,9 @@ class PedidosUI:
             parent=top_frame,
             text='MODIFICAR',
             command=self._on_modificar_pedido,
-            style_key='action_secondary'
+            style_key='mini_outline_clientes',
+            module='clientes',
+            palette_key='secondary'
         )
         self.btn_modificar.pack(side='right', padx=5)
 
@@ -73,7 +77,9 @@ class PedidosUI:
             parent=top_frame,
             text='Asignar Vale',
             command=self._on_asociar_vale,
-            style_key='action_secondary'
+            style_key='mini_outline_clientes',
+            module='clientes',
+            palette_key='secondary'
         )
         self.btn_asociar_vale.pack(side='right', padx=5)
 
@@ -81,7 +87,9 @@ class PedidosUI:
             parent=top_frame,
             text='USAR VALE',
             command=self._on_usar_vale,
-            style_key='action_primary'
+            style_key='mini_outline_clientes',
+            module='clientes',
+            palette_key='secondary'
         )
         self.btn_usar_vale.pack(side='right', padx=5)
 
@@ -122,7 +130,9 @@ class PedidosUI:
             parent=filter_frame,
             text='CAMBIAR ESTADO',
             command=self._on_cambiar_estado,
-            style_key='action_secondary'
+            style_key='mini_outline_clientes',
+            module='clientes',
+            palette_key='accent'
         )
         self.btn_cambiar_estado.pack(side='left', padx=(0, 20))
 

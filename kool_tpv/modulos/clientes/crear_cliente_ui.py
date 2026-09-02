@@ -437,22 +437,22 @@ class CrearClienteUI:
         self.footer.pack(side='bottom', fill='x', padx=12, pady=12)
 
         # Botones creados automáticamente desde buttons_actions_config.json
-        self.btn_guardar = create_action_button(self.footer, 'guardar', self._on_guardar)
+        self.btn_guardar = create_action_button(self.footer, 'guardar', self._on_guardar, module='clientes', palette_key='primary')
         self.btn_guardar.pack(side='left', padx=8)
 
-        self.btn_sumar_puntos = create_action_button(self.footer, 'sumar_puntos', self._on_sumar_puntos)
+        self.btn_sumar_puntos = create_action_button(self.footer, 'sumar_puntos', self._on_sumar_puntos, module='clientes', palette_key='accent')
         self.btn_sumar_puntos.pack(side='left', padx=8)
 
-        self.btn_tickets = create_action_button(self.footer, 'tickets', self._on_tickets)
+        self.btn_tickets = create_action_button(self.footer, 'tickets', self._on_tickets, module='clientes', palette_key='secondary')
         self.btn_tickets.pack(side='left', padx=8)
 
-        self.btn_pedido = create_action_button(self.footer, 'pedido', self._on_pedido)
+        self.btn_pedido = create_action_button(self.footer, 'pedido', self._on_pedido, module='clientes', palette_key='secondary')
         self.btn_pedido.pack(side='left', padx=8)
 
-        self.btn_whatsapp = create_action_button(self.footer, 'whatsapp', self._on_whatsapp)
+        self.btn_whatsapp = create_action_button(self.footer, 'whatsapp', self._on_whatsapp, module='clientes', palette_key='secondary')
         self.btn_whatsapp.pack(side='left', padx=8)
 
-        self.btn_mail = create_action_button(self.footer, 'mail', self._on_mail)
+        self.btn_mail = create_action_button(self.footer, 'mail', self._on_mail, module='clientes', palette_key='secondary')
         self.btn_mail.pack(side='left', padx=8)
 
         # Cargar datos si es edición

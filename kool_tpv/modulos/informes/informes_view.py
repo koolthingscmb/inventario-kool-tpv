@@ -242,7 +242,9 @@ class InformesView(BaseModuleView):
                 parent=filters_frame,
                 text='ACEPTAR',
                 command=self._on_generar_click,
-                style_key='action_confirm'
+                style_key='action_confirm',
+                module='informes',
+                palette_key='primary'
             )
             self.btn_generar.pack(side='left', padx=(6, 0))
 
@@ -296,14 +298,18 @@ class InformesView(BaseModuleView):
                     footer_frame,
                     text='Exportar CSV',
                     command=self._on_exportar_csv_click,
-                    style_key='action_secondary'
+                    style_key='action_secondary',
+                    module='informes',
+                    palette_key='secondary'
                 )
                 self.btn_export_csv.pack(side='left', padx=8)
                 self.btn_export_pdf = ButtonFactory.create_button(
                     footer_frame,
                     text='Exportar PDF',
                     command=self._on_exportar_pdf_click,
-                    style_key='action_secondary'
+                    style_key='action_secondary',
+                    module='informes',
+                    palette_key='secondary'
                 )
                 self.btn_export_pdf.pack(side='left', padx=8)
                 try:

@@ -230,19 +230,19 @@
     "description": "Verde Matrix - Gestión de stock y productos",
     "buttons": {
       "primary": {
-        "bg": "#000000",
+        "bg": "#00FF00",
         "hover": "#91E291",
-        "text": "#00FF00",
-        "border": "#00FF00"
+        "text": "#000000",
+        "border": "#D0FF00"
       },
       "secondary": {
-        "bg": "#32CD32",
+        "bg": "#009000",
         "hover": "#99FF52",
         "text": "#000000",
         "border": "#91FF00"
       },
       "accent": {
-        "bg": "#DAFCCF",
+        "bg": "#B7FC69",
         "hover": "#E6F8DF",
         "text": "#000000",
         "border": "#91FF00"
@@ -276,19 +276,19 @@
     "description": "Amarillo Sol - Gestión de clientes y fidelización",
     "buttons": {
       "primary": {
-        "bg": "#FFD700",
-        "hover": "#FFCA00",
+        "bg": "#F9FF00",
+        "hover": "#DAAD00",
         "text": "#000000",
-        "border": "#E6BE00"
+        "border": "#F3FF04"
       },
       "secondary": {
-        "bg": "#FFC107",
+        "bg": "#DCCA58",
         "hover": "#FFB000",
         "text": "#000000",
-        "border": "#E0A800"
+        "border": "#967000"
       },
       "accent": {
-        "bg": "#FFEB3B",
+        "bg": "#FFD800",
         "hover": "#FFF176",
         "text": "#000000",
         "border": "#F7E017"
@@ -314,8 +314,8 @@
     "border": "#FFFFFF",
     "text": "#FFFFFF",
     "background": "#000000",
-    "bg_dark": "#0d0d0d",
-    "bg_medium": "#1a1a1a",
+    "bg_dark": "#0D0D0D",
+    "bg_medium": "#1A1A1A",
     "warning": "#f39c12",
     "error": "#e74c3c",
     "description": "Blanco - Reportes y análisis",
@@ -327,15 +327,15 @@
         "border": "#E0E0E0"
       },
       "secondary": {
-        "bg": "#E0E0E0",
-        "hover": "#D6D6D6",
+        "bg": "#B2B2B2",
+        "hover": "#FFFFFF",
         "text": "#000000",
         "border": "#CFCFCF"
       },
       "accent": {
-        "bg": "#BDBDBD",
+        "bg": "#3C3C3C",
         "hover": "#AFAFAF",
-        "text": "#000000",
+        "text": "#FFFFFF",
         "border": "#9E9E9E"
       }
     },

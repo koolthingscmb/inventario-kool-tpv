@@ -68,7 +68,9 @@ class ClientesTopsUI(ctk.CTkFrame):
                         self.filters_frame,
                         'GENERAL',
                         command=self._on_general,
-                        style_key='mini_outline_clientes'
+                        style_key='mini_outline_clientes',
+                        module='clientes',
+                        palette_key='secondary'
                     )
                     btn_general.pack(side='left', padx=4)
 
@@ -76,7 +78,9 @@ class ClientesTopsUI(ctk.CTkFrame):
                         self.filters_frame,
                         'TESORO',
                         command=self._on_tesoro_actual,
-                        style_key='mini_outline_clientes'
+                        style_key='mini_outline_clientes',
+                        module='clientes',
+                        palette_key='secondary'
                     )
                     btn_tesoro_actual.pack(side='left', padx=4)
 
@@ -84,7 +88,9 @@ class ClientesTopsUI(ctk.CTkFrame):
                         self.filters_frame,
                         'T. GASTADO',
                         command=self._on_tesoro_gastado,
-                        style_key='mini_outline_clientes'
+                        style_key='mini_outline_clientes',
+                        module='clientes',
+                        palette_key='secondary'
                     )
                     btn_tesoro_gastado.pack(side='left', padx=4)
 
@@ -92,7 +98,9 @@ class ClientesTopsUI(ctk.CTkFrame):
                         self.filters_frame,
                         'T. TOTAL',
                         command=self._on_tesoro_total,
-                        style_key='mini_outline_clientes'
+                        style_key='mini_outline_clientes',
+                        module='clientes',
+                        palette_key='secondary'
                     )
                     btn_tesoro_total.pack(side='left', padx=4)
                 except Exception:
@@ -215,10 +223,10 @@ class ClientesTopsUI(ctk.CTkFrame):
                 # placeholder
                 return
 
-            btn_print = create_action_button(self.footer_frame, 'imprimir', _on_imprimir)
+            btn_print = create_action_button(self.footer_frame, 'imprimir', _on_imprimir, module='clientes', palette_key='primary')
             btn_print.pack(side='left', padx=8)
 
-            btn_export = create_action_button(self.footer_frame, 'exportar', _on_exportar)
+            btn_export = create_action_button(self.footer_frame, 'exportar', _on_exportar, module='clientes', palette_key='secondary')
             btn_export.pack(side='left', padx=8)
         except Exception:
             logger.exception('Error creando footer en ClientesTopsUI')
