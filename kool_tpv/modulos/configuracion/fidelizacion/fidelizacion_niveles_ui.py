@@ -4,6 +4,7 @@ import shutil
 from kool_tpv.paths import BADGES_DIR
 import customtkinter as ctk
 from kool_tpv.utils.config_loader import load_colors, create_action_button
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.base_datos.niveles_service import NivelesService
@@ -252,12 +253,13 @@ class FidelizacionNivelesUI:
         self.lore_textboxes_frame = ctk.CTkFrame(self.lore_frame, fg_color='transparent')
         self.lore_textboxes_frame.pack(fill='x')
 
-        self.btn_add_lore = ctk.CTkButton(
-            self.lore_frame,
+        self.btn_add_lore = ButtonFactory.create_button(
+            parent=self.lore_frame,
             text='+ Añadir Lore',
-            fg_color=self.colors.get('primary', '#FF9800'),
-            hover_color=self.colors.get('primary_hover', '#F57C00'),
-            command=self._on_add_lore
+            command=self._on_add_lore,
+            module='config',
+            palette_key='secondary',
+            style_key='action_secondary'
         )
         self.btn_add_lore.pack(anchor='e', padx=6, pady=6)
 
@@ -265,13 +267,22 @@ class FidelizacionNivelesUI:
         self.footer = ctk.CTkFrame(self.container, fg_color='transparent')
         self.footer.pack(side='bottom', fill='x', padx=12, pady=12)
 
-        btn_guardar = create_action_button(self.footer, 'guardar', self._on_guardar)
+        btn_guardar = create_action_button(
+            self.footer, 'guardar', self._on_guardar,
+            module='config', palette_key='primary'
+        )
         btn_guardar.pack(side='left', padx=8)
 
-        btn_nuevo = create_action_button(self.footer, 'nuevo_nivel', self._on_nuevo_nivel)
+        btn_nuevo = create_action_button(
+            self.footer, 'nuevo_nivel', self._on_nuevo_nivel,
+            module='config', palette_key='primary'
+        )
         btn_nuevo.pack(side='left', padx=8)
 
-        btn_eliminar = create_action_button(self.footer, 'eliminar', self._on_eliminar)
+        btn_eliminar = create_action_button(
+            self.footer, 'eliminar', self._on_eliminar,
+            module='config', palette_key='accent'
+        )
         btn_eliminar.pack(side='left', padx=8)
 
         # Cargar niveles

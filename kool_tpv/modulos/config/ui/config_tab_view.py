@@ -5,7 +5,6 @@ dinámico por tab. No usa base de datos, solo el UIConfigService.
 """
 import tkinter as tk
 import customtkinter as ctk
-from typing import Callable, Optional
 from kool_tpv.modulos.config.ui.services.ui_config_service import UIConfigService
 from kool_tpv.utils.config_loader import load_colors
 
@@ -15,14 +14,13 @@ class ConfigTabView:
 
     _MAIN_TABS = [
         "COLORES", "BOTONES",
-        "DIÁLOGOS", "TOASTS", "NAV LIST", "SISTEMA"
+        "DIÁLOGOS", "TOASTS", "NAV LIST"
     ]
     _TAB_BG_NORMAL = "#34495e"
     _TAB_BG_SELECTED = "#3498db"
 
-    def __init__(self, parent, on_cerrar: Optional[Callable] = None):
+    def __init__(self, parent):
         self.parent = parent
-        self.on_cerrar = on_cerrar
         self.service = UIConfigService()
         
         # Paleta dinámica del módulo config
@@ -30,9 +28,11 @@ class ConfigTabView:
             colors = load_colors('config')
             self._TAB_BG_SELECTED = colors.get('buttons', {}).get('primary', {}).get('bg', '#FF9800')
             self._TAB_BG_NORMAL = colors.get('buttons', {}).get('secondary', {}).get('bg', '#643300')
+            self._TAB_FG = colors.get('buttons', {}).get('primary', {}).get('text', '#000000')
         except Exception:
             self._TAB_BG_SELECTED = "#FF9800"
             self._TAB_BG_NORMAL = "#643300"
+            self._TAB_FG = "#000000"
 
         self._bg = "#2c3e50"
         self._text = "#ecf0f1"
@@ -64,16 +64,6 @@ class ConfigTabView:
             bg=self._bg
         ).pack(side="left", pady=8)
 
-        ctk.CTkButton(
-            cabecera,
-            text="✕",
-            width=40,
-            height=40,
-            fg_color="#e74c3c",
-            hover_color="#c0392b",
-            command=self._on_cerrar
-        ).pack(side="right", pady=5)
-
     def _crear_tab_bar(self):
         bar = tk.Frame(self.frame, bg=self._bg, height=36)
         bar.pack(fill="x", padx=20, pady=(5, 0))
@@ -82,7 +72,7 @@ class ConfigTabView:
         for tab_name in self._MAIN_TABS:
             lbl = tk.Label(
                 bar, text=tab_name, font=("Helvetica", 12, "bold"),
-                fg=self._text, bg=self._TAB_BG_NORMAL,
+                fg=self._TAB_FG, bg=self._TAB_BG_NORMAL,
                 padx=16, pady=6, cursor="hand2"
             )
             lbl.pack(side="left", padx=(0, 4))
@@ -115,9 +105,6 @@ class ConfigTabView:
         elif tab_name == "NAV LIST":
             from kool_tpv.modulos.config.ui.tabs.nav_list_tab import NavListTab
             self._current_tab_obj = NavListTab(self._content_frame, self.service)
-        elif tab_name == "SISTEMA":
-            from kool_tpv.modulos.config.ui.tabs.sistema_tab import SistemaTab
-            self._current_tab_obj = SistemaTab(self._content_frame, self.service)
         else:
             self._mostrar_placeholder(tab_name)
 
@@ -136,7 +123,3 @@ class ConfigTabView:
             child.destroy()
         self._current_tab_obj = None
 
-    def _on_cerrar(self):
-        if self.on_cerrar:
-            self.on_cerrar()
-        self.frame.destroy()

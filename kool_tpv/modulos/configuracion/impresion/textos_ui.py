@@ -208,14 +208,18 @@ class TextosPlantillaUI(PaginaConVisor):
         self.btn_guardar = create_action_button(
             self.footer,
             'guardar',
-            self._on_guardar
+            self._on_guardar,
+            module='config',
+            palette_key='primary'
         )
         self.btn_guardar.pack(side='left', padx=8)
 
         self.btn_mostrar = create_action_button(
             self.footer,
             'mostrar',
-            self._on_mostrar
+            self._on_mostrar,
+            module='config',
+            palette_key='secondary'
         )
         self.btn_mostrar.pack(side='left', padx=8)
 

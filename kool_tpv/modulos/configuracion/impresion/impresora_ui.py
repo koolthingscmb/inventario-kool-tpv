@@ -60,14 +60,14 @@ class ImpresoraUI:
         _secondary_btn = _buttons_cfg.get('secondary', {})
 
         # Fila 0: Selector impresora
-        lbl_imp = ctk.CTkLabel(self.impresora_frame, text='Impresora', text_color=self.colors.get('text', COLOR_MATRIX), font=get_font('label', module=module_name))
+        lbl_imp = ctk.CTkLabel(self.impresora_frame, text='Impresora', text_color=self.colors.get('primary', '#FF9800'), font=get_font('label', module=module_name))
         lbl_imp.grid(row=0, column=0, sticky='w', padx=6, pady=6)
 
         self.cb_impresora = ctk.CTkComboBox(self.impresora_frame, values=[], **combo_kwargs)
         self.cb_impresora.grid(row=0, column=1, columnspan=7, sticky='we', padx=6, pady=6)
 
         # Fila 1: Ancho papel (radio buttons)
-        lbl_width = ctk.CTkLabel(self.impresora_frame, text='Ancho papel', text_color=self.colors.get('text', COLOR_MATRIX), font=get_font('label', module=module_name))
+        lbl_width = ctk.CTkLabel(self.impresora_frame, text='Ancho papel', text_color=self.colors.get('primary', '#FF9800'), font=get_font('label', module=module_name))
         lbl_width.grid(row=1, column=0, sticky='w', padx=6, pady=6)
 
         radio_frame = ctk.CTkFrame(self.impresora_frame, fg_color='transparent')
@@ -101,6 +101,8 @@ class ImpresoraUI:
                 parent=radio_frame,
                 text='TEST',
                 command=self._test_impresion,
+                module='config',
+                palette_key='secondary',
                 style_key='mini_action'
             )
             btn_test_inline.pack(side='left', padx=(24, 0))
@@ -112,7 +114,7 @@ class ImpresoraUI:
             lbl_modo = ctk.CTkLabel(
                 self.impresora_frame,
                 text='Imprimir tickets',
-                text_color=self.colors.get('text', COLOR_MATRIX),
+                text_color=self.colors.get('primary', '#FF9800'),
                 font=get_font('label', module=module_name)
             )
             lbl_modo.grid(row=2, column=0, sticky='w', padx=6, pady=6)
@@ -120,12 +122,12 @@ class ImpresoraUI:
             modo_frame = ctk.CTkFrame(self.impresora_frame, fg_color='transparent')
             modo_frame.grid(row=2, column=1, columnspan=6, sticky='w', padx=6, pady=6)
 
-            self.switch_modo_fisico = ctk.CTkSwitch(
+            self.switch_modo_fisico = ctk.CTkCheckBox(
                 modo_frame,
                 text='',
-                fg_color='#666666',  # Color apagado (gris)
-                progress_color='#00AA00',  # Color encendido (verde)
-                width=50,
+                fg_color=self.colors.get('primary', '#FF9800'),
+                hover_color=self.colors.get('primary_hover', '#F57C00'),
+                width=24,
                 height=24
             )
             self.switch_modo_fisico.pack(side='left')
@@ -133,7 +135,7 @@ class ImpresoraUI:
             self.lbl_modo_estado = ctk.CTkLabel(
                 modo_frame,
                 text='NO (solo simulación en pantalla)',
-                text_color='#FF6666',  # Rojo apagado
+                text_color='#FFFFFF',
                 font=get_font('label', module=module_name)
             )
             self.lbl_modo_estado.pack(side='left', padx=(8, 0))
@@ -143,12 +145,12 @@ class ImpresoraUI:
                 if self.switch_modo_fisico.get():
                     self.lbl_modo_estado.configure(
                         text='SÍ - Enviar a impresora térmica',
-                        text_color='#66FF66'  # Verde encendido
+                        text_color='#FFFFFF'
                     )
                 else:
                     self.lbl_modo_estado.configure(
                         text='NO (solo simulación en pantalla)',
-                        text_color='#FF6666'  # Rojo apagado
+                        text_color='#FFFFFF'
                     )
 
             self.switch_modo_fisico.configure(command=_on_modo_change)
@@ -160,7 +162,7 @@ class ImpresoraUI:
             lbl_codepage = ctk.CTkLabel(
                 self.impresora_frame,
                 text='Juego de caracteres',
-                text_color=self.colors.get('text', COLOR_MATRIX),
+                text_color=self.colors.get('primary', '#FF9800'),
                 font=get_font('label', module=module_name)
             )
             lbl_codepage.grid(row=3, column=0, sticky='w', padx=6, pady=6)
@@ -179,7 +181,7 @@ class ImpresoraUI:
             self.lbl_codepage_info = ctk.CTkLabel(
                 self.impresora_frame,
                 text='CP858: €, tildes (recomendado POS)',
-                text_color='#888888',
+                text_color='#FFFFFF',
                 font=get_font('small', module=module_name),
                 wraplength=400,
                 justify='left'
@@ -204,15 +206,16 @@ class ImpresoraUI:
             lbl_logo = ctk.CTkLabel(
                 self.impresora_frame,
                 text='Logo global en ticket',
-                text_color=self.colors.get('text', COLOR_MATRIX),
+                text_color=self.colors.get('primary', '#FF9800'),
                 font=get_font('label', module=module_name)
             )
             lbl_logo.grid(row=4, column=0, sticky='w', padx=6, pady=6)
 
-            self.switch_logo = ctk.CTkSwitch(
+            self.switch_logo = ctk.CTkCheckBox(
                 self.impresora_frame,
                 text='Activar',
                 fg_color=self.colors.get('primary', '#FF9800'),
+                hover_color=self.colors.get('primary_hover', '#F57C00'),
                 font=get_font('label', module=module_name)
             )
             self.switch_logo.grid(row=4, column=1, sticky='w', padx=6, pady=6)
@@ -222,6 +225,8 @@ class ImpresoraUI:
                 parent=self.impresora_frame,
                 text='SELECCIONAR LOGO',
                 command=self._seleccionar_logo,
+                module='config',
+                palette_key='secondary',
                 style_key='mini_action'
             )
             btn_seleccionar.grid(row=5, column=1, sticky='w', padx=6, pady=6)
@@ -230,7 +235,7 @@ class ImpresoraUI:
             self.logo_preview_label = ctk.CTkLabel(
                 self.impresora_frame,
                 text='Sin logo',
-                text_color=self.colors.get('text', COLOR_MATRIX),
+                text_color="#FFFFFF",
                 font=get_font('label', module=module_name),
                 width=200,
                 height=150,
@@ -249,15 +254,16 @@ class ImpresoraUI:
             lbl_logo_nivel = ctk.CTkLabel(
                 self.impresora_frame,
                 text='Logo LEVEL UP (Subida Nivel)',
-                text_color=self.colors.get('text', COLOR_MATRIX),
+                text_color=self.colors.get('primary', '#FF9800'),
                 font=get_font('label', module=module_name)
             )
             lbl_logo_nivel.grid(row=7, column=0, sticky='w', padx=6, pady=6)
 
-            self.switch_logo_nivel = ctk.CTkSwitch(
+            self.switch_logo_nivel = ctk.CTkCheckBox(
                 self.impresora_frame,
                 text='Activar',
                 fg_color=self.colors.get('primary', '#FF9800'),
+                hover_color=self.colors.get('primary_hover', '#F57C00'),
                 font=get_font('label', module=module_name)
             )
             self.switch_logo_nivel.grid(row=7, column=1, sticky='w', padx=6, pady=6)
@@ -267,6 +273,8 @@ class ImpresoraUI:
                 parent=self.impresora_frame,
                 text='SUBIR LOGO LEVEL UP',
                 command=self._seleccionar_logo_nivel,
+                module='config',
+                palette_key='secondary',
                 style_key='mini_action'
             )
             btn_seleccionar_nivel.grid(row=8, column=1, sticky='w', padx=6, pady=6)
@@ -275,7 +283,7 @@ class ImpresoraUI:
             self.logo_nivel_preview_label = ctk.CTkLabel(
                 self.impresora_frame,
                 text='Sin logo',
-                text_color=self.colors.get('text', COLOR_MATRIX),
+                text_color="#FFFFFF",
                 font=get_font('label', module=module_name),
                 width=200,
                 height=150,
@@ -294,15 +302,16 @@ class ImpresoraUI:
             lbl_qr = ctk.CTkLabel(
                 self.impresora_frame,
                 text='QR en ticket',
-                text_color=self.colors.get('text', COLOR_MATRIX),
+                text_color=self.colors.get('primary', '#FF9800'),
                 font=get_font('label', module=module_name)
             )
             lbl_qr.grid(row=10, column=0, sticky='w', padx=6, pady=6)
 
-            self.switch_qr = ctk.CTkSwitch(
+            self.switch_qr = ctk.CTkCheckBox(
                 self.impresora_frame,
                 text='Activar',
                 fg_color=self.colors.get('primary', '#FF9800'),
+                hover_color=self.colors.get('primary_hover', '#F57C00'),
                 font=get_font('label', module=module_name)
             )
             self.switch_qr.grid(row=10, column=1, sticky='w', padx=6, pady=6)
@@ -310,7 +319,7 @@ class ImpresoraUI:
             lbl_qr_url = ctk.CTkLabel(
                 self.impresora_frame,
                 text='URL QR:',
-                text_color=self.colors.get('text', COLOR_MATRIX),
+                text_color=self.colors.get('primary', '#FF9800'),
                 font=get_font('label', module=module_name)
             )
             lbl_qr_url.grid(row=11, column=0, sticky='w', padx=6, pady=6)
@@ -329,7 +338,10 @@ class ImpresoraUI:
         self.btn_frame.pack(side='bottom', fill='x', padx=12, pady=12)
 
         # Botón Guardar (usar create_action_button)
-        btn_save = create_action_button(self.btn_frame, 'guardar', self._on_save)
+        btn_save = create_action_button(
+            self.btn_frame, 'guardar', self._on_save,
+            module='config', palette_key='primary'
+        )
         btn_save.pack(side='left', padx=8)
 
         # (Test moved inline next to radios)
@@ -427,13 +439,13 @@ class ImpresoraUI:
             if modo == 'escpos':
                 try:
                     self.switch_modo_fisico.select()
-                    self.lbl_modo_estado.configure(text='SÍ - Enviar a impresora térmica', text_color='#66FF66')
+                    self.lbl_modo_estado.configure(text='SÍ - Enviar a impresora térmica', text_color='#FFFFFF')
                 except Exception:
                     pass
             else:
                 try:
                     self.switch_modo_fisico.deselect()
-                    self.lbl_modo_estado.configure(text='NO (solo simulación en pantalla)', text_color='#FF6666')
+                    self.lbl_modo_estado.configure(text='NO (solo simulación en pantalla)', text_color='#FFFFFF')
                 except Exception:
                     pass
 

@@ -5,6 +5,7 @@ from typing import List, Dict
 
 from kool_tpv.utils.templates.pagina_con_visor import PaginaConVisor
 from kool_tpv.utils.config_loader import create_action_button, load_colors
+from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.base_datos.configuracion_repository import ConfiguracionRepository
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
@@ -132,24 +133,29 @@ class WhatsappPlantillasUI(PaginaConVisor):
         btns_frame = ctk.CTkFrame(self.footer, fg_color='transparent')
         btns_frame.pack(fill='x', pady=10)
 
-        self.btn_guardar = create_action_button(btns_frame, 'guardar', self._on_guardar)
+        self.btn_guardar = create_action_button(
+            btns_frame, 'guardar', self._on_guardar,
+            module='config', palette_key='primary'
+        )
         self.btn_guardar.pack(side='left', padx=12)
 
         # Botón NUEVA con estilo consistente
-        self.btn_nueva = ctk.CTkButton(
-            btns_frame, 
-            text='NUEVA PLANTILLA', 
+        self.btn_nueva = ButtonFactory.create_button(
+            parent=btns_frame,
+            text='NUEVA PLANTILLA',
             command=self._on_nueva,
             width=160,
             height=40,
-            font=get_font('label', module='config'),
-            fg_color=self.colors.get('secondary', '#32CD32'),
-            hover_color=self.colors.get('primary', '#00FF00'),
-            text_color='#000000'
+            style_key='action_secondary',
+            module='config',
+            palette_key='secondary'
         )
         self.btn_nueva.pack(side='left', padx=12)
 
-        self.btn_eliminar = create_action_button(btns_frame, 'eliminar', self._on_eliminar)
+        self.btn_eliminar = create_action_button(
+            btns_frame, 'eliminar', self._on_eliminar,
+            module='config', palette_key='accent'
+        )
         self.btn_eliminar.pack(side='left', padx=12)
 
     def _cargar_plantillas(self):

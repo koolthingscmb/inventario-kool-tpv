@@ -38,7 +38,7 @@ class DialogsTab:
         colors = load_colors('config')
         self._TAB_BG_SELECTED = colors.get('buttons', {}).get('primary', {}).get('bg', '#FF9800')
         self._TAB_BG_NORMAL = colors.get('buttons', {}).get('secondary', {}).get('bg', '#643300')
-        self._TAB_FG = "#FFFFFF"
+        self._TAB_FG = colors.get('buttons', {}).get('primary', {}).get('text', '#000000')
         
         self._bg = "#2c3e50"
         self._fg = "#ecf0f1"

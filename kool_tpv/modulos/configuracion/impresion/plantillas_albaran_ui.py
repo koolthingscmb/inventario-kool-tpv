@@ -154,14 +154,18 @@ class PlantillasAlbaranUI:
             parent=logo_row,
             text='Seleccionar...',
             command=self._on_seleccionar_logo,
-            style_key='action_secondary'
+            style_key='action_secondary',
+            module='config',
+            palette_key='secondary'
         ).pack(side='left', padx=(0, 8))
 
         ButtonFactory.create_button(
             parent=logo_row,
             text='Quitar',
             command=self._on_quitar_logo,
-            style_key='action_secondary'
+            style_key='action_secondary',
+            module='config',
+            palette_key='accent'
         ).pack(side='left')
 
         # Preview del logo
@@ -180,14 +184,18 @@ class PlantillasAlbaranUI:
             parent=self.buttons_frame,
             text='GUARDAR',
             command=self._on_guardar,
-            style_key='action_primary'
+            style_key='action_primary',
+            module='config',
+            palette_key='primary'
         ).pack(side='left', padx=(0, 8))
 
         ButtonFactory.create_button(
             parent=self.buttons_frame,
             text='RESTAURAR DEFECTO',
             command=self._on_restaurar,
-            style_key='action_secondary'
+            style_key='action_secondary',
+            module='config',
+            palette_key='secondary'
         ).pack(side='left')
 
         # Cargar valores actuales

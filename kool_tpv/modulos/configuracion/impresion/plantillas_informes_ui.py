@@ -103,10 +103,12 @@ class PlantillasInformesUI:
 
         ButtonFactory.create_button(
             parent=logo_row, text='Seleccionar...',
-            command=self._on_seleccionar_logo, style_key='action_secondary').pack(side='left', padx=(0, 8))
+            command=self._on_seleccionar_logo, style_key='action_secondary',
+            module='config', palette_key='secondary').pack(side='left', padx=(0, 8))
         ButtonFactory.create_button(
             parent=logo_row, text='Quitar',
-            command=self._on_quitar_logo, style_key='action_secondary').pack(side='left')
+            command=self._on_quitar_logo, style_key='action_secondary',
+            module='config', palette_key='accent').pack(side='left')
 
         self.lbl_logo_preview = ctk.CTkLabel(self.fields_frame, text='', image=None)
         self.lbl_logo_preview.grid(row=5, column=1, columnspan=2, sticky='w', padx=8, pady=4)
@@ -115,10 +117,12 @@ class PlantillasInformesUI:
         self.buttons_frame.pack(anchor='w', padx=16, pady=16)
         ButtonFactory.create_button(
             parent=self.buttons_frame, text='GUARDAR',
-            command=self._on_guardar, style_key='action_primary').pack(side='left', padx=(0, 8))
+            command=self._on_guardar, style_key='action_primary',
+            module='config', palette_key='primary').pack(side='left', padx=(0, 8))
         ButtonFactory.create_button(
             parent=self.buttons_frame, text='RESTAURAR DEFECTO',
-            command=self._on_restaurar, style_key='action_secondary').pack(side='left')
+            command=self._on_restaurar, style_key='action_secondary',
+            module='config', palette_key='secondary').pack(side='left')
 
         self._cargar_valores()
 

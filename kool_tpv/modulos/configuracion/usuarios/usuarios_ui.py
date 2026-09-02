@@ -141,7 +141,7 @@ class UsuariosUI:
             text="NUEVO",
             command=self.clear,
             module="config",
-            palette_key="secondary",
+            palette_key="primary",
             style_key="action_success",
             width=100
         )
@@ -174,7 +174,7 @@ class UsuariosUI:
             text="GENERAR TARJETA",
             command=self.generate_card_manual,
             module="config",
-            palette_key="primary",
+            palette_key="secondary",
             style_key="action_success",
             width=180
         )

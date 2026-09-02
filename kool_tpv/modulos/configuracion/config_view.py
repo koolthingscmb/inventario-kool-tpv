@@ -161,9 +161,7 @@ class ConfigView(BaseModuleView):
                                 try:
                                     ButtonFactory.apply_style(
                                         child, 
-                                        style_key='module_config', 
-                                        module='config', 
-                                        palette_key='primary'
+                                        style_key='module_config'
                                     )
                                 except Exception:
                                     logging.exception("Error aplicando estilo a botón sidebar")
@@ -268,8 +266,7 @@ class ConfigView(BaseModuleView):
                     parent=self._menu_frame,
                     text=text,
                     command=action_map.get(action),
-                    style_key='module_config',
-                    module='config'
+                    style_key='module_config'
                 )
 
                 btn.pack(pady=8, padx=12, fill='x')
@@ -468,8 +465,7 @@ class ConfigView(BaseModuleView):
                     parent=self._menu_frame,
                     text=text,
                     command=action_map.get(action),
-                    style_key='module_config',
-                    module='config'
+                    style_key='module_config'
                 )
 
                 btn.pack(pady=8, padx=12, fill='x')
@@ -606,7 +602,7 @@ class ConfigView(BaseModuleView):
                                  'buttons_config', 'notificaciones_config', 'ui_dialogs']:
                     service.registrar_observer(cfg_name, lambda data, name=cfg_name: root.reload_configs(name))
 
-            ui = ConfigTabView(self.central_area, service)
+            ui = ConfigTabView(self.central_area)
             if self.set_central_content(ui):
                 try:
                     self.actualizar_ruta('CONFIG / DISEÑO UI', callbacks=self.breadcrumb_callbacks)
@@ -672,8 +668,7 @@ class ConfigView(BaseModuleView):
                     parent=self._menu_frame,
                     text=text,
                     command=action_map.get(action),
-                    style_key='module_config',
-                    module='config'
+                    style_key='module_config'
                 )
 
                 btn.pack(pady=8, padx=12, fill='x')

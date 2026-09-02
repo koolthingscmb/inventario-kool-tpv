@@ -74,7 +74,10 @@ class FidelizacionCategoriasUI:
         self.entry_nuevo.pack(side='left', padx=(0, 20))
 
         # Botón guardar
-        btn_guardar = create_action_button(self.header_frame, 'guardar', self._on_guardar)
+        btn_guardar = create_action_button(
+            self.header_frame, 'guardar', self._on_guardar,
+            module='config', palette_key='primary'
+        )
         btn_guardar.pack(side='left', padx=10)
 
         # Chips frame (scrollable, grid 6 columnas)

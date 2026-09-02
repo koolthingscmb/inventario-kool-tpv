@@ -63,7 +63,10 @@ class FidelizacionGeneralUI:
         self.entry_nuevo.pack(side='left', padx=(0, 20))
 
         # Botón confirmar
-        btn_confirmar = create_action_button(self.header_frame, 'guardar', self._on_confirmar)
+        btn_confirmar = create_action_button(
+            self.header_frame, 'guardar', self._on_confirmar,
+            module='config', palette_key='primary'
+        )
         btn_confirmar.pack(side='left', padx=10)
 
         # Cargar valor actual
