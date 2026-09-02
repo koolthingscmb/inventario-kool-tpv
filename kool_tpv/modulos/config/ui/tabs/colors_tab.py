@@ -5,6 +5,7 @@ from typing import Any, Dict
 
 import customtkinter as ctk
 
+from kool_tpv.utils.config_loader import load_colors
 from kool_tpv.modulos.config.ui.services.ui_config_service import UIConfigService
 from kool_tpv.modulos.config.ui.config_tab_helper import section_title
 from kool_tpv.utils.factories.button_factory import ButtonFactory
@@ -118,6 +119,13 @@ class ColorsTab:
     def __init__(self, parent, service: UIConfigService):
         self.parent = parent
         self.service = service
+        
+        # Cargar colores dinámicos del módulo config
+        colors = load_colors('config')
+        self._TAB_BG_SELECTED = colors.get('buttons', {}).get('primary', {}).get('bg', '#FF9800')
+        self._TAB_BG_NORMAL = colors.get('buttons', {}).get('secondary', {}).get('bg', '#643300')
+        self._TAB_FG = "#FFFFFF" # Siempre blanco para legibilidad sobre estos fondos
+        
         self._bg = "#2c3e50"
         self._fg = "#ecf0f1"
         self._data_colors: Dict[str, Any] = {}
@@ -166,7 +174,7 @@ class ColorsTab:
             btn = tk.Label(
                 self.tab_bar, text=label,
                 font=("Helvetica", 10, "bold"),
-                fg="#7f8c8d", bg="#1a1a1a",
+                fg=self._TAB_FG, bg=self._TAB_BG_NORMAL,
                 padx=20, cursor="hand2"
             )
             btn.pack(side=tk.LEFT, fill="y")
@@ -177,9 +185,9 @@ class ColorsTab:
         # UI Feedback
         for c, btn in self._subtab_btns.items():
             if c == code:
-                btn.configure(fg="#3498db", bg="#2c3e50")
+                btn.configure(fg=self._TAB_FG, bg=self._TAB_BG_SELECTED)
             else:
-                btn.configure(fg="#7f8c8d", bg="#1a1a1a")
+                btn.configure(fg=self._TAB_FG, bg=self._TAB_BG_NORMAL)
         
         self._current_subtab = code
         
@@ -200,7 +208,7 @@ class ColorsTab:
         tk.Label(
             self.scroll_frame, text="CORE — Textos",
             font=("Helvetica", 18, "bold"),
-            fg="#3498db", bg=self._bg
+            fg=self._TAB_BG_SELECTED, bg=self._bg
         ).pack(pady=(20, 10))
         
         # Combobox de opciones
@@ -210,7 +218,7 @@ class ColorsTab:
         tk.Label(
             options_frame, text="Seleccionar:",
             font=("Helvetica", 13),
-            fg=self._fg, bg=self._bg
+            fg=self._TAB_BG_NORMAL, bg=self._bg
         ).pack(side="left", padx=(0, 10))
         
         self._core_textos_var = tk.StringVar()
@@ -259,7 +267,7 @@ class ColorsTab:
         tk.Label(
             self.scroll_frame, text="TPV — Botones del Grid",
             font=("Helvetica", 22, "bold"),
-            fg="#3498db", bg=self._bg
+            fg=self._TAB_BG_SELECTED, bg=self._bg
         ).pack(pady=(20, 10))
         
         # Combobox de opciones
@@ -269,7 +277,7 @@ class ColorsTab:
         tk.Label(
             options_frame, text="Seleccionar:",
             font=("Helvetica", 17),
-            fg=self._fg, bg=self._bg
+            fg=self._TAB_BG_NORMAL, bg=self._bg
         ).pack(side="left", padx=(0, 10))
         
         self._tpv_var = tk.StringVar()
@@ -439,7 +447,7 @@ class ColorsTab:
             
             tk.Label(
                 row, text=f"{label}:", font=("Helvetica", 18),
-                fg=self._fg, bg=self._bg, width=12, anchor="w"
+                fg=self._TAB_BG_NORMAL, bg=self._bg, width=12, anchor="w"
             ).pack(side="left", padx=(0, 10))
             
             swatch = tk.Label(
@@ -452,7 +460,7 @@ class ColorsTab:
                 row, textvariable=var, width=12,
                 font=("Helvetica", 16), bg="#1a1a1a", fg=self._fg,
                 insertbackground=self._fg, relief="flat", 
-                highlightthickness=1, highlightbackground="#555"
+                highlightthickness=1, highlightbackground=self._TAB_BG_NORMAL
             )
             entry.pack(side="left")
             
@@ -499,7 +507,7 @@ class ColorsTab:
         tk.Label(
             self.scroll_frame, text="MÓDULOS — Colores por módulo",
             font=("Helvetica", 22, "bold"),
-            fg="#3498db", bg=self._bg
+            fg=self._TAB_BG_SELECTED, bg=self._bg
         ).pack(pady=(20, 10))
 
         options_frame = tk.Frame(self.scroll_frame, bg=self._bg)
@@ -508,7 +516,7 @@ class ColorsTab:
         tk.Label(
             options_frame, text="Seleccionar módulo:",
             font=("Helvetica", 17),
-            fg=self._fg, bg=self._bg
+            fg=self._TAB_BG_NORMAL, bg=self._bg
         ).pack(side="left", padx=(0, 10))
 
         self._mod_var = tk.StringVar()
@@ -592,7 +600,7 @@ class ColorsTab:
                 tk.Label(
                     grid_frame, text=section_title,
                     font=("Helvetica", 15, "bold"),
-                    fg="#3498db", bg=self._bg, anchor="w"
+                    fg=self._TAB_BG_SELECTED, bg=self._bg, anchor="w"
                 ).grid(row=grid_row, column=0, columnspan=cols, sticky="w", pady=(10, 5))
                 grid_row += 1
 
@@ -612,9 +620,9 @@ class ColorsTab:
 
                 tk.Label(
                     row, text=f"{label}:", font=("Helvetica", 14),
-                    fg=self._fg, bg=self._bg, width=10, anchor="w"
+                    fg=self._TAB_BG_NORMAL, bg=self._bg, width=10, anchor="w"
                 ).pack(side="left", padx=(0, 5))
-
+                
                 swatch = tk.Label(
                     row, text="", bg=var.get(),
                     width=6, height=2, relief="solid", bd=2
@@ -625,7 +633,7 @@ class ColorsTab:
                     row, textvariable=var, width=10,
                     font=("Helvetica", 13), bg="#1a1a1a", fg=self._fg,
                     insertbackground=self._fg, relief="flat",
-                    highlightthickness=1, highlightbackground="#555"
+                    highlightthickness=1, highlightbackground=self._TAB_BG_NORMAL
                 )
                 entry.pack(side="left")
 
@@ -712,7 +720,7 @@ class ColorsTab:
         tk.Label(
             color_row, text="Color actual:",
             font=("Helvetica", 14),
-            fg=self._fg, bg=self._bg
+            fg=self._TAB_BG_NORMAL, bg=self._bg
         ).pack(side="left", padx=(0, 10))
         
         # Swatch
@@ -730,7 +738,7 @@ class ColorsTab:
             color_row, textvariable=var, width=12,
             font=("Helvetica", 13), bg="#1a1a1a", fg=self._fg,
             insertbackground=self._fg, relief="flat", 
-            highlightthickness=1, highlightbackground="#555"
+            highlightthickness=1, highlightbackground=self._TAB_BG_NORMAL
         )
         hex_entry.pack(side="left")
         

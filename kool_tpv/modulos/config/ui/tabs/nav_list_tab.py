@@ -7,6 +7,7 @@ import customtkinter as ctk
 from kool_tpv.modulos.config.ui.services.ui_config_service import UIConfigService
 from kool_tpv.modulos.config.ui.config_tab_helper import section_title
 from kool_tpv.utils.factories.button_factory import ButtonFactory
+from kool_tpv.utils.config_loader import load_colors
 
 
 class NavListTab:
@@ -17,6 +18,13 @@ class NavListTab:
     def __init__(self, parent, service: UIConfigService):
         self.parent = parent
         self.service = service
+        
+        # Cargar colores dinámicos del módulo config
+        colors = load_colors('config')
+        self._TAB_BG_SELECTED = colors.get('buttons', {}).get('primary', {}).get('bg', '#FF9800')
+        self._TAB_BG_NORMAL = colors.get('buttons', {}).get('secondary', {}).get('bg', '#643300')
+        self._TAB_FG = "#FFFFFF"
+        
         self._bg = "#2c3e50"
         self._fg = "#ecf0f1"
         self._layout: Dict[str, Any] = {}
@@ -33,19 +41,45 @@ class NavListTab:
         scroll = ctk.CTkScrollableFrame(self.parent, fg_color=self._bg)
         scroll.pack(fill=tk.BOTH, expand=True)
 
-        section_title(scroll, "Nav List — 3 archivos de config", self._bg).pack(
+        section_title(scroll, "Nav List — 3 archivos de config", self._bg, fg=self._TAB_BG_SELECTED).pack(
             fill="x", pady=(10, 5), padx=10
         )
 
-        self._render_editor(scroll)
-        self._separator(scroll)
-        self._render_preview(scroll)
-        self._separator(scroll)
-        self._render_fonts_section(scroll)
-        self._separator(scroll)
-        self._render_colors_modules(scroll)
-        self._separator(scroll)
-        self._render_carrito_colors(scroll)
+        # Layout de 4 columnas
+        columns_frame = tk.Frame(scroll, bg=self._bg)
+        columns_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(5, 0))
+
+        self._col1 = tk.Frame(columns_frame, bg=self._bg)
+        self._col1.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+
+        self._col2 = tk.Frame(columns_frame, bg=self._bg)
+        self._col2.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 5))
+
+        self._col3 = tk.Frame(columns_frame, bg=self._bg)
+        self._col3.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 5))
+
+        self._col4 = tk.Frame(columns_frame, bg=self._bg)
+        self._col4.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
+
+        # Columna 1
+        self._render_editor(self._col1)
+        self._separator(self._col1)
+        self._render_preview(self._col1)
+        self._separator(self._col1)
+        self._render_fonts_section(self._col1)
+
+        # Columna 2
+        self._render_colors_modules(self._col2, ["almacen", "clientes"], "COLORES POR MÓDULO (I)")
+
+        # Columna 3
+        self._render_colors_modules(self._col3, ["informes", "shopify", "config"], "COLORES POR MÓDULO (II)")
+
+        # Columna 4
+        self._render_colors_modules(self._col4, ["produccion"], "COLORES POR MÓDULO (III)")
+        self._separator(self._col4)
+        self._render_carrito_colors(self._col4)
+
+        # Barra de guardado abajo
         self._separator(scroll)
         self._render_save_bar(scroll)
 
@@ -109,13 +143,13 @@ class NavListTab:
     # ── EDITOR ───────────────────────────────────────────────────
 
     def _render_editor(self, parent):
-        self._section_header(parent, "EDITOR", "#3498db")
+        self._section_header(parent, "EDITOR", self._TAB_BG_SELECTED)
 
         # --- Nav List (layout_config.json) ---
         tk.Label(
             parent, text="  Nav List",
             font=("Helvetica", 10, "bold"),
-            fg="#95a5a6", bg=self._bg, anchor="w"
+            fg=self._TAB_BG_NORMAL, bg=self._bg, anchor="w"
         ).pack(fill="x", padx=10, pady=(6, 1))
 
         nav_list = self._layout.get("components", {}).get("nav_list", {})
@@ -137,7 +171,7 @@ class NavListTab:
 
             tk.Label(
                 col, text=label, font=("Helvetica", 9, "bold"),
-                fg="#3498db", bg=self._bg, anchor="w"
+                fg=self._TAB_BG_NORMAL, bg=self._bg, anchor="w"
             ).pack(anchor="w")
             tk.Spinbox(
                 col, from_=0, to=500, increment=1,
@@ -148,7 +182,7 @@ class NavListTab:
         tk.Label(
             parent, text="  Carrito Nav List",
             font=("Helvetica", 10, "bold"),
-            fg="#95a5a6", bg=self._bg, anchor="w"
+            fg=self._TAB_BG_NORMAL, bg=self._bg, anchor="w"
         ).pack(fill="x", padx=10, pady=(10, 1))
 
         cnl = self._layout.get("modules", {}).get("tpv", {}).get("carrito_nav_list", {})
@@ -169,7 +203,7 @@ class NavListTab:
 
             tk.Label(
                 col, text=label, font=("Helvetica", 9, "bold"),
-                fg="#f39c12", bg=self._bg, anchor="w"
+                fg=self._TAB_BG_NORMAL, bg=self._bg, anchor="w"
             ).pack(anchor="w")
             tk.Spinbox(
                 col, from_=0, to=500, increment=1,
@@ -182,7 +216,7 @@ class NavListTab:
         tk.Label(
             parent, text="  Column Widths del Carrito",
             font=("Helvetica", 9, "bold"),
-            fg="#95a5a6", bg=self._bg, anchor="w"
+            fg=self._TAB_BG_NORMAL, bg=self._bg, anchor="w"
         ).pack(fill="x", padx=10, pady=(6, 1))
 
         cw_row = tk.Frame(parent, bg=self._bg)
@@ -203,7 +237,7 @@ class NavListTab:
 
             tk.Label(
                 col, text=label, font=("Helvetica", 9, "bold"),
-                fg="#f39c12", bg=self._bg, anchor="w"
+                fg=self._TAB_BG_NORMAL, bg=self._bg, anchor="w"
             ).pack(anchor="w")
             tk.Spinbox(
                 col, from_=0, to=500, increment=1,
@@ -213,7 +247,7 @@ class NavListTab:
     # ── PREVIEW ──────────────────────────────────────────────────
 
     def _render_preview(self, parent):
-        self._section_header(parent, "PREVIEW — MINI TABLA", "#2ecc71")
+        self._section_header(parent, "PREVIEW — MINI TABLA", self._TAB_BG_SELECTED)
 
         preview_frame = tk.Frame(parent, bg="#1a1a1a", relief="solid", bd=1)
         preview_frame.pack(fill="x", padx=10, pady=4)
@@ -221,7 +255,7 @@ class NavListTab:
 
         self._preview_info = tk.Label(
             parent, text="", font=("Helvetica", 9),
-            fg="#95a5a6", bg=self._bg, anchor="w"
+            fg=self._TAB_BG_NORMAL, bg=self._bg, anchor="w"
         )
         self._preview_info.pack(fill="x", padx=10, pady=2)
 
@@ -320,7 +354,7 @@ class NavListTab:
     # ── FONTS (font_config.json) ─────────────────────────────────
 
     def _render_fonts_section(self, parent):
-        self._section_header(parent, "FUENTES — font_config.json", "#9b59b6")
+        self._section_header(parent, "FUENTES — font_config.json", self._TAB_BG_SELECTED)
 
         nav_list_fonts = self._fonts.get("components", {}).get("nav_list", {})
 
@@ -334,7 +368,7 @@ class NavListTab:
 
             tk.Label(
                 row, text=font_key, font=("Helvetica", 10, "bold"),
-                fg="#95a5a6", bg=self._bg, anchor="w", width=12
+                fg=self._TAB_BG_NORMAL, bg=self._bg, anchor="w", width=12
             ).pack(side="left", padx=(0, 4))
 
             for field, default in [("family", "Courier New"), ("size", 12), ("weight", "bold")]:
@@ -351,17 +385,22 @@ class NavListTab:
                     ).pack(side="left", padx=(0, 4))
                 elif field == "weight":
                     ctk.CTkOptionMenu(
-                        row, variable=var, values=["normal", "bold"], width=80
+                        row, variable=var, values=["normal", "bold"], width=80,
+                        fg_color=self._TAB_BG_SELECTED,
+                        button_color=self._TAB_BG_SELECTED,
+                        button_hover_color=self._TAB_BG_NORMAL
                     ).pack(side="left", padx=(0, 4))
 
     # ── COLORES POR MÓDULO (colors_config.json) ──────────────────
 
-    def _render_colors_modules(self, parent):
-        self._section_header(parent, "COLORES POR MÓDULO — colors_config.json", "#e74c3c")
+    def _render_colors_modules(self, parent, modules=None, title=None):
+        header_text = title if title else "COLORES POR MÓDULO — colors_config.json"
+        self._section_header(parent, header_text, self._TAB_BG_SELECTED)
 
-        module_names = ["almacen", "clientes", "informes", "shopify", "config", "produccion"]
+        if modules is None:
+            modules = ["almacen", "clientes", "informes", "shopify", "config", "produccion"]
 
-        for mod in module_names:
+        for mod in modules:
             mod_colors = self._colors.get(mod, {})
             nav_list_c = mod_colors.get("nav_list", {})
             if not nav_list_c:
@@ -370,7 +409,7 @@ class NavListTab:
             tk.Label(
                 parent, text=f"  {mod.upper()}",
                 font=("Helvetica", 10, "bold"),
-                fg="#e74c3c", bg=self._bg, anchor="w"
+                fg=self._TAB_BG_SELECTED, bg=self._bg, anchor="w"
             ).pack(fill="x", padx=10, pady=(6, 1))
 
             color_fields = [
@@ -399,14 +438,14 @@ class NavListTab:
 
             tk.Label(
                 br_row, text="Selected Border", font=("Helvetica", 10),
-                fg=self._fg, bg=self._bg, anchor="w", width=18
+                fg=self._TAB_BG_NORMAL, bg=self._bg, anchor="w", width=18
             ).pack(side="left", padx=(0, 4))
             ctk.CTkEntry(br_row, textvariable=var, width=100).pack(side="left")
 
     # ── CARRITO COLORES (colors_config.json) ─────────────────────
 
     def _render_carrito_colors(self, parent):
-        self._section_header(parent, "CARRITO NAV LIST — COLORES", "#1abc9c")
+        self._section_header(parent, "CARRITO NAV LIST — COLORES", self._TAB_BG_SELECTED)
 
         cnl_colors = self._colors.get("tpv", {}).get("carrito_nav_list", {})
 
@@ -426,7 +465,7 @@ class NavListTab:
             tk.Label(
                 parent, text=f"  {line_type}",
                 font=("Helvetica", 10, "bold"),
-                fg="#1abc9c", bg=self._bg, anchor="w"
+                fg=self._TAB_BG_SELECTED, bg=self._bg, anchor="w"
             ).pack(fill="x", padx=10, pady=(6, 1))
 
             for field in fields:
@@ -442,7 +481,7 @@ class NavListTab:
         tk.Label(
             parent, text=f"  [{label}]",
             font=("Helvetica", 11, "bold"),
-            fg=accent, bg=self._bg, anchor="w"
+            fg=self._TAB_BG_SELECTED, bg=self._bg, anchor="w"
         ).pack(fill="x", padx=10, pady=(8, 2))
 
     def _color_row(self, parent, full_key: str, label: str, value: str):
@@ -451,7 +490,7 @@ class NavListTab:
 
         tk.Label(
             row, text=label, font=("Helvetica", 10),
-            fg=self._fg, bg=self._bg, anchor="w", width=18
+            fg=self._TAB_BG_NORMAL, bg=self._bg, anchor="w", width=18
         ).pack(side="left", padx=(0, 4))
 
         var = tk.StringVar(value=str(value))
@@ -481,14 +520,17 @@ class NavListTab:
 
         tk.Label(
             row, text=label, font=("Helvetica", 10),
-            fg=self._fg, bg=self._bg, anchor="w", width=18
+            fg=self._TAB_BG_NORMAL, bg=self._bg, anchor="w", width=18
         ).pack(side="left", padx=(0, 4))
 
         var = tk.StringVar(value=str(value))
         self._values[full_key] = var
 
         ctk.CTkOptionMenu(
-            row, variable=var, values=["True", "False"], width=90
+            row, variable=var, values=["True", "False"], width=90,
+            fg_color=self._TAB_BG_SELECTED,
+            button_color=self._TAB_BG_SELECTED,
+            button_hover_color=self._TAB_BG_NORMAL
         ).pack(side="left")
 
     def _separator(self, parent):

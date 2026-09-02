@@ -417,9 +417,9 @@
         "border": "#E0D4B2"
       },
       "secondary": {
-        "bg": "#643300",
+        "bg": "#FFD082",
         "hover": "#EB6A00",
-        "text": "#FFFFFF",
+        "text": "#000000",
         "border": "#D65D00"
       },
       "accent": {

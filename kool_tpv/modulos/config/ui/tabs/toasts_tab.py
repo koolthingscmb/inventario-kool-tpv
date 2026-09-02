@@ -16,6 +16,7 @@ except Exception:
 from kool_tpv.modulos.config.ui.services.ui_config_service import UIConfigService
 from kool_tpv.modulos.config.ui.config_tab_helper import section_title
 from kool_tpv.utils.factories.button_factory import ButtonFactory
+from kool_tpv.utils.config_loader import load_colors
 
 
 class ToastsTab:
@@ -24,6 +25,13 @@ class ToastsTab:
     def __init__(self, parent, service: UIConfigService):
         self.parent = parent
         self.service = service
+
+        # Cargar colores dinámicos del módulo config
+        colors = load_colors('config')
+        self._TAB_BG_SELECTED = colors.get('buttons', {}).get('primary', {}).get('bg', '#FF9800')
+        self._TAB_BG_NORMAL = colors.get('buttons', {}).get('secondary', {}).get('bg', '#643300')
+        self._TAB_FG = "#FFFFFF"
+
         self._bg = "#2c3e50"
         self._fg = "#ecf0f1"
         self._data: Dict[str, Any] = {}
@@ -36,7 +44,7 @@ class ToastsTab:
         scroll = ctk.CTkScrollableFrame(self.parent, fg_color=self._bg)
         scroll.pack(fill=tk.BOTH, expand=True)
 
-        section_title(scroll, "Toasts — notificaciones_config.json", self._bg).pack(
+        section_title(scroll, "Toasts — notificaciones_config.json", self._bg, fg=self._TAB_BG_SELECTED).pack(
             fill="x", pady=(10, 5), padx=10
         )
 
@@ -47,13 +55,16 @@ class ToastsTab:
 
         tk.Label(
             test_bar, text="Tipo:", font=("Helvetica", 10),
-            fg=self._fg, bg=self._bg, anchor="w"
+            fg=self._TAB_BG_NORMAL, bg=self._bg, anchor="w"
         ).pack(side="left", padx=(0, 4))
 
         ctk.CTkOptionMenu(
             test_bar, variable=self._toast_type_var,
             values=["success", "info", "warning", "error"],
-            width=100
+            width=100,
+            fg_color=self._TAB_BG_SELECTED,
+            button_color=self._TAB_BG_SELECTED,
+            button_hover_color=self._TAB_BG_NORMAL
         ).pack(side="left", padx=(0, 8))
 
         ctk.CTkButton(
@@ -286,14 +297,17 @@ class ToastsTab:
 
         tk.Label(
             row, text="Posición:", font=("Helvetica", 10),
-            fg=self._fg, bg=self._bg, anchor="w", width=15
+            fg=self._TAB_BG_NORMAL, bg=self._bg, anchor="w", width=15
         ).pack(side="left", padx=(0, 6))
 
         ctk.CTkOptionMenu(
             row, variable=var,
             values=["top-left", "top-right", "bottom-left", "bottom-right",
                     "top-center", "bottom-center"],
-            width=140
+            width=140,
+            fg_color=self._TAB_BG_SELECTED,
+            button_color=self._TAB_BG_SELECTED,
+            button_hover_color=self._TAB_BG_NORMAL
         ).pack(side="left")
 
         offset_row = tk.Frame(parent, bg=self._bg)
@@ -312,7 +326,7 @@ class ToastsTab:
 
             tk.Label(
                 col, text=label, font=("Helvetica", 9, "bold"),
-                fg="#2ecc71", bg=self._bg, anchor="w"
+                fg=self._TAB_BG_NORMAL, bg=self._bg, anchor="w"
             ).pack(anchor="w")
             tk.Spinbox(
                 col, from_=0, to=500, increment=1,
@@ -340,7 +354,7 @@ class ToastsTab:
 
             tk.Label(
                 col, text=label, font=("Helvetica", 9, "bold"),
-                fg="#2ecc71", bg=self._bg, anchor="w"
+                fg=self._TAB_BG_NORMAL, bg=self._bg, anchor="w"
             ).pack(anchor="w")
             tk.Spinbox(
                 col, from_=1, to=500, increment=1,
@@ -370,7 +384,7 @@ class ToastsTab:
 
             tk.Label(
                 col, text=label, font=("Helvetica", 9, "bold"),
-                fg="#3498db", bg=self._bg, anchor="w"
+                fg=self._TAB_BG_NORMAL, bg=self._bg, anchor="w"
             ).pack(anchor="w")
             tk.Spinbox(
                 col, from_=0, to=10000, increment=1,
@@ -397,7 +411,7 @@ class ToastsTab:
 
             tk.Label(
                 col, text=label, font=("Helvetica", 9, "bold"),
-                fg="#9b59b6", bg=self._bg, anchor="w"
+                fg=self._TAB_BG_NORMAL, bg=self._bg, anchor="w"
             ).pack(anchor="w")
             tk.Spinbox(
                 col, from_=0, to=to, increment=inc,
@@ -434,7 +448,7 @@ class ToastsTab:
 
             tk.Label(
                 col, text=label, font=("Helvetica", 9, "bold"),
-                fg="#f39c12", bg=self._bg, anchor="w"
+                fg=self._TAB_BG_NORMAL, bg=self._bg, anchor="w"
             ).pack(anchor="w")
             tk.Spinbox(
                 col, from_=0, to=200, increment=1,
@@ -458,7 +472,7 @@ class ToastsTab:
 
         tk.Label(
             row, text=label, font=("Helvetica", 10, "bold"),
-            fg=accent, bg=self._bg, width=10, anchor="w"
+            fg=self._TAB_BG_NORMAL, bg=self._bg, width=10, anchor="w"
         ).pack(side="left", padx=(0, 8))
 
         # Miniatura del PNG actual
@@ -474,7 +488,7 @@ class ToastsTab:
         # Nombre del archivo
         name_label = tk.Label(
             row, textvariable=var, font=("Helvetica", 9),
-            fg="#95a5a6", bg=self._bg, anchor="w", width=22
+            fg=self._TAB_BG_NORMAL, bg=self._bg, anchor="w", width=22
         )
         name_label.pack(side="left", padx=(0, 8))
 
@@ -543,7 +557,7 @@ class ToastsTab:
         tk.Label(
             parent, text=f"  [{label}]",
             font=("Helvetica", 11, "bold"),
-            fg=accent, bg=self._bg, anchor="w"
+            fg=self._TAB_BG_SELECTED, bg=self._bg, anchor="w"
         ).pack(fill="x", padx=10, pady=(8, 2))
 
     def _color_row(self, parent, field: str, label: str, value: str):
@@ -552,7 +566,7 @@ class ToastsTab:
 
         tk.Label(
             row, text=label, font=("Helvetica", 10),
-            fg=self._fg, bg=self._bg, anchor="w", width=18
+            fg=self._TAB_BG_NORMAL, bg=self._bg, anchor="w", width=18
         ).pack(side="left", padx=(0, 4))
 
         var = tk.StringVar(value=str(value))
@@ -582,7 +596,7 @@ class ToastsTab:
 
         tk.Label(
             row, text=label, font=("Helvetica", 10),
-            fg=self._fg, bg=self._bg, anchor="w", width=18
+            fg=self._TAB_BG_NORMAL, bg=self._bg, anchor="w", width=18
         ).pack(side="left", padx=(0, 4))
 
         var = tk.StringVar(value=str(value))
@@ -595,14 +609,17 @@ class ToastsTab:
 
         tk.Label(
             row, text=label, font=("Helvetica", 10),
-            fg=self._fg, bg=self._bg, anchor="w", width=25
+            fg=self._TAB_BG_NORMAL, bg=self._bg, anchor="w", width=25
         ).pack(side="left", padx=(0, 4))
 
         var = tk.StringVar(value=str(value))
         self._values[field] = var
 
         ctk.CTkOptionMenu(
-            row, variable=var, values=["True", "False"], width=90
+            row, variable=var, values=["True", "False"], width=90,
+            fg_color=self._TAB_BG_SELECTED,
+            button_color=self._TAB_BG_SELECTED,
+            button_hover_color=self._TAB_BG_NORMAL
         ).pack(side="left")
 
     def _separator(self, parent):

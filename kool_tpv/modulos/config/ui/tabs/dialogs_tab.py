@@ -8,6 +8,7 @@ from PIL import Image
 
 import customtkinter as ctk
 
+from kool_tpv.utils.config_loader import load_colors
 from kool_tpv.modulos.config.ui.services.ui_config_service import UIConfigService
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.dialogs.config_loader import reload_dialog_config
@@ -32,6 +33,13 @@ class DialogsTab:
     def __init__(self, parent, service: UIConfigService):
         self.parent = parent
         self.service = service
+        
+        # Cargar colores dinámicos del módulo config
+        colors = load_colors('config')
+        self._TAB_BG_SELECTED = colors.get('buttons', {}).get('primary', {}).get('bg', '#FF9800')
+        self._TAB_BG_NORMAL = colors.get('buttons', {}).get('secondary', {}).get('bg', '#643300')
+        self._TAB_FG = "#FFFFFF"
+        
         self._bg = "#2c3e50"
         self._fg = "#ecf0f1"
         self._data: Dict[str, Any] = {}
@@ -81,7 +89,7 @@ class DialogsTab:
             btn = tk.Label(
                 self.tab_bar, text=label,
                 font=("Helvetica", 10, "bold"),
-                fg="#7f8c8d", bg="#1a1a1a",
+                fg=self._TAB_FG, bg=self._TAB_BG_NORMAL,
                 padx=20, cursor="hand2"
             )
             btn.pack(side=tk.LEFT, fill="y")
@@ -91,9 +99,9 @@ class DialogsTab:
     def _switch_subtab(self, code: str):
         for c, btn in self._subtab_btns.items():
             if c == code:
-                btn.configure(fg="#3498db", bg="#2c3e50")
+                btn.configure(fg=self._TAB_FG, bg=self._TAB_BG_SELECTED)
             else:
-                btn.configure(fg="#7f8c8d", bg="#1a1a1a")
+                btn.configure(fg=self._TAB_FG, bg=self._TAB_BG_NORMAL)
         self._current_subtab = code
 
         for w in self.content_container.winfo_children():
@@ -113,7 +121,7 @@ class DialogsTab:
     def _render_global_config(self):
         prefix = "common"
         config = self._data.get(prefix, {})
-        accent = "#3498db"
+        accent = self._TAB_BG_SELECTED
         
         self._render_section_title("ESTILO GLOBAL (Ventana y Geometría)", accent)
         if "window" in config:
@@ -171,7 +179,7 @@ class DialogsTab:
         tk.Label(
             self.preview_side, text="PREVISUALIZACIÓN",
             font=("Helvetica", 10, "bold"),
-            fg="#95a5a6", bg="#1a1a1a"
+            fg=self._TAB_BG_NORMAL, bg="#1a1a1a"
         ).pack(pady=10)
 
         # Contenedor centralizado para el diálogo falso

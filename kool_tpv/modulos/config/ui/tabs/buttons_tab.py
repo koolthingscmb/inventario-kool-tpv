@@ -4,6 +4,7 @@ from typing import Any, Dict, List
 
 import customtkinter as ctk
 
+from kool_tpv.utils.config_loader import load_colors
 from kool_tpv.modulos.config.ui.services.ui_config_service import UIConfigService
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 
@@ -16,6 +17,13 @@ class ButtonsTab:
     def __init__(self, parent, service: UIConfigService):
         self.parent = parent
         self.service = service
+        
+        # Cargar colores dinámicos del módulo config
+        colors = load_colors('config')
+        self._TAB_BG_SELECTED = colors.get('buttons', {}).get('primary', {}).get('bg', '#FF9800')
+        self._TAB_BG_NORMAL = colors.get('buttons', {}).get('secondary', {}).get('bg', '#643300')
+        self._TAB_FG = "#FFFFFF"
+        
         self._bg = "#2c3e50"
         self._fg = "#ecf0f1"
         self._data_styles: Dict[str, Any] = {}
@@ -64,7 +72,7 @@ class ButtonsTab:
             btn = tk.Label(
                 self.tab_bar, text=label,
                 font=("Helvetica", 10, "bold"),
-                fg="#7f8c8d", bg="#1a1a1a",
+                fg=self._TAB_FG, bg=self._TAB_BG_NORMAL,
                 padx=20, cursor="hand2"
             )
             btn.pack(side=tk.LEFT, fill="y")
@@ -74,9 +82,9 @@ class ButtonsTab:
     def _switch_subtab(self, code: str):
         for c, btn in self._subtab_btns.items():
             if c == code:
-                btn.configure(fg="#3498db", bg="#2c3e50")
+                btn.configure(fg=self._TAB_FG, bg=self._TAB_BG_SELECTED)
             else:
-                btn.configure(fg="#7f8c8d", bg="#1a1a1a")
+                btn.configure(fg=self._TAB_FG, bg=self._TAB_BG_NORMAL)
         self._current_subtab = code
 
         for w in self.content_container.winfo_children():
@@ -107,12 +115,12 @@ class ButtonsTab:
 
         tk.Label(
             header, text="Estilos de botón — button_styles.json",
-            font=("Helvetica", 14, "bold"), fg="#ecf0f1", bg=self._bg
+            font=("Helvetica", 14, "bold"), fg=self._TAB_BG_SELECTED, bg=self._bg
         ).pack(side="left")
 
         ctk.CTkButton(
             header, text="+ NUEVO ESTILO", width=120, height=28,
-            fg_color="#2ecc71", hover_color="#27ae60",
+            fg_color=self._TAB_BG_NORMAL, hover_color=self._TAB_BG_SELECTED,
             font=("Helvetica", 11, "bold"),
             command=self._nuevo_estilo
         ).pack(side="right")
@@ -123,7 +131,7 @@ class ButtonsTab:
 
         tk.Label(
             combo_frame, text="Selecciona un estilo:", font=("Helvetica", 10),
-            fg=self._fg, bg=self._bg, anchor="w"
+            fg=self._TAB_BG_SELECTED, bg=self._bg, anchor="w"
         ).pack(fill="x", pady=(0, 2))
 
         style_names = sorted(self._data_styles.keys())
@@ -132,6 +140,9 @@ class ButtonsTab:
         ctk.CTkOptionMenu(
             combo_frame, variable=self._estilo_var,
             values=style_names, width=300,
+            fg_color=self._TAB_BG_SELECTED,
+            button_color=self._TAB_BG_SELECTED,
+            button_hover_color=self._TAB_BG_NORMAL,
             command=self._on_estilo_selected
         ).pack(fill="x")
 
@@ -160,12 +171,12 @@ class ButtonsTab:
     def _render_preview_panel(self, parent):
         tk.Label(
             parent, text="PREVIEW DE BOTÓN",
-            font=("Helvetica", 14, "bold"), fg="#ecf0f1", bg=self._bg
+            font=("Helvetica", 14, "bold"), fg=self._TAB_BG_SELECTED, bg=self._bg
         ).pack(fill="x", pady=(10, 5), padx=10)
 
         tk.Label(
             parent, text="Selecciona un estilo:", font=("Helvetica", 10),
-            fg=self._fg, bg=self._bg, anchor="w"
+            fg=self._TAB_BG_SELECTED, bg=self._bg, anchor="w"
         ).pack(fill="x", padx=10, pady=(5, 2))
 
         style_names = sorted(self._data_styles.keys())
@@ -173,12 +184,15 @@ class ButtonsTab:
 
         ctk.CTkOptionMenu(
             parent, variable=self._preview_style_var,
-            values=style_names, width=260
+            values=style_names, width=260,
+            fg_color=self._TAB_BG_SELECTED,
+            button_color=self._TAB_BG_SELECTED,
+            button_hover_color=self._TAB_BG_NORMAL
         ).pack(fill="x", padx=10, pady=2)
 
         tk.Label(
             parent, text="Texto del botón:", font=("Helvetica", 10),
-            fg=self._fg, bg=self._bg, anchor="w"
+            fg=self._TAB_BG_SELECTED, bg=self._bg, anchor="w"
         ).pack(fill="x", padx=10, pady=(8, 2))
 
         text_var = tk.StringVar(value="BOTÓN DE PRUEBA")
@@ -356,13 +370,13 @@ class ButtonsTab:
 
         tk.Label(
             scroll, text="Menú Principal — buttons_config.json → main_menu",
-            font=("Helvetica", 14, "bold"), fg="#ecf0f1", bg=self._bg
+            font=("Helvetica", 14, "bold"), fg=self._TAB_BG_SELECTED, bg=self._bg
         ).pack(fill="x", padx=10, pady=(10, 8))
 
         tk.Label(
             scroll, text="Estos son los botones de la barra lateral de navegación. "
                          "Cada uno usa un estilo (style_key) definido en la subpestaña ESTILOS.",
-            font=("Helvetica", 10), fg="#95a5a6", bg=self._bg,
+            font=("Helvetica", 10), fg=self._TAB_BG_SELECTED, bg=self._bg,
             anchor="w", justify="left", wraplength=600
         ).pack(fill="x", padx=10, pady=(0, 10))
 
@@ -380,13 +394,13 @@ class ButtonsTab:
 
         tk.Label(
             scroll, text="Botones Globales — buttons_config.json → global_buttons",
-            font=("Helvetica", 14, "bold"), fg="#ecf0f1", bg=self._bg
+            font=("Helvetica", 14, "bold"), fg=self._TAB_BG_SELECTED, bg=self._bg
         ).pack(fill="x", padx=10, pady=(10, 8))
 
         tk.Label(
             scroll, text="Botones especiales disponibles en toda la app. "
                          "Ej: botón de power (apagar/cerrar), PRINT ON (activar impresión automática).",
-            font=("Helvetica", 10), fg="#95a5a6", bg=self._bg,
+            font=("Helvetica", 10), fg=self._TAB_BG_SELECTED, bg=self._bg,
             anchor="w", justify="left", wraplength=600
         ).pack(fill="x", padx=10, pady=(0, 10))
 
@@ -404,14 +418,14 @@ class ButtonsTab:
     def _nuevo_estilo(self):
         dialog = ctk.CTkToplevel(self.parent)
         dialog.title("Nuevo estilo de botón")
-        dialog.geometry("360x140")
+        dialog.geometry("360x180")
         dialog.resizable(False, False)
         dialog.transient(self.parent)
         dialog.grab_set()
 
         tk.Label(
             dialog, text="Nombre del estilo:",
-            font=("Helvetica", 12), fg=self._fg, bg=self._bg
+            font=("Helvetica", 12), fg=self._TAB_BG_SELECTED, bg=self._bg
         ).pack(pady=(20, 5))
 
         entry = ctk.CTkEntry(dialog, width=220, font=("Helvetica", 12))
@@ -455,7 +469,7 @@ class ButtonsTab:
 
         ctk.CTkButton(
             dialog, text="CREAR", width=100, height=30,
-            fg_color="#2ecc71", hover_color="#27ae60",
+            fg_color=self._TAB_BG_NORMAL, hover_color=self._TAB_BG_SELECTED,
             command=_confirmar
         ).pack(pady=5)
 
@@ -471,24 +485,30 @@ class ButtonsTab:
 
         tk.Label(
             header, text=name, font=("Helvetica", 11, "bold"),
-            fg="#3498db", bg=self._bg, anchor="w", width=25
+            fg=self._TAB_BG_SELECTED, bg=self._bg, anchor="w", width=25
         ).pack(side="left", padx=(0, 8))
 
         type_var = tk.StringVar(value=str(style.get("type", "outline")))
         self._values[f"{name}.type"] = type_var
         ctk.CTkOptionMenu(
-            header, variable=type_var, values=["outline", "solid"], width=80
+            header, variable=type_var, values=["outline", "solid"], width=80,
+            fg_color=self._TAB_BG_SELECTED,
+            button_color=self._TAB_BG_SELECTED,
+            button_hover_color=self._TAB_BG_NORMAL
         ).pack(side="left", padx=(0, 6))
 
         if name in self._system_styles:
             tk.Label(
                 header, text="SISTEMA", font=("Helvetica", 8),
-                fg="#7f8c8d", bg=self._bg
+                fg=self._TAB_BG_SELECTED, bg=self._bg
             ).pack(side="left", padx=(0, 6))
         else:
+            colors = load_colors('config')
+            accent_color = colors.get('buttons', {}).get('accent', {}).get('bg', '#FF4300')
+            accent_hover = colors.get('buttons', {}).get('accent', {}).get('hover', '#FF6433')
             ctk.CTkButton(
                 header, text="✕", width=28, height=24,
-                fg_color="#e74c3c", hover_color="#c0392b",
+                fg_color=accent_color, hover_color=accent_hover,
                 font=("Helvetica", 11, "bold"),
                 command=lambda n=name: self._eliminar_estilo(n)
             ).pack(side="right")
@@ -516,7 +536,10 @@ class ButtonsTab:
             ).grid(row=0, column=col, sticky="w", padx=(0, 4))
 
             ctk.CTkOptionMenu(
-                fields_frame, variable=var, values=token_names, width=120
+                fields_frame, variable=var, values=token_names, width=120,
+                fg_color=self._TAB_BG_SELECTED,
+                button_color=self._TAB_BG_SELECTED,
+                button_hover_color=self._TAB_BG_NORMAL
             ).grid(row=1, column=col, sticky="w", padx=(0, 4), pady=(0, 2))
             col += 1
 
@@ -569,14 +592,14 @@ class ButtonsTab:
 
         dialog = ctk.CTkToplevel(self.parent)
         dialog.title("Eliminar estilo")
-        dialog.geometry("380x120")
+        dialog.geometry("380x160")
         dialog.resizable(False, False)
         dialog.transient(self.parent)
         dialog.grab_set()
 
         tk.Label(
             dialog, text=f"¿Eliminar el estilo \"{name}\"?",
-            font=("Helvetica", 12), fg=self._fg, bg=self._bg
+            font=("Helvetica", 12), fg=self._TAB_BG_SELECTED, bg=self._bg
         ).pack(pady=(20, 5))
 
         tk.Label(
@@ -606,15 +629,19 @@ class ButtonsTab:
                 self._estilo_var.set(remaining[0])
             dialog.destroy()
 
+        colors = load_colors('config')
+        accent_color = colors.get('buttons', {}).get('accent', {}).get('bg', '#FF4300')
+        accent_hover = colors.get('buttons', {}).get('accent', {}).get('hover', '#FF6433')
+
         ctk.CTkButton(
             btns, text="CANCELAR", width=90, height=28,
-            fg_color="#555555", hover_color="#444444",
+            fg_color=self._TAB_BG_NORMAL, hover_color=self._TAB_BG_SELECTED,
             command=dialog.destroy
         ).pack(side="left", padx=4)
 
         ctk.CTkButton(
             btns, text="ELIMINAR", width=90, height=28,
-            fg_color="#e74c3c", hover_color="#c0392b",
+            fg_color=accent_color, hover_color=accent_hover,
             command=_confirmar
         ).pack(side="left", padx=4)
 
@@ -684,12 +711,12 @@ class ButtonsTab:
 
         tk.Label(
             row, text=label, font=("Helvetica", 11, "bold"),
-            fg="#3498db", bg=self._bg, anchor="w", width=20
+            fg=self._TAB_BG_SELECTED, bg=self._bg, anchor="w", width=20
         ).pack(side="left", padx=(0, 8))
 
         tk.Label(
             row, text=f"cmd: {command}", font=("Helvetica", 9),
-            fg="#7f8c8d", bg=self._bg, anchor="w"
+            fg=self._TAB_BG_SELECTED, bg=self._bg, anchor="w"
         ).pack(side="left", padx=(0, 12))
 
         style_var = tk.StringVar(value=str(style_key) if style_key else "")
@@ -697,11 +724,14 @@ class ButtonsTab:
 
         tk.Label(
             row, text="estilo:", font=("Helvetica", 9),
-            fg="#95a5a6", bg=self._bg, anchor="w"
+            fg=self._TAB_BG_SELECTED, bg=self._bg, anchor="w"
         ).pack(side="left", padx=(0, 4))
 
         ctk.CTkOptionMenu(
-            row, variable=style_var, values=style_names, width=180
+            row, variable=style_var, values=style_names, width=180,
+            fg_color=self._TAB_BG_SELECTED,
+            button_color=self._TAB_BG_SELECTED,
+            button_hover_color=self._TAB_BG_NORMAL
         ).pack(side="left", padx=(0, 8))
 
         # Preview del botón con el estilo seleccionado
