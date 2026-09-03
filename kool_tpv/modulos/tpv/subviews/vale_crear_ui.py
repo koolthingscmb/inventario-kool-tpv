@@ -86,7 +86,9 @@ class ValeCrearUI(CTkFrame):
             parent=self.actions_frame,
             text="GUARDAR VALE",
             style_key="action_success",
-            command=self._on_guardar
+            command=self._on_guardar,
+            module='clientes',
+            palette_key='primary'
         )
         self.btn_guardar.pack(side="right", padx=10)
         
@@ -94,7 +96,9 @@ class ValeCrearUI(CTkFrame):
             parent=self.actions_frame,
             text="CANCELAR",
             style_key="action_danger",
-            command=self._on_cancelar
+            command=self._on_cancelar,
+            module='clientes',
+            palette_key='accent'
         )
         self.btn_cancelar.pack(side="right", padx=10)
 

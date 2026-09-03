@@ -87,20 +87,12 @@ class ReposicionPendientesUI(ctk.CTkFrame):
             command=self._on_borrar,
             style_key="action_danger",
             width=150,
-            height=40
+            height=40,
+            module='produccion',
+            palette_key='accent'
         )
         self.btn_borrar.pack(side="right", padx=10)
         self.btn_borrar.configure(state="disabled")
-
-        self.btn_select_all = ButtonFactory.create_button(
-            parent=self.header,
-            text="TODO",
-            command=self.nav_list.select_all,
-            style_key="action_primary",
-            width=80,
-            height=40
-        )
-        self.btn_select_all.pack(side="right", padx=5)
 
         # Bindings de teclado para borrar (usamos bind en lugar de bind_all)
         self.nav_list.bind("<Delete>", lambda e: self._on_borrar())

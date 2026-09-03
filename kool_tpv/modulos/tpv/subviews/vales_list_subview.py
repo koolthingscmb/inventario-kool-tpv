@@ -29,7 +29,9 @@ class ValesListSubView(CTkFrame):
             parent=self.header_frame,
             text="USAR VALE",
             style_key="action_success",
-            command=self._on_usar_vale
+            command=self._on_usar_vale,
+            module='clientes',
+            palette_key='secondary'
         )
         self.btn_usar.pack(side="right", padx=10)
         self.btn_usar.configure(state="disabled")
@@ -38,7 +40,9 @@ class ValesListSubView(CTkFrame):
             parent=self.header_frame,
             text="+ CREAR VALE",
             style_key="action_primary",
-            command=self._on_crear_vale
+            command=self._on_crear_vale,
+            module='clientes',
+            palette_key='primary'
         )
         self.btn_crear.pack(side="right", padx=10)
 
@@ -46,19 +50,12 @@ class ValesListSubView(CTkFrame):
             parent=self.header_frame,
             text="ELIMINAR",
             style_key="action_danger",
-            command=self._on_eliminar_seleccionados
+            command=self._on_eliminar_seleccionados,
+            module='clientes',
+            palette_key='accent'
         )
         self.btn_eliminar.pack(side="right", padx=10)
         self.btn_eliminar.configure(state="disabled")
-
-        self.btn_select_all = ButtonFactory.create_button(
-            parent=self.header_frame,
-            text="TODO",
-            style_key="action_primary",
-            command=lambda: self.search_list.nav_list.select_all() if hasattr(self.search_list, 'nav_list') else None,
-            width=80
-        )
-        self.btn_select_all.pack(side="right", padx=5)
 
         self.list_frame = CTkFrame(self)
         self.list_frame.pack(side="top", fill="both", expand=True, padx=20, pady=10)
@@ -135,7 +132,6 @@ class ValesListSubView(CTkFrame):
             elif hasattr(w, '_canvas'): widgets.append(w._canvas)
             else: widgets.append(w)
 
-        add_widget(self.btn_select_all)
         add_widget(self.btn_crear)
         add_widget(self.btn_eliminar)
         add_widget(self.btn_usar)

@@ -59,6 +59,10 @@ class ReposicionFormUI(CTkFrame):
         self.relaciones_repo = ProduccionRelacionesRepository(db)
         self.variante_producto_repo = VarianteProductoRepository(db)
 
+        # Cargar colores del módulo
+        from kool_tpv.utils.config_loader import load_colors
+        self.colors = load_colors('produccion')
+
         # Keyboard manager
         root = self.winfo_toplevel()
         self.keyboard_manager = getattr(root, 'keyboard_manager', None)
@@ -103,7 +107,14 @@ class ReposicionFormUI(CTkFrame):
         self.entry_tipo.configure(state="readonly")
 
         CTkLabel(zona1, text="Encargo:", font=("Roboto", 14, "bold")).grid(row=0, column=4, padx=(0, 6), sticky="w")
-        self.check_encargo = ctk.CTkCheckBox(zona1, text="", width=24, height=24)
+        self.check_encargo = ctk.CTkCheckBox(
+            zona1,
+            text="",
+            width=24,
+            height=24,
+            fg_color=self.colors.get('buttons', {}).get('secondary', {}).get('bg'),
+            hover_color=self.colors.get('buttons', {}).get('secondary', {}).get('hover')
+        )
         self.check_encargo.grid(row=0, column=5, padx=(0, 0), sticky="w")
 
         # ZONA 2: grid 6x1 - Variante + Talla + Color (condicionales)
@@ -117,7 +128,8 @@ class ReposicionFormUI(CTkFrame):
             zona2,
             placeholder="Selecciona variante...",
             width=220,
-            command=self._on_variante_changed
+            command=self._on_variante_changed,
+            module_name='produccion'
         )
         self.combo_variante.grid(row=0, column=1, padx=(0, 12), sticky="ew")
 
@@ -127,7 +139,8 @@ class ReposicionFormUI(CTkFrame):
             zona2,
             placeholder="Color...",
             width=160,
-            command=self._on_color_changed
+            command=self._on_color_changed,
+            module_name='produccion'
         )
         self.combo_color.grid(row=0, column=3, padx=(0, 12), sticky="ew")
 
@@ -137,7 +150,8 @@ class ReposicionFormUI(CTkFrame):
             zona2,
             placeholder="Talla...",
             width=160,
-            command=self._on_talla_changed
+            command=self._on_talla_changed,
+            module_name='produccion'
         )
         self.combo_talla.grid(row=0, column=5, padx=(0, 0), sticky="ew")
 
@@ -150,7 +164,15 @@ class ReposicionFormUI(CTkFrame):
         escudo_frame = CTkFrame(fila_comentarios, fg_color="transparent")
         escudo_frame.pack(side="right")
         CTkLabel(escudo_frame, text="Escudo:", font=("Roboto", 14, "bold")).pack(side="left", padx=(0, 4))
-        self.check_escudo = ctk.CTkCheckBox(escudo_frame, text="", width=24, height=24, command=self._toggle_escudo)
+        self.check_escudo = ctk.CTkCheckBox(
+            escudo_frame,
+            text="",
+            width=24,
+            height=24,
+            command=self._toggle_escudo,
+            fg_color=self.colors.get('buttons', {}).get('secondary', {}).get('bg'),
+            hover_color=self.colors.get('buttons', {}).get('secondary', {}).get('hover')
+        )
         self.check_escudo.pack(side="left", padx=(0, 6))
         self.entry_escudo = CTkEntry(escudo_frame, width=180, height=28, font=("Roboto", 13), placeholder_text="Texto del escudo...")
         self.entry_escudo.pack(side="left")
@@ -182,7 +204,7 @@ class ReposicionFormUI(CTkFrame):
             columns=columns,
             search_function=self._buscar_disenos,
             map_function=self._map_diseno,
-            module_name="tpv",
+            module_name="produccion",
             page_limit=50,
             on_double_click=self._on_diseno_double_click,
             keyboard_manager=self.keyboard_manager,
@@ -214,7 +236,9 @@ class ReposicionFormUI(CTkFrame):
             zona6,
             text="GUARDAR Y CONTINUAR",
             style_key="action_success",
-            command=self._on_guardar
+            command=self._on_guardar,
+            module='produccion',
+            palette_key='primary'
         )
         self.btn_guardar.pack(side="right", padx=6)
 
@@ -222,7 +246,9 @@ class ReposicionFormUI(CTkFrame):
             zona6,
             text="CANCELAR",
             style_key="action_danger",
-            command=self._on_cancelar
+            command=self._on_cancelar,
+            module='produccion',
+            palette_key='secondary'
         )
         self.btn_cancelar.pack(side="right", padx=6)
 

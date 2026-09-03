@@ -138,7 +138,9 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
             style_key="almacen_outline",
             width=100,
             height=36,
-            font=(bread_cfg.get("family", "Courier New"), 14, "bold")
+            font=(bread_cfg.get("family", "Courier New"), 14, "bold"),
+            module='config',
+            palette_key='accent'
         )
         self.btn_cajon.pack(side="right", padx=4)
         self.breadcrumb._btn_cajon_ref = self.btn_cajon
@@ -147,15 +149,12 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
             parent=self.breadcrumb,
             text="REPOSICIÓN",
             command=self._abrir_reposicion,
-            color="#000000",
-            hover_color="#6C3483",
-            text_color="#9B59B6",
-            border_color="#9B59B6",
-            border_width=2,
-            corner_radius=12,
+            style_key="almacen_outline",
             width=130,
             height=36,
-            font=(bread_cfg.get("family", "Courier New"), 14, "bold")
+            font=(bread_cfg.get("family", "Courier New"), 14, "bold"),
+            module='produccion',
+            palette_key='primary'
         )
         self.btn_reposicion.pack(side="right", padx=4)
         self.breadcrumb._btn_reposicion_ref = self.btn_reposicion
@@ -164,15 +163,12 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
             parent=self.breadcrumb,
             text="PEDIDOS",
             command=self._abrir_pedidos,
-            color="#000000",
-            hover_color="#827314",
-            text_color="#E3C509",
-            border_color="#E3C509",
-            border_width=2,
-            corner_radius=12,
+            style_key="almacen_outline",
             width=100,
             height=36,
-            font=(bread_cfg.get("family", "Courier New"), 14, "bold")
+            font=(bread_cfg.get("family", "Courier New"), 14, "bold"),
+            module='clientes',
+            palette_key='primary'
         )
         self.btn_pedidos.pack(side="right", padx=4)
         self.breadcrumb._btn_pedidos_ref = self.btn_pedidos
@@ -181,15 +177,12 @@ class TpvView(ctk.CTkFrame, KeyboardNavigableMixin):
             parent=self.breadcrumb,
             text="VALES",
             command=self._abrir_vales,
-            color="#000000",
-            hover_color="#21618C",
-            text_color="#3498DB",
-            border_color="#3498DB",
-            border_width=2,
-            corner_radius=12,
+            style_key="almacen_outline",
             width=80,
             height=36,
-            font=(bread_cfg.get("family", "Courier New"), 14, "bold")
+            font=(bread_cfg.get("family", "Courier New"), 14, "bold"),
+            module='clientes',
+            palette_key='secondary'
         )
         self.btn_vales.pack(side="right", padx=4)
         self.breadcrumb._btn_vales_ref = self.btn_vales
