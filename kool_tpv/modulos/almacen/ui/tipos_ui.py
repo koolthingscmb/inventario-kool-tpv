@@ -98,15 +98,13 @@ class TiposUI:
         self.e_icono.pack(side='left', fill='x', expand=True)
         self.e_icono.configure(state='disabled')
 
-        self.btn_subir_icono = ctk.CTkButton(
-            icono_frame,
+        self.btn_subir_icono = ButtonFactory.create_button(
+            parent=icono_frame,
             text="📁 SUBIR ICONO",
-            width=140,
-            height=32,
-            fg_color="transparent",
-            border_width=1,
-            border_color=self.colors.get('border', self.colors.get('primary')),
-            command=self._subir_icono
+            command=self._subir_icono,
+            style_key="mini_action",
+            module='almacen',
+            palette_key='secondary'
         )
         self.btn_subir_icono.pack(side='right', padx=(4, 0))
 
@@ -136,13 +134,37 @@ class TiposUI:
         self.e_orden.grid(row=2, column=3, sticky='ew', padx=6, pady=6)
 
         # Checkboxes en los huecos restantes
-        self.chk_activo = ctk.CTkCheckBox(self.grid_frame, text='ACTIVO', text_color=self.colors['text'], font=lbl_font, width=20)
+        self.chk_activo = ctk.CTkCheckBox(
+            self.grid_frame, 
+            text='ACTIVO', 
+            text_color=self.colors['text'], 
+            font=lbl_font, 
+            width=20,
+            fg_color=self.colors.get('primary'),
+            hover_color=self.colors.get('secondary')
+        )
         self.chk_activo.grid(row=2, column=4, sticky='w', padx=6, pady=6)
 
-        self.chk_color = ctk.CTkCheckBox(self.grid_frame, text='COLOR', text_color=self.colors['text'], font=lbl_font, width=20)
+        self.chk_color = ctk.CTkCheckBox(
+            self.grid_frame, 
+            text='COLOR', 
+            text_color=self.colors['text'], 
+            font=lbl_font, 
+            width=20,
+            fg_color=self.colors.get('primary'),
+            hover_color=self.colors.get('secondary')
+        )
         self.chk_color.grid(row=2, column=6, sticky='w', padx=6, pady=6)
 
-        self.chk_talla = ctk.CTkCheckBox(self.grid_frame, text='TALLA', text_color=self.colors['text'], font=lbl_font, width=20)
+        self.chk_talla = ctk.CTkCheckBox(
+            self.grid_frame, 
+            text='TALLA', 
+            text_color=self.colors['text'], 
+            font=lbl_font, 
+            width=20,
+            fg_color=self.colors.get('primary'),
+            hover_color=self.colors.get('secondary')
+        )
         self.chk_talla.grid(row=2, column=7, sticky='w', padx=6, pady=6)
 
         # Fila 3: DESCRIPCION
@@ -170,11 +192,11 @@ class TiposUI:
         # Footer buttons (desde config)
         self.footer = ctk.CTkFrame(self.container, fg_color='transparent')
         self.footer.pack(side='bottom', fill='x', padx=12, pady=12)
-        self.btn_nuevo = create_action_button(self.footer, 'nuevo_limpiar', self.clear)
+        self.btn_nuevo = create_action_button(self.footer, 'nuevo_limpiar', self.clear, module='almacen', palette_key='secondary')
         self.btn_nuevo.pack(side='left', padx=8)
-        self.btn_guardar = create_action_button(self.footer, 'guardar', self.save)
+        self.btn_guardar = create_action_button(self.footer, 'guardar', self.save, module='almacen', palette_key='primary')
         self.btn_guardar.pack(side='left', padx=8)
-        self.btn_eliminar = create_action_button(self.footer, 'eliminar', self.delete)
+        self.btn_eliminar = create_action_button(self.footer, 'eliminar', self.delete, module='almacen', palette_key='accent')
         self.btn_eliminar.pack(side='left', padx=8)
 
         # load tipos

@@ -124,7 +124,9 @@ class ProveedoresUI:
             parent=self.grid_frame,
             text='IR',
             command=self._abrir_web,
-            style_key="mini_action"
+            style_key="mini_action",
+            module='almacen',
+            palette_key='secondary'
         )
         self.btn_ir_web.grid(row=7, column=7, sticky='ew', padx=6, pady=6)
 
@@ -144,19 +146,19 @@ class ProveedoresUI:
         self.footer = ctk.CTkFrame(self.container, fg_color='transparent')
         self.footer.pack(side='bottom', fill='x', padx=12, pady=12)
 
-        self.btn_nuevo = create_action_button(self.footer, 'nuevo_limpiar', self.clear)
+        self.btn_nuevo = create_action_button(self.footer, 'nuevo_limpiar', self.clear, module='almacen', palette_key='secondary')
         self.btn_nuevo.pack(side='left', padx=8)
 
-        self.btn_guardar = create_action_button(self.footer, 'guardar', self.save)
+        self.btn_guardar = create_action_button(self.footer, 'guardar', self.save, module='almacen', palette_key='primary')
         self.btn_guardar.pack(side='left', padx=8)
 
-        self.btn_eliminar = create_action_button(self.footer, 'eliminar', self.delete)
+        self.btn_eliminar = create_action_button(self.footer, 'eliminar', self.delete, module='almacen', palette_key='accent')
         self.btn_eliminar.pack(side='left', padx=8)
 
-        self.btn_albaranes = create_action_button(self.footer, 'consultar_albaranes', self._mostrar_albaranes)
+        self.btn_albaranes = create_action_button(self.footer, 'consultar_albaranes', self._mostrar_albaranes, module='almacen', palette_key='secondary')
         self.btn_albaranes.pack(side='left', padx=8)
 
-        self.btn_mapeo = create_action_button(self.footer, 'configurar_mapeos', self._editar_mapeo_csv)
+        self.btn_mapeo = create_action_button(self.footer, 'configurar_mapeos', self._editar_mapeo_csv, module='almacen', palette_key='primary')
         self.btn_mapeo.pack(side='left', padx=8)
 
         # Load proveedores

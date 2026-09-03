@@ -34,20 +34,22 @@ class AlbaranesUI:
 
         # Prefer creating buttons from config when available, fallback to CTkButton
         botones = [
-            ('ENTRADA MANUAL', self.show_entrada_manual),
-            ('IMPORTAR',       self.show_importar_albaran),
-            ('CONSULTAR',      self.show_consultar),
-            ('EXPORTAR',       self.show_exportar),
-            ('SALIDA MANUAL',  self.show_salida_manual),
-            ('DEVOLUCIÓN',     self.show_devolucion),
+            ('ENTRADA MANUAL', self.show_entrada_manual, 'primary'),
+            ('IMPORTAR',       self.show_importar_albaran, 'primary'),
+            ('CONSULTAR',      self.show_consultar, 'secondary'),
+            ('EXPORTAR',       self.show_exportar, 'secondary'),
+            ('SALIDA MANUAL',  self.show_salida_manual, 'accent'),
+            ('DEVOLUCIÓN',     self.show_devolucion, 'accent'),
         ]
 
-        for texto, cmd in botones:
+        for texto, cmd, p_key in botones:
             btn = ButtonFactory.create_button(
                 parent=btn_frame,
                 text=texto,
                 command=cmd,
-                style_key='action_primary'
+                style_key='action_primary',
+                module='almacen',
+                palette_key=p_key
             )
             btn.pack(side='left', padx=6)
 

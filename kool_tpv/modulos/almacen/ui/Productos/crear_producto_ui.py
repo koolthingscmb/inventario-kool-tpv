@@ -160,7 +160,9 @@ class CrearProductoUI:
                 parent=self.general_frame,
                 text='AJUSTAR',
                 command=self._on_ajustar_stock,
-                style_key="mini_action"
+                style_key="mini_action",
+                module='almacen',
+                palette_key='accent'
             )
             self.btn_ajustar.grid(row=6, column=3, sticky='ew', padx=6, pady=6)
         except Exception:
@@ -257,7 +259,9 @@ class CrearProductoUI:
                 parent=self.general_frame,
                 text='BARRAS',
                 command=self._on_gen_barcode_interno,
-                style_key="mini_action"
+                style_key="mini_action",
+                module='almacen',
+                palette_key='secondary'
             )
             self.btn_gen_barcode.grid(row=8, column=4, columnspan=4, sticky='e', padx=6, pady=6)
         except Exception:
@@ -298,7 +302,9 @@ class CrearProductoUI:
                 parent=self.shopify_frame,
                 text='IR',
                 command=self._open_shop_link,
-                style_key="mini_action"
+                style_key="mini_action",
+                module='almacen',
+                palette_key='secondary'
             ).grid(row=1, column=7, sticky='ew', padx=6, pady=6)
         except Exception:
             try:
@@ -306,7 +312,9 @@ class CrearProductoUI:
                     parent=self.shopify_frame,
                     text='IR',
                     command=self._open_shop_link,
-                    style_key="mini_action"
+                    style_key="mini_action",
+                    module='almacen',
+                    palette_key='secondary'
                 ).grid(row=1, column=7, sticky='ew', padx=6, pady=6)
             except Exception:
                 pass
@@ -383,18 +391,18 @@ class CrearProductoUI:
         self.btn_frame = ctk.CTkFrame(self.container, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
         self.btn_frame.pack(side='bottom', fill='x', padx=12, pady=12)
         # Guardar (desde config)
-        self.btn_guardar = create_action_button(self.btn_frame, 'guardar', self._on_save)
+        self.btn_guardar = create_action_button(self.btn_frame, 'guardar', self._on_save, module='almacen', palette_key='primary')
         self.btn_guardar.pack(side='left', padx=8)
         # Movimientos (nuevo)
-        self.btn_movimientos = create_action_button(self.btn_frame, 'buscar_articulo', self._on_ver_movimientos)
+        self.btn_movimientos = create_action_button(self.btn_frame, 'buscar_articulo', self._on_ver_movimientos, module='almacen', palette_key='accent')
         self.btn_movimientos.configure(text='MOVIMIENTOS')
         self.btn_movimientos.pack(side='left', padx=8)
 
         # Sincronizar (desde config)
-        self.btn_sync = create_action_button(self.btn_frame, 'sincronizar', self._on_sync)
+        self.btn_sync = create_action_button(self.btn_frame, 'sincronizar', self._on_sync, module='almacen', palette_key='secondary')
         self.btn_sync.pack(side='left', padx=8)
         # Buscar data (desde config)
-        self.btn_buscar = create_action_button(self.btn_frame, 'buscar_data', self._on_buscar_data)
+        self.btn_buscar = create_action_button(self.btn_frame, 'buscar_data', self._on_buscar_data, module='almacen', palette_key='secondary')
         self.btn_buscar.pack(side='left', padx=8)
 
         # Trace category changes to update taxonomy (focusout and selection events)

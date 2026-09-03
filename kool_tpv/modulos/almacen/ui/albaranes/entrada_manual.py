@@ -78,7 +78,9 @@ class EntradaManualUI:
             parent=header_frame,
             text='SIGUIENTE',
             command=self._set_next_num,
-            style_key="mini_action"
+            style_key="mini_action",
+            module='almacen',
+            palette_key='primary'
         )
         btn_siguiente.pack(side='left', padx=(0, 20))
 
@@ -212,13 +214,16 @@ class EntradaManualUI:
         self.e_importe.insert(0, '0.00')
 
         # Botón AÑADIR
-        _normal_fg = _primary_btn.get('bg', self.colors.get('primary', '#2ecc71'))
-        _focus_fg = _primary_btn.get('hover', self.colors.get('secondary', '#c6ef0e'))
+        _primary_pal = self.colors.get('buttons', {}).get('primary', {})
+        _normal_fg = _primary_pal.get('bg', self.colors.get('primary', '#2ecc71'))
+        _focus_fg = _primary_pal.get('hover', self.colors.get('secondary', '#c6ef0e'))
         self.btn_add = ButtonFactory.create_button(
             parent=self.input_frame,
             text='AÑADIR',
             command=self._add_line,
-            style_key="mini_action"
+            style_key="mini_action",
+            module='almacen',
+            palette_key='primary'
         )
 
         try:
@@ -323,11 +328,11 @@ class EntradaManualUI:
         # Footer (desde config)
         footer = ctk.CTkFrame(self.container, fg_color='transparent')
         footer.pack(side='bottom', fill='x', padx=6, pady=12)
-        btn_guardar = create_action_button(footer, 'guardar', self._save_albaran)
+        btn_guardar = create_action_button(footer, 'guardar', self._save_albaran, module='almacen', palette_key='primary')
         btn_guardar.pack(side='left', padx=8)
-        btn_eliminar = create_action_button(footer, 'eliminar', self._delete_selected_line)
+        btn_eliminar = create_action_button(footer, 'eliminar', self._delete_selected_line, module='almacen', palette_key='accent')
         btn_eliminar.pack(side='left', padx=8)
-        btn_cancelar = create_action_button(footer, 'cancelar', self._cancel)
+        btn_cancelar = create_action_button(footer, 'cancelar', self._cancel, module='almacen', palette_key='secondary')
         btn_cancelar.pack(side='left', padx=8)
 
         # Bind tecla Delete en NavList

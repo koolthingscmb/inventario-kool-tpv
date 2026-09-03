@@ -108,7 +108,9 @@ class ConsultarAlbaranUI(KeyboardNavigableMixin):
             parent=row,
             text='APLICAR',
             command=self._aplicar_filtros,
-            style_key="action_confirm"
+            style_key="action_confirm",
+            module='almacen',
+            palette_key='primary'
         )
         self.btn_aplicar.pack(side='left', padx=(16, 0))
 

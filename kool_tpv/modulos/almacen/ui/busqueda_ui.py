@@ -134,7 +134,9 @@ class BusquedaUI:
             parent=filter_frame,
             text='BUSCAR',
             command=self._on_search,
-            style_key='action_primary'
+            style_key='action_primary',
+            module='almacen',
+            palette_key='primary'
         )
         self.btn_buscar.pack(side='right', padx=(0, 12))
 
@@ -143,7 +145,9 @@ class BusquedaUI:
             parent=filter_frame,
             text='INCOMPLETOS',
             command=self._on_filtrar_incompletos,
-            style_key='action_secondary'
+            style_key='action_secondary',
+            module='almacen',
+            palette_key='secondary'
         )
         self.btn_incompletos.pack(side='right', padx=(0, 6))
 

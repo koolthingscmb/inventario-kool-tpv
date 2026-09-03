@@ -185,13 +185,13 @@ class MenusUI:
         self.footer = ctk.CTkFrame(self.right_panel, fg_color='transparent', height=50)
         self.footer.pack(fill='x', side='bottom', padx=20, pady=10)
         
-        self.btn_nuevo = ButtonFactory.create_button(self.footer, text='NUEVO', command=self._on_nuevo, style_key='action_secondary')
+        self.btn_nuevo = ButtonFactory.create_button(self.footer, text='NUEVO', command=self._on_nuevo, style_key='action_secondary', module='almacen', palette_key='primary')
         self.btn_nuevo.pack(side='left', padx=10)
         
-        self.btn_eliminar = ButtonFactory.create_button(self.footer, text='ELIMINAR', command=self._on_eliminar, style_key='action_danger')
+        self.btn_eliminar = ButtonFactory.create_button(self.footer, text='ELIMINAR', command=self._on_eliminar, style_key='action_danger', module='almacen', palette_key='accent')
         self.btn_eliminar.pack(side='left', padx=10)
         
-        self.btn_guardar = ButtonFactory.create_button(self.footer, text='GUARDAR MENÚ', command=self._on_guardar, style_key='action_primary')
+        self.btn_guardar = ButtonFactory.create_button(self.footer, text='GUARDAR MENÚ', command=self._on_guardar, style_key='action_primary', module='almacen', palette_key='primary')
         self.btn_guardar.pack(side='right', padx=10)
 
     def _add_field_grid(self, parent, label, row, col, placeholder=''):

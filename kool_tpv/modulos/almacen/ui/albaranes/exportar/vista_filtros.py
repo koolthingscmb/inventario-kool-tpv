@@ -150,7 +150,9 @@ class VistaFiltros(ctk.CTkFrame, KeyboardNavigableMixin):
             parent=self.frame_botones,
             style_key='action_primary',
             text='BUSCAR',
-            command=self._on_buscar
+            command=self._on_buscar,
+            module='almacen',
+            palette_key='primary'
         )
         self.btn_buscar.pack(side='left', padx=10)
 
@@ -160,7 +162,9 @@ class VistaFiltros(ctk.CTkFrame, KeyboardNavigableMixin):
                 parent=self.frame_botones,
                 style_key='action_secondary',
                 text='CANCELAR',
-                command=self._on_cancelar
+                command=self._on_cancelar,
+                module='almacen',
+                palette_key='accent'
             )
             self.btn_cancelar.pack(side='left', padx=10)
 

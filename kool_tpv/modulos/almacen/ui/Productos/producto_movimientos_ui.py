@@ -77,22 +77,14 @@ class ProductoMovimientosUI(PaginaConVisor):
 
     def _build_footer(self):
         """Implementar botones de acción en el footer."""
-        # Botón VER TICKET
-        self.btn_ticket = ButtonFactory.create_button(
-            parent=self.footer,
-            text='VER TICKET',
-            command=self._on_ver_ticket,
-            style_key='action_primary'
-        )
-        self.btn_ticket.pack(side='left', padx=6)
-        self.btn_ticket.configure(state='disabled')
-        
         # Botón VER ALBARÁN
         self.btn_albaran = ButtonFactory.create_button(
             parent=self.footer,
             text='VER ALBARÁN',
             command=self._on_ver_albaran,
-            style_key='action_primary'
+            style_key='action_primary',
+            module='almacen',
+            palette_key='secondary'
         )
         self.btn_albaran.pack(side='left', padx=6)
         self.btn_albaran.configure(state='disabled')
@@ -106,11 +98,9 @@ class ProductoMovimientosUI(PaginaConVisor):
             
             # 1. Habilitar/Deshabilitar botones
             if ticket_line_id:
-                self.btn_ticket.configure(state='normal')
                 # 2. Actualizar visor automáticamente si es un ticket
                 self._mostrar_ticket_en_visor(ticket_line_id)
             else:
-                self.btn_ticket.configure(state='disabled')
                 self.clear_visor()
                 
             if 'albaran:' in motivo:
@@ -144,32 +134,6 @@ class ProductoMovimientosUI(PaginaConVisor):
         except Exception:
             logger.exception("Error actualizando visor de ticket")
             self.update_visor("--- ERROR CRÍTICO AL CARGAR TICKET ---")
-
-    def _on_ver_ticket(self):
-        """Mantiene la funcionalidad de abrir el ticket en grande si se desea."""
-        try:
-            sel = self.nav_list.get_selected_data()
-            if not sel: return
-            raw = sel.get('_raw', {})
-            tl_id = raw.get('ticket_line_id')
-            if not tl_id: return
-            
-            res = self.db.fetch_one("SELECT ticket_id FROM ticket_lines WHERE id = ?", (tl_id,))
-            if not res: return
-            
-            ticket_id = res[0]
-            curr = self.parent
-            controller = None
-            while curr:
-                if hasattr(curr, 'controller'):
-                    controller = curr.controller
-                    break
-                curr = getattr(curr, 'master', None) or getattr(curr, 'parent', None)
-            
-            if controller and hasattr(controller, 'show_ticket'):
-                controller.show_ticket(ticket_id)
-        except Exception:
-            logger.exception("Error al mostrar ticket externo")
 
     def _on_ver_albaran(self):
         """Busca el albarán asociado y abre su detalle (Navegación)."""

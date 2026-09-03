@@ -99,7 +99,9 @@ class ImportarAlbaranUI:
             parent=cabecera_frame,
             text='SIGUIENTE',
             command=self._set_next_num,
-            style_key='mini_action'
+            style_key='mini_action',
+            module='almacen',
+            palette_key='primary'
         )
         btn_siguiente.pack(side='left', padx=(5, 20))
 
@@ -121,7 +123,9 @@ class ImportarAlbaranUI:
             parent=file_frame,
             text='SELECCIONAR CSV',
             command=self._on_seleccionar_click,
-            style_key='action_confirm'
+            style_key='action_confirm',
+            module='almacen',
+            palette_key='accent'
         )
         self.btn_seleccionar.pack(side='left', padx=(0, 10))
         self.btn_seleccionar.configure(state='disabled')  # Deshabilitado hasta seleccionar proveedor
@@ -175,7 +179,9 @@ class ImportarAlbaranUI:
             parent=action_frame,
             text='CONTINUAR',
             command=self._on_continuar_click,
-            style_key='action_success'
+            style_key='action_success',
+            module='almacen',
+            palette_key='primary'
         )
         self.btn_continuar.pack(side='right', padx=(10, 0))
         self.btn_continuar.configure(state='disabled')
@@ -185,7 +191,9 @@ class ImportarAlbaranUI:
             parent=action_frame,
             text='VOLVER',
             command=self._on_volver_click,
-            style_key='action_secondary'
+            style_key='action_secondary',
+            module='almacen',
+            palette_key='secondary'
         )
         self.btn_volver.pack(side='right')
 
@@ -707,7 +715,9 @@ class ImportarAlbaranUI:
             parent=btn_frame,
             text='GUARDAR Y SIGUIENTE',
             command=self._on_guardar_producto,
-            style_key='action_primary'
+            style_key='action_primary',
+            module='almacen',
+            palette_key='primary'
         )
         self.btn_guardar.pack(side='left', padx=5)
 
@@ -715,7 +725,9 @@ class ImportarAlbaranUI:
             parent=btn_frame,
             text='SEGURIDAD',
             command=self._on_seguridad_click,
-            style_key='action_primary'
+            style_key='action_primary',
+            module='almacen',
+            palette_key='accent'
         )
         self.btn_seguridad.pack(side='left', padx=5)
 
@@ -723,7 +735,9 @@ class ImportarAlbaranUI:
             parent=btn_frame,
             text=f'CREAR {total} PRODUCTOS',
             command=self._on_crear_todos_productos,
-            style_key='action_success'
+            style_key='action_success',
+            module='almacen',
+            palette_key='primary'
         )
         self.btn_crear_todos.pack(side='right', padx=5)
         self.btn_crear_todos.configure(state='disabled')
@@ -732,7 +746,9 @@ class ImportarAlbaranUI:
             parent=btn_frame,
             text='GUARDAR BORRADOR',
             command=self._on_guardar_borrador_click,
-            style_key='action_secondary'
+            style_key='action_secondary',
+            module='almacen',
+            palette_key='secondary'
         )
         btn_borrador.pack(side='left', padx=5)
 
@@ -740,7 +756,9 @@ class ImportarAlbaranUI:
             parent=btn_frame,
             text='MENÚ PRINCIPAL',
             command=self._on_ir_a_tpv_click,
-            style_key='action_secondary'
+            style_key='action_secondary',
+            module='almacen',
+            palette_key='secondary'
         )
         btn_tpv.pack(side='left', padx=5)
 
@@ -748,7 +766,9 @@ class ImportarAlbaranUI:
             parent=btn_frame,
             text='VOLVER',
             command=self._on_volver_desde_creacion,
-            style_key='action_secondary'
+            style_key='action_secondary',
+            module='almacen',
+            palette_key='secondary'
         )
         btn_volver.pack(side='right', padx=5)
 
@@ -1225,7 +1245,9 @@ class ImportarAlbaranUI:
             parent=btn_frame,
             text='GUARDAR ALBARÁN',
             command=self._on_guardar_albaran_final,
-            style_key='action_success'
+            style_key='action_success',
+            module='almacen',
+            palette_key='primary'
         )
         btn_guardar.pack(side='left', padx=10)
 
@@ -1233,7 +1255,9 @@ class ImportarAlbaranUI:
             parent=btn_frame,
             text='CANCELAR',
             command=self._on_volver_desde_creacion,
-            style_key='action_secondary'
+            style_key='action_secondary',
+            module='almacen',
+            palette_key='accent'
         )
         btn_cancelar.pack(side='left', padx=10)
 
