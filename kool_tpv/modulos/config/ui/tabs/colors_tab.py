@@ -68,6 +68,7 @@ _SUFFIX_LABELS = {
 _MODULE_NAMES = {
     "tpv": "TPV", "almacen": "Almacén", "clientes": "Clientes",
     "produccion": "Producción", "informes": "Informes", "config": "Config",
+    "shopify": "Shopify",
 }
 
 _TPV_SECTIONS = [
@@ -522,7 +523,7 @@ class ColorsTab:
         self._mod_var = tk.StringVar()
         self._mod_options = [
             "--- SELECCIONAR ---",
-            "Almacén", "Clientes", "Producción", "Informes", "Config"
+            "Almacén", "Clientes", "Producción", "Informes", "Config", "Shopify"
         ]
 
         self._mod_map = {
@@ -531,6 +532,7 @@ class ColorsTab:
             "Producción": "produccion",
             "Informes": "informes",
             "Config": "config",
+            "Shopify": "shopify",
         }
 
         self._mod_desc = {
@@ -539,6 +541,7 @@ class ColorsTab:
             "Producción": "Morado - Producción y diseños",
             "Informes": "Blanco - Reportes y análisis",
             "Config": "Naranja - Configuración del sistema",
+            "Shopify": "Azul Matrix - Integración tienda online",
         }
 
         from tkinter import ttk
@@ -975,7 +978,7 @@ class ColorsTab:
         section_title(parent, "MÓDULOS — Paletas por módulo", self._bg).pack(
             fill="x", pady=(10, 5), padx=10
         )
-        for name in ["almacen", "clientes", "produccion", "informes", "config"]:
+        for name in ["almacen", "clientes", "produccion", "informes", "config", "shopify"]:
             data = self._data_colors.get(name, {})
             if not data:
                 continue
@@ -1050,6 +1053,10 @@ class ColorsTab:
                                                       width=200, height=30)
         self._preview_btn_produccion.pack(pady=4, padx=10)
 
+        self._preview_btn_shopify = ctk.CTkButton(parent, text="Shopify",
+                                                   width=200, height=30)
+        self._preview_btn_shopify.pack(pady=4, padx=10)
+
         self._sub_header(parent, "Semántica")
 
         self._preview_success = tk.Label(parent, text="✓ Success",
@@ -1092,6 +1099,8 @@ class ColorsTab:
         cli_text = self._get_val("clientes.buttons.primary.text", "#000000")
         prod_bg = self._get_val("produccion.primary", "#552583")
         prod_text = self._get_val("produccion.buttons.primary.text", "#FFFFFF")
+        sho_bg = self._get_val("shopify.primary", "#00A4DF")
+        sho_text = self._get_val("shopify.buttons.primary.text", "#FFFFFF")
 
         try:
             self._preview_bg.configure(bg=bg, fg=text_white)
@@ -1107,6 +1116,9 @@ class ColorsTab:
             self._preview_btn_almacen.configure(fg_color=alm_bg, text_color=alm_text)
             self._preview_btn_clientes.configure(fg_color=cli_bg, text_color=cli_text)
             self._preview_btn_produccion.configure(fg_color=prod_bg, text_color=prod_text)
+            
+            if hasattr(self, '_preview_btn_shopify'):
+                self._preview_btn_shopify.configure(fg_color=sho_bg, text_color=sho_text)
         except tk.TclError:
             pass
 
@@ -1127,7 +1139,7 @@ class ColorsTab:
         ).pack(side=tk.RIGHT)
 
     def _on_aplicar(self):
-        color_prefixes = ("global.", "tpv.", "almacen.", "produccion.", "clientes.", "informes.", "config.")
+        color_prefixes = ("global.", "tpv.", "almacen.", "produccion.", "clientes.", "informes.", "config.", "shopify.")
         for key, var in self._values.items():
             parts = key.split(".")
             new_val = var.get().strip().upper()

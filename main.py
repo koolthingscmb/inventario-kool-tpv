@@ -409,6 +409,14 @@ class App(ctk.CTk):
         from kool_tpv.modulos.informes.informes_view import InformesView
         self.informes_view = InformesView(self, db=self.db, keyboard_manager=self.keyboard_mgr)
 
+    def open_shopify(self):
+        self.current_view = "shopify"
+        self.nav_frame.pack_forget()
+        self.main_frame.pack_forget()
+
+        from kool_tpv.modulos.shopify.shopify_view import ShopifyView
+        self.shopify_view = ShopifyView(self, db=self.db, keyboard_manager=self.keyboard_mgr)
+
     def open_config(self):
         self.current_view = "config"
         self.nav_frame.pack_forget()
@@ -534,7 +542,7 @@ class App(ctk.CTk):
             return
 
         # 2. Si hay otros módulos abiertos Y VISIBLES, preguntarles si gestionan el Power
-        modules = ['almacen_view', 'clientes_view', 'informes_view', 'config_view', 'presencia_view', 'produccion_view']
+        modules = ['almacen_view', 'clientes_view', 'informes_view', 'shopify_view', 'config_view', 'presencia_view', 'produccion_view']
 
         for mod_name in modules:
             if hasattr(self, mod_name):

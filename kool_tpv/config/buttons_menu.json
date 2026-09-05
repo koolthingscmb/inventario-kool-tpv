@@ -29,7 +29,7 @@
   "shopify": {
     "title": "SHOPIFY",
     "buttons": [
-      {"id": "sincro", "text": "SINCRO", "action": "shopify_sincro"}
+      {"id": "config", "text": "CONFIG", "action": "show_config"}
     ]
   },
   "presencia": {

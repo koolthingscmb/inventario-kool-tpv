@@ -43,6 +43,7 @@ def reload_config_cache(config_name: Optional[str] = None) -> None:
     global _colors_cache, _fonts_cache, _layout_cache, _buttons_cache
     if config_name is None or config_name == 'colors_config':
         _colors_cache = None
+        ButtonFactory.reload_configs()
     if config_name is None or config_name == 'font_config':
         _fonts_cache = None
     if config_name is None or config_name == 'layout_config':

@@ -616,6 +616,26 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migration 040: Módulo Shopify (Mapping y Sync Log)
+		try:
+			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table' AND name='shopify_product_mapping'")
+			if not rows:
+				mig_path = get_resource_path("kool_tpv", "base_datos", "migraciones") / '040_shopify_module.sql'
+				if mig_path.exists():
+					logging.info('Aplicando migración 040: Módulo Shopify')
+					cur = db.connection.cursor()
+					cur.executescript(mig_path.read_text(encoding='utf-8'))
+					db.connection.commit()
+					logging.info('Migración 040 aplicada correctamente')
+			else:
+				logging.info('Migración 040 ya existente en base de datos')
+		except Exception:
+			logging.exception('Error aplicando migración 040')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Validate again
 		try:
 			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table'")

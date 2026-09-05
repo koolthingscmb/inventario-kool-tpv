@@ -353,34 +353,34 @@
   },
   "shopify": {
     "primary": "#00A4DF",
-    "secondary": "#3498db",
+    "secondary": "#3498DB",
     "accent": "#5DADE2",
     "light": "#6FCFF5",
     "border": "#00A4DF",
     "text": "#00A4DF",
     "background": "#000000",
-    "bg_dark": "#0d0d0d",
-    "bg_medium": "#1a1a1a",
+    "bg_dark": "#0D0D0D",
+    "bg_medium": "#1A1A1A",
     "warning": "#f39c12",
     "error": "#e74c3c",
     "description": "Azul Matrix - Integración tienda online",
     "buttons": {
       "primary": {
         "bg": "#00A4DF",
-        "hover": "#008FC6",
-        "text": "#FFFFFF",
+        "hover": "#5BCCEF",
+        "text": "#000000",
         "border": "#0089BF"
       },
       "secondary": {
-        "bg": "#3498db",
-        "hover": "#2d86c9",
+        "bg": "#1952E9",
+        "hover": "#2D86C9",
         "text": "#FFFFFF",
-        "border": "#2a7ab8"
+        "border": "#2A7AB8"
       },
       "accent": {
-        "bg": "#5DADE2",
+        "bg": "#81F0FF",
         "hover": "#4FB1E6",
-        "text": "#FFFFFF",
+        "text": "#000000",
         "border": "#4AA7D9"
       }
     },
