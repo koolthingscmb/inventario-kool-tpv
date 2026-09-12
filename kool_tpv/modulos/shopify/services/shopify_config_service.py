@@ -15,7 +15,11 @@ class ShopifyConfigService:
         "sync_active": "shopify_sync_active",
         "ia_model": "shopify_ia_model",
         "ia_api_key": "shopify_ia_api_key",
+        "google_api_key": "shopify_google_api_key",
+        "ia_seo_prompt": "shopify_ia_seo_prompt",
         "source_anilist": "shopify_source_anilist",
+        "source_jikan": "shopify_source_jikan",
+        "source_mangadex": "shopify_source_mangadex",
         "source_bgg": "shopify_source_bgg",
         "source_google_books": "shopify_source_google_books"
     }
@@ -35,6 +39,8 @@ class ShopifyConfigService:
             # Conversión de tipos para booleanos/números si es necesario
             config["sync_active"] = config.get("sync_active") == "1"
             config["source_anilist"] = config.get("source_anilist") == "1"
+            config["source_jikan"] = config.get("source_jikan") == "1"
+            config["source_mangadex"] = config.get("source_mangadex") == "1"
             config["source_bgg"] = config.get("source_bgg") == "1"
             config["source_google_books"] = config.get("source_google_books") == "1"
             
@@ -108,4 +114,31 @@ class ShopifyConfigService:
             return True
         except Exception:
             logger.exception("Error limpiando logs de Shopify")
+            return False
+
+    # --- Mapeo de Fuentes y Tipos ---
+
+    def get_source_type_mappings(self, source_id: str) -> List[int]:
+        """Obtiene los IDs de tipos asociados a una fuente."""
+        try:
+            query = "SELECT tipo_id FROM shopify_source_type_mapping WHERE source_id = ?"
+            rows = self.db.fetch_all(query, (source_id,))
+            return [r[0] for r in (rows or [])]
+        except Exception:
+            logger.exception(f"Error obteniendo mapeos para fuente {source_id}")
+            return []
+
+    def update_source_type_mappings(self, source_id: str, tipo_ids: List[int]) -> bool:
+        """Actualiza los tipos asociados a una fuente (borra y reinserta)."""
+        try:
+            with self.db.transaction() as cur:
+                cur.execute("DELETE FROM shopify_source_type_mapping WHERE source_id = ?", (source_id,))
+                for t_id in tipo_ids:
+                    cur.execute(
+                        "INSERT INTO shopify_source_type_mapping (source_id, tipo_id) VALUES (?, ?)",
+                        (source_id, t_id)
+                    )
+            return True
+        except Exception:
+            logger.exception(f"Error actualizando mapeos para fuente {source_id}")
             return False

@@ -235,7 +235,7 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 		self.btn_mixta.bind("<Button-1>", lambda e: self._on_mixta_toggle())
 
 	def _crear_boton_otro_producto(self):
-		"""Crear el botón OTRO PRODUCTO."""
+		"""Crear los botones OTRO PRODUCTO y ORIGEN en la misma fila."""
 		frame_otro = ctk.CTkFrame(self.frame, fg_color=self._bg)
 		frame_otro.pack(pady=(10, 10))
 
@@ -256,14 +256,14 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 			border_width=style.get("border_width", 2),
 			corner_radius=corner_radius,
 			height=chip_height,
-			width=300,
+			width=220,
 			font=chip_font,
 			cursor="hand2"
 		)
-		self.btn_otro.pack()
+		self.btn_otro.pack(side=tk.LEFT, padx=12)
 		self.btn_otro.bind("<Button-1>", lambda e: self._on_anadir())
 
-		# Botón ORIGEN
+		# Botón ORIGEN (misma fila)
 		self.btn_origen = ctk.CTkButton(
 			master=frame_otro,
 			text="ORIGEN",
@@ -274,11 +274,11 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 			border_width=style.get("border_width", 2),
 			corner_radius=corner_radius,
 			height=chip_height,
-			width=300,
+			width=220,
 			font=chip_font,
 			cursor="hand2"
 		)
-		self.btn_origen.pack(pady=(8, 0))
+		self.btn_origen.pack(side=tk.LEFT, padx=12)
 		self.btn_origen.bind("<Button-1>", lambda e: self._on_origen())
 
 	def _crear_botones_navegacion(self):
@@ -407,22 +407,31 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 			)
 
 	def _crear_chips_extras(self):
-		"""Crear chips dinámicos para los extras configurados."""
+		"""Crear chips dinámicos para los extras configurados (máximo 12 en 2 filas de 6)."""
 		extras = self.extras_service.get_todos(solo_activos=True)
 		if not extras:
 			return
 
+		# Limitar a un máximo de 12 extras en la UI
+		extras = extras[:12]
+
 		frame_extras = ctk.CTkFrame(self.frame, fg_color=self._bg)
-		frame_extras.pack(pady=(10, 10))
+		frame_extras.pack(pady=(5, 10))
 
-		style = get_chip_style(self._chip_cfg, "default")
-		font_key = self._chip_cfg.get("font_key", "label")
+		extras_cfg = get_chip_config(self.config, "extras")
+		style = get_chip_style(extras_cfg, "default")
+		font_key = extras_cfg.get("font_key", "label")
 		font_family = get_font(self.config, font_key)
-		chip_font = (font_family[0], style.get("font_size", 14), font_family[2])
-		corner_radius = self._chip_cfg.get("corner_radius", 18) # Más redondo para chips de extra
-		chip_height = self._chip_cfg.get("height", 40)
+		chip_font = (font_family[0], style.get("font_size", 18), font_family[2])
+		corner_radius = extras_cfg.get("corner_radius", 18)
+		chip_height = extras_cfg.get("height", 60)
+		padx = extras_cfg.get("padx", 8)
+		pady = extras_cfg.get("pady", 6)
+		columns = extras_cfg.get("columns", 6)
 
-		for extra in extras:
+		for i, extra in enumerate(extras):
+			row = i // columns
+			col = i % columns
 			btn = ctk.CTkButton(
 				master=frame_extras,
 				text=extra.nombre.upper(),
@@ -433,11 +442,11 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 				border_width=style.get("border_width", 2),
 				corner_radius=corner_radius,
 				height=chip_height,
-				width=0, # Ajuste automático al texto
+				width=175,
 				font=chip_font,
 				cursor="hand2"
 			)
-			btn.pack(side=tk.LEFT, padx=6)
+			btn.grid(row=row, column=col, padx=padx, pady=pady, sticky="ew")
 			btn.bind("<Button-1>", lambda e, ex=extra: self._on_extra_click(ex))
 			setattr(btn, "_extra_obj", extra)
 			self._extra_btns[extra.id] = btn
@@ -454,9 +463,10 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 
 	def _actualizar_estilo_extras(self):
 		"""Actualizar visualmente qué chip de extra está seleccionado."""
-		selected_style = get_chip_style(self._chip_cfg, "selected")
-		default_style = get_chip_style(self._chip_cfg, "default")
-		font_key = self._chip_cfg.get("font_key", "label")
+		extras_cfg = get_chip_config(self.config, "extras")
+		selected_style = get_chip_style(extras_cfg, "selected")
+		default_style = get_chip_style(extras_cfg, "default")
+		font_key = extras_cfg.get("font_key", "label")
 		font_family = get_font(self.config, font_key)
 
 		for extra_id, btn in self._extra_btns.items():
@@ -469,7 +479,7 @@ class NuevaProduccionCantidadView(KeyboardNavigableMixin):
 				border_color=style.get("border"),
 				hover_color=style.get("hover"),
 				border_width=style.get("border_width", 2),
-				font=(font_family[0], style.get("font_size", 14), font_family[2])
+				font=(font_family[0], style.get("font_size", 18), font_family[2])
 			)
 
 	def _get_seleccion(self) -> CantidadSeleccion:

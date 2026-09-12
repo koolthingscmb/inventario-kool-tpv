@@ -35,6 +35,8 @@ from kool_tpv.utils.auth_service import AuthService
 from kool_tpv.modulos.almacen.producto_repository import ProductoRepository
 from kool_tpv.utils import barcode_gen_utils
 from kool_tpv.utils.sku_generator import generate_sku
+from kool_tpv.modulos.shopify.services.buscar_data.buscar_data_service import BuscarDataService
+from kool_tpv.utils.dialogs.source_search_dialog import show_source_search_dialog
 
 logger = logging.getLogger(__name__)
 
@@ -1106,9 +1108,113 @@ class CrearProductoUI:
     def _on_buscar_data(self):
         try:
             logging.info('Buscar data accion triggered')
-            ToastWidget.show(self.container, 'Búsqueda iniciada', tipo='info')
+            
+            # 1. Obtener datos básicos para la búsqueda
+            nombre = self.e_nombre.get().strip()
+            tipo_id = self.cb_tipo.get_id()
+            
+            if not nombre:
+                ToastWidget.show(self.container, "Introduce un nombre para buscar", tipo='warning')
+                return
+
+            # 2. Iniciar servicio
+            service = BuscarDataService(self.db)
+            
+            # 3. Buscar en fuentes activas
+            ToastWidget.show(self.container, 'Buscando en fuentes externas...', tipo='info')
+            results = service.search_all_active(nombre, tipo_id)
+            
+            if not results:
+                ToastWidget.show(self.container, "No se encontraron resultados en las fuentes activas", tipo='warning')
+                return
+                
+            # 4. Mostrar diálogo de selección
+            selected = show_source_search_dialog(self.parent, results)
+            
+            if not selected:
+                return # El usuario canceló o no seleccionó nada
+                
+            # 5. Obtener detalle completo y SEO con IA
+            ToastWidget.show(self.container, 'Generando contenido con IA...', tipo='info')
+            full_data = service.get_full_data_and_seo(
+                selected["source_id"], 
+                selected["id"], 
+                nombre
+            )
+            
+            if not full_data:
+                ToastWidget.show(self.container, "Error al obtener detalles o generar SEO", tipo='error')
+                return
+                
+            # 6. Auto-rellenar campos
+            self._auto_fill_shopify_data(full_data)
+            ToastWidget.show(self.container, "Campos de Shopify actualizados", tipo='success')
+
         except Exception:
             logging.exception('Error en _on_buscar_data')
+            ToastWidget.show(self.container, "Error inesperado en la búsqueda", tipo='error')
+
+    def _auto_fill_shopify_data(self, data: Dict[str, Any]):
+        """Rellena los campos de la pestaña Shopify con los datos obtenidos."""
+        source_data = data.get("source_data", {})
+        seo_data = data.get("seo_data") or {} # Puede ser None si no hay IA o falló
+        
+        # 1. Título de Shopify (e_seo_title)
+        # Prioridad: IA seo_short -> IA title -> Source Title
+        title_source = ""
+        if isinstance(source_data.get('title'), dict):
+            title_source = source_data['title'].get('romaji') or source_data['title'].get('english')
+        elif isinstance(source_data.get('title'), str):
+            title_source = source_data['title']
+
+        shopify_title = seo_data.get("seo_short") or seo_data.get("title") or title_source
+        if shopify_title:
+            self.e_seo_title.delete(0, 'end')
+            self.e_seo_title.insert(0, str(shopify_title))
+            
+        # 2. SEO Title (e_seo_short)
+        seo_title = seo_data.get("seo_title") or shopify_title
+        if seo_title:
+            self.e_seo_short.delete(0, 'end')
+            self.e_seo_short.insert(0, str(seo_title))
+            
+        # 3. SEO Description (e_seo_desc)
+        seo_desc = seo_data.get("seo_description")
+        if seo_desc:
+            if hasattr(self.e_seo_desc, 'delete'):
+                if isinstance(self.e_seo_desc, ctk.CTkTextbox):
+                    self.e_seo_desc.delete('1.0', 'end')
+                    self.e_seo_desc.insert('1.0', str(seo_desc))
+                else:
+                    self.e_seo_desc.delete(0, 'end')
+                    self.e_seo_desc.insert(0, str(seo_desc))
+
+        # 4. Descripción larga (txt_description)
+        desc = seo_data.get("description") or source_data.get("description")
+        if desc:
+            if hasattr(self.txt_description, 'delete'):
+                self.txt_description.delete('1.0', 'end')
+                # Limpiar posibles etiquetas HTML de AniList si no se usó IA
+                if not seo_data.get("description") and isinstance(desc, str):
+                    import re
+                    desc = re.sub('<[^<]+?>', '', desc)
+                self.txt_description.insert('1.0', str(desc))
+                
+        # 5. Tags (e_tags)
+        tags = seo_data.get("tags")
+        if tags:
+            if isinstance(tags, list):
+                tags_str = ", ".join(map(str, tags))
+            else:
+                tags_str = str(tags)
+            self.e_tags.delete(0, 'end')
+            self.e_tags.insert(0, tags_str)
+
+        # 6. Tipo Shop (e_tipo_shop)
+        tipo_shop = seo_data.get("tipo_shop")
+        if tipo_shop:
+            self.e_tipo_shop.delete(0, 'end')
+            self.e_tipo_shop.insert(0, str(tipo_shop))
 
     def get_data(self) -> Dict[str, str]:
         try:

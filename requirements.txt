@@ -13,3 +13,8 @@ pywin32>=311; platform_system=='Windows'
 google-api-python-client==2.149.0
 google-auth-oauthlib==1.2.1
 google-auth-httplib2==0.2.0
+
+# Integración Shopify y Fuentes Externas
+requests==2.34.2
+openai==3.11.0
+duckduckgo-search==8.1.1

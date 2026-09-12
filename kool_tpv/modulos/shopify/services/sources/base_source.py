@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 class BaseSource(ABC):
     """Clase base abstracta para todas las fuentes de datos externas."""
@@ -23,8 +23,12 @@ class BaseSource(ABC):
         pass
 
     @abstractmethod
-    def test_connection(self) -> bool:
-        """Prueba si la fuente está operativa."""
+    def test_connection(self) -> Tuple[bool, str]:
+        """Prueba la conexión con el servicio.
+        
+        Returns:
+            Tuple[bool, str]: (Éxito, Mensaje de respuesta o error)
+        """
         pass
 
     @abstractmethod

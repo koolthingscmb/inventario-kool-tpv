@@ -37,8 +37,13 @@ class ConfigTabExtras:
         chips_frame = ctk.CTkFrame(self.content, fg_color="transparent")
         chips_frame.pack(fill="x", padx=20, pady=(10, 20))
 
-        tk.Label(chips_frame, text="EXTRAS REGISTRADOS", font=get_font(self.config, "label"),
-                 fg=self._text_sec, bg=self._bg).pack(anchor="w", pady=(0, 10))
+        header_frame = tk.Frame(chips_frame, bg=self._bg)
+        header_frame.pack(fill="x", pady=(0, 10))
+
+        tk.Label(header_frame, text="EXTRAS REGISTRADOS", font=get_font(self.config, "label"),
+                 fg=self._text_sec, bg=self._bg).pack(side="left")
+        tk.Label(header_frame, text="(Máximo 12 extras)", font=get_font(self.config, "entry"),
+                 fg="#e67e22", bg=self._bg).pack(side="left", padx=(12, 0))
 
         self._frame_chips = ctk.CTkFrame(chips_frame, fg_color="#34495e", height=100)
         self._frame_chips.pack(fill="x")
@@ -114,14 +119,14 @@ class ConfigTabExtras:
             w.destroy()
 
         # Config de chips desde config_produccion.json
-        chips_cfg = self.config.get("chips", {}).get("diseno", {})
+        chips_cfg = self.config.get("chips", {}).get("extras", {})
         default_cfg = chips_cfg.get("default", {})
         selected_cfg = chips_cfg.get("selected", {})
 
         container = ctk.CTkFrame(self._frame_chips, fg_color="transparent")
         container.pack(fill="both", expand=True, padx=10, pady=10)
 
-        for extra in self._extras_cache:
+        for i, extra in enumerate(self._extras_cache):
             is_selected = (self._extra_seleccionado and self._extra_seleccionado.id == extra.id)
             
             bg_color = selected_cfg.get("bg", "#552583") if is_selected else default_cfg.get("bg", "#1a1a2e")
@@ -132,8 +137,8 @@ class ConfigTabExtras:
             chip = ctk.CTkButton(
                 container,
                 text=f"{extra.nombre} (+{read_from_db(extra.coste):.2f}€)",
-                width=0,
-                height=36,
+                width=130,
+                height=34,
                 corner_radius=18,
                 fg_color=bg_color,
                 text_color=text_color,
@@ -143,7 +148,9 @@ class ConfigTabExtras:
                 font=get_font(self.config, "label"),
                 command=lambda e=extra: self._on_chip_click(e)
             )
-            chip.pack(side="left", padx=6, pady=4)
+            row = i // 6
+            col = i % 6
+            chip.grid(row=row, column=col, padx=6, pady=4, sticky="ew")
 
     def _on_chip_click(self, extra: ProduccionExtra):
         """Al pulsar un chip, cargar sus datos en el formulario."""
@@ -187,6 +194,13 @@ class ConfigTabExtras:
         if not nombre:
             show_error(self.content, "Error", "El nombre es obligatorio")
             return
+
+        # Validar límite de 12 extras si es uno nuevo
+        if not self._extra_seleccionado:
+            todos_extras = self.service.get_todos()
+            if len(todos_extras) >= 12:
+                show_error(self.content, "Límite alcanzado", "No se pueden crear más de 12 extras. Modifica o elimina uno existente.")
+                return
 
         try:
             coste_val = float(coste_str) if coste_str else 0.0

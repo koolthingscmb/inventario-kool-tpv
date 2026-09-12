@@ -393,7 +393,11 @@
       "row_hover_text": "#ffffff",
       "row_selected_bg": "#C7BA0C",
       "row_selected_text": "#000000",
-      "row_selected_border": "primary"
+      "row_selected_border": "primary",
+      "log_success_bg": "#1b3320",
+      "log_success_fg": "#2ecc71",
+      "log_error_bg": "#331b1b",
+      "log_error_fg": "#e74c3c"
     }
   },
   "config": {

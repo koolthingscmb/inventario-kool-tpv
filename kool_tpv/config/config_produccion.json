@@ -256,6 +256,30 @@
         "border_width": 2,
         "font_size": 14
       }
+    },
+    "extras": {
+      "columns": 6,
+      "padx": 8,
+      "pady": 6,
+      "height": 60,
+      "corner_radius": 18,
+      "font_key": "label",
+      "default": {
+        "bg": "#1a1a2e",
+        "text": "#e0e0e0",
+        "border": "#552583",
+        "hover": "#C77BFF",
+        "border_width": 2,
+        "font_size": 18
+      },
+      "selected": {
+        "bg": "#552583",
+        "text": "#ffffff",
+        "border": "#C77BFF",
+        "hover": "#8e44ad",
+        "border_width": 3,
+        "font_size": 18
+      }
     }
   },
   "nav_buttons": {

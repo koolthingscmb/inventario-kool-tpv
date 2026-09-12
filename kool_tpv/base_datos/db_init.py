@@ -636,6 +636,26 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migration 041: Mapeo de Fuentes Shopify a Tipos de Producto
+		try:
+			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table' AND name='shopify_source_type_mapping'")
+			if not rows:
+				mig_path = get_resource_path("kool_tpv", "base_datos", "migraciones") / '041_shopify_source_type_mapping.sql'
+				if mig_path.exists():
+					logging.info('Aplicando migración 041: Mapeo de Fuentes Shopify a Tipos')
+					cur = db.connection.cursor()
+					cur.executescript(mig_path.read_text(encoding='utf-8'))
+					db.connection.commit()
+					logging.info('Migración 041 aplicada correctamente')
+			else:
+				logging.info('Migración 041 ya existente en base de datos')
+		except Exception:
+			logging.exception('Error aplicando migración 041')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Validate again
 		try:
 			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table'")

@@ -65,9 +65,15 @@ class ConfigTabProductosTpv:
         self.main_container = tk.Frame(self.parent, bg=self._bg)
         self.main_container.pack(fill=tk.BOTH, expand=True)
 
-        # 1. COLUMNA IZQUIERDA: VINCULACIONES (30%)
+        # 3 Columnas fijas y simétricas (33.3% exacto cada una)
+        self.main_container.grid_columnconfigure(0, weight=1, uniform="col")
+        self.main_container.grid_columnconfigure(1, weight=1, uniform="col")
+        self.main_container.grid_columnconfigure(2, weight=1, uniform="col")
+        self.main_container.grid_rowconfigure(0, weight=1)
+
+        # 1. COLUMNA IZQUIERDA: VINCULACIONES (33.3%)
         self.frame_links = tk.Frame(self.main_container, bg="#1a1a2e", bd=0)
-        self.frame_links.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 4))
+        self.frame_links.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
         
         tk.Label(self.frame_links, text="VINCULACIONES ACTUALES", font=get_font(self.config, "label_bold"),
                  fg="#FFFFFF", bg="#1a1a2e").pack(pady=(12, 8))
@@ -94,9 +100,9 @@ class ConfigTabProductosTpv:
         )
         self._links_list.pack(fill=tk.BOTH, expand=True, padx=6, pady=5)
 
-        # 2. COLUMNA CENTRAL: PRODUCTO & TIPO (35%)
+        # 2. COLUMNA CENTRAL: PRODUCTO & TIPO (33.3%)
         self.frame_center = tk.Frame(self.main_container, bg="#2c3e50", bd=0)
-        self.frame_center.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=4)
+        self.frame_center.grid(row=0, column=1, sticky="nsew", padx=4)
         
         # PASO 1: BUSCADOR TPV
         tk.Label(self.frame_center, text="PASO 1: BUSCA UN PRODUCTO", font=get_font(self.config, "label_bold"),
@@ -144,9 +150,9 @@ class ConfigTabProductosTpv:
         self._tipos_scroll = ctk.CTkScrollableFrame(self.frame_center, fg_color="#34495e", height=150)
         self._tipos_scroll.pack(fill="x", padx=6, pady=5)
 
-        # 3. COLUMNA DERECHA: PASOS 3, 4, 5 (35%)
+        # 3. COLUMNA DERECHA: PASOS 3, 4, 5 (33.3%)
         self.frame_right = tk.Frame(self.main_container, bg="#2c3e50", bd=0)
-        self.frame_right.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(4, 0))
+        self.frame_right.grid(row=0, column=2, sticky="nsew", padx=(4, 0))
 
         # PASO 3: VARIANTES (40%)
         tk.Label(self.frame_right, text="PASO 3: SELECCIONA UNA VARIANTE", font=get_font(self.config, "label_bold"),
@@ -157,9 +163,8 @@ class ConfigTabProductosTpv:
         # PASO 4: EXTRAS (20%)
         tk.Label(self.frame_right, text="PASO 4: SELECCIONA UN EXTRA", font=get_font(self.config, "label_bold"),
                  fg="#FFFFFF", bg="#2c3e50").pack(pady=(8, 4))
-        self._extras_frame = tk.Frame(self.frame_right, bg="#34495e", height=80)
+        self._extras_frame = tk.Frame(self.frame_right, bg="#34495e")
         self._extras_frame.pack(fill="x", padx=6, pady=5)
-        self._extras_frame.pack_propagate(False)
 
         # PASO 5: COLECCIONES (Resto)
         tk.Label(self.frame_right, text="PASO 5: SELECCIONA UNA COLECCIÓN", font=get_font(self.config, "label_bold"),
@@ -262,15 +267,19 @@ class ConfigTabProductosTpv:
         for child in self._extras_frame.winfo_children(): child.destroy()
         self._extra_chips = {}
         extras = self.extras_service.get_todos(solo_activos=True)
-        for extra in extras:
+        cols = 3
+        for idx, extra in enumerate(extras):
             is_sel = (extra.id == self._extra_selected_id)
             chip = ctk.CTkButton(
-                self._extras_frame, text=extra.nombre, width=80, height=28, corner_radius=14,
+                self._extras_frame, text=extra.nombre, height=28, corner_radius=14,
                 fg_color=self._get_chip_color(is_sel),
+                font=get_font(self.config, "entry"),
                 command=lambda eid=extra.id: self._on_extra_click(eid)
             )
-            chip.pack(side=tk.LEFT, padx=3, pady=5)
+            row, col = divmod(idx, cols)
+            chip.grid(row=row, column=col, padx=3, pady=3, sticky="ew")
             self._extra_chips[extra.id] = chip
+        for i in range(cols): self._extras_frame.columnconfigure(i, weight=1)
 
     def _on_extra_click(self, extra_id):
         # Toggle selection
