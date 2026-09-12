@@ -499,3 +499,132 @@ WHERE 1=1
         except Exception:
             logging.exception("Error en ajuste manual de stock para producto_id=%s", producto_id)
             raise
+
+    def actualizar_nombres_masivo(self, items: List[Any], usuario_id: Optional[int] = None) -> int:
+        """Actualiza el nombre de múltiples productos en una sola transacción atómica.
+
+        Args:
+            items: Lista de diccionarios o tuplas con al menos 'id' (int) y 'nombre' (str).
+            usuario_id: ID opcional del usuario para registrar en audit_logs.
+
+        Returns:
+            int: Número de productos actualizados correctamente.
+        """
+        if not items:
+            return 0
+
+        actualizados = 0
+        try:
+            with self.db.transaction() as cur:
+                for item in items:
+                    pid = item.get('id') if isinstance(item, dict) else item[0]
+                    nuevo_nombre = (item.get('nombre') if isinstance(item, dict) else item[1] or '').strip()
+
+                    if not pid or not nuevo_nombre:
+                        continue
+
+                    # Obtener nombre anterior para auditoría
+                    cur.execute("SELECT nombre FROM productos WHERE id = ?", (pid,))
+                    row = cur.fetchone()
+                    nombre_antiguo = row[0] if row else ""
+
+                    if nombre_antiguo == nuevo_nombre:
+                        continue
+
+                    # Actualizar nombre, updated_at y pending_sync
+                    cur.execute(
+                        """UPDATE productos 
+                           SET nombre = ?, pending_sync = 1, updated_at = CURRENT_TIMESTAMP 
+                           WHERE id = ?""",
+                        (nuevo_nombre, pid)
+                    )
+                    actualizados += 1
+
+                    # Registrar auditoría
+                    if self.audit:
+                        self.audit.registrar(
+                            entidad='productos',
+                            entidad_id=pid,
+                            accion='EDICION_MASIVA_NOMBRE',
+                            usuario_id=usuario_id,
+                            datos_previos=f"Nombre anterior: {nombre_antiguo}",
+                            datos_nuevos=f"Nuevo nombre: {nuevo_nombre}",
+                            cur=cur
+                        )
+            return actualizados
+        except Exception:
+            logging.exception("Error en actualizar_nombres_masivo")
+            raise
+
+    def actualizar_pvp_masivo(self, items: List[Any], usuario_id: Optional[int] = None) -> int:
+        """Actualiza el PVP de múltiples productos respetando el histórico de `precios`.
+
+        Para cada producto se desactiva la fila de precio activa y se inserta
+        una nueva conservando el coste anterior. Todo en una transacción atómica.
+
+        Args:
+            items: Lista de dicts o tuplas con 'id' (int) y 'pvp' (euros).
+            usuario_id: ID opcional del usuario para audit_logs.
+
+        Returns:
+            int: Número de productos con el PVP actualizado.
+        """
+        if not items:
+            return 0
+
+        actualizados = 0
+        try:
+            with self.db.transaction() as cur:
+                for item in items:
+                    pid = item.get('id') if isinstance(item, dict) else item[0]
+                    nuevo_pvp = item.get('pvp') if isinstance(item, dict) else item[1]
+                    if not pid or nuevo_pvp is None:
+                        continue
+
+                    pvp_cents = int(prepare_for_db(nuevo_pvp))
+                    if pvp_cents < 0:
+                        continue
+
+                    # Leer precio activo actual (pvp anterior para audit, coste se conserva)
+                    cur.execute(
+                        "SELECT pvp, coste FROM precios WHERE producto_id = ? AND activo = 1 ORDER BY id DESC LIMIT 1",
+                        (pid,)
+                    )
+                    row = cur.fetchone()
+                    pvp_anterior = int(row[0]) if row else None
+                    coste_actual = int(row[1]) if row else 0
+
+                    if pvp_anterior == pvp_cents:
+                        continue
+
+                    # Cerrar precio actual e insertar el nuevo (histórico)
+                    cur.execute(
+                        "UPDATE precios SET activo = 0 WHERE producto_id = ? AND activo = 1",
+                        (pid,)
+                    )
+                    cur.execute(
+                        "INSERT INTO precios (producto_id, pvp, coste, activo) VALUES (?, ?, ?, 1)",
+                        (pid, pvp_cents, coste_actual)
+                    )
+                    cur.execute(
+                        "UPDATE productos SET pending_sync = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                        (pid,)
+                    )
+                    actualizados += 1
+
+                    if self.audit:
+                        ant_txt = f"{pvp_anterior / 100:.2f}€" if pvp_anterior is not None else "sin precio"
+                        self.audit.registrar(
+                            entidad='productos',
+                            entidad_id=pid,
+                            accion='EDICION_MASIVA_PVP',
+                            usuario_id=usuario_id,
+                            datos_previos=f"PVP anterior: {ant_txt}",
+                            datos_nuevos=f"Nuevo PVP: {pvp_cents / 100:.2f}€",
+                            cur=cur
+                        )
+            return actualizados
+        except Exception:
+            logging.exception("Error en actualizar_pvp_masivo")
+            raise
+

@@ -66,6 +66,7 @@ class AlmacenView(BaseModuleView):
         action_map = {
             'show_crear': self.show_crear,
             'show_busqueda': self.show_busqueda,
+            'show_edicion_masiva': self.show_edicion_masiva,
             'show_albaranes': self.show_albaranes,
             'show_tipos': self.show_tipos,
             'show_categorias': self.show_categorias,
@@ -179,6 +180,10 @@ class AlmacenView(BaseModuleView):
             'ALBARANES': self.show_albaranes,
             'BUSQUEDA': self.show_busqueda,
             'BÚSQUEDA': self.show_busqueda,
+            'EDICION MASIVA': self.show_edicion_masiva,
+            'EDICIÓN MASIVA': self.show_edicion_masiva,
+            'EDICION': self.show_edicion_masiva,
+            'EDICIÓN': self.show_edicion_masiva,
             'TIPOS': self.show_tipos,
             'CATEGORIAS': self.show_categorias,
             'CATEGORÍAS': self.show_categorias,
@@ -308,6 +313,27 @@ class AlmacenView(BaseModuleView):
             logging.info('Abriendo búsqueda...')
         except Exception:
             logging.exception('Error abriendo busqueda en AlmacenView')
+
+    def show_edicion_masiva(self):
+        """Vista top-level: limpia el stack y muestra la subvista de edición masiva de nombres."""
+        self._nav_stack.clear()
+        try:
+            from .ui.edicion_masiva_ui import EdicionMasivaUI
+            try:
+                edicion_ui = EdicionMasivaUI(
+                    self.central_area,
+                    db=self.db,
+                    owner=self,
+                    keyboard_manager=self.keyboard_mgr,
+                    module_name='almacen'
+                )
+                if self.set_central_content(edicion_ui.get_widget()):
+                    self.actualizar_ruta('ALMACEN / EDICIÓN MASIVA')
+                    logging.info('Abriendo edición masiva de productos...')
+            except Exception:
+                logging.exception('No fue posible instanciar EdicionMasivaUI en show_edicion_masiva')
+        except Exception:
+            logging.exception('Error abriendo edicion masiva en AlmacenView')
 
     def show_movimientos_producto(self, producto_id: int):
         """Muestra el historial de movimientos de un producto."""

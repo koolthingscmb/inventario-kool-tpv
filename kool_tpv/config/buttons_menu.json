@@ -4,6 +4,7 @@
     "buttons": [
       {"id": "crear", "text": "+", "action": "show_crear"},
       {"id": "busqueda", "text": "BÚSQUEDA", "action": "show_busqueda"},
+      {"id": "edicion", "text": "EDICIÓN", "action": "show_edicion_masiva"},
       {"id": "albaran", "text": "ALBARAN", "action": "show_albaranes"},
       {"id": "tipos", "text": "TIPOS", "action": "show_tipos"},
       {"id": "categorias", "text": "CATEGORÍAS", "action": "show_categorias"},

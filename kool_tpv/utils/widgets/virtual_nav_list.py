@@ -528,6 +528,16 @@ class VirtualNavList(ctk.CTkFrame):
         if self._sort_column:
             self._sort_data()
 
+        # Resetear scroll al inicio: tras reemplazar los datos (especialmente
+        # si la lista se ha reducido), el yview anterior puede apuntar a una
+        # zona inexistente y _refresh_ui pintaría filas fantasma.
+        try:
+            self._top_index = 0
+            self._canvas.coords(self._canvas_window, 0, 0)
+            self._canvas.yview_moveto(0.0)
+        except Exception:
+            pass
+
         # Asegurar refresco visual
         self.update_idletasks()
         self._refresh_ui()
