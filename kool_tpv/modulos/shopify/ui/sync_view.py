@@ -225,19 +225,24 @@ class ShopifySyncView(ctk.CTkFrame):
             self._refresh_logs_data()
 
     def _add_log(self, message):
-        """Añade un mensaje a la consola visual."""
+        """Añade un mensaje a la consola visual de forma segura."""
         if not hasattr(self, 'log_text'): return
         def _append():
-            self.log_text.configure(state="normal")
-            self.log_text.insert("end", f"> {message}\n")
-            self.log_text.see("end")
-            self.log_text.configure(state="disabled")
+            try:
+                if self.log_text.winfo_exists():
+                    self.log_text.configure(state="normal")
+                    self.log_text.insert("end", f"> {message}\n")
+                    self.log_text.see("end")
+                    self.log_text.configure(state="disabled")
+            except Exception: pass
         self.after(0, _append)
 
     def _on_sync_category(self, category):
         if self.is_syncing: return
         self.is_syncing = True
-        for btn in self.category_buttons.values(): btn.configure(state="disabled")
+        for btn in self.category_buttons.values():
+            if btn.winfo_exists():
+                btn.configure(state="disabled")
         
         color_id = self.cb_color.get_id()
         variante_id = self.cb_variante.get_id()
@@ -267,7 +272,7 @@ class ShopifySyncView(ctk.CTkFrame):
                 cantidad = base.get('cantidad', 0)
                 if not sku: continue
                 self._add_log(f"Subiendo {sku} -> Stock: {cantidad}")
-                res = self.sync_service.sync_stock_by_sku_prefix(sku, int(cantidad))
+                res = self.sync_service.sync_stock_by_sku_prefix(sku, int(cantidad), reason="Actualización manual")
                 if res["success"]:
                     updated = res.get("updated", 0)
                     total_actualizados += updated
@@ -284,5 +289,8 @@ class ShopifySyncView(ctk.CTkFrame):
             self.after(0, self._reenable_buttons)
 
     def _reenable_buttons(self):
-        for btn in self.category_buttons.values(): btn.configure(state="normal")
+        if not self.winfo_exists(): return
+        for btn in self.category_buttons.values():
+            if btn.winfo_exists():
+                btn.configure(state="normal")
 

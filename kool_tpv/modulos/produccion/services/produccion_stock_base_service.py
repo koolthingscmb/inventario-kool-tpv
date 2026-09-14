@@ -89,17 +89,21 @@ class ProduccionStockBaseService:
 							from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
 							import tkinter as tk
 							try:
-								# Intentamos obtener la ventana activa para el toast
-								root = None
-								try: root = tk._default_root
-								except: pass
-								if not root:
-									# Buscar cualquier ventana de CTk que sea root
-									for widget in self.db.connection.execute("SELECT 1").connection.get_tk_widget().master.winfo_children():
-										if isinstance(widget, (tk.Tk, tk.Toplevel)):
-											root = widget
-											break
-								
+								# Intentamos obtener cualquier ventana activa para el toast
+								def _find_root():
+									# 1. Intentar por el root por defecto
+									try:
+										if hasattr(tk, '_default_root') and tk._default_root:
+											return tk._default_root
+									except: pass
+									# 2. Intentar buscar en todas las ventanas abiertas
+									try:
+										from tkinter import _default_root
+										if _default_root: return _default_root
+									except: pass
+									return None
+
+								root = _find_root()
 								if root:
 									root.after(0, lambda: ToastWidget.show(root, f"Shopify: {sku} actualizado", tipo='success'))
 							except Exception: pass

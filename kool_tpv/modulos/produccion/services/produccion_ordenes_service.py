@@ -115,7 +115,7 @@ class ProduccionOrdenesService:
 
                     # 3. Actualizar stock de bases (descontar el material en blanco)
                     # Usamos el servicio para que se dispare la sincronización con Shopify
-                    motivo_sync = f"Producción: {item.diseno_nombre}"
+                    motivo_sync = f"Producción de {item.cantidad} uds (Diseño: {item.diseno_nombre})"
                     ok_stock_base = self.stock_base_service.actualizar_cantidad(
                         tipo_id=item.tipo_id,
                         color_id=item.color_id,
