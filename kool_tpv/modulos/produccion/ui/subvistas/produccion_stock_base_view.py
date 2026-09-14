@@ -117,6 +117,17 @@ class ProduccionStockBaseView:
 		)
 		self.btn_costes.pack(side="left", padx=5)
 
+		# Botón MIGRACIÓN (Temporal para Shopify)
+		self.btn_migrar = ButtonFactory.create_button(
+			btn_frame,
+			text="ACTUALIZAR SKUS SHOPIFY",
+			command=self._on_migrar_skus,
+			module="produccion",
+			palette_key="accent",
+			style_key="action_secondary"
+		)
+		self.btn_migrar.pack(side="left", padx=5)
+
 		# Fila de chips de tipos
 		self._crear_chips_tipos(lista_frame)
 
@@ -374,6 +385,36 @@ class ProduccionStockBaseView:
 		"""Acción al hacer doble clic en una fila (editar variante)."""
 		raw_data = item_data.get("_raw")
 		self.show_formulario(item_data=raw_data)
+
+	def _on_migrar_skus(self):
+		"""MIGRACIÓN TEMPORAL: Llama al servicio para unificar SKUs con Shopify."""
+		try:
+			from kool_tpv.utils.dialogs import show_warning
+			
+			confirmar = show_warning(
+				self.container,
+				titulo="ACTUALIZAR SKUS",
+				mensaje="Se van a renombrar todos los SKUs de camisetas al formato Pro de Shopify.\n\n¿Deseas continuar?",
+				confirm=True
+			)
+			
+			if not confirmar:
+				return
+				
+			ToastWidget.show(self.container, "Migrando SKUs...", tipo='info')
+			updated, errors = self.service.migrar_skus_a_formato_shopify()
+			
+			if updated > 0:
+				ToastWidget.show(self.container, f"¡Éxito! {updated} SKUs actualizados.", tipo='success')
+				self._cargar_datos() # Refrescar tabla
+			elif errors > 0:
+				show_error(self.container, "Hubo errores durante la migración.")
+			else:
+				ToastWidget.show(self.container, "Los SKUs ya están actualizados.", tipo='info')
+				
+		except Exception:
+			logger.exception("Error en UI al migrar SKUs")
+			show_error(self.container, "Error inesperado en la migración.")
 
 	def destruir(self):
 		"""Cerrar la vista."""

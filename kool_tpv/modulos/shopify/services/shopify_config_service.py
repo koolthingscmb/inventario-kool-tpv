@@ -28,21 +28,25 @@ class ShopifyConfigService:
         self.db = db
 
     def get_config(self) -> Dict[str, Any]:
-        """Carga toda la configuración de Shopify desde la BD."""
-        config = {}
+        """Carga toda la configuración de Shopify desde la BD en una única consulta eficiente."""
+        config = {local_key: "" for local_key in self.KEYS}
         try:
-            # Podríamos hacer un fetch_all pero por simplicidad y robustez lo hacemos por clave
-            for local_key, db_key in self.KEYS.items():
-                row = self.db.fetch_one("SELECT valor FROM configuracion WHERE clave = ?", (db_key,))
-                config[local_key] = row[0] if row else ""
+            # Una sola query para todas las claves de Shopify
+            rows = self.db.fetch_all("SELECT clave, valor FROM configuracion WHERE clave LIKE 'shopify_%'")
             
-            # Conversión de tipos para booleanos/números si es necesario
-            config["sync_active"] = config.get("sync_active") == "1"
-            config["source_anilist"] = config.get("source_anilist") == "1"
-            config["source_jikan"] = config.get("source_jikan") == "1"
-            config["source_mangadex"] = config.get("source_mangadex") == "1"
-            config["source_bgg"] = config.get("source_bgg") == "1"
-            config["source_google_books"] = config.get("source_google_books") == "1"
+            # Mapeo inverso: de db_key a local_key
+            reverse_keys = {v: k for k, v in self.KEYS.items()}
+            
+            if rows:
+                for clave_db, valor in rows:
+                    if clave_db in reverse_keys:
+                        config[reverse_keys[clave_db]] = valor
+            
+            # Conversión de tipos para booleanos
+            bool_keys = ["sync_active", "source_anilist", "source_jikan", "source_mangadex", "source_bgg", "source_google_books"]
+            for bk in bool_keys:
+                if bk in config:
+                    config[bk] = config[bk] == "1"
             
         except Exception:
             logger.exception("Error cargando configuración de Shopify")

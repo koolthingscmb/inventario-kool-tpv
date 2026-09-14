@@ -51,7 +51,9 @@ class ProduccionOrdenesService:
         self.db = db
         self.logger = logging.getLogger(__name__)
         self.repo_ordenes = ProduccionOrdenesRepository(db)
-        self.repo_stock_base = ProduccionStockBaseRepository(db)
+        from kool_tpv.modulos.produccion.services.produccion_stock_base_service import ProduccionStockBaseService
+        self.stock_base_service = ProduccionStockBaseService(db)
+        self.repo_stock_base = self.stock_base_service.repo
         self.repo_metodos = ProduccionMetodosRepository(db)
         self.repo_extras = ProduccionExtrasRepository(db)
         self.link_service = VarianteProductoService(db)
@@ -112,13 +114,16 @@ class ProduccionOrdenesService:
                         raise Exception(f"No se pudo crear la línea para el diseño {item.diseno_codigo}")
 
                     # 3. Actualizar stock de bases (descontar el material en blanco)
-                    # Usamos el repo de stock base que ya soporta variantes
-                    ok_stock_base = self.repo_stock_base.actualizar_cantidad(
+                    # Usamos el servicio para que se dispare la sincronización con Shopify
+                    motivo_sync = f"Producción: {item.diseno_nombre}"
+                    ok_stock_base = self.stock_base_service.actualizar_cantidad(
                         tipo_id=item.tipo_id,
                         color_id=item.color_id,
                         talla=item.talla,
                         delta=-item.cantidad,
-                        variante_id=item.variante_id
+                        variante_id=item.variante_id,
+                        cur=cur,
+                        motivo=motivo_sync
                     )
                     if not ok_stock_base:
                         self.logger.warning(f"No se pudo descontar stock de base para tipo {item.tipo_id}, variante {item.variante_id}")
@@ -269,7 +274,7 @@ class ProduccionOrdenesService:
 
                 # 4. AJUSTE DE STOCKS (Transaccional)
                 # Revertir stock antiguo (sumar lo que se restó al producir)
-                self.repo_stock_base.actualizar_cantidad(
+                self.stock_base_service.actualizar_cantidad(
                     tipo_id=tipo_orig, color_id=col_orig, talla=talla_orig,
                     delta=cant_orig, variante_id=var_orig
                 )
@@ -278,7 +283,7 @@ class ProduccionOrdenesService:
                     self._ajustar_stock_tpv_vinculado_por_datos(dis_orig, var_orig, -cant_orig)
 
                 # Aplicar stock nuevo (restar la nueva producción)
-                self.repo_stock_base.actualizar_cantidad(
+                self.stock_base_service.actualizar_cantidad(
                     tipo_id=linea_original.tipo_id, color_id=linea_original.color_id, 
                     talla=linea_original.talla, delta=-linea_original.cantidad, 
                     variante_id=linea_original.variante_id

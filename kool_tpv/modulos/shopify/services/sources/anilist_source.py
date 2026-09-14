@@ -58,7 +58,7 @@ class AniListSource(BaseSource):
         except Exception as e:
             return False, f"Error inesperado: {str(e)}"
 
-    def search(self, query_str: str) -> List[Dict[str, Any]]:
+    def search(self, query_str: str, **kwargs) -> List[Dict[str, Any]]:
         query = """
         query ($search: String) {
           Page (page: 1, perPage: 5) {

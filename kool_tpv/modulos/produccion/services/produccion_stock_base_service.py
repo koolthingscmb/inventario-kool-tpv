@@ -3,7 +3,7 @@
 Lógica de negocio para controlar el inventario de materiales en blanco,
 sincronización de SKUs y disponibilidad para el taller.
 """
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 import logging
 
 from kool_tpv.base_datos.db_wrapper import Database
@@ -63,7 +63,50 @@ class ProduccionStockBaseService:
 	                      sku: str, cantidad: int, coste_medio: int = 0,
 	                      variante_id: Optional[int] = None, talla_id: Optional[int] = None,
 	                      cur=None) -> bool:
-		return self.repo.crear_o_actualizar(tipo_id, color_id, talla, sku, cantidad, coste_medio, variante_id, talla_id, cur=cur)
+		ok = self.repo.crear_o_actualizar(tipo_id, color_id, talla, sku, cantidad, coste_medio, variante_id, talla_id, cur=cur)
+		
+		# Hook de Sincronización Automática
+		if ok:
+			self._trigger_async_sync(tipo_id, color_id, talla, variante_id, cantidad)
+			
+		return ok
+
+	def _trigger_async_sync(self, tipo_id, color_id, talla, variante_id, cantidad, motivo: str = "Actualización manual"):
+		"""Dispara la sincronización con Shopify en segundo plano si está activa."""
+		try:
+			from kool_tpv.modulos.shopify.services.shopify_config_service import ShopifyConfigService
+			if ShopifyConfigService(self.db).get_config().get("sync_active"):
+				sku = self.generar_sku(tipo_id, color_id, talla, variante_id)
+				import threading
+				from kool_tpv.modulos.shopify.services.shopify_sync_service import ShopifySyncService
+				def _async():
+					try:
+						sync_svc = ShopifySyncService(self.db)
+						res = sync_svc.sync_stock_by_sku_prefix(sku, cantidad, reason=motivo)
+						
+						# Mostrar Toast si la sincronización fue exitosa
+						if res.get("success"):
+							from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
+							import tkinter as tk
+							try:
+								# Intentamos obtener la ventana activa para el toast
+								root = None
+								try: root = tk._default_root
+								except: pass
+								if not root:
+									# Buscar cualquier ventana de CTk que sea root
+									for widget in self.db.connection.execute("SELECT 1").connection.get_tk_widget().master.winfo_children():
+										if isinstance(widget, (tk.Tk, tk.Toplevel)):
+											root = widget
+											break
+								
+								if root:
+									root.after(0, lambda: ToastWidget.show(root, f"Shopify: {sku} actualizado", tipo='success'))
+							except Exception: pass
+					except Exception: pass
+				threading.Thread(target=_async, daemon=True).start()
+		except Exception:
+			logger.exception("Error en _trigger_async_sync")
 
 	def importar_stock(self, tipo_id: int, color_id: int, talla: str, 
 	                   cantidad_nueva: int, coste_nuevo_eur: float,
@@ -114,7 +157,7 @@ class ProduccionStockBaseService:
 			if not sku:
 				sku = self.generar_sku(tipo_id, color_id, talla, variante_id)
 			
-			# 4. Guardar
+			# 4. Guardar (Usamos el repo directamente para evitar doble sync si lo pusimos en crear_o_actualizar)
 			ok = self.repo.crear_o_actualizar(
 				tipo_id=tipo_id,
 				color_id=color_id,
@@ -127,8 +170,10 @@ class ProduccionStockBaseService:
 				cur=cur
 			)
 			
-			# 5. Auto-poblar la matriz si la combinación no existe
+			# 5. Sincronizar con Shopify
 			if ok:
+				self._trigger_async_sync(tipo_id, color_id, talla, variante_id, cant_total, motivo="Entrada de Albarán")
+				# 6. Auto-poblar la matriz si la combinación no existe
 				self._asegurar_matriz(tipo_id, color_id, talla, variante_id, cur=cur)
 			
 			return ok
@@ -154,7 +199,9 @@ class ProduccionStockBaseService:
 			logger.exception("Error auto-poblando matriz")
 
 	def generar_sku(self, tipo_id: int, color_id: Optional[int], talla: str, variante_id: Optional[int] = None) -> str:
-		"""Genera un SKU único basado en el patrón TIPO-VAR-COLOR-TALLA."""
+		"""Genera un SKU único basado en el patrón para Shopify: TIPO-COLOR-VAR-TALLA.
+		Ejemplo: CAM-NEGRO-HOMBRE-S
+		"""
 		try:
 			svc_tipos = ProduccionTiposService(self.db)
 			svc_colores = ProduccionColoresService(self.db)
@@ -168,36 +215,42 @@ class ProduccionStockBaseService:
 				import unicodedata
 				import re
 				if not s: return ""
-				s = s.upper()
+				s = s.upper().strip()
+				# Cambiar barra por guion para tallas infantiles (Shopify style)
+				s = s.replace('/', '-')
 				s = unicodedata.normalize('NFD', s).encode('ascii', 'ignore').decode('ascii')
-				s = re.sub(r'[^A-Z0-9]', '', s)
+				# Permitir letras, números y el guion que acabamos de poner
+				s = re.sub(r'[^A-Z0-9-]', '', s)
 				return s
 
-			t = clean(tipo.nombre)[:4]
-			s = clean(talla)
+			# 1. Prefijo de tipo (Especial para Camiseta: CAM)
+			tipo_nom = tipo.nombre.upper()
+			t = "CAM" if "CAMISETA" in tipo_nom else clean(tipo.nombre)[:4]
 			
-			v = ""
-			if variante_id:
-				variante = svc_variantes.obtener_por_id(variante_id)
-				if variante:
-					v = clean(variante.nombre)[:4]
-			
+			# 2. Color (Nombre completo)
 			c = ""
 			if color_id:
 				color = svc_colores.obtener_por_id(color_id)
 				if color:
-					c = clean(color.nombre)[:3]
+					c = clean(color.nombre)
 			
-			# Construir partes filtrando vacíos
+			# 3. Variante/Público (Nombre completo: HOMBRE, MUJER, INFANTIL)
+			v = ""
+			if variante_id:
+				variante = svc_variantes.obtener_por_id(variante_id)
+				if variante:
+					v = clean(variante.nombre)
+			
+			# 4. Talla
+			s = clean(talla)
+			
+			# Construir partes siguiendo el orden de Shopify: TIPO-COLOR-VAR-TALLA
 			parts = [t]
-			if v: parts.append(v)
 			if c: parts.append(c)
+			if v: parts.append(v)
 			if s: parts.append(s)
 			
 			sku_base = "-".join(parts)
-			
-			# Verificar colisión global (opcional pero recomendado)
-			# Por ahora simplemente devolvemos la base mejorada
 			return sku_base
 
 		except Exception:
@@ -243,7 +296,7 @@ class ProduccionStockBaseService:
 		"""Descontar stock del almacén de bases."""
 		if cantidad <= 0:
 			return True
-		return self.repo.actualizar_cantidad(tipo_id, color_id, (talla or "").strip().upper(), -cantidad, variante_id, cur=cur)
+		return self.actualizar_cantidad(tipo_id, color_id, (talla or "").strip().upper(), -cantidad, variante_id, cur=cur)
 
 	def reponer_stock(self, tipo_id: int,
 	                 color_id: int, talla: str, cantidad: int,
@@ -251,13 +304,21 @@ class ProduccionStockBaseService:
 		"""Añadir stock al almacén de bases."""
 		if cantidad <= 0:
 			return True
-		return self.repo.actualizar_cantidad(tipo_id, color_id, (talla or "").strip().upper(), cantidad, variante_id, cur=cur)
+		return self.actualizar_cantidad(tipo_id, color_id, (talla or "").strip().upper(), cantidad, variante_id, cur=cur)
 
 	def actualizar_cantidad(self, tipo_id: int,
 	                        color_id: Optional[int], talla: str, delta: int,
-	                        variante_id: Optional[int] = None, cur=None) -> bool:
+	                        variante_id: Optional[int] = None, cur=None, motivo: str = "Actualización manual") -> bool:
 		"""Sumar o restar cantidad al stock (ej: -1 al producir)."""
-		return self.repo.actualizar_cantidad(tipo_id, color_id, (talla or "").strip().upper(), delta, variante_id, cur=cur)
+		ok = self.repo.actualizar_cantidad(tipo_id, color_id, (talla or "").strip().upper(), delta, variante_id, cur=cur)
+		
+		# Hook de Sincronización Automática con Shopify
+		if ok and delta != 0:
+			# Obtenemos la cantidad actual para enviar el estado real
+			cantidad_actual = self.repo.obtener_cantidad(tipo_id, color_id, (talla or "").strip().upper(), variante_id)
+			self._trigger_async_sync(tipo_id, color_id, talla, variante_id, cantidad_actual, motivo=motivo)
+
+		return ok
 
 	def obtener_opciones_formulario(self) -> Dict[str, List[Dict[str, Any]]]:
 		"""Obtener listas de tipos y colores para los selectores usando servicios."""
@@ -268,3 +329,41 @@ class ProduccionStockBaseService:
 			"tipos": svc_tipos.obtener_como_dict(solo_activos=True),
 			"colores": svc_colores.obtener_como_dict(solo_activos=True)
 		}
+
+	def migrar_skus_a_formato_shopify(self) -> Tuple[int, int]:
+		"""MIGRACIÓN TEMPORAL: Actualiza todos los SKUs de camisetas al nuevo formato Pro.
+		
+		Returns:
+			Tuple[int, int]: (actualizados, errores)
+		"""
+		try:
+			# Solo para tipo Camiseta (ID 1)
+			tipo_id_camiseta = 1
+			
+			# 1. Obtener todos los registros de camisetas
+			query = "SELECT id, sku, color_id, talla, variante_id FROM produccion_stock_colores_tallas WHERE tipo_id = ?"
+			rows = self.db.fetch_all(query, (tipo_id_camiseta,))
+			
+			if not rows:
+				return 0, 0
+				
+			updated = 0
+			errors = 0
+			
+			with self.db.transaction() as cur:
+				for row in rows:
+					row_id, old_sku, color_id, talla, variante_id = row
+					
+					# Generar nuevo SKU con el motor Pro actualizado
+					nuevo_sku = self.generar_sku(tipo_id_camiseta, color_id, talla, variante_id)
+					
+					if nuevo_sku and nuevo_sku != old_sku:
+						cur.execute("UPDATE produccion_stock_colores_tallas SET sku = ? WHERE id = ?", (nuevo_sku, row_id))
+						updated += 1
+					elif not nuevo_sku:
+						errors += 1
+						
+			return updated, errors
+		except Exception:
+			logger.exception("Error en migración masiva de SKUs")
+			return 0, 0

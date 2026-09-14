@@ -1231,18 +1231,23 @@ class CrearProductoUI:
                 'pvp_variable': bool(self.chk_pvp_var.get()),
                 'stock_actual': (getattr(self, 'e_stock_actual', None) and self.e_stock_actual.get()) or '0',
                 'stock_min': (getattr(self, 'e_stock_min', None) and self.e_stock_min.get()) or '0',
-                    'shopify_taxonomy': (getattr(self, 'ent_taxonomy', None) and self.ent_taxonomy.get()) or '',
-                    'descripcion_shopify': (lambda: (
-                        (lambda txt: txt.strip())(
-                            (self.txt_description.get('1.0', 'end-1c') if getattr(self, 'txt_description', None) and hasattr(self.txt_description, 'get') else (self.txt_description.get() if getattr(self, 'txt_description', None) and hasattr(self.txt_description, 'get') else ''))
-                        )
-                    ))(),
-                    'seo_description': (lambda: (
-                        (lambda txt: txt.strip())(
-                            (self.e_seo_desc.get('1.0', 'end-1c') if getattr(self, 'e_seo_desc', None) and hasattr(self.e_seo_desc, 'get') else (self.e_seo_desc.get() if getattr(self, 'e_seo_desc', None) and hasattr(self.e_seo_desc, 'get') else ''))
-                        )
-                    ))(),
-                    'codigos_barras': (getattr(self, 'e_codigos', None) and (self.e_codigos.get() or '').strip()) or '',
+                'shopify_taxonomy': (getattr(self, 'ent_taxonomy', None) and self.ent_taxonomy.get()) or '',
+                'titulo': (getattr(self, 'e_seo_title', None) and self.e_seo_title.get()) or '',
+                'seo_title': (getattr(self, 'e_seo_short', None) and self.e_seo_short.get()) or '',
+                'seo_description': (lambda: (
+                    (lambda txt: txt.strip())(
+                        (self.e_seo_desc.get('1.0', 'end-1c') if getattr(self, 'e_seo_desc', None) and hasattr(self.e_seo_desc, 'get') else (self.e_seo_desc.get() if getattr(self, 'e_seo_desc', None) and hasattr(self.e_seo_desc, 'get') else ''))
+                    )
+                ))(),
+                'descripcion_shopify': (lambda: (
+                    (lambda txt: txt.strip())(
+                        (self.txt_description.get('1.0', 'end-1c') if getattr(self, 'txt_description', None) and hasattr(self.txt_description, 'get') else (self.txt_description.get() if getattr(self, 'txt_description', None) and hasattr(self.txt_description, 'get') else ''))
+                    )
+                ))(),
+                'tipo_shop': (getattr(self, 'e_tipo_shop', None) and self.e_tipo_shop.get()) or '',
+                'etiquetas': (getattr(self, 'e_tags', None) and self.e_tags.get()) or '',
+                'shop_link': (getattr(self, 'e_shop_link', None) and self.e_shop_link.get()) or '',
+                'codigos_barras': (getattr(self, 'e_codigos', None) and (self.e_codigos.get() or '').strip()) or '',
             }
         except Exception:
             logging.exception('Error obteniendo datos CrearProductoUI')

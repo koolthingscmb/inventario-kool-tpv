@@ -30,6 +30,7 @@
   "shopify": {
     "title": "SHOPIFY",
     "buttons": [
+      {"id": "sync", "text": "SINC", "action": "show_sync"},
       {"id": "config", "text": "CONFIG", "action": "show_config"}
     ]
   },

@@ -67,9 +67,10 @@ class GoogleBooksSource(BaseSource):
         except Exception as e:
             return False, f"Error inesperado: {str(e)}"
 
-    def search(self, query_str: str, context: str = "") -> List[Dict[str, Any]]:
+    def search(self, query_str: str, **kwargs) -> List[Dict[str, Any]]:
         """Busca libros en Google Books usando un filtro de título estricto."""
         search_query = query_str.strip()
+        context = kwargs.get('context', '')
         
         # Usamos el contexto dinámico (ej: 'manga') en lugar de dejarlo fijo
         if context:
@@ -79,7 +80,7 @@ class GoogleBooksSource(BaseSource):
         
         params = self._get_params({
             "q": refined_query,
-            "maxResults": 15, # Aumentado de 5 a 15 para encontrar tomos específicos
+            "maxResults": 15,
             "langRestrict": "es",
             "orderBy": "relevance",
             "printType": "books"
@@ -113,7 +114,6 @@ class GoogleBooksSource(BaseSource):
                             "native": ""
                         },
                         "subtitle": f"Autor: {author_str}" if author_str else "Libro/Manga",
-                        "description": info.get("description", ""),
                         "image_url": image_url,
                         "_source_id": self.id,
                         "_source_name": self.name
@@ -145,7 +145,7 @@ class GoogleBooksSource(BaseSource):
                     "authors": info.get("authors", []),
                     "publisher": info.get("publisher"),
                     "publishedDate": info.get("publishedDate"),
-                    "description": info.get("description"),
+                    "description": info.get("description", ""),
                     "pageCount": info.get("pageCount"),
                     "categories": info.get("categories", []),
                     "image_url": info.get("imageLinks", {}).get("thumbnail", ""),

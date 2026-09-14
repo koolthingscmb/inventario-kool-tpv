@@ -60,6 +60,7 @@ class ShopifyView(BaseModuleView):
 
         # Map action names to methods
         action_map = {
+            'show_sync': self.show_sync,
             'show_config': self.show_config,
         }
 
@@ -101,7 +102,8 @@ class ShopifyView(BaseModuleView):
             logging.exception('Error enlazando botones en ShopifyView')
 
         self.breadcrumb_callbacks = {
-            'SHOPIFY': self.show_config, # Por ahora solo config
+            'SHOPIFY': self.show_sync,
+            'SINC': self.show_sync,
             'CONFIG': self.show_config,
         }
 
@@ -113,6 +115,20 @@ class ShopifyView(BaseModuleView):
         except Exception:
             logging.exception('Error en _on_power')
             return False
+
+    def show_sync(self):
+        """Muestra la subvista de sincronización de stock."""
+        try:
+            logging.info("Abriendo sincronización de Shopify...")
+            self.actualizar_ruta('SINC')
+            
+            from kool_tpv.modulos.shopify.ui.sync_view import ShopifySyncView
+            
+            sync_view = ShopifySyncView(self.central_area, self.db)
+            self.set_central_content(sync_view)
+            
+        except Exception:
+            logging.exception("Error en show_sync")
 
     def show_config(self):
         """Muestra el tab de configuración de Shopify."""
