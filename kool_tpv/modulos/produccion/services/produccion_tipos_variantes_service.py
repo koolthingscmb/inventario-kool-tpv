@@ -36,22 +36,8 @@ class ProduccionTiposVariantesService:
     def crear(self, tipo_id: int, nombre: str, coste_base: int = 0,
               precio_recomendado: int = 0, shopify_variant_id: Optional[str] = None,
               requiere_talla: int = 0, requiere_color: int = 0,
-              grupo_talla_id: Optional[int] = None) -> Optional[int]:
-        """Crear una nueva variante.
-
-        Args:
-            tipo_id: ID del tipo al que pertenece.
-            nombre: Nombre de la variante (ej: "A4").
-            coste_base: Coste de fabricación.
-            precio_recomendado: Precio de venta sugerido.
-            shopify_variant_id: ID externo opcional.
-            requiere_talla: 1 si requiere talla.
-            requiere_color: 1 si requiere color.
-            grupo_talla_id: ID del grupo de tallas opcional.
-
-        Returns:
-            ID de la variante creada o None si error.
-        """
+              grupo_talla_id: Optional[int] = None, orden: int = 0) -> Optional[int]:
+        """Crear una nueva variante."""
         if not tipo_id or not nombre or not nombre.strip():
             return None
 
@@ -64,7 +50,8 @@ class ProduccionTiposVariantesService:
             shopify_variant_id=shopify_variant_id,
             requiere_talla=requiere_talla,
             requiere_color=requiere_color,
-            grupo_talla_id=grupo_talla_id
+            grupo_talla_id=grupo_talla_id,
+            orden=orden
         )
         return self.repository.crear(variante)
 
@@ -72,7 +59,7 @@ class ProduccionTiposVariantesService:
                    coste_base: int = 0, precio_recomendado: int = 0,
                    activo: int = 1, shopify_variant_id: Optional[str] = None,
                    requiere_talla: int = 0, requiere_color: int = 0,
-                   grupo_talla_id: Optional[int] = None) -> bool:
+                   grupo_talla_id: Optional[int] = None, orden: int = 0) -> bool:
         """Actualizar una variante existente."""
         if not variante_id or not tipo_id or not nombre or not nombre.strip():
             return False
@@ -87,9 +74,59 @@ class ProduccionTiposVariantesService:
             shopify_variant_id=shopify_variant_id,
             requiere_talla=requiere_talla,
             requiere_color=requiere_color,
-            grupo_talla_id=grupo_talla_id
+            grupo_talla_id=grupo_talla_id,
+            orden=orden
         )
         return self.repository.actualizar(variante)
+
+    def mover_orden(self, variante_id: int, direccion: str) -> bool:
+        """Mover una variante arriba o abajo en el orden.
+        
+        Args:
+            variante_id: ID de la variante a mover.
+            direccion: 'up' o 'down'.
+        """
+        v_actual = self.repository.get_por_id(variante_id)
+        if not v_actual:
+            return False
+            
+        # Obtener todas las variantes del mismo tipo ordenadas
+        variantes = self.repository.get_por_tipo(v_actual.tipo_id, solo_activos=False)
+        
+        # Encontrar índice de la actual
+        idx = -1
+        for i, v in enumerate(variantes):
+            if v.id == variante_id:
+                idx = i
+                break
+                
+        if idx == -1:
+            return False
+            
+        # Determinar objetivo
+        if direccion == 'up':
+            if idx == 0: return True # Ya es la primera
+            v_otra = variantes[idx-1]
+        else:
+            if idx == len(variantes) - 1: return True # Ya es la última
+            v_otra = variantes[idx+1]
+            
+        # Intercambiar orden
+        with self.db.transaction():
+            orden_actual = v_actual.orden
+            orden_otra = v_otra.orden
+            
+            # Si ambos son 0 (o iguales), forzar un orden secuencial primero
+            if orden_actual == orden_otra:
+                for i, v in enumerate(variantes):
+                    self.repository.actualizar_orden(v.id, i * 10)
+                # Re-obtener datos
+                return self.mover_orden(variante_id, direccion)
+            
+            self.repository.actualizar_orden(v_actual.id, orden_otra)
+            self.repository.actualizar_orden(v_otra.id, orden_actual)
+            
+        return True
 
     def eliminar(self, variante_id: int) -> bool:
         """Eliminar una variante (soft delete)."""

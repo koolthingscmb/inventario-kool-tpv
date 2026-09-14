@@ -40,13 +40,30 @@ class ProduccionConfigService:
         return self.colores_repo.get_todos()
 
     def guardar_color(self, nombre: str, hex_code: str, color_id: Optional[int] = None) -> bool:
-        color = ProduccionColor(id=color_id, nombre=nombre, codigo_hex=hex_code)
+        if color_id:
+            existente = self.colores_repo.get_por_id(color_id)
+            orden = existente.orden if existente else 0
+        else:
+            colores = self.colores_repo.get_todos()
+            orden = max((c.orden for c in colores), default=-10) + 10
+        color = ProduccionColor(id=color_id, nombre=nombre, codigo_hex=hex_code, orden=orden)
         if color_id:
             return self.colores_repo.actualizar(color)
         return self.colores_repo.crear(color)
 
     def eliminar_color(self, color_id: int) -> bool:
         return self.colores_repo.eliminar(color_id)
+
+    def mover_orden_color(self, color_id: int, direccion: str) -> bool:
+        """Intercambiar el orden de un color con su vecino.
+        
+        Args:
+            color_id: ID del color a mover.
+            direccion: 'up' o 'down'.
+        """
+        from kool_tpv.modulos.produccion.services.produccion_colores_service import ProduccionColoresService
+        svc = ProduccionColoresService(self.db)
+        return svc.mover_orden(color_id, direccion)
 
     # --- Gestión de Tallas ---
     def obtener_todas_tallas(self) -> List[ProduccionTalla]:
@@ -117,6 +134,17 @@ class ProduccionConfigService:
             else:
                 results.append(v)
         return results
+
+    def mover_orden_variante(self, variante_id: int, direccion: str) -> bool:
+        """Intercambiar el orden de una variante con su vecina.
+        
+        Args:
+            variante_id: ID de la variante a mover.
+            direccion: 'up' o 'down'.
+        """
+        from kool_tpv.modulos.produccion.services.produccion_tipos_variantes_service import ProduccionTiposVariantesService
+        svc = ProduccionTiposVariantesService(self.db)
+        return svc.mover_orden(variante_id, direccion)
 
     # --- Matriz 3D para TIPOS y VARIANTES ---
 

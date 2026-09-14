@@ -105,3 +105,21 @@ def get_nav_button_style(config: dict, key: str) -> dict:
 	"""
 	buttons = config.get("colors", {}).get("buttons", {})
 	return buttons.get(key, {})
+
+
+def get_dynamic_chip_font(text: str, base_font: tuple, threshold: int = 12, reduction: int = 2) -> tuple:
+	"""Calcula una fuente dinámica basada en la longitud del texto.
+
+	Args:
+		text: El texto del chip.
+		base_font: La tupla de fuente base (family, size, weight).
+		threshold: Límite de caracteres para empezar a reducir.
+		reduction: Puntos a restar al tamaño si supera el límite.
+
+	Returns:
+		Tupla de fuente ajustada.
+	"""
+	family, size, weight = base_font
+	if len(text) > threshold:
+		return (family, size - reduction, weight)
+	return base_font

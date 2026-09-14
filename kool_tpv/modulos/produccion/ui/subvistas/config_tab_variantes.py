@@ -9,7 +9,7 @@ import customtkinter as ctk
 from typing import List, Optional
 
 from kool_tpv.utils.factories.button_factory import ButtonFactory
-from kool_tpv.modulos.produccion.ui.subvistas.config_helper import get_font, get_chip_config, get_chip_style
+from kool_tpv.modulos.produccion.ui.subvistas.config_helper import get_font, get_chip_config, get_chip_style, get_dynamic_chip_font
 from kool_tpv.modulos.produccion.services.produccion_tipos_variantes_service import ProduccionTiposVariantesService
 from kool_tpv.modulos.produccion.services.tipos_variantes_metodos_service import TiposVariantesMetodosService
 from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
@@ -52,9 +52,9 @@ class ConfigTabVariantes:
         content = tk.Frame(self.parent, bg=self._bg)
         content.pack(fill=tk.BOTH, expand=True)
 
-        # --- IZQUIERDA: chips de tipos (40%) ---
+        # --- IZQUIERDA: chips de tipos (50%) ---
         frame_left = tk.Frame(content, bg="#34495e", bd=0, highlightthickness=0)
-        frame_left.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 6))
+        frame_left.place(relx=0, rely=0, relwidth=0.5, relheight=1)
 
         tk.Label(frame_left, text="TIPOS (de menús)", font=get_font(self.config, "label"),
                  fg="#FFFFFF", bg="#34495e").pack(pady=(8, 4))
@@ -62,14 +62,14 @@ class ConfigTabVariantes:
         self._tipos_scroll = ctk.CTkScrollableFrame(frame_left, fg_color="#2c3e50")
         self._tipos_scroll.pack(fill=tk.BOTH, expand=True, padx=6, pady=(0, 6))
 
-        # --- DERECHA: variantes del tipo seleccionado (60%) ---
+        # --- DERECHA: variantes del tipo seleccionado (50%) ---
         frame_right = tk.Frame(content, bg="#34495e", bd=0, highlightthickness=0)
-        frame_right.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(6, 0))
+        frame_right.place(relx=0.5, rely=0, relwidth=0.5, relheight=1)
         
-        # Configurar grid para las 3 zonas (35% / 30% / 35%)
+        # Configurar grid para las 3 zonas (35% / 35% / 30%)
         frame_right.rowconfigure(0, weight=35) # Chips variantes
-        frame_right.rowconfigure(1, weight=30) # Formulario datos
-        frame_right.rowconfigure(2, weight=35) # Métodos impresión
+        frame_right.rowconfigure(1, weight=35) # Formulario datos
+        frame_right.rowconfigure(2, weight=30) # Métodos impresión
         frame_right.columnconfigure(0, weight=1)
 
         # ZONA 1: Chips de variantes
@@ -118,12 +118,32 @@ class ConfigTabVariantes:
         container = tk.Frame(self._zona_form, bg="#1a252f", padx=15, pady=10)
         container.pack(fill=tk.BOTH, expand=True)
 
-        # Fila 1: Nombre
+        # Fila 1: Nombre + Flechas de orden
         f1 = tk.Frame(container, bg="#1a252f")
         f1.pack(fill="x", pady=2)
         tk.Label(f1, text="NOMBRE:", font=get_font(self.config, "label"), fg=self._text, bg="#1a252f", width=10, anchor="w").pack(side=tk.LEFT)
         self._ent_nombre = ctk.CTkEntry(f1, placeholder_text="Nombre de la variante...", height=32)
-        self._ent_nombre.pack(side=tk.LEFT, fill="x", expand=True, padx=(5, 0))
+        self._ent_nombre.pack(side=tk.LEFT, fill="x", expand=True, padx=(5, 10))
+
+        # Flechas de orden
+        f_arrows = tk.Frame(f1, bg="#1a252f")
+        f_arrows.pack(side=tk.RIGHT)
+        
+        self._btn_up = ButtonFactory.create_button(
+            f_arrows, text="▲", width=32, height=32,
+            module="produccion", palette_key="secondary", style_key="action_confirm",
+            command=lambda: self._mover_orden('up')
+        )
+        self._btn_up.configure(corner_radius=16)
+        self._btn_up.pack(side=tk.LEFT, padx=2)
+        
+        self._btn_down = ButtonFactory.create_button(
+            f_arrows, text="▼", width=32, height=32,
+            module="produccion", palette_key="secondary", style_key="action_confirm",
+            command=lambda: self._mover_orden('down')
+        )
+        self._btn_down.configure(corner_radius=16)
+        self._btn_down.pack(side=tk.LEFT, padx=2)
 
         # Fila 2: Coste y PVPR
         f2 = tk.Frame(container, bg="#1a252f")
@@ -202,13 +222,17 @@ class ConfigTabVariantes:
 
         for idx, tipo in enumerate(self._all_tipos):
             is_selected = tipo.id == self._tipo_selected_id
+            
+            # Fuente dinámica para tipos
+            d_font = get_dynamic_chip_font(tipo.nombre, chip_font, threshold=12, reduction=2)
+            
             chip = ctk.CTkButton(
                 grid_frame,
                 text=tipo.nombre,
                 width=100,
                 height=32,
                 corner_radius=8,
-                font=chip_font,
+                font=d_font,
                 fg_color=default_style.get("bg", "#1a1a2e"),
                 text_color=default_style.get("text", "#e0e0e0"),
                 border_color=default_style.get("border", "#552583"),
@@ -293,13 +317,16 @@ class ConfigTabVariantes:
         grid_frame.pack(fill="x", expand=True)
 
         for i, v in enumerate(variantes):
+            # Fuente dinámica para variantes
+            d_font = get_dynamic_chip_font(v.nombre, chip_font, threshold=12, reduction=2)
+            
             btn = ctk.CTkButton(
                 grid_frame,
                 text=v.nombre,
                 width=80,
                 height=32,
                 corner_radius=corner_radius,
-                font=chip_font,
+                font=d_font,
                 fg_color=default_style.get("bg", "#1a1a2e"),
                 text_color=default_style.get("text", "#e0e0e0"),
                 border_color=default_style.get("border", "#552583"),
@@ -545,3 +572,19 @@ class ConfigTabVariantes:
 
     def refresh_nav(self):
         pass
+
+    def _mover_orden(self, direccion):
+        """Mueve la variante seleccionada arriba o abajo."""
+        if not self._variante_id_edit:
+            ToastWidget.show(self.parent, "Selecciona una variante primero", tipo="warning")
+            return
+            
+        # Guardamos el ID antes de que _cargar_variantes lo resetee
+        variante_id_actual = self._variante_id_edit
+        
+        if self.service.mover_orden(variante_id_actual, direccion):
+            self._cargar_variantes()
+            # Re-seleccionar automáticamente la variante movida
+            self._select_variante(variante_id_actual)
+        else:
+            ToastWidget.show(self.parent, "Error al mover orden", tipo="error")

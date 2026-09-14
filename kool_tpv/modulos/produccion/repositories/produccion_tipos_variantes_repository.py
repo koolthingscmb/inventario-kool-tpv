@@ -25,7 +25,7 @@ class ProduccionTiposVariantesRepository:
         """Mapear una fila de BD a objeto ProduccionTipoVariante."""
         (id_, tipo_id, nombre, coste_base, precio_recomendado, 
          activo, shopify_variant_id, created_at, updated_at,
-         requiere_talla, requiere_color, grupo_talla_id) = row
+         requiere_talla, requiere_color, grupo_talla_id, orden) = row
         
         return ProduccionTipoVariante(
             id=id_,
@@ -38,6 +38,7 @@ class ProduccionTiposVariantesRepository:
             requiere_color=requiere_color or 0,
             grupo_talla_id=grupo_talla_id,
             shopify_variant_id=shopify_variant_id,
+            orden=orden or 0,
             created_at=datetime.fromisoformat(created_at) if created_at else None,
             updated_at=datetime.fromisoformat(updated_at) if updated_at else None
         )
@@ -45,13 +46,13 @@ class ProduccionTiposVariantesRepository:
     _QUERY_SELECT = """
         SELECT id, tipo_id, nombre, coste_base, precio_recomendado, 
                activo, shopify_variant_id, created_at, updated_at,
-               requiere_talla, requiere_color, grupo_talla_id
+               requiere_talla, requiere_color, grupo_talla_id, orden
         FROM tipos_variantes
     """
 
     def get_todos(self) -> List[ProduccionTipoVariante]:
         """Obtener todas las variantes."""
-        query = self._QUERY_SELECT + " ORDER BY tipo_id, nombre"
+        query = self._QUERY_SELECT + " ORDER BY tipo_id, orden, nombre"
         rows = self.db.fetch_all(query)
         return [self._row_to_variante(row) for row in rows]
 
@@ -60,7 +61,7 @@ class ProduccionTiposVariantesRepository:
         query = self._QUERY_SELECT + " WHERE tipo_id = ?"
         if solo_activos:
             query += " AND activo = 1"
-        query += " ORDER BY nombre"
+        query += " ORDER BY orden, nombre"
 
         rows = self.db.fetch_all(query, (tipo_id,))
         return [self._row_to_variante(row) for row in rows]
@@ -80,14 +81,14 @@ class ProduccionTiposVariantesRepository:
             query = """
                 INSERT INTO tipos_variantes
                 (tipo_id, nombre, coste_base, precio_recomendado, activo, 
-                 shopify_variant_id, requiere_talla, requiere_color, grupo_talla_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 shopify_variant_id, requiere_talla, requiere_color, grupo_talla_id, orden)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             self.db.execute_query(query, (
                 variante.tipo_id, variante.nombre, variante.coste_base, 
                 variante.precio_recomendado, variante.activo, 
                 variante.shopify_variant_id, variante.requiere_talla, 
-                variante.requiere_color, variante.grupo_talla_id
+                variante.requiere_color, variante.grupo_talla_id, variante.orden
             ))
             result = self.db.fetch_all("SELECT last_insert_rowid()")
             if result:
@@ -110,18 +111,29 @@ class ProduccionTiposVariantesRepository:
                 SET tipo_id = ?, nombre = ?, coste_base = ?, 
                     precio_recomendado = ?, activo = ?, shopify_variant_id = ?,
                     requiere_talla = ?, requiere_color = ?, grupo_talla_id = ?,
-                    updated_at = CURRENT_TIMESTAMP
+                    orden = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             """
             self.db.execute_query(query, (
                 variante.tipo_id, variante.nombre, variante.coste_base, 
                 variante.precio_recomendado, variante.activo, 
                 variante.shopify_variant_id, variante.requiere_talla, 
-                variante.requiere_color, variante.grupo_talla_id, variante.id
+                variante.requiere_color, variante.grupo_talla_id, 
+                variante.orden, variante.id
             ))
             return True
         except Exception:
             logging.exception(f"Error actualizando variante {variante.id}")
+            return False
+
+    def actualizar_orden(self, variante_id: int, nuevo_orden: int) -> bool:
+        """Actualizar solo el campo orden de una variante."""
+        try:
+            query = "UPDATE tipos_variantes SET orden = ? WHERE id = ?"
+            self.db.execute_query(query, (nuevo_orden, variante_id))
+            return True
+        except Exception:
+            logging.exception(f"Error actualizando orden de variante {variante_id}")
             return False
 
     def get_variantes_con_coste(self, search_term: str = "") -> List[dict]:

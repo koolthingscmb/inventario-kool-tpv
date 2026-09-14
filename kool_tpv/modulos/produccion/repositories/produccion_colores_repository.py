@@ -26,16 +26,17 @@ class ProduccionColoresRepository:
 		Returns:
 			Lista de objetos ProduccionColor.
 		"""
-		query = "SELECT id, nombre, codigo_hex FROM produccion_colores ORDER BY nombre"
+		query = "SELECT id, nombre, codigo_hex, orden FROM produccion_colores ORDER BY orden, nombre"
 		rows = self.db.fetch_all(query)
 
 		colores: List[ProduccionColor] = []
 		for row in rows:
-			id_, nombre, codigo_hex = row
+			id_, nombre, codigo_hex, orden = row
 			colores.append(ProduccionColor(
 				id=id_,
 				nombre=nombre,
-				codigo_hex=codigo_hex
+				codigo_hex=codigo_hex,
+				orden=orden or 0
 			))
 		return colores
 
@@ -45,18 +46,8 @@ class ProduccionColoresRepository:
 		Returns:
 			Lista de objetos ProduccionColor con activo=1.
 		"""
-		query = "SELECT id, nombre, codigo_hex FROM produccion_colores ORDER BY nombre"
-		rows = self.db.fetch_all(query)
-
-		colores: List[ProduccionColor] = []
-		for row in rows:
-			id_, nombre, codigo_hex = row
-			colores.append(ProduccionColor(
-				id=id_,
-				nombre=nombre,
-				codigo_hex=codigo_hex
-			))
-		return colores
+		# La tabla no tiene columna 'activo' actualmente, devolvemos todos ordenados
+		return self.get_todos()
 
 	def get_por_id(self, color_id: int) -> Optional[ProduccionColor]:
 		"""Obtener un color por su ID.
@@ -67,17 +58,18 @@ class ProduccionColoresRepository:
 		Returns:
 			Objeto ProduccionColor o None si no existe.
 		"""
-		query = "SELECT id, nombre, codigo_hex FROM produccion_colores WHERE id = ?"
+		query = "SELECT id, nombre, codigo_hex, orden FROM produccion_colores WHERE id = ?"
 		rows = self.db.fetch_all(query, (color_id,))
 
 		if not rows:
 			return None
 
-		id_, nombre, codigo_hex = rows[0]
+		id_, nombre, codigo_hex, orden = rows[0]
 		return ProduccionColor(
 			id=id_,
 			nombre=nombre,
-			codigo_hex=codigo_hex
+			codigo_hex=codigo_hex,
+			orden=orden or 0
 		)
 
 	def crear(self, color: ProduccionColor) -> bool:
@@ -91,10 +83,10 @@ class ProduccionColoresRepository:
 		"""
 		try:
 			query = """
-				INSERT INTO produccion_colores (nombre, codigo_hex)
-				VALUES (?, ?)
+				INSERT INTO produccion_colores (nombre, codigo_hex, orden)
+				VALUES (?, ?, ?)
 			"""
-			self.db.execute_query(query, (color.nombre, color.codigo_hex))
+			self.db.execute_query(query, (color.nombre, color.codigo_hex, color.orden))
 			return True
 		except Exception:
 			import logging
@@ -116,40 +108,51 @@ class ProduccionColoresRepository:
 		try:
 			query = """
 				UPDATE produccion_colores
-				SET nombre = ?, codigo_hex = ?
+				SET nombre = ?, codigo_hex = ?, orden = ?
 				WHERE id = ?
 			"""
-			self.db.execute_query(query, (color.nombre, color.codigo_hex, color.id))
+			self.db.execute_query(query, (color.nombre, color.codigo_hex, color.orden, color.id))
 			return True
 		except Exception:
 			import logging
 			logging.exception(f"Error actualizando color {color.id}")
 			return False
 
+	def actualizar_orden(self, color_id: int, nuevo_orden: int) -> bool:
+		"""Actualizar solo el campo orden de un color."""
+		try:
+			query = "UPDATE produccion_colores SET orden = ? WHERE id = ?"
+			self.db.execute_query(query, (nuevo_orden, color_id))
+			return True
+		except Exception:
+			import logging
+			logging.exception(f"Error actualizando orden de color {color_id}")
+			return False
+
 	def get_por_tipo_3d(self, tipo_id: int, variante_id: Optional[int] = None) -> List[ProduccionColor]:
 		"""Obtener colores asignados a un tipo o variante (matriz), sin filtrar por stock actual."""
 		if variante_id:
 			query = """
-				SELECT DISTINCT c.id, c.nombre, c.codigo_hex
+				SELECT DISTINCT c.id, c.nombre, c.codigo_hex, c.orden
 				FROM produccion_colores c
 				JOIN produccion_stock_colores_tallas s ON c.id = s.color_id
 				WHERE s.tipo_id = ? AND s.variante_id = ?
-				ORDER BY c.nombre
+				ORDER BY c.orden, c.nombre
 			"""
 			params = (tipo_id, variante_id)
 		else:
 			query = """
-				SELECT DISTINCT c.id, c.nombre, c.codigo_hex
+				SELECT DISTINCT c.id, c.nombre, c.codigo_hex, c.orden
 				FROM produccion_colores c
 				JOIN produccion_stock_colores_tallas s ON c.id = s.color_id
 				WHERE s.tipo_id = ? AND s.variante_id IS NULL
-				ORDER BY c.nombre
+				ORDER BY c.orden, c.nombre
 			"""
 			params = (tipo_id,)
 			
 		rows = self.db.fetch_all(query, params)
 		return [
-			ProduccionColor(id=r[0], nombre=r[1], codigo_hex=r[2])
+			ProduccionColor(id=r[0], nombre=r[1], codigo_hex=r[2], orden=r[3] or 0)
 			for r in rows
 		]
 

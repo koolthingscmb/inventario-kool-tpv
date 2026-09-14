@@ -64,6 +64,26 @@ class ConfigTabColores:
         self._preview.pack(pady=5, padx=20)
         self._entry_hex.bind("<KeyRelease>", lambda e: self._actualizar_preview())
 
+        # Flechas de orden
+        f_arrows = tk.Frame(frame_form, bg="#34495e")
+        f_arrows.pack(pady=5)
+        
+        self._btn_up = ButtonFactory.create_button(
+            f_arrows, text="▲", width=40, height=40,
+            module="produccion", palette_key="secondary", style_key="action_confirm",
+            command=lambda: self._mover_orden('up')
+        )
+        self._btn_up.configure(corner_radius=20)
+        self._btn_up.pack(side=tk.LEFT, padx=10)
+        
+        self._btn_down = ButtonFactory.create_button(
+            f_arrows, text="▼", width=40, height=40,
+            module="produccion", palette_key="secondary", style_key="action_confirm",
+            command=lambda: self._mover_orden('down')
+        )
+        self._btn_down.configure(corner_radius=20)
+        self._btn_down.pack(side=tk.LEFT, padx=10)
+
         frame_btns = tk.Frame(frame_form, bg="#34495e")
         frame_btns.pack(pady=(15, 5), padx=20, fill=tk.X)
 
@@ -223,6 +243,23 @@ class ConfigTabColores:
         if self._color_id_edit:
             self.service.eliminar_color(self._color_id_edit)
             self._limpiar()
+
+    def _mover_orden(self, direccion):
+        """Mueve el color seleccionado arriba o abajo."""
+        if not self._color_id_edit:
+            from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
+            ToastWidget.show(self.parent, "Selecciona un color primero", tipo="warning")
+            return
+            
+        color_id_actual = self._color_id_edit
+        
+        if self.service.mover_orden_color(color_id_actual, direccion):
+            self._cargar_chips()
+            # Re-seleccionar automáticamente el color movido
+            self._select_chip(color_id_actual)
+        else:
+            from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
+            ToastWidget.show(self.parent, "Error al mover orden", tipo="error")
 
     def refresh_nav(self):
         self._cargar_chips()

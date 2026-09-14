@@ -29,6 +29,36 @@ def initialize_database(db_path: str) -> None:
 		# Run migrations script if critical tables missing
 		required_tables = ["productos", "tickets", "cierres"]
 
+		# Migración 042: campo orden en tipos_variantes
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('tipos_variantes')") or [])]
+			if 'orden' not in cols:
+				logging.info('Aplicando migración 042: campo orden en tipos_variantes')
+				db.connection.execute("ALTER TABLE tipos_variantes ADD COLUMN orden INTEGER DEFAULT 0")
+				db.connection.commit()
+				logging.info('Migración 042 aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 042')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
+		# Migración 043: campo orden en produccion_colores
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('produccion_colores')") or [])]
+			if 'orden' not in cols:
+				logging.info('Aplicando migración 043: campo orden en produccion_colores')
+				db.connection.execute("ALTER TABLE produccion_colores ADD COLUMN orden INTEGER DEFAULT 0")
+				db.connection.commit()
+				logging.info('Migración 043 aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 043')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Check existence
 		existing = []
 		try:

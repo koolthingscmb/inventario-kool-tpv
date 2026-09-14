@@ -6,3 +6,4 @@ class ProduccionColor:
     id: Optional[int] = None
     nombre: str = ""
     codigo_hex: Optional[str] = None
+    orden: int = 0

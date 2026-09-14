@@ -10,7 +10,7 @@ import customtkinter as ctk
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.produccion.models.produccion_tipo_variante_model import ProduccionTipoVariante
 from kool_tpv.modulos.produccion.services.produccion_tipos_variantes_service import ProduccionTiposVariantesService
-from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font, get_chip_config, get_chip_style, get_nav_button_config, get_nav_button_style
+from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font, get_chip_config, get_chip_style, get_nav_button_config, get_nav_button_style, get_dynamic_chip_font
 from kool_tpv.utils.keyboard_nav_mixin import KeyboardNavigableMixin
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 
@@ -107,6 +107,9 @@ class NuevaProduccionVarianteView(ctk.CTkFrame, KeyboardNavigableMixin):
         chip_font = (font_family[0], default_style.get("font_size", 14), font_family[2])
 
         for idx, var in enumerate(variantes):
+            # Fuente dinámica
+            d_font = get_dynamic_chip_font(var.nombre, chip_font, threshold=12, reduction=2)
+            
             btn = ctk.CTkButton(
                 master=self.chips_frame,
                 text=var.nombre,
@@ -117,7 +120,7 @@ class NuevaProduccionVarianteView(ctk.CTkFrame, KeyboardNavigableMixin):
                 border_width=default_style.get("border_width", 1),
                 corner_radius=corner_radius,
                 height=chip_height,
-                font=chip_font,
+                font=d_font,
                 cursor="hand2"
             )
             row = idx // cols
@@ -153,13 +156,17 @@ class NuevaProduccionVarianteView(ctk.CTkFrame, KeyboardNavigableMixin):
         style = get_chip_style(self._chip_cfg, state)
         font_key = self._chip_cfg.get("font_key", "label")
         font_family = get_font(self.config, font_key)
+        
+        # Mantener la lógica de fuente dinámica al cambiar el estado
+        d_font = get_dynamic_chip_font(btn.cget("text"), (font_family[0], style.get("font_size", 14), font_family[2]))
+        
         btn.configure(
             fg_color=style.get("bg", "#1a1a2e"),
             text_color=style.get("text", "#e0e0e0"),
             border_color=style.get("border", "#552583"),
             hover_color=style.get("hover", "#C77BFF"),
             border_width=style.get("border_width", 1),
-            font=(font_family[0], style.get("font_size", 14), font_family[2])
+            font=d_font
         )
 
     def _crear_botones_navegacion(self):

@@ -14,5 +14,6 @@ class ProduccionTipoVariante:
     requiere_color: int = 0
     grupo_talla_id: Optional[int] = None
     shopify_variant_id: Optional[str] = None
+    orden: int = 0
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
