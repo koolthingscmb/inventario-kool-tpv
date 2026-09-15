@@ -2,6 +2,7 @@ import logging
 import requests
 from typing import List, Dict, Any, Optional, Tuple
 from .base_source import BaseSource
+from .manga_data import MangaData
 from ..shopify_config_service import ShopifyConfigService
 from kool_tpv.base_datos.db_wrapper import Database
 
@@ -159,3 +160,17 @@ class GoogleBooksSource(BaseSource):
             logger.exception(f"Error detalle Google Books ID {media_id}")
             
         return None
+
+    def normalize(self, raw: Dict[str, Any]) -> MangaData:
+        md = MangaData()
+        if not raw:
+            return md
+        authors = raw.get('authors') or []
+        md.autor = ", ".join(authors)
+        md.editorial = raw.get('publisher') or ''
+        published = raw.get('publishedDate') or ''
+        if published:
+            md.anio = str(published)[:4]
+        md.sinopsis = raw.get('description') or ''
+        md.generos = list(raw.get('categories') or [])
+        return md

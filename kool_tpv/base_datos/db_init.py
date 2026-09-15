@@ -59,6 +59,89 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migración 044: campos editorial, nombre_original y sinopsis en productos
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('productos')") or [])]
+			nuevos_campos = {
+				'editorial': "ALTER TABLE productos ADD COLUMN editorial TEXT",
+				'nombre_original': "ALTER TABLE productos ADD COLUMN nombre_original TEXT",
+				'sinopsis': "ALTER TABLE productos ADD COLUMN sinopsis TEXT"
+			}
+			aplicada = False
+			for campo, sql in nuevos_campos.items():
+				if campo not in cols:
+					logging.info(f'Aplicando migración 044: campo {campo} en productos')
+					db.connection.execute(sql)
+					aplicada = True
+			
+			if aplicada:
+				db.connection.commit()
+				logging.info('Migración 044 aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 044')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
+		# Migración 045: campo datos_tecnicos en productos
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('productos')") or [])]
+			if 'datos_tecnicos' not in cols:
+				logging.info('Aplicando migración 045: campo datos_tecnicos en productos')
+				db.connection.execute("ALTER TABLE productos ADD COLUMN datos_tecnicos TEXT")
+				db.connection.commit()
+				logging.info('Migración 045 aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 045')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
+		# Migración 046: eliminar fuente Jikan (API pública en desmantelamiento)
+		try:
+			db.connection.execute("DELETE FROM configuracion WHERE clave = 'shopify_source_jikan'")
+			db.connection.execute("DELETE FROM shopify_source_type_mapping WHERE source_id = 'source_jikan'")
+			db.connection.commit()
+			logging.info('Migración 046 (retirada de Jikan) aplicada')
+		except Exception:
+			logging.exception('Error aplicando migración 046')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
+		# Migración 047: activar por defecto las fuentes Wikipedia ES/EN
+		try:
+			db.connection.execute("INSERT OR IGNORE INTO configuracion (clave, valor) VALUES ('shopify_source_wikipedia_es', '1')")
+			db.connection.execute("INSERT OR IGNORE INTO configuracion (clave, valor) VALUES ('shopify_source_wikipedia_en', '1')")
+			db.connection.commit()
+			logging.info('Migración 047 (fuentes Wikipedia activadas) aplicada')
+		except Exception:
+			logging.exception('Error aplicando migración 047')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
+		# Migración 048: mapear Wikipedia ES/EN al tipo MANGA (16) para BUSCAR DATA
+		try:
+			for src_id in ('source_wikipedia_es', 'source_wikipedia_en'):
+				db.connection.execute(
+					"INSERT INTO shopify_source_type_mapping (source_id, tipo_id) "
+					"SELECT ?, 16 WHERE NOT EXISTS ("
+					"SELECT 1 FROM shopify_source_type_mapping WHERE source_id = ? AND tipo_id = 16)",
+					(src_id, src_id))
+			db.connection.commit()
+			logging.info('Migración 048 (Wikipedia mapeada a MANGA) aplicada')
+		except Exception:
+			logging.exception('Error aplicando migración 048')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Check existence
 		existing = []
 		try:

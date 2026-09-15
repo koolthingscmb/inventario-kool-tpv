@@ -18,10 +18,11 @@ class ShopifyConfigService:
         "google_api_key": "shopify_google_api_key",
         "ia_seo_prompt": "shopify_ia_seo_prompt",
         "source_anilist": "shopify_source_anilist",
-        "source_jikan": "shopify_source_jikan",
         "source_mangadex": "shopify_source_mangadex",
         "source_bgg": "shopify_source_bgg",
-        "source_google_books": "shopify_source_google_books"
+        "source_google_books": "shopify_source_google_books",
+        "source_wikipedia_es": "shopify_source_wikipedia_es",
+        "source_wikipedia_en": "shopify_source_wikipedia_en"
     }
 
     def __init__(self, db: Database):
@@ -43,7 +44,7 @@ class ShopifyConfigService:
                         config[reverse_keys[clave_db]] = valor
             
             # Conversión de tipos para booleanos
-            bool_keys = ["sync_active", "source_anilist", "source_jikan", "source_mangadex", "source_bgg", "source_google_books"]
+            bool_keys = ["sync_active", "source_anilist", "source_mangadex", "source_bgg", "source_google_books", "source_wikipedia_es", "source_wikipedia_en"]
             for bk in bool_keys:
                 if bk in config:
                     config[bk] = config[bk] == "1"

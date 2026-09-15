@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional, Tuple
+from .manga_data import MangaData
 
 class BaseSource(ABC):
     """Clase base abstracta para todas las fuentes de datos externas."""
@@ -40,3 +41,10 @@ class BaseSource(ABC):
     def get_details(self, identifier: Any) -> Optional[Dict[str, Any]]:
         """Obtiene el detalle completo de un ítem."""
         pass
+
+    def normalize(self, raw: Dict[str, Any]) -> MangaData:
+        """Traduce el dict crudo de get_details() al modelo común MangaData.
+
+        Cada fuente puede sobreescribirlo. Por defecto devuelve un MangaData vacío.
+        """
+        return MangaData()

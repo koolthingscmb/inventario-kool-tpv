@@ -51,6 +51,7 @@ class CrearProductoUI:
         self.producto_id = producto_id
         self.owner = owner
         self.repo = ProductoRepository(db) if db is not None else None
+        self._tech_extra = {}
         from kool_tpv.utils.config_loader import load_colors
         try:
             self.colors = load_colors(module_name)
@@ -74,7 +75,7 @@ class CrearProductoUI:
         for c in range(8):
             self.general_frame.grid_columnconfigure(c, weight=1, uniform='col')
 
-        # Fila 1: ID (2 col block) | NOMBRE (6 col block)
+        # Fila 1: ID (1) | NOMBRE (3) | ORIGINAL (2) | OBTENER (1)
         ctk.CTkLabel(self.general_frame, text="ID:", text_color=self.colors['text'], font=lbl_font).grid(row=0, column=0, sticky='w', padx=6, pady=6)
         # Use a StringVar so we can react when ID is set/changed and refresh 'Tesoro'
         try:
@@ -85,23 +86,59 @@ class CrearProductoUI:
             self.e_id = ctk.CTkEntry(self.general_frame, textvariable=self.e_id_var, placeholder_text="ID (auto)", state='disabled', fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors.get('light', '#666666'), border_color=self.colors.get('border', self.colors.get('primary', COLOR_MATRIX)))
         else:
             self.e_id = ctk.CTkEntry(self.general_frame, placeholder_text="ID (auto)", state='disabled', fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors.get('light', '#666666'), border_color=self.colors.get('border', self.colors.get('primary', COLOR_MATRIX)))
-        self.e_id.grid(row=0, column=1, columnspan=1, sticky='ew', padx=6, pady=6)
+        self.e_id.grid(row=0, column=1, sticky='ew', padx=6, pady=6)
 
         ctk.CTkLabel(self.general_frame, text="NOMBRE:", text_color=self.colors['text'], font=lbl_font).grid(row=0, column=2, sticky='w', padx=6, pady=6)
         self.e_nombre = ctk.CTkEntry(self.general_frame, placeholder_text="Nombre del producto", **entry_kwargs)
-        self.e_nombre.grid(row=0, column=3, columnspan=5, sticky='ew', padx=6, pady=6)
+        self.e_nombre.grid(row=0, column=3, columnspan=2, sticky='ew', padx=6, pady=6)
         self.e_nombre.bind('<FocusOut>', lambda e: self._auto_generate_sku())
 
-        # Fila 2: SKU (4 col) | NOMBRE_BOTON (4 col)
+        ctk.CTkLabel(self.general_frame, text="ORIGINAL:", text_color=self.colors['text'], font=lbl_font).grid(row=0, column=5, sticky='w', padx=6, pady=6)
+        self.e_nombre_original = ctk.CTkEntry(self.general_frame, placeholder_text='Título original', **entry_kwargs)
+        self.e_nombre_original.grid(row=0, column=6, sticky='ew', padx=6, pady=6)
+
+        # Botón OBTENER
+        try:
+            self.btn_obtener = ButtonFactory.create_button(
+                parent=self.general_frame,
+                text='OBTENER',
+                command=self._on_obtener,
+                style_key="mini_action",
+                module='almacen',
+                palette_key='accent'
+            )
+            self.btn_obtener.grid(row=0, column=7, sticky='ew', padx=6, pady=6)
+        except Exception:
+            logger.exception('Error creando botón OBTENER')
+
+        # Fila 2: SKU (3) | EDITORIAL (2) | IR (1) | NOMBRE_BOTÓN (2)
         ctk.CTkLabel(self.general_frame, text="SKU:", text_color=self.colors['text'], font=lbl_font).grid(row=1, column=0, sticky='w', padx=6, pady=6)
         self.e_sku = ctk.CTkEntry(self.general_frame, placeholder_text='SKU', **entry_kwargs)
-        self.e_sku.grid(row=1, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
+        self.e_sku.grid(row=1, column=1, columnspan=2, sticky='ew', padx=6, pady=6)
 
-        ctk.CTkLabel(self.general_frame, text="NOMBRE_BOTON:", text_color=self.colors['text'], font=lbl_font).grid(row=1, column=4, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.general_frame, text="EDITORIAL:", text_color=self.colors['text'], font=lbl_font).grid(row=1, column=3, sticky='w', padx=6, pady=6)
+        self.e_editorial = ctk.CTkEntry(self.general_frame, placeholder_text='Editorial', **entry_kwargs)
+        self.e_editorial.grid(row=1, column=4, sticky='ew', padx=6, pady=6)
+        
+        # Botón IR para editorial
+        try:
+            self.btn_ir_editorial = ButtonFactory.create_button(
+                parent=self.general_frame,
+                text='IR',
+                command=self._on_buscar_editorial,
+                style_key="mini_action",
+                module='almacen',
+                palette_key='secondary'
+            )
+            self.btn_ir_editorial.grid(row=1, column=5, sticky='ew', padx=6, pady=6)
+        except Exception:
+            logger.exception('Error creando botón IR editorial')
+
+        ctk.CTkLabel(self.general_frame, text="BOTÓN:", text_color=self.colors['text'], font=lbl_font).grid(row=1, column=6, sticky='w', padx=6, pady=6)
         self.e_nombre_btn = ctk.CTkEntry(self.general_frame, placeholder_text='Texto botón', **entry_kwargs)
-        self.e_nombre_btn.grid(row=1, column=5, columnspan=3, sticky='ew', padx=6, pady=6)
+        self.e_nombre_btn.grid(row=1, column=7, sticky='ew', padx=6, pady=6)
 
-        # Fila 3: CATEGORIA | TIPO | PROVEEDOR (distribuidos)
+        # Fila 3: CATEGORIA | TIPO | PROVEEDOR (sin cambios)
         ctk.CTkLabel(self.general_frame, text="CATEGORÍA:", text_color=self.colors['text'], font=lbl_font).grid(row=2, column=0, sticky='w', padx=6, pady=6)
         self.cb_categoria = SearchableCombo(self.general_frame, placeholder='Buscar categoría')
         self.cb_categoria.grid(row=2, column=1, columnspan=2, sticky='ew', padx=6, pady=6)
@@ -114,35 +151,33 @@ class CrearProductoUI:
         self.cb_proveedor = SearchableCombo(self.general_frame, placeholder='Buscar proveedor')
         self.cb_proveedor.grid(row=2, column=7, sticky='ew', padx=6, pady=6)
 
-        # Fila 4: PVP (4 col) | COSTE (4 col)
+        # Fila 4: PVP | COSTE | IVA
         ctk.CTkLabel(self.general_frame, text="PVP:", text_color=self.colors['text'], font=lbl_font).grid(row=3, column=0, sticky='w', padx=6, pady=6)
         self.e_pvp = ctk.CTkEntry(self.general_frame, placeholder_text='0.00', **entry_kwargs)
-        self.e_pvp.grid(row=3, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
+        self.e_pvp.grid(row=3, column=1, columnspan=2, sticky='ew', padx=6, pady=6)
 
-        ctk.CTkLabel(self.general_frame, text="COSTE:", text_color=self.colors['text'], font=lbl_font).grid(row=3, column=4, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.general_frame, text="COSTE:", text_color=self.colors['text'], font=lbl_font).grid(row=3, column=3, sticky='w', padx=6, pady=6)
         self.e_coste = ctk.CTkEntry(self.general_frame, placeholder_text='0.00', **entry_kwargs)
-        self.e_coste.grid(row=3, column=5, columnspan=3, sticky='ew', padx=6, pady=6)
+        self.e_coste.grid(row=3, column=4, columnspan=2, sticky='ew', padx=6, pady=6)
 
-        # Fila 5: TIPO_IVA (2 col) | PVP_VARIABLE (3 col) | FABRICADO_POR_NOSOTROS (3 col)
-        ctk.CTkLabel(self.general_frame, text="TIPO_IVA:", text_color=self.colors['text'], font=lbl_font).grid(row=4, column=0, sticky='w', padx=6, pady=6)
-        self.cb_iva = SearchableCombo(self.general_frame, placeholder='IVA (ej: 21)')
-        self.cb_iva.grid(row=4, column=1, columnspan=1, sticky='ew', padx=6, pady=6)
+        ctk.CTkLabel(self.general_frame, text="TIPO_IVA:", text_color=self.colors['text'], font=lbl_font).grid(row=3, column=6, sticky='w', padx=6, pady=6)
+        self.cb_iva = SearchableCombo(self.general_frame, placeholder='IVA')
+        self.cb_iva.grid(row=3, column=7, sticky='ew', padx=6, pady=6)
 
-        # Variable para PVP_VARIABLE
+        # Fila 5: PVP_VARIABLE | PRODUCIDO | ACTIVO | TESORO
         self.chk_pvp_var_var = tk.BooleanVar(value=False)
-
-        ctk.CTkLabel(self.general_frame, text="PVP_VARIABLE:", text_color=self.colors['text'], font=lbl_font).grid(row=4, column=2, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.general_frame, text="PVP_VARIABLE:", text_color=self.colors['text'], font=lbl_font).grid(row=4, column=0, sticky='w', padx=6, pady=6)
         self.chk_pvp_var = ctk.CTkCheckBox(self.general_frame, text='', variable=self.chk_pvp_var_var, fg_color=self.colors['secondary'])
-        self.chk_pvp_var.grid(row=4, column=3, columnspan=1, sticky='w', padx=6, pady=6)
+        self.chk_pvp_var.grid(row=4, column=1, sticky='w', padx=6, pady=6)
 
-        # PRODUCCIÓN
         self.chk_fabricado_var = tk.BooleanVar(value=False)
-        ctk.CTkLabel(self.general_frame, text="PRODUCCIÓN:", text_color=self.colors['text'], font=lbl_font).grid(row=4, column=4, sticky='w', padx=6, pady=6)
-        self.chk_fabricado = ctk.CTkCheckBox(self.general_frame, text='Producido internamente', variable=self.chk_fabricado_var, fg_color=self.colors['secondary'])
-        self.chk_fabricado.grid(row=4, column=5, columnspan=3, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.general_frame, text="PRODUCIDO:", text_color=self.colors['text'], font=lbl_font).grid(row=4, column=2, sticky='w', padx=6, pady=6)
+        self.chk_fabricado = ctk.CTkCheckBox(self.general_frame, text='', variable=self.chk_fabricado_var, fg_color=self.colors['secondary'])
+        self.chk_fabricado.grid(row=4, column=3, sticky='w', padx=6, pady=6)
 
-        # Fila 7: STOCK_ACTUAL (4 col) | STOCK_MINIMO (4 col)
-        ctk.CTkLabel(self.general_frame, text="STOCK_ACTUAL:", text_color=self.colors['text'], font=lbl_font).grid(row=6, column=0, sticky='w', padx=6, pady=6)
+
+        # Fila 6: STOCK_ACTUAL | AJUSTAR | STOCK_MINIMO | VENTAS
+        ctk.CTkLabel(self.general_frame, text="STOCK_ACTUAL:", text_color=self.colors['text'], font=lbl_font).grid(row=5, column=0, sticky='w', padx=6, pady=6)
         
         # Campo stock_actual como readonly para forzar uso del botón AJUSTAR
         self.e_stock_actual = ctk.CTkEntry(
@@ -154,7 +189,7 @@ class CrearProductoUI:
             border_color=self.colors.get('border', self.colors.get('light', '#666666')),
             border_width=2
         )
-        self.e_stock_actual.grid(row=6, column=1, columnspan=2, sticky='ew', padx=6, pady=6)
+        self.e_stock_actual.grid(row=5, column=1, sticky='ew', padx=6, pady=6)
         
         # Botón AJUSTAR usando ButtonFactory ⭐
         try:
@@ -166,16 +201,15 @@ class CrearProductoUI:
                 module='almacen',
                 palette_key='accent'
             )
-            self.btn_ajustar.grid(row=6, column=3, sticky='ew', padx=6, pady=6)
+            self.btn_ajustar.grid(row=5, column=2, sticky='ew', padx=6, pady=6)
         except Exception:
             logger.exception('Error creando botón AJUSTAR')
 
-        ctk.CTkLabel(self.general_frame, text="STOCK_MINIMO:", text_color=self.colors['text'], font=lbl_font).grid(row=6, column=4, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.general_frame, text="STOCK_MINIMO:", text_color=self.colors['text'], font=lbl_font).grid(row=5, column=3, sticky='w', padx=6, pady=6)
         self.e_stock_min = ctk.CTkEntry(self.general_frame, placeholder_text='0', **entry_kwargs)
-        self.e_stock_min.grid(row=6, column=5, columnspan=3, sticky='ew', padx=6, pady=6)
+        self.e_stock_min.grid(row=5, column=4, columnspan=2, sticky='ew', padx=6, pady=6)
 
-        # Fila 8: VENTAS (read-only 4 col) | ESTADO (4 col)
-        ctk.CTkLabel(self.general_frame, text="VENTAS:", text_color=self.colors['text'], font=lbl_font).grid(row=7, column=0, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.general_frame, text="VENTAS:", text_color=self.colors['text'], font=lbl_font).grid(row=5, column=6, sticky='w', padx=6, pady=6)
         # Use a StringVar bound to the Entry so the UI can be updated even when readonly
         try:
             self.e_ventas_var = tk.StringVar(value='0')
@@ -192,7 +226,7 @@ class CrearProductoUI:
                 self.e_ventas = ctk.CTkEntry(self.general_frame, placeholder_text='0', state='disabled', fg_color=COLOR_BG_TERMINAL, text_color="#666666", border_color=self.colors['light'], border_width=2)
             except Exception:
                 self.e_ventas = tk.Entry(self.general_frame)
-        self.e_ventas.grid(row=7, column=1, columnspan=3, sticky='ew', padx=6, pady=6)
+        self.e_ventas.grid(row=5, column=7, sticky='ew', padx=6, pady=6)
 
         # Use a BooleanVar to track activo state
         self.chk_activo_var = tk.BooleanVar(value=True)
@@ -200,7 +234,7 @@ class CrearProductoUI:
         # Place a small container in the same grid cell to hold the 'Activo' label and the checkbox
         try:
             self._activo_frame = ctk.CTkFrame(self.general_frame, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
-            self._activo_frame.grid(row=7, column=5, columnspan=2, sticky='w', padx=6, pady=6)
+            self._activo_frame.grid(row=4, column=4, columnspan=2, sticky='w', padx=6, pady=6)
             try:
                 ctk.CTkLabel(self._activo_frame, text='Activo', text_color=self.colors['text'], font=lbl_font).pack(side='left')
             except Exception:
@@ -221,19 +255,19 @@ class CrearProductoUI:
         except Exception:
             # Fallback: place checkbox in grid and a separate label if frame creation fails
             try:
-                ctk.CTkLabel(self.general_frame, text='Activo', text_color=self.colors['text'], font=lbl_font).grid(row=7, column=5, sticky='w', padx=6, pady=6)
+                ctk.CTkLabel(self.general_frame, text='Activo', text_color=self.colors['text'], font=lbl_font).grid(row=4, column=4, sticky='w', padx=6, pady=6)
             except Exception:
                 try:
-                    tk.Label(self.general_frame, text='Activo').grid(row=7, column=5, sticky='w', padx=6, pady=6)
+                    tk.Label(self.general_frame, text='Activo').grid(row=4, column=4, sticky='w', padx=6, pady=6)
                 except Exception:
                     pass
             try:
                 self.chk_activo = ctk.CTkCheckBox(self.general_frame, text='Producto activo', variable=self.chk_activo_var, fg_color=self.colors['secondary'], text_color=self.colors['secondary'])
-                self.chk_activo.grid(row=7, column=6, columnspan=1, sticky='w', padx=6, pady=6)
+                self.chk_activo.grid(row=4, column=5, columnspan=1, sticky='w', padx=6, pady=6)
             except Exception:
                 try:
                     self.chk_activo = tk.Checkbutton(self.general_frame, text='Producto activo', variable=self.chk_activo_var)
-                    self.chk_activo.grid(row=7, column=6, columnspan=1, sticky='w', padx=6, pady=6)
+                    self.chk_activo.grid(row=4, column=5, columnspan=1, sticky='w', padx=6, pady=6)
                 except Exception:
                     pass
 
@@ -249,11 +283,10 @@ class CrearProductoUI:
                 self.lbl_tesoro = ctk.CTkLabel(self.general_frame, text='Tesoro: -', text_color=self.colors['text'], font=lbl_font)
         except Exception:
             self.lbl_tesoro = tk.Label(self.general_frame, text='Tesoro: -')
-        self.lbl_tesoro.grid(row=7, column=7, sticky='w', padx=6, pady=6)
+        self.lbl_tesoro.grid(row=4, column=7, sticky='e', padx=6, pady=6)
 
-        # Fila 9: CÓDIGOS_DE_BARRAS (CSV separado por comas)
-        lbl_barras = ctk.CTkLabel(self.general_frame, text="CÓDIGOS_DE_BARRAS (CSV):", text_color=self.colors['text'], font=lbl_font)
-        lbl_barras.grid(row=8, column=0, sticky='w', padx=6, pady=6, columnspan=4)
+        # Fila 7: CÓDIGOS_DE_BARRAS (CSV separado por comas)
+        ctk.CTkLabel(self.general_frame, text="CÓDIGOS:", text_color=self.colors['text'], font=lbl_font).grid(row=6, column=0, sticky='w', padx=6, pady=6)
         
         # Botón para generar código interno ⭐
         try:
@@ -265,7 +298,7 @@ class CrearProductoUI:
                 module='almacen',
                 palette_key='secondary'
             )
-            self.btn_gen_barcode.grid(row=8, column=4, columnspan=4, sticky='e', padx=6, pady=6)
+            self.btn_gen_barcode.grid(row=6, column=1, sticky='ew', padx=6, pady=6)
         except Exception:
             logger.exception('Error creando botón BARRAS')
 
@@ -273,10 +306,10 @@ class CrearProductoUI:
             self.e_codigos = ctk.CTkEntry(self.general_frame, placeholder_text='ean1,ean2,ean3', **entry_kwargs)
         except Exception:
             self.e_codigos = tk.Entry(self.general_frame)
-        self.e_codigos.grid(row=9, column=0, columnspan=8, sticky='nsew', padx=6, pady=6)
+        self.e_codigos.grid(row=6, column=2, columnspan=6, sticky='nsew', padx=6, pady=6)
 
         # Label separator for Shopify section (highlighted in yellow)
-        ctk.CTkLabel(self.general_frame, text='SHOPIFY', text_color=self.colors['secondary'], font=lbl_font).grid(row=10, column=0, columnspan=8, sticky='w', padx=6, pady=(12, 6))
+        ctk.CTkLabel(self.general_frame, text='SHOPIFY', text_color=self.colors['secondary'], font=lbl_font).grid(row=7, column=0, columnspan=8, sticky='w', padx=6, pady=(12, 6))
 
         # Load options from DB if available
         self._load_db_options()
@@ -285,20 +318,14 @@ class CrearProductoUI:
         for c in range(8):
             self.shopify_frame.grid_columnconfigure(c, weight=1, uniform='col')
 
-        # Fila 1: TITULO (Label + Entry, 8 col)
+        # Fila 1: TITULO (3 col) | LINK (4 col) | IR (1 col)
         ctk.CTkLabel(self.shopify_frame, text='TITULO:', text_color=self.colors['text'], font=lbl_font).grid(row=0, column=0, sticky='w', padx=6, pady=6)
-        self.e_seo_title = ctk.CTkEntry(self.shopify_frame, placeholder_text='Título web', **entry_kwargs)
-        self.e_seo_title.grid(row=0, column=1, columnspan=7, sticky='ew', padx=6, pady=6)
+        self.e_store_title = ctk.CTkEntry(self.shopify_frame, placeholder_text='Título web', **entry_kwargs)
+        self.e_store_title.grid(row=0, column=1, columnspan=2, sticky='ew', padx=6, pady=6)
 
-        # Fila 2: LINK (Label + Entry + Botón IR)
-        ctk.CTkLabel(self.shopify_frame, text='LINK:', text_color=self.colors['text'], font=lbl_font).grid(row=1, column=0, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.shopify_frame, text='LINK:', text_color=self.colors['text'], font=lbl_font).grid(row=0, column=3, sticky='w', padx=6, pady=6)
         self.e_shop_link = ctk.CTkEntry(self.shopify_frame, placeholder_text='https://…', **entry_kwargs)
-        self.e_shop_link.grid(row=1, column=1, columnspan=6, sticky='ew', padx=6, pady=6)
-        # IR button: prefer palette settings from colors_config.json
-        btn_cfg = self.colors.get('buttons', {}).get('primary', {})
-        btn_bg = btn_cfg.get('bg', self.colors.get('primary', '#3498db'))
-        btn_hover = btn_cfg.get('hover', btn_bg)
-        btn_text = btn_cfg.get('text', self.colors.get('text'))
+        self.e_shop_link.grid(row=0, column=4, columnspan=3, sticky='ew', padx=6, pady=6)
         try:
             ButtonFactory.create_button(
                 parent=self.shopify_frame,
@@ -307,22 +334,12 @@ class CrearProductoUI:
                 style_key="mini_action",
                 module='almacen',
                 palette_key='secondary'
-            ).grid(row=1, column=7, sticky='ew', padx=6, pady=6)
+            ).grid(row=0, column=7, sticky='ew', padx=6, pady=6)
         except Exception:
-            try:
-                ButtonFactory.create_button(
-                    parent=self.shopify_frame,
-                    text='IR',
-                    command=self._open_shop_link,
-                    style_key="mini_action",
-                    module='almacen',
-                    palette_key='secondary'
-                ).grid(row=1, column=7, sticky='ew', padx=6, pady=6)
-            except Exception:
-                pass
+            pass
 
-        # Fila 3: TAXONOMY (static vinculado, 4 col) | TIPO_SHOP (label+entry, 4 col)
-        ctk.CTkLabel(self.shopify_frame, text='TAXONOMY:', text_color=self.colors['text'], font=lbl_font).grid(row=2, column=0, sticky='w', padx=6, pady=6)
+        # Fila 2: TAXONOMY (2 col) | TIPO_SHOP (2 col) | TAGS (4 col)
+        ctk.CTkLabel(self.shopify_frame, text='TAXONOMY:', text_color=self.colors['text'], font=lbl_font).grid(row=1, column=0, sticky='w', padx=6, pady=6)
         # Readonly entry to allow selection/copy but prevent manual edits
         try:
             self.ent_taxonomy = ctk.CTkEntry(self.shopify_frame, placeholder_text='', state='readonly', fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors['light'], border_width=2, border_color=self.colors.get('border', self.colors.get('secondary', COLOR_MATRIX)), corner_radius=4)
@@ -333,22 +350,44 @@ class CrearProductoUI:
                 self.ent_taxonomy.configure(state='readonly')
             except Exception:
                 pass
-        # Make taxonomy wider (occupy 2 columns) and expand horizontally
-        self.ent_taxonomy.grid(row=2, column=1, columnspan=2, sticky='ew', padx=6, pady=6)
+        self.ent_taxonomy.grid(row=1, column=1, sticky='ew', padx=6, pady=6)
 
-        ctk.CTkLabel(self.shopify_frame, text='TIPO_SHOP:', text_color=self.colors['text'], font=lbl_font).grid(row=2, column=4, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.shopify_frame, text='TIPO_SHOP:', text_color=self.colors['text'], font=lbl_font).grid(row=1, column=2, sticky='w', padx=6, pady=6)
         self.e_tipo_shop = ctk.CTkEntry(self.shopify_frame, placeholder_text='Tipo shop', **entry_kwargs)
-        self.e_tipo_shop.grid(row=2, column=5, columnspan=3, sticky='ew', padx=6, pady=6)
+        self.e_tipo_shop.grid(row=1, column=3, sticky='ew', padx=6, pady=6)
 
-        # Fila 4: TAGS (ocupa toda la fila, 8 columnas)
-        ctk.CTkLabel(self.shopify_frame, text='TAGS:', text_color=self.colors['text'], font=lbl_font).grid(row=3, column=0, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.shopify_frame, text='TAGS:', text_color=self.colors['text'], font=lbl_font).grid(row=1, column=4, sticky='w', padx=6, pady=6)
         self.e_tags = ctk.CTkEntry(self.shopify_frame, placeholder_text='tag1, tag2', **entry_kwargs)
-        self.e_tags.grid(row=3, column=1, columnspan=7, sticky='ew', padx=6, pady=6)
+        self.e_tags.grid(row=1, column=5, columnspan=3, sticky='ew', padx=6, pady=6)
 
-        # Fila 5: SEO_TITLE (Label + Entry, 8 col)
-        ctk.CTkLabel(self.shopify_frame, text='SEO_TITLE:', text_color=self.colors['text'], font=lbl_font).grid(row=4, column=0, sticky='w', padx=6, pady=6)
-        self.e_seo_short = ctk.CTkEntry(self.shopify_frame, placeholder_text='SEO short title', **entry_kwargs)
-        self.e_seo_short.grid(row=4, column=1, columnspan=7, sticky='ew', padx=6, pady=6)
+        # Fila 3: SEO_TITLE (Label + Entry, 8 col)
+        ctk.CTkLabel(self.shopify_frame, text='SEO_TITLE:', text_color=self.colors['text'], font=lbl_font).grid(row=2, column=0, sticky='w', padx=6, pady=6)
+        self.e_google_title = ctk.CTkEntry(self.shopify_frame, placeholder_text='SEO short title', **entry_kwargs)
+        self.e_google_title.grid(row=2, column=1, columnspan=7, sticky='ew', padx=6, pady=6)
+
+        # Fila 4: AUTOR (3 col) | AÑO (1 col) | DEMOG (2 col)
+        ctk.CTkLabel(self.shopify_frame, text='AUTOR:', text_color=self.colors['text'], font=lbl_font).grid(row=3, column=0, sticky='w', padx=6, pady=6)
+        self.e_autor = ctk.CTkEntry(self.shopify_frame, placeholder_text='Autor', **entry_kwargs)
+        self.e_autor.grid(row=3, column=1, columnspan=2, sticky='ew', padx=6, pady=6)
+
+        ctk.CTkLabel(self.shopify_frame, text='AÑO:', text_color=self.colors['text'], font=lbl_font).grid(row=3, column=3, sticky='w', padx=6, pady=6)
+        self.e_anio = ctk.CTkEntry(self.shopify_frame, placeholder_text='Año', **entry_kwargs)
+        self.e_anio.grid(row=3, column=4, sticky='ew', padx=6, pady=6)
+
+        ctk.CTkLabel(self.shopify_frame, text='DEMOG:', text_color=self.colors['text'], font=lbl_font).grid(row=3, column=5, sticky='w', padx=6, pady=6)
+        self.e_demog = ctk.CTkEntry(self.shopify_frame, placeholder_text='Demografía', **entry_kwargs)
+        self.e_demog.grid(row=3, column=6, columnspan=2, sticky='ew', padx=6, pady=6)
+
+        # Fila 5: SINOPSIS (textbox, entrada real)
+        ctk.CTkLabel(self.shopify_frame, text='SINOPSIS:', text_color=self.colors['text'], font=lbl_font).grid(row=4, column=0, sticky='nw', padx=6, pady=6)
+        try:
+            self.txt_sinopsis = ctk.CTkTextbox(self.shopify_frame, width=800, height=60, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors['text'], border_width=2, border_color=self.colors.get('border', self.colors.get('primary', COLOR_MATRIX)))
+            self.txt_sinopsis.grid(row=4, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
+        except Exception:
+            frame_sin = ctk.CTkFrame(self.shopify_frame, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), border_width=2, border_color=self.colors.get('border', self.colors.get('primary', COLOR_MATRIX)))
+            self.txt_sinopsis = tk.Text(frame_sin, bg=self.colors.get('background', COLOR_BG_TERMINAL), fg=self.colors['text'], height=3)
+            self.txt_sinopsis.pack(fill='both', expand=True)
+            frame_sin.grid(row=4, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
 
         # Fila 6: SEO_DESCRIPTION (CTkTextbox, altura menor 80px, 8 col)
         ctk.CTkLabel(self.shopify_frame, text='SEO_DESCRIPTION:', text_color=self.colors['text'], font=lbl_font).grid(row=5, column=0, sticky='nw', padx=6, pady=6)
@@ -734,6 +773,115 @@ class CrearProductoUI:
             except Exception:
                 logging.exception('Error abriendo shop link')
 
+    def _on_buscar_editorial(self):
+        """Abre la búsqueda del tomo en la web de la editorial o Google."""
+        try:
+            editorial = self.e_editorial.get().strip()
+            nombre = self.e_nombre.get().strip()
+            
+            if not nombre:
+                ToastWidget.show(self.container, "Introduce el nombre del producto", tipo='warning')
+                return
+
+            # Por ahora búsqueda en Google con el contexto de la editorial
+            query = f"{nombre}"
+            if editorial:
+                query += f" editorial {editorial}"
+            
+            import urllib.parse
+            url = f"https://www.google.com/search?q={urllib.parse.quote(query)}"
+            webbrowser.open(url)
+            
+        except Exception:
+            logger.exception("Error en _on_buscar_editorial")
+
+    def _on_obtener(self):
+        """Busca el título original (romaji/kanji) y datos técnicos por el nombre español."""
+        try:
+            nombre = self.e_nombre.get().strip()
+            if not nombre:
+                ToastWidget.show(self.container, "Introduce el nombre del producto", tipo='warning')
+                return
+
+            service = BuscarDataService(self.db)
+            context = ''
+            try:
+                context = (self.cb_tipo.get() or '').strip().lower()
+            except Exception:
+                pass
+
+            ToastWidget.show(self.container, 'Buscando título original...', tipo='info')
+            results = service.search_for_obtener(nombre, context=context)
+
+            if not results:
+                # Fallback: abrir búsqueda en el navegador para localizar el romaji a mano
+                try:
+                    import urllib.parse
+                    q = f"nombre original romaji de {nombre} manga"
+                    webbrowser.open(f"https://www.google.com/search?q={urllib.parse.quote(q)}")
+                except Exception:
+                    logger.exception('Error abriendo búsqueda en navegador')
+                ToastWidget.show(self.container, "Sin resultados en APIs. Búsqueda abierta en el navegador", tipo='info')
+                return
+
+            selected = show_source_search_dialog(self.parent, results)
+            if not selected:
+                return
+
+            md = service.get_manga_data(selected["source_id"], selected["id"])
+            if not md or not md.titulo_romaji:
+                ToastWidget.show(self.container, "No se encontró el título original", tipo='warning')
+                return
+
+            # OBTENER solo rellena el campo ORIGINAL (romaji); el kanji se guarda en datos_tecnicos
+            self.e_nombre_original.delete(0, 'end')
+            self.e_nombre_original.insert(0, md.titulo_romaji)
+            try:
+                if md.titulo_nativo:
+                    if self._tech_extra is None:
+                        self._tech_extra = {}
+                    self._tech_extra['kanji'] = md.titulo_nativo
+            except Exception:
+                pass
+            ToastWidget.show(self.container, "Nombre original obtenido", tipo='success')
+
+        except Exception:
+            logger.exception('Error en _on_obtener')
+            ToastWidget.show(self.container, "Error inesperado en OBTENER", tipo='error')
+
+    def _apply_manga_data(self, md):
+        """Vuelca un MangaData en los campos de la UI (sin pisar lo ya escrito)."""
+        def _fill(entry, value):
+            if not value or entry is None:
+                return
+            try:
+                if (entry.get() or '').strip():
+                    return
+                entry.delete(0, 'end')
+                entry.insert(0, str(value))
+            except Exception:
+                pass
+
+        _fill(getattr(self, 'e_nombre_original', None), md.titulo_romaji)
+        _fill(getattr(self, 'e_autor', None), md.autor)
+        _fill(getattr(self, 'e_anio', None), md.anio)
+        _fill(getattr(self, 'e_demog', None), md.demografia)
+        _fill(getattr(self, 'e_editorial', None), md.editorial)
+        _fill(getattr(self, 'e_tags', None), ", ".join(md.generos) if md.generos else '')
+
+        # Kanji, géneros y estado persisten dentro de datos_tecnicos
+        try:
+            if self._tech_extra is None:
+                self._tech_extra = {}
+            if md.titulo_nativo:
+                self._tech_extra['kanji'] = md.titulo_nativo
+            if md.generos:
+                self._tech_extra['generos'] = list(md.generos)
+            if md.estado:
+                self._tech_extra['estado'] = md.estado
+        except Exception:
+            pass
+
     def get_widget(self):
         return self.container
 
@@ -869,12 +1017,12 @@ class CrearProductoUI:
 
         # Campos Shopify adicionales
         try:
-            titulo = (getattr(self, 'e_seo_title', None) and self.e_seo_title.get()) or ''
+            titulo = (getattr(self, 'e_store_title', None) and self.e_store_title.get()) or ''
         except Exception:
             titulo = ''
 
         try:
-            seo_title = (getattr(self, 'e_seo_short', None) and self.e_seo_short.get()) or ''
+            seo_title = (getattr(self, 'e_google_title', None) and self.e_google_title.get()) or ''
         except Exception:
             seo_title = ''
 
@@ -894,6 +1042,43 @@ class CrearProductoUI:
             shop_link = (getattr(self, 'e_shop_link', None) and self.e_shop_link.get()) or ''
         except Exception:
             shop_link = ''
+
+        try:
+            editorial = (getattr(self, 'e_editorial', None) and self.e_editorial.get()) or ''
+        except Exception:
+            editorial = ''
+
+        try:
+            nombre_original = (getattr(self, 'e_nombre_original', None) and self.e_nombre_original.get()) or ''
+        except Exception:
+            nombre_original = ''
+
+        # Datos técnicos y sinopsis
+        try:
+            autor = (getattr(self, 'e_autor', None) and self.e_autor.get()) or ''
+            anio = (getattr(self, 'e_anio', None) and self.e_anio.get()) or ''
+            demog = (getattr(self, 'e_demog', None) and self.e_demog.get()) or ''
+            
+            import json
+            tech_dict = {
+                'autor': autor,
+                'anio': anio,
+                'demografia': demog
+            }
+            tech_dict.update(getattr(self, '_tech_extra', None) or {})
+            datos_tecnicos = json.dumps(tech_dict)
+        except Exception:
+            datos_tecnicos = '{}'
+
+        try:
+            sinopsis = ''
+            if getattr(self, 'txt_sinopsis', None):
+                try:
+                    sinopsis = self.txt_sinopsis.get('1.0', 'end-1c').strip()
+                except Exception:
+                    sinopsis = ''
+        except Exception:
+            sinopsis = ''
 
         # Guardar producto via Repository (transacción atómica)
         try:
@@ -936,6 +1121,10 @@ class CrearProductoUI:
                 tipo_shop=tipo_shop,
                 etiquetas=etiquetas,
                 shop_link=shop_link,
+                editorial=editorial,
+                nombre_original=nombre_original,
+                sinopsis=sinopsis,
+                datos_tecnicos=datos_tecnicos,
             )
 
             # Actualizar campo ID en UI
@@ -1112,6 +1301,7 @@ class CrearProductoUI:
             # 1. Obtener datos básicos para la búsqueda
             nombre = self.e_nombre.get().strip()
             tipo_id = self.cb_tipo.get_id()
+            nombre_original = (getattr(self, 'e_nombre_original', None) and self.e_nombre_original.get() or '').strip()
             
             if not nombre:
                 ToastWidget.show(self.container, "Introduce un nombre para buscar", tipo='warning')
@@ -1120,9 +1310,10 @@ class CrearProductoUI:
             # 2. Iniciar servicio
             service = BuscarDataService(self.db)
             
-            # 3. Buscar en fuentes activas
+            # 3. Buscar en fuentes activas (si hay nombre original, la búsqueda es mucho más precisa)
+            query = nombre_original or nombre
             ToastWidget.show(self.container, 'Buscando en fuentes externas...', tipo='info')
-            results = service.search_all_active(nombre, tipo_id)
+            results = service.search_all_active(query, tipo_id)
             
             if not results:
                 ToastWidget.show(self.container, "No se encontraron resultados en las fuentes activas", tipo='warning')
@@ -1134,21 +1325,17 @@ class CrearProductoUI:
             if not selected:
                 return # El usuario canceló o no seleccionó nada
                 
-            # 5. Obtener detalle completo y SEO con IA
-            ToastWidget.show(self.container, 'Generando contenido con IA...', tipo='info')
-            full_data = service.get_full_data_and_seo(
-                selected["source_id"], 
-                selected["id"], 
-                nombre
-            )
-            
-            if not full_data:
-                ToastWidget.show(self.container, "Error al obtener detalles o generar SEO", tipo='error')
+            # 5. Obtener detalle normalizado (SOLO datos técnicos — el SEO lo genera GENERAR SEO)
+            ToastWidget.show(self.container, 'Obteniendo datos técnicos...', tipo='info')
+            md = service.get_manga_data(selected["source_id"], selected["id"], gap_fill=True)
+
+            if not md:
+                ToastWidget.show(self.container, "Error al obtener detalles", tipo='error')
                 return
-                
-            # 6. Auto-rellenar campos
-            self._auto_fill_shopify_data(full_data)
-            ToastWidget.show(self.container, "Campos de Shopify actualizados", tipo='success')
+
+            # 6. Rellenar campos técnicos (autor, año, demografía, editorial...)
+            self._apply_manga_data(md)
+            ToastWidget.show(self.container, "Datos técnicos actualizados", tipo='success')
 
         except Exception:
             logging.exception('Error en _on_buscar_data')
@@ -1159,7 +1346,7 @@ class CrearProductoUI:
         source_data = data.get("source_data", {})
         seo_data = data.get("seo_data") or {} # Puede ser None si no hay IA o falló
         
-        # 1. Título de Shopify (e_seo_title)
+        # 1. Título de Shopify (e_store_title)
         # Prioridad: IA seo_short -> IA title -> Source Title
         title_source = ""
         if isinstance(source_data.get('title'), dict):
@@ -1169,15 +1356,11 @@ class CrearProductoUI:
 
         shopify_title = seo_data.get("seo_short") or seo_data.get("title") or title_source
         if shopify_title:
-            self.e_seo_title.delete(0, 'end')
-            self.e_seo_title.insert(0, str(shopify_title))
+            self.e_store_title.delete(0, 'end')
+            self.e_store_title.insert(0, str(shopify_title))
             
-        # 2. SEO Title (e_seo_short)
-        seo_title = seo_data.get("seo_title") or shopify_title
-        if seo_title:
-            self.e_seo_short.delete(0, 'end')
-            self.e_seo_short.insert(0, str(seo_title))
-            
+        # 2. SEO_TITLE no se rellena aquí: lo generará GENERAR SEO.
+
         # 3. SEO Description (e_seo_desc)
         seo_desc = seo_data.get("seo_description")
         if seo_desc:
@@ -1189,17 +1372,9 @@ class CrearProductoUI:
                     self.e_seo_desc.delete(0, 'end')
                     self.e_seo_desc.insert(0, str(seo_desc))
 
-        # 4. Descripción larga (txt_description)
-        desc = seo_data.get("description") or source_data.get("description")
-        if desc:
-            if hasattr(self.txt_description, 'delete'):
-                self.txt_description.delete('1.0', 'end')
-                # Limpiar posibles etiquetas HTML de AniList si no se usó IA
-                if not seo_data.get("description") and isinstance(desc, str):
-                    import re
-                    desc = re.sub('<[^<]+?>', '', desc)
-                self.txt_description.insert('1.0', str(desc))
-                
+        # 4. DESCRIPCION no se rellena aquí: la sinopsis oficial es manual
+        #    y la descripción web la generará GENERAR SEO con esa sinopsis.
+
         # 5. Tags (e_tags)
         tags = seo_data.get("tags")
         if tags:
@@ -1232,8 +1407,8 @@ class CrearProductoUI:
                 'stock_actual': (getattr(self, 'e_stock_actual', None) and self.e_stock_actual.get()) or '0',
                 'stock_min': (getattr(self, 'e_stock_min', None) and self.e_stock_min.get()) or '0',
                 'shopify_taxonomy': (getattr(self, 'ent_taxonomy', None) and self.ent_taxonomy.get()) or '',
-                'titulo': (getattr(self, 'e_seo_title', None) and self.e_seo_title.get()) or '',
-                'seo_title': (getattr(self, 'e_seo_short', None) and self.e_seo_short.get()) or '',
+                'titulo': (getattr(self, 'e_store_title', None) and self.e_store_title.get()) or '',
+                'seo_title': (getattr(self, 'e_google_title', None) and self.e_google_title.get()) or '',
                 'seo_description': (lambda: (
                     (lambda txt: txt.strip())(
                         (self.e_seo_desc.get('1.0', 'end-1c') if getattr(self, 'e_seo_desc', None) and hasattr(self.e_seo_desc, 'get') else (self.e_seo_desc.get() if getattr(self, 'e_seo_desc', None) and hasattr(self.e_seo_desc, 'get') else ''))
@@ -1247,6 +1422,16 @@ class CrearProductoUI:
                 'tipo_shop': (getattr(self, 'e_tipo_shop', None) and self.e_tipo_shop.get()) or '',
                 'etiquetas': (getattr(self, 'e_tags', None) and self.e_tags.get()) or '',
                 'shop_link': (getattr(self, 'e_shop_link', None) and self.e_shop_link.get()) or '',
+                'editorial': (getattr(self, 'e_editorial', None) and self.e_editorial.get()) or '',
+                'nombre_original': (getattr(self, 'e_nombre_original', None) and self.e_nombre_original.get()) or '',
+                'autor': (getattr(self, 'e_autor', None) and self.e_autor.get()) or '',
+                'anio': (getattr(self, 'e_anio', None) and self.e_anio.get()) or '',
+                'demografia': (getattr(self, 'e_demog', None) and self.e_demog.get()) or '',
+                'sinopsis': (lambda: (
+                    (lambda txt: txt.strip())(
+                        (self.txt_sinopsis.get('1.0', 'end-1c') if getattr(self, 'txt_sinopsis', None) and hasattr(self.txt_sinopsis, 'get') else '')
+                    )
+                ))(),
                 'codigos_barras': (getattr(self, 'e_codigos', None) and (self.e_codigos.get() or '').strip()) or '',
             }
         except Exception:

@@ -2,6 +2,7 @@ import logging
 import requests
 from typing import List, Dict, Any, Optional, Tuple
 from .base_source import BaseSource
+from .manga_data import MangaData
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +94,8 @@ class AniListSource(BaseSource):
             coverImage { extraLarge }
             genres
             status
+            startDate { year }
+            staff(page: 1, perPage: 6) { edges { role node { name { full } } } }
           }
         }
         """
@@ -105,3 +108,25 @@ class AniListSource(BaseSource):
         except Exception:
             logger.exception(f"Error detalle AniList {media_id}")
         return None
+
+    def normalize(self, raw: Dict[str, Any]) -> MangaData:
+        md = MangaData()
+        if not raw:
+            return md
+        title = raw.get('title') or {}
+        md.titulo_romaji = title.get('romaji') or ''
+        md.titulo_nativo = title.get('native') or ''
+        md.generos = list(raw.get('genres') or [])
+        md.sinopsis = raw.get('description') or ''
+        md.estado = raw.get('status') or ''
+        start = raw.get('startDate') or {}
+        if start.get('year'):
+            md.anio = str(start['year'])
+        for edge in (raw.get('staff') or {}).get('edges') or []:
+            role = (edge.get('role') or '').lower()
+            if 'story' in role or 'art' in role:
+                name = ((edge.get('node') or {}).get('name') or {}).get('full')
+                if name:
+                    md.autor = name
+                    break
+        return md

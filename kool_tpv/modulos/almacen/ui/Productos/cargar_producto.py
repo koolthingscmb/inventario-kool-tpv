@@ -309,11 +309,31 @@ class CargarProductoUI:
             # Shopify / text fields
             _set_textbox(getattr(ui_instance, 'txt_description', None), data.get('descripcion_shopify') or '')
             _set_textbox(getattr(ui_instance, 'e_seo_desc', None), data.get('seo_description') or '')
-            _set_entry(getattr(ui_instance, 'e_seo_title', None), data.get('titulo') or '')
-            _set_entry(getattr(ui_instance, 'e_seo_short', None), data.get('seo_title') or '')
+            _set_entry(getattr(ui_instance, 'e_store_title', None), data.get('titulo') or '')
+            _set_entry(getattr(ui_instance, 'e_google_title', None), data.get('seo_title') or '')
             _set_entry(getattr(ui_instance, 'e_tipo_shop', None), data.get('tipo_shop') or '')
             _set_entry(getattr(ui_instance, 'e_tags', None), data.get('etiquetas') or '')
             _set_entry(getattr(ui_instance, 'e_shop_link', None), data.get('shop_link') or '')
+            _set_entry(getattr(ui_instance, 'e_editorial', None), data.get('editorial') or '')
+            _set_entry(getattr(ui_instance, 'e_nombre_original', None), data.get('nombre_original') or '')
+            _set_textbox(getattr(ui_instance, 'txt_sinopsis', None), data.get('sinopsis') or '')
+
+            # Cargar datos técnicos desde JSON
+            try:
+                dt_raw = data.get('datos_tecnicos')
+                if dt_raw:
+                    import json
+                    dt = json.loads(dt_raw)
+                    _set_entry(getattr(ui_instance, 'e_autor', None), dt.get('autor') or '')
+                    _set_entry(getattr(ui_instance, 'e_anio', None), dt.get('anio') or '')
+                    _set_entry(getattr(ui_instance, 'e_demog', None), dt.get('demografia') or '')
+                    # Conservar claves extra (kanji, generos, estado) para no perderlas al re-guardar
+                    known = {'autor', 'anio', 'demografia'}
+                    extra = {k: v for k, v in dt.items() if k not in known}
+                    if extra:
+                        setattr(ui_instance, '_tech_extra', extra)
+            except Exception:
+                pass
 
             # taxonomy read-only entry
             try:

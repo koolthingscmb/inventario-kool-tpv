@@ -75,6 +75,19 @@ class BuscarDataService:
         clean = re.sub(r'\s+(tomo|volumen|vol|#)\s*\d*$', '', clean, flags=re.IGNORECASE).strip()
         return clean
 
+    def _ascii_romaji(self, query: str) -> str:
+        """Convierte romaji con macrones a la forma ASCII que indexan las APIs.
+        Ejemplo: 'Taiyō to Tsuki no Hagane' -> 'Taiyou to Tsuki no Hagane'
+        """
+        import unicodedata
+        long_vowels = str.maketrans({
+            'ō': 'ou', 'Ō': 'Ou', 'ū': 'uu', 'Ū': 'Uu',
+            'ā': 'a', 'Ā': 'A', 'ī': 'i', 'Ī': 'I', 'ē': 'e', 'Ē': 'E',
+        })
+        q = query.translate(long_vowels)
+        return ''.join(c for c in unicodedata.normalize('NFKD', q)
+                       if not unicodedata.combining(c))
+
     def search_all_active(self, query: str, tipo_id: Optional[int] = None) -> List[Dict[str, Any]]:
         """Busca en las fuentes adecuadas según el tipo de producto."""
         active_sources = self.get_active_sources(tipo_id)
@@ -106,24 +119,31 @@ class BuscarDataService:
             except Exception:
                 logger.exception(f"Error buscando en fuente {src.name}")
         
-        # 2. Si no hay resultados, reintentamos con el nombre limpio (sin tomos/números)
+        # 2. Si no hay resultados, reintentamos con variantes del nombre
+        #    (sin tomo/números, sin macrones ni diacríticos)
         if not results:
-            clean_query = self._clean_query(query)
-            if clean_query != query:
-                logger.info(f"Reintentando búsqueda con nombre limpio: {clean_query}")
+            variants = []
+            for v in (self._clean_query(query), self._ascii_romaji(query),
+                      self._ascii_romaji(self._clean_query(query))):
+                if v and v != query and v not in variants:
+                    variants.append(v)
+            for variant in variants:
+                logger.info(f"Reintentando búsqueda con variante: {variant}")
                 for src in active_sources:
                     try:
                         if src.id == "source_google_books":
-                            src_results = src.search(clean_query, context=context_word)
+                            src_results = src.search(variant, context=context_word)
                         else:
-                            src_results = src.search(clean_query)
-                            
+                            src_results = src.search(variant)
+
                         for r in src_results:
                             r["_source_name"] = src.name
                             r["_source_id"] = src.id
                             results.append(r)
                     except Exception:
                         logger.exception(f"Error reintentando en fuente {src.name}")
+                if results:
+                    break
 
         return results
 
@@ -181,3 +201,131 @@ class BuscarDataService:
             "source_data": source_details,
             "seo_data": seo_content
         }
+
+    # ------------------------------------------------------------------
+    # Flujo OBTENER (título original + datos técnicos)
+    # ------------------------------------------------------------------
+
+    def _get_obtener_sources(self) -> Dict[str, Any]:
+        """Fuentes de la cascada OBTENER: subconjunto activo en config.
+
+        Respeta los checkboxes de la config de Shopify. Solo entran las
+        fuentes capaces de resolver títulos en español.
+        """
+        OBTENER_IDS = ('source_mangadex', 'source_google_books',
+                       'source_wikipedia_es', 'source_wikipedia_en')
+        config = self.config_service.get_config()
+        return {
+            src.id: src
+            for src in self.source_manager.get_all_sources()
+            if src.id in OBTENER_IDS and config.get(src.id) is True
+        }
+
+    def search_for_obtener(self, query: str, context: str = '') -> List[Dict[str, Any]]:
+        """Busca el manga por su nombre en español en las fuentes de OBTENER."""
+        sources = self._get_obtener_sources()
+        results = []
+
+        for src in sources.values():
+            try:
+                if src.id == 'source_google_books':
+                    src_results = src.search(query, context=context)
+                else:
+                    src_results = src.search(query)
+                for r in src_results:
+                    r['_source_id'] = src.id
+                    r['_source_name'] = src.name
+                    results.append(r)
+            except Exception:
+                logger.exception(f"Error OBTENER en fuente {src.name}")
+
+        # Reintento con variantes del nombre (sin tomo / sin diacríticos)
+        if not results:
+            variants = []
+            for v in (self._clean_query(query), self._ascii_romaji(query),
+                      self._ascii_romaji(self._clean_query(query))):
+                if v and v != query and v not in variants:
+                    variants.append(v)
+            for variant in variants:
+                logger.info(f"OBTENER: reintentando con variante: {variant}")
+                for src in sources.values():
+                    try:
+                        if src.id == 'source_google_books':
+                            src_results = src.search(variant, context=context)
+                        else:
+                            src_results = src.search(variant)
+                        for r in src_results:
+                            r['_source_id'] = src.id
+                            r['_source_name'] = src.name
+                            results.append(r)
+                    except Exception:
+                        logger.exception(f"Error OBTENER (reintento) en fuente {src.name}")
+                if results:
+                    break
+
+        return results
+
+    def _resolve_source(self, source_id: str):
+        """Localiza una fuente por id: primero las de OBTENER, luego las registradas."""
+        return self._get_obtener_sources().get(source_id) or self.source_manager.get_source(source_id)
+
+    def get_manga_data(self, source_id: str, identifier: Any, gap_fill: bool = False):
+        """Devuelve el detalle de la fuente elegida ya normalizado a MangaData.
+
+        Con gap_fill=True intenta completar demografía/autor/año vía Wikipedia.
+        """
+        src = self._resolve_source(source_id)
+        if not src:
+            logger.error(f"Fuente no encontrada: {source_id}")
+            return None
+        raw = src.get_details(identifier)
+        if raw is None:
+            return None
+        md = src.normalize(raw)
+        if gap_fill:
+            md = self._wikipedia_gap_fill(md)
+        return md
+
+    def normalize_details(self, source_id: str, source_data: Dict[str, Any]):
+        """Normaliza a MangaData un dict de detalle ya descargado (sin nueva llamada HTTP).
+
+        Si faltan campos clave (demografía, autor, año), intenta completarlos
+        vía Wikipedia (es → en) usando el título romaji.
+        """
+        src = self._resolve_source(source_id)
+        if not src:
+            return None
+        md = src.normalize(source_data)
+        return self._wikipedia_gap_fill(md)
+
+    def _wikipedia_gap_fill(self, md):
+        """Completa huecos de un MangaData vía Wikipedia (es → en)."""
+        if not md or (md.demografia and md.autor and md.anio):
+            return md
+        query = md.titulo_romaji or md.titulo_nativo
+        if not query:
+            return md
+        sources = self._get_obtener_sources()
+        for lang in ('es', 'en'):
+            wiki = sources.get(f'source_wikipedia_{lang}')
+            if not wiki:
+                continue
+            try:
+                results = wiki.search(query)
+                if not results:
+                    continue
+                # Preferir el resultado cuyo título contenga la query; si no, el primero
+                pick = results[0]
+                for r in results:
+                    t = str(r.get('id') or '').lower()
+                    if query.lower() in t or t in query.lower():
+                        pick = r
+                        break
+                raw = wiki.get_details(pick['id'])
+                if raw:
+                    md.merge(wiki.normalize(raw))
+                if md.demografia:
+                    break
+            except Exception:
+                logger.exception(f'Gap-fill Wikipedia ({lang}) falló')
+        return md

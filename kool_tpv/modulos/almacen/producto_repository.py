@@ -92,6 +92,10 @@ class ProductoRepository:
         p.etiquetas,
         p.shop_link,
         p.shopify_taxonomy,
+        p.editorial,
+        p.nombre_original,
+        p.sinopsis,
+        p.datos_tecnicos,
         COALESCE(c.nombre, 'Sin categoría') AS categoria_nombre,
         COALESCE(t.nombre, 'Sin tipo') AS tipo_nombre,
         COALESCE(prov.nombre, 'Sin proveedor') AS proveedor_nombre,
@@ -381,6 +385,10 @@ WHERE 1=1
         tipo_shop: str = '',
         etiquetas: str = '',
         shop_link: str = '',
+        editorial: str = '',
+        nombre_original: str = '',
+        sinopsis: str = '',
+        datos_tecnicos: str = '',
     ) -> int:
         """Guarda producto COMPLETO (producto + precio + códigos) en UNA transacción atómica.
 
@@ -413,12 +421,12 @@ WHERE 1=1
                     '''INSERT INTO productos (nombre, nombre_boton, sku, categoria, tipo,
                         proveedor_id, shopify_taxonomy, tipo_iva, stock_actual, stock_minimo,
                         activo, pvp_variable, fabricado_por_nosotros, descripcion_shopify, titulo, seo_title,
-                        seo_description, tipo_shop, etiquetas, shop_link, pending_sync)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                        seo_description, tipo_shop, etiquetas, shop_link, editorial, nombre_original, sinopsis, datos_tecnicos, pending_sync)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                     (nombre, nombre_boton, sku, categoria_id, tipo_id, proveedor_id,
                      shopify_taxonomy, iva, stock_actual, stock_min, activo, pvp_variable, fabricado_por_nosotros,
                      descripcion_shopify, titulo, seo_title, seo_description, tipo_shop,
-                     etiquetas, shop_link, 0),
+                     etiquetas, shop_link, editorial, nombre_original, sinopsis, datos_tecnicos, 0),
                 )
                 producto_id = cur.lastrowid
             else:
@@ -427,11 +435,11 @@ WHERE 1=1
                         proveedor_id=?, shopify_taxonomy=?, tipo_iva=?,
                         stock_minimo=?, activo=?, pvp_variable=?, fabricado_por_nosotros=?, descripcion_shopify=?, titulo=?,
                         seo_title=?, seo_description=?, tipo_shop=?, etiquetas=?,
-                        shop_link=?, pending_sync=1 WHERE id=?''',
+                        shop_link=?, editorial=?, nombre_original=?, sinopsis=?, datos_tecnicos=?, pending_sync=1 WHERE id=?''',
                     (nombre, nombre_boton, sku, categoria_id, tipo_id, proveedor_id,
                      shopify_taxonomy, iva, stock_min, activo, pvp_variable, fabricado_por_nosotros,
                      descripcion_shopify, titulo, seo_title, seo_description, tipo_shop,
-                     etiquetas, shop_link, producto_id),
+                     etiquetas, shop_link, editorial, nombre_original, sinopsis, datos_tecnicos, producto_id),
                 )
 
             # 3. Desactivar precios anteriores

@@ -2,6 +2,7 @@ import logging
 import requests
 from typing import List, Dict, Any, Optional, Tuple
 from .base_source import BaseSource
+from .manga_data import MangaData
 
 logger = logging.getLogger(__name__)
 
@@ -139,3 +140,24 @@ class MangaDexSource(BaseSource):
             logger.exception(f"Error detalle MangaDex ID {media_id}")
             
         return None
+
+    def normalize(self, raw: Dict[str, Any]) -> MangaData:
+        md = MangaData()
+        if not raw:
+            return md
+        title = raw.get('title') or {}
+        # altTitles es una lista de dicts {codigo_idioma: titulo}
+        alt = {}
+        for entry in raw.get('altTitles') or []:
+            for lang, value in entry.items():
+                alt.setdefault(lang, value)
+        md.titulo_romaji = alt.get('ja-ro') or title.get('ja-ro') or title.get('en') or ''
+        md.titulo_nativo = alt.get('ja') or title.get('ja') or ''
+        authors = raw.get('authors') or []
+        md.autor = authors[0] if authors else ''
+        if raw.get('year'):
+            md.anio = str(raw['year'])
+        md.generos = list(raw.get('tags') or [])
+        md.sinopsis = raw.get('description') or ''
+        md.estado = raw.get('status') or ''
+        return md
