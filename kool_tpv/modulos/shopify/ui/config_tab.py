@@ -13,8 +13,11 @@ from kool_tpv.utils.config_loader import load_colors
 from kool_tpv.utils.widgets.notificaciones import show_success, show_error
 from kool_tpv.modulos.shopify.services.openai_service import OpenAIService
 from kool_tpv.modulos.shopify.services.sources.source_manager import SourceManager
+from kool_tpv.modulos.shopify.shopify_prompts_repository import ShopifyPromptsRepository
 from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.dialogs.multi_select_dialog import show_multi_select_dialog
+
+logger = logging.getLogger(__name__)
 
 class ShopifyConfigTab:
     """Panel de configuración de Shopify con pestañas superiores y footer de acciones."""
@@ -26,6 +29,10 @@ class ShopifyConfigTab:
         
         # Inicializar el gestor de fuentes dinámicas
         self.source_manager = SourceManager(self.db)
+        
+        # Repositorio de prompts IA (tabla shopify_prompts)
+        self.prompts_repo = ShopifyPromptsRepository(self.db)
+        self._prompt_widgets = {}
         
         # Cargar colores del módulo Shopify
         try:
@@ -107,6 +114,8 @@ class ShopifyConfigTab:
         
         # Guardar valores actuales en el diccionario de configuración antes de destruir widgets
         self._harvest_widgets()
+        if self._current_tab == "IA PROMPTS":
+            self._flush_prompt_editor()
         
         # Actualizar visual de pestañas
         for name, lbl in self._tab_labels.items():
@@ -118,6 +127,7 @@ class ShopifyConfigTab:
         self._current_tab = tab_name
         self._clear_content()
         self.widgets.clear()
+        self._prompt_widgets.clear()
         self._render_footer()
         
         # Manejo especial para LOGS para usar VirtualNavList sin doble scroll
@@ -247,12 +257,20 @@ class ShopifyConfigTab:
         fields = [
             ("URL de la tienda:", "tienda.myshopify.com", "Ej: mitienda.myshopify.com", "shop_url"),
             ("Admin API Token:", "shpat_xxxxxxxxxxxxxxxxxxxx", "Token de la App Personalizada en Shopify", "access_token"),
-            ("Location ID:", "12345678", "ID de la ubicación física para stock", "location_id")
+            ("Location ID:", "12345678", "ID de la ubicación física para stock", "location_id"),
+            ("Versión API:", "2026-07", "Formato AAAA-MM. Subir cuando Shopify avise", "api_version"),
+            ("Plantilla producto:", "camiseta", "templateSuffix del tema (ej: camiseta)", "template_suffix"),
+            ("Marca:", "Kool Things", "Se usa en el SEO title y vendor", "marca"),
+            ("URL guía de tallas:", "https://...", "Enlace en la ficha del producto", "link_guia"),
+            ("CDN botones género:", "https://cdn.shopify.com/.../files/", "Base URL de BOTON-CAMI-*.png", "botones_cdn"),
+            ("Stock sorpresa:", "50", "Stock inicial de variantes sorpresa", "stock_sorpresa")
         ]
         
         for i, (label, placeholder, tooltip, key) in enumerate(fields):
             tk.Label(grid_container, text=label, font=("Helvetica", 12), fg="#FFFFFF", bg=self._bg_color, anchor="e", width=25).grid(row=i, column=0, padx=(0, 20), pady=15, sticky="e")
             val = self._config.get(key, "")
+            if key == "api_version" and not val:
+                val = "2026-07"
             entry = ctk.CTkEntry(grid_container, placeholder_text=placeholder, height=40, font=("Helvetica", 12))
             entry.insert(0, val)
             entry.grid(row=i, column=1, sticky="ew", pady=15)
@@ -267,6 +285,24 @@ class ShopifyConfigTab:
         if self._config.get("sync_active"): self.widgets["sync_active"].select()
         else: self.widgets["sync_active"].deselect()
         self.widgets["sync_active"].pack(side="left", pady=10)
+
+        self._create_section_header(self._content_frame, "PRECIOS WEB (CAMISETAS)")
+        precios_grid = tk.Frame(self._content_frame, bg=self._bg_color)
+        precios_grid.pack(fill="x", padx=10)
+        precios_grid.columnconfigure(1, weight=1)
+        precios_grid.columnconfigure(3, weight=1)
+
+        precios_fields = [
+            ("Hombre:", "precio_hombre", 0, 0), ("Mujer:", "precio_mujer", 0, 2),
+            ("Infantil:", "precio_infantil", 1, 0), ("Recargo 2XL+:", "recargo_tallas", 1, 2),
+            ("Sorpresa:", "precio_sorpresa", 2, 0),
+        ]
+        for label, key, row, col in precios_fields:
+            tk.Label(precios_grid, text=label, font=("Helvetica", 12), fg="#FFFFFF", bg=self._bg_color, anchor="e").grid(row=row, column=col, padx=(0, 10), pady=10, sticky="e")
+            entry = ctk.CTkEntry(precios_grid, placeholder_text="0.00", height=35, width=120, font=("Helvetica", 12))
+            entry.insert(0, str(self._config.get(key, "") or ""))
+            entry.grid(row=row, column=col + 1, sticky="w", pady=10, padx=(0, 30))
+            self.widgets[key] = entry
 
     def _render_ia(self):
         self._create_section_header(self._content_frame, "CONFIGURACIÓN GPT (OPENAI)")
@@ -424,49 +460,101 @@ class ShopifyConfigTab:
             if self.service.update_source_type_mappings(source_id, current_ids):
                 self._render_source_tags(source, tags_frame)
 
+    # Marcadores disponibles por prompt
+    _MARCADORES = {
+        "manga_seo": "{product_name} {source_data}",
+        "camiseta_seo": "{titulo_base} {tags} {beneficio}",
+        "camiseta_body": "{genero} {titulo_base} {tono} {instrucciones_genero} {tags} {beneficio} {tags_top3}",
+        "camiseta_tags": "{titulo_base}",
+    }
+
     def _render_ia_prompts(self):
-        """Pestaña para editar los prompts de IA."""
-        self._create_section_header(self._content_frame, "EDITOR DE PROMPTS SEO")
-        
-        info_lbl = tk.Label(
-            self._content_frame, 
-            text="Usa {product_name} y {source_data} como marcadores de posición en tu prompt.",
-            font=("Helvetica", 10, "italic"),
-            fg="#888",
-            bg=self._bg_color,
-            anchor="w"
-        )
-        info_lbl.pack(fill="x", padx=10, pady=(0, 10))
+        """Pestaña de prompts: chips arriba, un editor a pantalla completa."""
+        if not hasattr(self, '_prompt_edits'):
+            self._prompt_edits = {}
+        self._active_prompt = None
 
-        prompt_val = self._config.get("ia_seo_prompt", "")
-        if not prompt_val:
-            # Valor por defecto si no existe en BD
-            prompt_val = (
-                "Actúa como un experto en SEO para Shopify. A partir de los siguientes datos de un producto "
-                "(fuente externa y nombre local), genera los campos SEO necesarios en formato JSON.\n\n"
-                "NOMBRE LOCAL: {product_name}\n"
-                "DATOS FUENTE: {source_data}\n\n"
-                "Debes devolver estrictamente un objeto JSON con las siguientes claves:\n"
-                "- seo_title: Título optimizado para buscadores (máx 70 caracteres).\n"
-                "- seo_short: Título corto y atractivo.\n"
-                "- seo_description: Meta-descripción optimizada (máx 160 caracteres).\n"
-                "- description: Descripción detallada en HTML profesional para la ficha de producto.\n"
-                "- tags: Lista de etiquetas separadas por comas.\n"
-                "- tipo_shop: Categoría o tipo de producto para la tienda.\n\n"
-                "No incluyas explicaciones, solo el JSON."
+        self._create_section_header(self._content_frame, "PROMPTS DE IA")
+
+        # --- Chips de selección ---
+        prompts = self.prompts_repo.get_all()
+        self._prompt_data = {p['clave']: p for p in prompts}
+        chips = tk.Frame(self._content_frame, bg=self._bg_color)
+        chips.pack(fill="x", padx=10, pady=(0, 10))
+        self._prompt_chips = {}
+        for p in prompts:
+            chip = tk.Label(
+                chips, text=p['nombre'].upper(), font=("Helvetica", 10, "bold"),
+                fg=self._tab_text_normal, bg=self._tab_bg_normal,
+                padx=18, pady=8, cursor="hand2"
             )
+            chip.pack(side="left", padx=(0, 6))
+            chip.bind("<Button-1>", lambda e, c=p['clave']: self._select_prompt(c))
+            self._prompt_chips[p['clave']] = chip
 
-        self.widgets["ia_seo_prompt"] = ctk.CTkTextbox(
-            self._content_frame,
-            height=350,
-            font=("Consolas", 12),
-            fg_color=self._bg_medium,
-            text_color="#e0e0e0",
-            border_width=1,
-            border_color=self._primary_color
+        # --- Área del editor ---
+        self._prompt_area = tk.Frame(self._content_frame, bg=self._bg_color)
+        self._prompt_area.pack(fill="both", expand=True, padx=10)
+
+        if prompts:
+            self._select_prompt(prompts[0]['clave'])
+
+    def _select_prompt(self, clave: str):
+        """Cambia el prompt visible en el editor."""
+        # Guardar en memoria lo que hubiera editado el usuario
+        if self._active_prompt and hasattr(self, '_prompt_editor') and self._prompt_editor.winfo_exists():
+            self._prompt_edits[self._active_prompt] = self._prompt_editor.get("1.0", "end-1c")
+
+        self._active_prompt = clave
+        data = self._prompt_data.get(clave, {})
+
+        for c, chip in self._prompt_chips.items():
+            if c == clave:
+                chip.configure(bg=self._tab_bg_selected, fg=self._tab_text_selected)
+            else:
+                chip.configure(bg=self._tab_bg_normal, fg=self._tab_text_normal)
+
+        for child in self._prompt_area.winfo_children():
+            child.destroy()
+
+        head = tk.Frame(self._prompt_area, bg=self._bg_color)
+        head.pack(fill="x", pady=(0, 5))
+        marcadores = self._MARCADORES.get(clave, "")
+        tk.Label(
+            head, text=f"Marcadores: {marcadores}",
+            font=("Helvetica", 10, "italic"), fg="#888", bg=self._bg_color, anchor="w"
+        ).pack(side="left")
+        ctk.CTkButton(
+            head, text="RESTAURAR ORIGINAL", width=170, height=26,
+            fg_color=self._secondary_color, font=("Helvetica", 10, "bold"),
+            command=lambda c=clave: self._on_reset_prompt(c)
+        ).pack(side="right")
+
+        self._prompt_editor = ctk.CTkTextbox(
+            self._prompt_area, font=("Consolas", 12), height=560,
+            fg_color=self._bg_medium, text_color="#e0e0e0",
+            border_width=1, border_color=self._primary_color
         )
-        self.widgets["ia_seo_prompt"].pack(fill="both", expand=True, padx=10, pady=10)
-        self.widgets["ia_seo_prompt"].insert("1.0", prompt_val)
+        self._prompt_editor.pack(fill="both", expand=True)
+        texto = self._prompt_edits.get(clave) or data.get('texto') or data.get('texto_default') or ""
+        self._prompt_editor.insert("1.0", texto)
+
+    def _flush_prompt_editor(self):
+        """Vuelca el editor activo a memoria (para no perder cambios sin guardar)."""
+        if getattr(self, '_active_prompt', None) and hasattr(self, '_prompt_editor') and self._prompt_editor.winfo_exists():
+            self._prompt_edits[self._active_prompt] = self._prompt_editor.get("1.0", "end-1c")
+
+    def _on_reset_prompt(self, clave: str):
+        """Restaura un prompt a su texto original del script."""
+        default = self.prompts_repo.reset_to_default(clave)
+        if default is None:
+            show_error(self.frame, "No se pudo restaurar el prompt.")
+            return
+        self._prompt_edits.pop(clave, None)
+        if self._active_prompt == clave and hasattr(self, '_prompt_editor') and self._prompt_editor.winfo_exists():
+            self._prompt_editor.delete("1.0", "end")
+            self._prompt_editor.insert("1.0", default)
+        show_success(self.frame, "Prompt restaurado al original.")
 
     def _render_logs(self):
         """Pestaña de logs usando VirtualNavList."""
@@ -515,7 +603,14 @@ class ShopifyConfigTab:
     def _on_save(self):
         self._harvest_widgets()
         ok = self.service.save_config(self._config)
-        if ok:
+        # Guardar los prompts editados en su tabla
+        prompts_ok = True
+        if self._current_tab == "IA PROMPTS":
+            self._flush_prompt_editor()
+        for clave, texto in getattr(self, '_prompt_edits', {}).items():
+            prompts_ok = self.prompts_repo.save_texto(clave, texto) and prompts_ok
+        self._prompt_edits = {}
+        if ok and prompts_ok:
             self.service.add_log("SAVE_CONFIG", "success", "Configuración actualizada")
             show_success(self.frame, "Configuración guardada.")
         else:

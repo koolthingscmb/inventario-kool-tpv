@@ -62,6 +62,7 @@ class ShopifyView(BaseModuleView):
         action_map = {
             'show_sync': self.show_sync,
             'show_config': self.show_config,
+            'show_upload': self.show_upload,
         }
 
         # Iterate over configured buttons and rebind matching buttons in the UI
@@ -105,6 +106,7 @@ class ShopifyView(BaseModuleView):
             'SHOPIFY': self.show_sync,
             'SINC': self.show_sync,
             'CONFIG': self.show_config,
+            'SUBIDA': self.show_upload,
         }
 
     def _on_power(self):
@@ -129,6 +131,20 @@ class ShopifyView(BaseModuleView):
             
         except Exception:
             logging.exception("Error en show_sync")
+
+    def show_upload(self):
+        """Muestra la subvista de subida/edición de productos a Shopify."""
+        try:
+            logging.info("Abriendo subida de productos Shopify...")
+            self.actualizar_ruta('SUBIDA')
+
+            from kool_tpv.modulos.shopify.ui.upload_view import ShopifyUploadView
+
+            upload_view = ShopifyUploadView(self.central_area, self.db)
+            self.set_central_content(upload_view)
+
+        except Exception:
+            logging.exception("Error en show_upload")
 
     def show_config(self):
         """Muestra el tab de configuración de Shopify."""

@@ -31,6 +31,7 @@
     "title": "SHOPIFY",
     "buttons": [
       {"id": "sync", "text": "SINC", "action": "show_sync"},
+      {"id": "upload", "text": "SUBIDA", "action": "show_upload"},
       {"id": "config", "text": "CONFIG", "action": "show_config"}
     ]
   },

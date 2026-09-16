@@ -171,7 +171,13 @@ class BuscarDataService:
         config = self.config_service.get_config()
         api_key = config.get("ia_api_key")
         model = config.get("ia_model", "gpt-4o-mini")
-        prompt_template = config.get("ia_seo_prompt")
+        # Prompt manga desde la tabla shopify_prompts (fallback: config antigua)
+        try:
+            from kool_tpv.modulos.shopify.shopify_prompts_repository import ShopifyPromptsRepository
+            prompt_row = ShopifyPromptsRepository(self.db).get_prompt("manga_seo")
+            prompt_template = (prompt_row or {}).get("texto") or config.get("ia_seo_prompt")
+        except Exception:
+            prompt_template = config.get("ia_seo_prompt")
         
         if not api_key:
             logger.warning("No hay API Key de OpenAI configurada. Se devolverán solo los datos de la fuente.")

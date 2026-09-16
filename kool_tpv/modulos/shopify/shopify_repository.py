@@ -83,3 +83,33 @@ class ShopifyRepository:
             
         rows = self.db.fetch_all(query, params)
         return [dict(row) for row in (rows or [])]
+
+    # --- Mapeo Diseño -> Producto Shopify (SUBIDA) ---
+
+    def upsert_diseno_mapping(self, diseno_codigo: str, genero: str, shopify_product_id: str, handle: str = None) -> None:
+        """Crea o actualiza el vínculo diseño+género -> producto web."""
+        self.db.execute_query(
+            """
+            INSERT INTO shopify_diseno_mapping (diseno_codigo, genero, shopify_product_id, handle, last_synced_at)
+            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(diseno_codigo, genero) DO UPDATE SET
+                shopify_product_id = excluded.shopify_product_id,
+                handle = excluded.handle,
+                last_synced_at = CURRENT_TIMESTAMP
+            """,
+            (diseno_codigo, genero, shopify_product_id, handle)
+        )
+
+    def get_diseno_mapping(self, diseno_codigo: str, genero: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Devuelve los productos web vinculados a un diseño (uno por género)."""
+        if genero:
+            rows = self.db.fetch_all(
+                "SELECT * FROM shopify_diseno_mapping WHERE diseno_codigo = ? AND genero = ?",
+                (diseno_codigo, genero)
+            )
+        else:
+            rows = self.db.fetch_all(
+                "SELECT * FROM shopify_diseno_mapping WHERE diseno_codigo = ?",
+                (diseno_codigo,)
+            )
+        return [dict(row) for row in (rows or [])]
