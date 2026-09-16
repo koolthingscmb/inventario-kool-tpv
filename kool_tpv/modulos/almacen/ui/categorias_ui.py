@@ -42,11 +42,6 @@ class CategoriasUI:
         self.grid_frame.pack(fill='both', expand=True, padx=12, pady=6)
         for c in range(8):
             self.grid_frame.grid_columnconfigure(c, weight=1)
-        # Ensure the row that contains the chips expands to fill available vertical space
-        try:
-            self.grid_frame.grid_rowconfigure(4, weight=1)
-        except Exception:
-            pass
 
         lbl_font = get_font('label', module=self.module_name)
 
@@ -175,16 +170,18 @@ class CategoriasUI:
                 except Exception:
                     pass
             cats = self.service.get_all()
-            # Configurar 8 columnas con weight=1 para que ocupen todo el ancho
-            for c in range(8):
-                self.chips_frame.grid_columnconfigure(c, weight=1)
+            # 5 columnas de ancho uniforme; nombres largos se truncan con '…'
+            COLS = 5
+            for c in range(COLS):
+                self.chips_frame.grid_columnconfigure(c, weight=1, uniform='cats')
             for i, c in enumerate(cats):
-                row = i // 8
-                col = i % 8
+                row = i // COLS
+                col = i % COLS
                 name = c.get('nombre') or ''
+                display = name if len(name) <= 26 else name[:23].rstrip() + '…'
                 btn = ButtonFactory.create_button(
                     parent=self.chips_frame,
-                    text=name,
+                    text=display,
                     command=None,
                     style_key="chip_default"
                 )

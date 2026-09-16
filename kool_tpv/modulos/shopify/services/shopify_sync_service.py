@@ -37,9 +37,13 @@ class ShopifySyncService:
 
     def sync_stock_by_sku_prefix(self, sku_prefix: str, quantity: int, reason: Optional[str] = None) -> Dict[str, Any]:
         """Busca todas las variantes en Shopify que empiecen por el prefijo y actualiza su stock."""
+        def _fail(msg: str) -> Dict[str, Any]:
+            self.repo.add_sync_log(None, "SYNC_STOCK_PREFIX", "error", f"{sku_prefix}: {msg}")
+            return {"success": False, "message": msg}
+
         ctx = self._get_api_context()
         if not ctx:
-            return {"success": False, "message": "Configuración incompleta"}
+            return _fail("Configuración incompleta")
 
         shop_url, token, location_id = ctx
         # Usamos HTTPS y la URL completa
@@ -79,11 +83,11 @@ class ShopifySyncService:
             try:
                 response = requests.post(endpoint, headers=headers, json={"query": query, "variables": variables}, timeout=15)
                 if response.status_code != 200:
-                    return {"success": False, "message": f"Error HTTP {response.status_code}: {response.text}"}
+                    return _fail(f"Error HTTP {response.status_code}: {response.text}")
                 
                 data = response.json()
                 if "errors" in data:
-                    return {"success": False, "message": f"Error GraphQL: {json.dumps(data['errors'])}"}
+                    return _fail(f"Error GraphQL: {json.dumps(data['errors'])}")
 
                 edges = data.get("data", {}).get("productVariants", {}).get("edges", [])
                 for edge in edges:
@@ -100,9 +104,10 @@ class ShopifySyncService:
                 cursor = page_info.get("endCursor")
 
             except Exception as e:
-                return {"success": False, "message": f"Fallo de conexión: {str(e)}"}
+                return _fail(f"Fallo de conexión: {str(e)}")
 
         if not inventory_item_ids:
+            self.repo.add_sync_log(None, "SYNC_STOCK_PREFIX", "error", f"{sku_prefix}: sin variantes en la web con ese SKU")
             return {"success": True, "message": "No se encontraron variantes", "updated": 0}
 
         # Actualizar en lote (SOBREESCRIBIR STOCK REAL)
@@ -118,7 +123,7 @@ class ShopifySyncService:
             self.repo.add_sync_log(None, "SYNC_STOCK_PREFIX", "success", msg)
             return {"success": True, "message": msg, "updated": count}
         else:
-            return {"success": False, "message": "Error al aplicar el stock en Shopify"}
+            return _fail("Error al aplicar el stock en Shopify")
 
     def _update_stock_batch(self, item_ids: List[str], quantity: int, endpoint: str, headers: Dict, location_id: str) -> bool:
         """Actualiza el stock de una lista de IDs de inventario en lotes."""
