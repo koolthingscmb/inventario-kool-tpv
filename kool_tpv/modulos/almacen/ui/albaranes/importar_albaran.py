@@ -14,7 +14,6 @@ from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
-from kool_tpv.modulos.almacen.ui.albaranes.albaran_borrador import AlbaranBorradorService
 from kool_tpv.modulos.almacen.ui.albaranes.importar_albaran_seguridad import AlbaranBusquedaSeguridadView
 from kool_tpv.utils.sku_generator import generate_sku
 
@@ -40,8 +39,6 @@ class ImportarAlbaranUI:
         self.keyboard_manager = keyboard_manager
         self.selected_file_path = None
         self.parse_result = None
-        self._borrador_service = AlbaranBorradorService()
-        self._borrador_path = None
 
         try:
             self.colors = load_colors('almacen')
@@ -742,26 +739,6 @@ class ImportarAlbaranUI:
         self.btn_crear_todos.pack(side='right', padx=5)
         self.btn_crear_todos.configure(state='disabled')
 
-        btn_borrador = ButtonFactory.create_button(
-            parent=btn_frame,
-            text='GUARDAR BORRADOR',
-            command=self._on_guardar_borrador_click,
-            style_key='action_secondary',
-            module='almacen',
-            palette_key='secondary'
-        )
-        btn_borrador.pack(side='left', padx=5)
-
-        btn_tpv = ButtonFactory.create_button(
-            parent=btn_frame,
-            text='MENÚ PRINCIPAL',
-            command=self._on_ir_a_tpv_click,
-            style_key='action_secondary',
-            module='almacen',
-            palette_key='secondary'
-        )
-        btn_tpv.pack(side='left', padx=5)
-
         btn_volver = ButtonFactory.create_button(
             parent=btn_frame,
             text='VOLVER',
@@ -1385,13 +1362,6 @@ class ImportarAlbaranUI:
                 usuario_id=usuario_id
             )
 
-            # Eliminar todos los borradores relacionados con este albarán
-            num_albaran = self._cabecera_data.get('num_albaran', '')
-            if num_albaran:
-                for borrador in self._borrador_service.listar():
-                    if borrador.get('num_albaran') == num_albaran:
-                        self._borrador_service.eliminar(borrador['path'])
-            self._borrador_path = None
             # Limpiar estado para que has_unsaved_changes = False
             self.parse_result = None
             self._productos_data = {}
@@ -1409,155 +1379,6 @@ class ImportarAlbaranUI:
         for widget in self.container.winfo_children():
             widget.destroy()
         self._setup_ui()
-
-    def _on_guardar_borrador_click(self):
-        """Guardar estado actual como borrador JSON."""
-        self._guardar_borrador(silencioso=False)
-
-    def _guardar_borrador(self, silencioso=False):
-        """Guardar estado actual como borrador JSON.
-
-        Args:
-            silencioso: si True, no muestra dialog de éxito (útil para ir a TPV)
-        """
-        try:
-            cabecera = getattr(self, '_cabecera_data', {})
-            if not cabecera:
-                proveedor_id = self.combo_proveedor_import.get_id()
-                prov_nombre = self.combo_proveedor_import._var.get().strip()
-                num_albaran = self.entry_num_albaran.get().strip()
-                fecha = self.entry_fecha_albaran.get().strip()
-                cabecera = {
-                    'num_albaran': num_albaran,
-                    'fecha': fecha,
-                    'proveedor_id': proveedor_id,
-                    'proveedor_nombre': prov_nombre
-                }
-            paso = 'completar_productos' if getattr(self, '_productos_data', {}) else 'preview'
-            path = self._borrador_service.guardar(
-                cabecera=cabecera,
-                productos_data=getattr(self, '_productos_data', {}),
-                csv_path=self.selected_file_path,
-                paso=paso
-            )
-            self._borrador_path = path
-            if not silencioso:
-                ToastWidget.show(self.container, f'Albarán {cabecera.get("num_albaran", "")} guardado como borrador', tipo='success')
-            return True
-        except Exception:
-            logger.exception('Error guardando borrador')
-            if not silencioso:
-                ToastWidget.show(self.container, 'NO SE PUDO GUARDAR EL BORRADOR', tipo='error')
-            return False
-
-    def _on_ir_a_tpv_click(self):
-        """Guardar borrador, cerrar módulo y volver al menú principal (para acceder al TPV)."""
-        from kool_tpv.utils.dialogs import show_warning
-
-        resultado = show_warning(
-            self.container,
-            titulo='Ir a TPV',
-            mensaje='Se guardará el borrador del albarán\n¿Continuar al menú principal?',
-            confirm=True
-        )
-        if not resultado:
-            return
-
-        # Guardar borrador silenciosamente
-        if not self._guardar_borrador(silencioso=True):
-            ToastWidget.show(self.container, 'NO SE PUDO GUARDAR EL BORRADOR', tipo='error')
-            return
-
-        # Cerrar módulo y volver al menú principal
-        try:
-            if (self.owner and hasattr(self.owner, 'parent') and
-                hasattr(self.owner.parent, 'close_current_module_and_return_to_menu')):
-                self.owner.parent.close_current_module_and_return_to_menu()
-                logger.info('Volviendo al menú principal desde albarán (para ir a TPV)')
-            else:
-                logger.warning('No se pudo cerrar el módulo: método no disponible')
-                ToastWidget.show(self.container, 'NO SE PUDO VOLVER AL MENÚ PRINCIPAL', tipo='error')
-        except Exception:
-            logger.exception('Error volviendo al menú principal desde albarán')
-            ToastWidget.show(self.container, 'NO SE PUDO VOLVER AL MENÚ PRINCIPAL', tipo='error')
-
-    def cargar_borrador(self, borrador_info: dict):
-        """Carga un borrador y restaura el estado de la UI.
-
-        Args:
-            borrador_info: dict devuelto por AlbaranBorradorService.listar()
-        """
-        try:
-            data = self._borrador_service.cargar(borrador_info['path'])
-            self._borrador_path = borrador_info['path']
-
-            # Restaurar archivo CSV
-            csv_path = data.get('csv_path', '')
-            if csv_path:
-                self.selected_file_path = csv_path
-                from pathlib import Path as _Path
-                self.lbl_archivo.configure(
-                    text=_Path(csv_path).name,
-                    text_color=self.colors.get('text', '#00FF00')
-                )
-
-            # Restaurar cabecera
-            cabecera = data.get('cabecera', {})
-            self._cabecera_data = cabecera
-
-            # Restaurar proveedor en combo y cargar su mapeo CSV
-            prov_id = cabecera.get('proveedor_id')
-            prov_nombre = cabecera.get('proveedor_nombre', '')
-            if prov_nombre:
-                self.combo_proveedor_import._var.set(prov_nombre)
-            if prov_id:
-                self._proveedor_seleccionado_id = prov_id
-                self.btn_seleccionar.configure(state='normal')
-                # Cargar mapeo del proveedor explícitamente
-                if self.db:
-                    try:
-                        from kool_tpv.base_datos.proveedor_service import ProveedorService
-                        prov_service = ProveedorService(self.db)
-                        mapeo = prov_service.get_mapeo_csv(prov_id)
-                        self._mapeo_proveedor = mapeo
-                    except Exception:
-                        logger.warning('No se pudo cargar mapeo del proveedor al restaurar borrador')
-
-            # Restaurar num_albaran y fecha
-            self.entry_num_albaran.delete(0, 'end')
-            self.entry_num_albaran.insert(0, cabecera.get('num_albaran', ''))
-            self.entry_fecha_albaran.configure(state='normal')
-            self.entry_fecha_albaran.delete(0, 'end')
-            self.entry_fecha_albaran.insert(0, cabecera.get('fecha', ''))
-            self.entry_fecha_albaran.configure(state='readonly')
-
-            # Restaurar productos_data si los hay
-            productos_data = data.get('productos_data', {})
-            if productos_data:
-                self._productos_data = productos_data
-
-            # Re-analizar el CSV para recuperar parse_result
-            if self.selected_file_path:
-                self._on_analizar_click()
-
-            # Si había productos pendientes, ir a ese paso
-            paso = data.get('paso', 'preview')
-            if paso == 'completar_productos' and productos_data:
-                self._cargar_categorias_tipos()
-                self._mostrar_ui_creacion_productos()
-
-            # Limpiar borradores antiguos del mismo albarán (dejar solo el actual)
-            num_albaran_cargado = cabecera.get('num_albaran', '')
-            if num_albaran_cargado:
-                for borrador in self._borrador_service.listar():
-                    if (borrador.get('num_albaran') == num_albaran_cargado and
-                        borrador['path'] != self._borrador_path):
-                        self._borrador_service.eliminar(borrador['path'])
-
-            logger.info(f'Borrador cargado: albarán {cabecera.get("num_albaran")}')
-        except Exception:
-            logger.exception('Error cargando borrador')
-            ToastWidget.show(self.container, 'NO SE PUDO CARGAR EL BORRADOR', tipo='error')
 
     def _on_volver_click(self):
         """Volver a la vista anterior."""

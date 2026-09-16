@@ -518,7 +518,7 @@ class AlmacenView(BaseModuleView):
         except Exception:
             logging.exception('Error abriendo devolución en AlmacenView')
 
-    def show_importar_albaran(self, borrador=None):
+    def show_importar_albaran(self):
         """Sub-vista de albaranes: push show_albaranes al stack."""
         self._nav_stack.append(lambda: self.show_albaranes())
         try:
@@ -528,8 +528,6 @@ class AlmacenView(BaseModuleView):
                 if self.set_central_content(importar_ui):
                     self.actualizar_ruta('ALBARANES / IMPORTAR CSV', callbacks=self.breadcrumb_callbacks)
                     logging.info('Abriendo importar albarán...')
-                    if borrador:
-                        importar_ui.container.after(100, lambda: importar_ui.cargar_borrador(borrador))
             except Exception:
                 logging.exception('Error instanciando ImportarAlbaranUI en show_importar_albaran')
         except Exception:
