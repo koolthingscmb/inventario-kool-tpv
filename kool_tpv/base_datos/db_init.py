@@ -254,6 +254,21 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migración 054: categoria_id en tipos (relación con categorías)
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('tipos')") or [])]
+			if 'categoria_id' not in cols:
+				logging.info('Aplicando migración 054: categoria_id en tipos')
+				db.connection.execute('ALTER TABLE tipos ADD COLUMN categoria_id INTEGER REFERENCES categorias(id)')
+				db.connection.commit()
+				logging.info('Migración 054 aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 054')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Check existence
 		existing = []
 		try:

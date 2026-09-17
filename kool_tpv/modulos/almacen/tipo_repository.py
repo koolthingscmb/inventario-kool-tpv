@@ -34,7 +34,7 @@ class TipoRepository:
         """Todos los tipos ordenados por nombre."""
         rows = self.db.fetch_all(
             'SELECT id, nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, '
-            'coste_base, requiere_talla, requiere_color, activo, orden '
+            'coste_base, requiere_talla, requiere_color, activo, orden, categoria_id '
             'FROM tipos ORDER BY nombre'
         )
         return [
@@ -51,6 +51,7 @@ class TipoRepository:
                 'requiere_color': r[9],
                 'activo': r[10],
                 'orden': r[11],
+                'categoria_id': r[12],
             }
             for r in rows
         ] if rows else []
@@ -59,7 +60,7 @@ class TipoRepository:
         """Tipo por id. Devuelve None si no existe."""
         row = self.db.fetch_one(
             'SELECT id, nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, '
-            'coste_base, requiere_talla, requiere_color, activo, orden '
+            'coste_base, requiere_talla, requiere_color, activo, orden, categoria_id '
             'FROM tipos WHERE id = ?',
             (id,),
         )
@@ -78,6 +79,33 @@ class TipoRepository:
             'requiere_color': row[9],
             'activo': row[10],
             'orden': row[11],
+            'categoria_id': row[12],
+        }
+
+    def get_by_nombre(self, nombre: str) -> Optional[Dict[str, Any]]:
+        """Tipo por nombre exacto."""
+        row = self.db.fetch_one(
+            'SELECT id, nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, '
+            'coste_base, requiere_talla, requiere_color, activo, orden, categoria_id '
+            'FROM tipos WHERE LOWER(nombre) = LOWER(?) LIMIT 1',
+            (nombre,),
+        )
+        if row is None:
+            return None
+        return {
+            'id': row[0],
+            'nombre': row[1],
+            'descripcion': row[2],
+            'shopify_taxonomy': row[3],
+            'fide_porcentaje': row[4],
+            'color': row[5],
+            'icono': row[6],
+            'coste_base': row[7],
+            'requiere_talla': row[8],
+            'requiere_color': row[9],
+            'activo': row[10],
+            'orden': row[11],
+            'categoria_id': row[12],
         }
 
     def get_ventas_por_tipo(self, ticket_ids: List[int], line_tipo: str = None, tipo_ids: List[int] = None):
@@ -153,14 +181,16 @@ class TipoRepository:
         requiere_color: int = 0,
         activo: int = 1,
         orden: int = 0,
+        categoria_id: Optional[int] = None,
     ) -> int:
         """Inserta un nuevo tipo. Devuelve el id generado."""
         cur = self.db.execute_query(
             'INSERT INTO tipos (nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, '
-            'coste_base, requiere_talla, requiere_color, activo, orden) '
-            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'coste_base, requiere_talla, requiere_color, activo, orden, categoria_id) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             (nombre, descripcion, shopify_taxonomy, float(fide_porcentaje), color, icono,
-             float(coste_base), int(requiere_talla), int(requiere_color), int(activo), int(orden)),
+             float(coste_base), int(requiere_talla), int(requiere_color), int(activo), int(orden),
+             categoria_id),
         )
         return cur.lastrowid
 
@@ -178,15 +208,17 @@ class TipoRepository:
         requiere_color: int = 0,
         activo: int = 1,
         orden: int = 0,
+        categoria_id: Optional[int] = None,
     ) -> None:
         """Actualiza un tipo existente."""
         self.db.execute_query(
             'UPDATE tipos SET nombre = ?, descripcion = ?, '
             'shopify_taxonomy = ?, fide_porcentaje = ?, color = ?, icono = ?, '
-            'coste_base = ?, requiere_talla = ?, requiere_color = ?, activo = ?, orden = ? '
+            'coste_base = ?, requiere_talla = ?, requiere_color = ?, activo = ?, orden = ?, categoria_id = ? '
             'WHERE id = ?',
             (nombre, descripcion, shopify_taxonomy, float(fide_porcentaje), color, icono,
-             float(coste_base), int(requiere_talla), int(requiere_color), int(activo), int(orden), id),
+             float(coste_base), int(requiere_talla), int(requiere_color), int(activo), int(orden),
+             categoria_id, id),
         )
 
     def delete(self, id: int) -> None:

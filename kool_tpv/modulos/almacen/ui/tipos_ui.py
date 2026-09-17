@@ -8,10 +8,12 @@ import tkinter as tk
 import customtkinter as ctk
 
 from kool_tpv.base_datos.tipo_service import TipoService
+from kool_tpv.modulos.almacen.categoria_repository import CategoriaRepository
 from kool_tpv.utils.utils import COLOR_BG_TERMINAL, COLOR_MATRIX
 from kool_tpv.utils.font_loader import get_font
 from kool_tpv.utils.config_loader import create_action_button
 from kool_tpv.utils.factories.button_factory import ButtonFactory
+from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 
 
 class TiposUI:
@@ -25,6 +27,7 @@ class TiposUI:
         except Exception:
             self.colors = {'text': COLOR_MATRIX, 'primary': COLOR_MATRIX, 'secondary': COLOR_MATRIX}
         self.service = TipoService(db)
+        self.categoria_repo = CategoriaRepository(db)
         self.container = ctk.CTkFrame(self.parent, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
         # defaults
         default_entry_kw = {
@@ -185,6 +188,11 @@ class TiposUI:
             self.txt_descripcion.pack(fill='both', expand=True)
             frame.grid(row=3, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
 
+        # Fila 4: CATEGORIA
+        ctk.CTkLabel(self.grid_frame, text='CATEGORÍA:', text_color=self.colors['text'], font=lbl_font).grid(row=4, column=0, sticky='w', padx=6, pady=6)
+        self.cb_categoria = SearchableCombo(self.grid_frame, placeholder='Buscar categoría', width=240, module_name=self.module_name)
+        self.cb_categoria.grid(row=4, column=1, columnspan=7, sticky='ew', padx=6, pady=6)
+
         # Chips area — fuera del grid, frame independiente con pack
         self.chips_frame = ctk.CTkScrollableFrame(self.container, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
         self.chips_frame.pack(fill='both', expand=True, padx=12, pady=6)
@@ -201,10 +209,20 @@ class TiposUI:
 
         # load tipos
         self.selected_chip = None
+        self._load_categorias()
         self._load_tipos()
 
     def get_widget(self):
         return self.container
+
+    def _load_categorias(self):
+        """Cargar categorías en el SearchableCombo."""
+        try:
+            cats = self.categoria_repo.get_all()
+            opts = [(c['id'], c['nombre']) for c in cats]
+            self.cb_categoria.set_options(opts)
+        except Exception:
+            logging.exception('Error cargando categorías en TiposUI')
 
     def _load_tipos(self):
         try:
@@ -307,6 +325,11 @@ class TiposUI:
                 self.e_orden.insert(0, str(tipo.get('orden') or 0))
             except Exception:
                 pass
+            # categoría
+            try:
+                self.cb_categoria.set_by_id(tipo.get('categoria_id'))
+            except Exception:
+                pass
             # checkboxes
             self.chk_activo.select() if tipo.get('activo', 1) == 1 else self.chk_activo.deselect()
             self.chk_color.select() if tipo.get('requiere_color', 0) == 1 else self.chk_color.deselect()
@@ -348,6 +371,10 @@ class TiposUI:
             self.chk_activo.select()
             self.chk_color.deselect()
             self.chk_talla.deselect()
+            try:
+                self.cb_categoria.clear()
+            except Exception:
+                pass
             try:
                 self.btn_guardar.configure(text='GUARDAR')
             except Exception:
@@ -391,6 +418,7 @@ class TiposUI:
             requiere_color = 1 if self.chk_color.get() else 0
             requiere_talla = 1 if self.chk_talla.get() else 0
             activo = 1 if self.chk_activo.get() else 0
+            categoria_id = self.cb_categoria.get_id()
 
             id_val = None
             try:
@@ -400,12 +428,12 @@ class TiposUI:
                 id_val = None
 
             if id_val:
-                ok = self.service.update_tipo(id_val, nombre, descripcion, fide, color=color, icono=icono, coste_base=coste_base, requiere_talla=requiere_talla, requiere_color=requiere_color, activo=activo, orden=orden)
+                ok = self.service.update_tipo(id_val, nombre, descripcion, fide, color=color, icono=icono, coste_base=coste_base, requiere_talla=requiere_talla, requiere_color=requiere_color, activo=activo, orden=orden, categoria_id=categoria_id)
                 if ok:
                     self.clear()
                     self._load_tipos()
             else:
-                new_id = self.service.save_tipo(nombre, descripcion, fide, color=color, icono=icono, coste_base=coste_base, requiere_talla=requiere_talla, requiere_color=requiere_color, activo=activo, orden=orden)
+                new_id = self.service.save_tipo(nombre, descripcion, fide, color=color, icono=icono, coste_base=coste_base, requiere_talla=requiere_talla, requiere_color=requiere_color, activo=activo, orden=orden, categoria_id=categoria_id)
                 if new_id:
                     self.clear()
                     self._load_tipos()

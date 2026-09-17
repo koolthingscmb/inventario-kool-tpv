@@ -1,6 +1,7 @@
 import logging
 import json
 import mimetypes
+import uuid
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 
@@ -68,7 +69,7 @@ class ShopifyProductService:
         """Filas de stock base (color x talla) para una variante (Hombre, Mujer...)."""
         rows = self.db.fetch_all(
             """
-            SELECT s.sku, c.nombre AS color, t.nombre AS talla
+            SELECT s.sku, c.nombre AS color, t.nombre AS talla, s.cantidad
             FROM produccion_stock_colores_tallas s
             LEFT JOIN produccion_colores c ON c.id = s.color_id
             LEFT JOIN produccion_tallas t ON t.id = s.talla_id
@@ -184,21 +185,28 @@ class ShopifyProductService:
         # 2) Construir opciones y variantes
         variantes_input = datos.get("variantes_input")
         product_options = datos.get("product_options")
+        sku_qty = {}
         if variantes_input is None:
             colores, tallas = [], []
             variantes_input = []
-            precio = float(datos.get("precio") or 0)
-            recargo = float(datos.get("recargo_tallas") or 0)
+            precio = float(str(datos.get("precio") or 0).replace(',', '.').replace('€', '').strip() or 0)
+            recargo = float(str(datos.get("recargo_tallas") or 0).replace(',', '.').replace('€', '').strip() or 0)
             for v in datos.get("variantes", []):
                 color, talla = v["color"], v["talla"]
                 if color not in colores:
                     colores.append(color)
                 if talla not in tallas:
                     tallas.append(talla)
-                precio_variante = precio + (recargo if talla in TALLAS_GRANDES else 0)
+                if v.get("precio") is not None:
+                    precio_variante = float(v["precio"])
+                else:
+                    precio_variante = precio + (recargo if talla in TALLAS_GRANDES else 0)
+                built_sku = self.build_sku(v["sku"], datos.get("codigo_categoria", ""), datos.get("iniciales", ""))
+                sku_qty[built_sku] = int(v.get("cantidad") or 0)
                 variantes_input.append({
-                    "sku": self.build_sku(v["sku"], datos.get("codigo_categoria", ""), datos.get("iniciales", "")),
+                    "sku": built_sku,
                     "price": f"{precio_variante:.2f}",
+                    "inventoryItem": {"tracked": True},
                     # Orden del script: Talla = opción 1, Color = opción 2
                     "optionValues": [
                         {"optionName": "Talla", "name": talla},
@@ -259,15 +267,22 @@ class ShopifyProductService:
         product = result.get("product", {})
         product_id, handle = product.get("id"), product.get("handle")
 
-        # 4) Stock sorpresa si aplica (cantidad configurable)
-        if datos.get("stock_sorpresa") and location_id:
-            qty = int(datos.get("stock_sorpresa_qty") or 50)
-            inv_ids = [v["inventoryItem"]["id"] for v in product.get("variants", {}).get("nodes", [])
-                       if v.get("inventoryItem")]
-            if inv_ids:
-                ok = self._set_inventory(endpoint, headers, inv_ids, location_id, qty)
+        # 4) Asignar stock por variante (si viene del TPV y es positivo)
+        if sku_qty and location_id:
+            quantities = []
+            for v in product.get("variants", {}).get("nodes", []):
+                inv_id = v.get("inventoryItem", {}).get("id")
+                sku = v.get("sku")
+                qty = sku_qty.get(sku)
+                if inv_id and qty is not None and qty > 0:
+                    quantities.append({
+                        "inventory_item_id": inv_id,
+                        "quantity": qty,
+                    })
+            if quantities:
+                ok = self._set_inventory(endpoint, headers, quantities, location_id)
                 if not ok:
-                    logger.warning(f"Producto {handle} creado pero falló el stock sorpresa")
+                    logger.warning(f"Producto {handle} creado pero falló el stock")
 
         # 5) Mapeo local
         if datos.get("diseno_codigo") and datos.get("genero"):
@@ -283,23 +298,30 @@ class ShopifyProductService:
         return {"success": True, "product_id": product_id, "handle": handle,
                 "status": product.get("status"), "message": f"Producto {handle} OK"}
 
-    def _set_inventory(self, endpoint, headers, inventory_item_ids, location_id, quantity) -> bool:
+    def _set_inventory(self, endpoint, headers, quantities, location_id) -> bool:
         changes = [{
-            "inventoryItemId": iid,
+            "inventoryItemId": q["inventory_item_id"],
             "locationId": f"gid://shopify/Location/{location_id}",
-            "quantity": int(quantity),
-        } for iid in inventory_item_ids]
+            "quantity": int(q["quantity"]),
+            "changeFromQuantity": 0,
+        } for q in quantities]
         data, err = self._graphql(endpoint, headers, """
-            mutation($input: InventorySetOnHandQuantitiesInput!) {
-                inventorySetOnHandQuantities(input: $input) { userErrors { field message } }
+            mutation inventorySetOnHandQuantities($input: InventorySetOnHandQuantitiesInput!, $idempotencyKey: String!) {
+                inventorySetOnHandQuantities(input: $input) @idempotent(key: $idempotencyKey) {
+                    userErrors { field message }
+                    inventoryAdjustmentGroup { createdAt reason }
+                }
             }
-        """, {"input": {"reason": "correction", "setQuantities": changes}})
+        """, {
+            "input": {"reason": "correction", "setQuantities": changes},
+            "idempotencyKey": str(uuid.uuid4()),
+        })
         if err:
-            logger.error(f"Error stock sorpresa: {err}")
+            logger.error(f"Error stock: {err}")
             return False
         errs = data.get("inventorySetOnHandQuantities", {}).get("userErrors")
         if errs:
-            logger.error(f"userErrors stock sorpresa: {errs}")
+            logger.error(f"userErrors stock: {errs}")
             return False
         return True
 

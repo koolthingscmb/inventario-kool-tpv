@@ -1,5 +1,5 @@
 from .db_wrapper import Database
-from typing import List
+from typing import List, Optional, Dict, Any
 import logging
 
 from kool_tpv.modulos.almacen.tipo_repository import TipoRepository
@@ -24,16 +24,23 @@ class TipoService:
             logging.exception('Error listando tipos')
             return []
 
-    def save_tipo(self, nombre: str, descripcion: str = '', fide_porcentaje: float = 0.0, shopify_taxonomy: str = '', color: str = None, icono: str = None, coste_base: float = 0.0, requiere_talla: int = 0, requiere_color: int = 0, activo: int = 1, orden: int = 0) -> int:
+    def get_tipo_by_nombre(self, nombre: str) -> Optional[Dict[str, Any]]:
         try:
-            return self.repo.insert(nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, coste_base, requiere_talla, requiere_color, activo, orden)
+            return self.repo.get_by_nombre(nombre)
+        except Exception:
+            logging.exception('Error buscando tipo por nombre')
+            return None
+
+    def save_tipo(self, nombre: str, descripcion: str = '', fide_porcentaje: float = 0.0, shopify_taxonomy: str = '', color: str = None, icono: str = None, coste_base: float = 0.0, requiere_talla: int = 0, requiere_color: int = 0, activo: int = 1, orden: int = 0, categoria_id: Optional[int] = None) -> int:
+        try:
+            return self.repo.insert(nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, coste_base, requiere_talla, requiere_color, activo, orden, categoria_id)
         except Exception:
             logging.exception('Error guardando tipo')
             raise
 
-    def update_tipo(self, id: int, nombre: str, descripcion: str = '', fide_porcentaje: float = 0.0, shopify_taxonomy: str = '', color: str = None, icono: str = None, coste_base: float = 0.0, requiere_talla: int = 0, requiere_color: int = 0, activo: int = 1, orden: int = 0) -> bool:
+    def update_tipo(self, id: int, nombre: str, descripcion: str = '', fide_porcentaje: float = 0.0, shopify_taxonomy: str = '', color: str = None, icono: str = None, coste_base: float = 0.0, requiere_talla: int = 0, requiere_color: int = 0, activo: int = 1, orden: int = 0, categoria_id: Optional[int] = None) -> bool:
         try:
-            self.repo.update(id, nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, coste_base, requiere_talla, requiere_color, activo, orden)
+            self.repo.update(id, nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, coste_base, requiere_talla, requiere_color, activo, orden, categoria_id)
             return True
         except Exception:
             logging.exception('Error actualizando tipo %s', id)

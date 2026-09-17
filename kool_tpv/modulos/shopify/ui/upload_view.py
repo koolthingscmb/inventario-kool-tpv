@@ -15,6 +15,8 @@ import customtkinter as ctk
 from kool_tpv.utils.config_loader import load_colors
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.widgets.notificaciones import show_success, show_error
+from kool_tpv.base_datos.tipo_service import TipoService
+from kool_tpv.modulos.almacen.categoria_repository import CategoriaRepository
 from ..services.shopify_product_service import ShopifyProductService
 from ..services.camiseta_content_service import CamisetaContentService, slugify_diseno
 from ..services.camiseta_prompts import GENEROS_CAMISETA, TONO_POR_DEFECTO
@@ -451,6 +453,19 @@ class ShopifyUploadView:
         cfg = self.config_service.get_config()
         seo_desc = self._seo_box.get("1.0", "end-1c").strip()
         status = self._status_menu.get()
+        product_type = self._entries["tipo_producto"].get().strip() or "Camiseta"
+
+        # Taxonomía Shopify desde la categoría del tipo
+        taxonomy_gid = None
+        try:
+            tipo = TipoService(self.db).get_tipo_by_nombre(product_type)
+            if tipo and tipo.get("categoria_id"):
+                cat = CategoriaRepository(self.db).get_by_id(tipo["categoria_id"])
+                if cat:
+                    taxonomy_gid = cat.get("shopify_taxonomy")
+        except Exception:
+            logger.exception('Error obteniendo taxonomy_gid')
+
         base = {
             "tags": [t.strip() for t in self._entries["tags"].get().split(",") if t.strip()],
             "seo_desc": seo_desc,
@@ -458,7 +473,8 @@ class ShopifyUploadView:
             "status": status,
             "recargo_tallas": cfg.get("recargo_tallas") or 0,
             "codigo_categoria": self._entries["codigo_categoria"].get().strip().upper(),
-            "product_type": self._entries["tipo_producto"].get().strip() or "Camiseta",
+            "product_type": product_type,
+            "taxonomy_gid": taxonomy_gid,
             "template_suffix": self._entries["plantilla"].get().strip() or cfg.get("template_suffix") or "",
         }
 
@@ -484,7 +500,34 @@ class ShopifyUploadView:
             variantes = self.product_service.get_variantes_stock(variante_id)
             if not variantes:
                 continue
+
+            # Asegurar cantidad entera en cada variante real
+            for v in variantes:
+                v["cantidad"] = int(v.get("cantidad") or 0)
+
+            # Color "Sorpresa": una opción extra con 50 uds y precio propio
+            tallas = sorted({v["talla"] for v in variantes})
+            sorpresa_qty = int(cfg.get("stock_sorpresa") or 50) if cfg.get("stock_sorpresa") else 50
+            sorpresa_precio = cfg.get("precio_sorpresa")
+            if sorpresa_precio:
+                sorpresa_precio = float(sorpresa_precio.replace(',', '.').replace('€', '').strip())
+            else:
+                sorpresa_precio = None
+
+            for talla in tallas:
+                v_sorpresa = {
+                    "sku": f"CAM-SORPRESA-{genero}-{talla}",
+                    "color": "Sorpresa",
+                    "talla": talla,
+                    "cantidad": sorpresa_qty,
+                }
+                if sorpresa_precio is not None:
+                    v_sorpresa["precio"] = sorpresa_precio
+                variantes.append(v_sorpresa)
+
             precio = self._entries["precio"].get().strip() or cfg.get(f"precio_{genero.lower()}") or 0
+            if isinstance(precio, str):
+                precio = precio.replace('€', '').strip().replace(',', '.')
             datos = dict(base)
             datos.update({
                 "title": f"{titulo} | {genero}",
@@ -497,7 +540,6 @@ class ShopifyUploadView:
                 "iniciales": iniciales,
                 "imagenes": [dict(i) for i in self._imagenes],
                 "vendor": cfg.get("marca") or "Kool Things",
-                "stock_sorpresa_qty": cfg.get("stock_sorpresa") or 50,
                 "diseno_codigo": _slugify(titulo),
                 "genero": genero,
             })
