@@ -10,7 +10,7 @@ from typing import List, Dict, Any, Optional
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.widgets.notificaciones import ToastWidget
-from kool_tpv.utils.dialogs import show_error
+from kool_tpv.utils.dialogs import show_error, show_warning
 from kool_tpv.modulos.produccion.services.produccion_stock_base_service import ProduccionStockBaseService
 from kool_tpv.modulos.produccion.services.produccion_tipos_service import ProduccionTiposService
 from kool_tpv.modulos.produccion.ui.subvistas.config_helper import cargar_config_produccion, get_font
@@ -33,7 +33,9 @@ class ProduccionStockBaseView:
 		self.colors = self.config.get("colores", {})
 		self._chip_cfg = self.config.get("chips", {}).get("diseno", {})
 		self._selected_chip = None
+		self._selected_variante_chip = None
 		self._tipo_filtro = None
+		self._variante_filtro = None
 		self._sort_column = None
 		self._sort_direction = 'asc'
 		
@@ -117,6 +119,17 @@ class ProduccionStockBaseView:
 		)
 		self.btn_costes.pack(side="left", padx=5)
 
+		self.btn_eliminar = ButtonFactory.create_button(
+			btn_frame,
+			text="ELIMINAR",
+			command=self._on_eliminar,
+			module="produccion",
+			palette_key="accent",
+			style_key="action_secondary",
+			state="disabled"
+		)
+		self.btn_eliminar.pack(side="left", padx=5)
+
 		# Botón MIGRACIÓN (Temporal para Shopify)
 		self.btn_migrar = ButtonFactory.create_button(
 			btn_frame,
@@ -149,6 +162,8 @@ class ProduccionStockBaseView:
 			columns=columnas,
 			module_name="produccion",
 			keyboard_manager=km,
+			multi_select=True,
+			on_selection_change=self._on_seleccion_change,
 			on_double_click=self._on_item_double_click
 		)
 		self.tabla.pack(fill="both", expand=True, padx=20, pady=10)
@@ -157,8 +172,10 @@ class ProduccionStockBaseView:
 
 	def _crear_chips_tipos(self, parent_frame):
 		"""Crear fila de chips para filtrar por tipo."""
-		chips_frame = ctk.CTkFrame(parent_frame, fg_color="transparent")
-		chips_frame.pack(fill="x", padx=20, pady=(0, 5))
+		self._chips_parent = ctk.CTkFrame(parent_frame, fg_color="transparent")
+		self._chips_parent.pack(fill="x", padx=20, pady=(0, 5))
+		chips_frame = ctk.CTkFrame(self._chips_parent, fg_color="transparent")
+		chips_frame.pack(fill="x")
 
 		tipos = self.tipos_service.obtener_activos()
 		tipos_con_stock = set(self.service.obtener_tipos_con_stock())
@@ -218,6 +235,11 @@ class ProduccionStockBaseView:
 			if is_selected:
 				self._selected_chip = btn
 
+		# Frame para chips de variantes (segunda fila)
+		self._variantes_frame = ctk.CTkFrame(self._chips_parent, fg_color="transparent")
+		if self._tipo_filtro:
+			self._crear_chips_variantes(self._variantes_frame, self._tipo_filtro)
+
 	def _on_chip_click(self, btn, tipo):
 		"""Filtrar la tabla por tipo al pulsar un chip."""
 		default_cfg = self._chip_cfg.get("default", {})
@@ -235,6 +257,17 @@ class ProduccionStockBaseView:
 				pass
 		self._selected_chip = btn
 		self._tipo_filtro = tipo.id if tipo else None
+		self._variante_filtro = None
+		self._selected_variante_chip = None
+
+		# Reconstruir chips de variantes para el tipo seleccionado
+		if self._variantes_frame:
+			for child in self._variantes_frame.winfo_children():
+				child.destroy()
+			self._variantes_frame.pack_forget()
+			if self._tipo_filtro:
+				self._crear_chips_variantes(self._variantes_frame, self._tipo_filtro)
+
 		try:
 			btn.configure(
 				fg_color=selected_cfg.get("bg", "#552583"),
@@ -245,6 +278,65 @@ class ProduccionStockBaseView:
 			)
 		except Exception:
 			pass
+		self._cargar_datos()
+
+	def _crear_chips_variantes(self, parent_frame, tipo_id):
+		"""Crear segunda fila de chips con las variantes del tipo seleccionado."""
+		from kool_tpv.modulos.produccion.services.produccion_tipos_variantes_service import ProduccionTiposVariantesService
+		variantes = ProduccionTiposVariantesService(self.db).obtener_por_tipo(tipo_id, solo_activos=True)
+		if not variantes:
+			return
+
+		parent_frame.pack(fill="x", pady=(5, 0))
+		container = ctk.CTkFrame(parent_frame, fg_color="transparent")
+		container.pack(fill="x")
+
+		self._variante_chip_buttons = []
+		cols = 10
+		for c in range(cols):
+			container.grid_columnconfigure(c, weight=1)
+
+		for idx, variante in enumerate(variantes, start=0):
+			is_selected = (self._variante_filtro == variante.id)
+			
+			btn = ButtonFactory.create_button(
+				parent=container,
+				text=variante.nombre,
+				command=lambda v=variante: self._on_variante_chip_click(v),
+				module="produccion",
+				style_key="action_secondary",
+				palette_key="primary" if is_selected else "secondary",
+				width=0,
+				height=32,
+				corner_radius=16,
+				border_width=2 if is_selected else 1,
+				font=get_font(self.config, "button_small") if "button_small" in self.config.get("fonts", {}) else (None, 12)
+			)
+			row = idx // cols
+			col = idx % cols
+			btn.grid(row=row, column=col, padx=3, pady=3, sticky="ew")
+			self._variante_chip_buttons.append(btn)
+			if is_selected:
+				self._selected_variante_chip = btn
+
+	def _on_variante_chip_click(self, variante):
+		"""Filtrar por variante. Si pulsa el mismo, lo deselecciona."""
+		if self._variante_filtro == variante.id:
+			# Deseleccionar
+			self._variante_filtro = None
+			self._selected_variante_chip = None
+		else:
+			self._variante_filtro = variante.id
+			self._selected_variante_chip = None
+		
+		# Reconstruir chips de variantes para reflejar el estado
+		if self._variantes_frame:
+			for child in self._variantes_frame.winfo_children():
+				child.destroy()
+			self._variantes_frame.pack_forget()
+			if self._tipo_filtro:
+				self._crear_chips_variantes(self._variantes_frame, self._tipo_filtro)
+		
 		self._cargar_datos()
 
 	def show_formulario(self, item_data=None):
@@ -307,6 +399,8 @@ class ProduccionStockBaseView:
 			items = self.service.listar_todo()
 			if self._tipo_filtro is not None:
 				items = [it for it in items if it.get("tipo_id") == self._tipo_filtro]
+			if self._variante_filtro is not None:
+				items = [it for it in items if it.get("variante_id") == self._variante_filtro]
 			self._items_filtrados = items
 			rows = []
 			for it in items:
@@ -380,6 +474,51 @@ class ProduccionStockBaseView:
 		except Exception:
 			logger.exception('Error exportando PDF de stock base')
 			ToastWidget.show(self.container, 'Error al exportar PDF', tipo='error')
+
+	def _on_seleccion_change(self, indices):
+		"""Habilitar/deshabilitar ELIMINAR según haya filas seleccionadas."""
+		if self.btn_eliminar and self.btn_eliminar.winfo_exists():
+			try:
+				self.btn_eliminar.configure(state="normal" if indices else "disabled")
+			except Exception:
+				pass
+
+	def _on_eliminar(self):
+		"""Eliminar los registros de stock base seleccionados."""
+		seleccionados = self.tabla.get_selected_items() if self.tabla else []
+		seleccionados = [it for it in seleccionados if it and it.get("_raw")]
+		if not seleccionados:
+			ToastWidget.show(self.container, "Selecciona un SKU para eliminar", tipo='warning')
+			return
+
+		ids = [it["_raw"]["id"] for it in seleccionados if it["_raw"].get("id")]
+		if not ids:
+			return
+
+		num = len(ids)
+		confirmar = show_warning(
+			self.container,
+			titulo="Eliminar SKU base",
+			mensaje=f"Vas a eliminar {num} registro(s) de stock base.\n\n¿Estás seguro?",
+			confirm=True
+		)
+		if not confirmar:
+			return
+
+		eliminados = 0
+		errores = 0
+		for _id in ids:
+			if self.service.eliminar_variante(_id):
+				eliminados += 1
+			else:
+				errores += 1
+
+		if errores:
+			ToastWidget.show(self.container, f"{eliminados} eliminados, {errores} con error", tipo='error')
+		else:
+			ToastWidget.show(self.container, f"{eliminados} SKU base eliminados", tipo='success')
+
+		self._cargar_datos()
 
 	def _on_item_double_click(self, item_data):
 		"""Acción al hacer doble clic en una fila (editar variante)."""
