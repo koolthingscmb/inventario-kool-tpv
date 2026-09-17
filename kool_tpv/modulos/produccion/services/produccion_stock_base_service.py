@@ -74,6 +74,12 @@ class ProduccionStockBaseService:
 	def _trigger_async_sync(self, tipo_id, color_id, talla, variante_id, cantidad, motivo: str = "Actualización manual"):
 		"""Dispara la sincronización con Shopify en segundo plano si está activa."""
 		try:
+			# Solo variantes marcadas como "SYNC WEB" en su configuración
+			if not variante_id:
+				return
+			row = self.db.fetch_one("SELECT sync_web FROM tipos_variantes WHERE id = ?", (variante_id,))
+			if not row or not row[0]:
+				return
 			from kool_tpv.modulos.shopify.services.shopify_config_service import ShopifyConfigService
 			if ShopifyConfigService(self.db).get_config().get("sync_active"):
 				sku = self.generar_sku(tipo_id, color_id, talla, variante_id)

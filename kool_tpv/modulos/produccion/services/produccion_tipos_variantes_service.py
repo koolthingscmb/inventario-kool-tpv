@@ -35,7 +35,7 @@ class ProduccionTiposVariantesService:
 
     def crear(self, tipo_id: int, nombre: str, coste_base: int = 0,
               precio_recomendado: int = 0, shopify_variant_id: Optional[str] = None,
-              requiere_talla: int = 0, requiere_color: int = 0,
+              sync_web: int = 0, requiere_talla: int = 0, requiere_color: int = 0,
               grupo_talla_id: Optional[int] = None, orden: int = 0) -> Optional[int]:
         """Crear una nueva variante."""
         if not tipo_id or not nombre or not nombre.strip():
@@ -48,6 +48,7 @@ class ProduccionTiposVariantesService:
             precio_recomendado=precio_recomendado,
             activo=1,
             shopify_variant_id=shopify_variant_id,
+            sync_web=sync_web,
             requiere_talla=requiere_talla,
             requiere_color=requiere_color,
             grupo_talla_id=grupo_talla_id,
@@ -58,7 +59,7 @@ class ProduccionTiposVariantesService:
     def actualizar(self, variante_id: int, tipo_id: int, nombre: str,
                    coste_base: int = 0, precio_recomendado: int = 0,
                    activo: int = 1, shopify_variant_id: Optional[str] = None,
-                   requiere_talla: int = 0, requiere_color: int = 0,
+                   sync_web: int = 0, requiere_talla: int = 0, requiere_color: int = 0,
                    grupo_talla_id: Optional[int] = None, orden: int = 0) -> bool:
         """Actualizar una variante existente."""
         if not variante_id or not tipo_id or not nombre or not nombre.strip():
@@ -72,6 +73,7 @@ class ProduccionTiposVariantesService:
             precio_recomendado=precio_recomendado,
             activo=activo,
             shopify_variant_id=shopify_variant_id,
+            sync_web=sync_web,
             requiere_talla=requiere_talla,
             requiere_color=requiere_color,
             grupo_talla_id=grupo_talla_id,

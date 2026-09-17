@@ -237,6 +237,23 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migración 053: sync_web en tipos_variantes
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('tipos_variantes')") or [])]
+			if 'sync_web' not in cols:
+				logging.info('Aplicando migración 053: sync_web en tipos_variantes')
+				db.connection.execute('ALTER TABLE tipos_variantes ADD COLUMN sync_web INTEGER DEFAULT 0')
+				# Activar por defecto para Hombre, Mujer e Infantil (IDs 1, 2, 3) para no romper el flujo de camisetas
+				db.connection.execute('UPDATE tipos_variantes SET sync_web = 1 WHERE id IN (1, 2, 3)')
+				db.connection.commit()
+				logging.info('Migración 053 aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 053')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Check existence
 		existing = []
 		try:

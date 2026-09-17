@@ -24,7 +24,7 @@ class ProduccionTiposVariantesRepository:
     def _row_to_variante(self, row) -> ProduccionTipoVariante:
         """Mapear una fila de BD a objeto ProduccionTipoVariante."""
         (id_, tipo_id, nombre, coste_base, precio_recomendado, 
-         activo, shopify_variant_id, created_at, updated_at,
+         activo, shopify_variant_id, sync_web, created_at, updated_at,
          requiere_talla, requiere_color, grupo_talla_id, orden) = row
         
         return ProduccionTipoVariante(
@@ -38,6 +38,7 @@ class ProduccionTiposVariantesRepository:
             requiere_color=requiere_color or 0,
             grupo_talla_id=grupo_talla_id,
             shopify_variant_id=shopify_variant_id,
+            sync_web=sync_web or 0,
             orden=orden or 0,
             created_at=datetime.fromisoformat(created_at) if created_at else None,
             updated_at=datetime.fromisoformat(updated_at) if updated_at else None
@@ -45,7 +46,7 @@ class ProduccionTiposVariantesRepository:
 
     _QUERY_SELECT = """
         SELECT id, tipo_id, nombre, coste_base, precio_recomendado, 
-               activo, shopify_variant_id, created_at, updated_at,
+               activo, shopify_variant_id, sync_web, created_at, updated_at,
                requiere_talla, requiere_color, grupo_talla_id, orden
         FROM tipos_variantes
     """
@@ -81,13 +82,13 @@ class ProduccionTiposVariantesRepository:
             query = """
                 INSERT INTO tipos_variantes
                 (tipo_id, nombre, coste_base, precio_recomendado, activo, 
-                 shopify_variant_id, requiere_talla, requiere_color, grupo_talla_id, orden)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 shopify_variant_id, sync_web, requiere_talla, requiere_color, grupo_talla_id, orden)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             self.db.execute_query(query, (
                 variante.tipo_id, variante.nombre, variante.coste_base, 
                 variante.precio_recomendado, variante.activo, 
-                variante.shopify_variant_id, variante.requiere_talla, 
+                variante.shopify_variant_id, variante.sync_web, variante.requiere_talla, 
                 variante.requiere_color, variante.grupo_talla_id, variante.orden
             ))
             result = self.db.fetch_all("SELECT last_insert_rowid()")
@@ -110,14 +111,14 @@ class ProduccionTiposVariantesRepository:
                 UPDATE tipos_variantes
                 SET tipo_id = ?, nombre = ?, coste_base = ?, 
                     precio_recomendado = ?, activo = ?, shopify_variant_id = ?,
-                    requiere_talla = ?, requiere_color = ?, grupo_talla_id = ?,
-                    orden = ?, updated_at = CURRENT_TIMESTAMP
+                    sync_web = ?, requiere_talla = ?, requiere_color = ?, 
+                    grupo_talla_id = ?, orden = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             """
             self.db.execute_query(query, (
                 variante.tipo_id, variante.nombre, variante.coste_base, 
                 variante.precio_recomendado, variante.activo, 
-                variante.shopify_variant_id, variante.requiere_talla, 
+                variante.shopify_variant_id, variante.sync_web, variante.requiere_talla, 
                 variante.requiere_color, variante.grupo_talla_id, 
                 variante.orden, variante.id
             ))

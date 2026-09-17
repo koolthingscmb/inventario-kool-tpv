@@ -117,6 +117,10 @@ class ShopifySyncView(ctk.CTkFrame):
             
             colores = ProduccionColoresService(self.db).obtener_como_dict(solo_activos=True)
             variantes_dict = ProduccionTiposVariantesService(self.db).obtener_activos_como_dict()
+            # Solo ofrecer variantes marcadas como "SYNC WEB"
+            rows = self.db.fetch_all("SELECT id FROM tipos_variantes WHERE sync_web = 1")
+            _sync_ids = {r[0] for r in (rows or [])}
+            variantes_dict = {vid: nom for vid, nom in variantes_dict.items() if vid in _sync_ids}
             
             options_colores = [(None, "TODOS LOS COLORES")] + [(c['id'], c['nombre'].upper()) for c in colores]
             options_variantes = [(None, "TODOS LOS GÉNEROS")] + [(vid, nom.upper()) for vid, nom in variantes_dict.items()]
@@ -254,8 +258,12 @@ class ShopifySyncView(ctk.CTkFrame):
             tipo_id = category["id"]
             self._add_log(f"INICIANDO SINCRONIZACIÓN DE {category['name']}...")
             bases = self.stock_service.listar_todo()
+            # Solo variantes marcadas como "SYNC WEB"
+            rows = self.db.fetch_all("SELECT id FROM tipos_variantes WHERE sync_web = 1")
+            variantes_web = {r[0] for r in (rows or [])}
             bases_filtradas = [
                 b for b in bases if b.get('tipo_id') == tipo_id and
+                b.get('variante_id') in variantes_web and
                 (not filter_color_id or b.get('color_id') == filter_color_id) and
                 (not filter_variante_id or b.get('variante_id') == filter_variante_id)
             ]

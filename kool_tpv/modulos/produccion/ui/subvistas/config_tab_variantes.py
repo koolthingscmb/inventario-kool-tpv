@@ -161,6 +161,11 @@ class ConfigTabVariantes:
         f3 = tk.Frame(container, bg="#1a252f")
         f3.pack(fill="x", pady=4)
         
+        self._var_sync = tk.BooleanVar()
+        self._chk_sync = ctk.CTkCheckBox(f3, text="SYNC WEB", variable=self._var_sync,
+                                          font=get_font(self.config, "label"), height=24, checkbox_width=20, checkbox_height=20)
+        self._chk_sync.pack(side=tk.LEFT, padx=(0, 15))
+
         self._var_talla = tk.BooleanVar()
         self._chk_talla = ctk.CTkCheckBox(f3, text="REQ. TALLA", variable=self._var_talla, 
                                           font=get_font(self.config, "label"), height=24, checkbox_width=20, checkbox_height=20)
@@ -276,6 +281,7 @@ class ConfigTabVariantes:
         self._ent_coste.delete(0, tk.END)
         self._ent_pvp.delete(0, tk.END)
         self._ent_shopify.delete(0, tk.END)
+        self._var_sync.set(False)
         self._var_talla.set(False)
         self._var_color.set(False)
 
@@ -370,6 +376,7 @@ class ConfigTabVariantes:
             self._ent_shopify.delete(0, tk.END)
             self._ent_shopify.insert(0, v.shopify_variant_id or "")
             
+            self._var_sync.set(bool(v.sync_web))
             self._var_talla.set(bool(v.requiere_talla))
             self._var_color.set(bool(v.requiere_color))
             
@@ -407,6 +414,7 @@ class ConfigTabVariantes:
         self._ent_coste.delete(0, tk.END)
         self._ent_pvp.delete(0, tk.END)
         self._ent_shopify.delete(0, tk.END)
+        self._var_sync.set(False)
         self._var_talla.set(False)
         self._var_color.set(False)
         
@@ -531,6 +539,7 @@ class ConfigTabVariantes:
             return
 
         shopify_id = self._ent_shopify.get().strip() or None
+        sync_web = 1 if self._var_sync.get() else 0
         req_talla = 1 if self._var_talla.get() else 0
         req_color = 1 if self._var_color.get() else 0
         
@@ -543,7 +552,7 @@ class ConfigTabVariantes:
             # ACTUALIZAR EXISTENTE
             ok = self.service.actualizar(
                 self._variante_id_edit, self._tipo_selected_id, nombre,
-                coste_cents, pvp_cents, 1, shopify_id, req_talla, req_color,
+                coste_cents, pvp_cents, 1, shopify_id, sync_web, req_talla, req_color,
                 grupo_id
             )
             
@@ -561,7 +570,7 @@ class ConfigTabVariantes:
             # CREAR NUEVA
             res_id = self.service.crear(
                 self._tipo_selected_id, nombre, coste_cents, pvp_cents,
-                shopify_id, req_talla, req_color, grupo_id
+                shopify_id, sync_web, req_talla, req_color, grupo_id
             )
             if res_id:
                 ToastWidget.show(self.parent, "Nueva variante creada", tipo="success")

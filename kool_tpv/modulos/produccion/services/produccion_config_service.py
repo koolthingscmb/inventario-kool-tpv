@@ -115,7 +115,7 @@ class ProduccionConfigService:
         Si solo_matriz es True, solo devuelve las que requieren color o talla.
         """
         vars = self.relaciones_repo.db.fetch_all(
-            "SELECT id, tipo_id, nombre, coste_base, precio_recomendado, activo, shopify_variant_id, created_at, updated_at, requiere_talla, requiere_color FROM tipos_variantes WHERE tipo_id = ? AND activo = 1",
+            "SELECT id, tipo_id, nombre, coste_base, precio_recomendado, activo, shopify_variant_id, sync_web, created_at, updated_at, requiere_talla, requiere_color FROM tipos_variantes WHERE tipo_id = ? AND activo = 1",
             (tipo_id,)
         )
         from datetime import datetime
@@ -123,10 +123,10 @@ class ProduccionConfigService:
         for r in vars:
             v = ProduccionTipoVariante(
                 id=r[0], tipo_id=r[1], nombre=r[2], coste_base=r[3], precio_recomendado=r[4],
-                activo=r[5], shopify_variant_id=r[6], 
-                created_at=datetime.fromisoformat(r[7]) if r[7] else None,
-                updated_at=datetime.fromisoformat(r[8]) if r[8] else None,
-                requiere_talla=r[9] or 0, requiere_color=r[10] or 0
+                activo=r[5], shopify_variant_id=r[6], sync_web=r[7] or 0,
+                created_at=datetime.fromisoformat(r[8]) if r[8] else None,
+                updated_at=datetime.fromisoformat(r[9]) if r[9] else None,
+                requiere_talla=r[10] or 0, requiere_color=r[11] or 0
             )
             if solo_matriz:
                 if v.requiere_color == 1 or v.requiere_talla == 1:
