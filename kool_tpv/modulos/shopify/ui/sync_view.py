@@ -102,69 +102,72 @@ class ShopifySyncView(ctk.CTkFrame):
         callback()
 
     def _show_tab_actualizar(self):
-        """Muestra el panel de actualización manual."""
+        """Muestra el panel de actualización manual con una fila por tipo sincronizable."""
         primary_color = self.colors.get('primary', '#00A4DF')
-        
-        # --- FILTROS ---
-        filters_frame = ctk.CTkFrame(self.content_area, fg_color=self.colors.get('bg_medium', '#1a1a1a'), corner_radius=10)
-        filters_frame.pack(fill="x", pady=(0, 15), ipady=8)
-        
-        ctk.CTkLabel(filters_frame, text="FILTRAR POR:", font=("Roboto-Bold", 13), text_color=primary_color).pack(side="left", padx=15)
-        
+
+        # Tipos que tienen al menos una variante marcada como "SYNC WEB"
         try:
-            from kool_tpv.modulos.produccion.services.produccion_colores_service import ProduccionColoresService
-            from kool_tpv.modulos.produccion.services.produccion_tipos_variantes_service import ProduccionTiposVariantesService
-            
-            colores = ProduccionColoresService(self.db).obtener_como_dict(solo_activos=True)
-            variantes_dict = ProduccionTiposVariantesService(self.db).obtener_activos_como_dict()
-            # Solo ofrecer variantes marcadas como "SYNC WEB"
-            rows = self.db.fetch_all("SELECT id FROM tipos_variantes WHERE sync_web = 1")
-            _sync_ids = {r[0] for r in (rows or [])}
-            variantes_dict = {vid: nom for vid, nom in variantes_dict.items() if vid in _sync_ids}
-            
-            options_colores = [(None, "TODOS LOS COLORES")] + [(c['id'], c['nombre'].upper()) for c in colores]
-            options_variantes = [(None, "TODOS LOS GÉNEROS")] + [(vid, nom.upper()) for vid, nom in variantes_dict.items()]
+            rows = self.db.fetch_all(
+                "SELECT DISTINCT t.id, t.nombre FROM tipos_variantes tv "
+                "JOIN tipos t ON t.id = tv.tipo_id "
+                "WHERE tv.sync_web = 1 AND t.activo = 1 "
+                "ORDER BY t.orden, t.nombre"
+            )
+            tipos = [{"id": r[0], "name": r[1].upper()} for r in (rows or [])]
         except Exception:
-            options_colores = [(None, "TODOS LOS COLORES")]
-            options_variantes = [(None, "TODOS LOS GÉNEROS")]
+            tipos = []
 
-        self.cb_color = SearchableCombo(filters_frame, options=options_colores, placeholder="COLOR...", width=200, module_name="shopify")
-        self.cb_color.pack(side="left", padx=8)
-        
-        self.cb_variante = SearchableCombo(filters_frame, options=options_variantes, placeholder="GÉNERO/VARIANTE...", width=200, module_name="shopify")
-        self.cb_variante.pack(side="left", padx=8)
-
-        # --- BOTONES CATEGORÍA ---
-        categories = [
-            {"id": 1, "name": "CAMISETAS", "active": True},
-            {"id": 5, "name": "CALCETINES", "active": False},
-            {"id": 37, "name": "SUDADERAS", "active": False},
-            {"id": 29, "name": "PANTALONES", "active": False},
-        ]
+        if not tipos:
+            ctk.CTkLabel(
+                self.content_area,
+                text="No hay tipos con variantes marcadas como SYNC WEB.",
+                font=("Roboto-Bold", 13), text_color="#888888"
+            ).pack(pady=40)
+            return
 
         self.category_buttons = {}
-        for cat in categories:
-            btn_frame = ctk.CTkFrame(self.content_area, fg_color=self.colors.get('bg_medium', '#1a1a1a'), corner_radius=10)
-            btn_frame.pack(fill="x", pady=5, ipady=8)
-            
-            name_lbl = ctk.CTkLabel(btn_frame, text=cat["name"], font=("Roboto-Bold", 16), text_color="#FFFFFF")
+        for tipo in tipos:
+            row_frame = ctk.CTkFrame(self.content_area, fg_color=self.colors.get('bg_medium', '#1a1a1a'), corner_radius=10)
+            row_frame.pack(fill="x", pady=5, ipady=8)
+
+            name_lbl = ctk.CTkLabel(row_frame, text=tipo["name"], font=("Roboto-Bold", 16), text_color="#FFFFFF", width=180, anchor="w")
             name_lbl.pack(side="left", padx=20)
 
-            if cat["active"]:
-                btn = ButtonFactory.create_button(
-                    btn_frame, text="ACTUALIZAR EN TIENDA",
-                    command=lambda c=cat: self._on_sync_category(c),
-                    style_key="action_confirm", module="shopify", palette_key="primary",
-                    width=200, height=35
-                )
-                self.category_buttons[cat["id"]] = btn
-            else:
-                btn = ctk.CTkButton(
-                    btn_frame, text="PRÓXIMAMENTE",
-                    state="disabled", fg_color="#333333", text_color="#666666",
-                    width=200, height=35, corner_radius=10
-                )
+            # Variantes del tipo con SYNC WEB activo
+            try:
+                vrows = self.db.fetch_all(
+                    "SELECT id, nombre FROM tipos_variantes WHERE tipo_id = ? AND sync_web = 1 ORDER BY orden, nombre",
+                    (tipo["id"],))
+                opts_variantes = [(None, "TODAS")] + [(r[0], r[1].upper()) for r in vrows]
+            except Exception:
+                opts_variantes = [(None, "TODAS")]
+
+            ctk.CTkLabel(row_frame, text="VARIANTE:", font=("Roboto-Bold", 12), text_color=primary_color).pack(side="left", padx=(8, 2))
+            cb_variante = SearchableCombo(row_frame, options=opts_variantes, placeholder="Buscar variante", width=180, module_name="shopify")
+            cb_variante.pack(side="left", padx=8)
+
+            # Colores que tienen stock de este tipo
+            try:
+                crows = self.db.fetch_all(
+                    "SELECT DISTINCT c.id, c.nombre FROM produccion_stock_colores_tallas s "
+                    "JOIN produccion_colores c ON c.id = s.color_id WHERE s.tipo_id = ? ORDER BY c.nombre",
+                    (tipo["id"],))
+                opts_colores = [(None, "TODOS")] + [(r[0], r[1].upper()) for r in crows]
+            except Exception:
+                opts_colores = [(None, "TODOS")]
+
+            ctk.CTkLabel(row_frame, text="COLOR:", font=("Roboto-Bold", 12), text_color=primary_color).pack(side="left", padx=(8, 2))
+            cb_color = SearchableCombo(row_frame, options=opts_colores, placeholder="Buscar color", width=180, module_name="shopify")
+            cb_color.pack(side="left", padx=8)
+
+            btn = ButtonFactory.create_button(
+                row_frame, text="ACTUALIZAR EN TIENDA",
+                command=lambda t=tipo, cv=cb_variante, cc=cb_color: self._on_sync_category(t, cv, cc),
+                style_key="action_confirm", module="shopify", palette_key="primary",
+                width=200, height=35
+            )
             btn.pack(side="right", padx=20)
+            self.category_buttons[tipo["id"]] = btn
 
         # Espacio debajo para el futuro
         spacer = ctk.CTkFrame(self.content_area, fg_color="transparent")
@@ -241,15 +244,15 @@ class ShopifySyncView(ctk.CTkFrame):
             except Exception: pass
         self.after(0, _append)
 
-    def _on_sync_category(self, category):
+    def _on_sync_category(self, category, cb_variante=None, cb_color=None):
         if self.is_syncing: return
         self.is_syncing = True
         for btn in self.category_buttons.values():
             if btn.winfo_exists():
                 btn.configure(state="disabled")
         
-        color_id = self.cb_color.get_id()
-        variante_id = self.cb_variante.get_id()
+        color_id = cb_color.get_id() if cb_color else None
+        variante_id = cb_variante.get_id() if cb_variante else None
         
         threading.Thread(target=self._run_sync, args=(category, color_id, variante_id), daemon=True).start()
 

@@ -80,10 +80,12 @@ class CamisetaContentService:
     # Generación
     # ------------------------------------------------------------------
 
-    def generar_tags(self, titulo_base: str) -> Tuple[Optional[str], Optional[str]]:
+    def generar_tags(self, titulo_base: str, tipo_producto: str = "") -> Tuple[Optional[str], Optional[str]]:
         """Genera la lista de tags (prompt nuevo, editable en IA PROMPTS)."""
         prompt = self._get_prompt("camiseta_tags", PROMPT_TAGS)
-        prompt = prompt.replace("{titulo_base}", titulo_base)
+        prompt = (prompt
+                  .replace("{titulo_base}", titulo_base)
+                  .replace("{tipo_producto}", tipo_producto or ""))
         texto, err = self._llamar_ia(prompt)
         if err:
             return None, err

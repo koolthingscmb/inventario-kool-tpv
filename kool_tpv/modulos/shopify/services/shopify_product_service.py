@@ -362,6 +362,48 @@ class ShopifyProductService:
         return {"success": True, "message": f"Publicado en {len(pubs)} canales"}
 
     # ------------------------------------------------------------------
+    # Actualizar SKUs de variantes existentes
+    # ------------------------------------------------------------------
+
+    def actualizar_skus(self, product_id: str, variantes: List[Dict[str, str]]) -> Dict[str, Any]:
+        """Actualiza solo los SKUs de variantes existentes (productVariantsBulkUpdate).
+
+        variantes: [{"id": gid_variante, "sku": "..."}]
+        """
+        ctx = self._api_context()
+        if not ctx:
+            return {"success": False, "message": "Configuración de Shopify incompleta"}
+        endpoint, headers, _ = ctx
+
+        inputs = [{"id": v["id"], "inventoryItem": {"sku": v["sku"]}}
+                  for v in variantes if v.get("id") and v.get("sku")]
+        if not inputs:
+            return {"success": False, "message": "Sin SKUs que actualizar"}
+
+        data, err = self._graphql(endpoint, headers, """
+            mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+                productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+                    productVariants { id sku }
+                    userErrors { field message }
+                }
+            }
+        """, {"productId": product_id, "variants": inputs})
+        if err:
+            self.repo.add_sync_log(None, "SKU_UPDATE", "error", err)
+            return {"success": False, "message": err}
+
+        result = data.get("productVariantsBulkUpdate", {})
+        if result.get("userErrors"):
+            msg = json.dumps(result["userErrors"])[:500]
+            self.repo.add_sync_log(None, "SKU_UPDATE", "error", msg)
+            return {"success": False, "message": msg}
+
+        n = len(result.get("productVariants") or [])
+        self.repo.add_sync_log(None, "SKU_UPDATE", "success",
+                               f"{n} SKUs actualizados en {product_id}")
+        return {"success": True, "message": f"{n} SKUs actualizados"}
+
+    # ------------------------------------------------------------------
     # Modo EDITAR: buscar y cargar productos de Shopify
     # ------------------------------------------------------------------
 
@@ -392,7 +434,7 @@ class ShopifyProductService:
         data, err = self._graphql(endpoint, headers, """
             query($id: ID!) {
                 product(id: $id) {
-                    id title handle status descriptionHtml tags
+                    id title handle status descriptionHtml tags productType
                     seo { title description }
                     options { name values }
                     variants(first: 250) {

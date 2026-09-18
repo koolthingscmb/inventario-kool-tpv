@@ -1,6 +1,6 @@
 # PENDIENTES — KOOL TPV
 
-> Última actualización: 2026-09-12 (sesión tarde: fix prompt SEO + plan BUSCAR_DATA)
+> Última actualización: 2026-09-17 (sesión tarde: Shopify stock por variante + categoría)
 
 ## HECHO ✅
 
@@ -29,4 +29,25 @@
 
 ### 3. Push real a Shopify
 - El servicio que realmente sube el producto y el stock a la tienda online.
+
+## PENDIENTE — Shopify / Tipos (2026-09-17)
+
+### 4. Validar subida de camiseta con stock real
+- Probar en Mac que `Hombre`, `Mujer` e `Infantil` suben con stock por color/talla.
+- Confirmar que `Sorpresa` aparece como color con stock `stock_sorpresa` y precio `precio_sorpresa`.
+- Confirmar que `taxonomyCategory` se asigna en Shopify cuando el Tipo tiene `categoria_id`.
+
+### 5. Revisar `changeFromQuantity` en actualizaciones
+- Ahora se usa `changeFromQuantity: 0` porque son variantes nuevas.
+- Si se re-sube un producto ya existente, Shopify podría pedir el stock actual en vez de `0`.
+- Decidir si hay que leer el stock actual de Shopify antes de actualizar.
+
+### 6. UI de Tipos / Categorías
+- Abrir `Tipos` y probar el `SearchableCombo` de categoría.
+- Guardar un tipo con categoría y verificar que `categoria_id` persiste.
+- Confirmar que el campo `shopify_taxonomy` ya no se usa y puede quedar obsoleto.
+
+### 7. Windows
+- Al hacer `git pull` en Windows, la migración 054 se aplica sola.
+- Probar que la UI de Tipos funciona igual en Windows.
 

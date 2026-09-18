@@ -1,6 +1,7 @@
 import logging
 import requests
 import json
+import uuid
 from typing import List, Dict, Any, Optional, Tuple
 from .shopify_config_service import ShopifyConfigService
 from ..shopify_repository import ShopifyRepository
@@ -10,19 +11,20 @@ logger = logging.getLogger(__name__)
 class ShopifySyncService:
     """Servicio para la sincronización real de stock y datos con Shopify."""
 
-    API_VERSION = "2024-04"
+    DEFAULT_API_VERSION = "2026-07"
 
     def __init__(self, db):
         self.db = db
         self.config_service = ShopifyConfigService(db)
         self.repo = ShopifyRepository(db)
 
-    def _get_api_context(self) -> Optional[Tuple[str, str, str]]:
+    def _get_api_context(self) -> Optional[Tuple[str, str, str, str]]:
         """Obtiene las credenciales y el contexto de la API desde la configuración."""
         cfg = self.config_service.get_config()
         shop_url = cfg.get("shop_url")
         token = cfg.get("access_token")
         location_id = cfg.get("location_id")
+        api_version = cfg.get("api_version") or self.DEFAULT_API_VERSION
 
         if not shop_url or not token or not location_id:
             logger.error("Configuración de Shopify incompleta (URL, Token o Location ID faltante).")
@@ -33,7 +35,7 @@ class ShopifySyncService:
         if not shop_url.endswith(".myshopify.com"):
             shop_url = f"{shop_url}.myshopify.com"
 
-        return shop_url, token, location_id
+        return shop_url, token, location_id, api_version
 
     def sync_stock_by_sku_prefix(self, sku_prefix: str, quantity: int, reason: Optional[str] = None) -> Dict[str, Any]:
         """Busca todas las variantes en Shopify que empiecen por el prefijo y actualiza su stock."""
@@ -45,15 +47,16 @@ class ShopifySyncService:
         if not ctx:
             return _fail("Configuración incompleta")
 
-        shop_url, token, location_id = ctx
+        shop_url, token, location_id, api_version = ctx
         # Usamos HTTPS y la URL completa
-        endpoint = f"https://{shop_url}/admin/api/{self.API_VERSION}/graphql.json"
+        endpoint = f"https://{shop_url}/admin/api/{api_version}/graphql.json"
         headers = {
             "X-Shopify-Access-Token": token,
             "Content-Type": "application/json"
         }
+        location_gid = f"gid://shopify/Location/{location_id}"
 
-        inventory_item_ids = []
+        inventory_items = []
         has_next_page = True
         cursor = None
 
@@ -63,12 +66,20 @@ class ShopifySyncService:
 
         while has_next_page:
             query = """
-            query($cursor: String, $query: String) {
+            query($cursor: String, $query: String, $locationId: ID!) {
                 productVariants(first: 250, after: $cursor, query: $query) {
                     edges {
                         node {
                             sku
-                            inventoryItem { id }
+                            inventoryItem {
+                                id
+                                inventoryLevel(locationId: $locationId) {
+                                    quantities(names: ["available"]) {
+                                        name
+                                        quantity
+                                    }
+                                }
+                            }
                         }
                     }
                     pageInfo {
@@ -78,7 +89,7 @@ class ShopifySyncService:
                 }
             }
             """
-            variables = {"cursor": cursor, "query": search_query}
+            variables = {"cursor": cursor, "query": search_query, "locationId": location_gid}
 
             try:
                 response = requests.post(endpoint, headers=headers, json={"query": query, "variables": variables}, timeout=15)
@@ -95,9 +106,16 @@ class ShopifySyncService:
                     sku_shopify = (node.get("sku") or "").strip()
                     # Comprobación de prefijo para asegurar que no actualizamos de más
                     if sku_shopify.startswith(sku_prefix):
-                        inv_id = node.get("inventoryItem", {}).get("id", "").split("/")[-1]
+                        inv_item = node.get("inventoryItem") or {}
+                        inv_id = (inv_item.get("id") or "").split("/")[-1]
                         if inv_id:
-                            inventory_item_ids.append(inv_id)
+                            current = 0
+                            level = inv_item.get("inventoryLevel") or {}
+                            for q in (level.get("quantities") or []):
+                                if q.get("name") == "available":
+                                    current = q.get("quantity") or 0
+                                    break
+                            inventory_items.append({"inv_id": inv_id, "current": int(current)})
 
                 page_info = data.get("data", {}).get("productVariants", {}).get("pageInfo", {})
                 has_next_page = page_info.get("hasNextPage", False)
@@ -106,15 +124,15 @@ class ShopifySyncService:
             except Exception as e:
                 return _fail(f"Fallo de conexión: {str(e)}")
 
-        if not inventory_item_ids:
+        if not inventory_items:
             self.repo.add_sync_log(None, "SYNC_STOCK_PREFIX", "error", f"{sku_prefix}: sin variantes en la web con ese SKU")
             return {"success": True, "message": "No se encontraron variantes", "updated": 0}
 
         # Actualizar en lote (SOBREESCRIBIR STOCK REAL)
-        exito = self._update_stock_batch(inventory_item_ids, quantity, endpoint, headers, location_id)
+        exito = self._update_stock_batch(inventory_items, quantity, endpoint, headers, location_id)
         
         if exito:
-            count = len(inventory_item_ids)
+            count = len(inventory_items)
             if reason:
                 msg = f"{reason} | {sku_prefix} -> Stock: {quantity} ({count} items)"
             else:
@@ -125,25 +143,26 @@ class ShopifySyncService:
         else:
             return _fail("Error al aplicar el stock en Shopify")
 
-    def _update_stock_batch(self, item_ids: List[str], quantity: int, endpoint: str, headers: Dict, location_id: str) -> bool:
-        """Actualiza el stock de una lista de IDs de inventario en lotes."""
+    def _update_stock_batch(self, items: List[Dict[str, Any]], quantity: int, endpoint: str, headers: Dict, location_id: str) -> bool:
+        """Actualiza el stock de una lista de items de inventario en lotes."""
         LIMIT = 250
         
-        for i in range(0, len(item_ids), LIMIT):
-            lote = item_ids[i:i + LIMIT]
+        for i in range(0, len(items), LIMIT):
+            lote = items[i:i + LIMIT]
             
             changes = [
                 {
-                    "inventoryItemId": f"gid://shopify/InventoryItem/{inv_id}",
+                    "inventoryItemId": f"gid://shopify/InventoryItem/{it['inv_id']}",
                     "locationId": f"gid://shopify/Location/{location_id}",
-                    "quantity": int(quantity)
+                    "quantity": int(quantity),
+                    "changeFromQuantity": int(it["current"])
                 }
-                for inv_id in lote
+                for it in lote
             ]
 
             mutation = """
-            mutation inventorySetOnHandQuantities($input: InventorySetOnHandQuantitiesInput!) {
-                inventorySetOnHandQuantities(input: $input) {
+            mutation inventorySetOnHandQuantities($input: InventorySetOnHandQuantitiesInput!, $idempotencyKey: String!) {
+                inventorySetOnHandQuantities(input: $input) @idempotent(key: $idempotencyKey) {
                     userErrors {
                         field
                         message
@@ -157,7 +176,8 @@ class ShopifySyncService:
                     "input": {
                         "reason": "correction",
                         "setQuantities": changes
-                    }
+                    },
+                    "idempotencyKey": str(uuid.uuid4())
                 }
             }
 

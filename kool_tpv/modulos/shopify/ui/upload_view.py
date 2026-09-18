@@ -18,6 +18,7 @@ from kool_tpv.utils.widgets.notificaciones import show_success, show_error
 from kool_tpv.base_datos.tipo_service import TipoService
 from kool_tpv.modulos.almacen.categoria_repository import CategoriaRepository
 from ..services.shopify_product_service import ShopifyProductService
+from .shopify_actualiza_sku import ShopifyActualizaSku
 from ..services.camiseta_content_service import CamisetaContentService, slugify_diseno
 from ..services.camiseta_prompts import GENEROS_CAMISETA, TONO_POR_DEFECTO
 from ..services.shopify_config_service import ShopifyConfigService
@@ -210,6 +211,10 @@ class ShopifyUploadView:
             fg_color=self._primary, text_color="#000",
             font=("Helvetica", 15, "bold"), command=self._subir)
         self._btn_upload.pack(side="left")
+        self._btn_skus = ctk.CTkButton(
+            actions, text="SKUS", width=140, height=48,
+            fg_color=self._secondary, text_color="#FFF",
+            font=("Helvetica", 13, "bold"), command=self._abrir_skus)
         self._status_lbl = tk.Label(actions, text="", fg="#888", bg=self._bg,
                                     font=("Helvetica", 11), anchor="w", justify="left")
         self._status_lbl.pack(side="left", padx=20)
@@ -247,10 +252,12 @@ class ShopifyUploadView:
         if modo == "EDITAR":
             self._edit_frame.pack(fill="x", padx=10, pady=5, after=self._content.winfo_children()[1])
             self._btn_upload.configure(text="ACTUALIZAR PRODUCTO")
+            self._btn_skus.pack(side="left", padx=10)
         else:
             self._edit_frame.pack_forget()
             self._edit_product = None
             self._btn_upload.configure(text="SUBIR A SHOPIFY")
+            self._btn_skus.pack_forget()
             self._limpiar_formulario()
 
     def _limpiar_formulario(self):
@@ -375,16 +382,40 @@ class ShopifyUploadView:
         self._entries["tags"].delete(0, "end")
         self._entries["tags"].insert(0, ", ".join(prod.get("tags") or []))
         self._seo_box.delete("1.0", "end")
-        self._seo_box.insert("1.0", (prod.get("seo") or {}).get("description", ""))
+        self._seo_box.insert("1.0", (prod.get("seo") or {}).get("description") or "")
         for box in self._body_boxes.values():
             box.delete("1.0", "end")
-        self._body_boxes[GENEROS_CAMISETA[0]].insert("1.0", prod.get("descriptionHtml", ""))
+        self._body_boxes[GENEROS_CAMISETA[0]].insert("1.0", prod.get("descriptionHtml") or "")
         self._status_menu.set(prod.get("status", "DRAFT"))
+        if prod.get("productType"):
+            self._entries["tipo_producto"].delete(0, "end")
+            self._entries["tipo_producto"].insert(0, prod["productType"])
         self._imagenes_web = [{"url": m["image"]["url"], "alt": m.get("alt") or ""}
                               for m in prod.get("media", {}).get("nodes", [])
                               if m.get("image")]
         self._render_images()
         self._status(f"Cargado: {prod.get('handle')}")
+
+    def _abrir_skus(self):
+        """Abre la subvista de edición de SKUs para el producto cargado."""
+        if not self._edit_product:
+            show_error(self.frame, "Carga primero un producto")
+            return
+        tipo_nombre = self._entries["tipo_producto"].get().strip() or "Camiseta"
+        tipo_id = None
+        try:
+            tipo = TipoService(self.db).get_tipo_by_nombre(tipo_nombre)
+            if tipo:
+                tipo_id = tipo.get("id")
+        except Exception:
+            logger.exception("Error resolviendo tipo para SKUs")
+
+        self.frame.pack_forget()
+        sku_view = ShopifyActualizaSku(
+            self.frame.master, self.db, self._edit_product,
+            tipo_id=tipo_id, tipo_nombre=tipo_nombre,
+            on_volver=lambda: self.frame.pack(fill="both", expand=True))
+        sku_view.frame.pack(fill="both", expand=True)
 
     # ------------------------------------------------------------------
     # Generar contenido IA
@@ -398,7 +429,8 @@ class ShopifyUploadView:
         self._status("Generando tags...")
 
         def work():
-            tags, err = self.content_service.generar_tags(titulo)
+            tipo_producto = self._entries["tipo_producto"].get().strip()
+            tags, err = self.content_service.generar_tags(titulo, tipo_producto)
             def done():
                 if tags:
                     self._entries["tags"].delete(0, "end")
