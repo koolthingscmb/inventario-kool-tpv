@@ -137,6 +137,18 @@ class ProduccionTiposVariantesRepository:
             logging.exception(f"Error actualizando orden de variante {variante_id}")
             return False
 
+    def eliminar(self, variante_id: int) -> bool:
+        """Soft delete: marca la variante como inactiva."""
+        try:
+            self.db.execute_query(
+                "UPDATE tipos_variantes SET activo = 0 WHERE id = ?",
+                (variante_id,)
+            )
+            return True
+        except Exception:
+            logging.exception(f"Error eliminando variante {variante_id}")
+            return False
+
     def get_variantes_con_coste(self, search_term: str = "") -> List[dict]:
         """Obtener variantes activas con su nombre de tipo y coste base para la UI."""
         query = """
