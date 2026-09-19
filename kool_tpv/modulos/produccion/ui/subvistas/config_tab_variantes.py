@@ -301,7 +301,7 @@ class ConfigTabVariantes:
         tipo_nombre = tipo.nombre if tipo else "???"
         self._lbl_tipo_nombre.configure(text=f"Variantes de: {tipo_nombre}")
 
-        variantes = self.service.obtener_por_tipo(self._tipo_selected_id, solo_activos=False)
+        variantes = self.service.obtener_por_tipo(self._tipo_selected_id, solo_activos=True)
 
         if not variantes:
             tk.Label(self._variantes_scroll, text="No hay variantes para este tipo",

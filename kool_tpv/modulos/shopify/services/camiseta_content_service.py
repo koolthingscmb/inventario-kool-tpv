@@ -2,7 +2,7 @@ import json
 import logging
 import re
 import unicodedata
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, List
 
 import requests
 
@@ -129,8 +129,8 @@ class CamisetaContentService:
             return None, f"JSON inválido de la IA: {e}"
 
     def generar_todo(self, titulo_base: str, tags: str, beneficio: str,
-                     tono: str = "") -> Dict[str, Any]:
-        """Genera todo el contenido de golpe: SEO desc + body por género."""
+                     tono: str = "", variantes: Optional[List[str]] = None) -> Dict[str, Any]:
+        """Genera todo el contenido de golpe: SEO desc + body por variante."""
         resultado = {"seo_desc": None, "bodies": {}, "errores": []}
 
         seo, err = self.generar_seo_descripcion(titulo_base, tags, beneficio)
@@ -139,7 +139,7 @@ class CamisetaContentService:
         else:
             resultado["seo_desc"] = seo
 
-        for genero in GENEROS_CAMISETA:
+        for genero in (variantes or GENEROS_CAMISETA):
             body, err = self.generar_body(genero, titulo_base, tags, beneficio, tono)
             if err:
                 resultado["errores"].append(f"Body {genero}: {err}")
@@ -161,7 +161,8 @@ class CamisetaContentService:
                 .replace("{genero}", genero)
                 .replace("{marca}", marca))
 
-    def montar_html(self, body_json: Dict[str, str], genero: str, titulo_base: str) -> str:
+    def montar_html(self, body_json: Dict[str, str], genero: str, titulo_base: str,
+                    otras_variantes: Optional[List[str]] = None) -> str:
         """Ensambla el descriptionHtml final usando la plantilla editable
         'camiseta_html' (port exacto del GAS: strongs, características,
         FANART, botones de género y footer de envíos)."""
@@ -173,11 +174,11 @@ class CamisetaContentService:
 
         botones = "".join(
             BOTON_GENERO
-            .replace("{handle}", f"{slug}-{g.lower()}")
+            .replace("{handle}", f"{slug}-{slugify_diseno(g)}")
             .replace("{cdn_base}", cdn)
             .replace("{genero}", g)
             .replace("{genero_upper}", g.upper())
-            for g in GENEROS_CAMISETA if g != genero
+            for g in (otras_variantes or GENEROS_CAMISETA) if g != genero
         )
 
         html = plantilla

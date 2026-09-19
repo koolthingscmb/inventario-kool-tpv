@@ -260,7 +260,7 @@ class ShopifyConfigTab:
             ("Location ID:", "12345678", "ID de la ubicación física para stock", "location_id"),
             ("Versión API:", "2026-07", "Formato AAAA-MM. Subir cuando Shopify avise", "api_version"),
             ("Plantilla producto:", "camiseta", "templateSuffix del tema (ej: camiseta)", "template_suffix"),
-            ("Marca:", "Kool Things", "Se usa en el SEO title y vendor", "marca"),
+            ("Marca/Proveedor:", "Kool Things", "Se usa en el SEO title y vendor", "marca"),
             ("URL guía de tallas:", "https://...", "Enlace en la ficha del producto", "link_guia"),
             ("CDN botones género:", "https://cdn.shopify.com/.../files/", "Base URL de BOTON-CAMI-*.png", "botones_cdn"),
             ("Stock sorpresa:", "50", "Stock inicial de variantes sorpresa", "stock_sorpresa")

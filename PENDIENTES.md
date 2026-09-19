@@ -51,3 +51,9 @@
 - Al hacer `git pull` en Windows, la migración 054 se aplica sola.
 - Probar que la UI de Tipos funciona igual en Windows.
 
+## RESUELTO — Producción / Variantes (2026-09-18)
+
+### 8. ~~Chips de variantes posiblemente hardcodeados~~
+- Causa: `config_tab_variantes.py` cargaba `obtener_por_tipo(..., solo_activos=False)` — mostraba variantes eliminadas (soft delete, `activo=0`).
+- Fix: `solo_activos=True`. Las eliminadas ya no aparecen.
+

@@ -82,7 +82,7 @@ class ShopifyProductService:
 
     @staticmethod
     def build_sku(base_sku: str, codigo_categoria: str = "", iniciales: str = "") -> str:
-        """SKU web: base + código categoría + iniciales diseño (formato del script)."""
+        """SKU web: base + sufijo + iniciales diseño."""
         partes = [p for p in (base_sku, codigo_categoria, iniciales) if p]
         return "-".join(partes)
 
@@ -231,7 +231,7 @@ class ShopifyProductService:
         if product_options:
             product_input["productOptions"] = product_options
         if datos.get("taxonomy_gid"):
-            product_input["taxonomyCategory"] = datos["taxonomy_gid"]
+            product_input["category"] = datos["taxonomy_gid"]
         if datos.get("product_type"):
             product_input["productType"] = datos["product_type"]
         if datos.get("vendor"):
