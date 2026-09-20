@@ -441,28 +441,28 @@ class ShopifyConfigTab:
 
         tk.Label(header_frame, text="PLANTILLA:", font=("Helvetica", 11),
                  fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(30, 10))
-        entry_template = ctk.CTkEntry(header_frame, width=150, font=("Helvetica", 12))
-        entry_template.insert(0, tipo_template)
-        entry_template.pack(side="left", padx=(0, 20))
-        entry_template.bind("<FocusOut>", lambda e: self._guardar_template_suffix(tipo_id, entry_template.get()))
+        self._tipos_template_entry = ctk.CTkEntry(header_frame, width=150, font=("Helvetica", 12))
+        self._tipos_template_entry.insert(0, tipo_template)
+        self._tipos_template_entry.pack(side="left", padx=(0, 20))
 
         # --- Campos extra solo para Camiseta ---
+        self._tipos_sorpresa_stock_entry = None
+        self._tipos_sorpresa_precio_entry = None
         if tipo_nombre.lower() == "camiseta":
             tk.Label(header_frame, text="STOCK SORPRESA:", font=("Helvetica", 11),
                      fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(20, 10))
-            entry_stock = ctk.CTkEntry(header_frame, width=80, font=("Helvetica", 12))
-            entry_stock.insert(0, self._config.get("stock_sorpresa", "50"))
-            entry_stock.pack(side="left", padx=(0, 20))
-            entry_stock.bind("<FocusOut>", lambda e: self._guardar_config_valor("stock_sorpresa", entry_stock.get()))
+            self._tipos_sorpresa_stock_entry = ctk.CTkEntry(header_frame, width=80, font=("Helvetica", 12))
+            self._tipos_sorpresa_stock_entry.insert(0, self._config.get("stock_sorpresa", "50"))
+            self._tipos_sorpresa_stock_entry.pack(side="left", padx=(0, 20))
 
             tk.Label(header_frame, text="PRECIO SORPRESA:", font=("Helvetica", 11),
                      fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(0, 10))
-            entry_precio = ctk.CTkEntry(header_frame, width=100, font=("Helvetica", 12))
-            entry_precio.insert(0, self._config.get("precio_sorpresa", ""))
-            entry_precio.pack(side="left")
-            entry_precio.bind("<FocusOut>", lambda e: self._guardar_config_valor("precio_sorpresa", entry_precio.get()))
+            self._tipos_sorpresa_precio_entry = ctk.CTkEntry(header_frame, width=100, font=("Helvetica", 12))
+            self._tipos_sorpresa_precio_entry.insert(0, self._config.get("precio_sorpresa", ""))
+            self._tipos_sorpresa_precio_entry.pack(side="left")
 
         # --- Lista de variantes: grid de 9 columnas, header repetido ---
+        self._tipos_price_entries = []
         list_frame = tk.Frame(self._central_tipos, bg=self._bg_medium)
         list_frame.pack(fill="both", expand=True, padx=15, pady=(0, 15))
 
@@ -505,7 +505,7 @@ class ShopifyConfigTab:
             entry_precio = ctk.CTkEntry(list_frame, width=90, font=("Helvetica", 12))
             entry_precio.insert(0, precio_str)
             entry_precio.grid(row=fila, column=col_base + 2, padx=5, pady=6)
-            entry_precio.bind("<FocusOut>", lambda e, vid=v_id, ent=entry_precio: self._guardar_variante(vid, precio_web=self._parse_precio_web(ent.get())))
+            self._tipos_price_entries.append((v_id, entry_precio))
 
         # --- Prompts IA por tipo ---
         self._create_section_header(self._central_tipos, "PROMPTS IA")
@@ -622,6 +622,27 @@ class ShopifyConfigTab:
         except Exception:
             logger.exception(f"Error guardando template_suffix para tipo {tipo_id}")
             show_error(self.frame, "Error guardando la plantilla.")
+
+    def _guardar_tipo_actual(self):
+        """Guarda plantilla, sorpresa y precios web del tipo seleccionado en TIPOS."""
+        tipo_id = getattr(self, "_tipo_selected_id", None)
+        if tipo_id is None:
+            return
+
+        template_entry = getattr(self, "_tipos_template_entry", None)
+        if template_entry is not None:
+            self._guardar_template_suffix(tipo_id, template_entry.get())
+
+        stock_entry = getattr(self, "_tipos_sorpresa_stock_entry", None)
+        if stock_entry is not None:
+            self._guardar_config_valor("stock_sorpresa", stock_entry.get())
+
+        precio_entry = getattr(self, "_tipos_sorpresa_precio_entry", None)
+        if precio_entry is not None:
+            self._guardar_config_valor("precio_sorpresa", precio_entry.get())
+
+        for v_id, ent in getattr(self, "_tipos_price_entries", []):
+            self._guardar_variante(v_id, precio_web=self._parse_precio_web(ent.get()))
 
     def _render_ia(self):
         self._create_section_header(self._content_frame, "CONFIGURACIÓN GPT (OPENAI)")
@@ -929,6 +950,11 @@ class ShopifyConfigTab:
         for clave, texto in getattr(self, '_prompt_edits', {}).items():
             prompts_ok = self.prompts_repo.save_texto(clave, texto) and prompts_ok
         self._prompt_edits = {}
+
+        # Guardar los campos del tipo seleccionado en TIPOS
+        if self._current_tab == "TIPOS":
+            self._guardar_tipo_actual()
+
         if ok and prompts_ok:
             self.service.add_log("SAVE_CONFIG", "success", "Configuración actualizada")
             show_success(self.frame, "Configuración guardada.")
