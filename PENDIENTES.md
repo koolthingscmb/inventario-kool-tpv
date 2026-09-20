@@ -57,3 +57,27 @@
 - Causa: `config_tab_variantes.py` cargaba `obtener_por_tipo(..., solo_activos=False)` — mostraba variantes eliminadas (soft delete, `activo=0`).
 - Fix: `solo_activos=True`. Las eliminadas ya no aparecen.
 
+## RESUELTO — Shopify / Subida por tipo (2026-09-20)
+
+### 9. Configuración Shopify reestructurada por tipos
+- Pestaña CONFIG → GENERAL: grid de 4 columnas solo con conexión (URL, token, location, API, plantilla, marca, guía, CDN).
+- Nueva pestaña CONFIG → TIPOS: añadir tipos a controlar, configurar por variante `sync_web` + `precio_web`, prompts IA por tipo, stock/precio sorpresa para Camiseta.
+- Base de datos: migraciones 055 (`web_activo` en tipos, `precio_web` en variantes) y 056 (`shopify_prompts` con `UNIQUE(clave, tipo)` para genéricos + excepciones).
+- SUBIDA: usa tipos `web_activo=1`, variantes `sync_web=1`, precio por variante y prompts por tipo.
+- Arreglado error `productOptions` con valores vacíos: se respetan `requiere_talla` y `requiere_color`.
+- Eliminado el campo único PRECIO WEB de SUBIDA y el recargo de tallas grandes; los precios salen de CONFIG → TIPOS.
+- Eliminado el selector **VARIANTES A SUBIR** de SUBIDA: ahora se suben automáticamente todas las variantes activas del tipo.
+- **PLANTILLA** movida de SUBIDA a CONFIG → TIPOS (con fallback al config global). Migración 057.
+
+## PENDIENTE — Shopify / Pruebas reales (2026-09-20)
+
+### 10. Validar subida con precios por variante
+- Configurar `precio_web` y `template_suffix` en CONFIG → TIPOS para Camiseta (Hombre, Mujer, Infantil) y probar subida real.
+- Confirmar que `Sorpresa` solo se añade en Camiseta y que stock/precio sorpresa se leen de CONFIG → TIPOS.
+- Verificar que productos sin talla/color (Cuerdas, Mochila, Tote, Láminas) suben sin error.
+
+### 11. Revisar el prompt de tags (GENERAR TAGS)
+- El prompt `camiseta_tags` está generando tags de mala calidad.
+- Revisar el texto del prompt en IA PROMPTS / CONFIG → TIPOS y afinarlo.
+- Posible mejora: pasar la lista de tags existentes en Shopify para que reutilice.
+

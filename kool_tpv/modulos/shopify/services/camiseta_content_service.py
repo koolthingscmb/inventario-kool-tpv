@@ -71,18 +71,19 @@ class CamisetaContentService:
 
         return resp.json()["choices"][0]["message"]["content"].strip(), None
 
-    def _get_prompt(self, clave: str, default: str) -> str:
-        """Prompt desde la tabla; si no existe, el original del script."""
-        row = self.prompts_repo.get_prompt(clave)
-        return (row or {}).get("texto") or default
+    def _get_prompt(self, clave: str, default: str, tipo_id: Optional[int] = None) -> str:
+        """Prompt desde la tabla; busca específico de tipo primero, luego genérico."""
+        texto = self.prompts_repo.get_texto(clave, tipo_id)
+        return texto or default
 
     # ------------------------------------------------------------------
     # Generación
     # ------------------------------------------------------------------
 
-    def generar_tags(self, titulo_base: str, tipo_producto: str = "") -> Tuple[Optional[str], Optional[str]]:
+    def generar_tags(self, titulo_base: str, tipo_producto: str = "",
+                     tipo_id: Optional[int] = None) -> Tuple[Optional[str], Optional[str]]:
         """Genera la lista de tags (prompt nuevo, editable en IA PROMPTS)."""
-        prompt = self._get_prompt("camiseta_tags", PROMPT_TAGS)
+        prompt = self._get_prompt("camiseta_tags", PROMPT_TAGS, tipo_id)
         prompt = (prompt
                   .replace("{titulo_base}", titulo_base)
                   .replace("{tipo_producto}", tipo_producto or ""))
@@ -91,9 +92,10 @@ class CamisetaContentService:
             return None, err
         return texto.strip(), None
 
-    def generar_seo_descripcion(self, titulo_base: str, tags: str, beneficio: str) -> Tuple[Optional[str], Optional[str]]:
+    def generar_seo_descripcion(self, titulo_base: str, tags: str, beneficio: str,
+                                tipo_id: Optional[int] = None) -> Tuple[Optional[str], Optional[str]]:
         """Meta descripción (máx 155 chars) - port de generarSeoDescription del GAS."""
-        prompt = self._get_prompt("camiseta_seo", PROMPT_SEO_DESCRIPCION)
+        prompt = self._get_prompt("camiseta_seo", PROMPT_SEO_DESCRIPCION, tipo_id)
         prompt = (prompt
                   .replace("{titulo_base}", titulo_base)
                   .replace("{tags}", tags)
@@ -104,9 +106,9 @@ class CamisetaContentService:
         return texto.strip('"').strip(), None
 
     def generar_body(self, genero: str, titulo_base: str, tags: str, beneficio: str,
-                     tono: str = "") -> Tuple[Optional[Dict], Optional[str]]:
+                     tono: str = "", tipo_id: Optional[int] = None) -> Tuple[Optional[Dict], Optional[str]]:
         """JSON de bloques para un género - port de generarBodyHtml del GAS."""
-        prompt = self._get_prompt("camiseta_body", PROMPT_BODY_HTML)
+        prompt = self._get_prompt("camiseta_body", PROMPT_BODY_HTML, tipo_id)
         tags_list = [t.strip() for t in tags.split(",") if t.strip()]
         prompt = (prompt
                   .replace("{genero}", genero)
@@ -129,18 +131,19 @@ class CamisetaContentService:
             return None, f"JSON inválido de la IA: {e}"
 
     def generar_todo(self, titulo_base: str, tags: str, beneficio: str,
-                     tono: str = "", variantes: Optional[List[str]] = None) -> Dict[str, Any]:
+                     tono: str = "", variantes: Optional[List[str]] = None,
+                     tipo_id: Optional[int] = None) -> Dict[str, Any]:
         """Genera todo el contenido de golpe: SEO desc + body por variante."""
         resultado = {"seo_desc": None, "bodies": {}, "errores": []}
 
-        seo, err = self.generar_seo_descripcion(titulo_base, tags, beneficio)
+        seo, err = self.generar_seo_descripcion(titulo_base, tags, beneficio, tipo_id)
         if err:
             resultado["errores"].append(f"SEO desc: {err}")
         else:
             resultado["seo_desc"] = seo
 
         for genero in (variantes or GENEROS_CAMISETA):
-            body, err = self.generar_body(genero, titulo_base, tags, beneficio, tono)
+            body, err = self.generar_body(genero, titulo_base, tags, beneficio, tono, tipo_id)
             if err:
                 resultado["errores"].append(f"Body {genero}: {err}")
             else:
@@ -152,9 +155,9 @@ class CamisetaContentService:
     # Montaje del HTML final (plantilla editable + estructura fija)
     # ------------------------------------------------------------------
 
-    def seo_title_for(self, titulo: str, genero: str) -> str:
+    def seo_title_for(self, titulo: str, genero: str, tipo_id: Optional[int] = None) -> str:
         """SEO title con el patrón del script: {titulo} | {genero} | {marca}."""
-        plantilla = self._get_prompt("camiseta_seo_title", PLANTILLA_SEO_TITLE)
+        plantilla = self._get_prompt("camiseta_seo_title", PLANTILLA_SEO_TITLE, tipo_id)
         marca = self.config_service.get_config().get("marca") or "Kool Things"
         return (plantilla
                 .replace("{titulo}", titulo)
@@ -162,12 +165,13 @@ class CamisetaContentService:
                 .replace("{marca}", marca))
 
     def montar_html(self, body_json: Dict[str, str], genero: str, titulo_base: str,
-                    otras_variantes: Optional[List[str]] = None) -> str:
+                    otras_variantes: Optional[List[str]] = None,
+                    tipo_id: Optional[int] = None) -> str:
         """Ensambla el descriptionHtml final usando la plantilla editable
         'camiseta_html' (port exacto del GAS: strongs, características,
         FANART, botones de género y footer de envíos)."""
         cfg = self.config_service.get_config()
-        plantilla = self._get_prompt("camiseta_html", PLANTILLA_HTML)
+        plantilla = self._get_prompt("camiseta_html", PLANTILLA_HTML, tipo_id)
         cdn = cfg.get("botones_cdn") or CDN_BASE_BOTONES
         link_guia = cfg.get("link_guia") or LINK_GUIA_TALLAS
         slug = slugify_diseno(titulo_base)

@@ -269,6 +269,86 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migración 055: Shopify — tipos activos para web y precio web por variante
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('tipos')") or [])]
+			if 'web_activo' not in cols:
+				logging.info('Aplicando migración 055: web_activo en tipos')
+				db.connection.execute('ALTER TABLE tipos ADD COLUMN web_activo INTEGER DEFAULT 0')
+				db.connection.commit()
+				logging.info('Migración 055 (web_activo) aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 055 - web_activo')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('tipos_variantes')") or [])]
+			if 'precio_web' not in cols:
+				logging.info('Aplicando migración 055: precio_web en tipos_variantes')
+				db.connection.execute('ALTER TABLE tipos_variantes ADD COLUMN precio_web INTEGER DEFAULT 0')
+				db.connection.commit()
+				logging.info('Migración 055 (precio_web) aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 055 - precio_web')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
+		# Migración 056: Shopify — prompts por tipo (clave + tipo únicos)
+		try:
+			ddl_row = db.fetch_one("SELECT sql FROM sqlite_master WHERE type='table' AND name='shopify_prompts'")
+			current_sql = (ddl_row[0] or '') if ddl_row else ''
+			needs_recreate = 'UNIQUE(clave, tipo)' not in current_sql and 'UNIQUE (clave, tipo)' not in current_sql
+			if needs_recreate:
+				logging.info('Aplicando migración 056: shopify_prompts único por clave+tipo')
+				db.connection.execute('''
+					CREATE TABLE IF NOT EXISTS shopify_prompts_new (
+						id INTEGER PRIMARY KEY AUTOINCREMENT,
+						clave TEXT NOT NULL,
+						nombre TEXT,
+						tipo TEXT,
+						texto TEXT,
+						texto_default TEXT,
+						updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+						UNIQUE(clave, tipo)
+					)
+				''')
+				db.connection.execute('''
+					INSERT OR IGNORE INTO shopify_prompts_new (id, clave, nombre, tipo, texto, texto_default, updated_at)
+					SELECT id, clave, nombre, tipo, texto, texto_default, updated_at FROM shopify_prompts
+				''')
+				db.connection.execute('DROP TABLE shopify_prompts')
+				db.connection.execute('ALTER TABLE shopify_prompts_new RENAME TO shopify_prompts')
+				db.connection.commit()
+				logging.info('Migración 056 aplicada correctamente')
+			else:
+				logging.info('Migración 056 ya existente o no necesaria')
+		except Exception:
+			logging.exception('Error aplicando migración 056')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
+		# Migración 057: template_suffix por tipo (Shopify)
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('tipos')") or [])]
+			if 'template_suffix' not in cols:
+				logging.info('Aplicando migración 057: template_suffix en tipos')
+				db.connection.execute('ALTER TABLE tipos ADD COLUMN template_suffix TEXT')
+				db.connection.commit()
+				logging.info('Migración 057 aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 057')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Check existence
 		existing = []
 		try:

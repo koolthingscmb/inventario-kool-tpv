@@ -16,6 +16,7 @@ from kool_tpv.modulos.shopify.services.sources.source_manager import SourceManag
 from kool_tpv.modulos.shopify.shopify_prompts_repository import ShopifyPromptsRepository
 from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.dialogs.multi_select_dialog import show_multi_select_dialog
+from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 
 logger = logging.getLogger(__name__)
 
@@ -60,8 +61,16 @@ class ShopifyConfigTab:
 
         self._current_tab = None
         self._tab_labels = {}
-        self._tabs = ["GENERAL", "IA", "IA PROMPTS", "FUENTES", "LOGS"]
-        
+        self._tabs = ["GENERAL", "TIPOS", "IA", "IA PROMPTS", "FUENTES", "LOGS"]
+
+        # Estado de la pestaña TIPOS
+        self._tipo_selected_id: Optional[int] = None
+        self._tipo_chips: Dict[int, tk.Label] = {}
+        self._tipo_combo: Optional[SearchableCombo] = None
+        self._central_tipos: Optional[tk.Frame] = None
+        self._tipos_header: Optional[tk.Frame] = None
+        self._chip_container: Optional[tk.Frame] = None
+
         # Diccionario para almacenar los widgets de entrada
         self.widgets = {}
         # Cargar configuración desde la BD
@@ -138,6 +147,8 @@ class ShopifyConfigTab:
             self._content_frame.pack(fill=tk.BOTH, expand=True)
             if tab_name == "GENERAL":
                 self._render_general()
+            elif tab_name == "TIPOS":
+                self._render_tipos()
             elif tab_name == "IA":
                 self._render_ia()
             elif tab_name == "FUENTES":
@@ -188,7 +199,7 @@ class ShopifyConfigTab:
             "font": ("Roboto-SemiBold", 16)
         }
 
-        if self._current_tab in ["GENERAL", "IA", "IA PROMPTS", "FUENTES"]:
+        if self._current_tab in ["GENERAL", "TIPOS", "IA", "IA PROMPTS", "FUENTES"]:
             palette = self._colors_cfg.get("buttons", {}).get("primary", {})
             btn_save = ButtonFactory.create_button(
                 self._footer_frame, text="APLICAR CAMBIOS",
@@ -249,60 +260,368 @@ class ShopifyConfigTab:
         line.pack(side="left", fill="x", expand=True, padx=(15, 0), pady=(2, 0))
 
     def _render_general(self):
-        self._create_section_header(self._content_frame, "CONEXIÓN CON SHOPIFY")
+        self._create_section_header(self._content_frame, "CONEXIÓN SHOPIFY")
         grid_container = tk.Frame(self._content_frame, bg=self._bg_color)
         grid_container.pack(fill="x", padx=10)
         grid_container.columnconfigure(1, weight=1)
+        grid_container.columnconfigure(3, weight=1)
 
         fields = [
-            ("URL de la tienda:", "tienda.myshopify.com", "Ej: mitienda.myshopify.com", "shop_url"),
-            ("Admin API Token:", "shpat_xxxxxxxxxxxxxxxxxxxx", "Token de la App Personalizada en Shopify", "access_token"),
-            ("Location ID:", "12345678", "ID de la ubicación física para stock", "location_id"),
-            ("Versión API:", "2026-07", "Formato AAAA-MM. Subir cuando Shopify avise", "api_version"),
-            ("Plantilla producto:", "camiseta", "templateSuffix del tema (ej: camiseta)", "template_suffix"),
-            ("Marca/Proveedor:", "Kool Things", "Se usa en el SEO title y vendor", "marca"),
-            ("URL guía de tallas:", "https://...", "Enlace en la ficha del producto", "link_guia"),
-            ("CDN botones género:", "https://cdn.shopify.com/.../files/", "Base URL de BOTON-CAMI-*.png", "botones_cdn"),
-            ("Stock sorpresa:", "50", "Stock inicial de variantes sorpresa", "stock_sorpresa")
+            # (fila, col_label, texto_label, placeholder, clave)
+            (0, 0, "URL de la tienda:", "tienda.myshopify.com", "shop_url"),
+            (0, 2, "Admin API Token:", "shpat_xxxxxxxxxxxxxxxxxxxx", "access_token"),
+            (1, 0, "Location ID:", "12345678", "location_id"),
+            (1, 2, "Versión API:", "2026-07", "api_version"),
+            (2, 0, "Plantilla producto:", "camiseta", "template_suffix"),
+            (2, 2, "Marca/Proveedor:", "Kool Things", "marca"),
+            (3, 0, "URL guía de tallas:", "https://...", "link_guia"),
+            (3, 2, "CDN botones género:", "https://cdn.shopify.com/.../files/", "botones_cdn"),
         ]
-        
-        for i, (label, placeholder, tooltip, key) in enumerate(fields):
-            tk.Label(grid_container, text=label, font=("Helvetica", 12), fg="#FFFFFF", bg=self._bg_color, anchor="e", width=25).grid(row=i, column=0, padx=(0, 20), pady=15, sticky="e")
+
+        for row, col_label, label, placeholder, key in fields:
+            tk.Label(grid_container, text=label, font=("Helvetica", 12), fg="#FFFFFF", bg=self._bg_color, anchor="e").grid(row=row, column=col_label, padx=(0, 15), pady=15, sticky="e")
             val = self._config.get(key, "")
             if key == "api_version" and not val:
                 val = "2026-07"
             entry = ctk.CTkEntry(grid_container, placeholder_text=placeholder, height=40, font=("Helvetica", 12))
             entry.insert(0, val)
-            entry.grid(row=i, column=1, sticky="ew", pady=15)
+            entry.grid(row=row, column=col_label + 1, sticky="ew", pady=15, padx=(0, 25))
             self.widgets[key] = entry
-            tk.Label(grid_container, text=tooltip, font=("Helvetica", 9, "italic"), fg="#666", bg=self._bg_color, anchor="w").grid(row=i, column=2, padx=(10, 0), sticky="w")
 
-        self._create_section_header(self._content_frame, "ESTADO DEL SERVICIO")
-        cb_frame = tk.Frame(self._content_frame, bg=self._bg_color)
-        cb_frame.pack(fill="x", padx=10)
-        
-        self.widgets["sync_active"] = ctk.CTkCheckBox(cb_frame, text="ACTIVAR SINCRONIZACIÓN AUTOMÁTICA", font=("Helvetica", 12, "bold"), fg_color=self._primary_color, hover_color=self._secondary_color, text_color="#FFFFFF", border_width=2)
+        # Fila 5: estado del servicio
+        self.widgets["sync_active"] = ctk.CTkCheckBox(grid_container, text="ACTIVAR SINCRONIZACIÓN AUTOMÁTICA", font=("Helvetica", 12, "bold"), fg_color=self._primary_color, hover_color=self._secondary_color, text_color="#FFFFFF", border_width=2)
         if self._config.get("sync_active"): self.widgets["sync_active"].select()
         else: self.widgets["sync_active"].deselect()
-        self.widgets["sync_active"].pack(side="left", pady=10)
+        self.widgets["sync_active"].grid(row=4, column=0, columnspan=4, sticky="w", pady=15)
 
-        self._create_section_header(self._content_frame, "PRECIOS WEB (CAMISETAS)")
-        precios_grid = tk.Frame(self._content_frame, bg=self._bg_color)
-        precios_grid.pack(fill="x", padx=10)
-        precios_grid.columnconfigure(1, weight=1)
-        precios_grid.columnconfigure(3, weight=1)
+    def _render_tipos(self):
+        self._create_section_header(self._content_frame, "TIPOS ACTIVOS PARA SHOPIFY")
 
-        precios_fields = [
-            ("Hombre:", "precio_hombre", 0, 0), ("Mujer:", "precio_mujer", 0, 2),
-            ("Infantil:", "precio_infantil", 1, 0), ("Recargo 2XL+:", "recargo_tallas", 1, 2),
-            ("Sorpresa:", "precio_sorpresa", 2, 0),
+        # --- HEADER: buscador + añadir ---
+        header = tk.Frame(self._content_frame, bg=self._bg_color)
+        header.pack(fill="x", padx=10, pady=(0, 15))
+        self._tipos_header = header
+
+        tk.Label(header, text="Buscar un tipo:", font=("Helvetica", 12), fg="#FFFFFF", bg=self._bg_color).pack(side="left", padx=(0, 10))
+
+        try:
+            rows = self.db.fetch_all("SELECT id, nombre FROM tipos WHERE activo = 1 ORDER BY nombre")
+            opts = [(r[0], r[1]) for r in (rows or [])]
+        except Exception:
+            opts = []
+
+        self._tipo_combo = SearchableCombo(header, options=opts, placeholder="Selecciona un tipo...", width=300, module_name="shopify")
+        self._tipo_combo.pack(side="left", padx=(0, 15))
+
+        palette = self._colors_cfg.get("buttons", {}).get("primary", {})
+        ButtonFactory.create_button(
+            header, text="AÑADIR",
+            color=palette.get("bg", self._primary_color),
+            hover_color=palette.get("hover", self._primary_color),
+            text_color=palette.get("text", "#000000"),
+            command=self._on_add_tipo_web,
+            width=120, height=35
+        ).pack(side="left")
+
+        # --- CHIPS de tipos activos ---
+        self._chip_container = tk.Frame(self._content_frame, bg=self._bg_color)
+        self._chip_container.pack(fill="x", padx=10, pady=(0, 20))
+        self._refresh_tipo_chips()
+
+        # --- ZONA CENTRAL para el tipo seleccionado ---
+        self._central_tipos = tk.Frame(self._content_frame, bg=self._bg_medium)
+        self._central_tipos.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+
+        if self._tipo_selected_id:
+            self._render_variantes(self._tipo_selected_id)
+        else:
+            tk.Label(self._central_tipos, text="Selecciona un tipo para configurar sus variantes y prompts",
+                     font=("Helvetica", 12), fg="#888888", bg=self._bg_medium).pack(pady=40)
+
+    def _load_tipos_web(self) -> List[Dict[str, Any]]:
+        try:
+            rows = self.db.fetch_all(
+                "SELECT id, nombre FROM tipos WHERE web_activo = 1 AND activo = 1 ORDER BY nombre"
+            )
+            return [{"id": r[0], "nombre": r[1]} for r in (rows or [])]
+        except Exception:
+            logger.exception("Error cargando tipos web")
+            return []
+
+    def _refresh_tipo_chips(self):
+        for child in self._chip_container.winfo_children():
+            child.destroy()
+        self._tipo_chips.clear()
+
+        tipos = self._load_tipos_web()
+        if not tipos:
+            tk.Label(self._chip_container, text="Ningún tipo añadido", font=("Helvetica", 10, "italic"),
+                     fg="#666666", bg=self._bg_color).pack(side="left", padx=5)
+            return
+
+        for t in tipos:
+            chip = tk.Frame(self._chip_container, bg="#333333", padx=8, pady=5)
+            chip.pack(side="left", padx=(0, 8), pady=3)
+
+            selected = t["id"] == self._tipo_selected_id
+            bg = self._primary_color if selected else "#333333"
+            fg = "#000000" if selected else self._primary_color
+
+            lbl = tk.Label(chip, text=t["nombre"].upper(), font=("Helvetica", 10, "bold"),
+                           fg=fg, bg=bg, cursor="hand2")
+            lbl.pack(side="left")
+            lbl.bind("<Button-1>", lambda e, tid=t["id"]: self._on_tipo_chip_click(tid))
+
+            btn_del = tk.Label(chip, text="✕", font=("Helvetica", 9), fg="#888888", bg=bg, cursor="hand2")
+            btn_del.pack(side="left", padx=(8, 0))
+            btn_del.bind("<Button-1>", lambda e, tid=t["id"]: self._on_remove_tipo_web(tid))
+
+            self._tipo_chips[t["id"]] = lbl
+
+    def _on_add_tipo_web(self):
+        if not self._tipo_combo:
+            return
+        tipo_id = self._tipo_combo.get_id()
+        if not tipo_id:
+            show_error(self.frame, "Selecciona primero un tipo.")
+            return
+        try:
+            self.db.execute_query("UPDATE tipos SET web_activo = 1 WHERE id = ?", (tipo_id,))
+            self._tipo_selected_id = tipo_id
+            self._refresh_tipo_chips()
+            self._render_variantes(tipo_id)
+        except Exception:
+            logger.exception("Error añadiendo tipo web")
+            show_error(self.frame, "Error guardando el tipo.")
+
+    def _on_remove_tipo_web(self, tipo_id: int):
+        try:
+            self.db.execute_query("UPDATE tipos SET web_activo = 0 WHERE id = ?", (tipo_id,))
+            if self._tipo_selected_id == tipo_id:
+                self._tipo_selected_id = None
+                self._clear_central_tipos()
+            self._refresh_tipo_chips()
+        except Exception:
+            logger.exception("Error quitando tipo web")
+            show_error(self.frame, "Error quitando el tipo.")
+
+    def _on_tipo_chip_click(self, tipo_id: int):
+        self._tipo_selected_id = tipo_id
+        self._refresh_tipo_chips()
+        self._render_variantes(tipo_id)
+
+    def _clear_central_tipos(self):
+        if self._central_tipos:
+            for child in self._central_tipos.winfo_children():
+                child.destroy()
+
+    def _render_variantes(self, tipo_id: int):
+        self._clear_central_tipos()
+        if not self._central_tipos:
+            return
+
+        try:
+            tipo_row = self.db.fetch_one("SELECT nombre FROM tipos WHERE id = ?", (tipo_id,))
+            tipo_nombre = (tipo_row[0] if tipo_row else "").upper()
+        except Exception:
+            tipo_nombre = ""
+
+        header_frame = tk.Frame(self._central_tipos, bg=self._bg_medium)
+        header_frame.pack(fill="x", padx=15, pady=(10, 15))
+
+        tk.Label(header_frame, text=tipo_nombre, font=("Helvetica", 18, "bold"),
+                 fg=self._primary_color, bg=self._bg_medium).pack(side="left")
+
+        # --- Plantilla por tipo ---
+        try:
+            tpl_row = self.db.fetch_one("SELECT template_suffix FROM tipos WHERE id = ?", (tipo_id,))
+            tipo_template = (tpl_row[0] or "") if tpl_row else ""
+        except Exception:
+            tipo_template = ""
+
+        tk.Label(header_frame, text="PLANTILLA:", font=("Helvetica", 11),
+                 fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(30, 10))
+        entry_template = ctk.CTkEntry(header_frame, width=150, font=("Helvetica", 12))
+        entry_template.insert(0, tipo_template)
+        entry_template.pack(side="left", padx=(0, 20))
+        entry_template.bind("<FocusOut>", lambda e: self._guardar_template_suffix(tipo_id, entry_template.get()))
+
+        # --- Campos extra solo para Camiseta ---
+        if tipo_nombre.lower() == "camiseta":
+            tk.Label(header_frame, text="STOCK SORPRESA:", font=("Helvetica", 11),
+                     fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(20, 10))
+            entry_stock = ctk.CTkEntry(header_frame, width=80, font=("Helvetica", 12))
+            entry_stock.insert(0, self._config.get("stock_sorpresa", "50"))
+            entry_stock.pack(side="left", padx=(0, 20))
+            entry_stock.bind("<FocusOut>", lambda e: self._guardar_config_valor("stock_sorpresa", entry_stock.get()))
+
+            tk.Label(header_frame, text="PRECIO SORPRESA:", font=("Helvetica", 11),
+                     fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(0, 10))
+            entry_precio = ctk.CTkEntry(header_frame, width=100, font=("Helvetica", 12))
+            entry_precio.insert(0, self._config.get("precio_sorpresa", ""))
+            entry_precio.pack(side="left")
+            entry_precio.bind("<FocusOut>", lambda e: self._guardar_config_valor("precio_sorpresa", entry_precio.get()))
+
+        # --- Lista de variantes: grid de 9 columnas, header repetido ---
+        list_frame = tk.Frame(self._central_tipos, bg=self._bg_medium)
+        list_frame.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+
+        for c in range(9):
+            list_frame.columnconfigure(c, weight=1, uniform="tipo_var")
+
+        headers = [("VARIANTE", 20, "w"), ("SUBIR A WEB", 0, "center"), ("PRECIO WEB", 0, "center")]
+        for grupo in range(3):
+            col_base = grupo * 3
+            for j, (texto, ancho, anclaje) in enumerate(headers):
+                tk.Label(list_frame, text=texto, font=("Helvetica", 11, "bold"),
+                         fg=self._primary_color, bg=self._bg_medium, width=ancho, anchor=anclaje).grid(
+                             row=0, column=col_base + j, padx=5, pady=8, sticky="ew")
+
+        try:
+            rows = self.db.fetch_all(
+                "SELECT id, nombre, sync_web, precio_web FROM tipos_variantes WHERE tipo_id = ? AND activo = 1 ORDER BY orden, nombre",
+                (tipo_id,)
+            )
+        except Exception:
+            logger.exception("Error cargando variantes")
+            rows = []
+
+        for i, row in enumerate(rows or []):
+            v_id, nombre, sync_web, precio_web = row
+            fila = (i // 3) + 1
+            col_base = (i % 3) * 3
+
+            tk.Label(list_frame, text=nombre.upper(), font=("Helvetica", 11),
+                     fg="#FFFFFF", bg=self._bg_medium, anchor="w").grid(
+                         row=fila, column=col_base, sticky="w", padx=5, pady=6)
+
+            chk_var = tk.BooleanVar(value=bool(sync_web))
+            chk = ctk.CTkCheckBox(list_frame, text="", variable=chk_var, fg_color=self._primary_color,
+                                  hover_color=self._secondary_color, width=20)
+            chk.grid(row=fila, column=col_base + 1, padx=5, pady=6)
+            chk_var.trace_add("write", lambda *a, vid=v_id, var=chk_var: self._guardar_variante(vid, sync_web=int(var.get())))
+
+            precio_str = self._format_precio_web(precio_web)
+            entry_precio = ctk.CTkEntry(list_frame, width=90, font=("Helvetica", 12))
+            entry_precio.insert(0, precio_str)
+            entry_precio.grid(row=fila, column=col_base + 2, padx=5, pady=6)
+            entry_precio.bind("<FocusOut>", lambda e, vid=v_id, ent=entry_precio: self._guardar_variante(vid, precio_web=self._parse_precio_web(ent.get())))
+
+        # --- Prompts IA por tipo ---
+        self._create_section_header(self._central_tipos, "PROMPTS IA")
+        prompts_frame = tk.Frame(self._central_tipos, bg=self._bg_medium)
+        prompts_frame.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+
+        prompt_rows = [
+            ("TAGS", "camiseta_tags"),
+            ("BODY HTML", "camiseta_body"),
+            ("SEO DESCRIPTION", "camiseta_seo"),
+            ("SEO TITLE", "camiseta_seo_title"),
         ]
-        for label, key, row, col in precios_fields:
-            tk.Label(precios_grid, text=label, font=("Helvetica", 12), fg="#FFFFFF", bg=self._bg_color, anchor="e").grid(row=row, column=col, padx=(0, 10), pady=10, sticky="e")
-            entry = ctk.CTkEntry(precios_grid, placeholder_text="0.00", height=35, width=120, font=("Helvetica", 12))
-            entry.insert(0, str(self._config.get(key, "") or ""))
-            entry.grid(row=row, column=col + 1, sticky="w", pady=10, padx=(0, 30))
-            self.widgets[key] = entry
+        for label, clave in prompt_rows:
+            self._render_prompt_row(prompts_frame, label, clave, tipo_id)
+
+    def _render_prompt_row(self, parent: tk.Frame, label: str, clave: str, tipo_id: int):
+        row = tk.Frame(parent, bg=self._bg_medium)
+        row.pack(fill="x", pady=8)
+        row.columnconfigure(1, weight=1)
+
+        tk.Label(row, text=label, font=("Helvetica", 11, "bold"),
+                 fg=self._primary_color, bg=self._bg_medium, width=16, anchor="w").grid(row=0, column=0, sticky="nw", padx=(0, 10))
+
+        txt = ctk.CTkTextbox(row, height=100, font=("Helvetica", 11), wrap="word")
+        txt.grid(row=0, column=1, sticky="ew", padx=(0, 10))
+        txt.insert("1.0", self.prompts_repo.get_texto(clave, tipo_id))
+
+        es_personalizado = bool(self.prompts_repo.get_prompt(clave, tipo_id))
+        estado_texto = "PERSONALIZADO" if es_personalizado else "GENÉRICO"
+        estado_lbl = tk.Label(row, text=estado_texto, font=("Helvetica", 9, "bold"),
+                              fg="#00FF00" if es_personalizado else "#888888", bg=self._bg_medium)
+        estado_lbl.grid(row=1, column=1, sticky="w", padx=(0, 10), pady=(3, 0))
+
+        btn_frame = tk.Frame(row, bg=self._bg_medium)
+        btn_frame.grid(row=0, column=2, sticky="ne")
+
+        palette = self._colors_cfg.get("buttons", {}).get("primary", {})
+        palette_sec = self._colors_cfg.get("buttons", {}).get("secondary", {})
+
+        ButtonFactory.create_button(
+            btn_frame, text="GUARDAR",
+            color=palette.get("bg", self._primary_color),
+            hover_color=palette.get("hover", self._primary_color),
+            text_color=palette.get("text", "#000000"),
+            command=lambda: self._guardar_prompt_tipo(clave, tipo_id, txt, estado_lbl),
+            width=110, height=30
+        ).pack(pady=(0, 6))
+
+        ButtonFactory.create_button(
+            btn_frame, text="RESTAURAR GENÉRICO",
+            color=palette_sec.get("bg", self._secondary_color),
+            hover_color=palette_sec.get("hover", self._secondary_color),
+            text_color=palette_sec.get("text", "#FFFFFF"),
+            command=lambda: self._restaurar_prompt_generico(clave, tipo_id, txt, estado_lbl),
+            width=150, height=30
+        ).pack()
+
+    def _guardar_prompt_tipo(self, clave: str, tipo_id: int, textbox, estado_lbl):
+        texto = textbox.get("1.0", "end-1c")
+        if self.prompts_repo.save_texto(clave, texto, tipo_id):
+            estado_lbl.configure(text="PERSONALIZADO", fg="#00FF00")
+            show_success(self.frame, f"{clave} guardado.")
+        else:
+            show_error(self.frame, f"Error guardando {clave}.")
+
+    def _restaurar_prompt_generico(self, clave: str, tipo_id: int, textbox, estado_lbl):
+        texto = self.prompts_repo.reset_to_default(clave, tipo_id)
+        if texto is None:
+            texto = self.prompts_repo.get_texto(clave, None)
+        textbox.delete("1.0", "end")
+        textbox.insert("1.0", texto)
+        estado_lbl.configure(text="GENÉRICO", fg="#888888")
+        show_success(self.frame, f"{clave} restaurado al genérico.")
+
+    def _guardar_variante(self, variante_id: int, sync_web: Optional[int] = None, precio_web: Optional[int] = None):
+        try:
+            if sync_web is not None:
+                self.db.execute_query("UPDATE tipos_variantes SET sync_web = ? WHERE id = ?", (sync_web, variante_id))
+            if precio_web is not None:
+                self.db.execute_query("UPDATE tipos_variantes SET precio_web = ? WHERE id = ?", (precio_web, variante_id))
+        except Exception:
+            logger.exception(f"Error guardando variante {variante_id}")
+            show_error(self.frame, "Error guardando la variante.")
+
+    def _format_precio_web(self, cents: Optional[int]) -> str:
+        try:
+            return f"{int(cents or 0) / 100:.2f}".replace(".", ",")
+        except Exception:
+            return "0,00"
+
+    def _parse_precio_web(self, texto: str) -> int:
+        try:
+            limpio = texto.replace("€", "").strip().replace(",", ".")
+            if not limpio:
+                return 0
+            return int(round(float(limpio) * 100))
+        except Exception:
+            return 0
+
+    def _guardar_config_valor(self, key: str, valor: str):
+        self._config[key] = valor
+        try:
+            self.service.save_config(self._config)
+        except Exception:
+            logger.exception(f"Error guardando config {key}")
+            show_error(self.frame, "Error guardando el valor.")
+
+    def _guardar_template_suffix(self, tipo_id: int, valor: str):
+        try:
+            self.db.execute_query(
+                "UPDATE tipos SET template_suffix = ? WHERE id = ?",
+                (valor.strip(), tipo_id)
+            )
+        except Exception:
+            logger.exception(f"Error guardando template_suffix para tipo {tipo_id}")
+            show_error(self.frame, "Error guardando la plantilla.")
 
     def _render_ia(self):
         self._create_section_header(self._content_frame, "CONFIGURACIÓN GPT (OPENAI)")

@@ -1,7 +1,7 @@
-"""Subvista SUBIDA: crea y edita productos de camiseta en Shopify desde el TPV.
+"""Subvista SUBIDA: crea y edita productos en Shopify desde el TPV.
 
 Flujo: rellenar datos del diseño -> GENERAR CONTENIDO (IA) -> revisar/editar ->
-SUBIR A SHOPIFY (productSet, imágenes, precios de config).
+SUBIR A SHOPIFY (productSet, imágenes, precios por variante).
 """
 import logging
 import threading
@@ -16,10 +16,8 @@ from kool_tpv.utils.config_loader import load_colors
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.widgets.notificaciones import show_success, show_error
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
-from kool_tpv.utils.widgets.tag_selector import TagSelector
 from kool_tpv.base_datos.tipo_service import TipoService
 from kool_tpv.modulos.almacen.categoria_repository import CategoriaRepository
-from kool_tpv.modulos.produccion.services.produccion_tipos_variantes_service import ProduccionTiposVariantesService
 from ..services.shopify_product_service import ShopifyProductService
 from .shopify_actualiza_sku import ShopifyActualizaSku
 from ..services.camiseta_content_service import CamisetaContentService, slugify_diseno
@@ -66,9 +64,7 @@ class ShopifyUploadView:
         self._entries: Dict[str, Any] = {}
         self._body_boxes: Dict[str, Any] = {}
         self._tipo_service = TipoService(db)
-        self._variantes_service = ProduccionTiposVariantesService(db)
         self._tipos: List[Dict[str, Any]] = []
-        self._variantes_map: Dict[int, str] = {}      # variante_id -> nombre
         self._variantes_disponibles: List[Dict[str, Any]] = []
         self._thumb_refs = []
 
@@ -160,10 +156,9 @@ class ShopifyUploadView:
         self._field(form, "beneficio", "BENEFICIO", "Algodón premium, diseño exclusivo", 0, 2)
         self._field(form, "tono", "TONO", TONO_POR_DEFECTO, 0, 3)
         self._field(form, "codigo_categoria", "SUFIJO SKU", "FRI (opcional)", 1, 0)
-        self._field(form, "precio", "PRECIO WEB", "vacío = config", 1, 1)
 
         cell_estado = tk.Frame(form, bg=self._bg)
-        cell_estado.grid(row=1, column=2, sticky="w", padx=6, pady=4)
+        cell_estado.grid(row=1, column=1, sticky="w", padx=6, pady=4)
         tk.Label(cell_estado, text="ESTADO", fg="#888", bg=self._bg,
                  font=("Helvetica", 9, "bold"), anchor="w").pack(anchor="w")
         self._status_menu = ctk.CTkOptionMenu(cell_estado, values=["ACTIVE", "DRAFT"],
@@ -173,10 +168,15 @@ class ShopifyUploadView:
 
         # Tipo de producto: combo buscable con los tipos de la BD
         cell_tipo = tk.Frame(form, bg=self._bg)
-        cell_tipo.grid(row=1, column=3, sticky="ew", padx=6, pady=4)
+        cell_tipo.grid(row=1, column=2, sticky="ew", padx=6, pady=4)
         tk.Label(cell_tipo, text="TIPO PRODUCTO", fg="#888", bg=self._bg,
                  font=("Helvetica", 9, "bold"), anchor="w").pack(anchor="w")
-        self._tipos = self._tipo_service.get_all_tipos()
+        try:
+            rows = self.db.fetch_all("SELECT id, nombre, categoria_id FROM tipos WHERE activo = 1 AND web_activo = 1 ORDER BY nombre")
+            self._tipos = [{"id": r[0], "nombre": r[1], "categoria_id": r[2]} for r in (rows or [])]
+        except Exception:
+            self._tipos = []
+
         self._tipo_combo = SearchableCombo(
             cell_tipo,
             options=[(t["id"], t["nombre"]) for t in self._tipos],
@@ -185,23 +185,14 @@ class ShopifyUploadView:
             width=240, module_name='shopify')
         self._tipo_combo.pack(fill="x")
 
-        self._field(form, "plantilla", "PLANTILLA", "vacío = config", 2, 0)
-        tpl_cfg = self.config_service.get_config().get("template_suffix") or ""
-        if tpl_cfg:
-            self._entries["plantilla"].insert(0, tpl_cfg)
-
-        # Variantes a subir: un producto por cada una seleccionada
+        # Variantes activas del tipo: se suben todas las que tengan sync_web = 1
         cell_vars = tk.Frame(form, bg=self._bg)
-        cell_vars.grid(row=2, column=1, columnspan=3, sticky="ew", padx=6, pady=4)
-        tk.Label(cell_vars, text="VARIANTES A SUBIR (un producto por cada una)",
-                 fg="#888", bg=self._bg, font=("Helvetica", 9, "bold"),
-                 anchor="w").pack(anchor="w")
-        self._variante_tags = TagSelector(
-            cell_vars, module_name='shopify',
-            placeholder="Buscar variante del tipo...",
-            on_change=self._rebuild_body_boxes)
-        self._variante_tags.set_search_function(self._buscar_variantes)
-        self._variante_tags.pack(fill="x")
+        cell_vars.grid(row=2, column=0, columnspan=4, sticky="ew", padx=6, pady=4)
+        tk.Label(cell_vars, text="VARIANTES A SUBIR:", fg="#888", bg=self._bg,
+                 font=("Helvetica", 9, "bold"), anchor="w").pack(side="left")
+        self._variantes_lbl = tk.Label(cell_vars, text="", fg=self._primary, bg=self._bg,
+                                       font=("Helvetica", 10, "bold"), anchor="w")
+        self._variantes_lbl.pack(side="left", padx=(10, 0))
 
         # --- Imágenes ---
         self._section("IMÁGENES")
@@ -277,44 +268,40 @@ class ShopifyUploadView:
     # ------------------------------------------------------------------
 
     def _on_tipo_change(self):
-        """Al cambiar el tipo: cargar sus variantes activas y preseleccionarlas."""
+        """Al cambiar el tipo: cargar sus variantes activas marcadas para web."""
         self._variantes_disponibles = []
-        self._variantes_map = {}
-        self._variante_tags.clear()
 
         tipo_id = self._tipo_combo.get_id()
         if tipo_id:
             try:
-                variantes = self._variantes_service.obtener_por_tipo(tipo_id, solo_activos=True)
-                self._variantes_disponibles = [{"id": v.id, "nombre": v.nombre} for v in variantes]
-                self._variantes_map = {v["id"]: v["nombre"] for v in self._variantes_disponibles}
-                for v in self._variantes_disponibles:
-                    self._variante_tags.add_tag(v["id"], v["nombre"])
+                rows = self.db.fetch_all(
+                    "SELECT id, nombre FROM tipos_variantes WHERE tipo_id = ? AND activo = 1 AND sync_web = 1 ORDER BY orden, nombre",
+                    (tipo_id,)
+                )
+                self._variantes_disponibles = [{"id": r[0], "nombre": r[1]} for r in (rows or [])]
             except Exception:
                 logger.exception("Error cargando variantes del tipo")
+        self._actualizar_label_variantes()
         self._rebuild_body_boxes()
 
-    def _buscar_variantes(self, texto: str) -> List[Dict[str, Any]]:
-        """Filtro local de variantes para el TagSelector."""
-        texto = (texto or "").lower()
-        return [
-            {"id": v["id"], "nombre_display": v["nombre"]}
-            for v in self._variantes_disponibles
-            if texto in v["nombre"].lower()
-        ]
-
-    def _variantes_seleccionadas(self) -> List[str]:
-        """Nombres de las variantes marcadas en el TagSelector."""
-        return [self._variantes_map[i] for i in self._variante_tags.get_selected_ids()
-                if i in self._variantes_map]
+    def _actualizar_label_variantes(self):
+        """Muestra las variantes que se van a subir para el tipo elegido."""
+        if not self._variantes_lbl:
+            return
+        if self._variantes_disponibles:
+            nombres = ", ".join(v["nombre"].upper() for v in self._variantes_disponibles)
+            self._variantes_lbl.configure(text=nombres)
+        else:
+            self._variantes_lbl.configure(text="NINGUNA (revisa CONFIG → TIPOS)")
 
     def _rebuild_body_boxes(self):
-        """Una caja BODY HTML por cada variante seleccionada (conserva el texto)."""
+        """Una caja BODY HTML por cada variante activa del tipo (conserva el texto)."""
         textos = {n: b.get("1.0", "end-1c") for n, b in self._body_boxes.items()}
         for child in self._bodies_frame.winfo_children():
             child.destroy()
         self._body_boxes = {}
-        for i, nombre in enumerate(self._variantes_seleccionadas()):
+        for i, v in enumerate(self._variantes_disponibles):
+            nombre = v["nombre"]
             cell = tk.Frame(self._bodies_frame, bg=self._bg)
             cell.grid(row=i, column=0, sticky="ew", pady=(0, 6))
             self._bodies_frame.columnconfigure(0, weight=1)
@@ -348,7 +335,8 @@ class ShopifyUploadView:
             e.delete(0, "end")
         self._seo_box.delete("1.0", "end")
         self._tipo_combo.clear()
-        self._variante_tags.clear()
+        self._variantes_disponibles = []
+        self._actualizar_label_variantes()
         self._rebuild_body_boxes()
         self._imagenes.clear()
         self._imagenes_web.clear()
@@ -513,10 +501,11 @@ class ShopifyUploadView:
             show_error(self.frame, "Rellena primero el título base")
             return
         self._status("Generando tags...")
+        tipo_id = self._tipo_combo.get_id()
 
         def work():
             tipo_producto = self._tipo_combo.get().strip()
-            tags, err = self.content_service.generar_tags(titulo, tipo_producto)
+            tags, err = self.content_service.generar_tags(titulo, tipo_producto, tipo_id=tipo_id)
             def done():
                 if tags:
                     self._entries["tags"].delete(0, "end")
@@ -535,26 +524,27 @@ class ShopifyUploadView:
         if not titulo:
             show_error(self.frame, "Rellena al menos el título base")
             return
-        variantes = self._variantes_seleccionadas()
+        variantes = [v["nombre"] for v in self._variantes_disponibles]
         if not variantes:
-            show_error(self.frame, "Selecciona tipo y al menos una variante")
+            show_error(self.frame, "El tipo seleccionado no tiene variantes activas para web")
             return
+        tipo_id = self._tipo_combo.get_id()
 
         self._status("Generando contenido con IA...")
 
         def work():
-            res = self.content_service.generar_todo(titulo, tags, beneficio, tono, variantes)
-            self.frame.after(0, lambda: self._fill_content(res))
+            res = self.content_service.generar_todo(titulo, tags, beneficio, tono, variantes, tipo_id=tipo_id)
+            self.frame.after(0, lambda: self._fill_content(res, tipo_id))
         threading.Thread(target=work, daemon=True).start()
 
-    def _fill_content(self, res):
+    def _fill_content(self, res, tipo_id: Optional[int] = None):
         if res.get("seo_desc"):
             self._seo_box.delete("1.0", "end")
             self._seo_box.insert("1.0", res["seo_desc"])
         titulo = self._entries["titulo"].get().strip()
-        todas = self._variantes_seleccionadas()
+        todas = [v["nombre"] for v in self._variantes_disponibles]
         for genero, body in res.get("bodies", {}).items():
-            html = self.content_service.montar_html(body, genero, titulo, todas)
+            html = self.content_service.montar_html(body, genero, titulo, todas, tipo_id=tipo_id)
             if genero in self._body_boxes:
                 self._body_boxes[genero].delete("1.0", "end")
                 self._body_boxes[genero].insert("1.0", html)
@@ -592,16 +582,22 @@ class ShopifyUploadView:
         except Exception:
             logger.exception('Error obteniendo taxonomy_gid')
 
+        tipo = next((t for t in self._tipos if t["id"] == tipo_id), None)
+        template_suffix = ""
+        if tipo and tipo.get("template_suffix"):
+            template_suffix = tipo["template_suffix"].strip()
+        if not template_suffix:
+            template_suffix = cfg.get("template_suffix") or ""
+
         base = {
             "tags": [t.strip() for t in self._entries["tags"].get().split(",") if t.strip()],
             "seo_desc": seo_desc,
             "seo_title": titulo[:70],
             "status": status,
-            "recargo_tallas": cfg.get("recargo_tallas") or 0,
             "codigo_categoria": self._entries["codigo_categoria"].get().strip().upper(),
             "product_type": product_type,
             "taxonomy_gid": taxonomy_gid,
-            "template_suffix": self._entries["plantilla"].get().strip() or cfg.get("template_suffix") or "",
+            "template_suffix": template_suffix,
         }
 
         if self._modo == "EDITAR":
@@ -622,17 +618,15 @@ class ShopifyUploadView:
         tipo_code = _slugify(tipo_nombre).upper()[:4] or "PROD"
         es_camiseta = tipo_nombre.lower() == "camiseta"
 
-        sel_ids = self._variante_tags.get_selected_ids()
-        if not sel_ids:
+        if not self._variantes_disponibles:
             self._btn_upload.configure(state="normal")
-            show_error(self.frame, "Selecciona al menos una variante")
+            show_error(self.frame, "El tipo seleccionado no tiene variantes activas para web")
             return
 
         trabajos = []
-        for variante_id in sel_ids:
-            variante = self._variantes_map.get(variante_id)
-            if not variante:
-                continue
+        for v_info in self._variantes_disponibles:
+            variante_id = v_info["id"]
+            variante = v_info["nombre"]
             variantes = self.product_service.get_variantes_stock(variante_id)
             if not variantes:
                 continue
@@ -662,18 +656,15 @@ class ShopifyUploadView:
                         v_sorpresa["precio"] = sorpresa_precio
                     variantes.append(v_sorpresa)
 
-            precio = self._entries["precio"].get().strip() or 0
-            if isinstance(precio, str):
-                precio = precio.replace('€', '').strip().replace(',', '.')
             body_box = self._body_boxes.get(variante)
             datos = dict(base)
+            tipo_id = self._tipo_combo.get_id()
             datos.update({
                 "title": f"{titulo} | {variante}",
                 "handle": f"{_slugify(titulo)}-{_slugify(variante)}",
                 "description_html": body_box.get("1.0", "end-1c") if body_box else "",
-                "seo_title": self.content_service.seo_title_for(titulo, variante),
+                "seo_title": self.content_service.seo_title_for(titulo, variante, tipo_id=tipo_id),
                 "tags": base["tags"] + [variante],
-                "precio": precio,
                 "variantes": variantes,
                 "iniciales": iniciales,
                 "imagenes": [dict(i) for i in self._imagenes],

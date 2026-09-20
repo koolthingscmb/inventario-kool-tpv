@@ -12,7 +12,6 @@ from ..shopify_repository import ShopifyRepository
 
 logger = logging.getLogger(__name__)
 
-TALLAS_GRANDES = {"2XL", "3XL", "4XL", "5XL"}
 
 
 class ShopifyProductService:
@@ -66,11 +65,16 @@ class ShopifyProductService:
     # ------------------------------------------------------------------
 
     def get_variantes_stock(self, variante_id: int) -> List[Dict[str, Any]]:
-        """Filas de stock base (color x talla) para una variante (Hombre, Mujer...)."""
+        """Filas de stock base (color x talla) para una variante (Hombre, Mujer...).
+
+        Incluye flags de la variante (talla/color requeridos y precio web).
+        """
         rows = self.db.fetch_all(
             """
-            SELECT s.sku, c.nombre AS color, t.nombre AS talla, s.cantidad
+            SELECT s.sku, c.nombre AS color, t.nombre AS talla, s.cantidad,
+                   tv.requiere_talla, tv.requiere_color, tv.precio_web
             FROM produccion_stock_colores_tallas s
+            JOIN tipos_variantes tv ON tv.id = s.variante_id
             LEFT JOIN produccion_colores c ON c.id = s.color_id
             LEFT JOIN produccion_tallas t ON t.id = s.talla_id
             WHERE s.variante_id = ?
@@ -189,34 +193,46 @@ class ShopifyProductService:
         if variantes_input is None:
             colores, tallas = [], []
             variantes_input = []
-            precio = float(str(datos.get("precio") or 0).replace(',', '.').replace('€', '').strip() or 0)
-            recargo = float(str(datos.get("recargo_tallas") or 0).replace(',', '.').replace('€', '').strip() or 0)
+            precio_base = float(str(datos.get("precio") or 0).replace(',', '.').replace('€', '').strip() or 0)
             for v in datos.get("variantes", []):
-                color, talla = v["color"], v["talla"]
-                if color not in colores:
+                color, talla = v.get("color") or "", v.get("talla") or ""
+                requiere_color = bool(v.get("requiere_color", 1))
+                requiere_talla = bool(v.get("requiere_talla", 1))
+
+                if requiere_color and color and color not in colores:
                     colores.append(color)
-                if talla not in tallas:
+                if requiere_talla and talla and talla not in tallas:
                     tallas.append(talla)
-                if v.get("precio") is not None:
+
+                # Precio: el de la variante (precio_web) tiene prioridad; si no, precio explícito (sorpresa); si no, base
+                precio_variante_cents = v.get("precio_web") or 0
+                if precio_variante_cents:
+                    precio_variante = float(precio_variante_cents) / 100
+                elif v.get("precio") is not None:
                     precio_variante = float(v["precio"])
                 else:
-                    precio_variante = precio + (recargo if talla in TALLAS_GRANDES else 0)
+                    precio_variante = precio_base
+
                 built_sku = self.build_sku(v["sku"], datos.get("codigo_categoria", ""), datos.get("iniciales", ""))
                 sku_qty[built_sku] = int(v.get("cantidad") or 0)
+
+                option_values = []
+                if requiere_talla and talla:
+                    option_values.append({"optionName": "Talla", "name": talla})
+                if requiere_color and color:
+                    option_values.append({"optionName": "Color", "name": color})
+
                 variantes_input.append({
                     "sku": built_sku,
                     "price": f"{precio_variante:.2f}",
                     "inventoryItem": {"tracked": True},
-                    # Orden del script: Talla = opción 1, Color = opción 2
-                    "optionValues": [
-                        {"optionName": "Talla", "name": talla},
-                        {"optionName": "Color", "name": color},
-                    ],
+                    "optionValues": option_values,
                 })
-            product_options = [
-                {"name": "Talla", "values": [{"name": t} for t in tallas]},
-                {"name": "Color", "values": [{"name": c} for c in colores]},
-            ]
+            product_options = []
+            if tallas:
+                product_options.append({"name": "Talla", "values": [{"name": t} for t in tallas]})
+            if colores:
+                product_options.append({"name": "Color", "values": [{"name": c} for c in colores]})
 
         # 3) Input del producto
         product_input = {
