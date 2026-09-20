@@ -12,6 +12,8 @@ from ..shopify_repository import ShopifyRepository
 
 logger = logging.getLogger(__name__)
 
+TALLAS_GRANDES = {"2XL", "3XL", "4XL", "5XL"}
+
 
 
 class ShopifyProductService:
@@ -194,6 +196,7 @@ class ShopifyProductService:
             colores, tallas = [], []
             variantes_input = []
             precio_base = float(str(datos.get("precio") or 0).replace(',', '.').replace('€', '').strip() or 0)
+            recargo = float(str(datos.get("recargo_tallas") or 0).replace(',', '.').replace('€', '').strip() or 0)
             for v in datos.get("variantes", []):
                 color, talla = v.get("color") or "", v.get("talla") or ""
                 requiere_color = bool(v.get("requiere_color", 1))
@@ -204,14 +207,14 @@ class ShopifyProductService:
                 if requiere_talla and talla and talla not in tallas:
                     tallas.append(talla)
 
-                # Precio: el de la variante (precio_web) tiene prioridad; si no, precio explícito (sorpresa); si no, base
+                # Precio: precio_web > precio explícito > base + recargo tallas grandes
                 precio_variante_cents = v.get("precio_web") or 0
                 if precio_variante_cents:
                     precio_variante = float(precio_variante_cents) / 100
                 elif v.get("precio") is not None:
                     precio_variante = float(v["precio"])
                 else:
-                    precio_variante = precio_base
+                    precio_variante = precio_base + (recargo if talla in TALLAS_GRANDES else 0)
 
                 built_sku = self.build_sku(v["sku"], datos.get("codigo_categoria", ""), datos.get("iniciales", ""))
                 sku_qty[built_sku] = int(v.get("cantidad") or 0)

@@ -459,7 +459,13 @@ class ShopifyConfigTab:
                      fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(0, 10))
             self._tipos_sorpresa_precio_entry = ctk.CTkEntry(header_frame, width=100, font=("Helvetica", 12))
             self._tipos_sorpresa_precio_entry.insert(0, self._config.get("precio_sorpresa", ""))
-            self._tipos_sorpresa_precio_entry.pack(side="left")
+            self._tipos_sorpresa_precio_entry.pack(side="left", padx=(0, 20))
+
+            tk.Label(header_frame, text="RECARGO TALLAS GRANDES:", font=("Helvetica", 11),
+                     fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(0, 10))
+            self._tipos_recargo_entry = ctk.CTkEntry(header_frame, width=80, font=("Helvetica", 12))
+            self._tipos_recargo_entry.insert(0, self._config.get("recargo_tallas", "0"))
+            self._tipos_recargo_entry.pack(side="left")
 
         # --- Lista de variantes: grid de 9 columnas, header repetido ---
         self._tipos_price_entries = []
@@ -640,6 +646,10 @@ class ShopifyConfigTab:
         precio_entry = getattr(self, "_tipos_sorpresa_precio_entry", None)
         if precio_entry is not None:
             self._guardar_config_valor("precio_sorpresa", precio_entry.get())
+
+        recargo_entry = getattr(self, "_tipos_recargo_entry", None)
+        if recargo_entry is not None:
+            self._guardar_config_valor("recargo_tallas", recargo_entry.get())
 
         for v_id, ent in getattr(self, "_tipos_price_entries", []):
             self._guardar_variante(v_id, precio_web=self._parse_precio_web(ent.get()))

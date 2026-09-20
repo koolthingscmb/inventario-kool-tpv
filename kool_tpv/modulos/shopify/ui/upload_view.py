@@ -598,6 +598,7 @@ class ShopifyUploadView:
             "product_type": product_type,
             "taxonomy_gid": taxonomy_gid,
             "template_suffix": template_suffix,
+            "recargo_tallas": cfg.get("recargo_tallas") or 0,
         }
 
         if self._modo == "EDITAR":
