@@ -21,6 +21,8 @@ class TagSelector(ctk.CTkFrame):
         module_name: Optional[str] = None,
         placeholder: str = 'Buscar...',
         on_change: Optional[Callable] = None,
+        selectable: bool = False,
+        on_select: Optional[Callable[[int], None]] = None,
         **kwargs
     ):
         super().__init__(master, **kwargs)
@@ -33,9 +35,12 @@ class TagSelector(ctk.CTkFrame):
 
         # Estado interno: {id: nombre}
         self._selected_items = {}
+        self._active_id: Optional[int] = None
 
-        # Callback opcional llamado cuando cambia la selección
+        # Callbacks
         self.on_change_callback = on_change
+        self.selectable = selectable
+        self.on_select_callback = on_select
 
         # SearchableCombo para buscar
         self.search_combo = SearchableCombo(
@@ -149,24 +154,58 @@ class TagSelector(ctk.CTkFrame):
         except Exception:
             logging.exception('Error renderizando tags')
 
+    def set_active(self, item_id: Optional[int]):
+        """Marcar un elemento como activo (solo si selectable=True)."""
+        if not self.selectable:
+            return
+        self._active_id = item_id
+        self._render_tags()
+
+    def get_active(self) -> Optional[int]:
+        """Obtener ID del elemento activo."""
+        return self._active_id
+
+    def _on_tag_click(self, item_id: int):
+        """Manejar clic en el tag (selección)."""
+        if not self.selectable:
+            return
+        self._active_id = item_id
+        self._render_tags()
+        if self.on_select_callback:
+            try:
+                self.on_select_callback(item_id)
+            except Exception:
+                logging.exception('Error en on_select callback de TagSelector')
+
     def _create_tag(self, tag_id: int, tag_name: str):
         """Crear widget visual de tag."""
         try:
+            is_active = self.selectable and tag_id == self._active_id
+            
+            # Colores según estado
+            bg_color = self.colors.get('primary', '#00A4DF') if is_active else '#333333'
+            text_color = '#000000' if is_active else self.colors.get('primary', '#00A4DF')
+            
             tag_frame = ctk.CTkFrame(
                 self.tags_frame,
-                fg_color=self.colors.get('primary', '#00A4DF'),
-                corner_radius=6
+                fg_color=bg_color,
+                corner_radius=6,
+                cursor='hand2' if self.selectable else ''
             )
             tag_frame.pack(side='left', padx=4, pady=2)
 
             # Label con nombre
             label = ctk.CTkLabel(
                 tag_frame,
-                text=tag_name,
-                text_color='#000000',
-                font=('Roboto', 12)
+                text=tag_name.upper(),
+                text_color=text_color,
+                font=('Roboto', 11, 'bold' if is_active else 'normal')
             )
             label.pack(side='left', padx=(8, 4), pady=4)
+            
+            if self.selectable:
+                label.bind('<Button-1>', lambda e, tid=tag_id: self._on_tag_click(tid))
+                tag_frame.bind('<Button-1>', lambda e, tid=tag_id: self._on_tag_click(tid))
 
             # Botón X para eliminar
             btn_remove = ctk.CTkButton(
@@ -175,7 +214,7 @@ class TagSelector(ctk.CTkFrame):
                 width=20,
                 height=20,
                 fg_color='transparent',
-                text_color='#000000',
+                text_color='#888888' if not is_active else '#000000',
                 hover_color='#ff0000',
                 font=('Roboto', 16, 'bold'),
                 command=lambda: self.remove_tag(tag_id)

@@ -54,14 +54,26 @@ class ShopifyPromptsRepository:
             rows = self.db.fetch_all("SELECT * FROM shopify_prompts ORDER BY tipo, clave")
         return [dict(row) for row in (rows or [])]
 
+    def get_genericos(self) -> List[Dict[str, Any]]:
+        """Lista solo los prompts genéricos (tipo IS NULL)."""
+        rows = self.db.fetch_all(
+            "SELECT * FROM shopify_prompts WHERE tipo IS NULL ORDER BY clave"
+        )
+        return [dict(row) for row in (rows or [])]
+
     def save_texto(self, clave: str, texto: str, tipo_id: Optional[int] = None) -> bool:
         """Guarda el texto de un prompt. tipo_id=None guarda el genérico; tipo_id=ID guarda la excepción de ese tipo."""
         try:
             if tipo_id is None:
-                self.db.execute_query(
+                cur = self.db.execute_query(
                     "UPDATE shopify_prompts SET texto = ?, updated_at = CURRENT_TIMESTAMP WHERE clave = ? AND tipo IS NULL",
                     (texto, clave)
                 )
+                if cur is not None and cur.rowcount == 0:
+                    self.db.execute_query(
+                        "INSERT INTO shopify_prompts (clave, nombre, tipo, texto, texto_default) VALUES (?, ?, NULL, ?, ?)",
+                        (clave, clave, texto, texto)
+                    )
                 return True
 
             # Obtener los metadatos del prompt genérico para no perder nombre/texto_default
@@ -83,6 +95,27 @@ class ShopifyPromptsRepository:
             return True
         except Exception:
             logger.exception(f"Error guardando prompt {clave}")
+            return False
+
+    def save_nombre(self, clave: str, nombre: str) -> bool:
+        """Guarda el nombre visible de un prompt genérico (tipo IS NULL) y lo propaga a las excepciones de tipos."""
+        try:
+            cur = self.db.execute_query(
+                "UPDATE shopify_prompts SET nombre = ?, updated_at = CURRENT_TIMESTAMP WHERE clave = ? AND tipo IS NULL",
+                (nombre, clave)
+            )
+            if cur is not None and cur.rowcount == 0:
+                self.db.execute_query(
+                    "INSERT INTO shopify_prompts (clave, nombre, tipo, texto, texto_default) VALUES (?, ?, NULL, '', '')",
+                    (clave, nombre)
+                )
+            self.db.execute_query(
+                "UPDATE shopify_prompts SET nombre = ?, updated_at = CURRENT_TIMESTAMP WHERE clave = ? AND tipo IS NOT NULL",
+                (nombre, clave)
+            )
+            return True
+        except Exception:
+            logger.exception(f"Error guardando nombre del prompt {clave}")
             return False
 
     def reset_to_default(self, clave: str, tipo_id: Optional[int] = None) -> Optional[str]:

@@ -20,8 +20,8 @@ from kool_tpv.base_datos.tipo_service import TipoService
 from kool_tpv.modulos.almacen.categoria_repository import CategoriaRepository
 from ..services.shopify_product_service import ShopifyProductService
 from .shopify_actualiza_sku import ShopifyActualizaSku
-from ..services.camiseta_content_service import CamisetaContentService, slugify_diseno
-from ..services.camiseta_prompts import TONO_POR_DEFECTO
+from ..services.producto_content_service import ProductoContentService, slugify_diseno
+from ..services.producto_prompts import TONO_POR_DEFECTO
 from ..services.shopify_config_service import ShopifyConfigService
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ class ShopifyUploadView:
         self.parent = parent
         self.db = db
         self.product_service = ShopifyProductService(db)
-        self.content_service = CamisetaContentService(db)
+        self.content_service = ProductoContentService(db)
         self.config_service = ShopifyConfigService(db)
 
         try:

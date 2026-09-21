@@ -164,7 +164,7 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
-		# Migración 050: tabla de prompts IA de Shopify + semilla de prompts camiseta
+		# Migración 050: tabla de prompts IA de Shopify (las semillas se gestionan en la 058)
 		try:
 			db.connection.execute('''
 				CREATE TABLE IF NOT EXISTS shopify_prompts (
@@ -177,61 +177,10 @@ def initialize_database(db_path: str) -> None:
 					updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 				)
 			''')
-			from kool_tpv.modulos.shopify.services import camiseta_prompts
-			db.connection.execute(
-				"INSERT OR IGNORE INTO shopify_prompts (clave, nombre, tipo, texto, texto_default) "
-				"VALUES ('camiseta_seo', 'SEO Description Camiseta', 'camiseta', ?, ?)",
-				(camiseta_prompts.PROMPT_SEO_DESCRIPCION, camiseta_prompts.PROMPT_SEO_DESCRIPCION))
-			db.connection.execute(
-				"INSERT OR IGNORE INTO shopify_prompts (clave, nombre, tipo, texto, texto_default) "
-				"VALUES ('camiseta_body', 'Body HTML Camiseta', 'camiseta', ?, ?)",
-				(camiseta_prompts.PROMPT_BODY_HTML, camiseta_prompts.PROMPT_BODY_HTML))
-			db.connection.execute(
-				"INSERT OR IGNORE INTO shopify_prompts (clave, nombre, tipo, texto, texto_default) "
-				"VALUES ('camiseta_tags', 'Tags Camiseta', 'camiseta', ?, ?)",
-				(camiseta_prompts.PROMPT_TAGS, camiseta_prompts.PROMPT_TAGS))
 			db.connection.commit()
 			logging.info('Migración 050 (shopify_prompts) aplicada')
 		except Exception:
 			logging.exception('Error aplicando migración 050')
-			try:
-				db.connection.rollback()
-			except Exception:
-				pass
-
-		# Migración 051: mover el prompt SEO de manga a shopify_prompts
-		try:
-			row = db.fetch_one("SELECT valor FROM configuracion WHERE clave='shopify_ia_seo_prompt'")
-			from kool_tpv.modulos.shopify.services import camiseta_prompts as _prompts
-			texto_manga = (row[0] if row and row[0] else _prompts.PROMPT_MANGA_SEO)
-			db.connection.execute(
-				"INSERT OR IGNORE INTO shopify_prompts (clave, nombre, tipo, texto, texto_default) "
-				"VALUES ('manga_seo', 'SEO Manga', 'manga', ?, ?)",
-				(texto_manga, _prompts.PROMPT_MANGA_SEO))
-			db.connection.commit()
-			logging.info('Migración 051 (prompt manga -> shopify_prompts) aplicada')
-		except Exception:
-			logging.exception('Error aplicando migración 051')
-			try:
-				db.connection.rollback()
-			except Exception:
-				pass
-
-		# Migración 052: plantilla HTML del body y patrón SEO title de camiseta
-		try:
-			from kool_tpv.modulos.shopify.services import camiseta_prompts as _p
-			db.connection.execute(
-				"INSERT OR IGNORE INTO shopify_prompts (clave, nombre, tipo, texto, texto_default) "
-				"VALUES ('camiseta_html', 'Plantilla HTML Ficha', 'camiseta', ?, ?)",
-				(_p.PLANTILLA_HTML, _p.PLANTILLA_HTML))
-			db.connection.execute(
-				"INSERT OR IGNORE INTO shopify_prompts (clave, nombre, tipo, texto, texto_default) "
-				"VALUES ('camiseta_seo_title', 'Patrón SEO Title', 'camiseta', ?, ?)",
-				(_p.PLANTILLA_SEO_TITLE, _p.PLANTILLA_SEO_TITLE))
-			db.connection.commit()
-			logging.info('Migración 052 (plantilla HTML camiseta) aplicada')
-		except Exception:
-			logging.exception('Error aplicando migración 052')
 			try:
 				db.connection.rollback()
 			except Exception:
@@ -344,6 +293,69 @@ def initialize_database(db_path: str) -> None:
 				logging.info('Migración 057 aplicada correctamente')
 		except Exception:
 			logging.exception('Error aplicando migración 057')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
+		# Migración 058: reinicio limpio de shopify_prompts con claves genéricas
+		# - Borra todas las filas (claves antiguas camiseta_*, tipos inconsistentes)
+		# - Siembra 5 prompts genéricos (tipo NULL) + manga_seo
+		# - Los textos de camiseta existentes se conservan como excepción del tipo Camiseta
+		try:
+			tabla = db.fetch_one("SELECT name FROM sqlite_master WHERE type='table' AND name='shopify_prompts'")
+			if tabla:
+				# Limpieza permanente de filas con las claves antiguas (en cada arranque)
+				db.connection.execute(
+					"DELETE FROM shopify_prompts WHERE clave LIKE 'camiseta_%' OR (clave='manga_seo' AND tipo='manga')")
+				db.connection.commit()
+
+				ya = db.fetch_one("SELECT id FROM shopify_prompts WHERE clave='tags' AND tipo IS NULL")
+				if not ya:
+					from kool_tpv.modulos.shopify.services import producto_prompts as _pp
+
+					# Rescatar textos existentes antes de borrar (preferir filas tipo='1')
+					old = {}
+					for r in (db.fetch_all("SELECT clave, tipo, texto FROM shopify_prompts") or []):
+						c, t, tx = r[0], r[1], r[2]
+						if tx and (c not in old or t == '1'):
+							old[c] = tx
+
+					db.connection.execute("DELETE FROM shopify_prompts")
+
+					def _ins(clave, nombre, tipo, texto, default):
+						db.connection.execute(
+							"INSERT INTO shopify_prompts (clave, nombre, tipo, texto, texto_default) VALUES (?,?,?,?,?)",
+							(clave, nombre, tipo, texto, default))
+
+					# Genéricos (tipo NULL)
+					_ins('tags', 'Tags', None, _pp.PROMPT_TAGS, _pp.PROMPT_TAGS)
+					_ins('body', 'Body HTML', None, _pp.PROMPT_BODY_HTML, _pp.PROMPT_BODY_HTML)
+					_ins('seo', 'SEO Description', None, _pp.PROMPT_SEO_DESCRIPCION, _pp.PROMPT_SEO_DESCRIPCION)
+					_ins('seo_title', 'SEO Title', None, _pp.PLANTILLA_SEO_TITLE, _pp.PLANTILLA_SEO_TITLE)
+					_ins('html', 'Plantilla HTML', None, _pp.PLANTILLA_HTML, _pp.PLANTILLA_HTML)
+					_ins('manga_seo', 'SEO Manga', None,
+					     old.get('manga_seo') or _pp.PROMPT_MANGA_SEO, _pp.PROMPT_MANGA_SEO)
+
+					# Excepciones de Camiseta con los textos que ya existían
+					cam = db.fetch_one("SELECT id FROM tipos WHERE UPPER(nombre) = 'CAMISETA'")
+					if cam:
+						cid = str(cam[0])
+						_ins('tags', 'Tags', cid,
+						     old.get('camiseta_tags') or _pp.PROMPT_TAGS_CAMISETA, _pp.PROMPT_TAGS)
+						_ins('body', 'Body HTML', cid,
+						     old.get('camiseta_body') or _pp.PROMPT_BODY_HTML_CAMISETA, _pp.PROMPT_BODY_HTML)
+						_ins('seo', 'SEO Description', cid,
+						     old.get('camiseta_seo') or _pp.PROMPT_SEO_DESCRIPCION_CAMISETA, _pp.PROMPT_SEO_DESCRIPCION)
+						_ins('seo_title', 'SEO Title', cid,
+						     old.get('camiseta_seo_title') or '{titulo} | {genero} | {marca}', _pp.PLANTILLA_SEO_TITLE)
+						_ins('html', 'Plantilla HTML', cid,
+						     old.get('camiseta_html') or _pp.PLANTILLA_HTML_CAMISETA, _pp.PLANTILLA_HTML)
+
+					db.connection.commit()
+					logging.info('Migración 058 (prompts genéricos) aplicada')
+		except Exception:
+			logging.exception('Error aplicando migración 058')
 			try:
 				db.connection.rollback()
 			except Exception:

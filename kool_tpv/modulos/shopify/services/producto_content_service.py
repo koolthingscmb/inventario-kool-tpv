@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional, Tuple, List
 import requests
 
 from .shopify_config_service import ShopifyConfigService
-from .camiseta_prompts import (
+from .producto_prompts import (
     PROMPT_SEO_DESCRIPCION, PROMPT_BODY_HTML, PROMPT_TAGS,
     PLANTILLA_HTML, PLANTILLA_SEO_TITLE, BOTON_GENERO, CDN_BASE_BOTONES,
     INSTRUCCIONES_GENERO, CORTE_PRODUCTO, TONO_POR_DEFECTO,
@@ -29,9 +29,9 @@ def slugify_diseno(titulo: str) -> str:
     return re.sub(r"\s+", "-", texto)
 
 
-class CamisetaContentService:
-    """Genera los textos de la camiseta con OpenAI usando los prompts de la
-    tabla shopify_prompts (port exacto del Google Apps Script)."""
+class ProductoContentService:
+    """Genera los textos de un producto con OpenAI usando los prompts de la
+    tabla shopify_prompts (genéricos o excepciones por tipo)."""
 
     def __init__(self, db):
         self.db = db
@@ -82,8 +82,8 @@ class CamisetaContentService:
 
     def generar_tags(self, titulo_base: str, tipo_producto: str = "",
                      tipo_id: Optional[int] = None) -> Tuple[Optional[str], Optional[str]]:
-        """Genera la lista de tags (prompt nuevo, editable en IA PROMPTS)."""
-        prompt = self._get_prompt("camiseta_tags", PROMPT_TAGS, tipo_id)
+        """Genera la lista de tags (prompt editable en IA PROMPTS)."""
+        prompt = self._get_prompt("tags", PROMPT_TAGS, tipo_id)
         prompt = (prompt
                   .replace("{titulo_base}", titulo_base)
                   .replace("{tipo_producto}", tipo_producto or ""))
@@ -93,11 +93,13 @@ class CamisetaContentService:
         return texto.strip(), None
 
     def generar_seo_descripcion(self, titulo_base: str, tags: str, beneficio: str,
-                                tipo_id: Optional[int] = None) -> Tuple[Optional[str], Optional[str]]:
-        """Meta descripción (máx 155 chars) - port de generarSeoDescription del GAS."""
-        prompt = self._get_prompt("camiseta_seo", PROMPT_SEO_DESCRIPCION, tipo_id)
+                                tipo_id: Optional[int] = None,
+                                tipo_producto: str = "") -> Tuple[Optional[str], Optional[str]]:
+        """Meta descripción (máx 155 chars)."""
+        prompt = self._get_prompt("seo", PROMPT_SEO_DESCRIPCION, tipo_id)
         prompt = (prompt
                   .replace("{titulo_base}", titulo_base)
+                  .replace("{tipo_producto}", tipo_producto or "")
                   .replace("{tags}", tags)
                   .replace("{beneficio}", beneficio))
         texto, err = self._llamar_ia(prompt)
@@ -105,16 +107,21 @@ class CamisetaContentService:
             return None, err
         return texto.strip('"').strip(), None
 
-    def generar_body(self, genero: str, titulo_base: str, tags: str, beneficio: str,
-                     tono: str = "", tipo_id: Optional[int] = None) -> Tuple[Optional[Dict], Optional[str]]:
-        """JSON de bloques para un género - port de generarBodyHtml del GAS."""
-        prompt = self._get_prompt("camiseta_body", PROMPT_BODY_HTML, tipo_id)
+    def generar_body(self, variante: str, titulo_base: str, tags: str, beneficio: str,
+                     tono: str = "", tipo_id: Optional[int] = None,
+                     tipo_producto: str = "") -> Tuple[Optional[Dict], Optional[str]]:
+        """JSON de bloques para una variante."""
+        prompt = self._get_prompt("body", PROMPT_BODY_HTML, tipo_id)
         tags_list = [t.strip() for t in tags.split(",") if t.strip()]
+        instrucciones = INSTRUCCIONES_GENERO.get(variante, "")
         prompt = (prompt
-                  .replace("{genero}", genero)
+                  .replace("{genero}", variante)
+                  .replace("{variante}", variante)
+                  .replace("{tipo_producto}", tipo_producto or "")
                   .replace("{titulo_base}", titulo_base)
                   .replace("{tono}", tono or TONO_POR_DEFECTO)
-                  .replace("{instrucciones_genero}", INSTRUCCIONES_GENERO.get(genero, ""))
+                  .replace("{instrucciones_genero}", instrucciones)
+                  .replace("{instrucciones_variante}", instrucciones)
                   .replace("{tags}", tags)
                   .replace("{beneficio}", beneficio)
                   .replace("{tags_top3}", ", ".join(tags_list[:3])))
@@ -132,22 +139,23 @@ class CamisetaContentService:
 
     def generar_todo(self, titulo_base: str, tags: str, beneficio: str,
                      tono: str = "", variantes: Optional[List[str]] = None,
-                     tipo_id: Optional[int] = None) -> Dict[str, Any]:
+                     tipo_id: Optional[int] = None,
+                     tipo_producto: str = "") -> Dict[str, Any]:
         """Genera todo el contenido de golpe: SEO desc + body por variante."""
         resultado = {"seo_desc": None, "bodies": {}, "errores": []}
 
-        seo, err = self.generar_seo_descripcion(titulo_base, tags, beneficio, tipo_id)
+        seo, err = self.generar_seo_descripcion(titulo_base, tags, beneficio, tipo_id, tipo_producto)
         if err:
             resultado["errores"].append(f"SEO desc: {err}")
         else:
             resultado["seo_desc"] = seo
 
-        for genero in (variantes or GENEROS_CAMISETA):
-            body, err = self.generar_body(genero, titulo_base, tags, beneficio, tono, tipo_id)
+        for variante in (variantes or GENEROS_CAMISETA):
+            body, err = self.generar_body(variante, titulo_base, tags, beneficio, tono, tipo_id, tipo_producto)
             if err:
-                resultado["errores"].append(f"Body {genero}: {err}")
+                resultado["errores"].append(f"Body {variante}: {err}")
             else:
-                resultado["bodies"][genero] = body
+                resultado["bodies"][variante] = body
 
         return resultado
 
@@ -155,23 +163,23 @@ class CamisetaContentService:
     # Montaje del HTML final (plantilla editable + estructura fija)
     # ------------------------------------------------------------------
 
-    def seo_title_for(self, titulo: str, genero: str, tipo_id: Optional[int] = None) -> str:
-        """SEO title con el patrón del script: {titulo} | {genero} | {marca}."""
-        plantilla = self._get_prompt("camiseta_seo_title", PLANTILLA_SEO_TITLE, tipo_id)
+    def seo_title_for(self, titulo: str, variante: str, tipo_id: Optional[int] = None) -> str:
+        """SEO title con el patrón: {titulo} | {variante} | {marca}."""
+        plantilla = self._get_prompt("seo_title", PLANTILLA_SEO_TITLE, tipo_id)
         marca = self.config_service.get_config().get("marca") or "Kool Things"
         return (plantilla
                 .replace("{titulo}", titulo)
-                .replace("{genero}", genero)
+                .replace("{genero}", variante)
+                .replace("{variante}", variante)
                 .replace("{marca}", marca))
 
-    def montar_html(self, body_json: Dict[str, str], genero: str, titulo_base: str,
+    def montar_html(self, body_json: Dict[str, str], variante: str, titulo_base: str,
                     otras_variantes: Optional[List[str]] = None,
                     tipo_id: Optional[int] = None) -> str:
         """Ensambla el descriptionHtml final usando la plantilla editable
-        'camiseta_html' (port exacto del GAS: strongs, características,
-        FANART, botones de género y footer de envíos)."""
+        'html' (genérica o la excepción del tipo)."""
         cfg = self.config_service.get_config()
-        plantilla = self._get_prompt("camiseta_html", PLANTILLA_HTML, tipo_id)
+        plantilla = self._get_prompt("html", PLANTILLA_HTML, tipo_id)
         cdn = cfg.get("botones_cdn") or CDN_BASE_BOTONES
         link_guia = cfg.get("link_guia") or LINK_GUIA_TALLAS
         slug = slugify_diseno(titulo_base)
@@ -182,14 +190,14 @@ class CamisetaContentService:
             .replace("{cdn_base}", cdn)
             .replace("{genero}", g)
             .replace("{genero_upper}", g.upper())
-            for g in (otras_variantes or GENEROS_CAMISETA) if g != genero
+            for g in (otras_variantes or GENEROS_CAMISETA) if g != variante
         )
 
         html = plantilla
         for clave, valor in body_json.items():
             html = html.replace("{" + clave + "}", valor or "")
         return (html
-                .replace("{corte}", CORTE_PRODUCTO.get(genero, ""))
+                .replace("{corte}", CORTE_PRODUCTO.get(variante, ""))
                 .replace("{link_guia}", link_guia)
                 .replace("{botones_html}", botones)
                 .strip())

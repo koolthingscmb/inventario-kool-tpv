@@ -16,7 +16,7 @@ from kool_tpv.modulos.shopify.services.sources.source_manager import SourceManag
 from kool_tpv.modulos.shopify.shopify_prompts_repository import ShopifyPromptsRepository
 from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.dialogs.multi_select_dialog import show_multi_select_dialog
-from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
+from kool_tpv.utils.widgets.tag_selector import TagSelector
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,10 @@ class ShopifyConfigTab:
         
         # Repositorio de prompts IA (tabla shopify_prompts)
         self.prompts_repo = ShopifyPromptsRepository(self.db)
-        self._prompt_widgets = {}
+        
+        # Estado de edición de prompts (memoria temporal antes de APLICAR CAMBIOS)
+        self._prompt_edits = {}         # { (clave, tipo_id): texto }
+        self._prompt_nombre_edits = {}  # { clave: nombre }  (solo para genéricos)
         
         # Cargar colores del módulo Shopify
         try:
@@ -65,11 +68,9 @@ class ShopifyConfigTab:
 
         # Estado de la pestaña TIPOS
         self._tipo_selected_id: Optional[int] = None
-        self._tipo_chips: Dict[int, tk.Label] = {}
-        self._tipo_combo: Optional[SearchableCombo] = None
+        self._tipo_selector: Optional[TagSelector] = None
         self._central_tipos: Optional[tk.Frame] = None
         self._tipos_header: Optional[tk.Frame] = None
-        self._chip_container: Optional[tk.Frame] = None
 
         # Diccionario para almacenar los widgets de entrada
         self.widgets = {}
@@ -123,8 +124,6 @@ class ShopifyConfigTab:
         
         # Guardar valores actuales en el diccionario de configuración antes de destruir widgets
         self._harvest_widgets()
-        if self._current_tab == "IA PROMPTS":
-            self._flush_prompt_editor()
         
         # Actualizar visual de pestañas
         for name, lbl in self._tab_labels.items():
@@ -136,7 +135,6 @@ class ShopifyConfigTab:
         self._current_tab = tab_name
         self._clear_content()
         self.widgets.clear()
-        self._prompt_widgets.clear()
         self._render_footer()
         
         # Manejo especial para LOGS para usar VirtualNavList sin doble scroll
@@ -297,46 +295,40 @@ class ShopifyConfigTab:
     def _render_tipos(self):
         self._create_section_header(self._content_frame, "TIPOS ACTIVOS PARA SHOPIFY")
 
-        # --- HEADER: buscador + añadir ---
-        header = tk.Frame(self._content_frame, bg=self._bg_color)
-        header.pack(fill="x", padx=10, pady=(0, 15))
-        self._tipos_header = header
-
-        tk.Label(header, text="Buscar un tipo:", font=("Helvetica", 12), fg="#FFFFFF", bg=self._bg_color).pack(side="left", padx=(0, 10))
-
-        try:
-            rows = self.db.fetch_all("SELECT id, nombre FROM tipos WHERE activo = 1 ORDER BY nombre")
-            opts = [(r[0], r[1]) for r in (rows or [])]
-        except Exception:
-            opts = []
-
-        self._tipo_combo = SearchableCombo(header, options=opts, placeholder="Selecciona un tipo...", width=300, module_name="shopify")
-        self._tipo_combo.pack(side="left", padx=(0, 15))
-
-        palette = self._colors_cfg.get("buttons", {}).get("primary", {})
-        ButtonFactory.create_button(
-            header, text="AÑADIR",
-            color=palette.get("bg", self._primary_color),
-            hover_color=palette.get("hover", self._primary_color),
-            text_color=palette.get("text", "#000000"),
-            command=self._on_add_tipo_web,
-            width=120, height=35
-        ).pack(side="left")
-
-        # --- CHIPS de tipos activos ---
-        self._chip_container = tk.Frame(self._content_frame, bg=self._bg_color)
-        self._chip_container.pack(fill="x", padx=10, pady=(0, 20))
-        self._refresh_tipo_chips()
-
-        # --- ZONA CENTRAL para el tipo seleccionado ---
+        # --- ZONA CENTRAL (primero, para evitar fantasmas visuales) ---
         self._central_tipos = tk.Frame(self._content_frame, bg=self._bg_medium)
         self._central_tipos.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
+        # --- BUSCADOR Y SELECTOR ---
+        self._tipo_selector = TagSelector(
+            self._content_frame,
+            module_name='shopify',
+            placeholder="Buscar un tipo para gestionar...",
+            selectable=True,
+            on_select=self._on_tipo_selected,
+            on_change=self._on_tipo_web_change
+        )
+        # Poner el buscador ARRIBA de la zona central
+        self._tipo_selector.pack(before=self._central_tipos, fill="x", padx=10, pady=(0, 20))
+        
+        # Cargar tipos actuales (desactivando callback temporalmente para evitar spam de etiquetas)
+        self._tipo_selector.on_change_callback = None
+        tipos = self._load_tipos_web()
+        for t in tipos:
+            self._tipo_selector.add_tag(t["id"], t["nombre"])
+        self._tipo_selector.on_change_callback = self._on_tipo_web_change
+        
+        # Restaurar selección si existe
         if self._tipo_selected_id:
+            self._tipo_selector.set_active(self._tipo_selected_id)
             self._render_variantes(self._tipo_selected_id)
         else:
-            tk.Label(self._central_tipos, text="Selecciona un tipo para configurar sus variantes y prompts",
-                     font=("Helvetica", 12), fg="#888888", bg=self._bg_medium).pack(pady=40)
+            self._render_placeholder_tipos()
+
+    def _render_placeholder_tipos(self):
+        self._clear_central_tipos()
+        tk.Label(self._central_tipos, text="Busca y añade un tipo, luego selecciónalo para configurar",
+                 font=("Helvetica", 12), fg="#888888", bg=self._bg_medium).pack(pady=40)
 
     def _load_tipos_web(self) -> List[Dict[str, Any]]:
         try:
@@ -348,72 +340,31 @@ class ShopifyConfigTab:
             logger.exception("Error cargando tipos web")
             return []
 
-    def _refresh_tipo_chips(self):
-        for child in self._chip_container.winfo_children():
-            child.destroy()
-        self._tipo_chips.clear()
-
-        tipos = self._load_tipos_web()
-        if not tipos:
-            tk.Label(self._chip_container, text="Ningún tipo añadido", font=("Helvetica", 10, "italic"),
-                     fg="#666666", bg=self._bg_color).pack(side="left", padx=5)
-            return
-
-        for t in tipos:
-            chip = tk.Frame(self._chip_container, bg="#333333", padx=8, pady=5)
-            chip.pack(side="left", padx=(0, 8), pady=3)
-
-            selected = t["id"] == self._tipo_selected_id
-            bg = self._primary_color if selected else "#333333"
-            fg = "#000000" if selected else self._primary_color
-
-            lbl = tk.Label(chip, text=t["nombre"].upper(), font=("Helvetica", 10, "bold"),
-                           fg=fg, bg=bg, cursor="hand2")
-            lbl.pack(side="left")
-            lbl.bind("<Button-1>", lambda e, tid=t["id"]: self._on_tipo_chip_click(tid))
-
-            btn_del = tk.Label(chip, text="✕", font=("Helvetica", 9), fg="#888888", bg=bg, cursor="hand2")
-            btn_del.pack(side="left", padx=(8, 0))
-            btn_del.bind("<Button-1>", lambda e, tid=t["id"]: self._on_remove_tipo_web(tid))
-
-            self._tipo_chips[t["id"]] = lbl
-
-    def _on_add_tipo_web(self):
-        if not self._tipo_combo:
-            return
-        tipo_id = self._tipo_combo.get_id()
-        if not tipo_id:
-            show_error(self.frame, "Selecciona primero un tipo.")
-            return
-        try:
-            self.db.execute_query("UPDATE tipos SET web_activo = 1 WHERE id = ?", (tipo_id,))
-            self._tipo_selected_id = tipo_id
-            self._refresh_tipo_chips()
-            self._render_variantes(tipo_id)
-        except Exception:
-            logger.exception("Error añadiendo tipo web")
-            show_error(self.frame, "Error guardando el tipo.")
-
-    def _on_remove_tipo_web(self, tipo_id: int):
-        try:
-            self.db.execute_query("UPDATE tipos SET web_activo = 0 WHERE id = ?", (tipo_id,))
-            if self._tipo_selected_id == tipo_id:
-                self._tipo_selected_id = None
-                self._clear_central_tipos()
-            self._refresh_tipo_chips()
-        except Exception:
-            logger.exception("Error quitando tipo web")
-            show_error(self.frame, "Error quitando el tipo.")
-
-    def _on_tipo_chip_click(self, tipo_id: int):
-        self._tipo_selected_id = tipo_id
-        self._refresh_tipo_chips()
-        self._render_variantes(tipo_id)
-
     def _clear_central_tipos(self):
-        if self._central_tipos:
+        if self._central_tipos and self._central_tipos.winfo_exists():
             for child in self._central_tipos.winfo_children():
                 child.destroy()
+
+    def _on_tipo_selected(self, tipo_id: int):
+        """Callback cuando se clica un chip en el TagSelector."""
+        self._tipo_selected_id = tipo_id
+        self._render_variantes(tipo_id)
+
+    def _on_tipo_web_change(self):
+        """Callback cuando se borra un tag del selector."""
+        if not self._tipo_selector: return
+        selected_ids = self._tipo_selector.get_selected_ids()
+        try:
+            self.db.execute_query("UPDATE tipos SET web_activo = 0")
+            if selected_ids:
+                placeholders = ",".join(["?"] * len(selected_ids))
+                self.db.execute_query(f"UPDATE tipos SET web_activo = 1 WHERE id IN ({placeholders})", tuple(selected_ids))
+            
+            if self._tipo_selected_id not in selected_ids:
+                self._tipo_selected_id = None
+                self._render_placeholder_tipos()
+        except Exception:
+            logger.exception("Error actualizando web_activo")
 
     def _render_variantes(self, tipo_id: int):
         self._clear_central_tipos()
@@ -448,6 +399,7 @@ class ShopifyConfigTab:
         # --- Campos extra solo para Camiseta ---
         self._tipos_sorpresa_stock_entry = None
         self._tipos_sorpresa_precio_entry = None
+        self._tipos_recargo_entry = None
         if tipo_nombre.lower() == "camiseta":
             tk.Label(header_frame, text="STOCK SORPRESA:", font=("Helvetica", 11),
                      fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(20, 10))
@@ -467,7 +419,7 @@ class ShopifyConfigTab:
             self._tipos_recargo_entry.insert(0, self._config.get("recargo_tallas", "0"))
             self._tipos_recargo_entry.pack(side="left")
 
-        # --- Lista de variantes: grid de 9 columnas, header repetido ---
+        # --- Lista de variantes ---
         self._tipos_price_entries = []
         list_frame = tk.Frame(self._central_tipos, bg=self._bg_medium)
         list_frame.pack(fill="both", expand=True, padx=15, pady=(0, 15))
@@ -513,78 +465,166 @@ class ShopifyConfigTab:
             entry_precio.grid(row=fila, column=col_base + 2, padx=5, pady=6)
             self._tipos_price_entries.append((v_id, entry_precio))
 
-        # --- Prompts IA por tipo ---
+        # --- Prompts IA (Punto 3 - Tabs unificados) ---
         self._create_section_header(self._central_tipos, "PROMPTS IA")
-        prompts_frame = tk.Frame(self._central_tipos, bg=self._bg_medium)
-        prompts_frame.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+        self._render_prompt_editor_panel(self._central_tipos, tipo_id=tipo_id)
 
-        prompt_rows = [
-            ("TAGS", "camiseta_tags"),
-            ("BODY HTML", "camiseta_body"),
-            ("SEO DESCRIPTION", "camiseta_seo"),
-            ("SEO TITLE", "camiseta_seo_title"),
-        ]
-        for label, clave in prompt_rows:
-            self._render_prompt_row(prompts_frame, label, clave, tipo_id)
+    def _render_prompt_editor_panel(self, parent, tipo_id=None):
+        """Renderiza la zona de edición de prompts con chips y editor único."""
+        frame = tk.Frame(parent, bg=self._bg_medium if tipo_id else self._bg_color)
+        frame.pack(fill="both", expand=True, padx=15, pady=(0, 15))
 
-    def _render_prompt_row(self, parent: tk.Frame, label: str, clave: str, tipo_id: int):
-        row = tk.Frame(parent, bg=self._bg_medium)
-        row.pack(fill="x", pady=8)
-        row.columnconfigure(1, weight=1)
-
-        tk.Label(row, text=label, font=("Helvetica", 11, "bold"),
-                 fg=self._primary_color, bg=self._bg_medium, width=16, anchor="w").grid(row=0, column=0, sticky="nw", padx=(0, 10))
-
-        txt = ctk.CTkTextbox(row, height=100, font=("Helvetica", 11), wrap="word")
-        txt.grid(row=0, column=1, sticky="ew", padx=(0, 10))
-        txt.insert("1.0", self.prompts_repo.get_texto(clave, tipo_id))
-
-        es_personalizado = bool(self.prompts_repo.get_prompt(clave, tipo_id))
-        estado_texto = "PERSONALIZADO" if es_personalizado else "GENÉRICO"
-        estado_lbl = tk.Label(row, text=estado_texto, font=("Helvetica", 9, "bold"),
-                              fg="#00FF00" if es_personalizado else "#888888", bg=self._bg_medium)
-        estado_lbl.grid(row=1, column=1, sticky="w", padx=(0, 10), pady=(3, 0))
-
-        btn_frame = tk.Frame(row, bg=self._bg_medium)
-        btn_frame.grid(row=0, column=2, sticky="ne")
-
-        palette = self._colors_cfg.get("buttons", {}).get("primary", {})
-        palette_sec = self._colors_cfg.get("buttons", {}).get("secondary", {})
-
-        ButtonFactory.create_button(
-            btn_frame, text="GUARDAR",
-            color=palette.get("bg", self._primary_color),
-            hover_color=palette.get("hover", self._primary_color),
-            text_color=palette.get("text", "#000000"),
-            command=lambda: self._guardar_prompt_tipo(clave, tipo_id, txt, estado_lbl),
-            width=110, height=30
-        ).pack(pady=(0, 6))
-
-        ButtonFactory.create_button(
-            btn_frame, text="RESTAURAR GENÉRICO",
-            color=palette_sec.get("bg", self._secondary_color),
-            hover_color=palette_sec.get("hover", self._secondary_color),
-            text_color=palette_sec.get("text", "#FFFFFF"),
-            command=lambda: self._restaurar_prompt_generico(clave, tipo_id, txt, estado_lbl),
-            width=150, height=30
-        ).pack()
-
-    def _guardar_prompt_tipo(self, clave: str, tipo_id: int, textbox, estado_lbl):
-        texto = textbox.get("1.0", "end-1c")
-        if self.prompts_repo.save_texto(clave, texto, tipo_id):
-            estado_lbl.configure(text="PERSONALIZADO", fg="#00FF00")
-            show_success(self.frame, f"{clave} guardado.")
+        # Determinar qué prompts mostrar
+        if tipo_id is None:
+            # Modo IA PROMPTS: solo genéricos
+            prompts = self.prompts_repo.get_genericos()
         else:
-            show_error(self.frame, f"Error guardando {clave}.")
+            # Modo TIPOS: las 5 claves estándar
+            prompts = []
+            for clave in ["tags", "body", "seo", "seo_title", "html"]:
+                p = self.prompts_repo.get_prompt(clave)
+                if p: prompts.append(p)
 
-    def _restaurar_prompt_generico(self, clave: str, tipo_id: int, textbox, estado_lbl):
+        if not prompts:
+            return
+
+        # Chips
+        chips_frame = tk.Frame(frame, bg=frame["bg"])
+        chips_frame.pack(fill="x", pady=(0, 10))
+        
+        # Guardar refs de widgets según el contexto
+        ctx = "tipo" if tipo_id else "gen"
+        setattr(self, f"_{ctx}_prompt_chips", {})
+        setattr(self, f"_{ctx}_prompt_area", tk.Frame(frame, bg=frame["bg"]))
+        getattr(self, f"_{ctx}_prompt_area").pack(fill="both", expand=True)
+
+        for p in prompts:
+            clave = p['clave']
+            chip = tk.Label(
+                chips_frame, text=p['nombre'].upper(), font=("Helvetica", 10, "bold"),
+                fg=self._tab_text_normal, bg=self._tab_bg_normal,
+                padx=16, pady=8, cursor="hand2"
+            )
+            chip.pack(side="left", padx=(0, 6))
+            chip.bind("<Button-1>", lambda e=None, c=clave, t=tipo_id: self._select_prompt_v2(c, t))
+            getattr(self, f"_{ctx}_prompt_chips")[clave] = chip
+
+        # Seleccionar el primero
+        self._select_prompt_v2(prompts[0]['clave'], tipo_id)
+
+    def _select_prompt_v2(self, clave: str, tipo_id: Optional[int]):
+        """Versión unificada del selector de prompts."""
+        ctx = "tipo" if tipo_id else "gen"
+        area = getattr(self, f"_{ctx}_prompt_area")
+        chips = getattr(self, f"_{ctx}_prompt_chips")
+        
+        # Flush actual si existe
+        active_key = getattr(self, f"_{ctx}_active_prompt", None)
+        editor = getattr(self, f"_{ctx}_prompt_editor", None)
+        if active_key and editor and editor.winfo_exists():
+            self._prompt_edits[(active_key, tipo_id)] = editor.get("1.0", "end-1c")
+            nombre_entry = getattr(self, f"_{ctx}_prompt_nombre_entry", None)
+            if nombre_entry and nombre_entry.winfo_exists():
+                self._prompt_nombre_edits[active_key] = nombre_entry.get().strip()
+
+        setattr(self, f"_{ctx}_active_prompt", clave)
+        
+        # Visual chips
+        for c, lbl in chips.items():
+            if c == clave: lbl.configure(bg=self._tab_bg_selected, fg=self._tab_text_selected)
+            else: lbl.configure(bg=self._tab_bg_normal, fg=self._tab_text_normal)
+
+        for child in area.winfo_children(): child.destroy()
+
+        # Datos
+        data = self.prompts_repo.get_prompt(clave, tipo_id) or self.prompts_repo.get_prompt(clave)
+        texto = self._prompt_edits.get((clave, tipo_id)) or self.prompts_repo.get_texto(clave, tipo_id)
+
+        # Header (Nombre editable si es genérico)
+        head = tk.Frame(area, bg=area["bg"])
+        head.pack(fill="x", pady=(0, 5))
+        
+        if tipo_id is None:
+            tk.Label(head, text="NOMBRE:", font=("Helvetica", 10, "bold"), fg="#888", bg=head["bg"]).pack(side="left", padx=(0, 8))
+            nombre_entry = ctk.CTkEntry(head, width=220, height=28, font=("Helvetica", 11))
+            nombre_entry.insert(0, self._prompt_nombre_edits.get(clave) or data.get('nombre') or clave)
+            nombre_entry.pack(side="left", padx=(0, 20))
+            setattr(self, f"_{ctx}_prompt_nombre_entry", nombre_entry)
+        
+        marcadores = self._MARCADORES.get(clave, "")
+        tk.Label(head, text=f"Marcadores: {marcadores}", font=("Helvetica", 9, "italic"), fg="#888", bg=head["bg"]).pack(side="left")
+
+        # Editor
+        h = 180 if tipo_id else 540
+        txt = ctk.CTkTextbox(area, height=h, font=("Consolas" if not tipo_id else "Helvetica", 12 if not tipo_id else 11), wrap="word")
+        txt.pack(fill="both", expand=True, pady=(0, 8))
+        txt.insert("1.0", texto)
+        setattr(self, f"_{ctx}_prompt_editor", txt)
+        
+        if tipo_id:
+            txt.after(100, self._ajustar_altura_prompt_tipo)
+
+        # Footer (Estado + Botones)
+        foot = tk.Frame(area, bg=area["bg"])
+        foot.pack(fill="x")
+        
+        if tipo_id is not None:
+            es_perso = bool(self.prompts_repo.get_prompt(clave, tipo_id))
+            lbl_est = tk.Label(foot, text="PERSONALIZADO" if es_perso else "GENÉRICO", font=("Helvetica", 9, "bold"),
+                               fg="#00FF00" if es_perso else "#888888", bg=foot["bg"])
+            lbl_est.pack(side="left")
+            
+            ButtonFactory.create_button(foot, text="GUARDAR", color=self._primary_color, text_color="#000000",
+                                        command=lambda: self._guardar_prompt_tipo_v2(clave, tipo_id, txt, lbl_est),
+                                        width=110, height=30).pack(side="right")
+            ButtonFactory.create_button(foot, text="RESTAURAR GENÉRICO", color=self._secondary_color, text_color="#FFFFFF",
+                                        command=lambda: self._restaurar_prompt_v2(clave, tipo_id, txt, lbl_est),
+                                        width=150, height=30).pack(side="right", padx=(0, 8))
+        else:
+            # En IA PROMPTS el botón de restaurar es al original del código
+            ButtonFactory.create_button(head, text="RESTAURAR ORIGINAL", color=self._secondary_color, text_color="#FFFFFF",
+                                        command=lambda: self._restaurar_prompt_v2(clave, None, txt, None),
+                                        width=170, height=26).pack(side="right")
+
+    def _guardar_prompt_tipo_v2(self, clave, tipo_id, txt, lbl_est):
+        texto = txt.get("1.0", "end-1c")
+        if self.prompts_repo.save_texto(clave, texto, tipo_id):
+            self._prompt_edits.pop((clave, tipo_id), None)
+            lbl_est.configure(text="PERSONALIZADO", fg="#00FF00")
+            show_success(self.frame, f"{clave} guardado para este tipo.")
+        else:
+            show_error(self.frame, "Error al guardar.")
+
+    def _restaurar_prompt_v2(self, clave, tipo_id, txt, lbl_est):
+        """Restaurar un prompt: si tipo_id es None -> original del código; si tipo_id -> genérico."""
         texto = self.prompts_repo.reset_to_default(clave, tipo_id)
-        if texto is None:
+        if texto is None and tipo_id is not None:
             texto = self.prompts_repo.get_texto(clave, None)
-        textbox.delete("1.0", "end")
-        textbox.insert("1.0", texto)
-        estado_lbl.configure(text="GENÉRICO", fg="#888888")
-        show_success(self.frame, f"{clave} restaurado al genérico.")
+        
+        if texto is not None:
+            self._prompt_edits.pop((clave, tipo_id), None)
+            txt.delete("1.0", "end")
+            txt.insert("1.0", texto)
+            if lbl_est: lbl_est.configure(text="GENÉRICO", fg="#888888")
+            show_success(self.frame, "Prompt restaurado.")
+        else:
+            show_error(self.frame, "No se pudo restaurar.")
+
+    def _ajustar_altura_prompt_tipo(self):
+        """Ajusta el alto del editor de prompts al espacio visible disponible."""
+        try:
+            # Detectar cuál es el editor activo (gen o tipo)
+            ctx = "gen" if self._current_tab == "IA PROMPTS" else "tipo"
+            editor = getattr(self, f'_{ctx}_prompt_editor', None)
+            
+            if editor is None or not editor.winfo_exists():
+                return
+            top = editor.winfo_toplevel()
+            editor_y = editor.winfo_rooty() - top.winfo_rooty()
+            disponible = top.winfo_height() - editor_y - 160
+            editor.configure(height=max(200, disponible))
+        except Exception:
+            pass
 
     def _guardar_variante(self, variante_id: int, sync_web: Optional[int] = None, precio_web: Optional[int] = None):
         try:
@@ -636,23 +676,27 @@ class ShopifyConfigTab:
             return
 
         template_entry = getattr(self, "_tipos_template_entry", None)
-        if template_entry is not None:
+        if template_entry is not None and template_entry.winfo_exists():
             self._guardar_template_suffix(tipo_id, template_entry.get())
 
         stock_entry = getattr(self, "_tipos_sorpresa_stock_entry", None)
-        if stock_entry is not None:
+        if stock_entry is not None and stock_entry.winfo_exists():
             self._guardar_config_valor("stock_sorpresa", stock_entry.get())
 
         precio_entry = getattr(self, "_tipos_sorpresa_precio_entry", None)
-        if precio_entry is not None:
+        if precio_entry is not None and precio_entry.winfo_exists():
             self._guardar_config_valor("precio_sorpresa", precio_entry.get())
 
         recargo_entry = getattr(self, "_tipos_recargo_entry", None)
-        if recargo_entry is not None:
+        if recargo_entry is not None and recargo_entry.winfo_exists():
             self._guardar_config_valor("recargo_tallas", recargo_entry.get())
 
         for v_id, ent in getattr(self, "_tipos_price_entries", []):
-            self._guardar_variante(v_id, precio_web=self._parse_precio_web(ent.get()))
+            try:
+                if ent.winfo_exists():
+                    self._guardar_variante(v_id, precio_web=self._parse_precio_web(ent.get()))
+            except Exception:
+                continue
 
     def _render_ia(self):
         self._create_section_header(self._content_frame, "CONFIGURACIÓN GPT (OPENAI)")
@@ -812,156 +856,53 @@ class ShopifyConfigTab:
 
     # Marcadores disponibles por prompt
     _MARCADORES = {
+        "tags": "{titulo_base} {tipo_producto}",
+        "body": "{variante} {tipo_producto} {titulo_base} {tono} {instrucciones_variante} {tags} {beneficio} {tags_top3}",
+        "seo": "{tipo_producto} {titulo_base} {tags} {beneficio}",
+        "seo_title": "{titulo} {variante} {marca}",
+        "html": "{titulo_introductorio} {parrafo_introductorio} {titulo_seccion_calidad} {bloque_calidad_impresion} {bloque_calidad_material} {bloque_calidad_durabilidad} {bloque_porque_elegirnos} {botones_html}",
         "manga_seo": "{product_name} {source_data}",
-        "camiseta_seo": "{titulo_base} {tags} {beneficio}",
-        "camiseta_body": "{genero} {titulo_base} {tono} {instrucciones_genero} {tags} {beneficio} {tags_top3}",
-        "camiseta_tags": "{titulo_base}",
     }
 
     def _render_ia_prompts(self):
-        """Pestaña de prompts: chips arriba, un editor a pantalla completa."""
-        if not hasattr(self, '_prompt_edits'):
-            self._prompt_edits = {}
-        self._active_prompt = None
-
-        self._create_section_header(self._content_frame, "PROMPTS DE IA")
-
-        # --- Chips de selección ---
-        prompts = self.prompts_repo.get_all()
-        self._prompt_data = {p['clave']: p for p in prompts}
-        chips = tk.Frame(self._content_frame, bg=self._bg_color)
-        chips.pack(fill="x", padx=10, pady=(0, 10))
-        self._prompt_chips = {}
-        for p in prompts:
-            chip = tk.Label(
-                chips, text=p['nombre'].upper(), font=("Helvetica", 10, "bold"),
-                fg=self._tab_text_normal, bg=self._tab_bg_normal,
-                padx=18, pady=8, cursor="hand2"
-            )
-            chip.pack(side="left", padx=(0, 6))
-            chip.bind("<Button-1>", lambda e, c=p['clave']: self._select_prompt(c))
-            self._prompt_chips[p['clave']] = chip
-
-        # --- Área del editor ---
-        self._prompt_area = tk.Frame(self._content_frame, bg=self._bg_color)
-        self._prompt_area.pack(fill="both", expand=True, padx=10)
-
-        if prompts:
-            self._select_prompt(prompts[0]['clave'])
-
-    def _select_prompt(self, clave: str):
-        """Cambia el prompt visible en el editor."""
-        # Guardar en memoria lo que hubiera editado el usuario
-        if self._active_prompt and hasattr(self, '_prompt_editor') and self._prompt_editor.winfo_exists():
-            self._prompt_edits[self._active_prompt] = self._prompt_editor.get("1.0", "end-1c")
-
-        self._active_prompt = clave
-        data = self._prompt_data.get(clave, {})
-
-        for c, chip in self._prompt_chips.items():
-            if c == clave:
-                chip.configure(bg=self._tab_bg_selected, fg=self._tab_text_selected)
-            else:
-                chip.configure(bg=self._tab_bg_normal, fg=self._tab_text_normal)
-
-        for child in self._prompt_area.winfo_children():
-            child.destroy()
-
-        head = tk.Frame(self._prompt_area, bg=self._bg_color)
-        head.pack(fill="x", pady=(0, 5))
-        marcadores = self._MARCADORES.get(clave, "")
-        tk.Label(
-            head, text=f"Marcadores: {marcadores}",
-            font=("Helvetica", 10, "italic"), fg="#888", bg=self._bg_color, anchor="w"
-        ).pack(side="left")
-        ctk.CTkButton(
-            head, text="RESTAURAR ORIGINAL", width=170, height=26,
-            fg_color=self._secondary_color, font=("Helvetica", 10, "bold"),
-            command=lambda c=clave: self._on_reset_prompt(c)
-        ).pack(side="right")
-
-        self._prompt_editor = ctk.CTkTextbox(
-            self._prompt_area, font=("Consolas", 12), height=560,
-            fg_color=self._bg_medium, text_color="#e0e0e0",
-            border_width=1, border_color=self._primary_color
-        )
-        self._prompt_editor.pack(fill="both", expand=True)
-        texto = self._prompt_edits.get(clave) or data.get('texto') or data.get('texto_default') or ""
-        self._prompt_editor.insert("1.0", texto)
-
-    def _flush_prompt_editor(self):
-        """Vuelca el editor activo a memoria (para no perder cambios sin guardar)."""
-        if getattr(self, '_active_prompt', None) and hasattr(self, '_prompt_editor') and self._prompt_editor.winfo_exists():
-            self._prompt_edits[self._active_prompt] = self._prompt_editor.get("1.0", "end-1c")
-
-    def _on_reset_prompt(self, clave: str):
-        """Restaura un prompt a su texto original del script."""
-        default = self.prompts_repo.reset_to_default(clave)
-        if default is None:
-            show_error(self.frame, "No se pudo restaurar el prompt.")
-            return
-        self._prompt_edits.pop(clave, None)
-        if self._active_prompt == clave and hasattr(self, '_prompt_editor') and self._prompt_editor.winfo_exists():
-            self._prompt_editor.delete("1.0", "end")
-            self._prompt_editor.insert("1.0", default)
-        show_success(self.frame, "Prompt restaurado al original.")
-
-    def _render_logs(self):
-        """Pestaña de logs usando VirtualNavList."""
-        columns = [
-            ("FECHA", 180, "FECHA", False),
-            ("ACCIÓN", 150, "ACCIÓN", False),
-            ("RESULTADO", 120, "RESULTADO", False),
-            ("MENSAJE", 400, "MENSAJE", True)
-        ]
-
-        self.nav_list = VirtualNavList(
-            self._content_container,
-            columns=columns,
-            module_name='shopify'
-        )
-        self.nav_list.pack(fill=tk.BOTH, expand=True)
-        self._refresh_logs_data()
-
-    def _refresh_logs_data(self):
-        """Carga los datos de la BD en la VirtualNavList."""
-        if not hasattr(self, 'nav_list') or not self.nav_list.winfo_exists():
-            return
-
-        nav_cfg = self._colors_cfg.get('nav_list', {})
-        success_bg = nav_cfg.get('log_success_bg', '#1b3320')
-        success_fg = nav_cfg.get('log_success_fg', '#2ecc71')
-        error_bg = nav_cfg.get('log_error_bg', '#331b1b')
-        error_fg = nav_cfg.get('log_error_fg', '#e74c3c')
-
-        logs = self.service.get_logs(limit=100)
-        items = []
-        for l in logs:
-            is_success = l["resultado"] == "success"
-            bg = success_bg if is_success else error_bg
-            fg = success_fg if is_success else error_fg
-            items.append({
-                "FECHA": l["fecha"],
-                "ACCIÓN": l["accion"],
-                "RESULTADO": l["resultado"].upper(),
-                "MENSAJE": l["mensaje"],
-                "_row_bg": bg,
-                "_row_fg": fg
-            })
-        self.nav_list.set_items(items)
+        """Pestaña de prompts genéricos: chips arriba, un editor unificado."""
+        self._create_section_header(self._content_frame, "PROMPTS DE IA (GENÉRICOS)")
+        self._render_prompt_editor_panel(self._content_frame, tipo_id=None)
 
     def _on_save(self):
         self._harvest_widgets()
+        
+        # Flush editores activos a memoria antes de guardar
+        for ctx in ["gen", "tipo"]:
+            active = getattr(self, f"_{ctx}_active_prompt", None)
+            tipo_id = self._tipo_selected_id if ctx == "tipo" else None
+            editor = getattr(self, f"_{ctx}_prompt_editor", None)
+            if active and editor and editor.winfo_exists():
+                self._prompt_edits[(active, tipo_id)] = editor.get("1.0", "end-1c")
+                nom_entry = getattr(self, f"_{ctx}_prompt_nombre_entry", None)
+                if nom_entry and nom_entry.winfo_exists():
+                    self._prompt_nombre_edits[active] = nom_entry.get().strip()
+
         ok = self.service.save_config(self._config)
+        
         # Guardar los prompts editados en su tabla
         prompts_ok = True
-        if self._current_tab == "IA PROMPTS":
-            self._flush_prompt_editor()
-        for clave, texto in getattr(self, '_prompt_edits', {}).items():
-            prompts_ok = self.prompts_repo.save_texto(clave, texto) and prompts_ok
-        self._prompt_edits = {}
+        for (clave, t_id), texto in self._prompt_edits.items():
+            prompts_ok = self.prompts_repo.save_texto(clave, texto, t_id) and prompts_ok
+        
+        for clave, nombre in self._prompt_nombre_edits.items():
+            prompts_ok = self.prompts_repo.save_nombre(clave, nombre) and prompts_ok
+            # Refrescar chips visuales
+            for ctx in ["gen", "tipo"]:
+                chips = getattr(self, f"_{ctx}_prompt_chips", {})
+                if clave in chips:
+                    try: chips[clave].configure(text=(nombre or clave).upper())
+                    except Exception: pass
 
-        # Guardar los campos del tipo seleccionado en TIPOS
+        self._prompt_edits = {}
+        self._prompt_nombre_edits = {}
+
+        # Guardar los campos del tipo seleccionado en TIPOS (precios, plantilla...)
         if self._current_tab == "TIPOS":
             self._guardar_tipo_actual()
 
