@@ -9,12 +9,9 @@ import requests
 
 from .shopify_config_service import ShopifyConfigService
 from ..shopify_repository import ShopifyRepository
+from kool_tpv.modulos.produccion.repositories.produccion_tallas_grupos_repository import ProduccionTallasGruposRepository
 
 logger = logging.getLogger(__name__)
-
-TALLAS_GRANDES = {"2XL", "3XL", "4XL", "5XL"}
-
-
 
 class ShopifyProductService:
     """Crea y actualiza productos en Shopify desde el TPV (subvista SUBIDA).
@@ -197,6 +194,20 @@ class ShopifyProductService:
             variantes_input = []
             precio_base = float(str(datos.get("precio") or 0).replace(',', '.').replace('€', '').strip() or 0)
             recargo = float(str(datos.get("recargo_tallas") or 0).replace(',', '.').replace('€', '').strip() or 0)
+            
+            # Obtener tallas grandes del grupo configurado
+            tallas_grandes = set()
+            grupo_id = datos.get("recargo_grupo_id")
+            if grupo_id:
+                try:
+                    repo_grupos = ProduccionTallasGruposRepository(self.db)
+                    nombres = repo_grupos.get_nombres_tallas_por_grupo(int(grupo_id))
+                    tallas_grandes = {n.strip().upper() for n in nombres}
+                    if not tallas_grandes:
+                        logger.warning(f"El grupo de tallas ID {grupo_id} está vacío o no existe.")
+                except Exception:
+                    logger.exception(f"Error cargando tallas grandes del grupo {grupo_id}")
+
             for v in datos.get("variantes", []):
                 color, talla = v.get("color") or "", v.get("talla") or ""
                 requiere_color = bool(v.get("requiere_color", 1))
@@ -207,14 +218,18 @@ class ShopifyProductService:
                 if requiere_talla and talla and talla not in tallas:
                     tallas.append(talla)
 
-                # Precio: precio_web > precio explícito > base + recargo tallas grandes
+                # Precio: precio_web > precio explícito > base
                 precio_variante_cents = v.get("precio_web") or 0
                 if precio_variante_cents:
                     precio_variante = float(precio_variante_cents) / 100
                 elif v.get("precio") is not None:
                     precio_variante = float(v["precio"])
                 else:
-                    precio_variante = precio_base + (recargo if talla in TALLAS_GRANDES else 0)
+                    precio_variante = precio_base
+
+                # Aplicar recargo si la talla es grande y no es un precio explícito (ej: Sorpresa)
+                if v.get("precio") is None and talla.strip().upper() in tallas_grandes:
+                    precio_variante += recargo
 
                 built_sku = self.build_sku(v["sku"], datos.get("codigo_categoria", ""), datos.get("iniciales", ""))
                 sku_qty[built_sku] = int(v.get("cantidad") or 0)

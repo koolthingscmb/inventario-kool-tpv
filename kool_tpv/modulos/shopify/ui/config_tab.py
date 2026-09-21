@@ -400,24 +400,51 @@ class ShopifyConfigTab:
         self._tipos_sorpresa_stock_entry = None
         self._tipos_sorpresa_precio_entry = None
         self._tipos_recargo_entry = None
+        self._tipos_recargo_grupo_combo = None
+
         if tipo_nombre.lower() == "camiseta":
-            tk.Label(header_frame, text="STOCK SORPRESA:", font=("Helvetica", 11),
+            # --- Fila 1: Stock y Precio Sorpresa ---
+            row1 = tk.Frame(header_frame, bg=self._bg_medium)
+            row1.pack(fill="x", pady=(0, 5))
+
+            tk.Label(row1, text="STOCK SORPRESA:", font=("Helvetica", 11),
                      fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(20, 10))
-            self._tipos_sorpresa_stock_entry = ctk.CTkEntry(header_frame, width=80, font=("Helvetica", 12))
+            self._tipos_sorpresa_stock_entry = ctk.CTkEntry(row1, width=80, font=("Helvetica", 12))
             self._tipos_sorpresa_stock_entry.insert(0, self._config.get("stock_sorpresa", "50"))
             self._tipos_sorpresa_stock_entry.pack(side="left", padx=(0, 20))
 
-            tk.Label(header_frame, text="PRECIO SORPRESA:", font=("Helvetica", 11),
+            tk.Label(row1, text="PRECIO SORPRESA:", font=("Helvetica", 11),
                      fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(0, 10))
-            self._tipos_sorpresa_precio_entry = ctk.CTkEntry(header_frame, width=100, font=("Helvetica", 12))
+            self._tipos_sorpresa_precio_entry = ctk.CTkEntry(row1, width=100, font=("Helvetica", 12))
             self._tipos_sorpresa_precio_entry.insert(0, self._config.get("precio_sorpresa", ""))
             self._tipos_sorpresa_precio_entry.pack(side="left", padx=(0, 20))
 
-            tk.Label(header_frame, text="RECARGO TALLAS GRANDES:", font=("Helvetica", 11),
-                     fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(0, 10))
-            self._tipos_recargo_entry = ctk.CTkEntry(header_frame, width=80, font=("Helvetica", 12))
+            # --- Fila 2: Recargos ---
+            row2 = tk.Frame(header_frame, bg=self._bg_medium)
+            row2.pack(fill="x")
+
+            tk.Label(row2, text="RECARGO TALLAS GRANDES (€):", font=("Helvetica", 11),
+                     fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(20, 10))
+            self._tipos_recargo_entry = ctk.CTkEntry(row2, width=60, font=("Helvetica", 12))
             self._tipos_recargo_entry.insert(0, self._config.get("recargo_tallas", "0"))
-            self._tipos_recargo_entry.pack(side="left")
+            self._tipos_recargo_entry.pack(side="left", padx=(0, 20))
+
+            tk.Label(row2, text="APLICAR A GRUPO:", font=("Helvetica", 11),
+                     fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(0, 10))
+            
+            from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
+            from kool_tpv.modulos.produccion.repositories.produccion_tallas_grupos_repository import ProduccionTallasGruposRepository
+            
+            repo_grupos = ProduccionTallasGruposRepository(self.db)
+            grupos = repo_grupos.get_todos()
+            opts_grupos = [(g.id, g.nombre) for g in grupos]
+            
+            self._tipos_recargo_grupo_combo = SearchableCombo(row2, width=180, placeholder="Seleccionar grupo...", options=opts_grupos)
+            self._tipos_recargo_grupo_combo.pack(side="left")
+            
+            grupo_id_cfg = self._config.get("recargo_grupo_id")
+            if grupo_id_cfg:
+                self._tipos_recargo_grupo_combo.set_by_id(int(grupo_id_cfg))
 
         # --- Lista de variantes ---
         self._tipos_price_entries = []
@@ -690,6 +717,10 @@ class ShopifyConfigTab:
         recargo_entry = getattr(self, "_tipos_recargo_entry", None)
         if recargo_entry is not None and recargo_entry.winfo_exists():
             self._guardar_config_valor("recargo_tallas", recargo_entry.get())
+
+        recargo_grupo = getattr(self, "_tipos_recargo_grupo_combo", None)
+        if recargo_grupo is not None and recargo_grupo.winfo_exists():
+            self._guardar_config_valor("recargo_grupo_id", recargo_grupo.get_id())
 
         for v_id, ent in getattr(self, "_tipos_price_entries", []):
             try:

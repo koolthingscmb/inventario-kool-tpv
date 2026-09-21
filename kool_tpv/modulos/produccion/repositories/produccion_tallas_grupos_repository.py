@@ -86,3 +86,14 @@ class ProduccionTallasGruposRepository:
         """
         rows = self.db.fetch_all(query, (variante_id,))
         return [r[0] for r in rows]
+
+    def get_nombres_tallas_por_grupo(self, grupo_id: int) -> List[str]:
+        """Obtener los nombres de las tallas asociadas a un grupo."""
+        query = """
+            SELECT t.nombre
+            FROM produccion_tallas_grupo_items i
+            JOIN produccion_tallas t ON t.id = i.talla_id
+            WHERE i.grupo_id = ?
+        """
+        rows = self.db.fetch_all(query, (grupo_id,))
+        return [r[0] for r in rows]

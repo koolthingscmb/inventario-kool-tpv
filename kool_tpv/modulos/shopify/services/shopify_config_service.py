@@ -27,6 +27,7 @@ class ShopifyConfigService:
         "precio_mujer": "shopify_precio_mujer",
         "precio_infantil": "shopify_precio_infantil",
         "recargo_tallas": "shopify_recargo_tallas",
+        "recargo_grupo_id": "shopify_recargo_grupo_id",
         "precio_sorpresa": "shopify_precio_sorpresa",
         "source_anilist": "shopify_source_anilist",
         "source_mangadex": "shopify_source_mangadex",
