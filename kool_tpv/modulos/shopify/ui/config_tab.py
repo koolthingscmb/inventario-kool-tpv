@@ -432,7 +432,10 @@ class ShopifyConfigTab:
             grupos = repo_grupos.get_todos()
             opts_grupos = [(g.id, g.nombre) for g in grupos]
             
-            self._tipos_recargo_grupo_combo = SearchableCombo(row_config, width=150, placeholder="Seleccionar...", options=opts_grupos)
+            self._tipos_recargo_grupo_combo = SearchableCombo(
+                row_config, width=150, placeholder="Seleccionar...", 
+                options=opts_grupos, module_name="shopify"
+            )
             self._tipos_recargo_grupo_combo.pack(side="left", padx=(0, 20))
             
             grupo_id_cfg = self._config.get("recargo_grupo_id")
