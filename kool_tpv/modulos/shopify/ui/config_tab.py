@@ -185,11 +185,23 @@ class ShopifyConfigTab:
     def _clear_content(self):
         """Limpia el área de contenido."""
         try:
+            # Destruir solo hijos del frame de contenido, no el frame en sí
             for child in self._content_frame.winfo_children():
                 child.destroy()
+            
+            # Limpiar nav_list si existe (LOGS)
+            if hasattr(self, 'nav_list'):
+                try:
+                    self.nav_list.destroy()
+                    del self.nav_list
+                except Exception:
+                    pass
+
+            # Limpiar otros hijos directos del contenedor que no sean el frame de scroll
             for child in self._content_container.winfo_children():
                 if child != self._content_frame:
-                    child.destroy()
+                    try: child.destroy()
+                    except: pass
         except Exception:
             pass
 

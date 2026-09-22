@@ -46,10 +46,6 @@ class TiposTab:
 
     def render(self):
         """Dibuja la interfaz de la pestaña TIPOS."""
-        # --- ZONA CENTRAL (primero, para evitar fantasmas visuales) ---
-        self._central_tipos = tk.Frame(self.parent, bg=self._bg_medium)
-        self._central_tipos.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-
         # --- BUSCADOR Y SELECTOR ---
         self._tipo_selector = TagSelector(
             self.parent,
@@ -59,18 +55,24 @@ class TiposTab:
             on_select=self._on_tipo_selected,
             on_change=self._on_tipo_web_change
         )
-        # Poner el buscador ARRIBA de la zona central
-        self._tipo_selector.pack(before=self._central_tipos, fill="x", padx=10, pady=(0, 20))
+        self._tipo_selector.pack(fill="x", padx=10, pady=(0, 20))
+
+        # --- ZONA CENTRAL (primero, para evitar fantasmas visuales) ---
+        self._central_tipos = tk.Frame(self.parent, bg=self._bg_medium)
+        self._central_tipos.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         
-        # Cargar tipos actuales (desactivando callback temporalmente para evitar spam de etiquetas)
+        # Cargar tipos actuales
         self._tipo_selector.on_change_callback = None
         tipos = self._load_tipos_web()
         for t in tipos:
             self._tipo_selector.add_tag(t["id"], t["nombre"])
         self._tipo_selector.on_change_callback = self._on_tipo_web_change
         
-        # Si no hay nada seleccionado, mostrar placeholder
-        if not self._tipo_selected_id:
+        # Restaurar selección si existe
+        if self._tipo_selected_id:
+            self._tipo_selector.set_active(self._tipo_selected_id)
+            self._render_variantes(self._tipo_selected_id)
+        else:
             self._render_placeholder_tipos()
 
     def _render_placeholder_tipos(self):
