@@ -20,6 +20,7 @@ from kool_tpv.utils.widgets.tag_selector import TagSelector
 from kool_tpv.modulos.shopify.ui.tabs.ia_tonos_tab import IATonosTab
 from kool_tpv.modulos.shopify.ui.tabs.ia_beneficios_tab import IABeneficiosTab
 from kool_tpv.modulos.shopify.ui.tabs.ia_tab import IATab
+from kool_tpv.modulos.shopify.ui.tabs.tipos_tab import TiposTab
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,15 @@ class ShopifyConfigTab:
         self._ia_tonos_tab = IATonosTab(self._content_frame, self.db, self._primary_color, self._bg_color, self._bg_medium)
         self._ia_beneficios_tab = IABeneficiosTab(self._content_frame, self.db, self._primary_color, self._bg_color, self._bg_medium)
         self._ia_tab = IATab(self._content_frame, self.db, self._config, self._bg_color, self._primary_color, self._secondary_color)
+        
+        self._tipos_tab = TiposTab(
+            self._content_frame, self.db, self._config, 
+            self._primary_color, self._secondary_color, self._bg_color, self._bg_medium,
+            self._tab_bg_selected, self._tab_bg_normal, self._tab_text_selected, self._tab_text_normal,
+            self.prompts_repo
+        )
+        # Conectar el editor de prompts compartido a la pestaña de tipos
+        self._tipos_tab.render_prompt_editor_callback = self._render_prompt_editor_panel
 
         # Footer area for persistent buttons
         self._footer_frame = tk.Frame(self.frame, bg=self._bg_medium, height=70)
@@ -154,7 +164,7 @@ class ShopifyConfigTab:
             if tab_name == "GENERAL":
                 self._render_general()
             elif tab_name == "TIPOS":
-                self._render_tipos()
+                self._tipos_tab.render()
             elif tab_name == "IA":
                 self._render_ia()
             elif tab_name == "FUENTES":
@@ -951,7 +961,7 @@ class ShopifyConfigTab:
 
         # Guardar los campos del tipo seleccionado en TIPOS (precios, plantilla...)
         if self._current_tab == "TIPOS":
-            self._guardar_tipo_actual()
+            self._tipos_tab.save_tipo_actual()
 
         if ok and prompts_ok:
             self.service.add_log("SAVE_CONFIG", "success", "Configuración actualizada")
