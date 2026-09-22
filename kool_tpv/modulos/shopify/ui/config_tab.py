@@ -18,6 +18,8 @@ from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.dialogs.multi_select_dialog import show_multi_select_dialog
 from kool_tpv.utils.widgets.tag_selector import TagSelector
 from kool_tpv.modulos.shopify.ui.tabs.ia_tonos_tab import IATonosTab
+from kool_tpv.modulos.shopify.ui.tabs.ia_beneficios_tab import IABeneficiosTab
+from kool_tpv.modulos.shopify.ui.tabs.ia_tab import IATab
 
 logger = logging.getLogger(__name__)
 
@@ -95,8 +97,8 @@ class ShopifyConfigTab:
 
         # Inicializar pestañas independientes
         self._ia_tonos_tab = IATonosTab(self._content_frame, self.db, self._primary_color, self._bg_color, self._bg_medium)
-        from kool_tpv.modulos.shopify.ui.tabs.ia_beneficios_tab import IABeneficiosTab
         self._ia_beneficios_tab = IABeneficiosTab(self._content_frame, self.db, self._primary_color, self._bg_color, self._bg_medium)
+        self._ia_tab = IATab(self._content_frame, self.db, self._config, self._bg_color, self._primary_color, self._secondary_color)
 
         # Footer area for persistent buttons
         self._footer_frame = tk.Frame(self.frame, bg=self._bg_medium, height=70)
@@ -762,30 +764,7 @@ class ShopifyConfigTab:
 
     def _render_ia(self):
         self._create_section_header(self._content_frame, "CONFIGURACIÓN GPT (OPENAI)")
-        grid_container = tk.Frame(self._content_frame, bg=self._bg_color)
-        grid_container.pack(fill="x", padx=10)
-        grid_container.columnconfigure(1, weight=1)
-
-        tk.Label(grid_container, text="Modelo de IA:", font=("Helvetica", 12), fg="#FFFFFF", bg=self._bg_color, anchor="e", width=25).grid(row=0, column=0, padx=(0, 20), pady=15, sticky="e")
-        current_model = self._config.get("ia_model", "gpt-4o-mini")
-        combo = ctk.CTkOptionMenu(grid_container, values=["gpt-4o-mini", "gpt-4o"], height=40, width=250)
-        combo.set(current_model)
-        combo.grid(row=0, column=1, sticky="w", pady=15)
-        self.widgets["ia_model"] = combo
-
-        tk.Label(grid_container, text="OpenAI API Key:", font=("Helvetica", 12), fg="#FFFFFF", bg=self._bg_color, anchor="e", width=25).grid(row=1, column=0, padx=(0, 20), pady=15, sticky="e")
-        val_key = self._config.get("ia_api_key", "")
-        entry = ctk.CTkEntry(grid_container, placeholder_text="sk-...", height=40, show="*", font=("Helvetica", 12))
-        entry.insert(0, val_key)
-        entry.grid(row=1, column=1, sticky="ew", pady=15)
-        self.widgets["ia_api_key"] = entry
-
-        tk.Label(grid_container, text="Google Books API Key:", font=("Helvetica", 12), fg="#FFFFFF", bg=self._bg_color, anchor="e", width=25).grid(row=2, column=0, padx=(0, 20), pady=15, sticky="e")
-        val_google = self._config.get("google_api_key", "")
-        entry_g = ctk.CTkEntry(grid_container, placeholder_text="AIza...", height=40, show="*", font=("Helvetica", 12))
-        entry_g.insert(0, val_google)
-        entry_g.grid(row=2, column=1, sticky="ew", pady=15)
-        self.widgets["google_api_key"] = entry_g
+        self._ia_tab.render()
 
     def _render_fuentes(self):
         self._create_section_header(self._content_frame, "CONECTORES DE DATOS EXTERNOS")
@@ -964,6 +943,9 @@ class ShopifyConfigTab:
         self._prompt_edits = {}
         self._prompt_nombre_edits = {}
 
+        # Recoger datos de pestañas independientes
+        self._ia_tab.harvest(self._config)
+
         # Guardar Tonos y Beneficios (Pestañas independientes)
         prompts_ok = self._ia_tonos_tab.save() and self._ia_beneficios_tab.save()
 
@@ -977,21 +959,6 @@ class ShopifyConfigTab:
         else:
             self.service.add_log("SAVE_CONFIG", "error", "Fallo al guardar")
             show_error(self.frame, "Error al guardar.")
-
-    def _on_test_ia(self):
-        api_key = self.widgets.get("ia_api_key").get().strip()
-        model = self.widgets.get("ia_model").get()
-        if not api_key:
-            show_error(self.frame, "Introduce una API Key.")
-            return
-        ai_service = OpenAIService(api_key, model)
-        success, message = ai_service.test_connection()
-        if success:
-            self.service.add_log("TEST_IA", "success", f"OpenAI OK ({model})")
-            show_success(self.frame, f"Éxito: {message}")
-        else:
-            self.service.add_log("TEST_IA", "error", f"Fallo OpenAI: {message}")
-            show_error(self.frame, f"Error: {message}")
 
     def _on_test_source(self, source):
         success, message = source.test_connection()
