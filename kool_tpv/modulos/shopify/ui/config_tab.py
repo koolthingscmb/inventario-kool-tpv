@@ -64,7 +64,13 @@ class ShopifyConfigTab:
 
         self._current_tab = None
         self._tab_labels = {}
-        self._tabs = ["GENERAL", "TIPOS", "IA", "IA PROMPTS", "FUENTES", "LOGS"]
+        self._tabs = ["GENERAL", "TIPOS", "IA", "IA PROMPTS", "IA TONOS", "IA BENEFICIOS", "FUENTES", "LOGS"]
+
+        # Listas temporales para Tonos y Beneficios
+        self._tonos_data = []      # List[str]
+        self._beneficios_data = []  # List[str]
+        self._tonos_entries = []
+        self._beneficios_entries = []
 
         # Estado de la pestaña TIPOS
         self._tipo_selected_id: Optional[int] = None
@@ -153,6 +159,10 @@ class ShopifyConfigTab:
                 self._render_fuentes()
             elif tab_name == "IA PROMPTS":
                 self._render_ia_prompts()
+            elif tab_name == "IA TONOS":
+                self._render_ia_tonos()
+            elif tab_name == "IA BENEFICIOS":
+                self._render_ia_beneficios()
 
     def _harvest_widgets(self):
         """Recoge los valores de los widgets actuales y los guarda en self._config."""
@@ -936,6 +946,29 @@ class ShopifyConfigTab:
         self._prompt_edits = {}
         self._prompt_nombre_edits = {}
 
+        # Guardar Tonos y Beneficios si están cargados
+        if self._tonos_entries:
+            self._tonos_data = [e.get().strip() for e in self._tonos_entries if e.get().strip()]
+            try:
+                with self.db.transaction() as cur:
+                    cur.execute("DELETE FROM shopify_tonos")
+                    for t in self._tonos_data:
+                        cur.execute("INSERT INTO shopify_tonos (nombre) VALUES (?)", (t,))
+            except Exception:
+                logger.exception("Error guardando tonos")
+                prompts_ok = False
+
+        if self._beneficios_entries:
+            self._beneficios_data = [e.get().strip() for e in self._beneficios_entries if e.get().strip()]
+            try:
+                with self.db.transaction() as cur:
+                    cur.execute("DELETE FROM shopify_beneficios")
+                    for b in self._beneficios_data:
+                        cur.execute("INSERT INTO shopify_beneficios (texto) VALUES (?)", (b,))
+            except Exception:
+                logger.exception("Error guardando beneficios")
+                prompts_ok = False
+
         # Guardar los campos del tipo seleccionado en TIPOS (precios, plantilla...)
         if self._current_tab == "TIPOS":
             self._guardar_tipo_actual()
@@ -981,3 +1014,111 @@ class ShopifyConfigTab:
             self._on_refresh_logs()
         else:
             show_error(self.frame, "No se pudo limpiar el historial.")
+
+    def _render_ia_tonos(self):
+        """Pestaña de gestión de tonos para la IA."""
+        self._create_section_header(self._content_frame, "BIBLIOTECA DE TONOS")
+        
+        if not self._tonos_data:
+            rows = self.db.fetch_all("SELECT nombre FROM shopify_tonos ORDER BY nombre")
+            self._tonos_data = [r[0] for r in (rows or [])]
+            
+        container = tk.Frame(self._content_frame, bg=self._bg_color)
+        container.pack(fill="x", padx=10, pady=10)
+        
+        btn_add = ctk.CTkButton(
+            container, text="+ AÑADIR TONO", width=150, height=32,
+            fg_color=self._primary_color, font=("Helvetica", 12, "bold"),
+            command=self._add_tono_ui
+        )
+        btn_add.pack(anchor="w", pady=(0, 20))
+        
+        self._tonos_grid = tk.Frame(container, bg=self._bg_color)
+        self._tonos_grid.pack(fill="x")
+        
+        for i in range(6):
+            self._tonos_grid.columnconfigure(i, weight=1)
+            
+        self._refresh_tonos_grid()
+
+    def _refresh_tonos_grid(self):
+        for child in self._tonos_grid.winfo_children():
+            child.destroy()
+        self._tonos_entries = []
+        
+        for i, tono in enumerate(self._tonos_data):
+            row = i // 6
+            col = i % 6
+            item_frame = tk.Frame(self._tonos_grid, bg=self._bg_medium, padx=5, pady=5)
+            item_frame.grid(row=row, column=col, padx=5, pady=5, sticky="ew")
+            
+            entry = ctk.CTkEntry(item_frame, height=30, font=("Helvetica", 11))
+            entry.insert(0, tono)
+            entry.pack(side="left", fill="x", expand=True)
+            self._tonos_entries.append(entry)
+            
+            btn_del = tk.Label(item_frame, text="✕", font=("Helvetica", 10), fg="#666", bg=self._bg_medium, cursor="hand2")
+            btn_del.pack(side="right", padx=(5, 0))
+            btn_del.bind("<Button-1>", lambda e, idx=i: self._remove_tono(idx))
+
+    def _add_tono_ui(self):
+        self._tonos_data = [e.get().strip() for e in self._tonos_entries]
+        self._tonos_data.append("")
+        self._refresh_tonos_grid()
+
+    def _remove_tono(self, index):
+        self._tonos_data = [e.get().strip() for e in self._tonos_entries]
+        if 0 <= index < len(self._tonos_data):
+            self._tonos_data.pop(index)
+        self._refresh_tonos_grid()
+
+    def _render_ia_beneficios(self):
+        """Pestaña de gestión de beneficios para la IA."""
+        self._create_section_header(self._content_frame, "BIBLIOTECA DE BENEFICIOS")
+        
+        if not self._beneficios_data:
+            rows = self.db.fetch_all("SELECT texto FROM shopify_beneficios ORDER BY id")
+            self._beneficios_data = [r[0] for r in (rows or [])]
+            
+        container = tk.Frame(self._content_frame, bg=self._bg_color)
+        container.pack(fill="x", padx=10, pady=10)
+        
+        btn_add = ctk.CTkButton(
+            container, text="+ AÑADIR BENEFICIO", width=180, height=32,
+            fg_color=self._primary_color, font=("Helvetica", 12, "bold"),
+            command=self._add_beneficio_ui
+        )
+        btn_add.pack(anchor="w", pady=(0, 20))
+        
+        self._beneficios_container = tk.Frame(container, bg=self._bg_color)
+        self._beneficios_container.pack(fill="x")
+        self._refresh_beneficios_ui()
+
+    def _refresh_beneficios_ui(self):
+        for child in self._beneficios_container.winfo_children():
+            child.destroy()
+        self._beneficios_entries = []
+        
+        for i, texto in enumerate(self._beneficios_data):
+            item_frame = tk.Frame(self._beneficios_container, bg=self._bg_medium, padx=10, pady=10)
+            item_frame.pack(fill="x", pady=5)
+            
+            entry = ctk.CTkEntry(item_frame, height=35, font=("Helvetica", 12))
+            entry.insert(0, texto)
+            entry.pack(side="left", fill="x", expand=True)
+            self._beneficios_entries.append(entry)
+            
+            btn_del = tk.Label(item_frame, text="✕", font=("Helvetica", 12), fg="#666", bg=self._bg_medium, cursor="hand2")
+            btn_del.pack(side="right", padx=(10, 0))
+            btn_del.bind("<Button-1>", lambda e, idx=i: self._remove_beneficio(idx))
+
+    def _add_beneficio_ui(self):
+        self._beneficios_data = [e.get().strip() for e in self._beneficios_entries]
+        self._beneficios_data.append("")
+        self._refresh_beneficios_ui()
+
+    def _remove_beneficio(self, index):
+        self._beneficios_data = [e.get().strip() for e in self._beneficios_entries]
+        if 0 <= index < len(self._beneficios_data):
+            self._beneficios_data.pop(index)
+        self._refresh_beneficios_ui()

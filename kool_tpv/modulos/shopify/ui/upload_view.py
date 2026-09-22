@@ -153,8 +153,39 @@ class ShopifyUploadView:
                                        command=self._generar_tags)
         self._btn_tags.pack(side="left", padx=(6, 0))
 
-        self._field(form, "beneficio", "BENEFICIO", "Algodón premium, diseño exclusivo", 0, 2)
-        self._field(form, "tono", "TONO", TONO_POR_DEFECTO, 0, 3)
+        # Beneficio con botón BIBLIOTECA
+        cell_ben = tk.Frame(form, bg=self._bg)
+        cell_ben.grid(row=0, column=2, sticky="ew", padx=6, pady=4)
+        tk.Label(cell_ben, text="BENEFICIO", fg="#888", bg=self._bg,
+                 font=("Helvetica", 9, "bold"), anchor="w").pack(anchor="w")
+        ben_row = tk.Frame(cell_ben, bg=self._bg)
+        ben_row.pack(fill="x")
+        self._entries["beneficio"] = ctk.CTkEntry(ben_row, placeholder_text="Algodón premium...",
+                                                 height=34, font=("Helvetica", 12))
+        self._entries["beneficio"].pack(side="left", fill="x", expand=True)
+        btn_ben_lib = ctk.CTkButton(ben_row, text="📚", width=34, height=34,
+                                     fg_color=self._secondary, font=("Helvetica", 12),
+                                     command=self._abrir_biblioteca_beneficios)
+        btn_ben_lib.pack(side="left", padx=(6, 0))
+
+        # Tono como SearchableCombo (cargado de BD)
+        cell_tono = tk.Frame(form, bg=self._bg)
+        cell_tono.grid(row=0, column=3, sticky="ew", padx=6, pady=4)
+        tk.Label(cell_tono, text="TONO", fg="#888", bg=self._bg,
+                 font=("Helvetica", 9, "bold"), anchor="w").pack(anchor="w")
+        
+        try:
+            r_tonos = self.db.fetch_all("SELECT nombre FROM shopify_tonos ORDER BY nombre")
+            tonos_opts = [r[0] for r in (r_tonos or [])]
+        except Exception:
+            tonos_opts = []
+            
+        self._tono_combo = SearchableCombo(cell_tono, values=tonos_opts, placeholder="Tono...", 
+                                           width=150, module_name='shopify')
+        self._tono_combo.pack(fill="x")
+        self._tono_combo.set(TONO_POR_DEFECTO)
+        self._entries["tono"] = self._tono_combo
+
         self._field(form, "codigo_categoria", "SUFIJO SKU", "FRI (opcional)", 1, 0)
 
         cell_estado = tk.Frame(form, bg=self._bg)
@@ -737,3 +768,41 @@ class ShopifyUploadView:
             self._status_lbl.configure(text=texto)
         except Exception:
             pass
+
+    def _abrir_biblioteca_beneficios(self):
+        """Muestra un diálogo para elegir un beneficio de la biblioteca."""
+        try:
+            rows = self.db.fetch_all("SELECT texto FROM shopify_beneficios ORDER BY id")
+            if not rows:
+                show_error(self.frame, "La biblioteca de beneficios está vacía.")
+                return
+            
+            opciones = [r[0] for r in rows]
+            
+            popup = tk.Toplevel(self.frame)
+            popup.title("BIBLIOTECA DE BENEFICIOS")
+            popup.geometry("700x500")
+            popup.configure(bg=self._bg_medium)
+            popup.transient(self.frame)
+            popup.grab_set()
+
+            tk.Label(popup, text="ELIGE UN BENEFICIO PARA EL PRODUCTO:", 
+                     font=("Helvetica", 12, "bold"), fg=self._primary, bg=self._bg_medium, pady=15).pack()
+
+            list_frame = ctk.CTkScrollableFrame(popup, fg_color="transparent")
+            list_frame.pack(fill="both", expand=True, padx=20, pady=5)
+
+            for opt in opciones:
+                btn = ctk.CTkButton(
+                    list_frame, text=opt, anchor="w", height=45,
+                    fg_color="#222", hover_color=self._primary, text_color="#FFF",
+                    command=lambda v=opt: (self._entries["beneficio"].delete(0, "end"), 
+                                           self._entries["beneficio"].insert(0, v), 
+                                           popup.destroy())
+                )
+                btn.pack(fill="x", pady=3)
+
+            ctk.CTkButton(popup, text="CERRAR", command=popup.destroy, width=120).pack(pady=15)
+            
+        except Exception:
+            logger.exception("Error abriendo biblioteca de beneficios")

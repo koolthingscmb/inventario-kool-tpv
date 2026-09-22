@@ -361,6 +361,42 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migración 059: Tablas de Tonos y Beneficios para IA
+		try:
+			rows = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('shopify_tonos', 'shopify_beneficios')")
+			if not rows or len(rows) < 2:
+				logging.info('Aplicando migración 059: Tablas shopify_tonos y shopify_beneficios')
+				db.connection.execute("CREATE TABLE IF NOT EXISTS shopify_tonos (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT NOT NULL UNIQUE)")
+				db.connection.execute("CREATE TABLE IF NOT EXISTS shopify_beneficios (id INTEGER PRIMARY KEY AUTOINCREMENT, texto TEXT NOT NULL UNIQUE)")
+				
+				# Semillas por defecto
+				c_tonos = db.fetch_one("SELECT COUNT(*) FROM shopify_tonos")[0]
+				if c_tonos == 0:
+					tonos = ["Apasionado", "Divertido", "Épico", "Nostálgico 80s", "Profesional", "Sarcástico"]
+					for t in tonos:
+						db.connection.execute("INSERT OR IGNORE INTO shopify_tonos (nombre) VALUES (?)", (t,))
+				
+				c_ben = db.fetch_one("SELECT COUNT(*) FROM shopify_beneficios")[0]
+				if c_ben == 0:
+					beneficios = [
+						"Diseño original dibujado a mano por el equipo de Kool Things.",
+						"Impresión DTG Epson F2100 de alta definición sobre algodón 100%.",
+						"Filosofía Residuo Cero: fabricamos bajo demanda en nuestro taller de Cambrils.",
+						"Calidad premium garantizada: algodón peinado de alto gramaje.",
+						"Pieza única de Fan Art que no encontrarás en ninguna otra tienda."
+					]
+					for b in beneficios:
+						db.connection.execute("INSERT OR IGNORE INTO shopify_beneficios (texto) VALUES (?)", (b,))
+				
+				db.connection.commit()
+				logging.info('Migración 059 aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 059')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Check existence
 		existing = []
 		try:
