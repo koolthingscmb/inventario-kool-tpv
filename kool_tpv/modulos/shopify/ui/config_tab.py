@@ -590,6 +590,14 @@ class ShopifyConfigTab:
             nombre_entry.insert(0, self._prompt_nombre_edits.get(clave) or data.get('nombre') or clave)
             nombre_entry.pack(side="left", padx=(0, 20))
             setattr(self, f"_{ctx}_prompt_nombre_entry", nombre_entry)
+
+            # Fix: Atajos para el entry del nombre
+            def select_all_entry(e):
+                e.widget.select_range(0, 'end')
+                e.widget.icursor('end')
+                return "break"
+            nombre_entry.bind("<Command-a>", select_all_entry)
+            nombre_entry.bind("<Control-a>", select_all_entry)
         
         marcadores = self._MARCADORES.get(clave, "")
         tk.Label(head, text=f"Marcadores: {marcadores}", font=("Helvetica", 9, "italic"), fg="#888", bg=head["bg"]).pack(side="left")
@@ -600,6 +608,16 @@ class ShopifyConfigTab:
         txt.pack(fill="both", expand=True, pady=(0, 8))
         txt.insert("1.0", texto)
         setattr(self, f"_{ctx}_prompt_editor", txt)
+
+        # Fix: Añadir atajos de teclado (Cmd+A / Ctrl+A para seleccionar todo)
+        def select_all(e):
+            e.widget.tag_add("sel", "1.0", "end")
+            e.widget.mark_set("insert", "1.0")
+            e.widget.see("insert")
+            return "break"
+        
+        txt.bind("<Command-a>", select_all)
+        txt.bind("<Control-a>", select_all)
         
         if tipo_id:
             txt.after(100, self._ajustar_altura_prompt_tipo)
