@@ -1090,18 +1090,25 @@ class ShopifyConfigTab:
         )
         btn_add.pack(anchor="w", pady=(0, 20))
         
-        self._beneficios_container = tk.Frame(container, bg=self._bg_color)
-        self._beneficios_container.pack(fill="x")
+        self._beneficios_grid = tk.Frame(container, bg=self._bg_color)
+        self._beneficios_grid.pack(fill="x")
+        
+        # Grid de 2 columnas para beneficios (frases largas)
+        self._beneficios_grid.columnconfigure(0, weight=1)
+        self._beneficios_grid.columnconfigure(1, weight=1)
+            
         self._refresh_beneficios_ui()
 
     def _refresh_beneficios_ui(self):
-        for child in self._beneficios_container.winfo_children():
+        for child in self._beneficios_grid.winfo_children():
             child.destroy()
         self._beneficios_entries = []
         
         for i, texto in enumerate(self._beneficios_data):
-            item_frame = tk.Frame(self._beneficios_container, bg=self._bg_medium, padx=10, pady=10)
-            item_frame.pack(fill="x", pady=5)
+            row = i // 2
+            col = i % 2
+            item_frame = tk.Frame(self._beneficios_grid, bg=self._bg_medium, padx=10, pady=10)
+            item_frame.grid(row=row, column=col, padx=5, pady=5, sticky="ew")
             
             entry = ctk.CTkEntry(item_frame, height=35, font=("Helvetica", 12))
             entry.insert(0, texto)
