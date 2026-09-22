@@ -55,7 +55,7 @@ class IATab:
         entry_g.grid(row=2, column=1, sticky="ew", pady=15)
         self.widgets["google_api_key"] = entry_g
 
-    def _on_test_ia(self):
+    def test_ia_connection(self):
         """Prueba la conexión con OpenAI usando los valores actuales del formulario."""
         api_key = self.widgets["ia_api_key"].get().strip()
         model = self.widgets["ia_model"].get()
@@ -77,3 +77,4 @@ class IATab:
         for key, widget in self.widgets.items():
             if widget.winfo_exists():
                 config_dict[key] = widget.get().strip()
+        

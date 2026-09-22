@@ -18,14 +18,16 @@ class GeneralTab:
         self.widgets = {}
 
     def render(self):
-        """Dibuja el formulario de configuración general."""
-        grid_container = tk.Frame(self.parent, bg=self._bg_color)
+        """Dibuja la interfaz con scroll propio."""
+        scroll = ctk.CTkScrollableFrame(self.parent, fg_color="transparent")
+        scroll.pack(fill="both", expand=True)
+
+        grid_container = tk.Frame(scroll, bg=self._bg_color)
         grid_container.pack(fill="x", padx=10)
         grid_container.columnconfigure(1, weight=1)
         grid_container.columnconfigure(3, weight=1)
 
         fields = [
-            # (fila, col_label, texto_label, placeholder, clave)
             (0, 0, "URL de la tienda:", "tienda.myshopify.com", "shop_url"),
             (0, 2, "Admin API Token:", "shpat_xxxxxxxxxxxxxxxxxxxx", "access_token"),
             (1, 0, "Location ID:", "12345678", "location_id"),
@@ -46,7 +48,6 @@ class GeneralTab:
             entry.grid(row=row, column=col_label + 1, sticky="ew", pady=15, padx=(0, 25))
             self.widgets[key] = entry
 
-        # Fila 5: estado del servicio
         self.widgets["sync_active"] = ctk.CTkCheckBox(
             grid_container, text="ACTIVAR SINCRONIZACIÓN AUTOMÁTICA", 
             font=("Helvetica", 12, "bold"), fg_color=self._primary_color, 

@@ -18,11 +18,18 @@ class LogsTab:
 
     def render(self):
         """Dibuja la lista de logs."""
+        columnas = [
+            ("fecha", 180, "FECHA"),
+            ("accion", 120, "ACCIÓN"),
+            ("resultado", 100, "ESTADO"),
+            ("mensaje", 400, "DETALLE")
+        ]
+        
+        # En el taller de producción se usa esta forma de instanciar
         self.nav_list = VirtualNavList(
             self.parent,
-            module_name="shopify",
-            on_refresh=self.refresh,
-            height_item=60
+            columns=columnas,
+            module_name="shopify"
         )
         self.nav_list.pack(fill=tk.BOTH, expand=True)
         self.refresh()

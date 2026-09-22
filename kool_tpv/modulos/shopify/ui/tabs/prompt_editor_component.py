@@ -239,6 +239,11 @@ class PromptEditorComponent:
             
         show_text_viewer(self.parent, f"PREVIEW: {clave.upper()}", preview, width=800, height=700)
 
+    def clear_local_edits(self):
+        """Limpia la memoria temporal de ediciones."""
+        self._prompt_edits = {}
+        self._prompt_nombre_edits = {}
+
     def harvest_all(self, target_edits, target_nombre_edits):
         """Vuelca los cambios en memoria a los diccionarios globales."""
         if self._active_prompt and self._editor and self._editor.winfo_exists():
