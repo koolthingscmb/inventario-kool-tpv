@@ -46,31 +46,57 @@ class TiposTab:
 
     def render(self):
         """Dibuja la interfaz de la pestaña TIPOS."""
-        # Selector de tipos arriba (TagSelector)
+        # --- ZONA CENTRAL (primero, para evitar fantasmas visuales) ---
+        self._central_tipos = tk.Frame(self.parent, bg=self._bg_medium)
+        self._central_tipos.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+
+        # --- BUSCADOR Y SELECTOR ---
         self._tipo_selector = TagSelector(
             self.parent,
-            title="SELECCIONA UN TIPO PARA CONFIGURAR:",
-            on_select=self._on_tipo_selected,
+            module_name='shopify',
+            placeholder="Buscar un tipo para gestionar...",
             selectable=True,
-            module_name='shopify'
+            on_select=self._on_tipo_selected,
+            on_change=self._on_tipo_web_change
         )
-        self._tipo_selector.pack(fill="x", padx=10, pady=(0, 20))
-
-        # Contenedor central (se limpia al cambiar de tipo)
-        self._central_tipos = tk.Frame(self.parent, bg=self._bg_color)
-        self._central_tipos.pack(fill="both", expand=True)
-
-        # Cargar los tipos
-        tipos = self._load_tipos_web()
-        self._tipo_selector.set_items(tipos)
+        # Poner el buscador ARRIBA de la zona central
+        self._tipo_selector.pack(before=self._central_tipos, fill="x", padx=10, pady=(0, 20))
         
-        # Si no hay nada seleccionado, mostrar mensaje
+        # Cargar tipos actuales (desactivando callback temporalmente para evitar spam de etiquetas)
+        self._tipo_selector.on_change_callback = None
+        tipos = self._load_tipos_web()
+        for t in tipos:
+            self._tipo_selector.add_tag(t["id"], t["nombre"])
+        self._tipo_selector.on_change_callback = self._on_tipo_web_change
+        
+        # Si no hay nada seleccionado, mostrar placeholder
         if not self._tipo_selected_id:
-            self._clear_central_tipos()
+            self._render_placeholder_tipos()
+
+    def _render_placeholder_tipos(self):
+        self._clear_central_tipos()
+        tk.Label(self._central_tipos, text="Busca y añade un tipo, luego selecciónalo para configurar",
+                 font=("Helvetica", 12), fg="#888888", bg=self._bg_medium).pack(pady=40)
+
+    def _on_tipo_web_change(self):
+        """Callback cuando se añade o borra un tag del selector."""
+        if not self._tipo_selector: return
+        selected_ids = self._tipo_selector.get_selected_ids()
+        try:
+            self.db.execute_query("UPDATE tipos SET web_activo = 0")
+            if selected_ids:
+                placeholders = ",".join(["?"] * len(selected_ids))
+                self.db.execute_query(f"UPDATE tipos SET web_activo = 1 WHERE id IN ({placeholders})", tuple(selected_ids))
+            
+            if self._tipo_selected_id not in selected_ids:
+                self._tipo_selected_id = None
+                self._render_placeholder_tipos()
+        except Exception:
+            logger.exception("Error actualizando web_activo")
 
     def _load_tipos_web(self) -> List[Dict]:
         try:
-            rows = self.db.fetch_all("SELECT id, nombre FROM tipos WHERE activo = 1 AND web_activo = 1 ORDER BY nombre")
+            rows = self.db.fetch_all("SELECT id, nombre FROM tipos WHERE web_activo = 1 AND activo = 1 ORDER BY nombre")
             return [{"id": r[0], "nombre": r[1]} for r in (rows or [])]
         except Exception:
             logger.exception("Error cargando tipos web")
