@@ -363,7 +363,10 @@ class ShopifyUploadView:
     def _limpiar_formulario(self):
         """Vacía todos los campos al pasar a modo NUEVO."""
         for e in self._entries.values():
-            e.delete(0, "end")
+            if hasattr(e, "delete"):
+                e.delete(0, "end")
+            elif hasattr(e, "clear"):
+                e.clear()
         self._seo_box.delete("1.0", "end")
         self._tipo_combo.clear()
         self._variantes_disponibles = []
