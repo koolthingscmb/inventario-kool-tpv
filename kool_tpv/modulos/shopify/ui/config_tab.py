@@ -209,7 +209,7 @@ class ShopifyConfigTab:
             "font": ("Roboto-SemiBold", 16)
         }
 
-        if self._current_tab in ["GENERAL", "TIPOS", "IA", "IA PROMPTS", "FUENTES"]:
+        if self._current_tab in ["GENERAL", "TIPOS", "IA", "IA PROMPTS", "IA TONOS", "IA BENEFICIOS", "FUENTES"]:
             palette = self._colors_cfg.get("buttons", {}).get("primary", {})
             btn_save = ButtonFactory.create_button(
                 self._footer_frame, text="APLICAR CAMBIOS",
@@ -229,7 +229,7 @@ class ShopifyConfigTab:
                     color=palette_sec.get("bg", self._secondary_color),
                     hover_color=palette_sec.get("hover", self._secondary_color),
                     text_color=palette_sec.get("text", "#FFFFFF"),
-                    command=self._on_test_ia,
+                    command=self._ia_tab._on_test_ia,
                     width=200, height=45,
                     **style_solid
                 )

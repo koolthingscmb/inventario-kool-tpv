@@ -55,14 +55,6 @@ class IATab:
         entry_g.grid(row=2, column=1, sticky="ew", pady=15)
         self.widgets["google_api_key"] = entry_g
 
-        # Botón de Test
-        btn_test = ctk.CTkButton(
-            grid_container, text="TEST CONEXIÓN OPENAI", height=40,
-            fg_color=self._secondary_color, font=("Helvetica", 12, "bold"),
-            command=self._on_test_ia
-        )
-        btn_test.grid(row=3, column=1, sticky="w", pady=20)
-
     def _on_test_ia(self):
         """Prueba la conexión con OpenAI usando los valores actuales del formulario."""
         api_key = self.widgets["ia_api_key"].get().strip()
