@@ -68,16 +68,3 @@ def show_password_dialog(parent, titulo="Contraseña", mensaje="Introduce tu con
     # pero no como título grande dentro del contenido.
     return show_input_dialog(parent, titulo="", mensaje=mensaje, tipo="password",
                              password=True, window_title=titulo)
-
-
-def show_text_viewer(parent, titulo, texto, width=600, height=800, callback=None):
-    """Helper que muestra TextViewDialog del módulo `textview_dialog`.
-
-    Esto mantiene compatibilidad con llamadas previas a `show_text_viewer`
-    importando desde `kool_tpv.utils.custom_dialog`.
-    """
-    try:
-        from kool_tpv.utils.textview_dialog import show_text_viewer as _show
-        _show(parent, titulo, texto, width=width, height=height, callback=callback)
-    except Exception:
-        logging.exception('Error delegando a textview_dialog.show_text_viewer')

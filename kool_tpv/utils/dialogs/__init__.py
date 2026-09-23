@@ -16,7 +16,6 @@ from .helpers import (
     show_info,
     show_input_dialog,
     show_password_dialog,
-    show_text_viewer,
 )
 
 # Configuración
@@ -36,7 +35,6 @@ __all__ = [
     'show_info',
     'show_input_dialog',
     'show_password_dialog',
-    'show_text_viewer',
     # Config
     'load_dialog_config',
     'FALLBACKS',

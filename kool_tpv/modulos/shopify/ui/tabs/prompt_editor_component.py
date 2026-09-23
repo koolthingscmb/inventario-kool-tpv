@@ -4,12 +4,11 @@ import logging
 from typing import Dict, Any, List, Optional
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.widgets.notificaciones import show_success, show_error
-from kool_tpv.utils.textview_dialog import show_text_viewer
 
 logger = logging.getLogger(__name__)
 
 class PromptEditorComponent:
-    """Componente reutilizable para editar prompts con chips, editor y preview."""
+    """Componente reutilizable para editar prompts con chips y editor."""
 
     # Marcadores disponibles por prompt
     _MARCADORES = {
@@ -49,6 +48,7 @@ class PromptEditorComponent:
 
     def render(self, container: tk.Frame, tipo_id: Optional[int] = None):
         """Dibuja el panel del editor."""
+        self.parent = container
         self._current_tipo_id = tipo_id
         
         frame = tk.Frame(container, bg=self._bg_medium if tipo_id else self._bg_color)
@@ -153,11 +153,6 @@ class PromptEditorComponent:
                                         command=lambda: self._restaurar(clave, None, None),
                                         width=170, height=26).pack(side="right")
 
-        # Botón PREVIEW (para todos)
-        ButtonFactory.create_button(foot, text="PREVIEW", color="#f39c12", text_color="#000000",
-                                    command=self._on_preview,
-                                    width=100, height=30).pack(side="right" if self._current_tipo_id else "left", padx=10)
-
     def _setup_select_all(self, widget):
         def select_all(e):
             if isinstance(e.widget, ctk.CTkTextbox):
@@ -198,46 +193,6 @@ class PromptEditorComponent:
             self._editor.insert("1.0", texto)
             if lbl_est: lbl_est.configure(text="GENÉRICO", fg="#888888")
             show_success(self.parent, "Prompt restaurado.")
-
-    def _on_preview(self):
-        """Muestra una previsualización del prompt con datos ficticios."""
-        texto = self._editor.get("1.0", "end-1c")
-        clave = self._active_prompt
-        
-        # Datos de prueba
-        mock_data = {
-            "{titulo_base}": "Goku Ultra Instinto",
-            "{titulo}": "Goku Ultra Instinto",
-            "{tipo_producto}": "Camiseta Premium",
-            "{variante}": "Hombre",
-            "{genero}": "Hombre",
-            "{beneficio}": "Diseño exclusivo dibujado a mano por nuestro equipo.",
-            "{tags}": "anime, dragon ball, goku, fanart, artesanal",
-            "{tags_top3}": "anime, dragon ball, goku",
-            "{tono}": "Épico y Apasionado",
-            "{marca}": "Kool Things",
-            "{instrucciones_variante}": "Usa un lenguaje masculino.",
-            "{instrucciones_genero}": "Usa un lenguaje masculino.",
-            "{corte}": "Corte relajado (Relaxed Fit)",
-            "{link_guia}": "https://koolthingshop.com/guia-tallas",
-            "{botones_html}": "[BOTONES DE GÉNERO SIMULADOS]",
-            # Mocks para la plantilla HTML (basados en las llaves del JSON que suele dar la IA)
-            "{titulo_introductorio}": "EL PODER DEL ULTRA INSTINTO EN TU PIEL",
-            "{parrafo_introductorio}": "Siente la energía de los saiyans con este diseño único...",
-            "{titulo_seccion_calidad}": "CALIDAD DIGNA DE UN GUERRERO Z",
-            "{bloque_calidad_impresion}": "Detalles nítidos con nuestra Epson F2100.",
-            "{bloque_calidad_material}": "Algodón 100% que aguanta cualquier combate.",
-            "{bloque_calidad_durabilidad}": "Colores que no pierden su brillo con el tiempo.",
-            "{bloque_porque_elegirnos}": "Porque en Kool Things dibujamos cada trazo con pasión.",
-            "{product_name}": "Dragon Ball Vol. 1",
-            "{source_data}": "[DATOS DE ANILIST/WIKIPEDIA SIMULADOS]"
-        }
-        
-        preview = texto
-        for k, v in mock_data.items():
-            preview = preview.replace(k, v)
-            
-        show_text_viewer(self.parent, f"PREVIEW: {clave.upper()}", preview, width=800, height=700)
 
     def clear_local_edits(self):
         """Limpia la memoria temporal de ediciones."""
