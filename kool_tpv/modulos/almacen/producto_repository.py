@@ -269,6 +269,7 @@ SELECT p.id,
        COALESCE(t.nombre, 'Sin tipo') AS tipo,
        (SELECT GROUP_CONCAT(cb2.ean, ', ') FROM codigos_barras cb2 WHERE cb2.producto_id = p.id) AS ean,
        COALESCE(pr.pvp, 0.0) AS pvp,
+       COALESCE(pr.coste, 0.0) AS coste,
        COALESCE(p.stock_actual, 0) AS stock_actual,
        COALESCE(p.ventas_totales, 0) AS ventas,
        CASE

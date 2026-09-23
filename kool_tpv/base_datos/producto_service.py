@@ -109,6 +109,7 @@ class ProductoService:
             )
             for item in raw_list:
                 item['pvp'] = _safe_decimal_from_db(item.get('pvp', 0))
+                item['coste'] = _safe_decimal_from_db(item.get('coste', 0))
             return raw_list
         except sqlite3.DatabaseError:
             logging.exception('DB error en buscar_productos_paginados')
@@ -116,6 +117,46 @@ class ProductoService:
         except Exception:
             logging.exception('Error inesperado en buscar_productos_paginados')
             raise
+
+    def build_informe_productos(self, productos: List[dict], filtros_desc: str = '') -> dict:
+        """Construye un report_data estándar (sección 'table') para exportar
+        el listado de productos filtrado con los exportadores de informes."""
+        from datetime import datetime
+        headers = ['SKU', 'Nombre', 'Coste', 'PVP', 'Stock', 'Proveedor']
+        rows = []
+        for p in productos or []:
+            try:
+                pvp = float(p.get('pvp') or 0)
+            except Exception:
+                pvp = 0.0
+            try:
+                coste = float(p.get('coste') or 0)
+            except Exception:
+                coste = 0.0
+            rows.append([
+                p.get('sku') or '',
+                p.get('nombre') or '',
+                coste,
+                pvp,
+                p.get('stock_actual') or 0,
+                p.get('proveedor_nombre') or '',
+            ])
+        return {
+            'title': 'LISTADO DE PRODUCTOS',
+            'generated_at': datetime.now().strftime('%d/%m/%Y %H:%M'),
+            'range': None,
+            'filtros': filtros_desc,
+            'sections': [
+                {
+                    'type': 'table',
+                    'title': 'Productos',
+                    'headers': headers,
+                    'money_columns': [2, 3],
+                    'col_ratios': [2.4, 5.6, 1.3, 1.3, 1.2, 3.2],
+                    'rows': rows,
+                }
+            ],
+        }
 
     def obtener_ventas_producto(self, producto_id, limite=20):
         """Obtener historial de ventas de un producto."""

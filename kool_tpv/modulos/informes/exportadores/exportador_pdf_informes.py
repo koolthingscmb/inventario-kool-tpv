@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog
 from typing import Dict, Any, List, Optional
+from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -66,6 +67,10 @@ class ExportadorPDFInformes:
         )
         if not file_path:
             return None
+        return self.exportar_a(file_path, report_data)
+
+    def exportar_a(self, file_path: str, report_data: Dict[str, Any]) -> Optional[str]:
+        """Exportar a una ruta ya elegida (sin diálogo)."""
         try:
             self._generar(file_path, report_data)
             return file_path
@@ -136,6 +141,9 @@ class ExportadorPDFInformes:
             elements.append(Paragraph(
                 f"<b>Rango:</b> {rng.get('start', '')} → {rng.get('end', '')}", style_meta
             ))
+        filtros = report_data.get('filtros')
+        if filtros:
+            elements.append(Paragraph(f"<b>Filtros:</b> {filtros}", style_meta))
         
         # Metadatos extra de Presencia
         if report_data.get('display_subformat') == 'presencia':
@@ -208,24 +216,41 @@ class ExportadorPDFInformes:
             
         headers = section.get('headers', [])
         rows = section.get('rows', [])
-        
-        # Preparar datos de la tabla
-        data = [headers] + rows
-        
-        # Calcular anchos automáticos simples (o proporcionales)
+
         num_cols = len(headers)
         if num_cols == 0: return
-        col_width = (A4[0] - 4*cm) / num_cols
-        
-        t = Table(data, colWidths=[col_width]*num_cols, repeatRows=1)
+
+        # Anchos: proporcionales si la sección define 'col_ratios', iguales si no
+        total_width = A4[0] - 4*cm
+        ratios = section.get('col_ratios') or []
+        if len(ratios) == num_cols and sum(ratios) > 0:
+            col_widths = [total_width * r / sum(ratios) for r in ratios]
+        else:
+            col_widths = [total_width / num_cols] * num_cols
+
+        style_head = ParagraphStyle(
+            'th', fontSize=9, fontName='Helvetica-Bold',
+            textColor=colors.white, alignment=1,
+        )
+        style_cell = ParagraphStyle('td', fontSize=8, leading=10)
+
+        money_cols = set(section.get('money_columns') or [])
+        data = [[Paragraph(escape(str(h)), style_head) for h in headers]]
+        for row in rows:
+            data.append([
+                Paragraph(
+                    escape(f"{v:.2f}" if i in money_cols and isinstance(v, (int, float)) else str(v)),
+                    style_cell,
+                )
+                for i, v in enumerate(row)
+            ])
+
+        t = Table(data, colWidths=col_widths, repeatRows=1)
         t.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), c_primario),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F9F9F9')]),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('LEFTPADDING', (0, 0), (-1, -1), 4),
             ('RIGHTPADDING', (0, 0), (-1, -1), 4),
         ]))

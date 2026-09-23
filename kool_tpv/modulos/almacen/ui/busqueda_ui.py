@@ -151,6 +151,17 @@ class BusquedaUI:
         )
         self.btn_incompletos.pack(side='right', padx=(0, 6))
 
+        # Botón EXPORTAR - exporta el listado filtrado a CSV o PDF
+        self.btn_exportar = ButtonFactory.create_button(
+            parent=filter_frame,
+            text='EXPORTAR',
+            command=self._on_exportar,
+            style_key='action_secondary',
+            module='almacen',
+            palette_key='secondary'
+        )
+        self.btn_exportar.pack(side='right', padx=(0, 6))
+
         # Crear SearchablePaginatedNavList
         columns = [
             ('id', 50, 'ID'),
@@ -214,6 +225,83 @@ class BusquedaUI:
             self._on_search()
         except Exception:
             logging.exception('Error filtrando productos incompletos')
+
+    def _describir_filtros(self, termino: str) -> str:
+        """Texto legible de los filtros activos para la cabecera del informe."""
+        partes = []
+        try:
+            if termino:
+                partes.append(f"Texto: '{termino}'")
+            try:
+                cat_nombre = self.cat_combo.get()
+            except Exception:
+                cat_nombre = ''
+            if cat_nombre and cat_nombre != 'Todas':
+                partes.append(f"Categoría: {cat_nombre}")
+            try:
+                tipo_nombre = self.tipo_combo.get()
+            except Exception:
+                tipo_nombre = ''
+            if tipo_nombre and tipo_nombre != 'Todos':
+                partes.append(f"Tipo: {tipo_nombre}")
+            estados = []
+            if self.check_activo.get():
+                estados.append('Activos')
+            if self.check_sin_stock.get():
+                estados.append('Sin Stock')
+            if self.check_archivado.get():
+                estados.append('Archivados')
+            partes.append(f"Estados: {' + '.join(estados) if estados else 'Ninguno'}")
+        except Exception:
+            pass
+        return ' | '.join(partes)
+
+    def _on_exportar(self):
+        """Exportar el listado filtrado actual a CSV o PDF."""
+        try:
+            termino = (self.search_var.get() or '').strip()
+            productos = self._buscar_productos(termino)
+            parent_win = self.container.winfo_toplevel()
+
+            if not productos:
+                try:
+                    from kool_tpv.utils.widgets.notificaciones import show_warning
+                    show_warning(parent_win, 'No hay productos que exportar con estos filtros')
+                except Exception:
+                    pass
+                return
+
+            report = self.service.build_informe_productos(productos, self._describir_filtros(termino))
+
+            from tkinter import filedialog
+            from datetime import datetime
+            ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+            file_path = filedialog.asksaveasfilename(
+                parent=parent_win,
+                defaultextension='.csv',
+                filetypes=[('Archivos CSV', '*.csv'), ('Archivos PDF', '*.pdf')],
+                initialfile=f'productos_{ts}',
+                title='Exportar productos'
+            )
+            if not file_path:
+                return
+
+            if file_path.lower().endswith('.pdf'):
+                from kool_tpv.modulos.informes.exportadores.exportador_pdf_informes import ExportadorPDFInformes
+                resultado = ExportadorPDFInformes(self.db).exportar_a(file_path, report)
+            else:
+                if not file_path.lower().endswith('.csv'):
+                    file_path += '.csv'
+                from kool_tpv.modulos.informes.exportadores.exportador_csv_informes import ExportadorCSVInformes
+                resultado = ExportadorCSVInformes().exportar_a(file_path, report)
+
+            from kool_tpv.utils.widgets.notificaciones import show_success, show_error
+            if resultado:
+                show_success(parent_win, 'Listado exportado correctamente', duracion_ms=2500)
+            else:
+                show_error(parent_win, 'No se pudo exportar el listado')
+        except Exception:
+            logging.exception('Error exportando productos desde búsqueda')
 
     def _buscar_productos(self, texto: str) -> List[dict]:
         """Función de búsqueda para SearchablePaginatedNavList."""

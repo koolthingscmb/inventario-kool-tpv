@@ -42,6 +42,10 @@ class ExportadorCSVInformes:
             logger.info("Exportación CSV cancelada por el usuario")
             return None
 
+        return self.exportar_a(file_path, report_data)
+
+    def exportar_a(self, file_path: str, report_data: Dict[str, Any]) -> Optional[str]:
+        """Exportar a una ruta ya elegida (sin diálogo de guardar)."""
         try:
             self._escribir_csv(file_path, report_data)
             logger.info(f"CSV exportado correctamente: {file_path}")
@@ -71,6 +75,10 @@ class ExportadorCSVInformes:
                 end = rng.get('end', '')
                 writer.writerow(["Rango:", f"{start} → {end}"])
 
+            filtros = report_data.get('filtros')
+            if filtros:
+                writer.writerow(["Filtros:", filtros])
+
             # Metadatos extra de Presencia
             if report_data.get('display_subformat') == 'presencia':
                 writer.writerow(["Usuario:", report_data.get('usuario_header', 'TODOS')])
@@ -85,6 +93,28 @@ class ExportadorCSVInformes:
                 # Detectar formato según tipo de items
                 display_subformat = report_data.get('display_subformat', '')
                 self._escribir_items(writer, items, display_subformat)
+
+            # Secciones con tablas (listado de productos, stock, etc.)
+            for section in report_data.get('sections') or []:
+                headers = section.get('headers', [])
+                rows = section.get('rows', [])
+                money_columns = section.get('money_columns', []) or []
+                export_table = section.get('export_table') or {}
+                if export_table:
+                    headers = export_table.get('headers', headers)
+                    rows = export_table.get('rows', rows)
+                    money_columns = export_table.get('money_columns', money_columns)
+                if not headers or not rows:
+                    continue
+                if section.get('title'):
+                    writer.writerow([section.get('title')])
+                writer.writerow(headers)
+                for row in rows:
+                    writer.writerow([
+                        f"{v:.2f}" if i in money_columns and isinstance(v, (int, float)) else v
+                        for i, v in enumerate(row)
+                    ])
+                writer.writerow([])
 
     def _escribir_items(self, writer, items: list, display_subformat: str):
         """Escribir items según el formato del informe."""
