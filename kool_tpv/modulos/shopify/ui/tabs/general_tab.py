@@ -32,10 +32,9 @@ class GeneralTab:
             (0, 2, "Admin API Token:", "shpat_xxxxxxxxxxxxxxxxxxxx", "access_token"),
             (1, 0, "Location ID:", "12345678", "location_id"),
             (1, 2, "Versión API:", "2026-07", "api_version"),
-            (2, 0, "Plantilla producto:", "camiseta", "template_suffix"),
-            (2, 2, "Marca/Proveedor:", "Kool Things", "marca"),
-            (3, 0, "URL guía de tallas:", "https://...", "link_guia"),
-            (3, 2, "CDN botones género:", "https://cdn.shopify.com/.../files/", "botones_cdn"),
+            (2, 0, "Marca/Proveedor:", "Kool Things", "marca"),
+            (2, 2, "URL guía de tallas:", "https://...", "link_guia"),
+            (3, 0, "CDN botones género:", "https://cdn.shopify.com/.../files/", "botones_cdn"),
         ]
 
         for row, col_label, label, placeholder, key in fields:

@@ -34,7 +34,8 @@ class TipoRepository:
         """Todos los tipos ordenados por nombre."""
         rows = self.db.fetch_all(
             'SELECT id, nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, '
-            'coste_base, requiere_talla, requiere_color, activo, orden, categoria_id '
+            'coste_base, requiere_talla, requiere_color, activo, orden, categoria_id, '
+            'web_activo, template_suffix, shopify_use_variant_as_type '
             'FROM tipos ORDER BY nombre'
         )
         return [
@@ -52,6 +53,9 @@ class TipoRepository:
                 'activo': r[10],
                 'orden': r[11],
                 'categoria_id': r[12],
+                'web_activo': r[13],
+                'template_suffix': r[14],
+                'shopify_use_variant_as_type': r[15],
             }
             for r in rows
         ] if rows else []
@@ -60,7 +64,8 @@ class TipoRepository:
         """Tipo por id. Devuelve None si no existe."""
         row = self.db.fetch_one(
             'SELECT id, nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, '
-            'coste_base, requiere_talla, requiere_color, activo, orden, categoria_id '
+            'coste_base, requiere_talla, requiere_color, activo, orden, categoria_id, '
+            'web_activo, template_suffix, shopify_use_variant_as_type '
             'FROM tipos WHERE id = ?',
             (id,),
         )
@@ -80,13 +85,17 @@ class TipoRepository:
             'activo': row[10],
             'orden': row[11],
             'categoria_id': row[12],
+            'web_activo': row[13],
+            'template_suffix': row[14],
+            'shopify_use_variant_as_type': row[15],
         }
 
     def get_by_nombre(self, nombre: str) -> Optional[Dict[str, Any]]:
         """Tipo por nombre exacto."""
         row = self.db.fetch_one(
             'SELECT id, nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, '
-            'coste_base, requiere_talla, requiere_color, activo, orden, categoria_id '
+            'coste_base, requiere_talla, requiere_color, activo, orden, categoria_id, '
+            'web_activo, template_suffix, shopify_use_variant_as_type '
             'FROM tipos WHERE LOWER(nombre) = LOWER(?) LIMIT 1',
             (nombre,),
         )
@@ -106,6 +115,9 @@ class TipoRepository:
             'activo': row[10],
             'orden': row[11],
             'categoria_id': row[12],
+            'web_activo': row[13],
+            'template_suffix': row[14],
+            'shopify_use_variant_as_type': row[15],
         }
 
     def get_ventas_por_tipo(self, ticket_ids: List[int], line_tipo: str = None, tipo_ids: List[int] = None):
@@ -182,15 +194,19 @@ class TipoRepository:
         activo: int = 1,
         orden: int = 0,
         categoria_id: Optional[int] = None,
+        web_activo: int = 0,
+        template_suffix: str = '',
+        shopify_use_variant_as_type: int = 0,
     ) -> int:
         """Inserta un nuevo tipo. Devuelve el id generado."""
         cur = self.db.execute_query(
             'INSERT INTO tipos (nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, '
-            'coste_base, requiere_talla, requiere_color, activo, orden, categoria_id) '
-            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'coste_base, requiere_talla, requiere_color, activo, orden, categoria_id, '
+            'web_activo, template_suffix, shopify_use_variant_as_type) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             (nombre, descripcion, shopify_taxonomy, float(fide_porcentaje), color, icono,
              float(coste_base), int(requiere_talla), int(requiere_color), int(activo), int(orden),
-             categoria_id),
+             categoria_id, int(web_activo), template_suffix, int(shopify_use_variant_as_type)),
         )
         return cur.lastrowid
 
@@ -209,16 +225,20 @@ class TipoRepository:
         activo: int = 1,
         orden: int = 0,
         categoria_id: Optional[int] = None,
+        web_activo: int = 0,
+        template_suffix: str = '',
+        shopify_use_variant_as_type: int = 0,
     ) -> None:
         """Actualiza un tipo existente."""
         self.db.execute_query(
             'UPDATE tipos SET nombre = ?, descripcion = ?, '
             'shopify_taxonomy = ?, fide_porcentaje = ?, color = ?, icono = ?, '
-            'coste_base = ?, requiere_talla = ?, requiere_color = ?, activo = ?, orden = ?, categoria_id = ? '
+            'coste_base = ?, requiere_talla = ?, requiere_color = ?, activo = ?, orden = ?, categoria_id = ?, '
+            'web_activo = ?, template_suffix = ?, shopify_use_variant_as_type = ? '
             'WHERE id = ?',
             (nombre, descripcion, shopify_taxonomy, float(fide_porcentaje), color, icono,
              float(coste_base), int(requiere_talla), int(requiere_color), int(activo), int(orden),
-             categoria_id, id),
+             categoria_id, int(web_activo), template_suffix, int(shopify_use_variant_as_type), id),
         )
 
     def delete(self, id: int) -> None:

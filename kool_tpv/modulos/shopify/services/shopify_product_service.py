@@ -177,9 +177,15 @@ class ShopifyProductService:
 
         # Imágenes ya existentes en Shopify (modo edición: se reenvían por URL)
         for img in datos.get("imagenes_url", []):
+            url = img["url"]
+            # Extraer nombre real de la URL (ej: imagen.jpg?v=123 -> imagen.jpg)
+            filename = url.split('/')[-1].split('?')[0]
+            if not filename:
+                filename = "imagen_web.jpg"
+            
             files_input.append({
-                "filename": img.get("filename", "imagen.jpg"),
-                "originalSource": img["url"],
+                "filename": filename,
+                "originalSource": url,
                 "alt": img.get("alt", datos["title"]),
                 "contentType": "IMAGE",
                 "duplicateResolutionMode": "REPLACE",

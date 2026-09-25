@@ -30,29 +30,16 @@ class ShopifyRepository:
 
     def upsert_mapping(self, producto_id: int, shopify_product_id: str, handle: str = None, status: str = None) -> None:
         """Crea o actualiza el mapeo entre producto local y Shopify."""
-        query = """
-        INSERT INTO shopify_product_mapping (producto_id, shopify_product_id, handle, status, last_synced_at)
-        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-        ON CONFLICT(producto_id) DO UPDATE SET
-            shopify_product_id = excluded.shopify_product_id,
-            handle = excluded.handle,
-            status = excluded.status,
-            last_synced_at = CURRENT_TIMESTAMP
-        """
-        # Nota: ON CONFLICT requiere que producto_id sea UNIQUE en la tabla. 
-        # Nuestra migración 040 no lo definió como UNIQUE explícitamente, pero debería serlo.
-        # Por ahora usaremos REPLACE OR INSERT si no hay constraint, o lo manejamos manualmente.
-        
         # Primero intentamos ver si existe
         existing = self.get_mapping_by_product_id(producto_id)
         if existing:
             self.db.execute_query(
-                "UPDATE shopify_product_mapping SET shopify_product_id = ?, handle = ?, status = ?, last_synced_at = CURRENT_TIMESTAMP WHERE producto_id = ?",
+                "UPDATE shopify_product_mapping SET shopify_product_id = ?, handle = ?, status = ?, last_synced_at = datetime('now', 'localtime') WHERE producto_id = ?",
                 (shopify_product_id, handle, status, producto_id)
             )
         else:
             self.db.execute_query(
-                "INSERT INTO shopify_product_mapping (producto_id, shopify_product_id, handle, status) VALUES (?, ?, ?, ?)",
+                "INSERT INTO shopify_product_mapping (producto_id, shopify_product_id, handle, status, last_synced_at) VALUES (?, ?, ?, ?, datetime('now', 'localtime'))",
                 (producto_id, shopify_product_id, handle, status)
             )
 
@@ -68,7 +55,7 @@ class ShopifyRepository:
     def add_sync_log(self, producto_id: Optional[int], accion: str, resultado: str, mensaje: str = None) -> None:
         """Registra un evento de sincronización en el log."""
         self.db.execute_query(
-            "INSERT INTO shopify_sync_log (producto_id, accion, resultado, mensaje) VALUES (?, ?, ?, ?)",
+            "INSERT INTO shopify_sync_log (producto_id, accion, resultado, mensaje, created_at) VALUES (?, ?, ?, ?, datetime('now', 'localtime'))",
             (producto_id, accion, resultado, mensaje)
         )
 
@@ -91,11 +78,11 @@ class ShopifyRepository:
         self.db.execute_query(
             """
             INSERT INTO shopify_diseno_mapping (diseno_codigo, genero, shopify_product_id, handle, last_synced_at)
-            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+            VALUES (?, ?, ?, ?, datetime('now', 'localtime'))
             ON CONFLICT(diseno_codigo, genero) DO UPDATE SET
                 shopify_product_id = excluded.shopify_product_id,
                 handle = excluded.handle,
-                last_synced_at = CURRENT_TIMESTAMP
+                last_synced_at = datetime('now', 'localtime')
             """,
             (diseno_codigo, genero, shopify_product_id, handle)
         )

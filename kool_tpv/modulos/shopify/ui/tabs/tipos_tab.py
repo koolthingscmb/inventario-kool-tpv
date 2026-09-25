@@ -36,6 +36,8 @@ class TiposTab:
         
         # Refs a widgets de configuración específica
         self._tipos_template_entry = None
+        self._tipos_use_variant_as_type_check = None
+        self._tipos_use_variant_as_type_var = None
         self._tipos_sorpresa_stock_entry = None
         self._tipos_sorpresa_precio_entry = None
         self._tipos_recargo_entry = None
@@ -58,6 +60,7 @@ class TiposTab:
             on_select=self._on_tipo_selected,
             on_change=self._on_tipo_web_change
         )
+        self._tipo_selector.set_search_function(self._search_tipos)
         self._tipo_selector.pack(fill="x", padx=10, pady=(0, 20))
 
         # --- ZONA CENTRAL ---
@@ -89,6 +92,16 @@ class TiposTab:
         except Exception:
             return []
 
+    def _search_tipos(self, texto: str) -> List[Dict]:
+        """Búsqueda dinámica de tipos para el TagSelector."""
+        try:
+            query = "SELECT id, nombre FROM tipos WHERE nombre LIKE ? AND activo = 1 ORDER BY nombre LIMIT 10"
+            rows = self.db.fetch_all(query, (f"%{texto}%",))
+            return [{"id": r[0], "nombre_display": r[1]} for r in (rows or [])]
+        except Exception:
+            logger.exception("Error buscando tipos")
+            return []
+
     def _on_tipo_selected(self, tipo_id: int):
         self._tipo_selected_id = tipo_id
         self._render_variantes(tipo_id)
@@ -115,11 +128,12 @@ class TiposTab:
     def _render_variantes(self, tipo_id: int):
         self._clear_central_tipos()
         try:
-            res = self.db.fetch_one("SELECT nombre, template_suffix FROM tipos WHERE id = ?", (tipo_id,))
+            res = self.db.fetch_one("SELECT nombre, template_suffix, shopify_use_variant_as_type FROM tipos WHERE id = ?", (tipo_id,))
             tipo_nombre = res[0] if res else ""
             template_suffix = res[1] or ""
+            use_variant_as_type = res[2] or 0
         except Exception:
-            tipo_nombre, template_suffix = "", ""
+            tipo_nombre, template_suffix, use_variant_as_type = "", "", 0
 
         header_frame = tk.Frame(self._central_tipos, bg=self._bg_medium)
         header_frame.pack(fill="x", padx=15, pady=(10, 15))
@@ -129,9 +143,19 @@ class TiposTab:
 
         tk.Label(header_frame, text="PLANTILLA:", font=("Helvetica", 11),
                  fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(30, 10))
-        self._tipos_template_entry = ctk.CTkEntry(header_frame, width=150, font=("Helvetica", 12))
+        self._tipos_template_entry = ctk.CTkEntry(header_frame, width=120, font=("Helvetica", 12))
         self._tipos_template_entry.insert(0, template_suffix)
-        self._tipos_template_entry.pack(side="left", padx=(0, 20))
+        self._tipos_template_entry.pack(side="left", padx=(0, 15))
+
+        self._tipos_use_variant_as_type_var = tk.BooleanVar(value=bool(use_variant_as_type))
+        self._tipos_use_variant_as_type_check = ctk.CTkCheckBox(
+            header_frame, text="VARIANTE COMO TIPO EN SHOPIFY",
+            variable=self._tipos_use_variant_as_type_var,
+            font=("Helvetica", 10), fg_color=self._primary_color,
+            hover_color=self._secondary_color, text_color="#FFFFFF",
+            border_width=2
+        )
+        self._tipos_use_variant_as_type_check.pack(side="left", padx=(10, 0))
 
         if tipo_nombre.lower() == "camiseta":
             row_config = tk.Frame(header_frame, bg=self._bg_medium)
@@ -206,6 +230,11 @@ class TiposTab:
         if self._tipo_selected_id is None: return
         if self._tipos_template_entry and self._tipos_template_entry.winfo_exists():
             self.db.execute_query("UPDATE tipos SET template_suffix = ? WHERE id = ?", (self._tipos_template_entry.get().strip(), self._tipo_selected_id))
+        
+        if self._tipos_use_variant_as_type_var:
+            val = 1 if self._tipos_use_variant_as_type_var.get() else 0
+            self.db.execute_query("UPDATE tipos SET shopify_use_variant_as_type = ? WHERE id = ?", (val, self._tipo_selected_id))
+
         if self._tipos_sorpresa_stock_entry and self._tipos_sorpresa_stock_entry.winfo_exists():
             self._config["stock_sorpresa"] = self._tipos_sorpresa_stock_entry.get()
         if self._tipos_sorpresa_precio_entry and self._tipos_sorpresa_precio_entry.winfo_exists():

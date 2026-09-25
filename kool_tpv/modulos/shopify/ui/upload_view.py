@@ -205,8 +205,8 @@ class ShopifyUploadView:
         tk.Label(cell_tipo, text="TIPO PRODUCTO", fg="#888", bg=self._bg,
                  font=("Helvetica", 9, "bold"), anchor="w").pack(anchor="w")
         try:
-            rows = self.db.fetch_all("SELECT id, nombre, categoria_id FROM tipos WHERE activo = 1 AND web_activo = 1 ORDER BY nombre")
-            self._tipos = [{"id": r[0], "nombre": r[1], "categoria_id": r[2]} for r in (rows or [])]
+            todos = self._tipo_service.get_all_tipos()
+            self._tipos = [t for t in todos if t.get("activo") == 1 and t.get("web_activo") == 1]
         except Exception:
             self._tipos = []
 
@@ -492,7 +492,14 @@ class ShopifyUploadView:
         self._seo_box.insert("1.0", (prod.get("seo") or {}).get("description") or "")
         self._status_menu.set(prod.get("status", "DRAFT"))
         if prod.get("productType"):
-            self._tipo_combo.set(prod["productType"])
+            p_type = prod["productType"]
+            self._tipo_combo.set(p_type)
+            # Si el combo no encontró el tipo por nombre exacto, probar por nombre de variante
+            if self._tipo_combo.get_id() is None:
+                tipo_real = self._tipo_service.get_tipo_by_variant_nombre(p_type)
+                if tipo_real:
+                    self._tipo_combo.set_by_id(tipo_real["id"])
+
             self._on_tipo_change()
         for box in self._body_boxes.values():
             box.delete("1.0", "end")
@@ -619,11 +626,13 @@ class ShopifyUploadView:
             logger.exception('Error obteniendo taxonomy_gid')
 
         tipo = next((t for t in self._tipos if t["id"] == tipo_id), None)
+        use_variant_as_type = False
+        if tipo:
+            use_variant_as_type = bool(tipo.get("shopify_use_variant_as_type"))
+
         template_suffix = ""
         if tipo and tipo.get("template_suffix"):
             template_suffix = tipo["template_suffix"].strip()
-        if not template_suffix:
-            template_suffix = cfg.get("template_suffix") or ""
 
         base = {
             "tags": [t.strip() for t in self._entries["tags"].get().split(",") if t.strip()],
@@ -636,6 +645,7 @@ class ShopifyUploadView:
             "template_suffix": template_suffix,
             "recargo_tallas": cfg.get("recargo_tallas") or 0,
             "recargo_grupo_id": cfg.get("recargo_grupo_id"),
+            "use_variant_as_type": use_variant_as_type,
         }
 
         if self._modo == "EDITAR":
@@ -696,6 +706,9 @@ class ShopifyUploadView:
 
             body_box = self._body_boxes.get(variante)
             datos = dict(base)
+            if base.get("use_variant_as_type"):
+                datos["product_type"] = variante
+
             tipo_id = self._tipo_combo.get_id()
             datos.update({
                 "title": f"{titulo} | {variante}",

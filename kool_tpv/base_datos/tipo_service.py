@@ -31,16 +31,33 @@ class TipoService:
             logging.exception('Error buscando tipo por nombre')
             return None
 
-    def save_tipo(self, nombre: str, descripcion: str = '', fide_porcentaje: float = 0.0, shopify_taxonomy: str = '', color: str = None, icono: str = None, coste_base: float = 0.0, requiere_talla: int = 0, requiere_color: int = 0, activo: int = 1, orden: int = 0, categoria_id: Optional[int] = None) -> int:
+    def get_tipo_by_variant_nombre(self, variant_nombre: str) -> Optional[Dict[str, Any]]:
+        """Busca un tipo que tenga una variante con el nombre indicado."""
         try:
-            return self.repo.insert(nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, coste_base, requiere_talla, requiere_color, activo, orden, categoria_id)
+            query = """
+            SELECT t.id, t.nombre FROM tipos t
+            JOIN tipos_variantes tv ON t.id = tv.tipo_id
+            WHERE LOWER(tv.nombre) = LOWER(?)
+            LIMIT 1
+            """
+            row = self.db.fetch_one(query, (variant_nombre,))
+            if row:
+                return self.get_tipo_by_id(row[0])
+            return None
+        except Exception:
+            logging.exception('Error buscando tipo por nombre de variante')
+            return None
+
+    def save_tipo(self, nombre: str, descripcion: str = '', fide_porcentaje: float = 0.0, shopify_taxonomy: str = '', color: str = None, icono: str = None, coste_base: float = 0.0, requiere_talla: int = 0, requiere_color: int = 0, activo: int = 1, orden: int = 0, categoria_id: Optional[int] = None, web_activo: int = 0, template_suffix: str = '', shopify_use_variant_as_type: int = 0) -> int:
+        try:
+            return self.repo.insert(nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, coste_base, requiere_talla, requiere_color, activo, orden, categoria_id, web_activo, template_suffix, shopify_use_variant_as_type)
         except Exception:
             logging.exception('Error guardando tipo')
             raise
 
-    def update_tipo(self, id: int, nombre: str, descripcion: str = '', fide_porcentaje: float = 0.0, shopify_taxonomy: str = '', color: str = None, icono: str = None, coste_base: float = 0.0, requiere_talla: int = 0, requiere_color: int = 0, activo: int = 1, orden: int = 0, categoria_id: Optional[int] = None) -> bool:
+    def update_tipo(self, id: int, nombre: str, descripcion: str = '', fide_porcentaje: float = 0.0, shopify_taxonomy: str = '', color: str = None, icono: str = None, coste_base: float = 0.0, requiere_talla: int = 0, requiere_color: int = 0, activo: int = 1, orden: int = 0, categoria_id: Optional[int] = None, web_activo: int = 0, template_suffix: str = '', shopify_use_variant_as_type: int = 0) -> bool:
         try:
-            self.repo.update(id, nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, coste_base, requiere_talla, requiere_color, activo, orden, categoria_id)
+            self.repo.update(id, nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, coste_base, requiere_talla, requiere_color, activo, orden, categoria_id, web_activo, template_suffix, shopify_use_variant_as_type)
             return True
         except Exception:
             logging.exception('Error actualizando tipo %s', id)

@@ -397,6 +397,21 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migración 060: shopify_use_variant_as_type en tipos
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('tipos')") or [])]
+			if 'shopify_use_variant_as_type' not in cols:
+				logging.info('Aplicando migración 060: shopify_use_variant_as_type en tipos')
+				db.connection.execute('ALTER TABLE tipos ADD COLUMN shopify_use_variant_as_type INTEGER DEFAULT 0')
+				db.connection.commit()
+				logging.info('Migración 060 aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 060')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Check existence
 		existing = []
 		try:

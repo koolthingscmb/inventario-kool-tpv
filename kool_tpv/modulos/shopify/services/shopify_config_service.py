@@ -18,7 +18,6 @@ class ShopifyConfigService:
         "google_api_key": "shopify_google_api_key",
         "ia_seo_prompt": "shopify_ia_seo_prompt",
         "api_version": "shopify_api_version",
-        "template_suffix": "shopify_template_suffix",
         "marca": "shopify_marca",
         "link_guia": "shopify_link_guia",
         "botones_cdn": "shopify_botones_cdn",
@@ -90,8 +89,8 @@ class ShopifyConfigService:
         """Añade una entrada a la tabla shopify_sync_log."""
         try:
             query = """
-            INSERT INTO shopify_sync_log (producto_id, accion, resultado, mensaje)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO shopify_sync_log (producto_id, accion, resultado, mensaje, created_at)
+            VALUES (?, ?, ?, ?, datetime('now', 'localtime'))
             """
             self.db.execute_query(query, (producto_id, accion, resultado, mensaje))
             return True
@@ -111,13 +110,22 @@ class ShopifyConfigService:
             rows = self.db.fetch_all(query, (limit,))
             logs = []
             for r in rows:
+                fecha_raw = r[5]
+                # Intentar formatear la fecha si es posible
+                try:
+                    from datetime import datetime
+                    dt = datetime.strptime(fecha_raw, '%Y-%m-%d %H:%M:%S')
+                    fecha_fmt = dt.strftime('%d/%m/%Y %H:%M')
+                except Exception:
+                    fecha_fmt = fecha_raw
+
                 logs.append({
                     "id": r[0],
                     "producto_id": r[1],
                     "accion": r[2],
                     "resultado": r[3],
                     "mensaje": r[4],
-                    "fecha": r[5]
+                    "fecha": fecha_fmt
                 })
             return logs
         except Exception:
