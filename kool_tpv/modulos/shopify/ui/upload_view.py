@@ -20,6 +20,7 @@ from kool_tpv.base_datos.tipo_service import TipoService
 from kool_tpv.modulos.almacen.categoria_repository import CategoriaRepository
 from ..services.shopify_product_service import ShopifyProductService
 from .shopify_actualiza_sku import ShopifyActualizaSku
+from .shopify_metafields_ui import ShopifyMetafieldsUI
 from ..services.producto_content_service import ProductoContentService, slugify_diseno
 from ..services.producto_prompts import TONO_POR_DEFECTO
 from ..services.shopify_config_service import ShopifyConfigService
@@ -128,6 +129,11 @@ class ShopifyUploadView:
             fg_color=self._secondary, text_color="#FFF",
             font=("Helvetica", 11, "bold"), command=self._abrir_skus)
         self._btn_skus.pack(side="left", padx=5)
+        self._btn_meta = ctk.CTkButton(
+            self._edit_frame, text="METACAMPOS", width=110, height=34,
+            fg_color=self._secondary, text_color="#FFF",
+            font=("Helvetica", 11, "bold"), command=self._abrir_metafields)
+        self._btn_meta.pack(side="left", padx=5)
 
         # --- Formulario ---
         self._section("DATOS DEL DISEÑO")
@@ -510,7 +516,19 @@ class ShopifyUploadView:
                               for m in prod.get("media", {}).get("nodes", [])
                               if m.get("image")]
         self._render_images()
-        self._status(f"Cargado: {prod.get('handle')}")
+
+        # Log de metacampos para depuración (Paso 1)
+        metafields = prod.get("metafields", {}).get("nodes", [])
+        if metafields:
+            logger.info(f"Metacampos cargados para {prod.get('handle')}:")
+            for mf in metafields:
+                val_desc = mf.get('value')
+                if mf.get('reference') and mf['reference'].get('image'):
+                    val_desc = f"[REF ARCHIVO: {mf['reference']['image']['url']}]"
+                logger.info(f"  - {mf.get('namespace')}.{mf.get('key')} ({mf.get('type')}): {val_desc}")
+            self._status(f"Cargado: {prod.get('handle')} ({len(metafields)} metacampos)")
+        else:
+            self._status(f"Cargado: {prod.get('handle')}")
 
     def _abrir_skus(self):
         """Abre la subvista de edición de SKUs para el producto cargado."""
@@ -533,6 +551,18 @@ class ShopifyUploadView:
             tipo_id=tipo_id, tipo_nombre=tipo_nombre,
             on_volver=lambda: self.frame.pack(fill="both", expand=True))
         sku_view.frame.pack(fill="both", expand=True)
+
+    def _abrir_metafields(self):
+        """Abre la subvista de edición de Metacampos para el producto cargado."""
+        if not self._edit_product:
+            show_error(self.frame, "Carga primero un producto")
+            return
+            
+        self.frame.pack_forget()
+        meta_view = ShopifyMetafieldsUI(
+            self.frame.master, self.db, self._edit_product,
+            on_volver=lambda: self.frame.pack(fill="both", expand=True))
+        meta_view.frame.pack(fill="both", expand=True)
 
     # ------------------------------------------------------------------
     # Generar contenido IA

@@ -452,6 +452,44 @@ class ShopifyProductService:
                                f"{n} SKUs actualizados en {product_id}")
         return {"success": True, "message": f"{n} SKUs actualizados"}
 
+    def metafields_set(self, owner_id: str, metafields: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Actualiza o crea metacampos para un recurso (producto, variante, etc).
+        
+        metafields: [{"namespace": "...", "key": "...", "value": "...", "type": "..."}]
+        """
+        ctx = self._api_context()
+        if not ctx:
+            return {"success": False, "message": "Configuración incompleta"}
+        endpoint, headers, _ = ctx
+
+        inputs = []
+        for mf in metafields:
+            inputs.append({
+                "ownerId": owner_id,
+                "namespace": mf["namespace"],
+                "key": mf["key"],
+                "value": str(mf["value"]),
+                "type": mf["type"]
+            })
+
+        mutation = """
+        mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+          metafieldsSet(metafields: $metafields) {
+            metafields { id namespace key value }
+            userErrors { field message }
+          }
+        }
+        """
+        data, err = self._graphql(endpoint, headers, mutation, {"metafields": inputs})
+        if err:
+            return {"success": False, "message": err}
+
+        result = data.get("metafieldsSet", {})
+        if result.get("userErrors"):
+            return {"success": False, "message": json.dumps(result["userErrors"])}
+
+        return {"success": True}
+
     # ------------------------------------------------------------------
     # Modo EDITAR: buscar y cargar productos de Shopify
     # ------------------------------------------------------------------
@@ -491,6 +529,21 @@ class ShopifyProductService:
                     }
                     media(first: 50) {
                         nodes { id alt ... on MediaImage { image { url } } }
+                    }
+                    metafields(first: 50) {
+                        nodes {
+                            id
+                            namespace
+                            key
+                            value
+                            type
+                            description
+                            reference {
+                                ... on MediaImage {
+                                    image { url }
+                                }
+                            }
+                        }
                     }
                 }
             }
