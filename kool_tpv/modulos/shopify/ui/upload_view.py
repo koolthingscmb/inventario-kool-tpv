@@ -634,6 +634,12 @@ class ShopifyUploadView:
         if tipo and tipo.get("template_suffix"):
             template_suffix = tipo["template_suffix"].strip()
 
+        def _safe_float(val, default=0.0):
+            if val is None or str(val).lower() == 'none' or str(val).strip() == '':
+                return default
+            try: return float(str(val).replace(',', '.').replace('€', '').strip())
+            except: return default
+
         base = {
             "tags": [t.strip() for t in self._entries["tags"].get().split(",") if t.strip()],
             "seo_desc": seo_desc,
@@ -643,7 +649,7 @@ class ShopifyUploadView:
             "product_type": product_type,
             "taxonomy_gid": taxonomy_gid,
             "template_suffix": template_suffix,
-            "recargo_tallas": cfg.get("recargo_tallas") or 0,
+            "recargo_tallas": _safe_float(cfg.get("recargo_tallas")),
             "recargo_grupo_id": cfg.get("recargo_grupo_id"),
             "use_variant_as_type": use_variant_as_type,
         }
@@ -686,10 +692,17 @@ class ShopifyUploadView:
             # Color "Sorpresa": solo en camisetas, una opción extra por talla
             if es_camiseta:
                 tallas = sorted({v["talla"] for v in variantes})
-                sorpresa_qty = int(cfg.get("stock_sorpresa") or 50) if cfg.get("stock_sorpresa") else 50
+                
+                def _safe_int(val, default):
+                    if val is None or str(val).lower() == 'none' or str(val).strip() == '':
+                        return default
+                    try: return int(val)
+                    except: return default
+
+                sorpresa_qty = _safe_int(cfg.get("stock_sorpresa"), 50)
                 sorpresa_precio = cfg.get("precio_sorpresa")
-                if sorpresa_precio:
-                    sorpresa_precio = float(sorpresa_precio.replace(',', '.').replace('€', '').strip())
+                if sorpresa_precio and str(sorpresa_precio).lower() != 'none':
+                    sorpresa_precio = float(str(sorpresa_precio).replace(',', '.').replace('€', '').strip())
                 else:
                     sorpresa_precio = None
 

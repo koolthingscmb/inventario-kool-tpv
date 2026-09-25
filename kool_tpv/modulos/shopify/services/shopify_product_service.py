@@ -198,13 +198,22 @@ class ShopifyProductService:
         if variantes_input is None:
             colores, tallas = [], []
             variantes_input = []
-            precio_base = float(str(datos.get("precio") or 0).replace(',', '.').replace('€', '').strip() or 0)
-            recargo = float(str(datos.get("recargo_tallas") or 0).replace(',', '.').replace('€', '').strip() or 0)
+            
+            def _parse_float(val):
+                if val is None or str(val).lower() == 'none' or str(val).strip() == '':
+                    return 0.0
+                try:
+                    return float(str(val).replace(',', '.').replace('€', '').strip() or 0)
+                except:
+                    return 0.0
+
+            precio_base = _parse_float(datos.get("precio"))
+            recargo = _parse_float(datos.get("recargo_tallas"))
             
             # Obtener tallas grandes del grupo configurado
             tallas_grandes = set()
             grupo_id = datos.get("recargo_grupo_id")
-            if grupo_id:
+            if grupo_id and str(grupo_id).lower() != 'none':
                 try:
                     repo_grupos = ProduccionTallasGruposRepository(self.db)
                     nombres = repo_grupos.get_nombres_tallas_por_grupo(int(grupo_id))

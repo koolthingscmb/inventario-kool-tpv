@@ -175,8 +175,14 @@ class TiposTab:
             opts_grupos = [(g.id, g.nombre) for g in repo_grupos.get_todos()]
             self._tipos_recargo_grupo_combo = SearchableCombo(row_config, width=150, placeholder="Seleccionar...", options=opts_grupos, module_name="shopify")
             self._tipos_recargo_grupo_combo.pack(side="left", padx=(0, 20))
-            if self._config.get("recargo_grupo_id"):
-                self._tipos_recargo_grupo_combo.set_by_id(int(self._config.get("recargo_grupo_id")))
+            
+            recargo_grupo_id = self._config.get("recargo_grupo_id")
+            if recargo_grupo_id and str(recargo_grupo_id).lower() != 'none':
+                try:
+                    self._tipos_recargo_grupo_combo.set_by_id(int(recargo_grupo_id))
+                except (ValueError, TypeError):
+                    pass
+            
             tk.Label(row_config, text="RECARGO €:", font=("Helvetica", 11), fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(0, 5))
             self._tipos_recargo_entry = ctk.CTkEntry(row_config, width=60, font=("Helvetica", 12))
             self._tipos_recargo_entry.insert(0, self._config.get("recargo_tallas", "0"))

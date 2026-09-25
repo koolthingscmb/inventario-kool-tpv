@@ -76,9 +76,12 @@ class ShopifyConfigService:
                         if isinstance(val, bool):
                             val = "1" if val else "0"
                         
+                        # Evitar guardar la cadena "None" si el valor es None real
+                        val_str = str(val) if val is not None else ""
+                        
                         cur.execute(
                             "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES (?, ?)",
-                            (db_key, str(val))
+                            (db_key, val_str)
                         )
             return True
         except Exception:
