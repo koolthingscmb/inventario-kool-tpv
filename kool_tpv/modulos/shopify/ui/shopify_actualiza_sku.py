@@ -41,13 +41,18 @@ class ShopifyActualizaSku:
 
     def __init__(self, parent, db, producto: Dict[str, Any],
                  tipo_id: Optional[int] = None, tipo_nombre: str = "",
-                 on_volver: Optional[Callable] = None):
+                 variante_id: Optional[int] = None, variante_nombre: str = "",
+                 on_volver: Optional[Callable] = None,
+                 on_aceptar: Optional[Callable] = None):
         self.parent = parent
         self.db = db
         self.producto = producto or {}
         self.tipo_id = tipo_id
         self.tipo_nombre = tipo_nombre
+        self.variante_id = variante_id
+        self.variante_nombre = variante_nombre
         self.on_volver = on_volver
+        self.on_aceptar = on_aceptar
 
         self.service = ShopifyProductService(db)
         self.stock_service = ProduccionStockBaseService(db)
@@ -84,6 +89,10 @@ class ShopifyActualizaSku:
         ctk.CTkButton(top, text="← VOLVER", width=110, height=34,
                       fg_color=self._secondary,
                       command=self._volver).pack(side="left")
+        ctk.CTkButton(top, text="ACEPTAR CAMBIOS", width=160, height=34,
+                      fg_color="#27ae60", # Verde aceptar
+                      font=("Helvetica", 11, "bold"),
+                      command=self._aceptar).pack(side="left", padx=10)
         ctk.CTkLabel(top, text="ACTUALIZAR SKUS", font=("Helvetica", 18, "bold"),
                      text_color=self._primary).pack(side="left", padx=15)
         ctk.CTkLabel(top, text=self.producto.get("title", ""),
@@ -109,56 +118,101 @@ class ShopifyActualizaSku:
         # --- Cabecera de filas ---
         cab = tk.Frame(self.frame, bg=self._bg)
         cab.pack(fill="x", padx=20, pady=(8, 0))
-        for texto, w in (("VARIANTE SHOPIFY", 20), ("STOCK BASE", 22), ("SKU", 34)):
+        for texto, w in (("ALMACÉN TPV", 24), ("STOCK", 8), ("ESTADO SHOPIFY", 20), ("SKU FINAL", 30)):
             tk.Label(cab, text=texto, fg="#888", bg=self._bg, width=w, anchor="w",
                      font=("Helvetica", 9, "bold")).pack(side="left", padx=8)
 
-        # --- Filas de variantes ---
-        scroll = ctk.CTkScrollableFrame(self.frame, fg_color="transparent")
-        scroll.pack(fill="both", expand=True, padx=20, pady=5)
-        variantes = (self.producto.get("variants") or {}).get("nodes") or []
-        for v in variantes:
-            self._crear_fila(scroll, v)
-        if not variantes:
-            ctk.CTkLabel(scroll, text="El producto no tiene variantes",
-                         text_color="#888").pack(pady=20)
+        # --- Filas de variantes (Scrollable) ---
+        self._scroll = ctk.CTkScrollableFrame(self.frame, fg_color="transparent")
+        self._scroll.pack(fill="both", expand=True, padx=20, pady=5)
+        
+        # Frame interno para las filas (el que limpiaremos)
+        self._filas_container = tk.Frame(self._scroll, bg=self._bg)
+        self._filas_container.pack(fill="both", expand=True)
 
-        # --- Acciones ---
+        # --- Acciones (Botones abajo, FUERA del scroll) ---
         acciones = tk.Frame(self.frame, bg=self._bg)
         acciones.pack(fill="x", padx=20, pady=(5, 15))
-        ctk.CTkButton(acciones, text="GENERAR SKU", width=160, height=40,
-                      fg_color=self._secondary, font=("Helvetica", 12, "bold"),
-                      command=lambda: self._generar_skus(solo_vacios=False)).pack(side="left")
-        ctk.CTkButton(acciones, text="GUARDAR EN SHOPIFY", width=220, height=40,
-                      fg_color=self._primary, text_color="#000",
+        
+        ctk.CTkButton(acciones, text="ACEPTAR Y PREPARAR ACTUALIZACIÓN", width=320, height=40,
+                      fg_color="#27ae60", text_color="#FFF",
                       font=("Helvetica", 13, "bold"),
-                      command=self._guardar).pack(side="left", padx=12)
+                      command=self._aceptar).pack(side="left")
+        
         self._status_lbl = tk.Label(acciones, text="", fg="#888", bg=self._bg,
                                     font=("Helvetica", 11), anchor="w")
         self._status_lbl.pack(side="left", padx=10)
 
-    def _crear_fila(self, parent, variante):
+        # Cargamos los datos
+        self._cargar_filas_tpv()
+
+    def _cargar_filas_tpv(self):
+        """Carga la lista principal basada en el stock del TPV para la variante elegida."""
+        for child in self._filas_container.winfo_children():
+            child.destroy()
+        self._rows = []
+
+        stock_tpv = self._stock_rows_tipo()
+        variantes_shopify = (self.producto.get("variants") or {}).get("nodes") or []
+
+        for row_tpv in stock_tpv:
+            # Buscar si esta fila de TPV ya existe en Shopify por color/talla
+            match_shopify = self._buscar_match_shopify(row_tpv, variantes_shopify)
+            self._crear_fila_tpv(self._filas_container, row_tpv, match_shopify)
+
+        if not stock_tpv:
+            ctk.CTkLabel(self._filas_container, text="No hay stock configurado en el TPV para esta variante",
+                         text_color="#888").pack(pady=20)
+
+    def _buscar_match_shopify(self, row_tpv, variantes_shopify):
+        """Busca una variante en Shopify que coincida con el color/talla del TPV."""
+        nt = _norm(row_tpv.get("talla"))
+        nc = _norm(row_tpv.get("color"))
+        
+        for vs in variantes_shopify:
+            v_talla, v_color = self._extraer_opciones(vs, [row_tpv]) # Pasamos row_tpv para normalizar
+            if _norm(v_talla) == nt and _norm(v_color) == nc:
+                return vs
+        return None
+
+    def _crear_fila_tpv(self, parent, row_tpv, match_shopify):
         row = ctk.CTkFrame(parent, fg_color=self._bg_medium)
         row.pack(fill="x", pady=3)
 
-        opts = " / ".join(str(o.get("value", "")) for o in variante.get("selectedOptions", []))
-        if not opts:
-            opts = variante.get("title") or "—"
-        ctk.CTkLabel(row, text=opts, width=190, anchor="w",
-                     text_color="#FFF").pack(side="left", padx=8)
+        # 1. Info TPV (Color / Talla)
+        info_tpv = f"{row_tpv.get('color', '-')} / {row_tpv.get('talla', '-')}"
+        ctk.CTkLabel(row, text=info_tpv, width=210, anchor="w",
+                     font=("Helvetica", 11, "bold"), text_color="#FFF").pack(side="left", padx=8)
 
-        match_lbl = ctk.CTkLabel(row, text="", width=200, anchor="w",
-                                 text_color="#888", font=("Helvetica", 10))
-        match_lbl.pack(side="left", padx=4)
+        # 2. Stock TPV
+        cant = row_tpv.get('cantidad', 0)
+        ctk.CTkLabel(row, text=str(cant), width=60, anchor="center",
+                     text_color="#7CFC90" if cant > 0 else "#e74c3c").pack(side="left", padx=8)
 
-        entry = ctk.CTkEntry(row, width=340, height=32, placeholder_text="SKU")
+        # 3. Estado Shopify
+        status_txt = "EN SHOPIFY" if match_shopify else "NUEVA (Por crear)"
+        status_color = "#7CFC90" if match_shopify else "#e67e22"
+        ctk.CTkLabel(row, text=status_txt, width=170, anchor="w",
+                     font=("Helvetica", 10), text_color=status_color).pack(side="left", padx=8)
+
+        # 4. Entry SKU
+        entry = ctk.CTkEntry(row, width=320, height=32, placeholder_text="SKU")
         entry.pack(side="left", padx=8)
-        sku_actual = variante.get("sku") or ""
-        if sku_actual:
-            entry.insert(0, sku_actual)
+        
+        # Sugerir el SKU del TPV si no tiene uno puesto
+        sku_sugerido = row_tpv.get("sku") or ""
+        if match_shopify and match_shopify.get("sku"):
+            sku_sugerido = match_shopify["sku"]
+        
+        if sku_sugerido:
+            entry.insert(0, sku_sugerido)
 
-        self._rows.append({"variante": variante, "entry": entry,
-                           "match_lbl": match_lbl, "match": None})
+        self._rows.append({
+            "tpv": row_tpv,
+            "shopify": match_shopify,
+            "entry": entry
+        })
+
 
     def _volver(self):
         try:
@@ -176,6 +230,11 @@ class ShopifyActualizaSku:
         if not self.tipo_id:
             return []
         try:
+            # Usar el servicio de producto que ya tiene la lógica de flags y precios
+            if self.variante_id:
+                return self.service.get_variantes_stock(self.variante_id)
+            
+            # Fallback por tipo si no hay variante (comportamiento antiguo)
             return [r for r in self.stock_service.listar_todo()
                     if r.get("tipo_id") == self.tipo_id]
         except Exception:
@@ -213,26 +272,20 @@ class ShopifyActualizaSku:
         return None, f"{len(cands)} COINCIDENCIAS"
 
     def _generar_skus(self, solo_vacios=False):
-        """Rellena los entries con el SKU del stock base mapeado."""
-        stock_rows = self._stock_rows_tipo()
+        """Rellena los entries con el SKU sugerido basado en el diseño y stock TPV."""
         ok = 0
         for r in self._rows:
             if solo_vacios and r["entry"].get().strip():
                 continue
-            talla_val, color_val = self._extraer_opciones(r["variante"], stock_rows)
-            base, motivo = self._buscar_base(talla_val, color_val, stock_rows)
-            if base:
+            
+            # El SKU base viene del TPV
+            sku_base = r["tpv"].get("sku") or ""
+            if sku_base:
                 r["entry"].delete(0, "end")
-                r["entry"].insert(0, base["sku"])
-                info = " ".join(p for p in (base.get("variante"), base.get("color"),
-                                            base.get("talla")) if p)
-                r["match_lbl"].configure(text=info, text_color="#7CFC90")
-                r["match"] = base
+                r["entry"].insert(0, sku_base)
                 ok += 1
-            else:
-                r["match_lbl"].configure(text=motivo or "", text_color="#e67e22")
-                r["match"] = None
-        self._status(f"{ok}/{len(self._rows)} variantes mapeadas")
+        
+        self._status(f"Generados {ok} SKUs base desde TPV")
 
     # ------------------------------------------------------------------
     # Diseño: sufijo + código
@@ -273,52 +326,82 @@ class ShopifyActualizaSku:
         for r in self._rows:
             sku = r["entry"].get().strip()
             if sku and not sku.upper().endswith(extra):
+                # Evitar doble guion si el SKU ya termina en guion
+                if sku.endswith("-"):
+                    new_sku = f"{sku}{extra}"
+                else:
+                    new_sku = f"{sku}-{extra}"
+                
                 r["entry"].delete(0, "end")
-                r["entry"].insert(0, f"{sku}-{extra}")
+                r["entry"].insert(0, new_sku)
         self._diseno_sel = dis
         self._status(f"Diseño {dis.codigo} añadido a los SKUs")
 
     # ------------------------------------------------------------------
-    # Guardar
+    # Salida: Aceptar y Volver
     # ------------------------------------------------------------------
 
-    def _guardar(self):
-        variantes = [{"id": r["variante"].get("id"), "sku": r["entry"].get().strip()}
-                     for r in self._rows
-                     if r["variante"].get("id") and r["entry"].get().strip()]
-        if not variantes:
-            show_error(self.frame, "No hay SKUs que guardar")
-            return
-        self._status("Subiendo SKUs a Shopify...")
-
-        def work():
-            res = self.service.actualizar_skus(self.producto.get("id"), variantes)
-
-            def done():
-                if res.get("success"):
-                    mapa = {v["id"]: v["sku"] for v in variantes}
-                    for v in (self.producto.get("variants") or {}).get("nodes") or []:
-                        if v.get("id") in mapa:
-                            v["sku"] = mapa[v["id"]]
-                    self._guardar_mapping()
-                    ToastWidget.show(self.frame, "SKUs actualizados en Shopify",
-                                     tipo="success")
-                    self.frame.after(800, self._volver)
-                else:
-                    self._status(f"Error: {res.get('message')}")
-            self.frame.after(0, done)
-        threading.Thread(target=work, daemon=True).start()
-
-    def _guardar_mapping(self):
-        """Guarda el enlace diseño -> producto Shopify para futuras sincronizaciones."""
-        if not self._diseno_sel:
-            return
+    def _aceptar(self):
+        """Prepara los datos y cierra la vista notificando al padre."""
         try:
-            self.service.repo.upsert_diseno_mapping(
-                self._diseno_sel.codigo, self.tipo_nombre or "",
-                self.producto.get("id"), self.producto.get("handle"))
+            variantes_preparadas = []
+            for r in self._rows:
+                sku = r["entry"].get().strip()
+                if not sku:
+                    continue
+                
+                # Datos base de la variante para el motor de sincronización
+                v_data = {
+                    "sku": sku,
+                    "color": r["tpv"].get("color"),
+                    "talla": r["tpv"].get("talla"),
+                    "cantidad": r["tpv"].get("cantidad", 0),
+                    "precio_web": r["tpv"].get("precio_web"), # Centimos
+                    "requiere_color": r["tpv"].get("requiere_color", 1),
+                    "requiere_talla": r["tpv"].get("requiere_talla", 1)
+                }
+                
+                # Regla de oro:
+                # 1. Si NO está en Shopify y tiene Stock 0 -> NO la subimos/creamos.
+                # 2. Si YA está en Shopify y tiene Stock 0 -> SÍ la subimos (para marcar como agotado).
+                if not r["shopify"] and v_data["cantidad"] <= 0:
+                    continue
+
+                # Si ya existe en Shopify, heredar su precio si el TPV no tiene uno
+                if r["shopify"] and not v_data["precio_web"]:
+                    try:
+                        v_data["precio"] = float(r["shopify"].get("price") or 0)
+                    except: pass
+                    
+                variantes_preparadas.append(v_data)
+
+            # Notificar al padre con los datos preparados
+            if self.on_aceptar:
+                datos_regreso = {
+                    "variantes": variantes_preparadas,
+                    "diseno": self._diseno_sel,
+                    "genero": self.variante_nombre
+                }
+                self.on_aceptar(datos_regreso)
+            
+            self._volver()
         except Exception:
-            logger.exception("Error guardando mapeo diseño-producto")
+            logging.exception("Error en _aceptar de SKUs")
+            self._volver()
+
+    def _volver(self):
+        """Cierra la vista y restaura el padre."""
+        try:
+            self.frame.destroy()
+        except Exception:
+            pass
+        if self.on_volver:
+            self.on_volver()
+
+    def _on_power(self):
+        """Si pulsan el botón Power, cerramos guardando los cambios locales."""
+        self._aceptar()
+        return True
 
     def _status(self, texto):
         try:

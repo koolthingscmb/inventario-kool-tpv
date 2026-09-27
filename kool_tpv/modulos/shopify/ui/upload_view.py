@@ -69,6 +69,7 @@ class ShopifyUploadView:
         self._tipos: List[Dict[str, Any]] = []
         self._variantes_disponibles: List[Dict[str, Any]] = []
         self._thumb_refs = []
+        self._skus_preparados: Optional[Dict[str, Any]] = None
 
         self.frame = tk.Frame(parent, bg=self._bg)
         self._build()
@@ -130,6 +131,11 @@ class ShopifyUploadView:
             fg_color=self._secondary, text_color="#FFF",
             font=("Helvetica", 11, "bold"), command=self._abrir_skus)
         self._btn_skus.pack(side="left", padx=5)
+        
+        self._skus_status_lbl = tk.Label(self._edit_frame, text="", fg="#7CFC90", bg=self._bg_medium,
+                                         font=("Helvetica", 9, "bold"))
+        self._skus_status_lbl.pack(side="left", padx=5)
+
         self._btn_meta = ctk.CTkButton(
             self._edit_frame, text="METACAMPOS", width=110, height=34,
             fg_color=self._secondary, text_color="#FFF",
@@ -430,6 +436,9 @@ class ShopifyUploadView:
         self._render_images()
         self._status_menu.set("ACTIVE")
         self._status("")
+        self._skus_preparados = None
+        if hasattr(self, '_skus_status_lbl'):
+            self._skus_status_lbl.configure(text="")
 
     # ------------------------------------------------------------------
     # Imágenes
@@ -524,6 +533,9 @@ class ShopifyUploadView:
             show_error(self.frame, "Selecciona un producto de la lista")
             return
         self._status("Cargando producto...")
+        self._skus_preparados = None
+        if hasattr(self, '_skus_status_lbl'):
+            self._skus_status_lbl.configure(text="")
 
         def work():
             full = self.product_service.cargar_producto(prod["id"])
@@ -614,6 +626,9 @@ class ShopifyUploadView:
             return
         tipo_nombre = self._tipo_combo.get().strip()
         tipo_id = self._tipo_combo.get_id()
+        variante_nombre = self._variante_combo.get().strip()
+        variante_id = self._variante_combo.get_id()
+
         if tipo_id is None and tipo_nombre:
             try:
                 tipo = self._tipo_service.get_tipo_by_nombre(tipo_nombre)
@@ -626,8 +641,19 @@ class ShopifyUploadView:
         sku_view = ShopifyActualizaSku(
             self.frame.master, self.db, self._edit_product,
             tipo_id=tipo_id, tipo_nombre=tipo_nombre,
-            on_volver=lambda: self.frame.pack(fill="both", expand=True))
+            variante_id=variante_id, variante_nombre=variante_nombre,
+            on_volver=lambda: self.frame.pack(fill="both", expand=True),
+            on_aceptar=self._on_skus_preparados)
         sku_view.frame.pack(fill="both", expand=True)
+
+    def _on_skus_preparados(self, datos):
+        """Recibe los SKUs preparados desde la subvista."""
+        self._skus_preparados = datos
+        n = len(datos.get("variantes") or [])
+        if n > 0:
+            self._skus_status_lbl.configure(text=f"✓ {n} SKUS LISTOS")
+        else:
+            self._skus_status_lbl.configure(text="")
 
     def _abrir_metafields(self):
         """Abre la subvista de edición de Metacampos para el producto cargado."""
@@ -867,18 +893,28 @@ class ShopifyUploadView:
     def _subir_edicion(self, base):
         prod = self._edit_product
         variantes_input = []
-        for v in prod.get("variants", {}).get("nodes", []):
-            opts = [{"optionName": o["name"], "name": o["value"]}
-                    for o in v.get("selectedOptions", [])]
-            variantes_input.append({"sku": v.get("sku") or "", "price": str(v.get("price") or "0"),
-                                    "optionValues": opts})
+        
+        # Si tenemos SKUs preparados desde la subvista, usarlos (prioridad máxima)
+        # Esto permite crear colores nuevos y actualizar stock/precios/skus de golpe
+        if self._skus_preparados:
+            variantes_input = self._skus_preparados.get("variantes") or []
+            variante_nombre = self._skus_preparados.get("genero") or self._variante_combo.get().strip()
+            diseno = self._skus_preparados.get("diseno")
+            diseno_codigo = diseno.codigo if diseno else (prod.get("handle") or _slugify(self._entries["titulo"].get().strip()))
+        else:
+            # Flujo estándar: solo lo que ya tiene Shopify
+            for v in prod.get("variants", {}).get("nodes", []):
+                opts = [{"optionName": o["name"], "name": o["value"]}
+                        for o in v.get("selectedOptions", [])]
+                variantes_input.append({"sku": v.get("sku") or "", "price": str(v.get("price") or "0"),
+                                        "optionValues": opts})
+            variante_nombre = self._variante_combo.get().strip()
+            diseno_codigo = prod.get("handle") or _slugify(self._entries["titulo"].get().strip())
+
         product_options = [{"name": o["name"], "values": [{"name": x} for x in o.get("values", [])]}
                            for o in prod.get("options", [])]
 
         datos = dict(base)
-
-        # Variante seleccionada explícitamente en la UI
-        variante_nombre = self._variante_combo.get().strip()
 
         # Si el tipo usa variantes como tipo, el product_type es el nombre de la variante
         if base.get("use_variant_as_type") and variante_nombre:
@@ -890,11 +926,12 @@ class ShopifyUploadView:
             "description_html": (next(iter(self._body_boxes.values())).get("1.0", "end-1c")
                                  if self._body_boxes else prod.get("descriptionHtml") or ""),
             "product_id": prod["id"],
-            "variantes_input": variantes_input,
-            "product_options": product_options,
+            "variantes_input": None if self._skus_preparados else variantes_input,
+            "variantes": variantes_input if self._skus_preparados else None,
+            "product_options": None if self._skus_preparados else product_options,
             "imagenes": [dict(i) for i in self._imagenes],
             "imagenes_url": [dict(i) for i in self._imagenes_web],
-            "diseno_codigo": prod.get("handle") or _slugify(self._entries["titulo"].get().strip()),
+            "diseno_codigo": diseno_codigo,
             "genero": variante_nombre,
         })
 

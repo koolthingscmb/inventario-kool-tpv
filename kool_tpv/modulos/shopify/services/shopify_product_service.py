@@ -327,7 +327,7 @@ class ShopifyProductService:
                 inv_id = v.get("inventoryItem", {}).get("id")
                 sku = v.get("sku")
                 qty = sku_qty.get(sku)
-                if inv_id and qty is not None and qty > 0:
+                if inv_id and qty is not None and qty >= 0:
                     quantities.append({
                         "inventory_item_id": inv_id,
                         "quantity": qty,
