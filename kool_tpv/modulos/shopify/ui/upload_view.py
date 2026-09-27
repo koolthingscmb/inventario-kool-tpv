@@ -18,6 +18,7 @@ from kool_tpv.utils.widgets.notificaciones import show_success, show_error
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.base_datos.tipo_service import TipoService
 from kool_tpv.modulos.almacen.categoria_repository import CategoriaRepository
+from kool_tpv.base_datos.money_adapter import prepare_for_db, read_from_db
 from ..services.shopify_product_service import ShopifyProductService
 from .shopify_actualiza_sku import ShopifyActualizaSku
 from .shopify_metafields_ui import ShopifyMetafieldsUI
@@ -224,6 +225,20 @@ class ShopifyUploadView:
             width=240, module_name='shopify')
         self._tipo_combo.pack(fill="x")
 
+        # Nueva celda: VARIANTE TPV
+        cell_variante = tk.Frame(form, bg=self._bg)
+        cell_variante.grid(row=1, column=3, sticky="ew", padx=6, pady=4)
+        tk.Label(cell_variante, text="VARIANTE TPV", fg="#888", bg=self._bg,
+                 font=("Helvetica", 9, "bold"), anchor="w").pack(anchor="w")
+
+        self._variante_combo = SearchableCombo(
+            cell_variante,
+            options=[],
+            command=lambda _v: self._rebuild_body_boxes(),
+            placeholder="Selecciona variante...",
+            width=240, module_name='shopify')
+        self._variante_combo.pack(fill="x")
+
         # Variantes activas del tipo: se suben todas las que tengan sync_web = 1
         cell_vars = tk.Frame(form, bg=self._bg)
         cell_vars.grid(row=2, column=0, columnspan=4, sticky="ew", padx=6, pady=4)
@@ -309,6 +324,10 @@ class ShopifyUploadView:
     def _on_tipo_change(self):
         """Al cambiar el tipo: cargar sus variantes activas marcadas para web."""
         self._variantes_disponibles = []
+        
+        # Limpiar combo de variante específica
+        if hasattr(self, '_variante_combo'):
+            self._variante_combo.clear()
 
         tipo_id = self._tipo_combo.get_id()
         if tipo_id:
@@ -318,6 +337,10 @@ class ShopifyUploadView:
                     (tipo_id,)
                 )
                 self._variantes_disponibles = [{"id": r[0], "nombre": r[1]} for r in (rows or [])]
+                
+                # Rellenar combo de variante específica (para modo EDITAR)
+                if hasattr(self, '_variante_combo'):
+                    self._variante_combo.set_options([(v["id"], v["nombre"]) for v in self._variantes_disponibles])
             except Exception:
                 logger.exception("Error cargando variantes del tipo")
         self._actualizar_label_variantes()
@@ -339,7 +362,19 @@ class ShopifyUploadView:
         for child in self._bodies_frame.winfo_children():
             child.destroy()
         self._body_boxes = {}
-        for i, v in enumerate(self._variantes_disponibles):
+
+        # Determinar qué variantes mostrar
+        variantes_a_mostrar = self._variantes_disponibles
+        if self._modo == "EDITAR" and hasattr(self, '_variante_combo'):
+            sel = self._variante_combo.get().strip()
+            if sel:
+                # Mostrar solo la variante seleccionada
+                variantes_a_mostrar = [v for v in self._variantes_disponibles if v["nombre"] == sel]
+                if not variantes_a_mostrar:
+                    # Fallback por si la variante no está en la lista de activas
+                    variantes_a_mostrar = [{"id": None, "nombre": sel}]
+
+        for i, v in enumerate(variantes_a_mostrar):
             nombre = v["nombre"]
             cell = tk.Frame(self._bodies_frame, bg=self._bg)
             cell.grid(row=i, column=0, sticky="ew", pady=(0, 6))
@@ -359,6 +394,14 @@ class ShopifyUploadView:
         for btn, m in ((self._btn_nuevo, "NUEVO"), (self._btn_editar, "EDITAR")):
             btn.configure(fg_color=self._primary if m == modo else self._secondary,
                           text_color="#000" if m == modo else "#FFF")
+        
+        # UI del campo variante según modo
+        if hasattr(self, '_variante_combo'):
+            if modo == "EDITAR":
+                self._variante_combo.entry.configure(state="normal")
+            else:
+                self._variante_combo.entry.configure(state="disabled")
+
         if modo == "EDITAR":
             self._edit_frame.pack(fill="x", padx=10, pady=5, after=self._content.winfo_children()[1])
             self._btn_upload.configure(text="ACTUALIZAR PRODUCTO")
@@ -377,6 +420,8 @@ class ShopifyUploadView:
                 e.clear()
         self._seo_box.delete("1.0", "end")
         self._tipo_combo.clear()
+        if hasattr(self, '_variante_combo'):
+            self._variante_combo.clear()
         self._variantes_disponibles = []
         self._actualizar_label_variantes()
         self._rebuild_body_boxes()
@@ -497,16 +542,48 @@ class ShopifyUploadView:
         self._seo_box.delete("1.0", "end")
         self._seo_box.insert("1.0", (prod.get("seo") or {}).get("description") or "")
         self._status_menu.set(prod.get("status", "DRAFT"))
-        if prod.get("productType"):
-            p_type = prod["productType"]
-            self._tipo_combo.set(p_type)
-            # Si el combo no encontró el tipo por nombre exacto, probar por nombre de variante
-            if self._tipo_combo.get_id() is None:
-                tipo_real = self._tipo_service.get_tipo_by_variant_nombre(p_type)
-                if tipo_real:
-                    self._tipo_combo.set_by_id(tipo_real["id"])
+        # Resolución inteligente de Tipo y Variante TPV
+        p_type = prod.get("productType", "")
+        tipo_id = None
+        variante_id = None
 
+        # 1. Intentar por mapeo explícito en BD (shopify_product_id)
+        # Esto es lo más fiable para productos subidos/editados con la nueva versión
+        mapping = self.product_service.repo.get_diseno_mapping_by_shopify_id(prod["id"])
+        if mapping and mapping.get("genero"):
+            v_info = self._tipo_service.get_variante_by_nombre(mapping["genero"])
+            if v_info:
+                tipo_id = v_info["tipo_id"]
+                variante_id = v_info["id"]
+
+        # 2. Si no hay mapeo, intentar resolver por el productType de Shopify
+        if not tipo_id and p_type:
+            # ¿Es un nombre de tipo directo?
+            t_info = self._tipo_service.get_tipo_by_nombre(p_type)
+            if t_info:
+                tipo_id = t_info["id"]
+            else:
+                # ¿Es un nombre de variante? (ej: Riñonera)
+                v_info = self._tipo_service.get_variante_by_nombre(p_type)
+                if v_info:
+                    tipo_id = v_info["tipo_id"]
+                    variante_id = v_info["id"]
+
+        # Aplicar a la UI
+        if tipo_id:
+            self._tipo_combo.set_by_id(tipo_id)
+            self._on_tipo_change() # Rellena el combo de variantes
+            if variante_id:
+                self._variante_combo.set_by_id(variante_id)
+            
+            # Forzar reconstrucción de cajas de texto con la variante ya seleccionada
+            self._rebuild_body_boxes()
+        else:
+            # Fallback: poner el texto tal cual si no reconocemos el tipo
+            self._tipo_combo.set(p_type)
             self._on_tipo_change()
+            self._rebuild_body_boxes()
+
         for box in self._body_boxes.values():
             box.delete("1.0", "end")
         if self._body_boxes:
@@ -667,8 +744,11 @@ class ShopifyUploadView:
         def _safe_float(val, default=0.0):
             if val is None or str(val).lower() == 'none' or str(val).strip() == '':
                 return default
-            try: return float(str(val).replace(',', '.').replace('€', '').strip())
-            except: return default
+            try:
+                # Usar adaptadores de moneda para precisión exacta
+                return float(read_from_db(prepare_for_db(val)))
+            except:
+                return default
 
         base = {
             "tags": [t.strip() for t in self._entries["tags"].get().split(",") if t.strip()],
@@ -730,9 +810,10 @@ class ShopifyUploadView:
                     except: return default
 
                 sorpresa_qty = _safe_int(cfg.get("stock_sorpresa"), 50)
-                sorpresa_precio = cfg.get("precio_sorpresa")
-                if sorpresa_precio and str(sorpresa_precio).lower() != 'none':
-                    sorpresa_precio = float(str(sorpresa_precio).replace(',', '.').replace('€', '').strip())
+                sorpresa_precio_raw = cfg.get("precio_sorpresa")
+                if sorpresa_precio_raw and str(sorpresa_precio_raw).lower() != 'none':
+                    # Usar adaptadores de moneda
+                    sorpresa_precio = float(read_from_db(prepare_for_db(sorpresa_precio_raw)))
                 else:
                     sorpresa_precio = None
 
@@ -764,7 +845,7 @@ class ShopifyUploadView:
                 "imagenes": [dict(i) for i in self._imagenes],
                 "vendor": cfg.get("marca") or "Kool Things",
                 "diseno_codigo": _slugify(titulo),
-                "variante_nombre": variante,
+                "genero": variante,
             })
             trabajos.append(datos)
 
@@ -779,7 +860,7 @@ class ShopifyUploadView:
             mensajes = []
             for datos in trabajos:
                 r = self.product_service.product_set(datos)
-                mensajes.append(f"{datos['variante_nombre']}: {'OK' if r['success'] else r['message']}")
+                mensajes.append(f"{datos.get('genero', 'Producto')}: {'OK' if r['success'] else r['message']}")
             self.frame.after(0, lambda: self._fin_upload(mensajes))
         threading.Thread(target=work, daemon=True).start()
 
@@ -795,6 +876,14 @@ class ShopifyUploadView:
                            for o in prod.get("options", [])]
 
         datos = dict(base)
+
+        # Variante seleccionada explícitamente en la UI
+        variante_nombre = self._variante_combo.get().strip()
+
+        # Si el tipo usa variantes como tipo, el product_type es el nombre de la variante
+        if base.get("use_variant_as_type") and variante_nombre:
+            datos["product_type"] = variante_nombre
+
         datos.update({
             "title": self._entries["titulo"].get().strip(),
             "handle": prod.get("handle") or _slugify(self._entries["titulo"].get().strip()),
@@ -805,6 +894,8 @@ class ShopifyUploadView:
             "product_options": product_options,
             "imagenes": [dict(i) for i in self._imagenes],
             "imagenes_url": [dict(i) for i in self._imagenes_web],
+            "diseno_codigo": prod.get("handle") or _slugify(self._entries["titulo"].get().strip()),
+            "genero": variante_nombre,
         })
 
         self._status("Actualizando producto...")

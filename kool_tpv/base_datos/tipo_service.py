@@ -24,6 +24,13 @@ class TipoService:
             logging.exception('Error listando tipos')
             return []
 
+    def get_tipo_by_id(self, tipo_id: int) -> Optional[Dict[str, Any]]:
+        try:
+            return self.repo.get_by_id(tipo_id)
+        except Exception:
+            logging.exception('Error buscando tipo por ID %s', tipo_id)
+            return None
+
     def get_tipo_by_nombre(self, nombre: str) -> Optional[Dict[str, Any]]:
         try:
             return self.repo.get_by_nombre(nombre)
@@ -31,21 +38,17 @@ class TipoService:
             logging.exception('Error buscando tipo por nombre')
             return None
 
-    def get_tipo_by_variant_nombre(self, variant_nombre: str) -> Optional[Dict[str, Any]]:
-        """Busca un tipo que tenga una variante con el nombre indicado."""
+
+    def get_variante_by_nombre(self, nombre: str) -> Optional[Dict[str, Any]]:
+        """Busca una variante por nombre y devuelve su dict con id y tipo_id."""
         try:
-            query = """
-            SELECT t.id, t.nombre FROM tipos t
-            JOIN tipos_variantes tv ON t.id = tv.tipo_id
-            WHERE LOWER(tv.nombre) = LOWER(?)
-            LIMIT 1
-            """
-            row = self.db.fetch_one(query, (variant_nombre,))
+            query = "SELECT id, tipo_id, nombre FROM tipos_variantes WHERE LOWER(nombre) = LOWER(?) AND activo = 1 LIMIT 1"
+            row = self.db.fetch_one(query, (nombre,))
             if row:
-                return self.get_tipo_by_id(row[0])
+                return {'id': row[0], 'tipo_id': row[1], 'nombre': row[2]}
             return None
         except Exception:
-            logging.exception('Error buscando tipo por nombre de variante')
+            logging.exception('Error buscando variante por nombre %s', nombre)
             return None
 
     def save_tipo(self, nombre: str, descripcion: str = '', fide_porcentaje: float = 0.0, shopify_taxonomy: str = '', color: str = None, icono: str = None, coste_base: float = 0.0, requiere_talla: int = 0, requiere_color: int = 0, activo: int = 1, orden: int = 0, categoria_id: Optional[int] = None, web_activo: int = 0, template_suffix: str = '', shopify_use_variant_as_type: int = 0) -> int:

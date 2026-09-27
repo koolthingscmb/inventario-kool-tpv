@@ -4,6 +4,7 @@ import logging
 from typing import Dict, Any, List, Optional
 from kool_tpv.utils.widgets.tag_selector import TagSelector
 from kool_tpv.utils.widgets.notificaciones import show_error
+from kool_tpv.base_datos.money_adapter import prepare_for_db, read_from_db
 
 logger = logging.getLogger(__name__)
 
@@ -218,12 +219,13 @@ class TiposTab:
 
     def _format_precio_web(self, cents: Optional[int]) -> str:
         if not cents: return "0,00€"
-        return f"{cents/100:.2f}".replace('.', ',') + "€"
+        euros = read_from_db(cents)
+        return f"{euros:.2f}".replace('.', ',') + "€"
 
     def _parse_precio_web(self, texto: str) -> int:
         try:
             num_str = texto.replace('€', '').replace(',', '.').strip()
-            return int(float(num_str) * 100)
+            return prepare_for_db(num_str)
         except Exception: return 0
 
     def _guardar_variante(self, variante_id: int, sync_web: Optional[int] = None, precio_web: Optional[int] = None):

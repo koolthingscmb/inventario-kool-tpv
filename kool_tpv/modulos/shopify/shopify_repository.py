@@ -100,3 +100,11 @@ class ShopifyRepository:
                 (diseno_codigo,)
             )
         return [dict(row) for row in (rows or [])]
+
+    def get_diseno_mapping_by_shopify_id(self, shopify_product_id: str) -> Optional[Dict[str, Any]]:
+        """Obtiene el mapeo de diseño a partir del ID de Shopify."""
+        row = self.db.fetch_one(
+            "SELECT * FROM shopify_diseno_mapping WHERE shopify_product_id = ?",
+            (shopify_product_id,)
+        )
+        return dict(row) if row else None

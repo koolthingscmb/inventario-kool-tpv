@@ -10,6 +10,7 @@ import requests
 from .shopify_config_service import ShopifyConfigService
 from ..shopify_repository import ShopifyRepository
 from kool_tpv.modulos.produccion.repositories.produccion_tallas_grupos_repository import ProduccionTallasGruposRepository
+from kool_tpv.base_datos.money_adapter import read_from_db
 
 logger = logging.getLogger(__name__)
 
@@ -203,7 +204,10 @@ class ShopifyProductService:
                 if val is None or str(val).lower() == 'none' or str(val).strip() == '':
                     return 0.0
                 try:
-                    return float(str(val).replace(',', '.').replace('€', '').strip() or 0)
+                    from kool_tpv.base_datos.money_adapter import prepare_for_db
+                    # Convertimos a céntimos y de vuelta a Decimal para asegurar precisión
+                    cents = prepare_for_db(val)
+                    return float(read_from_db(cents))
                 except:
                     return 0.0
 
@@ -236,9 +240,9 @@ class ShopifyProductService:
                 # Precio: precio_web > precio explícito > base
                 precio_variante_cents = v.get("precio_web") or 0
                 if precio_variante_cents:
-                    precio_variante = float(precio_variante_cents) / 100
+                    precio_variante = float(read_from_db(precio_variante_cents))
                 elif v.get("precio") is not None:
-                    precio_variante = float(v["precio"])
+                    precio_variante = _parse_float(v["precio"])
                 else:
                     precio_variante = precio_base
 
