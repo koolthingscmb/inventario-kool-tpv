@@ -39,6 +39,8 @@ class TiposTab:
         self._tipos_template_entry = None
         self._tipos_use_variant_as_type_check = None
         self._tipos_use_variant_as_type_var = None
+        self._tipos_agrupar_variantes_check = None
+        self._tipos_agrupar_variantes_var = None
         self._tipos_sorpresa_stock_entry = None
         self._tipos_sorpresa_precio_entry = None
         self._tipos_recargo_entry = None
@@ -129,12 +131,13 @@ class TiposTab:
     def _render_variantes(self, tipo_id: int):
         self._clear_central_tipos()
         try:
-            res = self.db.fetch_one("SELECT nombre, template_suffix, shopify_use_variant_as_type FROM tipos WHERE id = ?", (tipo_id,))
+            res = self.db.fetch_one("SELECT nombre, template_suffix, shopify_use_variant_as_type, shopify_agrupar_variantes FROM tipos WHERE id = ?", (tipo_id,))
             tipo_nombre = res[0] if res else ""
             template_suffix = res[1] or ""
             use_variant_as_type = res[2] or 0
+            agrupar_variantes = res[3] or 0
         except Exception:
-            tipo_nombre, template_suffix, use_variant_as_type = "", "", 0
+            tipo_nombre, template_suffix, use_variant_as_type, agrupar_variantes = "", "", 0, 0
 
         # Fila 1: Título
         header_frame = tk.Frame(self._central_tipos, bg=self._bg_medium)
@@ -162,6 +165,16 @@ class TiposTab:
             border_width=2
         )
         self._tipos_use_variant_as_type_check.pack(side="left", padx=(5, 15))
+
+        self._tipos_agrupar_variantes_var = tk.BooleanVar(value=bool(agrupar_variantes))
+        self._tipos_agrupar_variantes_check = ctk.CTkCheckBox(
+            config_row, text="AGRUPAR EN WEB",
+            variable=self._tipos_agrupar_variantes_var,
+            font=("Helvetica", 10), fg_color=self._primary_color,
+            hover_color=self._secondary_color, text_color="#FFFFFF",
+            border_width=2
+        )
+        self._tipos_agrupar_variantes_check.pack(side="left", padx=(5, 15))
 
         if tipo_nombre.lower() == "camiseta":
             tk.Label(config_row, text="STOCK SORP:", font=("Helvetica", 11), fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(5, 5))
@@ -249,6 +262,10 @@ class TiposTab:
         if self._tipos_use_variant_as_type_var:
             val = 1 if self._tipos_use_variant_as_type_var.get() else 0
             self.db.execute_query("UPDATE tipos SET shopify_use_variant_as_type = ? WHERE id = ?", (val, self._tipo_selected_id))
+
+        if self._tipos_agrupar_variantes_var:
+            val = 1 if self._tipos_agrupar_variantes_var.get() else 0
+            self.db.execute_query("UPDATE tipos SET shopify_agrupar_variantes = ? WHERE id = ?", (val, self._tipo_selected_id))
 
         if self._tipos_sorpresa_stock_entry and self._tipos_sorpresa_stock_entry.winfo_exists():
             self._config["stock_sorpresa"] = self._tipos_sorpresa_stock_entry.get()

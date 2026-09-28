@@ -35,7 +35,7 @@ class TipoRepository:
         rows = self.db.fetch_all(
             'SELECT id, nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, '
             'coste_base, requiere_talla, requiere_color, activo, orden, categoria_id, '
-            'web_activo, template_suffix, shopify_use_variant_as_type '
+            'web_activo, template_suffix, shopify_use_variant_as_type, shopify_agrupar_variantes '
             'FROM tipos ORDER BY nombre'
         )
         return [
@@ -56,6 +56,7 @@ class TipoRepository:
                 'web_activo': r[13],
                 'template_suffix': r[14],
                 'shopify_use_variant_as_type': r[15],
+                'shopify_agrupar_variantes': r[16],
             }
             for r in rows
         ] if rows else []
@@ -65,7 +66,7 @@ class TipoRepository:
         row = self.db.fetch_one(
             'SELECT id, nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, '
             'coste_base, requiere_talla, requiere_color, activo, orden, categoria_id, '
-            'web_activo, template_suffix, shopify_use_variant_as_type '
+            'web_activo, template_suffix, shopify_use_variant_as_type, shopify_agrupar_variantes '
             'FROM tipos WHERE id = ?',
             (id,),
         )
@@ -88,6 +89,7 @@ class TipoRepository:
             'web_activo': row[13],
             'template_suffix': row[14],
             'shopify_use_variant_as_type': row[15],
+            'shopify_agrupar_variantes': row[16],
         }
 
     def get_by_nombre(self, nombre: str) -> Optional[Dict[str, Any]]:
@@ -95,7 +97,7 @@ class TipoRepository:
         row = self.db.fetch_one(
             'SELECT id, nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, '
             'coste_base, requiere_talla, requiere_color, activo, orden, categoria_id, '
-            'web_activo, template_suffix, shopify_use_variant_as_type '
+            'web_activo, template_suffix, shopify_use_variant_as_type, shopify_agrupar_variantes '
             'FROM tipos WHERE LOWER(nombre) = LOWER(?) LIMIT 1',
             (nombre,),
         )
@@ -118,6 +120,7 @@ class TipoRepository:
             'web_activo': row[13],
             'template_suffix': row[14],
             'shopify_use_variant_as_type': row[15],
+            'shopify_agrupar_variantes': row[16],
         }
 
     def get_ventas_por_tipo(self, ticket_ids: List[int], line_tipo: str = None, tipo_ids: List[int] = None):
@@ -197,16 +200,17 @@ class TipoRepository:
         web_activo: int = 0,
         template_suffix: str = '',
         shopify_use_variant_as_type: int = 0,
+        shopify_agrupar_variantes: int = 0,
     ) -> int:
         """Inserta un nuevo tipo. Devuelve el id generado."""
         cur = self.db.execute_query(
             'INSERT INTO tipos (nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, '
             'coste_base, requiere_talla, requiere_color, activo, orden, categoria_id, '
-            'web_activo, template_suffix, shopify_use_variant_as_type) '
-            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'web_activo, template_suffix, shopify_use_variant_as_type, shopify_agrupar_variantes) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             (nombre, descripcion, shopify_taxonomy, float(fide_porcentaje), color, icono,
              float(coste_base), int(requiere_talla), int(requiere_color), int(activo), int(orden),
-             categoria_id, int(web_activo), template_suffix, int(shopify_use_variant_as_type)),
+             categoria_id, int(web_activo), template_suffix, int(shopify_use_variant_as_type), int(shopify_agrupar_variantes)),
         )
         return cur.lastrowid
 
@@ -228,17 +232,18 @@ class TipoRepository:
         web_activo: int = 0,
         template_suffix: str = '',
         shopify_use_variant_as_type: int = 0,
+        shopify_agrupar_variantes: int = 0,
     ) -> None:
         """Actualiza un tipo existente."""
         self.db.execute_query(
             'UPDATE tipos SET nombre = ?, descripcion = ?, '
             'shopify_taxonomy = ?, fide_porcentaje = ?, color = ?, icono = ?, '
             'coste_base = ?, requiere_talla = ?, requiere_color = ?, activo = ?, orden = ?, categoria_id = ?, '
-            'web_activo = ?, template_suffix = ?, shopify_use_variant_as_type = ? '
+            'web_activo = ?, template_suffix = ?, shopify_use_variant_as_type = ?, shopify_agrupar_variantes = ? '
             'WHERE id = ?',
             (nombre, descripcion, shopify_taxonomy, float(fide_porcentaje), color, icono,
              float(coste_base), int(requiere_talla), int(requiere_color), int(activo), int(orden),
-             categoria_id, int(web_activo), template_suffix, int(shopify_use_variant_as_type), id),
+             categoria_id, int(web_activo), template_suffix, int(shopify_use_variant_as_type), int(shopify_agrupar_variantes), id),
         )
 
     def delete(self, id: int) -> None:

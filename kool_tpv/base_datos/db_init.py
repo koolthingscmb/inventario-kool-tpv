@@ -412,6 +412,21 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migración 061: shopify_agrupar_variantes en tipos
+		try:
+			cols = [r[1] for r in (db.fetch_all("PRAGMA table_info('tipos')") or [])]
+			if 'shopify_agrupar_variantes' not in cols:
+				logging.info('Aplicando migración 061: shopify_agrupar_variantes en tipos')
+				db.connection.execute('ALTER TABLE tipos ADD COLUMN shopify_agrupar_variantes INTEGER DEFAULT 0')
+				db.connection.commit()
+				logging.info('Migración 061 aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 061')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Check existence
 		existing = []
 		try:

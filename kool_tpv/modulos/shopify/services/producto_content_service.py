@@ -167,12 +167,19 @@ class ProductoContentService:
         """SEO title con el patrón: {titulo} | {variante} | {marca}."""
         plantilla = self._get_prompt("seo_title", PLANTILLA_SEO_TITLE, tipo_id)
         marca = self.config_service.get_config().get("marca") or "Kool Things"
-        return (plantilla
+        
+        res = (plantilla
                 .replace("{titulo}", titulo)
                 .replace("{genero}", variante)
                 .replace("{variante}", variante)
                 .replace("{beneficio}", beneficio or "")
                 .replace("{marca}", marca))
+        
+        # Limpieza de barras dobles o espacios extra si alguna variable está vacía
+        res = re.sub(r'\s*\|\s*\|\s*', ' | ', res) # Quita el doble pipe " |  | "
+        res = re.sub(r'\|\s*$', '', res.strip())   # Quita pipe final
+        res = re.sub(r'^\s*\|', '', res.strip())   # Quita pipe inicial
+        return res.strip()
 
     def montar_html(self, body_json: Dict[str, str], variante: str, titulo_base: str,
                     otras_variantes: Optional[List[str]] = None,

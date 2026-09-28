@@ -379,9 +379,21 @@ class ShopifyUploadView:
             child.destroy()
         self._body_boxes = {}
 
+        # Determinar si agrupamos según el tipo seleccionado
+        agrupar = False
+        tipo_id = self._tipo_combo.get_id()
+        if tipo_id:
+            try:
+                res = self.db.fetch_one("SELECT shopify_agrupar_variantes FROM tipos WHERE id = ?", (tipo_id,))
+                agrupar = bool(res[0]) if res else False
+            except: pass
+
         # Determinar qué variantes mostrar
         variantes_a_mostrar = self._variantes_disponibles
-        if self._modo == "EDITAR" and hasattr(self, '_variante_combo'):
+        if agrupar:
+            # Si agrupamos, solo mostramos una caja genérica
+            variantes_a_mostrar = [{"id": None, "nombre": "General"}]
+        elif self._modo == "EDITAR" and hasattr(self, '_variante_combo'):
             sel = self._variante_combo.get().strip()
             if sel:
                 # Mostrar solo la variante seleccionada
@@ -787,8 +799,10 @@ class ShopifyUploadView:
 
         tipo = next((t for t in self._tipos if t["id"] == tipo_id), None)
         use_variant_as_type = False
+        agrupar_variantes = False
         if tipo:
             use_variant_as_type = bool(tipo.get("shopify_use_variant_as_type"))
+            agrupar_variantes = bool(tipo.get("shopify_agrupar_variantes"))
 
         template_suffix = ""
         if tipo and tipo.get("template_suffix"):
@@ -821,6 +835,7 @@ class ShopifyUploadView:
             "recargo_tallas": _safe_float(cfg.get("recargo_tallas")),
             "recargo_grupo_id": cfg.get("recargo_grupo_id"),
             "use_variant_as_type": use_variant_as_type,
+            "agrupar_variantes": agrupar_variantes,
         }
 
         if self._modo == "EDITAR":
@@ -847,6 +862,9 @@ class ShopifyUploadView:
             return
 
         trabajos = []
+        todas_las_variantes_stock = []
+        agrupar = base.get("agrupar_variantes", False)
+
         for v_info in self._variantes_disponibles:
             variante_id = v_info["id"]
             variante = v_info["nombre"]
@@ -857,6 +875,10 @@ class ShopifyUploadView:
             # Asegurar cantidad entera en cada variante real
             for v in variantes:
                 v["cantidad"] = int(v.get("cantidad") or 0)
+                # Si agrupamos, el nombre de la variante TPV se convierte en una opción de Shopify (ej: Talla o Género)
+                if agrupar:
+                    # Guardamos el nombre del género para identificarlo luego
+                    v["tpv_variante_nombre"] = variante
 
             # Color "Sorpresa": solo en camisetas, una opción extra por talla
             if es_camiseta:
@@ -893,29 +915,76 @@ class ShopifyUploadView:
                     }
                     if sorpresa_precio is not None:
                         v_sorpresa["precio"] = sorpresa_precio
+                    if agrupar: v_sorpresa["tpv_variante_nombre"] = variante
                     variantes.append(v_sorpresa)
 
-            body_box = self._body_boxes.get(variante)
-            datos = dict(base)
-            if base.get("use_variant_as_type"):
-                datos["product_type"] = variante
+            if agrupar:
+                todas_las_variantes_stock.extend(variantes)
+            else:
+                # Flujo normal: un producto por variante
+                body_box = self._body_boxes.get(variante)
+                datos = dict(base)
+                if base.get("use_variant_as_type"):
+                    datos["product_type"] = variante
+
+                tipo_id = self._tipo_combo.get_id()
+                beneficio = self._entries["beneficio"].get().strip()
+                datos.update({
+                    "title": f"{titulo} | {variante}",
+                    "handle": f"{_slugify(titulo)}-{_slugify(variante)}",
+                    "description_html": body_box.get("1.0", "end-1c") if body_box else "",
+                    "seo_title": self.content_service.seo_title_for(titulo, variante, beneficio=beneficio, tipo_id=tipo_id),
+                    "tags": base["tags"] + [variante],
+                    "variantes": variantes,
+                    "iniciales": iniciales,
+                    "imagenes": [dict(i) for i in self._imagenes],
+                    "vendor": cfg.get("marca") or "Kool Things",
+                    "diseno_codigo": _slugify(titulo),
+                    "genero": variante,
+                })
+                trabajos.append(datos)
+
+        # Si agrupamos, creamos UN SOLO TRABAJO con todas las variantes
+        if agrupar and todas_las_variantes_stock:
+            # En modo agrupado, el nombre de la variante TPV se añade como el valor de la opción 'Talla'
+            for v in todas_las_variantes_stock:
+                orig_talla = v.get("talla") or ""
+                tpv_var = v.get("tpv_variante_nombre") or ""
+                
+                # Forzamos que requiera talla para que el motor cree la opción en Shopify
+                v["requiere_talla"] = 1
+                v["requiere_color"] = 0 # Normalmente las láminas no tienen opción color
+                
+                # Si la talla está vacía o es igual al nombre de la variante, usamos el nombre de la variante
+                if not orig_talla or orig_talla.upper() == "ÚNICA":
+                    v["talla"] = tpv_var
+                else:
+                    # Si ya tiene talla, las combinamos (ej: Lámina - A4)
+                    v["talla"] = f"{tpv_var} {orig_talla}"
+
+            # Usar la primera descripción disponible o una genérica
+            desc = ""
+            if self._body_boxes:
+                desc = next(iter(self._body_boxes.values())).get("1.0", "end-1c")
 
             tipo_id = self._tipo_combo.get_id()
             beneficio = self._entries["beneficio"].get().strip()
-            datos.update({
-                "title": f"{titulo} | {variante}",
-                "handle": f"{_slugify(titulo)}-{_slugify(variante)}",
-                "description_html": body_box.get("1.0", "end-1c") if body_box else "",
-                "seo_title": self.content_service.seo_title_for(titulo, variante, beneficio=beneficio, tipo_id=tipo_id),
-                "tags": base["tags"] + [variante],
-                "variantes": variantes,
+            
+            datos_unico = dict(base)
+            datos_unico.update({
+                "title": titulo,
+                "handle": _slugify(titulo),
+                "description_html": desc,
+                "seo_title": self.content_service.seo_title_for(titulo, "", beneficio=beneficio, tipo_id=tipo_id),
+                "tags": base["tags"],
+                "variantes": todas_las_variantes_stock,
                 "iniciales": iniciales,
                 "imagenes": [dict(i) for i in self._imagenes],
                 "vendor": cfg.get("marca") or "Kool Things",
                 "diseno_codigo": _slugify(titulo),
-                "genero": variante,
+                "genero": "Pack", # Genérico para el mapeo
             })
-            trabajos.append(datos)
+            trabajos.append(datos_unico)
 
         if not trabajos:
             self._btn_upload.configure(state="normal")
