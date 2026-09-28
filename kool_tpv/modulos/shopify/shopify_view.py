@@ -63,6 +63,7 @@ class ShopifyView(BaseModuleView):
             'show_sync': self.show_sync,
             'show_config': self.show_config,
             'show_upload': self.show_upload,
+            'show_bulk_edit': self.show_bulk_edit,
         }
 
         # Iterate over configured buttons and rebind matching buttons in the UI
@@ -107,6 +108,7 @@ class ShopifyView(BaseModuleView):
             'SINC': self.show_sync,
             'CONFIG': self.show_config,
             'SUBIDA': self.show_upload,
+            'MASIVA': self.show_bulk_edit,
         }
 
     def _on_power(self):
@@ -145,6 +147,20 @@ class ShopifyView(BaseModuleView):
 
         except Exception:
             logging.exception("Error en show_upload")
+
+    def show_bulk_edit(self):
+        """Muestra la subvista de edición masiva de productos en Shopify."""
+        try:
+            logging.info("Abriendo edición masiva Shopify...")
+            self.actualizar_ruta('MASIVA')
+
+            from kool_tpv.modulos.shopify.ui.bulk_edit_view import ShopifyBulkEditView
+
+            bulk_view = ShopifyBulkEditView(self.central_area, self.db)
+            self.set_central_content(bulk_view)
+
+        except Exception:
+            logging.exception("Error en show_bulk_edit")
 
     def show_config(self):
         """Muestra el tab de configuración de Shopify."""

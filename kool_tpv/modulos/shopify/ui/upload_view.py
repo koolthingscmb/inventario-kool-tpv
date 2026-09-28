@@ -118,6 +118,7 @@ class ShopifyUploadView:
         self._search_entry = ctk.CTkEntry(self._edit_frame, width=280, height=34,
                                           placeholder_text="título, handle o SKU...")
         self._search_entry.pack(side="left", padx=5)
+        self._search_entry.bind("<Return>", lambda e: self._buscar_producto())
         ctk.CTkButton(self._edit_frame, text="BUSCAR", width=90, height=34,
                       fg_color=self._secondary, command=self._buscar_producto).pack(side="left", padx=5)
         self._search_combo = ctk.CTkOptionMenu(self._edit_frame, values=["—"], width=350, height=34,

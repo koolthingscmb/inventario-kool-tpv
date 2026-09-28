@@ -3,7 +3,7 @@ import json
 import mimetypes
 import uuid
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional, Tuple, Callable
 
 import requests
 
@@ -415,8 +415,169 @@ class ShopifyProductService:
         return {"success": True, "message": f"Publicado en {len(pubs)} canales"}
 
     # ------------------------------------------------------------------
-    # Actualizar SKUs de variantes existentes
+    # Operaciones Bulk (Edición Masiva)
     # ------------------------------------------------------------------
+
+    def buscar_productos(self, texto: str, limit: int = 20) -> List[Dict[str, Any]]:
+        """Busca productos en Shopify por título/handle/SKU."""
+        ctx = self._api_context()
+        if not ctx:
+            return []
+        endpoint, headers, _ = ctx
+        
+        # Búsqueda natural de Shopify: si hay espacios, los tratamos como términos separados
+        q = f"*{texto}*" if " " not in texto else texto
+        
+        data, err = self._graphql(endpoint, headers, """
+            query($q: String!, $limit: Int!) {
+                products(first: $limit, query: $q, sortKey: CREATED_AT, reverse: true) {
+                    edges { node { id title handle status } }
+                }
+            }
+        """, {"q": q, "limit": limit})
+        if err or not data:
+            logger.error(f"buscar_productos: {err}")
+            return []
+        return [e["node"] for e in data.get("products", {}).get("edges", [])]
+
+    def get_all_product_types(self) -> List[str]:
+        """Obtiene la lista única de tipos de producto que existen en Shopify."""
+        ctx = self._api_context()
+        if not ctx: return []
+        endpoint, headers, _ = ctx
+
+        gql = "{ productTypes(first: 250) { edges { node } } }"
+        data, err = self._graphql(endpoint, headers, gql, {})
+        if err or not data:
+            logger.error(f"Error obteniendo tipos de Shopify: {err}")
+            return []
+        
+        return [e["node"] for e in data.get("productTypes", {}).get("edges", []) if e["node"]]
+
+    def buscar_productos_lote(self, filters: Dict[str, Any], on_page_callback: Optional[Callable] = None) -> List[Dict[str, Any]]:
+        """Búsqueda avanzada con paginación infinita (asíncrona vía callback)."""
+        ctx = self._api_context()
+        if not ctx: return []
+        endpoint, headers, _ = ctx
+
+        # Construir query de Shopify
+        query_parts = []
+        if filters.get("tipo"): query_parts.append(f"product_type:'{filters['tipo']}'")
+        if filters.get("tag"): query_parts.append(f"tag:'{filters['tag']}'")
+        
+        if filters.get("search"):
+            s = filters["search"]
+            # Búsqueda más flexible para títulos con espacios
+            query_parts.append(f"(title:*{s}* OR sku:*{s}* OR {s})")
+        
+        # Filtros de estado (Shopify query syntax)
+        status_parts = []
+        if not filters.get("excluir_borradores"): status_parts.append("status:draft")
+        if not filters.get("excluir_archivados"): status_parts.append("status:archived")
+        status_parts.append("status:active")
+        
+        q = " AND ".join(query_parts)
+        if status_parts:
+            q = f"({q}) AND ({' OR '.join(status_parts)})" if q else " OR ".join(status_parts)
+
+        all_nodes = []
+        has_next = True
+        cursor = None
+
+        gql = """
+        query($q: String, $cursor: String) {
+            products(first: 250, query: $q, after: $cursor, sortKey: CREATED_AT, reverse: true) {
+                pageInfo { hasNextPage endCursor }
+                edges {
+                    node {
+                        id title handle status productType tags templateSuffix
+                        variants(first: 100) {
+                            nodes { id sku price inventoryQuantity }
+                        }
+                    }
+                }
+            }
+        }
+        """
+
+        while has_next:
+            data, err = self._graphql(endpoint, headers, gql, {"q": q, "cursor": cursor})
+            if err or not data:
+                logger.error(f"Error en búsqueda bulk: {err}")
+                break
+            
+            res = data.get("products", {})
+            page_nodes = [e["node"] for e in res.get("edges", [])]
+            all_nodes.extend(page_nodes)
+            
+            if on_page_callback:
+                on_page_callback(page_nodes)
+
+            pi = res.get("pageInfo", {})
+            has_next = pi.get("hasNextPage")
+            cursor = pi.get("endCursor")
+
+        return all_nodes
+
+    def actualizar_productos_lote(self, updates: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Actualiza múltiples productos/variantes en bloque."""
+        ctx = self._api_context()
+        if not ctx: return {"success": False, "message": "Configuración incompleta"}
+        endpoint, headers, _ = ctx
+
+        total_ok = 0
+        errores = []
+
+        # Separar por tipo de cambio
+        pvp_updates = [u for u in updates if "new_price" in u]
+        tpl_updates = [u for u in updates if "new_template" in u]
+
+        # 1. Actualizar PVP (vía productVariantsBulkUpdate)
+        if pvp_updates:
+            by_product = {}
+            for u in pvp_updates:
+                p_id = u["product_id"]
+                if p_id not in by_product: by_product[p_id] = []
+                by_product[p_id].append({"id": u["variant_id"], "price": f"{u['new_price']:.2f}"})
+            
+            mutation_pvp = """
+            mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantBulkInput!]!) {
+                productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+                    userErrors { message }
+                }
+            }
+            """
+            for p_id, variants_input in by_product.items():
+                data, err = self._graphql(endpoint, headers, mutation_pvp, {"productId": p_id, "variants": variants_input})
+                if err: errores.append(err)
+                elif data.get("productVariantsBulkUpdate", {}).get("userErrors"):
+                    errores.extend([e["message"] for e in data["productVariantsBulkUpdate"]["userErrors"]])
+                else: total_ok += 1 # Contamos productos, no variantes aquí
+
+        # 2. Actualizar Plantillas (vía productSet)
+        if tpl_updates:
+            mutation_tpl = """
+            mutation productSet($input: ProductSetInput!, $identifier: ProductSetIdentifiers) {
+                productSet(input: $input, identifier: $identifier) {
+                    userErrors { message }
+                }
+            }
+            """
+            for u in tpl_updates:
+                p_input = {"templateSuffix": u["new_template"]}
+                p_id = {"id": u["product_id"]}
+                data, err = self._graphql(endpoint, headers, mutation_tpl, {"input": p_input, "identifier": p_id})
+                if err: errores.append(err)
+                elif data.get("productSet", {}).get("userErrors"):
+                    errores.extend([e["message"] for e in data["productSet"]["userErrors"]])
+                else: total_ok += 1
+
+        return {
+            "success": len(errores) == 0,
+            "total_ok": total_ok,
+            "message": f"Operación completada. Errores: {len(errores)}",
+            "errores": errores
+        }
 
     def actualizar_skus(self, product_id: str, variantes: List[Dict[str, str]]) -> Dict[str, Any]:
         """Actualiza solo los SKUs de variantes existentes (productVariantsBulkUpdate).
@@ -456,66 +617,6 @@ class ShopifyProductService:
                                f"{n} SKUs actualizados en {product_id}")
         return {"success": True, "message": f"{n} SKUs actualizados"}
 
-    def metafields_set(self, owner_id: str, metafields: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Actualiza o crea metacampos para un recurso (producto, variante, etc).
-        
-        metafields: [{"namespace": "...", "key": "...", "value": "...", "type": "..."}]
-        """
-        ctx = self._api_context()
-        if not ctx:
-            return {"success": False, "message": "Configuración incompleta"}
-        endpoint, headers, _ = ctx
-
-        inputs = []
-        for mf in metafields:
-            inputs.append({
-                "ownerId": owner_id,
-                "namespace": mf["namespace"],
-                "key": mf["key"],
-                "value": str(mf["value"]),
-                "type": mf["type"]
-            })
-
-        mutation = """
-        mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
-          metafieldsSet(metafields: $metafields) {
-            metafields { id namespace key value }
-            userErrors { field message }
-          }
-        }
-        """
-        data, err = self._graphql(endpoint, headers, mutation, {"metafields": inputs})
-        if err:
-            return {"success": False, "message": err}
-
-        result = data.get("metafieldsSet", {})
-        if result.get("userErrors"):
-            return {"success": False, "message": json.dumps(result["userErrors"])}
-
-        return {"success": True}
-
-    # ------------------------------------------------------------------
-    # Modo EDITAR: buscar y cargar productos de Shopify
-    # ------------------------------------------------------------------
-
-    def buscar_productos(self, texto: str, limit: int = 20) -> List[Dict[str, Any]]:
-        """Busca productos en Shopify por título/handle/SKU."""
-        ctx = self._api_context()
-        if not ctx:
-            return []
-        endpoint, headers, _ = ctx
-        data, err = self._graphql(endpoint, headers, """
-            query($q: String!, $limit: Int!) {
-                products(first: $limit, query: $q) {
-                    edges { node { id title handle status } }
-                }
-            }
-        """, {"q": f"*{texto}*", "limit": limit})
-        if err or not data:
-            logger.error(f"buscar_productos: {err}")
-            return []
-        return [e["node"] for e in data.get("products", {}).get("edges", [])]
-
     def cargar_producto(self, product_id: str) -> Optional[Dict[str, Any]]:
         """Carga todos los datos editables de un producto existente."""
         ctx = self._api_context()
@@ -525,7 +626,7 @@ class ShopifyProductService:
         data, err = self._graphql(endpoint, headers, """
             query($id: ID!) {
                 product(id: $id) {
-                    id title handle status descriptionHtml tags productType
+                    id title handle status descriptionHtml tags productType templateSuffix
                     seo { title description }
                     options { name values }
                     variants(first: 250) {
@@ -556,3 +657,51 @@ class ShopifyProductService:
             logger.error(f"cargar_producto {product_id}: {err}")
             return None
         return data["product"]
+
+    def metafields_set(self, owner_id: str, metafields: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Actualiza o crea metacampos para un recurso (producto, variante, etc).
+        
+        metafields: [{"namespace": "...", "key": "...", "value": "...", "type": "..."}]
+        """
+        ctx = self._api_context()
+        if not ctx:
+            return {"success": False, "message": "Configuración de Shopify incompleta"}
+        endpoint, headers, _ = ctx
+
+        # Preparar los inputs para la mutación metafieldsSet
+        inputs = []
+        for mf in metafields:
+            inputs.append({
+                "ownerId": owner_id,
+                "namespace": mf["namespace"],
+                "key": mf["key"],
+                "value": str(mf["value"]),
+                "type": mf["type"]
+            })
+
+        mutation = """
+        mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+            metafieldsSet(metafields: $metafields) {
+                metafields {
+                    id
+                    namespace
+                    key
+                    value
+                }
+                userErrors {
+                    field
+                    message
+                    code
+                }
+            }
+        }
+        """
+        data, err = self._graphql(endpoint, headers, mutation, {"metafields": inputs})
+        if err:
+            return {"success": False, "message": err}
+
+        result = data.get("metafieldsSet", {})
+        if result.get("userErrors"):
+            return {"success": False, "message": json.dumps(result["userErrors"])}
+
+        return {"success": True, "message": "Metacampos actualizados correctamente"}

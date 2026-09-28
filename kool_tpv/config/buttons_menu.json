@@ -32,6 +32,7 @@
     "buttons": [
       {"id": "sync", "text": "SINC", "action": "show_sync"},
       {"id": "upload", "text": "SUBIDA", "action": "show_upload"},
+      {"id": "bulk", "text": "MASIVA", "action": "show_bulk_edit"},
       {"id": "config", "text": "CONFIG", "action": "show_config"}
     ]
   },
