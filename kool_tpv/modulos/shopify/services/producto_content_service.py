@@ -163,7 +163,7 @@ class ProductoContentService:
     # Montaje del HTML final (plantilla editable + estructura fija)
     # ------------------------------------------------------------------
 
-    def seo_title_for(self, titulo: str, variante: str, tipo_id: Optional[int] = None) -> str:
+    def seo_title_for(self, titulo: str, variante: str, beneficio: str = "", tipo_id: Optional[int] = None) -> str:
         """SEO title con el patrón: {titulo} | {variante} | {marca}."""
         plantilla = self._get_prompt("seo_title", PLANTILLA_SEO_TITLE, tipo_id)
         marca = self.config_service.get_config().get("marca") or "Kool Things"
@@ -171,6 +171,7 @@ class ProductoContentService:
                 .replace("{titulo}", titulo)
                 .replace("{genero}", variante)
                 .replace("{variante}", variante)
+                .replace("{beneficio}", beneficio or "")
                 .replace("{marca}", marca))
 
     def montar_html(self, body_json: Dict[str, str], variante: str, titulo_base: str,

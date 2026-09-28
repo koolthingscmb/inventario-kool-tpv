@@ -265,10 +265,20 @@ class ShopifyUploadView:
 
         # --- Contenido IA ---
         self._section("CONTENIDO (IA)")
-        ctk.CTkButton(scroll, text="GENERAR CONTENIDO", width=220, height=40,
+        
+        ia_row = tk.Frame(scroll, bg=self._bg)
+        ia_row.pack(fill="x", padx=10, pady=5)
+        
+        ctk.CTkButton(ia_row, text="GENERAR CONTENIDO", width=220, height=40,
                       fg_color=self._primary, text_color="#000",
                       font=("Helvetica", 13, "bold"),
-                      command=self._generar_contenido).pack(padx=10, pady=5, anchor="w")
+                      command=self._generar_contenido).pack(side="left")
+                      
+        tk.Label(ia_row, text="TÍTULO SEO:", fg="#888", bg=self._bg,
+                 font=("Helvetica", 10, "bold")).pack(side="left", padx=(20, 10))
+        self._seo_title_entry = ctk.CTkEntry(ia_row, placeholder_text="Título para Google...",
+                                             height=34, font=("Helvetica", 12))
+        self._seo_title_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
         cont_grid = tk.Frame(scroll, bg=self._bg)
         cont_grid.pack(fill="both", expand=True, padx=10)
@@ -425,6 +435,8 @@ class ShopifyUploadView:
             elif hasattr(e, "clear"):
                 e.clear()
         self._seo_box.delete("1.0", "end")
+        if hasattr(self, '_seo_title_entry'):
+            self._seo_title_entry.delete(0, "end")
         self._tipo_combo.clear()
         if hasattr(self, '_variante_combo'):
             self._variante_combo.clear()
@@ -553,6 +565,11 @@ class ShopifyUploadView:
         self._entries["tags"].insert(0, ", ".join(prod.get("tags") or []))
         self._seo_box.delete("1.0", "end")
         self._seo_box.insert("1.0", (prod.get("seo") or {}).get("description") or "")
+        
+        if hasattr(self, '_seo_title_entry'):
+            self._seo_title_entry.delete(0, "end")
+            self._seo_title_entry.insert(0, (prod.get("seo") or {}).get("title") or "")
+            
         self._status_menu.set(prod.get("status", "DRAFT"))
         # Resolución inteligente de Tipo y Variante TPV
         p_type = prod.get("productType", "")
@@ -717,7 +734,17 @@ class ShopifyUploadView:
         if res.get("seo_desc"):
             self._seo_box.delete("1.0", "end")
             self._seo_box.insert("1.0", res["seo_desc"])
+        
         titulo = self._entries["titulo"].get().strip()
+        
+        # Rellenar SEO Title (usamos la primera variante como ejemplo para la previsualización)
+        if self._variantes_disponibles and hasattr(self, '_seo_title_entry'):
+            primera_variante = self._variantes_disponibles[0]["nombre"]
+            beneficio = self._entries["beneficio"].get().strip()
+            seo_title = self.content_service.seo_title_for(titulo, primera_variante, beneficio=beneficio, tipo_id=tipo_id)
+            self._seo_title_entry.delete(0, "end")
+            self._seo_title_entry.insert(0, seo_title)
+            
         todas = [v["nombre"] for v in self._variantes_disponibles]
         for genero, body in res.get("bodies", {}).items():
             html = self.content_service.montar_html(body, genero, titulo, todas, tipo_id=tipo_id)
@@ -771,15 +798,21 @@ class ShopifyUploadView:
             if val is None or str(val).lower() == 'none' or str(val).strip() == '':
                 return default
             try:
+                # Limpiar el valor antes de procesar (quitar € y arreglar comas)
+                clean_val = str(val).replace('€', '').replace(',', '.').strip()
                 # Usar adaptadores de moneda para precisión exacta
-                return float(read_from_db(prepare_for_db(val)))
+                return float(read_from_db(prepare_for_db(clean_val)))
             except:
                 return default
+
+        seo_title = self._seo_title_entry.get().strip() if hasattr(self, '_seo_title_entry') else ""
+        if not seo_title:
+            seo_title = titulo[:70]
 
         base = {
             "tags": [t.strip() for t in self._entries["tags"].get().split(",") if t.strip()],
             "seo_desc": seo_desc,
-            "seo_title": titulo[:70],
+            "seo_title": seo_title,
             "status": status,
             "codigo_categoria": self._entries["codigo_categoria"].get().strip().upper(),
             "product_type": product_type,
@@ -835,11 +868,19 @@ class ShopifyUploadView:
                     try: return int(val)
                     except: return default
 
+                def _clean_money(val):
+                    if not val: return "0"
+                    return str(val).replace('€', '').replace(',', '.').strip()
+
                 sorpresa_qty = _safe_int(cfg.get("stock_sorpresa"), 50)
                 sorpresa_precio_raw = cfg.get("precio_sorpresa")
                 if sorpresa_precio_raw and str(sorpresa_precio_raw).lower() != 'none':
-                    # Usar adaptadores de moneda
-                    sorpresa_precio = float(read_from_db(prepare_for_db(sorpresa_precio_raw)))
+                    # Usar adaptadores de moneda con limpieza previa
+                    try:
+                        clean_val = _clean_money(sorpresa_precio_raw)
+                        sorpresa_precio = float(read_from_db(prepare_for_db(clean_val)))
+                    except:
+                        sorpresa_precio = None
                 else:
                     sorpresa_precio = None
 
@@ -860,11 +901,12 @@ class ShopifyUploadView:
                 datos["product_type"] = variante
 
             tipo_id = self._tipo_combo.get_id()
+            beneficio = self._entries["beneficio"].get().strip()
             datos.update({
                 "title": f"{titulo} | {variante}",
                 "handle": f"{_slugify(titulo)}-{_slugify(variante)}",
                 "description_html": body_box.get("1.0", "end-1c") if body_box else "",
-                "seo_title": self.content_service.seo_title_for(titulo, variante, tipo_id=tipo_id),
+                "seo_title": self.content_service.seo_title_for(titulo, variante, beneficio=beneficio, tipo_id=tipo_id),
                 "tags": base["tags"] + [variante],
                 "variantes": variantes,
                 "iniciales": iniciales,
