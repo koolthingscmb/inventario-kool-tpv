@@ -246,8 +246,8 @@ class ShopifyProductService:
                 else:
                     precio_variante = precio_base
 
-                # Aplicar recargo si la talla es grande y no es un precio explícito (ej: Sorpresa)
-                if v.get("precio") is None and talla.strip().upper() in tallas_grandes:
+                # Aplicar recargo si la talla es grande (aplica a todas, incl. Sorpresa)
+                if talla.strip().upper() in tallas_grandes:
                     precio_variante += recargo
 
                 built_sku = self.build_sku(v["sku"], datos.get("codigo_categoria", ""), datos.get("iniciales", ""))

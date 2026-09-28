@@ -136,46 +136,51 @@ class TiposTab:
         except Exception:
             tipo_nombre, template_suffix, use_variant_as_type = "", "", 0
 
+        # Fila 1: Título
         header_frame = tk.Frame(self._central_tipos, bg=self._bg_medium)
-        header_frame.pack(fill="x", padx=15, pady=(10, 15))
+        header_frame.pack(fill="x", padx=15, pady=(10, 5))
 
         tk.Label(header_frame, text=tipo_nombre.upper(), font=("Helvetica", 18, "bold"),
                  fg=self._primary_color, bg=self._bg_medium).pack(side="left")
 
-        tk.Label(header_frame, text="PLANTILLA:", font=("Helvetica", 11),
-                 fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(30, 10))
-        self._tipos_template_entry = ctk.CTkEntry(header_frame, width=120, font=("Helvetica", 12))
+        # Fila 2: Configuración compacta
+        config_row = tk.Frame(self._central_tipos, bg=self._bg_medium)
+        config_row.pack(fill="x", padx=15, pady=(0, 15))
+
+        tk.Label(config_row, text="PLANTILLA:", font=("Helvetica", 11),
+                 fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(0, 5))
+        self._tipos_template_entry = ctk.CTkEntry(config_row, width=100, font=("Helvetica", 12))
         self._tipos_template_entry.insert(0, template_suffix)
         self._tipos_template_entry.pack(side="left", padx=(0, 15))
 
         self._tipos_use_variant_as_type_var = tk.BooleanVar(value=bool(use_variant_as_type))
         self._tipos_use_variant_as_type_check = ctk.CTkCheckBox(
-            header_frame, text="VARIANTE COMO TIPO EN SHOPIFY",
+            config_row, text="VARIANTE=TIPO",
             variable=self._tipos_use_variant_as_type_var,
             font=("Helvetica", 10), fg_color=self._primary_color,
             hover_color=self._secondary_color, text_color="#FFFFFF",
             border_width=2
         )
-        self._tipos_use_variant_as_type_check.pack(side="left", padx=(10, 0))
+        self._tipos_use_variant_as_type_check.pack(side="left", padx=(5, 15))
 
         if tipo_nombre.lower() == "camiseta":
-            row_config = tk.Frame(header_frame, bg=self._bg_medium)
-            row_config.pack(fill="x", pady=5)
-            tk.Label(row_config, text="STOCK SORPRESA:", font=("Helvetica", 11), fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(20, 5))
-            self._tipos_sorpresa_stock_entry = ctk.CTkEntry(row_config, width=60, font=("Helvetica", 12))
+            tk.Label(config_row, text="STOCK SORP:", font=("Helvetica", 11), fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(5, 5))
+            self._tipos_sorpresa_stock_entry = ctk.CTkEntry(config_row, width=40, font=("Helvetica", 12))
             self._tipos_sorpresa_stock_entry.insert(0, self._config.get("stock_sorpresa", "50"))
-            self._tipos_sorpresa_stock_entry.pack(side="left", padx=(0, 20))
-            tk.Label(row_config, text="PVP SORPRESA:", font=("Helvetica", 11), fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(0, 5))
-            self._tipos_sorpresa_precio_entry = ctk.CTkEntry(row_config, width=80, font=("Helvetica", 12))
+            self._tipos_sorpresa_stock_entry.pack(side="left", padx=(0, 15))
+            
+            tk.Label(config_row, text="€ SORP:", font=("Helvetica", 11), fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(5, 5))
+            self._tipos_sorpresa_precio_entry = ctk.CTkEntry(config_row, width=50, font=("Helvetica", 12))
             self._tipos_sorpresa_precio_entry.insert(0, self._config.get("precio_sorpresa", ""))
-            self._tipos_sorpresa_precio_entry.pack(side="left", padx=(0, 20))
-            tk.Label(row_config, text="GRUPO:", font=("Helvetica", 11, "bold"), fg=self._primary_color, bg=self._bg_medium).pack(side="left", padx=(0, 5))
+            self._tipos_sorpresa_precio_entry.pack(side="left", padx=(0, 15))
+            
+            tk.Label(config_row, text="GRUPO:", font=("Helvetica", 11, "bold"), fg=self._primary_color, bg=self._bg_medium).pack(side="left", padx=(5, 5))
             from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
             from kool_tpv.modulos.produccion.repositories.produccion_tallas_grupos_repository import ProduccionTallasGruposRepository
             repo_grupos = ProduccionTallasGruposRepository(self.db)
             opts_grupos = [(g.id, g.nombre) for g in repo_grupos.get_todos()]
-            self._tipos_recargo_grupo_combo = SearchableCombo(row_config, width=150, placeholder="Seleccionar...", options=opts_grupos, module_name="shopify")
-            self._tipos_recargo_grupo_combo.pack(side="left", padx=(0, 20))
+            self._tipos_recargo_grupo_combo = SearchableCombo(config_row, width=90, placeholder="Seleccionar...", options=opts_grupos, module_name="shopify")
+            self._tipos_recargo_grupo_combo.pack(side="left", padx=(0, 15))
             
             recargo_grupo_id = self._config.get("recargo_grupo_id")
             if recargo_grupo_id and str(recargo_grupo_id).lower() != 'none':
@@ -184,16 +189,18 @@ class TiposTab:
                 except (ValueError, TypeError):
                     pass
             
-            tk.Label(row_config, text="RECARGO €:", font=("Helvetica", 11), fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(0, 5))
-            self._tipos_recargo_entry = ctk.CTkEntry(row_config, width=60, font=("Helvetica", 12))
+            tk.Label(config_row, text="RECARGO €:", font=("Helvetica", 11), fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(5, 5))
+            self._tipos_recargo_entry = ctk.CTkEntry(config_row, width=40, font=("Helvetica", 12))
             self._tipos_recargo_entry.insert(0, self._config.get("recargo_tallas", "0"))
             self._tipos_recargo_entry.pack(side="left")
 
         self._tipos_price_entries = []
         list_frame = tk.Frame(self._central_tipos, bg=self._bg_medium)
         list_frame.pack(fill="both", expand=True, padx=15, pady=(0, 15))
-        for c in range(9): list_frame.columnconfigure(c, weight=1, uniform="tipo_var")
-        headers = [("VARIANTE", 20, "w"), ("SUBIR A WEB", 0, "center"), ("PRECIO WEB", 0, "center")]
+        for c in range(9): 
+            list_frame.columnconfigure(c, weight=0)
+
+        headers = [("VARIANTE", 13, "w"), ("↑ WEB", 0, "center"), ("€ WEB", 0, "center")]
         for grupo in range(3):
             for j, (texto, ancho, anclaje) in enumerate(headers):
                 tk.Label(list_frame, text=texto, font=("Helvetica", 11, "bold"), fg=self._primary_color, bg=self._bg_medium, width=ancho, anchor=anclaje).grid(row=0, column=(grupo*3)+j, padx=5, pady=8, sticky="ew")
@@ -209,7 +216,7 @@ class TiposTab:
             chk = ctk.CTkCheckBox(list_frame, text="", variable=chk_var, fg_color=self._primary_color, hover_color=self._secondary_color, width=20)
             chk.grid(row=fila, column=col_base + 1, padx=5, pady=6)
             chk_var.trace_add("write", lambda *a, vid=v_id, var=chk_var: self._guardar_variante(vid, sync_web=int(var.get())))
-            ent = ctk.CTkEntry(list_frame, width=80, height=28, font=("Helvetica", 11), justify="center")
+            ent = ctk.CTkEntry(list_frame, width=73, height=28, font=("Helvetica", 11), justify="center")
             ent.insert(0, self._format_precio_web(precio_web))
             ent.grid(row=fila, column=col_base + 2, padx=5, pady=6)
             self._tipos_price_entries.append((v_id, ent))
