@@ -572,22 +572,17 @@ class ShopifyUploadView:
             self._status("Error cargando el producto")
             return
         self._edit_product = prod
-        self._entries["titulo"].delete(0, "end")
-        self._entries["titulo"].insert(0, prod.get("title", ""))
         self._entries["tags"].delete(0, "end")
         self._entries["tags"].insert(0, ", ".join(prod.get("tags") or []))
         self._seo_box.delete("1.0", "end")
         self._seo_box.insert("1.0", (prod.get("seo") or {}).get("description") or "")
-        
-        if hasattr(self, '_seo_title_entry'):
-            self._seo_title_entry.delete(0, "end")
-            self._seo_title_entry.insert(0, (prod.get("seo") or {}).get("title") or "")
-            
         self._status_menu.set(prod.get("status", "DRAFT"))
+
         # Resolución inteligente de Tipo y Variante TPV
         p_type = prod.get("productType", "")
         tipo_id = None
         variante_id = None
+        variante_nombre = None
 
         # 1. Intentar por mapeo explícito en BD (shopify_product_id)
         # Esto es lo más fiable para productos subidos/editados con la nueva versión
@@ -597,6 +592,7 @@ class ShopifyUploadView:
             if v_info:
                 tipo_id = v_info["tipo_id"]
                 variante_id = v_info["id"]
+                variante_nombre = v_info["nombre"]
 
         # 2. Si no hay mapeo, intentar resolver por el productType de Shopify
         if not tipo_id and p_type:
@@ -610,14 +606,14 @@ class ShopifyUploadView:
                 if v_info:
                     tipo_id = v_info["tipo_id"]
                     variante_id = v_info["id"]
+                    variante_nombre = v_info["nombre"]
 
         # Aplicar a la UI
         if tipo_id:
             self._tipo_combo.set_by_id(tipo_id)
-            self._on_tipo_change() # Rellena el combo de variantes
+            self._on_tipo_change()  # Rellena el combo de variantes
             if variante_id:
                 self._variante_combo.set_by_id(variante_id)
-            
             # Forzar reconstrucción de cajas de texto con la variante ya seleccionada
             self._rebuild_body_boxes()
         else:
@@ -625,6 +621,32 @@ class ShopifyUploadView:
             self._tipo_combo.set(p_type)
             self._on_tipo_change()
             self._rebuild_body_boxes()
+
+        # Separar el título base de la variante cuando Shopify lo tiene como "Base | Variante"
+        full_title = prod.get("title", "")
+        base_title = full_title
+        if not variante_nombre:
+            variante_nombre = self._variante_combo.get().strip()
+
+        if variante_nombre and full_title.endswith(f" | {variante_nombre}"):
+            base_title = full_title[:-(len(f" | {variante_nombre}"))]
+        elif " | " in full_title:
+            # Fallback: si el sufijo coincide con alguna variante activa del tipo, la usamos
+            partes = full_title.rsplit(" | ", 1)
+            nombres_variantes = {v["nombre"] for v in self._variantes_disponibles}
+            if partes[1] in nombres_variantes:
+                base_title = partes[0]
+                variante_nombre = partes[1]
+                # Sincronizar el combo con el sufijo detectado
+                self._variante_combo.set(variante_nombre)
+                self._rebuild_body_boxes()
+
+        self._entries["titulo"].delete(0, "end")
+        self._entries["titulo"].insert(0, base_title)
+
+        if hasattr(self, '_seo_title_entry'):
+            self._seo_title_entry.delete(0, "end")
+            self._seo_title_entry.insert(0, (prod.get("seo") or {}).get("title") or "")
 
         for box in self._body_boxes.values():
             box.delete("1.0", "end")
@@ -749,12 +771,18 @@ class ShopifyUploadView:
             self._seo_box.insert("1.0", res["seo_desc"])
         
         titulo = self._entries["titulo"].get().strip()
-        
-        # Rellenar SEO Title (usamos la primera variante como ejemplo para la previsualización)
-        if self._variantes_disponibles and hasattr(self, '_seo_title_entry'):
-            primera_variante = self._variantes_disponibles[0]["nombre"]
+
+        # Rellenar SEO Title con la variante adecuada:
+        # en modo editar usamos la variante cargada del producto, no la primera del tipo.
+        variante_seo = ""
+        if self._modo == "EDITAR" and hasattr(self, '_variante_combo'):
+            variante_seo = self._variante_combo.get().strip()
+        if not variante_seo and self._variantes_disponibles:
+            variante_seo = self._variantes_disponibles[0]["nombre"]
+
+        if variante_seo and hasattr(self, '_seo_title_entry'):
             beneficio = self._entries["beneficio"].get().strip()
-            seo_title = self.content_service.seo_title_for(titulo, primera_variante, beneficio=beneficio, tipo_id=tipo_id)
+            seo_title = self.content_service.seo_title_for(titulo, variante_seo, beneficio=beneficio, tipo_id=tipo_id)
             self._seo_title_entry.delete(0, "end")
             self._seo_title_entry.insert(0, seo_title)
             
@@ -1023,8 +1051,15 @@ class ShopifyUploadView:
             variante_nombre = self._variante_combo.get().strip()
             diseno_codigo = prod.get("handle") or _slugify(self._entries["titulo"].get().strip())
 
-        product_options = [{"name": o["name"], "values": [{"name": x} for x in o.get("values", [])]}
-                           for o in prod.get("options", [])]
+        product_options = []
+        for o in prod.get("options", []):
+            values = []
+            for x in o.get("values", []):
+                if isinstance(x, dict):
+                    values.append({"name": x.get("name", "")})
+                else:
+                    values.append({"name": x})
+            product_options.append({"name": o["name"], "values": values})
 
         datos = dict(base)
 
@@ -1032,9 +1067,15 @@ class ShopifyUploadView:
         if base.get("use_variant_as_type") and variante_nombre:
             datos["product_type"] = variante_nombre
 
+        # Reconstruir el título igual que en modo nuevo: base + variante
+        titulo_base = self._entries["titulo"].get().strip()
+        title = titulo_base
+        if not base.get("agrupar_variantes", False) and variante_nombre:
+            title = f"{titulo_base} | {variante_nombre}"
+
         datos.update({
-            "title": self._entries["titulo"].get().strip(),
-            "handle": prod.get("handle") or _slugify(self._entries["titulo"].get().strip()),
+            "title": title,
+            "handle": prod.get("handle") or _slugify(titulo_base),
             "description_html": (next(iter(self._body_boxes.values())).get("1.0", "end-1c")
                                  if self._body_boxes else prod.get("descriptionHtml") or ""),
             "product_id": prod["id"],

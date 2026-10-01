@@ -30,7 +30,7 @@ class ShopifyBulkEditView:
         ('id', 60, 'ID'),
         ('title', 300, 'TÍTULO'),
         ('productType', 120, 'TIPO'),
-        ('template', 120, 'PLANTILLA'),
+        ('template', 180, 'PLANTILLA'),
         ('status', 100, 'ESTADO'),
         ('pvp_actual', 64, '€€'),
         ('pvp_propuesto', 120, '€€NEW', True),
