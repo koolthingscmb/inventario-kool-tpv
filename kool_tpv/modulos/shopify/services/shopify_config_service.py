@@ -18,6 +18,8 @@ class ShopifyConfigService:
         "google_api_key": "shopify_google_api_key",
         "ia_seo_prompt": "shopify_ia_seo_prompt",
         "api_version": "shopify_api_version",
+        "client_id": "shopify_client_id",
+        "client_secret": "shopify_client_secret",
         "marca": "shopify_marca",
         "link_guia": "shopify_link_guia",
         "botones_cdn": "shopify_botones_cdn",

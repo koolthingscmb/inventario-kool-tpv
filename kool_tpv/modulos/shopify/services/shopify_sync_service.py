@@ -4,6 +4,7 @@ import json
 import uuid
 from typing import List, Dict, Any, Optional, Tuple
 from .shopify_config_service import ShopifyConfigService
+from .shopify_auth_service import ShopifyAuthService
 from ..shopify_repository import ShopifyRepository
 
 logger = logging.getLogger(__name__)
@@ -16,13 +17,14 @@ class ShopifySyncService:
     def __init__(self, db):
         self.db = db
         self.config_service = ShopifyConfigService(db)
+        self.auth_service = ShopifyAuthService(db)
         self.repo = ShopifyRepository(db)
 
     def _get_api_context(self) -> Optional[Tuple[str, str, str, str]]:
         """Obtiene las credenciales y el contexto de la API desde la configuración."""
         cfg = self.config_service.get_config()
         shop_url = cfg.get("shop_url")
-        token = cfg.get("access_token")
+        token = self.auth_service.get_token()
         location_id = cfg.get("location_id")
         api_version = cfg.get("api_version") or self.DEFAULT_API_VERSION
 

@@ -8,6 +8,7 @@ from typing import List, Dict, Any, Optional, Tuple, Callable
 import requests
 
 from .shopify_config_service import ShopifyConfigService
+from .shopify_auth_service import ShopifyAuthService
 from ..shopify_repository import ShopifyRepository
 from kool_tpv.modulos.produccion.repositories.produccion_tallas_grupos_repository import ProduccionTallasGruposRepository
 from kool_tpv.base_datos.money_adapter import read_from_db
@@ -27,6 +28,7 @@ class ShopifyProductService:
     def __init__(self, db):
         self.db = db
         self.config_service = ShopifyConfigService(db)
+        self.auth_service = ShopifyAuthService(db)
         self.repo = ShopifyRepository(db)
 
     # ------------------------------------------------------------------
@@ -36,8 +38,9 @@ class ShopifyProductService:
     def _api_context(self) -> Optional[Tuple[str, Dict[str, str], str]]:
         cfg = self.config_service.get_config()
         shop_url = cfg.get("shop_url")
-        token = cfg.get("access_token")
+        token = self.auth_service.get_token()
         location_id = cfg.get("location_id")
+        
         if not shop_url or not token:
             return None
         shop_url = shop_url.replace("https://", "").replace("http://", "")
@@ -281,6 +284,17 @@ class ShopifyProductService:
             "seo": {"title": datos.get("seo_title", ""), "description": datos.get("seo_desc", "")},
             "variants": variantes_input,
         }
+        
+        # 3.1) Metacampos
+        if datos.get("metafields"):
+            product_input["metafields"] = []
+            for mf in datos["metafields"]:
+                product_input["metafields"].append({
+                    "namespace": mf.get("namespace", "custom"),
+                    "key": mf["key"],
+                    "value": str(mf["value"]),
+                    "type": mf.get("type", "single_line_text_field")
+                })
         if product_options:
             product_input["productOptions"] = product_options
         if datos.get("taxonomy_gid"):
@@ -635,7 +649,7 @@ class ShopifyProductService:
                     media(first: 50) {
                         nodes { id alt ... on MediaImage { image { url } } }
                     }
-                    metafields(first: 50) {
+                    metafields(first: 250) {
                         nodes {
                             id
                             namespace
