@@ -138,6 +138,10 @@ class ShopifyUploadView:
                                          font=("Helvetica", 9, "bold"))
         self._skus_status_lbl.pack(side="left", padx=5)
 
+        self._meta_status_lbl = tk.Label(self._edit_frame, text="", fg="#7CFC90", bg=self._bg_medium,
+                                         font=("Helvetica", 9, "bold"))
+        self._meta_status_lbl.pack(side="left", padx=5)
+
         # --- Formulario ---
         self._section("DATOS DEL DISEÑO")
         form = tk.Frame(scroll, bg=self._bg)
@@ -281,6 +285,10 @@ class ShopifyUploadView:
             fg_color=self._secondary, text_color="#FFF",
             font=("Helvetica", 11, "bold"), command=self._abrir_metafields)
         self._btn_meta.pack(side="left", padx=(10, 0))
+
+        self._meta_nuevo_status_lbl = tk.Label(ia_row, text="", fg="#7CFC90", bg=self._bg,
+                                               font=("Helvetica", 9, "bold"))
+        self._meta_nuevo_status_lbl.pack(side="left", padx=5)
 
         cont_grid = tk.Frame(scroll, bg=self._bg)
         cont_grid.pack(fill="both", expand=True, padx=10)
@@ -644,6 +652,12 @@ class ShopifyUploadView:
                 self._variante_combo.set(variante_nombre)
                 self._rebuild_body_boxes()
 
+        # 1. Borrar labels de metacampos
+        if hasattr(self, '_meta_status_lbl'):
+            self._meta_status_lbl.configure(text="")
+        if hasattr(self, '_meta_nuevo_status_lbl'):
+            self._meta_nuevo_status_lbl.configure(text="")
+            
         self._entries["titulo"].delete(0, "end")
         self._entries["titulo"].insert(0, base_title)
 
@@ -730,7 +744,16 @@ class ShopifyUploadView:
     def _on_metafields_preparados(self, metafields):
         """Recibe la lista de metacampos desde la subvista (para modo NUEVO o EDITAR)."""
         self._metafields_preparados = metafields
-        n = len([m for m in metafields if m.get("value")])
+        # Contamos cuántos tienen valor para informar al usuario en la barra de estado
+        n = len([m for m in metafields if str(m.get("value", "")).strip()])
+        
+        status_text = f"✓ {n} METACAMPOS LISTOS" if n > 0 else ""
+        
+        if hasattr(self, '_meta_status_lbl'):
+            self._meta_status_lbl.configure(text=status_text)
+        if hasattr(self, '_meta_nuevo_status_lbl'):
+            self._meta_nuevo_status_lbl.configure(text=status_text)
+            
         if n > 0:
             self._status(f"✓ {n} METACAMPOS PREPARADOS")
         else:

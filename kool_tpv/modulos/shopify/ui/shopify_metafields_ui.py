@@ -7,6 +7,7 @@ los cambios con metafieldsSet.
 import logging
 import threading
 import tkinter as tk
+import json
 from typing import Dict, Any, List, Optional, Callable
 
 import customtkinter as ctk
@@ -73,8 +74,8 @@ class ShopifyMetafieldsUI:
         acciones = tk.Frame(self.frame, bg=self._bg)
         acciones.pack(side="bottom", fill="x", padx=20, pady=(10, 20))
         
-        ctk.CTkButton(acciones, text="GUARDAR EN SHOPIFY", width=240, height=45,
-                      fg_color=self._primary, text_color="#000",
+        ctk.CTkButton(acciones, text="ACEPTAR Y PREPARAR ACTUALIZACIÓN", width=320, height=45,
+                      fg_color="#27ae60", text_color="#FFF",
                       font=("Helvetica", 14, "bold"),
                       command=self._guardar).pack(side="left")
         
@@ -444,43 +445,12 @@ class ShopifyMetafieldsUI:
             if new_val != orig_val:
                 changes.append(meta_item)
         
-        # Si no hay producto ID (modo NUEVO), devolvemos la lista al padre sin llamar a la API
-        if not self.producto.get("id"):
-            if self.on_aceptar:
-                self.on_aceptar(all_metafields)
-            ToastWidget.show(self.frame, "Metacampos preparados localmente", tipo="success")
-            self.frame.after(500, self._volver)
-            return
-
-        if not changes:
-            ToastWidget.show(self.frame, "No hay cambios que guardar", tipo="info")
-            return
-
-        self._status(f"Guardando {len(changes)} metacampos...")
-
-        def work():
-            res = self.service.metafields_set(self.producto.get("id"), changes)
-            
-            def done():
-                if res.get("success"):
-                    # Actualizar el objeto producto local con los nuevos valores
-                    for change in changes:
-                        for mf in (self.producto.get("metafields") or {}).get("nodes") or []:
-                            if mf["namespace"] == change["namespace"] and mf["key"] == change["key"]:
-                                mf["value"] = change["value"]
-                    
-                    if self.on_aceptar:
-                        self.on_aceptar(all_metafields)
-                        
-                    ToastWidget.show(self.frame, "Metacampos actualizados correctamente", tipo="success")
-                    self.frame.after(1000, self._volver)
-                else:
-                    self._status(f"Error: {res.get('message')}")
-                    show_error(self.frame, f"Error al guardar: {res.get('message')}")
-            
-            self.frame.after(0, done)
-            
-        threading.Thread(target=work, daemon=True).start()
+        # Notificar al padre con todos los metacampos (estén cambiados o no)
+        if self.on_aceptar:
+            self.on_aceptar(all_metafields)
+        
+        ToastWidget.show(self.frame, "Metacampos preparados correctamente", tipo="success")
+        self.frame.after(500, self._volver)
 
     def _status(self, texto):
         try:
