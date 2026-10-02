@@ -83,6 +83,9 @@ class ShopifyAuthService:
             self.db.execute_query("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES (?, ?)", ("shopify_temp_token", token))
             self.db.execute_query("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES (?, ?)", ("shopify_temp_token_expiry", str(exp_time)))
             
+            # Registrar en el log del módulo
+            self.config_service.add_log("AUTH_OAUTH", "success", "Nuevo token de acceso generado correctamente (OAuth)")
+            
             return token, None
         except Exception as e:
             logger.exception("Error solicitando token OAuth")
