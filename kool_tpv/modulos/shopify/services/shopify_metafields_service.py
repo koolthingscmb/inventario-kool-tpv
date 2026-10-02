@@ -120,6 +120,10 @@ class ShopifyMetafieldsService:
               id
               displayName
               handle
+              fields {
+                key
+                value
+              }
             }
             pageInfo {
               hasNextPage

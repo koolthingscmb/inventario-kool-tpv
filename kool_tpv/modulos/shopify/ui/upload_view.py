@@ -70,6 +70,7 @@ class ShopifyUploadView:
         self._variantes_disponibles: List[Dict[str, Any]] = []
         self._thumb_refs = []
         self._skus_preparados: Optional[Dict[str, Any]] = None
+        self._metafields_preparados: List[Dict[str, Any]] = []
 
         self.frame = tk.Frame(parent, bg=self._bg)
         self._build()
@@ -136,12 +137,6 @@ class ShopifyUploadView:
         self._skus_status_lbl = tk.Label(self._edit_frame, text="", fg="#7CFC90", bg=self._bg_medium,
                                          font=("Helvetica", 9, "bold"))
         self._skus_status_lbl.pack(side="left", padx=5)
-
-        self._btn_meta = ctk.CTkButton(
-            self._edit_frame, text="METACAMPOS", width=110, height=34,
-            fg_color=self._secondary, text_color="#FFF",
-            font=("Helvetica", 11, "bold"), command=self._abrir_metafields)
-        self._btn_meta.pack(side="left", padx=5)
 
         # --- Formulario ---
         self._section("DATOS DEL DISEÑO")
@@ -280,6 +275,12 @@ class ShopifyUploadView:
         self._seo_title_entry = ctk.CTkEntry(ia_row, placeholder_text="Título para Google...",
                                              height=34, font=("Helvetica", 12))
         self._seo_title_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
+
+        self._btn_meta = ctk.CTkButton(
+            ia_row, text="METACAMPOS", width=120, height=34,
+            fg_color=self._secondary, text_color="#FFF",
+            font=("Helvetica", 11, "bold"), command=self._abrir_metafields)
+        self._btn_meta.pack(side="left", padx=(10, 0))
 
         cont_grid = tk.Frame(scroll, bg=self._bg)
         cont_grid.pack(fill="both", expand=True, padx=10)
@@ -462,6 +463,7 @@ class ShopifyUploadView:
         self._status_menu.set("ACTIVE")
         self._status("")
         self._skus_preparados = None
+        self._metafields_preparados = []
         if hasattr(self, '_skus_status_lbl'):
             self._skus_status_lbl.configure(text="")
 
@@ -559,6 +561,7 @@ class ShopifyUploadView:
             return
         self._status("Cargando producto...")
         self._skus_preparados = None
+        self._metafields_preparados = []
         if hasattr(self, '_skus_status_lbl'):
             self._skus_status_lbl.configure(text="")
 
@@ -708,16 +711,30 @@ class ShopifyUploadView:
             self._skus_status_lbl.configure(text="")
 
     def _abrir_metafields(self):
-        """Abre la subvista de edición de Metacampos para el producto cargado."""
+        """Abre la subvista de edición de Metacampos para el producto cargado o nuevo."""
+        prod_data = self._edit_product or {}
         if not self._edit_product:
-            show_error(self.frame, "Carga primero un producto")
-            return
+            # Modo NUEVO: pasamos el título actual y los metacampos que hayamos preparado
+            prod_data = {
+                "title": self._entries["titulo"].get().strip() or "NUEVO PRODUCTO",
+                "metafields_list": self._metafields_preparados
+            }
             
         self.frame.pack_forget()
         meta_view = ShopifyMetafieldsUI(
-            self.frame.master, self.db, self._edit_product,
-            on_volver=lambda: self.frame.pack(fill="both", expand=True))
+            self.frame.master, self.db, prod_data,
+            on_volver=lambda: self.frame.pack(fill="both", expand=True),
+            on_aceptar=self._on_metafields_preparados)
         meta_view.frame.pack(fill="both", expand=True)
+
+    def _on_metafields_preparados(self, metafields):
+        """Recibe la lista de metacampos desde la subvista (para modo NUEVO o EDITAR)."""
+        self._metafields_preparados = metafields
+        n = len([m for m in metafields if m.get("value")])
+        if n > 0:
+            self._status(f"✓ {n} METACAMPOS PREPARADOS")
+        else:
+            self._status("Metacampos actualizados")
 
     # ------------------------------------------------------------------
     # Generar contenido IA
@@ -865,6 +882,7 @@ class ShopifyUploadView:
             "recargo_grupo_id": cfg.get("recargo_grupo_id"),
             "use_variant_as_type": use_variant_as_type,
             "agrupar_variantes": agrupar_variantes,
+            "metafields": self._metafields_preparados,
         }
 
         if self._modo == "EDITAR":

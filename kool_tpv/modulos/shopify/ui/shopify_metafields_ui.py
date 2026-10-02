@@ -44,6 +44,8 @@ class ShopifyMetafieldsUI:
             self._bg, self._bg_medium = '#000000', '#1a1a1a'
 
         self._rows: List[Dict[str, Any]] = []
+        self._last_definitions = []
+        self._last_values = {}
 
         self.frame = ctk.CTkFrame(parent, fg_color=self._bg)
         self._build()
@@ -118,6 +120,7 @@ class ShopifyMetafieldsUI:
         try:
             # 1. Obtener definiciones custom
             definiciones = self.meta_service.obtener_definiciones_custom()
+            self._last_definitions = definiciones
             
             # 2. Obtener valores reales del producto
             valores = {}
@@ -127,6 +130,8 @@ class ShopifyMetafieldsUI:
                 # Compatibilidad con productos nuevos que ya tienen metas preparados
                 for m in self.producto["metafields_list"]:
                     valores[(m["namespace"], m["key"])] = m
+            
+            self._last_values = valores
 
             self.frame.after(0, lambda: self._render_metafields(definiciones, valores))
         except Exception as e:
@@ -134,38 +139,69 @@ class ShopifyMetafieldsUI:
             self.frame.after(0, lambda: self._status(f"Error: {str(e)}"))
 
     def _render_metafields(self, definiciones, valores):
-        """Dibuja la lista combinando mapa (definiciones) y contenido (valores)."""
+        """Dibuja la lista combinando mapa (definiciones) y contenido (valores), agrupando por Descripción."""
         self._rows = []
         for child in self._scroll.winfo_children():
             child.destroy()
 
-        metafields_to_show = []
+        # 1. Agrupar definiciones por su campo 'description' (Sección)
+        secciones_map = {}
+        
         for d in definiciones:
             id_meta = (d["namespace"], d["key"])
             val_obj = valores.get(id_meta, {})
             
-            metafields_to_show.append({
+            # La sección es el texto íntegro de la descripción (o 'SIN SECCIÓN' si está vacío)
+            seccion = d.get("description", "").strip() or "GENERAL"
+            
+            if seccion not in secciones_map:
+                secciones_map[seccion] = []
+            
+            secciones_map[seccion].append({
                 "namespace": d["namespace"],
                 "key": d["key"],
+                "name": d.get("name", d["key"]), # Nombre legible de Shopify
                 "type": d["type"]["name"],
                 "value": val_obj.get("value", ""),
                 "id": val_obj.get("id"),
-                "description": d.get("description"),
                 "validations": d.get("validations", [])
             })
 
-        for idx, mf in enumerate(metafields_to_show):
-            fila = idx // 3
-            col_base = (idx % 3) * 2
-            self._crear_bloque_metacampo(self._scroll, mf, fila, col_base)
+        # 2. Ordenar las secciones alfabéticamente
+        nombres_secciones = sorted(secciones_map.keys())
+        
+        fila_actual = 0
+        total_cargados = 0
+        
+        for nombre_sec in nombres_secciones:
+            campos = secciones_map[nombre_sec]
             
-        if not metafields_to_show:
-            self._no_meta_lbl = ctk.CTkLabel(self._scroll, text="Sin definiciones custom disponibles",
+            # Label de sección con el texto exacto de la descripción
+            header_f = tk.Frame(self._scroll, bg=self._bg)
+            header_f.grid(row=fila_actual, column=0, columnspan=6, sticky="ew", pady=(15, 8))
+            
+            tk.Label(header_f, text=f"--- {nombre_sec.upper()} ---", 
+                     font=("Helvetica", 9, "bold"), fg=self._secondary, bg=self._bg).pack(side="left", padx=10)
+            tk.Frame(header_f, bg="#333", height=1).pack(side="left", fill="x", expand=True, padx=(0, 20))
+            
+            fila_actual += 1
+            
+            # Dibujar campos de la sección en 3 bloques (6 columnas)
+            for idx, mf in enumerate(campos):
+                fila_rel = idx // 3
+                col_base = (idx % 3) * 2
+                self._crear_bloque_metacampo(self._scroll, mf, fila_actual + fila_rel, col_base)
+                total_cargados += 1
+            
+            fila_actual += (len(campos) + 2) // 3
+
+        if total_cargados == 0:
+            self._no_meta_lbl = ctk.CTkLabel(self._scroll, text="Sin definiciones disponibles",
                                              text_color="#666", font=("Helvetica", 12, "italic"))
             self._no_meta_lbl.pack(pady=40)
             self._status("Listo")
         else:
-            self._status(f"Cargadas {len(metafields_to_show)} definiciones")
+            self._status(f"Cargados {total_cargados} campos en {len(nombres_secciones)} secciones")
 
     def _anadir_nuevo_meta(self):
         """Añade una nueva fila de metacampo custom localmente."""
@@ -173,38 +209,47 @@ class ShopifyMetafieldsUI:
         if hasattr(self, '_no_meta_lbl') and self._no_meta_lbl.winfo_exists():
             self._no_meta_lbl.destroy()
 
-        # Diálogo profesional de entrada (Kool Style)
-        res = show_input_dialog(
+        # Diálogo profesional de entrada para el NOMBRE (Kool Style)
+        nombre = show_input_dialog(
             self.frame, 
             titulo="NUEVO METACAMPO",
-            mensaje="Introduce la clave del nuevo metacampo (namespace: custom):"
+            mensaje="Introduce el NOMBRE del campo (ej: Edad recomendada):"
         )
-        
-        if not res:
-            return
-            
-        key = res.strip().lower().replace(" ", "_")
+        if not nombre: return
+
+        # Diálogo profesional de entrada para la SECCIÓN (Kool Style)
+        seccion = show_input_dialog(
+            self.frame, 
+            titulo="SECCIÓN DEL CAMPO",
+            mensaje="Introduce la SECCIÓN (Descripción en Shopify):",
+            valor_defecto="General"
+        )
+        if not seccion: seccion = "General"
+
+        # Generar clave técnica a partir del nombre
+        from ..services.producto_content_service import slugify_diseno
+        key = slugify_diseno(nombre).replace("-", "_")
         
         # Evitar duplicados
         for r in self._rows:
             if r["metafield"].get("key") == key:
-                show_error(self.frame, f"La clave '{key}' ya existe en la lista")
+                show_error(self.frame, f"La clave técnica '{key}' ya existe")
                 return
         
-        # Crear el objeto simulado de Shopify
+        # Crear el objeto simulado de Shopify y añadirlo a las definiciones
         nuevo_mf = {
             "namespace": "custom",
             "key": key,
-            "value": "",
-            "type": "single_line_text_field" # Por defecto
+            "name": nombre,
+            "description": seccion,
+            "type": {"name": "single_line_text_field"},
+            "validations": []
         }
         
-        idx = len(self._rows)
-        fila = idx // 3
-        col_base = (idx % 3) * 2
+        self._last_definitions.append(nuevo_mf)
+        self._render_metafields(self._last_definitions, self._last_values)
         
-        self._crear_bloque_metacampo(self._scroll, nuevo_mf, fila, col_base)
-        ToastWidget.show(self.frame, f"Metacampo '{key}' añadido a la lista", tipo="success")
+        ToastWidget.show(self.frame, f"Campo '{nombre}' preparado en {seccion}", tipo="success")
 
     def _abrir_selector_metaobjetos(self, mf):
         """Abre un diálogo de selección múltiple para metaobjetos con resolución de dos pasos."""
@@ -264,8 +309,9 @@ class ShopifyMetafieldsUI:
         # Todo sobre el fondo negro principal (self._bg)
         bg_main = self._bg
         
-        # Clave (Key)
-        lbl_key = tk.Label(parent, text=mf.get("key", ""), anchor="w",
+        # Nombre (Nombre legible de Shopify)
+        display_text = mf.get("name", mf.get("key", "")).upper()
+        lbl_key = tk.Label(parent, text=display_text, anchor="w",
                            fg="#FFF", bg=bg_main, font=("Consolas", 10, "bold"))
         lbl_key.grid(row=fila, column=col_base, sticky="nsew", padx=(10, 2), pady=6)
 
