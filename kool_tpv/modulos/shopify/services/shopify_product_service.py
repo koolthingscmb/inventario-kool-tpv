@@ -289,10 +289,14 @@ class ShopifyProductService:
         if datos.get("metafields"):
             product_input["metafields"] = []
             for mf in datos["metafields"]:
+                val = str(mf.get("value") or "").strip()
+                if not val:
+                    continue # No enviar metacampos vacíos (da error en Shopify)
+                
                 product_input["metafields"].append({
                     "namespace": mf.get("namespace", "custom"),
                     "key": mf["key"],
-                    "value": str(mf["value"]),
+                    "value": val,
                     "type": mf.get("type", "single_line_text_field")
                 })
         if product_options:
@@ -322,12 +326,14 @@ class ShopifyProductService:
         identifier = {"id": datos["product_id"]} if datos.get("product_id") else None
         data, err = self._graphql(endpoint, headers, mutation, {"input": product_input, "identifier": identifier})
         if err:
+            logger.error(f"Error GraphQL en productSet: {err}")
             self.repo.add_sync_log(None, "PRODUCT_SET", "error", err)
             return {"success": False, "message": err}
 
         result = data.get("productSet", {})
         if result.get("userErrors"):
             msg = json.dumps(result["userErrors"])[:500]
+            logger.error(f"UserErrors en productSet: {msg}")
             self.repo.add_sync_log(None, "PRODUCT_SET", "error", msg)
             return {"success": False, "message": msg}
 

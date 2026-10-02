@@ -1143,29 +1143,44 @@ class ShopifyUploadView:
 
                     variantes_preparadas.append({
                         "sku": sku_sorp,
-                        "precio": str(precio_sorp), # 'precio' para que product_set lo vea
-                        "inventoryItem": {"tracked": True},
-                        "optionValues": [
-                            {"optionName": "Talla", "name": talla},
-                            {"optionName": "Color", "name": "Sorpresa"}
-                        ],
-                        "cantidad": sorpresa_qty
+                        "precio": str(precio_sorp),
+                        "color": "Sorpresa",
+                        "talla": talla,
+                        "cantidad": sorpresa_qty,
+                        "requiere_color": 1,
+                        "requiere_talla": 1
                     })
             
-            variantes_input = variantes_preparadas
+            # En SKUs preparados, usamos 'variantes' para que product_set las procese
+            # y 'variantes_input' debe ser None para que entre en la lógica de construcción
+            variantes_input = None 
+            base_variantes = variantes_preparadas
             # Evitar que product_set vuelva a construir el SKU (ya vienen listos)
             base["codigo_categoria"] = ""
             base["iniciales"] = ""
         else:
             # Flujo estándar: solo lo que ya tiene Shopify
+            variantes_existentes = []
             for v in prod.get("variants", {}).get("nodes", []):
-                opts = [{"optionName": o["name"], "name": o["value"]}
-                        for o in v.get("selectedOptions", [])]
-                variantes_input.append({"sku": v.get("sku") or "", "price": str(v.get("price") or "0"),
-                                        "optionValues": opts})
+                # Extraer info para que product_set pueda procesarlo
+                v_talla, v_color = "", ""
+                for opt in v.get("selectedOptions", []):
+                    if opt["name"].upper() == "TALLA": v_talla = opt["value"]
+                    if opt["name"].upper() == "COLOR": v_color = opt["value"]
+                
+                variantes_existentes.append({
+                    "sku": v.get("sku") or "",
+                    "precio": str(v.get("price") or "0"),
+                    "color": v_color,
+                    "talla": v_talla,
+                    "cantidad": -1 # No tocar stock si no pasamos por SKUs
+                })
             variante_nombre = self._variante_combo.get().strip()
             diseno_codigo = prod.get("handle") or _slugify(self._entries["titulo"].get().strip())
+            base_variantes = variantes_existentes
+            variantes_input = None
 
+        # Reconstruir las opciones del producto para Shopify
         product_options = []
         for o in prod.get("options", []):
             values = []
@@ -1194,9 +1209,9 @@ class ShopifyUploadView:
             "description_html": (next(iter(self._body_boxes.values())).get("1.0", "end-1c")
                                  if self._body_boxes else prod.get("descriptionHtml") or ""),
             "product_id": prod["id"],
-            "variantes_input": None if self._skus_preparados else variantes_input,
-            "variantes": variantes_input if self._skus_preparados else None,
-            "product_options": None if self._skus_preparados else product_options,
+            "variantes_input": variantes_input,
+            "variantes": base_variantes,
+            "product_options": product_options,
             "imagenes": [dict(i) for i in self._imagenes],
             "imagenes_url": [dict(i) for i in self._imagenes_web],
             "diseno_codigo": diseno_codigo,
@@ -1214,11 +1229,15 @@ class ShopifyUploadView:
     def _fin_upload(self, mensajes):
         self._btn_upload.configure(state="normal")
         ok = all("OK" in m for m in mensajes)
-        self._status("\n".join(mensajes))
+        status_txt = "\n".join(mensajes)
+        self._status(status_txt)
+        
         if ok:
-            show_success(self.frame, "Subida completada:\n" + "\n".join(mensajes))
+            logger.info(f"Subida completada con éxito: {status_txt}")
+            show_success(self.frame, "Subida completada:\n" + status_txt)
         else:
-            show_error(self.frame, "Revisa los resultados:\n" + "\n".join(mensajes))
+            logger.error(f"Fallo en la subida: {status_txt}")
+            show_error(self.frame, "Revisa los resultados:\n" + status_txt)
 
     def _status(self, texto):
         try:
