@@ -1078,10 +1078,84 @@ class ShopifyUploadView:
         # Si tenemos SKUs preparados desde la subvista, usarlos (prioridad máxima)
         # Esto permite crear colores nuevos y actualizar stock/precios/skus de golpe
         if self._skus_preparados:
-            variantes_input = self._skus_preparados.get("variantes") or []
+            variantes_preparadas = self._skus_preparados.get("variantes") or []
             variante_nombre = self._skus_preparados.get("genero") or self._variante_combo.get().strip()
             diseno = self._skus_preparados.get("diseno")
             diseno_codigo = diseno.codigo if diseno else (prod.get("handle") or _slugify(self._entries["titulo"].get().strip()))
+            
+            # --- PARTE PRO: Recuperar / Regenerar color Sorpresa ---
+            tipo_nombre = self._tipo_combo.get().strip()
+            es_camiseta = tipo_nombre.lower() == "camiseta"
+            
+            if es_camiseta:
+                # 1. Detectar todas las tallas que estamos enviando
+                tallas_enviadas = sorted({v["talla"] for v in variantes_preparadas})
+                
+                # 2. Buscar si el producto ya tenía variantes Sorpresa en Shopify
+                sorpresas_existentes = {} # talla -> v_obj_shopify
+                for vs in prod.get("variants", {}).get("nodes", []):
+                    # Extraer talla y color
+                    v_talla = ""
+                    v_color = ""
+                    for opt in vs.get("selectedOptions", []):
+                        if opt["name"].upper() == "TALLA": v_talla = opt["value"]
+                        if opt["name"].upper() == "COLOR": v_color = opt["value"]
+                    
+                    if v_color.upper() == "SORPRESA":
+                        sorpresas_existentes[v_talla] = vs
+                
+                # 3. Para cada talla enviada, asegurar que enviamos su variante Sorpresa
+                cfg = self.config_service.get_config()
+                def _safe_int(val, default):
+                    if val is None or str(val).lower() == 'none' or str(val).strip() == '': return default
+                    try: return int(val)
+                    except: return default
+
+                def _clean_money(val):
+                    if not val: return "0"
+                    return str(val).replace('€', '').replace(',', '.').strip()
+
+                sorpresa_qty = _safe_int(cfg.get("stock_sorpresa"), 50)
+                sorpresa_precio_raw = cfg.get("precio_sorpresa")
+                sorpresa_precio = None
+                if sorpresa_precio_raw and str(sorpresa_precio_raw).lower() != 'none':
+                    try:
+                        clean_val = _clean_money(sorpresa_precio_raw)
+                        from kool_tpv.base_datos.money_adapter import prepare_for_db
+                        sorpresa_precio = float(read_from_db(prepare_for_db(clean_val)))
+                    except: pass
+
+                # Prefijo para el SKU Sorpresa
+                tipo_code = _slugify(tipo_nombre).upper()[:4] or "PROD"
+
+                for talla in tallas_enviadas:
+                    v_existente = sorpresas_existentes.get(talla)
+                    
+                    # Si ya existe, mantenemos su SKU y precio (o actualizamos si hay config)
+                    sku_sorp = v_existente["sku"] if v_existente and v_existente.get("sku") else f"{tipo_code}-SORPRESA-{_slugify(variante_nombre).upper()}-{talla}"
+                    
+                    # Usamos 'precio' porque product_set espera 'precio' para parsearlo cuando reconstruye
+                    precio_sorp = v_existente["price"] if v_existente and v_existente.get("price") else (f"{sorpresa_precio:.2f}" if sorpresa_precio is not None else "0.00")
+                    
+                    # Si tenemos precio configurado nuevo, mandamos ese
+                    if sorpresa_precio is not None:
+                        precio_sorp = f"{sorpresa_precio:.2f}"
+
+                    variantes_preparadas.append({
+                        "sku": sku_sorp,
+                        "precio": str(precio_sorp), # 'precio' para que product_set lo vea
+                        "inventoryItem": {"tracked": True},
+                        "optionValues": [
+                            {"optionName": "Talla", "name": talla},
+                            {"optionName": "Color", "name": "Sorpresa"}
+                        ],
+                        "cantidad": sorpresa_qty
+                    })
+            
+            variantes_input = variantes_preparadas
+            # Evitar que product_set vuelva a construir el SKU (ya vienen listos)
+            base["codigo_categoria"] = ""
+            base["iniciales"] = ""
         else:
             # Flujo estándar: solo lo que ya tiene Shopify
             for v in prod.get("variants", {}).get("nodes", []):
