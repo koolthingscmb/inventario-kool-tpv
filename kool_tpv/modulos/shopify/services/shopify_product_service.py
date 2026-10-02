@@ -628,7 +628,7 @@ class ShopifyProductService:
                 product(id: $id) {
                     id title handle status descriptionHtml tags productType templateSuffix
                     seo { title description }
-                    options { name values { name } }
+                    options { name values }
                     variants(first: 250) {
                         nodes { id sku price selectedOptions { name value } }
                     }
