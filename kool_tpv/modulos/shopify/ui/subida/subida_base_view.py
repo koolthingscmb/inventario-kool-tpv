@@ -2,12 +2,15 @@
 
 Contiene el estado, los servicios y la lógica compartida: cambio de tipo, cajas BODY, tags,
 contenido IA, metacampos, preparación de datos comunes y fin de subida.
-Las subclases construyen su interfaz (_build) y aportan _subir_nuevo / _subir_edicion.
+Las pantallas concretas (nuevo / editar) rellenan los ganchos: _despachar_subida, _tras_subida_correcta,
+_construir_panel_editar, _finalizar_build y las variantes que se muestran.
 """
 import logging
 import threading
 import tkinter as tk
 from typing import Dict, Any, Optional, List
+
+import customtkinter as ctk
 
 from kool_tpv.utils.config_loader import load_colors
 from kool_tpv.utils.widgets.notificaciones import show_success, show_error
@@ -21,12 +24,18 @@ from kool_tpv.modulos.shopify.services.shopify_upload_builder import ShopifyUplo
 from kool_tpv.modulos.shopify.services.shopify_nuevo_builder import ShopifyNuevoBuilder
 from kool_tpv.modulos.shopify.services.shopify_edicion_builder import ShopifyEdicionBuilder
 from kool_tpv.modulos.shopify.ui.shopify_metafields_ui import ShopifyMetafieldsUI
+from kool_tpv.modulos.shopify.ui.subida.componentes.selector_imagenes import SelectorImagenes
+from kool_tpv.modulos.shopify.ui.subida.componentes.formulario_diseno import FormularioDiseno
+from kool_tpv.modulos.shopify.ui.subida.componentes.editor_contenido_ia import EditorContenidoIA
 
 logger = logging.getLogger(__name__)
 
 
 class SubidaBaseView:
     """Lógica común de las pantallas de subida."""
+
+    _modo = "NUEVO"
+    TEXTO_BOTON = "SUBIR A SHOPIFY"
 
     def __init__(self, parent, db):
         self.parent = parent
@@ -48,7 +57,6 @@ class SubidaBaseView:
             self._primary, self._secondary = '#00A4DF', '#3498db'
             self._bg, self._bg_medium = '#000000', '#1a1a1a'
 
-        self._modo = "NUEVO"
         self._edit_product: Optional[Dict[str, Any]] = None
         self._search_results: List[Dict[str, Any]] = []
         self._entries: Dict[str, Any] = {}
@@ -89,11 +97,15 @@ class SubidaBaseView:
                 
                 # Rellenar combo de variante específica (para modo EDITAR)
                 if hasattr(self, '_variante_combo'):
-                    self._variante_combo.set_options([(v["id"], v["nombre"]) for v in self._variantes_disponibles])
+                    self._variante_combo.set_options(self._opciones_combo_variante(tipo_id))
             except Exception:
                 logger.exception("Error cargando variantes del tipo")
         self._actualizar_label_variantes()
         self._rebuild_body_boxes()
+
+    def _opciones_combo_variante(self, tipo_id):
+        """Opciones del combo VARIANTE TPV: por defecto, las variantes que se suben."""
+        return [(v["id"], v["nombre"]) for v in self._variantes_disponibles]
 
     def _actualizar_label_variantes(self):
         """Muestra las variantes que se van a subir para el tipo elegido."""
@@ -121,17 +133,15 @@ class SubidaBaseView:
         if agrupar:
             # Si agrupamos, solo mostramos una caja genérica
             variantes_a_mostrar = [{"id": None, "nombre": "General"}]
-        elif self._modo == "EDITAR" and hasattr(self, '_variante_combo'):
-            sel = self._variante_combo.get().strip()
-            if sel:
-                # Mostrar solo la variante seleccionada
-                variantes_a_mostrar = [v for v in self._variantes_disponibles if v["nombre"] == sel]
-                if not variantes_a_mostrar:
-                    # Fallback por si la variante no está en la lista de activas
-                    variantes_a_mostrar = [{"id": None, "nombre": sel}]
+        else:
+            variantes_a_mostrar = self._filtrar_variantes_cajas(variantes_a_mostrar)
 
         self._body_boxes = self._editor_ia.reconstruir_cajas(
             self._body_boxes, [v["nombre"] for v in variantes_a_mostrar])
+
+    def _filtrar_variantes_cajas(self, variantes):
+        """Variantes que tienen caja BODY HTML: por defecto, todas las que se suben."""
+        return variantes
 
     def _limpiar_formulario(self):
         """Vacía todos los campos al pasar a modo NUEVO."""
@@ -234,6 +244,10 @@ class SubidaBaseView:
             self.frame.after(0, lambda: self._fill_content(res, tipo_id))
         threading.Thread(target=work, daemon=True).start()
 
+    def _variante_seleccionada(self) -> str:
+        """Variante TPV elegida explícitamente en la pantalla (vacía si no aplica)."""
+        return ""
+
     def _fill_content(self, res, tipo_id: Optional[int] = None):
         if res.get("seo_desc"):
             self._seo_box.delete("1.0", "end")
@@ -243,9 +257,7 @@ class SubidaBaseView:
 
         # Rellenar SEO Title con la variante adecuada:
         # en modo editar usamos la variante cargada del producto, no la primera del tipo.
-        variante_seo = ""
-        if self._modo == "EDITAR" and hasattr(self, '_variante_combo'):
-            variante_seo = self._variante_combo.get().strip()
+        variante_seo = self._variante_seleccionada()
         if not variante_seo and self._variantes_disponibles:
             variante_seo = self._variantes_disponibles[0]["nombre"]
 
@@ -333,21 +345,14 @@ class SubidaBaseView:
             "metafields": self._metafields_preparados,
         }
 
-        if self._modo == "EDITAR":
-            if not self._edit_product:
-                show_error(self.frame, "Carga primero un producto")
-                return
-            self._subir_edicion(base)
-        else:
-            self._subir_nuevo(base)
+        self._despachar_subida(base)
 
     def _fin_upload(self, mensajes):
         self._btn_upload.configure(state="normal")
         ok = all("OK" in m for m in mensajes)
         status_txt = "\n".join(mensajes)
-        if ok and self._modo == "NUEVO":
-            # Tras una subida nueva 100% correcta, dejar el formulario limpio para el siguiente producto
-            self._limpiar_formulario()
+        if ok:
+            self._tras_subida_correcta()
         self._status(status_txt)
         
         if ok:
@@ -363,11 +368,96 @@ class SubidaBaseView:
         except Exception:
             pass
 
+    def _despachar_subida(self, base):
+        """Cada pantalla decide cómo se sube (nuevo / edición)."""
+        raise NotImplementedError
+
+    def _tras_subida_correcta(self):
+        """Qué hace la pantalla cuando todos los productos se han subido bien."""
+
+    # ------------------------------------------------------------------
+    # Construcción de la pantalla (plantilla con ganchos)
+    # ------------------------------------------------------------------
+
+    def _construir_selector_modo(self, scroll):
+        """Gancho: selector NUEVO/EDITAR (solo la pantalla antigua lo usa)."""
+
+    def _construir_panel_editar(self, scroll):
+        """Gancho: panel de búsqueda de producto (solo en edición)."""
+
+    def _finalizar_build(self):
+        """Gancho: ajustes finales de cada pantalla."""
+
+    def _seleccionar_tipo_por_defecto(self):
+        """Tipo por defecto: Camiseta si existe."""
+        camiseta = next((t for t in self._tipos if t["nombre"] == "Camiseta"), None)
+        if camiseta:
+            self._tipo_combo.set_by_id(camiseta["id"])
+            self._on_tipo_change()
+
     def _build(self):
-        raise NotImplementedError
+        scroll = ctk.CTkScrollableFrame(self.frame, fg_color="transparent")
+        scroll.pack(fill="both", expand=True, padx=20, pady=10)
+        self._content = scroll
 
-    def _subir_nuevo(self, base):
-        raise NotImplementedError
+        # --- Header con título + botón SUBIR a la derecha ---
+        head = tk.Frame(scroll, bg=self._bg)
+        head.pack(fill="x", pady=(14, 8))
+        tk.Label(head, text="SUBIDA DE PRODUCTOS A SHOPIFY",
+                 font=("Helvetica", 13, "bold"), fg=self._primary,
+                 bg=self._bg, anchor="w").pack(side="left")
+        accent_btn = (self._colors_cfg.get("buttons") or {}).get("accent", {})
+        self._btn_upload = ctk.CTkButton(
+            head, text=self.TEXTO_BOTON, width=240, height=40,
+            fg_color=accent_btn.get("bg", "#81F0FF"),
+            hover_color=accent_btn.get("hover", "#4FB1E6"),
+            text_color=accent_btn.get("text", "#000000"),
+            font=("Helvetica", 13, "bold"), command=self._subir)
+        self._btn_upload.pack(side="right")
+        tk.Frame(head, bg=self._primary, height=2).pack(
+            side="left", fill="x", expand=True, padx=(12, 12), pady=(2, 0))
 
-    def _subir_edicion(self, base):
-        raise NotImplementedError
+        self._construir_selector_modo(scroll)
+
+        # Status bajo la cabecera
+        self._status_lbl = tk.Label(scroll, text="", fg="#888", bg=self._bg,
+                                    font=("Helvetica", 11), anchor="w", justify="left")
+        self._status_lbl.pack(fill="x", padx=10, pady=(0, 5))
+
+        self._construir_panel_editar(scroll)
+
+        # --- Formulario ---
+        self._section("DATOS DEL DISEÑO")
+        self._formulario = FormularioDiseno(
+            scroll, self.db, self._tipo_service, self._entries,
+            bg=self._bg, primary=self._primary, secondary=self._secondary,
+            on_tipo_change=self._on_tipo_change,
+            on_variante_change=self._rebuild_body_boxes,
+            on_generar_tags=self._generar_tags)
+        self._btn_tags = self._formulario.btn_tags
+        self._ben_combo = self._formulario.ben_combo
+        self._tono_combo = self._formulario.tono_combo
+        self._status_menu = self._formulario.status_menu
+        self._tipos = self._formulario.tipos
+        self._tipo_combo = self._formulario.tipo_combo
+        self._variante_combo = self._formulario.variante_combo
+        self._variantes_lbl = self._formulario.variantes_lbl
+
+        # --- Imágenes ---
+        self._section("IMÁGENES")
+        self._selector_imagenes = SelectorImagenes(scroll, self._bg, self._bg_medium, self._secondary)
+        self._selector_imagenes.frame.pack(fill="x")
+
+        # --- Contenido IA ---
+        self._section("CONTENIDO (IA)")
+
+        self._editor_ia = EditorContenidoIA(
+            scroll, self._bg, self._bg_medium, self._primary, self._secondary,
+            on_generar=self._generar_contenido, on_metafields=self._abrir_metafields)
+        self._seo_title_entry = self._editor_ia.seo_title_entry
+        self._btn_meta = self._editor_ia.btn_meta
+        self._meta_nuevo_status_lbl = self._editor_ia.meta_status_lbl
+        self._seo_box = self._editor_ia.seo_box
+        self._bodies_frame = self._editor_ia.bodies_frame
+
+        self._finalizar_build()
