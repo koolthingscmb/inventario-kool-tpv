@@ -14,7 +14,6 @@ import customtkinter as ctk
 from kool_tpv.utils.config_loader import load_colors
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.widgets.notificaciones import show_success, show_error
-from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.base_datos.tipo_service import TipoService
 from kool_tpv.modulos.almacen.categoria_repository import CategoriaRepository
 from kool_tpv.base_datos.money_adapter import prepare_for_db, read_from_db
@@ -22,12 +21,12 @@ from ..services.shopify_product_service import ShopifyProductService
 from .shopify_actualiza_sku import ShopifyActualizaSku
 from .shopify_metafields_ui import ShopifyMetafieldsUI
 from ..services.producto_content_service import ProductoContentService, slugify_diseno
-from ..services.producto_prompts import TONO_POR_DEFECTO
 from ..services.shopify_config_service import ShopifyConfigService
 from ..services.shopify_upload_builder import ShopifyUploadBuilder
 from ..services.shopify_nuevo_builder import ShopifyNuevoBuilder, ErrorPreparacion
 from ..services.shopify_edicion_builder import ShopifyEdicionBuilder
 from .subida.componentes.selector_imagenes import SelectorImagenes
+from .subida.componentes.formulario_diseno import FormularioDiseno
 
 logger = logging.getLogger(__name__)
 
@@ -141,115 +140,20 @@ class ShopifyUploadView:
 
         # --- Formulario ---
         self._section("DATOS DEL DISEÑO")
-        form = tk.Frame(scroll, bg=self._bg)
-        form.pack(fill="x", padx=10)
-        for c in range(4):
-            form.columnconfigure(c, weight=1)
-
-        self._field(form, "titulo", "TÍTULO BASE", "Camiseta X | Tema", 0, 0)
-
-        # Tags con botón GENERAR
-        cell_tags = tk.Frame(form, bg=self._bg)
-        cell_tags.grid(row=0, column=1, sticky="ew", padx=6, pady=4)
-        tk.Label(cell_tags, text="TAGS", fg="#888", bg=self._bg,
-                 font=("Helvetica", 9, "bold"), anchor="w").pack(anchor="w")
-        tags_row = tk.Frame(cell_tags, bg=self._bg)
-        tags_row.pack(fill="x")
-        self._entries["tags"] = ctk.CTkEntry(tags_row, placeholder_text="anime, friki, regalo",
-                                             height=34, font=("Helvetica", 12))
-        self._entries["tags"].pack(side="left", fill="x", expand=True)
-        self._btn_tags = ctk.CTkButton(tags_row, text="GENERAR", width=80, height=34,
-                                       fg_color=self._secondary, font=("Helvetica", 10, "bold"),
-                                       command=self._generar_tags)
-        self._btn_tags.pack(side="left", padx=(6, 0))
-
-        # Beneficio como SearchableCombo
-        cell_ben = tk.Frame(form, bg=self._bg)
-        cell_ben.grid(row=0, column=2, sticky="ew", padx=6, pady=4)
-        tk.Label(cell_ben, text="BENEFICIO", fg="#888", bg=self._bg,
-                 font=("Helvetica", 9, "bold"), anchor="w").pack(anchor="w")
-        
-        try:
-            r_ben = self.db.fetch_all("SELECT texto FROM shopify_beneficios ORDER BY id")
-            ben_opts = [r[0] for r in (r_ben or [])]
-        except Exception:
-            ben_opts = []
-
-        self._ben_combo = SearchableCombo(cell_ben, values=ben_opts, placeholder="Elegir beneficio...", 
-                                          width=200, module_name='shopify')
-        self._ben_combo.pack(fill="x")
-        self._entries["beneficio"] = self._ben_combo
-
-        # Tono como SearchableCombo (cargado de BD)
-        cell_tono = tk.Frame(form, bg=self._bg)
-        cell_tono.grid(row=0, column=3, sticky="ew", padx=6, pady=4)
-        tk.Label(cell_tono, text="TONO", fg="#888", bg=self._bg,
-                 font=("Helvetica", 9, "bold"), anchor="w").pack(anchor="w")
-        
-        try:
-            r_tonos = self.db.fetch_all("SELECT nombre FROM shopify_tonos ORDER BY nombre")
-            tonos_opts = [r[0] for r in (r_tonos or [])]
-        except Exception:
-            tonos_opts = []
-            
-        self._tono_combo = SearchableCombo(cell_tono, values=tonos_opts, placeholder="Tono...", 
-                                           width=150, module_name='shopify')
-        self._tono_combo.pack(fill="x")
-        self._tono_combo.set(TONO_POR_DEFECTO)
-        self._entries["tono"] = self._tono_combo
-
-        self._field(form, "codigo_categoria", "SUFIJO SKU", "FRI (opcional)", 1, 0)
-
-        cell_estado = tk.Frame(form, bg=self._bg)
-        cell_estado.grid(row=1, column=1, sticky="w", padx=6, pady=4)
-        tk.Label(cell_estado, text="ESTADO", fg="#888", bg=self._bg,
-                 font=("Helvetica", 9, "bold"), anchor="w").pack(anchor="w")
-        self._status_menu = ctk.CTkOptionMenu(cell_estado, values=["ACTIVE", "DRAFT"],
-                                              width=160, height=34)
-        self._status_menu.set("ACTIVE")
-        self._status_menu.pack(anchor="w")
-
-        # Tipo de producto: combo buscable con los tipos de la BD
-        cell_tipo = tk.Frame(form, bg=self._bg)
-        cell_tipo.grid(row=1, column=2, sticky="ew", padx=6, pady=4)
-        tk.Label(cell_tipo, text="TIPO PRODUCTO", fg="#888", bg=self._bg,
-                 font=("Helvetica", 9, "bold"), anchor="w").pack(anchor="w")
-        try:
-            todos = self._tipo_service.get_all_tipos()
-            self._tipos = [t for t in todos if t.get("activo") == 1 and t.get("web_activo") == 1]
-        except Exception:
-            self._tipos = []
-
-        self._tipo_combo = SearchableCombo(
-            cell_tipo,
-            options=[(t["id"], t["nombre"]) for t in self._tipos],
-            command=lambda _v: self._on_tipo_change(),
-            placeholder="Escribe para buscar...",
-            width=240, module_name='shopify')
-        self._tipo_combo.pack(fill="x")
-
-        # Nueva celda: VARIANTE TPV
-        cell_variante = tk.Frame(form, bg=self._bg)
-        cell_variante.grid(row=1, column=3, sticky="ew", padx=6, pady=4)
-        tk.Label(cell_variante, text="VARIANTE TPV", fg="#888", bg=self._bg,
-                 font=("Helvetica", 9, "bold"), anchor="w").pack(anchor="w")
-
-        self._variante_combo = SearchableCombo(
-            cell_variante,
-            options=[],
-            command=lambda _v: self._rebuild_body_boxes(),
-            placeholder="Selecciona variante...",
-            width=240, module_name='shopify')
-        self._variante_combo.pack(fill="x")
-
-        # Variantes activas del tipo: se suben todas las que tengan sync_web = 1
-        cell_vars = tk.Frame(form, bg=self._bg)
-        cell_vars.grid(row=2, column=0, columnspan=4, sticky="ew", padx=6, pady=4)
-        tk.Label(cell_vars, text="VARIANTES A SUBIR:", fg="#888", bg=self._bg,
-                 font=("Helvetica", 9, "bold"), anchor="w").pack(side="left")
-        self._variantes_lbl = tk.Label(cell_vars, text="", fg=self._primary, bg=self._bg,
-                                       font=("Helvetica", 10, "bold"), anchor="w")
-        self._variantes_lbl.pack(side="left", padx=(10, 0))
+        self._formulario = FormularioDiseno(
+            scroll, self.db, self._tipo_service, self._entries,
+            bg=self._bg, primary=self._primary, secondary=self._secondary,
+            on_tipo_change=self._on_tipo_change,
+            on_variante_change=self._rebuild_body_boxes,
+            on_generar_tags=self._generar_tags)
+        self._btn_tags = self._formulario.btn_tags
+        self._ben_combo = self._formulario.ben_combo
+        self._tono_combo = self._formulario.tono_combo
+        self._status_menu = self._formulario.status_menu
+        self._tipos = self._formulario.tipos
+        self._tipo_combo = self._formulario.tipo_combo
+        self._variante_combo = self._formulario.variante_combo
+        self._variantes_lbl = self._formulario.variantes_lbl
 
         # --- Imágenes ---
         self._section("IMÁGENES")
@@ -326,15 +230,6 @@ class ShopifyUploadView:
                           command=lambda: self._set_modo(modo))
         b.pack(side="left", padx=(0, 8))
         return b
-
-    def _field(self, parent, key, label, placeholder, row, col):
-        cell = tk.Frame(parent, bg=self._bg)
-        cell.grid(row=row, column=col, sticky="ew", padx=6, pady=4)
-        tk.Label(cell, text=label, fg="#888", bg=self._bg,
-                 font=("Helvetica", 9, "bold"), anchor="w").pack(anchor="w")
-        e = ctk.CTkEntry(cell, placeholder_text=placeholder, height=34, font=("Helvetica", 12))
-        e.pack(fill="x")
-        self._entries[key] = e
 
     # ------------------------------------------------------------------
     # Tipo / variantes dinámicas
