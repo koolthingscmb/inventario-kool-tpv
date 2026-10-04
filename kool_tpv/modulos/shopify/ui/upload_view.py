@@ -27,6 +27,7 @@ from ..services.shopify_nuevo_builder import ShopifyNuevoBuilder, ErrorPreparaci
 from ..services.shopify_edicion_builder import ShopifyEdicionBuilder
 from .subida.componentes.selector_imagenes import SelectorImagenes
 from .subida.componentes.formulario_diseno import FormularioDiseno
+from .subida.componentes.editor_contenido_ia import EditorContenidoIA
 
 logger = logging.getLogger(__name__)
 
@@ -163,51 +164,14 @@ class ShopifyUploadView:
         # --- Contenido IA ---
         self._section("CONTENIDO (IA)")
         
-        ia_row = tk.Frame(scroll, bg=self._bg)
-        ia_row.pack(fill="x", padx=10, pady=5)
-        
-        ctk.CTkButton(ia_row, text="GENERAR CONTENIDO", width=220, height=40,
-                      fg_color=self._primary, text_color="#000",
-                      font=("Helvetica", 13, "bold"),
-                      command=self._generar_contenido).pack(side="left")
-                      
-        tk.Label(ia_row, text="TÍTULO SEO:", fg="#888", bg=self._bg,
-                 font=("Helvetica", 10, "bold")).pack(side="left", padx=(20, 10))
-        self._seo_title_entry = ctk.CTkEntry(ia_row, placeholder_text="Título para Google...",
-                                             height=34, font=("Helvetica", 12))
-        self._seo_title_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
-
-        self._btn_meta = ctk.CTkButton(
-            ia_row, text="METACAMPOS", width=120, height=34,
-            fg_color=self._secondary, text_color="#FFF",
-            font=("Helvetica", 11, "bold"), command=self._abrir_metafields)
-        self._btn_meta.pack(side="left", padx=(10, 0))
-
-        self._meta_nuevo_status_lbl = tk.Label(ia_row, text="", fg="#7CFC90", bg=self._bg,
-                                               font=("Helvetica", 9, "bold"))
-        self._meta_nuevo_status_lbl.pack(side="left", padx=5)
-
-        cont_grid = tk.Frame(scroll, bg=self._bg)
-        cont_grid.pack(fill="both", expand=True, padx=10)
-        cont_grid.columnconfigure(0, weight=1)
-        cont_grid.columnconfigure(1, weight=1)
-
-        def _content_cell(row, col, titulo, height):
-            cell = tk.Frame(cont_grid, bg=self._bg)
-            cell.grid(row=row, column=col, sticky="nsew", padx=4, pady=4)
-            tk.Label(cell, text=titulo, fg="#888", bg=self._bg,
-                     font=("Helvetica", 10, "bold"), anchor="w").pack(anchor="w")
-            box = ctk.CTkTextbox(cell, height=height, font=("Consolas", 11),
-                                 fg_color=self._bg_medium, text_color="#e0e0e0",
-                                 border_width=1, border_color=self._primary)
-            box.pack(fill="both", expand=True)
-            return box
-
-        self._seo_box = _content_cell(0, 0, "META DESCRIPCIÓN SEO", 90)
-        self._bodies_frame = tk.Frame(cont_grid, bg=self._bg)
-        self._bodies_frame.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=4, pady=4)
-
-
+        self._editor_ia = EditorContenidoIA(
+            scroll, self._bg, self._bg_medium, self._primary, self._secondary,
+            on_generar=self._generar_contenido, on_metafields=self._abrir_metafields)
+        self._seo_title_entry = self._editor_ia.seo_title_entry
+        self._btn_meta = self._editor_ia.btn_meta
+        self._meta_nuevo_status_lbl = self._editor_ia.meta_status_lbl
+        self._seo_box = self._editor_ia.seo_box
+        self._bodies_frame = self._editor_ia.bodies_frame
 
         self._set_modo("NUEVO")
 
@@ -272,11 +236,6 @@ class ShopifyUploadView:
 
     def _rebuild_body_boxes(self):
         """Una caja BODY HTML por cada variante activa del tipo (conserva el texto)."""
-        textos = {n: b.get("1.0", "end-1c") for n, b in self._body_boxes.items()}
-        for child in self._bodies_frame.winfo_children():
-            child.destroy()
-        self._body_boxes = {}
-
         # Determinar si agrupamos según el tipo seleccionado
         agrupar = False
         tipo_id = self._tipo_combo.get_id()
@@ -300,20 +259,8 @@ class ShopifyUploadView:
                     # Fallback por si la variante no está en la lista de activas
                     variantes_a_mostrar = [{"id": None, "nombre": sel}]
 
-        for i, v in enumerate(variantes_a_mostrar):
-            nombre = v["nombre"]
-            cell = tk.Frame(self._bodies_frame, bg=self._bg)
-            cell.grid(row=i, column=0, sticky="ew", pady=(0, 6))
-            self._bodies_frame.columnconfigure(0, weight=1)
-            tk.Label(cell, text=f"BODY HTML — {nombre.upper()}", fg="#888", bg=self._bg,
-                     font=("Helvetica", 10, "bold"), anchor="w").pack(anchor="w")
-            box = ctk.CTkTextbox(cell, height=90, font=("Consolas", 11),
-                                 fg_color=self._bg_medium, text_color="#e0e0e0",
-                                 border_width=1, border_color=self._primary)
-            box.pack(fill="both", expand=True)
-            self._body_boxes[nombre] = box
-            if nombre in textos:
-                box.insert("1.0", textos[nombre])
+        self._body_boxes = self._editor_ia.reconstruir_cajas(
+            self._body_boxes, [v["nombre"] for v in variantes_a_mostrar])
 
     def _set_modo(self, modo):
         self._modo = modo
