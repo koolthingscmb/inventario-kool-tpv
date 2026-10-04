@@ -500,6 +500,7 @@ class ShopifyUploadView:
         self._status("Cargando producto...")
         self._skus_preparados = None
         self._metafields_preparados = []
+        self._selector_imagenes.limpiar()
         if hasattr(self, '_skus_status_lbl'):
             self._skus_status_lbl.configure(text="")
 
@@ -1075,6 +1076,9 @@ class ShopifyUploadView:
         self._btn_upload.configure(state="normal")
         ok = all("OK" in m for m in mensajes)
         status_txt = "\n".join(mensajes)
+        if ok and self._modo == "NUEVO":
+            # Tras una subida nueva 100% correcta, dejar el formulario limpio para el siguiente producto
+            self._limpiar_formulario()
         self._status(status_txt)
         
         if ok:
