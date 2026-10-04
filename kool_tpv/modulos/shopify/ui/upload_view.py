@@ -26,6 +26,7 @@ from ..services.producto_prompts import TONO_POR_DEFECTO
 from ..services.shopify_config_service import ShopifyConfigService
 from ..services.shopify_upload_builder import ShopifyUploadBuilder
 from ..services.shopify_nuevo_builder import ShopifyNuevoBuilder, ErrorPreparacion
+from ..services.shopify_edicion_builder import ShopifyEdicionBuilder
 from .subida.componentes.selector_imagenes import SelectorImagenes
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,7 @@ class ShopifyUploadView:
         self.config_service = ShopifyConfigService(db)
         self.upload_builder = ShopifyUploadBuilder(db)
         self.nuevo_builder = ShopifyNuevoBuilder(db, self.product_service, self.content_service, self.upload_builder)
+        self.edicion_builder = ShopifyEdicionBuilder(db, self.upload_builder)
 
         try:
             self._colors_cfg = load_colors('shopify')
@@ -881,94 +883,17 @@ class ShopifyUploadView:
         threading.Thread(target=work, daemon=True).start()
 
     def _subir_edicion(self, base):
-        prod = self._edit_product
-        variantes_input = []
-        
-        # Si tenemos SKUs preparados desde la subvista, usarlos (prioridad máxima)
-        # Esto permite crear colores nuevos y actualizar stock/precios/skus de golpe
-        if self._skus_preparados:
-            variantes_preparadas = list(self._skus_preparados.get("variantes") or [])
-            variante_nombre = self._skus_preparados.get("genero") or self._variante_combo.get().strip()
-            diseno = self._skus_preparados.get("diseno")
-            diseno_codigo = diseno.codigo if diseno else (prod.get("handle") or _slugify(self._entries["titulo"].get().strip()))
-
-            # Color "Sorpresa": conserva el SKU/precio que ya tenga en Shopify y va sin control de inventario
-            tipo_nombre = self._tipo_combo.get().strip()
-            if self.upload_builder.aplica_sorpresa(tipo_nombre):
-                variantes_preparadas.extend(self.upload_builder.variantes_sorpresa(
-                    tipo_nombre, variante_nombre, [v["talla"] for v in variantes_preparadas],
-                    existentes=self.upload_builder.sorpresas_existentes(prod)))
-
-            # En SKUs preparados, usamos 'variantes' para que product_set las procese
-            # y 'variantes_input' debe ser None para que entre en la lógica de construcción
-            variantes_input = None 
-            base_variantes = variantes_preparadas
-            # Evitar que product_set vuelva a construir el SKU (ya vienen listos)
-            base["codigo_categoria"] = ""
-            base["iniciales"] = ""
-        else:
-            # Flujo estándar: solo lo que ya tiene Shopify
-            variantes_existentes = []
-            for v in prod.get("variants", {}).get("nodes", []):
-                # Extraer info para que product_set pueda procesarlo
-                v_talla, v_color = "", ""
-                for opt in v.get("selectedOptions", []):
-                    if opt["name"].upper() == "TALLA": v_talla = opt["value"]
-                    if opt["name"].upper() == "COLOR": v_color = opt["value"]
-                
-                variantes_existentes.append({
-                    "sku": v.get("sku") or "",
-                    "precio": str(v.get("price") or "0"),
-                    "color": v_color,
-                    "talla": v_talla,
-                    "cantidad": -1, # No tocar stock si no pasamos por SKUs
-                    # El precio viene de Shopify tal cual: no sumarle el recargo otra vez
-                    "precio_ya_final": True,
-                    # Sorpresa sin control de inventario también al editar sin pasar por SKUs
-                    "tracked": not self.upload_builder.es_color_sorpresa(v_color),
-                })
-            variante_nombre = self._variante_combo.get().strip()
-            diseno_codigo = prod.get("handle") or _slugify(self._entries["titulo"].get().strip())
-            base_variantes = variantes_existentes
-            variantes_input = None
-
-        # Reconstruir las opciones del producto para Shopify
-        product_options = []
-        for o in prod.get("options", []):
-            values = []
-            for x in o.get("values", []):
-                if isinstance(x, dict):
-                    values.append({"name": x.get("name", "")})
-                else:
-                    values.append({"name": x})
-            product_options.append({"name": o["name"], "values": values})
-
-        datos = dict(base)
-
-        # Si el tipo usa variantes como tipo, el product_type es el nombre de la variante
-        if base.get("use_variant_as_type") and variante_nombre:
-            datos["product_type"] = variante_nombre
-
-        # Reconstruir el título igual que en modo nuevo: base + variante
-        titulo_base = self._entries["titulo"].get().strip()
-        title = titulo_base
-        if not base.get("agrupar_variantes", False) and variante_nombre:
-            title = f"{titulo_base} | {variante_nombre}"
-
-        datos.update({
-            "title": title,
-            "handle": prod.get("handle") or _slugify(titulo_base),
-            "description_html": (next(iter(self._body_boxes.values())).get("1.0", "end-1c")
-                                 if self._body_boxes else prod.get("descriptionHtml") or ""),
-            "product_id": prod["id"],
-            "variantes_input": variantes_input,
-            "variantes": base_variantes,
-            "product_options": product_options,
-            "imagenes": self._selector_imagenes.obtener_locales(),
-            "imagenes_url": self._selector_imagenes.obtener_web(),
-            "diseno_codigo": diseno_codigo,
-            "genero": variante_nombre,
-        })
+        datos = self.edicion_builder.construir_datos(
+            base=base,
+            producto=self._edit_product,
+            titulo_base=self._entries["titulo"].get().strip(),
+            variante_combo=self._variante_combo.get().strip(),
+            tipo_nombre=self._tipo_combo.get().strip(),
+            skus_preparados=self._skus_preparados,
+            primer_cuerpo=(next(iter(self._body_boxes.values())).get("1.0", "end-1c") if self._body_boxes else None),
+            imagenes_locales=self._selector_imagenes.obtener_locales(),
+            imagenes_web=self._selector_imagenes.obtener_web(),
+        )
 
         self._status("Actualizando producto...")
         self._btn_upload.configure(state="disabled")
