@@ -25,6 +25,7 @@ from ..services.producto_content_service import ProductoContentService, slugify_
 from ..services.producto_prompts import TONO_POR_DEFECTO
 from ..services.shopify_config_service import ShopifyConfigService
 from ..services.shopify_upload_builder import ShopifyUploadBuilder
+from ..services.shopify_nuevo_builder import ShopifyNuevoBuilder, ErrorPreparacion
 from .subida.componentes.selector_imagenes import SelectorImagenes
 
 logger = logging.getLogger(__name__)
@@ -43,6 +44,7 @@ class ShopifyUploadView:
         self.content_service = ProductoContentService(db)
         self.config_service = ShopifyConfigService(db)
         self.upload_builder = ShopifyUploadBuilder(db)
+        self.nuevo_builder = ShopifyNuevoBuilder(db, self.product_service, self.content_service, self.upload_builder)
 
         try:
             self._colors_cfg = load_colors('shopify')
@@ -847,110 +849,19 @@ class ShopifyUploadView:
             self._subir_nuevo(base)
 
     def _subir_nuevo(self, base):
-        titulo = self._entries["titulo"].get().strip()
-        iniciales = self.product_service.iniciales_diseno(titulo)
-        cfg = self.config_service.get_config()
-        tipo_nombre = self._tipo_combo.get().strip()
-        con_sorpresa = self.upload_builder.aplica_sorpresa(tipo_nombre)
-
-        if not self._variantes_disponibles:
-            show_error(self.frame, "El tipo seleccionado no tiene variantes activas para web")
-            return
-
-        trabajos = []
-        todas_las_variantes_stock = []
-        agrupar = base.get("agrupar_variantes", False)
-
-        for v_info in self._variantes_disponibles:
-            variante_id = v_info["id"]
-            variante = v_info["nombre"]
-            variantes = self.product_service.get_variantes_stock(variante_id)
-            if not variantes:
-                continue
-
-            # Asegurar cantidad entera en cada variante real
-            for v in variantes:
-                v["cantidad"] = int(v.get("cantidad") or 0)
-                # Si agrupamos, el nombre de la variante TPV se convierte en una opción de Shopify (ej: Talla o Género)
-                if agrupar:
-                    # Guardamos el nombre del género para identificarlo luego
-                    v["tpv_variante_nombre"] = variante
-
-            # Color "Sorpresa": solo en camisetas, una opción extra por talla (sin control de inventario)
-            if con_sorpresa:
-                variantes.extend(self.upload_builder.variantes_sorpresa(
-                    tipo_nombre, variante, [v["talla"] for v in variantes], marcar_variante_tpv=agrupar))
-
-            if agrupar:
-                todas_las_variantes_stock.extend(variantes)
-            else:
-                # Flujo normal: un producto por variante
-                body_box = self._body_boxes.get(variante)
-                datos = dict(base)
-                if base.get("use_variant_as_type"):
-                    datos["product_type"] = variante
-
-                tipo_id = self._tipo_combo.get_id()
-                beneficio = self._entries["beneficio"].get().strip()
-                datos.update({
-                    "title": f"{titulo} | {variante}",
-                    "handle": f"{_slugify(titulo)}-{_slugify(variante)}",
-                    "description_html": body_box.get("1.0", "end-1c") if body_box else "",
-                    "seo_title": self.content_service.seo_title_for(titulo, variante, beneficio=beneficio, tipo_id=tipo_id),
-                    "tags": base["tags"] + [variante],
-                    "variantes": variantes,
-                    "iniciales": iniciales,
-                    "imagenes": self._selector_imagenes.obtener_locales(),
-                    "vendor": cfg.get("marca") or "Kool Things",
-                    "diseno_codigo": _slugify(titulo),
-                    "genero": variante,
-                })
-                trabajos.append(datos)
-
-        # Si agrupamos, creamos UN SOLO TRABAJO con todas las variantes
-        if agrupar and todas_las_variantes_stock:
-            # En modo agrupado, el nombre de la variante TPV se añade como el valor de la opción 'Talla'
-            for v in todas_las_variantes_stock:
-                orig_talla = v.get("talla") or ""
-                tpv_var = v.get("tpv_variante_nombre") or ""
-                
-                # Forzamos que requiera talla para que el motor cree la opción en Shopify
-                v["requiere_talla"] = 1
-                v["requiere_color"] = 0 # Normalmente las láminas no tienen opción color
-                
-                # Si la talla está vacía o es igual al nombre de la variante, usamos el nombre de la variante
-                if not orig_talla or orig_talla.upper() == "ÚNICA":
-                    v["talla"] = tpv_var
-                else:
-                    # Si ya tiene talla, las combinamos (ej: Lámina - A4)
-                    v["talla"] = f"{tpv_var} {orig_talla}"
-
-            # Usar la primera descripción disponible o una genérica
-            desc = ""
-            if self._body_boxes:
-                desc = next(iter(self._body_boxes.values())).get("1.0", "end-1c")
-
-            tipo_id = self._tipo_combo.get_id()
-            beneficio = self._entries["beneficio"].get().strip()
-            
-            datos_unico = dict(base)
-            datos_unico.update({
-                "title": titulo,
-                "handle": _slugify(titulo),
-                "description_html": desc,
-                "seo_title": self.content_service.seo_title_for(titulo, "", beneficio=beneficio, tipo_id=tipo_id),
-                "tags": base["tags"],
-                "variantes": todas_las_variantes_stock,
-                "iniciales": iniciales,
-                "imagenes": self._selector_imagenes.obtener_locales(),
-                "vendor": cfg.get("marca") or "Kool Things",
-                "diseno_codigo": _slugify(titulo),
-                "genero": "Pack", # Genérico para el mapeo
-            })
-            trabajos.append(datos_unico)
-
-        if not trabajos:
-            show_error(self.frame, "No hay stock para las variantes seleccionadas")
+        try:
+            trabajos = self.nuevo_builder.construir_trabajos(
+                base=base,
+                titulo=self._entries["titulo"].get().strip(),
+                beneficio=self._entries["beneficio"].get().strip(),
+                tipo_nombre=self._tipo_combo.get().strip(),
+                tipo_id=self._tipo_combo.get_id(),
+                variantes_disponibles=self._variantes_disponibles,
+                cuerpos={nombre: box.get("1.0", "end-1c") for nombre, box in self._body_boxes.items()},
+                imagenes=self._selector_imagenes.obtener_locales(),
+            )
+        except ErrorPreparacion as e:
+            show_error(self.frame, str(e))
             return
 
         self._status(f"Subiendo {len(trabajos)} productos...")
