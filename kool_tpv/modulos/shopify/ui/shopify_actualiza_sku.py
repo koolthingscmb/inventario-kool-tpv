@@ -371,6 +371,8 @@ class ShopifyActualizaSku:
                 if r["shopify"] and not v_data["precio_web"]:
                     try:
                         v_data["precio"] = float(r["shopify"].get("price") or 0)
+                        # El precio de Shopify ya lleva el recargo de tallas: no volver a sumarlo
+                        v_data["precio_ya_final"] = True
                     except: pass
                     
                 variantes_preparadas.append(v_data)

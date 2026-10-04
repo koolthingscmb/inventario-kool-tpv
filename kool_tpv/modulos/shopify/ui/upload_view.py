@@ -7,7 +7,6 @@ import logging
 import threading
 import re
 import tkinter as tk
-from tkinter import filedialog
 from typing import Dict, Any, Optional, List
 
 import customtkinter as ctk
@@ -25,14 +24,10 @@ from .shopify_metafields_ui import ShopifyMetafieldsUI
 from ..services.producto_content_service import ProductoContentService, slugify_diseno
 from ..services.producto_prompts import TONO_POR_DEFECTO
 from ..services.shopify_config_service import ShopifyConfigService
+from ..services.shopify_upload_builder import ShopifyUploadBuilder
+from .subida.componentes.selector_imagenes import SelectorImagenes
 
 logger = logging.getLogger(__name__)
-
-try:
-    from PIL import Image, ImageTk
-    PIL_OK = True
-except ImportError:
-    PIL_OK = False
 
 
 _slugify = slugify_diseno
@@ -47,6 +42,7 @@ class ShopifyUploadView:
         self.product_service = ShopifyProductService(db)
         self.content_service = ProductoContentService(db)
         self.config_service = ShopifyConfigService(db)
+        self.upload_builder = ShopifyUploadBuilder(db)
 
         try:
             self._colors_cfg = load_colors('shopify')
@@ -60,15 +56,12 @@ class ShopifyUploadView:
 
         self._modo = "NUEVO"
         self._edit_product: Optional[Dict[str, Any]] = None
-        self._imagenes: List[Dict[str, Any]] = []   # {path, alt, thumb}
-        self._imagenes_web: List[Dict[str, Any]] = []  # {url, alt} existentes
         self._search_results: List[Dict[str, Any]] = []
         self._entries: Dict[str, Any] = {}
         self._body_boxes: Dict[str, Any] = {}
         self._tipo_service = TipoService(db)
         self._tipos: List[Dict[str, Any]] = []
         self._variantes_disponibles: List[Dict[str, Any]] = []
-        self._thumb_refs = []
         self._skus_preparados: Optional[Dict[str, Any]] = None
         self._metafields_preparados: List[Dict[str, Any]] = []
 
@@ -256,12 +249,8 @@ class ShopifyUploadView:
 
         # --- Imágenes ---
         self._section("IMÁGENES")
-        img_top = tk.Frame(scroll, bg=self._bg)
-        img_top.pack(fill="x", padx=10)
-        ctk.CTkButton(img_top, text="SELECCIONAR ARCHIVOS", width=200, height=34,
-                      fg_color=self._secondary, command=self._add_images).pack(side="left")
-        self._img_list = tk.Frame(scroll, bg=self._bg)
-        self._img_list.pack(fill="x", padx=10, pady=5)
+        self._selector_imagenes = SelectorImagenes(scroll, self._bg, self._bg_medium, self._secondary)
+        self._selector_imagenes.frame.pack(fill="x")
 
         # --- Contenido IA ---
         self._section("CONTENIDO (IA)")
@@ -465,72 +454,13 @@ class ShopifyUploadView:
         self._variantes_disponibles = []
         self._actualizar_label_variantes()
         self._rebuild_body_boxes()
-        self._imagenes.clear()
-        self._imagenes_web.clear()
-        self._render_images()
+        self._selector_imagenes.limpiar()
         self._status_menu.set("ACTIVE")
         self._status("")
         self._skus_preparados = None
         self._metafields_preparados = []
         if hasattr(self, '_skus_status_lbl'):
             self._skus_status_lbl.configure(text="")
-
-    # ------------------------------------------------------------------
-    # Imágenes
-    # ------------------------------------------------------------------
-
-    def _add_images(self):
-        paths = filedialog.askopenfilenames(
-            title="Selecciona imágenes",
-            filetypes=[("Imágenes", "*.png *.jpg *.jpeg *.webp"), ("Todos", "*.*")]
-        )
-        for p in paths:
-            self._imagenes.append({"path": p, "alt": ""})
-        self._render_images()
-
-    def _render_images(self):
-        for child in self._img_list.winfo_children():
-            child.destroy()
-        self._thumb_refs.clear()
-
-        for idx, img in enumerate(self._imagenes):
-            row_f = tk.Frame(self._img_list, bg=self._bg_medium)
-            row_f.pack(fill="x", pady=3)
-            if PIL_OK:
-                try:
-                    pil = Image.open(img["path"]); pil.thumbnail((56, 56))
-                    thumb = ImageTk.PhotoImage(pil)
-                    self._thumb_refs.append(thumb)
-                    tk.Label(row_f, image=thumb, bg=self._bg_medium).pack(side="left", padx=8)
-                except Exception:
-                    pass
-            name = img["path"].split("/")[-1]
-            tk.Label(row_f, text=name, fg="#FFF", bg=self._bg_medium,
-                     font=("Helvetica", 10), width=30, anchor="w").pack(side="left", padx=5)
-            alt = ctk.CTkEntry(row_f, placeholder_text="alt text", width=220, height=28)
-            alt.insert(0, img["alt"])
-            alt.bind("<FocusOut>", lambda e, i=idx, w=alt: self._imagenes[i].update(alt=w.get()))
-            alt.pack(side="left", padx=8)
-            ctk.CTkButton(row_f, text="✕", width=30, height=28, fg_color="#8b1a1a",
-                          command=lambda i=idx: self._del_image(i)).pack(side="right", padx=8)
-
-        for idx, img in enumerate(self._imagenes_web):
-            row_f = tk.Frame(self._img_list, bg=self._bg_medium)
-            row_f.pack(fill="x", pady=3)
-            tk.Label(row_f, text=f"☁ {img['url'].split('/')[-1][:40]}", fg="#8cf",
-                     bg=self._bg_medium, font=("Helvetica", 10), anchor="w").pack(side="left", padx=8)
-            tk.Label(row_f, text="(ya en Shopify)", fg="#666", bg=self._bg_medium,
-                     font=("Helvetica", 9, "italic")).pack(side="left", padx=5)
-            ctk.CTkButton(row_f, text="✕", width=30, height=28, fg_color="#8b1a1a",
-                          command=lambda i=idx: self._del_web_image(i)).pack(side="right", padx=8)
-
-    def _del_image(self, idx):
-        self._imagenes.pop(idx)
-        self._render_images()
-
-    def _del_web_image(self, idx):
-        self._imagenes_web.pop(idx)
-        self._render_images()
 
     # ------------------------------------------------------------------
     # Modo EDITAR
@@ -670,10 +600,9 @@ class ShopifyUploadView:
         if self._body_boxes:
             next(iter(self._body_boxes.values())).insert(
                 "1.0", prod.get("descriptionHtml") or "")
-        self._imagenes_web = [{"url": m["image"]["url"], "alt": m.get("alt") or ""}
-                              for m in prod.get("media", {}).get("nodes", [])
-                              if m.get("image")]
-        self._render_images()
+        self._selector_imagenes.set_web([{"url": m["image"]["url"], "alt": m.get("alt") or ""}
+                                         for m in prod.get("media", {}).get("nodes", [])
+                                         if m.get("image")])
 
         # Log de metacampos para depuración (Paso 1)
         metafields = prod.get("metafields", {}).get("nodes", [])
@@ -916,18 +845,14 @@ class ShopifyUploadView:
         else:
             self._subir_nuevo(base)
 
-        self._btn_upload.configure(state="disabled")
-
     def _subir_nuevo(self, base):
         titulo = self._entries["titulo"].get().strip()
         iniciales = self.product_service.iniciales_diseno(titulo)
         cfg = self.config_service.get_config()
         tipo_nombre = self._tipo_combo.get().strip()
-        tipo_code = _slugify(tipo_nombre).upper()[:4] or "PROD"
-        es_camiseta = tipo_nombre.lower() == "camiseta"
+        con_sorpresa = self.upload_builder.aplica_sorpresa(tipo_nombre)
 
         if not self._variantes_disponibles:
-            self._btn_upload.configure(state="normal")
             show_error(self.frame, "El tipo seleccionado no tiene variantes activas para web")
             return
 
@@ -950,43 +875,10 @@ class ShopifyUploadView:
                     # Guardamos el nombre del género para identificarlo luego
                     v["tpv_variante_nombre"] = variante
 
-            # Color "Sorpresa": solo en camisetas, una opción extra por talla
-            if es_camiseta:
-                tallas = sorted({v["talla"] for v in variantes})
-                
-                def _safe_int(val, default):
-                    if val is None or str(val).lower() == 'none' or str(val).strip() == '':
-                        return default
-                    try: return int(val)
-                    except: return default
-
-                def _clean_money(val):
-                    if not val: return "0"
-                    return str(val).replace('€', '').replace(',', '.').strip()
-
-                sorpresa_qty = _safe_int(cfg.get("stock_sorpresa"), 50)
-                sorpresa_precio_raw = cfg.get("precio_sorpresa")
-                if sorpresa_precio_raw and str(sorpresa_precio_raw).lower() != 'none':
-                    # Usar adaptadores de moneda con limpieza previa
-                    try:
-                        clean_val = _clean_money(sorpresa_precio_raw)
-                        sorpresa_precio = float(read_from_db(prepare_for_db(clean_val)))
-                    except:
-                        sorpresa_precio = None
-                else:
-                    sorpresa_precio = None
-
-                for talla in tallas:
-                    v_sorpresa = {
-                        "sku": f"{tipo_code}-SORPRESA-{_slugify(variante).upper()}-{talla}",
-                        "color": "Sorpresa",
-                        "talla": talla,
-                        "cantidad": sorpresa_qty,
-                    }
-                    if sorpresa_precio is not None:
-                        v_sorpresa["precio"] = sorpresa_precio
-                    if agrupar: v_sorpresa["tpv_variante_nombre"] = variante
-                    variantes.append(v_sorpresa)
+            # Color "Sorpresa": solo en camisetas, una opción extra por talla (sin control de inventario)
+            if con_sorpresa:
+                variantes.extend(self.upload_builder.variantes_sorpresa(
+                    tipo_nombre, variante, [v["talla"] for v in variantes], marcar_variante_tpv=agrupar))
 
             if agrupar:
                 todas_las_variantes_stock.extend(variantes)
@@ -1007,7 +899,7 @@ class ShopifyUploadView:
                     "tags": base["tags"] + [variante],
                     "variantes": variantes,
                     "iniciales": iniciales,
-                    "imagenes": [dict(i) for i in self._imagenes],
+                    "imagenes": self._selector_imagenes.obtener_locales(),
                     "vendor": cfg.get("marca") or "Kool Things",
                     "diseno_codigo": _slugify(titulo),
                     "genero": variante,
@@ -1049,7 +941,7 @@ class ShopifyUploadView:
                 "tags": base["tags"],
                 "variantes": todas_las_variantes_stock,
                 "iniciales": iniciales,
-                "imagenes": [dict(i) for i in self._imagenes],
+                "imagenes": self._selector_imagenes.obtener_locales(),
                 "vendor": cfg.get("marca") or "Kool Things",
                 "diseno_codigo": _slugify(titulo),
                 "genero": "Pack", # Genérico para el mapeo
@@ -1057,17 +949,22 @@ class ShopifyUploadView:
             trabajos.append(datos_unico)
 
         if not trabajos:
-            self._btn_upload.configure(state="normal")
             show_error(self.frame, "No hay stock para las variantes seleccionadas")
             return
 
         self._status(f"Subiendo {len(trabajos)} productos...")
+        self._btn_upload.configure(state="disabled")
 
         def work():
             mensajes = []
             for datos in trabajos:
-                r = self.product_service.product_set(datos)
-                mensajes.append(f"{datos.get('genero', 'Producto')}: {'OK' if r['success'] else r['message']}")
+                genero = datos.get('genero', 'Producto')
+                try:
+                    r = self.product_service.product_set(datos)
+                    mensajes.append(f"{genero}: {'OK' if r['success'] else r['message']}")
+                except Exception as e:
+                    logger.exception(f"Error inesperado subiendo {genero}")
+                    mensajes.append(f"{genero}: Error inesperado ({type(e).__name__}), revisa la terminal")
             self.frame.after(0, lambda: self._fin_upload(mensajes))
         threading.Thread(target=work, daemon=True).start()
 
@@ -1078,79 +975,18 @@ class ShopifyUploadView:
         # Si tenemos SKUs preparados desde la subvista, usarlos (prioridad máxima)
         # Esto permite crear colores nuevos y actualizar stock/precios/skus de golpe
         if self._skus_preparados:
-            variantes_preparadas = self._skus_preparados.get("variantes") or []
+            variantes_preparadas = list(self._skus_preparados.get("variantes") or [])
             variante_nombre = self._skus_preparados.get("genero") or self._variante_combo.get().strip()
             diseno = self._skus_preparados.get("diseno")
             diseno_codigo = diseno.codigo if diseno else (prod.get("handle") or _slugify(self._entries["titulo"].get().strip()))
-            
-            # --- PARTE PRO: Recuperar / Regenerar color Sorpresa ---
+
+            # Color "Sorpresa": conserva el SKU/precio que ya tenga en Shopify y va sin control de inventario
             tipo_nombre = self._tipo_combo.get().strip()
-            es_camiseta = tipo_nombre.lower() == "camiseta"
-            
-            if es_camiseta:
-                # 1. Detectar todas las tallas que estamos enviando
-                tallas_enviadas = sorted({v["talla"] for v in variantes_preparadas})
-                
-                # 2. Buscar si el producto ya tenía variantes Sorpresa en Shopify
-                sorpresas_existentes = {} # talla -> v_obj_shopify
-                for vs in prod.get("variants", {}).get("nodes", []):
-                    # Extraer talla y color
-                    v_talla = ""
-                    v_color = ""
-                    for opt in vs.get("selectedOptions", []):
-                        if opt["name"].upper() == "TALLA": v_talla = opt["value"]
-                        if opt["name"].upper() == "COLOR": v_color = opt["value"]
-                    
-                    if v_color.upper() == "SORPRESA":
-                        sorpresas_existentes[v_talla] = vs
-                
-                # 3. Para cada talla enviada, asegurar que enviamos su variante Sorpresa
-                cfg = self.config_service.get_config()
-                def _safe_int(val, default):
-                    if val is None or str(val).lower() == 'none' or str(val).strip() == '': return default
-                    try: return int(val)
-                    except: return default
+            if self.upload_builder.aplica_sorpresa(tipo_nombre):
+                variantes_preparadas.extend(self.upload_builder.variantes_sorpresa(
+                    tipo_nombre, variante_nombre, [v["talla"] for v in variantes_preparadas],
+                    existentes=self.upload_builder.sorpresas_existentes(prod)))
 
-                def _clean_money(val):
-                    if not val: return "0"
-                    return str(val).replace('€', '').replace(',', '.').strip()
-
-                sorpresa_qty = _safe_int(cfg.get("stock_sorpresa"), 50)
-                sorpresa_precio_raw = cfg.get("precio_sorpresa")
-                sorpresa_precio = None
-                if sorpresa_precio_raw and str(sorpresa_precio_raw).lower() != 'none':
-                    try:
-                        clean_val = _clean_money(sorpresa_precio_raw)
-                        from kool_tpv.base_datos.money_adapter import prepare_for_db
-                        sorpresa_precio = float(read_from_db(prepare_for_db(clean_val)))
-                    except: pass
-
-                # Prefijo para el SKU Sorpresa
-                tipo_code = _slugify(tipo_nombre).upper()[:4] or "PROD"
-
-                for talla in tallas_enviadas:
-                    v_existente = sorpresas_existentes.get(talla)
-                    
-                    # Si ya existe, mantenemos su SKU y precio (o actualizamos si hay config)
-                    sku_sorp = v_existente["sku"] if v_existente and v_existente.get("sku") else f"{tipo_code}-SORPRESA-{_slugify(variante_nombre).upper()}-{talla}"
-                    
-                    # Usamos 'precio' porque product_set espera 'precio' para parsearlo cuando reconstruye
-                    precio_sorp = v_existente["price"] if v_existente and v_existente.get("price") else (f"{sorpresa_precio:.2f}" if sorpresa_precio is not None else "0.00")
-                    
-                    # Si tenemos precio configurado nuevo, mandamos ese
-                    if sorpresa_precio is not None:
-                        precio_sorp = f"{sorpresa_precio:.2f}"
-
-                    variantes_preparadas.append({
-                        "sku": sku_sorp,
-                        "precio": str(precio_sorp),
-                        "color": "Sorpresa",
-                        "talla": talla,
-                        "cantidad": sorpresa_qty,
-                        "requiere_color": 1,
-                        "requiere_talla": 1
-                    })
-            
             # En SKUs preparados, usamos 'variantes' para que product_set las procese
             # y 'variantes_input' debe ser None para que entre en la lógica de construcción
             variantes_input = None 
@@ -1173,7 +1009,11 @@ class ShopifyUploadView:
                     "precio": str(v.get("price") or "0"),
                     "color": v_color,
                     "talla": v_talla,
-                    "cantidad": -1 # No tocar stock si no pasamos por SKUs
+                    "cantidad": -1, # No tocar stock si no pasamos por SKUs
+                    # El precio viene de Shopify tal cual: no sumarle el recargo otra vez
+                    "precio_ya_final": True,
+                    # Sorpresa sin control de inventario también al editar sin pasar por SKUs
+                    "tracked": not self.upload_builder.es_color_sorpresa(v_color),
                 })
             variante_nombre = self._variante_combo.get().strip()
             diseno_codigo = prod.get("handle") or _slugify(self._entries["titulo"].get().strip())
@@ -1212,17 +1052,22 @@ class ShopifyUploadView:
             "variantes_input": variantes_input,
             "variantes": base_variantes,
             "product_options": product_options,
-            "imagenes": [dict(i) for i in self._imagenes],
-            "imagenes_url": [dict(i) for i in self._imagenes_web],
+            "imagenes": self._selector_imagenes.obtener_locales(),
+            "imagenes_url": self._selector_imagenes.obtener_web(),
             "diseno_codigo": diseno_codigo,
             "genero": variante_nombre,
         })
 
         self._status("Actualizando producto...")
+        self._btn_upload.configure(state="disabled")
 
         def work():
-            r = self.product_service.product_set(datos)
-            msg = "Actualizado OK" if r["success"] else f"Error: {r['message']}"
+            try:
+                r = self.product_service.product_set(datos)
+                msg = "Actualizado OK" if r["success"] else f"Error: {r['message']}"
+            except Exception as e:
+                logger.exception("Error inesperado actualizando el producto")
+                msg = f"Error inesperado ({type(e).__name__}), revisa la terminal"
             self.frame.after(0, lambda: self._fin_upload([msg]))
         threading.Thread(target=work, daemon=True).start()
 

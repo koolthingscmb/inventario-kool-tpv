@@ -250,11 +250,16 @@ class ShopifyProductService:
                     precio_variante = precio_base
 
                 # Aplicar recargo si la talla es grande (aplica a todas, incl. Sorpresa)
-                if talla.strip().upper() in tallas_grandes:
+                # Solo sobre precios base del TPV: los precios que ya vienen de Shopify
+                # (precio_ya_final) ya llevan el recargo incluido.
+                if talla.strip().upper() in tallas_grandes and not v.get("precio_ya_final"):
                     precio_variante += recargo
 
                 built_sku = self.build_sku(v["sku"], datos.get("codigo_categoria", ""), datos.get("iniciales", ""))
-                sku_qty[built_sku] = int(v.get("cantidad") or 0)
+                # Las variantes sin control de inventario (tracked=False) no admiten fijar stock
+                tracked = bool(v.get("tracked", True))
+                if tracked:
+                    sku_qty[built_sku] = int(v.get("cantidad") or 0)
 
                 option_values = []
                 if requiere_talla and talla:
@@ -265,7 +270,7 @@ class ShopifyProductService:
                 variantes_input.append({
                     "sku": built_sku,
                     "price": f"{precio_variante:.2f}",
-                    "inventoryItem": {"tracked": True},
+                    "inventoryItem": {"tracked": tracked},
                     "optionValues": option_values,
                 })
             product_options = []
