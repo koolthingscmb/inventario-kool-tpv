@@ -290,7 +290,12 @@ class SubidaEditarView(SubidaBaseView):
         def work():
             try:
                 r = self.product_service.product_set(datos)
-                msg = "Actualizado OK" if r["success"] else f"Error: {r['message']}"
+                if not r["success"]:
+                    msg = f"Error: {r['message']}"
+                elif r.get("stock_ok") is False:
+                    msg = "Actualizado, pero el STOCK no se aplicó (revisa la terminal)"
+                else:
+                    msg = "Actualizado OK"
             except Exception as e:
                 logger.exception("Error inesperado actualizando el producto")
                 msg = f"Error inesperado ({type(e).__name__}), revisa la terminal"

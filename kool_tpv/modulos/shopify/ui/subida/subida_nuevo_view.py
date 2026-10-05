@@ -54,7 +54,12 @@ class SubidaNuevoView(SubidaBaseView):
                 genero = datos.get('genero', 'Producto')
                 try:
                     r = self.product_service.product_set(datos)
-                    mensajes.append(f"{genero}: {'OK' if r['success'] else r['message']}")
+                    if r["success"] and r.get("stock_ok") is False:
+                        mensajes.append(f"{genero}: subido pero el STOCK no se aplicó")
+                    elif r["success"]:
+                        mensajes.append(f"{genero}: OK")
+                    else:
+                        mensajes.append(f"{genero}: {r['message']}")
                 except Exception as e:
                     logger.exception(f"Error inesperado subiendo {genero}")
                     mensajes.append(f"{genero}: Error inesperado ({type(e).__name__}), revisa la terminal")

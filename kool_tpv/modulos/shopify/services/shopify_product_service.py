@@ -346,6 +346,8 @@ class ShopifyProductService:
         product_id, handle = product.get("id"), product.get("handle")
 
         # 4) Asignar stock por variante (si viene del TPV y es positivo)
+        stock_ok = True
+        stock_err = None
         if sku_qty and location_id:
             quantities = []
             for v in product.get("variants", {}).get("nodes", []):
@@ -358,9 +360,10 @@ class ShopifyProductService:
                         "quantity": qty,
                     })
             if quantities:
-                ok = self._set_inventory(endpoint, headers, quantities, location_id)
-                if not ok:
-                    logger.warning(f"Producto {handle} creado pero falló el stock")
+                stock_ok, stock_err = self._set_inventory(endpoint, headers, quantities, location_id)
+                if not stock_ok:
+                    logger.warning(f"Producto {handle} creado pero falló el stock: {stock_err}")
+                    self.repo.add_sync_log(None, "PRODUCT_STOCK", "error", f"{handle}: {stock_err}")
 
         # 5) Mapeo local
         if datos.get("diseno_codigo") and datos.get("genero"):
@@ -374,34 +377,42 @@ class ShopifyProductService:
         accion = "PRODUCT_UPDATE" if datos.get("product_id") else "PRODUCT_CREATE"
         self.repo.add_sync_log(None, accion, "success", f"{handle} -> {product_id}")
         return {"success": True, "product_id": product_id, "handle": handle,
-                "status": product.get("status"), "message": f"Producto {handle} OK"}
+                "status": product.get("status"), "stock_ok": stock_ok,
+                "stock_error": stock_err, "message": f"Producto {handle} OK"}
 
-    def _set_inventory(self, endpoint, headers, quantities, location_id) -> bool:
+    def _set_inventory(self, endpoint, headers, quantities, location_id) -> Tuple[bool, Optional[str]]:
+        """Fija el stock on_hand de cada variante al valor del TPV.
+
+        Devuelve (ok, error). Usa inventorySetQuantities con
+        changeFromQuantity=None para fijar valores absolutos sin la
+        comprobación de cantidad previa (el TPV es la fuente de verdad).
+        """
         changes = [{
             "inventoryItemId": q["inventory_item_id"],
             "locationId": f"gid://shopify/Location/{location_id}",
             "quantity": int(q["quantity"]),
-            "changeFromQuantity": 0,
+            "changeFromQuantity": None,
         } for q in quantities]
         data, err = self._graphql(endpoint, headers, """
-            mutation inventorySetOnHandQuantities($input: InventorySetOnHandQuantitiesInput!, $idempotencyKey: String!) {
-                inventorySetOnHandQuantities(input: $input) @idempotent(key: $idempotencyKey) {
+            mutation inventorySetQuantities($input: InventorySetQuantitiesInput!, $idempotencyKey: String!) {
+                inventorySetQuantities(input: $input) @idempotent(key: $idempotencyKey) {
                     userErrors { field message }
                     inventoryAdjustmentGroup { createdAt reason }
                 }
             }
         """, {
-            "input": {"reason": "correction", "setQuantities": changes},
+            "input": {"name": "on_hand", "reason": "correction", "quantities": changes},
             "idempotencyKey": str(uuid.uuid4()),
         })
         if err:
             logger.error(f"Error stock: {err}")
-            return False
-        errs = data.get("inventorySetOnHandQuantities", {}).get("userErrors")
+            return False, err
+        errs = data.get("inventorySetQuantities", {}).get("userErrors")
         if errs:
+            msg = json.dumps(errs)[:500]
             logger.error(f"userErrors stock: {errs}")
-            return False
-        return True
+            return False, msg
+        return True, None
 
     # ------------------------------------------------------------------
     # Publicar en canales

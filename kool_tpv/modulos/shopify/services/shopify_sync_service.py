@@ -163,8 +163,8 @@ class ShopifySyncService:
             ]
 
             mutation = """
-            mutation inventorySetOnHandQuantities($input: InventorySetOnHandQuantitiesInput!, $idempotencyKey: String!) {
-                inventorySetOnHandQuantities(input: $input) @idempotent(key: $idempotencyKey) {
+            mutation inventorySetQuantities($input: InventorySetQuantitiesInput!, $idempotencyKey: String!) {
+                inventorySetQuantities(input: $input) @idempotent(key: $idempotencyKey) {
                     userErrors {
                         field
                         message
@@ -176,8 +176,9 @@ class ShopifySyncService:
                 "query": mutation,
                 "variables": {
                     "input": {
+                        "name": "on_hand",
                         "reason": "correction",
-                        "setQuantities": changes
+                        "quantities": changes
                     },
                     "idempotencyKey": str(uuid.uuid4())
                 }
@@ -187,8 +188,8 @@ class ShopifySyncService:
                 response = requests.post(endpoint, headers=headers, json=payload, timeout=15)
                 data = response.json()
 
-                if "errors" in data or data.get("data", {}).get("inventorySetOnHandQuantities", {}).get("userErrors"):
-                    err_msg = json.dumps(data.get("errors") or data.get("data", {}).get("inventorySetOnHandQuantities", {}).get("userErrors"))
+                if "errors" in data or data.get("data", {}).get("inventorySetQuantities", {}).get("userErrors"):
+                    err_msg = json.dumps(data.get("errors") or data.get("data", {}).get("inventorySetQuantities", {}).get("userErrors"))
                     logger.error(f"Error actualizando lote de stock: {err_msg}")
                     return False
             except Exception:
