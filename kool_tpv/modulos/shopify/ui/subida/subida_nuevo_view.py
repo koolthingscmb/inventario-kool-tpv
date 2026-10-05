@@ -14,10 +14,10 @@ class SubidaNuevoView(SubidaBaseView):
 
     _modo = "NUEVO"
     TEXTO_BOTON = "SUBIR A SHOPIFY"
+    MOSTRAR_VARIANTE_TPV = False
 
     def _finalizar_build(self):
         # En NUEVO la variante TPV no se elige: se suben todas las marcadas en CONFIG
-        self._variante_combo.entry.configure(state="disabled")
         self._btn_upload.configure(text=self.TEXTO_BOTON)
         self._limpiar_formulario()
         self._seleccionar_tipo_por_defecto()

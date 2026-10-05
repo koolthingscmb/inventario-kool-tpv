@@ -19,9 +19,13 @@ logger = logging.getLogger(__name__)
 class FormularioDiseno:
     def __init__(self, parent, db, tipo_service, entries: Dict[str, Any], bg: str, primary: str, secondary: str,
                  on_tipo_change: Callable[[], None], on_variante_change: Callable[[], None],
-                 on_generar_tags: Callable[[], None]):
+                 on_generar_tags: Callable[[], None], mostrar_variante_tpv: bool = True,
+                 mostrar_variantes_a_subir: bool = True):
         """entries: diccionario de campos de la pantalla; aquí se rellenan titulo, tags, beneficio,
-        tono y codigo_categoria."""
+        tono y codigo_categoria.
+
+        mostrar_variante_tpv / mostrar_variantes_a_subir: ocultan esas celdas en las pantallas donde no
+        aplican (los widgets existen igualmente, solo se quitan de la rejilla)."""
         self._bg = bg
         self._entries = entries
 
@@ -127,6 +131,8 @@ class FormularioDiseno:
             placeholder="Selecciona variante...",
             width=240, module_name='shopify')
         self.variante_combo.pack(fill="x")
+        if not mostrar_variante_tpv:
+            cell_variante.grid_remove()
 
         # Variantes activas del tipo: se suben todas las que tengan sync_web = 1
         cell_vars = tk.Frame(form, bg=self._bg)
@@ -136,6 +142,8 @@ class FormularioDiseno:
         self.variantes_lbl = tk.Label(cell_vars, text="", fg=primary, bg=self._bg,
                                       font=("Helvetica", 10, "bold"), anchor="w")
         self.variantes_lbl.pack(side="left", padx=(10, 0))
+        if not mostrar_variantes_a_subir:
+            cell_vars.grid_remove()
 
     def _field(self, parent, key, label, placeholder, row, col):
         cell = tk.Frame(parent, bg=self._bg)

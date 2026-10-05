@@ -17,6 +17,7 @@ class SubidaEditarView(SubidaBaseView):
 
     _modo = "EDITAR"
     TEXTO_BOTON = "ACTUALIZAR PRODUCTO"
+    MOSTRAR_VARIANTES_A_SUBIR = False
 
     def _construir_panel_editar(self, scroll):
         # --- Panel EDITAR ---

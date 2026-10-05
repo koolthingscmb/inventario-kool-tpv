@@ -62,7 +62,8 @@ class ShopifyView(BaseModuleView):
         action_map = {
             'show_sync': self.show_sync,
             'show_config': self.show_config,
-            'show_upload': self.show_upload,
+            'show_subida_nuevo': self.show_subida_nuevo,
+            'show_subida_editar': self.show_subida_editar,
             'show_bulk_edit': self.show_bulk_edit,
         }
 
@@ -107,7 +108,8 @@ class ShopifyView(BaseModuleView):
             'SHOPIFY': self.show_sync,
             'SINC': self.show_sync,
             'CONFIG': self.show_config,
-            'SUBIDA': self.show_upload,
+            'NUEVO': self.show_subida_nuevo,
+            'EDITAR': self.show_subida_editar,
             'MASIVA': self.show_bulk_edit,
         }
 
@@ -134,19 +136,31 @@ class ShopifyView(BaseModuleView):
         except Exception:
             logging.exception("Error en show_sync")
 
-    def show_upload(self):
-        """Muestra la subvista de subida/edición de productos a Shopify."""
+    def show_subida_nuevo(self):
+        """Muestra la subvista de subida de un producto nuevo a Shopify."""
         try:
-            logging.info("Abriendo subida de productos Shopify...")
-            self.actualizar_ruta('SUBIDA')
+            logging.info("Abriendo subida de producto nuevo Shopify...")
+            self.actualizar_ruta('NUEVO')
 
-            from kool_tpv.modulos.shopify.ui.upload_view import ShopifyUploadView
+            from kool_tpv.modulos.shopify.ui.subida.subida_nuevo_view import SubidaNuevoView
 
-            upload_view = ShopifyUploadView(self.central_area, self.db)
-            self.set_central_content(upload_view)
+            self.set_central_content(SubidaNuevoView(self.central_area, self.db))
 
         except Exception:
-            logging.exception("Error en show_upload")
+            logging.exception("Error en show_subida_nuevo")
+
+    def show_subida_editar(self):
+        """Muestra la subvista de edición de un producto existente de Shopify."""
+        try:
+            logging.info("Abriendo edición de producto Shopify...")
+            self.actualizar_ruta('EDITAR')
+
+            from kool_tpv.modulos.shopify.ui.subida.subida_editar_view import SubidaEditarView
+
+            self.set_central_content(SubidaEditarView(self.central_area, self.db))
+
+        except Exception:
+            logging.exception("Error en show_subida_editar")
 
     def show_bulk_edit(self):
         """Muestra la subvista de edición masiva de productos en Shopify."""

@@ -36,6 +36,8 @@ class SubidaBaseView:
 
     _modo = "NUEVO"
     TEXTO_BOTON = "SUBIR A SHOPIFY"
+    MOSTRAR_VARIANTE_TPV = True
+    MOSTRAR_VARIANTES_A_SUBIR = True
 
     def __init__(self, parent, db):
         self.parent = parent
@@ -433,7 +435,9 @@ class SubidaBaseView:
             bg=self._bg, primary=self._primary, secondary=self._secondary,
             on_tipo_change=self._on_tipo_change,
             on_variante_change=self._rebuild_body_boxes,
-            on_generar_tags=self._generar_tags)
+            on_generar_tags=self._generar_tags,
+            mostrar_variante_tpv=self.MOSTRAR_VARIANTE_TPV,
+            mostrar_variantes_a_subir=self.MOSTRAR_VARIANTES_A_SUBIR)
         self._btn_tags = self._formulario.btn_tags
         self._ben_combo = self._formulario.ben_combo
         self._tono_combo = self._formulario.tono_combo
