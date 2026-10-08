@@ -234,6 +234,9 @@ class SubidaBaseView:
             show_error(self.frame, "Rellena al menos el título base")
             return
         variantes = [v["nombre"] for v in self._variantes_disponibles]
+        sel = self._variante_seleccionada()
+        if sel:
+            variantes = [sel]
         if not variantes:
             show_error(self.frame, "El tipo seleccionado no tiene variantes activas para web")
             return
