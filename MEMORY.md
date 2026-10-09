@@ -1,6 +1,6 @@
 # MEMORY.md — Kool TPV
 Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo que ya no
-aporte. (Última actualización: 2026-10-09, commit `a1a39fb` en `windows-beta`.)
+aporte. (Última actualización: 2026-10-09, commit `e85db72` en `windows-beta`.)
 
 ## Estado actual
 - Shopify SUBIDA separada en NUEVO y EDITAR: `SubidaBaseView` + `SubidaNuevoView` + `SubidaEditarView`,
@@ -29,6 +29,8 @@ aporte. (Última actualización: 2026-10-09, commit `a1a39fb` en `windows-beta`.
 - El usuario pide explicaciones simples y con ejemplos reales; no te quedes en jerga técnica.
 
 ## Próximos pasos
+- Shopify EDITAR MASIVA: implementar cambio masivo de `coleccion_de_familia`, limpiar UI (quitar
+  elementos no usados) y revisar ancho de columnas.
 - METACAMPOS: texto enriquecido (`componentes`) sin JSON crudo; archivos (`reglamento`) con nombre en vez
   del identificador; alinear cabecera y columnas del grid y dar fila propia al texto largo; no perder lo
   escrito al pulsar "+ AÑADIR METACAMPO"; limpiar código sobrante.
