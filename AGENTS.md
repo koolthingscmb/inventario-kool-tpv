@@ -76,8 +76,8 @@ repetir trabajo a mano y sin acciones destructivas ni sorpresas.
     (editable en CONFIG -> GENERAL).
 - Contenido de marca y SEO: fuente única `KOOLTHINGSHOP.md`. No inventar datos; los diseños propios son
   Fan Art dibujado a mano, prohibido decir o usar IA en ellos.
-- Documentos desactualizados: `PENDIENTES.md` (el punto 5 de `changeFromQuantity` ya está resuelto),
-  `AUDITORÍA TÉCNICA sept26` (cita la mutación vieja) y `kool_tpv/README.md` (cita `scripts/` y la rama `main`).
+- Documentos desactualizados: `AUDITORÍA TÉCNICA sept26` (cita la mutación vieja de stock) y
+  `kool_tpv/README.md` (cita `scripts/` y la rama `main`). Los pendientes viven en `MEMORY.md`.
 
 ## Forma de trabajar
 - Explica el cambio ANTES de hacerlo y espera la aprobación. No tomes decisiones por el usuario.
