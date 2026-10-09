@@ -70,6 +70,12 @@ class ShopifyEdicionBuilder:
                     "precio_ya_final": True,
                     # Sorpresa sin control de inventario también al editar sin pasar por SKUs
                     "tracked": not self.upload_builder.es_color_sorpresa(v_color),
+                    # Opciones que no son Talla/Color (producto simple: Title / Default Title)
+                    "option_values_extra": [
+                        {"optionName": opt["name"], "name": opt["value"]}
+                        for opt in v.get("selectedOptions", [])
+                        if opt["name"].upper() not in ("TALLA", "COLOR")
+                    ],
                 })
             variante_nombre = variante_combo
             diseno_codigo = prod.get("handle") or slugify_diseno(titulo_base)

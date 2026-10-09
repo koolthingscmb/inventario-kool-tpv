@@ -230,7 +230,9 @@ class ShopifyProductService:
                 except Exception:
                     logger.exception(f"Error cargando tallas grandes del grupo {grupo_id}")
 
+            opciones_extra = []
             for v in datos.get("variantes", []):
+                opciones_extra.append(v.get("option_values_extra") or [])
                 color, talla = v.get("color") or "", v.get("talla") or ""
                 requiere_color = bool(v.get("requiere_color", 1))
                 requiere_talla = bool(v.get("requiere_talla", 1))
@@ -278,6 +280,12 @@ class ShopifyProductService:
                 product_options.append({"name": "Talla", "values": [{"name": t} for t in tallas]})
             if colores:
                 product_options.append({"name": "Color", "values": [{"name": c} for c in colores]})
+            # Producto sin Talla ni Color (p. ej. variante única Title / Default Title): se reenvían
+            # sus opciones actuales, porque productSet las exige al actualizar variantes
+            if not product_options and datos.get("product_options"):
+                product_options = datos["product_options"]
+                for vi, extra in zip(variantes_input, opciones_extra):
+                    vi["optionValues"] = extra
 
         # 3) Input del producto
         product_input = {
