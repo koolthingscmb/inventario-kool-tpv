@@ -208,6 +208,7 @@ class SubidaEditarView(SubidaBaseView):
             
         self._entries["titulo"].delete(0, "end")
         self._entries["titulo"].insert(0, base_title)
+        self._titulo_cargado = base_title
 
         if hasattr(self, '_seo_title_entry'):
             self._seo_title_entry.delete(0, "end")
@@ -276,6 +277,7 @@ class SubidaEditarView(SubidaBaseView):
             base=base,
             producto=self._edit_product,
             titulo_base=self._entries["titulo"].get().strip(),
+            titulo_sin_editar=self._entries["titulo"].get().strip() == getattr(self, "_titulo_cargado", None),
             variante_combo=self._variante_combo.get().strip(),
             tipo_nombre=self._tipo_combo.get().strip(),
             skus_preparados=self._skus_preparados,

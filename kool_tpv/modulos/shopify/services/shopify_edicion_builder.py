@@ -23,11 +23,12 @@ class ShopifyEdicionBuilder:
     def construir_datos(self, base: Dict[str, Any], producto: Dict[str, Any], titulo_base: str,
                         variante_combo: str, tipo_nombre: str, skus_preparados: Optional[Dict[str, Any]],
                         primer_cuerpo: Optional[str], imagenes_locales: List[Dict[str, Any]],
-                        imagenes_web: List[Dict[str, Any]]) -> Dict[str, Any]:
+                        imagenes_web: List[Dict[str, Any]], titulo_sin_editar: bool = False) -> Dict[str, Any]:
         """Devuelve los 'datos' de product_set para actualizar el producto cargado.
 
         base: datos comunes ya calculados por la pantalla (tags, SEO, estado, taxonomía, recargo...).
         variante_combo: variante TPV seleccionada en la pantalla.
+        titulo_sin_editar: True si el título base sigue igual que al cargar el producto (no se reconstruye).
         skus_preparados: resultado de la subvista SKUS (o None).
         primer_cuerpo: HTML de la primera caja BODY de la pantalla (None si no hay cajas).
         """
@@ -95,6 +96,9 @@ class ShopifyEdicionBuilder:
         title = titulo_base
         if not base.get("agrupar_variantes", False) and variante_nombre:
             title = f"{titulo_base} | {variante_nombre}"
+        # Si el título base no se ha editado, se conserva exactamente el que ya tiene Shopify
+        if titulo_sin_editar and prod.get("title"):
+            title = prod["title"]
 
         datos.update({
             "title": title,
