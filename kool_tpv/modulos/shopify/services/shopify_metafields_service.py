@@ -172,6 +172,44 @@ class ShopifyMetafieldsService:
 
         return data["metaobjectDefinition"]["type"]
 
+    def obtener_colecciones(self) -> List[Dict[str, Any]]:
+        """Trae todas las colecciones de Shopify para usar como referencia."""
+        collections = []
+        has_next = True
+        cursor = None
+
+        query = """
+        query GetCollections($after: String) {
+          collections(first: 250, after: $after) {
+            nodes {
+              id
+              title
+              handle
+            }
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+          }
+        }
+        """
+
+        while has_next:
+            data, err = self._graphql(query, {"after": cursor})
+            if err:
+                logger.error(f"Error cargando colecciones: {err}")
+                break
+            
+            res = data.get("collections", {})
+            collections.extend(res.get("nodes") or [])
+            
+            page_info = res.get("pageInfo", {})
+            has_next = page_info.get("hasNextPage", False)
+            cursor = page_info.get("endCursor")
+
+        # Ordenar por título
+        return sorted(collections, key=lambda x: x.get("title", "").lower())
+
     def obtener_valores_producto(self, product_id: str) -> Dict[Tuple[str, str], Dict[str, Any]]:
         """Trae todos los metacampos con valor de un producto (paginado)."""
         metafields = {}
