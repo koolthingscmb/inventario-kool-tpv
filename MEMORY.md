@@ -5,23 +5,20 @@ aporte. (Última actualización: 2026-10-09, commit `ea41a72` en `windows-beta`.
 ## Estado actual
 - Shopify SUBIDA separada en NUEVO y EDITAR: `SubidaBaseView` + `SubidaNuevoView` + `SubidaEditarView`,
   con componentes (formulario, editor de contenido IA, selector de imágenes) y builders sin widgets.
-  `upload_view.py` ya no existe. Menú: SINC, NUEVO, EDITAR, MASIVA, CONFIG.
 - Stock en subidas: `inventorySetQuantities` con `changeFromQuantity: null`; si falla, la pantalla avisa.
-  SINC también migrado a la mutación nueva. Probado con un producto real.
-- EDITAR admite productos simples (Title / Default Title) y no cambia el título si no se edita.
-- METACAMPOS: casillas para listas con opciones (`ventajas`, `tutoriales`); se reenvían los metacampos
-  sin definición; no se crean booleanos `false` que no existían. Probado con Clutch y una riñonera.
+- METACAMPOS: casillas para opciones; reenvío de campos sin definición; selector de Colecciones real
+  en grid de 3 columnas con buscador y sincronización automática con el campo oficial de colecciones.
 - GENERAR CONTENIDO en EDITAR genera para la variante que se edita.
-- Tests: 72 pasan, 14 fallan, 6 no se importan (estado heredado, no causado por Shopify).
 
 ## Decisiones (y por qué)
-- Refactors sin cambiar comportamiento, comparando con la versión anterior (`git show HEAD:...`):
-  el usuario no tolera regresiones ni cambios sin avisar.
-- Stock de subida con `changeFromQuantity: null`: el TPV es la fuente de verdad del stock.
-- Reenviar los metacampos sin definición: `productSet` borra lo que no se reenvía (comprobado).
-- El título en EDITAR solo se toca si el usuario lo edita: productos antiguos no llevan el sufijo `| variante`.
-- Botones del menú: NUEVO y EDITAR (elegidos por el usuario). Se quitaron los campos que no aplican en cada vista.
-- En EDITAR el combo de variantes lista todas las activas; en NUEVO solo las `sync_web = 1`.
+- Refactors sin cambiar comportamiento, comparando con la versión anterior (`git show HEAD:...`).
+- Doble envío de Colecciones: el metacampo `coleccion_de_familia` se sincroniza con `collections` de
+  Shopify para que el producto aparezca físicamente en la colección y no solo como una nota.
+- Selector general: `ShopifyReferenceSelectDialog` (evolución del de Mecánicas) ahora es genérico,
+  usa grid de 3 columnas para aprovechar el ancho y tiene buscador para rapidez.
+- En EDITAR se conservan las colecciones existentes del producto para que `productSet` no las borre.
+- El título en EDITAR solo se toca si el usuario lo edita.
+- Botones del menú: NUEVO y EDITAR (elegidos por el usuario).
 
 ## Aprendizajes y errores a evitar
 - Probar escrituras en Shopify con productos en borrador. La Riñonera Star wars quedó con el título

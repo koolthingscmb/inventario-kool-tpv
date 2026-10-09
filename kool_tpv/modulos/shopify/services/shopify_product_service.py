@@ -298,20 +298,31 @@ class ShopifyProductService:
             "variants": variantes_input,
         }
         
-        # 3.1) Metacampos
+        # 3.1) Metacampos y Colecciones automáticas
         if datos.get("metafields"):
             product_input["metafields"] = []
+            # Iniciar lista de colecciones con las existentes (si es edición) para no borrarlas
+            # ya que Shopify productSet sustituye la lista completa.
+            target_collections = set(datos.get("collections_existing") or [])
+
             for mf in datos["metafields"]:
                 val = str(mf.get("value") or "").strip()
                 if not val:
                     continue # No enviar metacampos vacíos (da error en Shopify)
                 
+                # Si el metacampo es la colección de familia, sincronizarla con el campo oficial de colecciones
+                if mf["key"] == "coleccion_de_familia" and val.startswith("gid://shopify/Collection/"):
+                    target_collections.add(val)
+
                 product_input["metafields"].append({
                     "namespace": mf.get("namespace", "custom"),
                     "key": mf["key"],
                     "value": val,
                     "type": mf.get("type", "single_line_text_field")
                 })
+            
+            if target_collections:
+                product_input["collections"] = list(target_collections)
         if product_options:
             product_input["productOptions"] = product_options
         if datos.get("taxonomy_gid"):
@@ -671,6 +682,7 @@ class ShopifyProductService:
             query($id: ID!) {
                 product(id: $id) {
                     id title handle status descriptionHtml tags productType templateSuffix
+                    collections(first: 100) { nodes { id } }
                     seo { title description }
                     options { name values }
                     variants(first: 250) {

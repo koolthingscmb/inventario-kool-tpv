@@ -111,6 +111,7 @@ class ShopifyEdicionBuilder:
             "handle": prod.get("handle") or slugify_diseno(titulo_base),
             "description_html": primer_cuerpo if primer_cuerpo is not None else prod.get("descriptionHtml") or "",
             "product_id": prod["id"],
+            "collections_existing": [c["id"] for c in prod.get("collections", {}).get("nodes", [])],
             "variantes_input": None,
             "variantes": base_variantes,
             "product_options": product_options,

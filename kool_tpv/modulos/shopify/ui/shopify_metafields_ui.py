@@ -15,7 +15,7 @@ import customtkinter as ctk
 from kool_tpv.utils.config_loader import load_colors
 from kool_tpv.utils.widgets.notificaciones import show_error, ToastWidget
 from kool_tpv.utils.dialogs.helpers import show_input_dialog
-from kool_tpv.utils.dialogs.metaobject_select_dialog import show_metaobject_select_dialog
+from kool_tpv.utils.dialogs.metaobject_select_dialog import show_metaobject_select_dialog, show_reference_select_dialog
 from ..services.shopify_product_service import ShopifyProductService
 from ..services.shopify_metafields_service import ShopifyMetafieldsService
 
@@ -312,6 +312,46 @@ class ShopifyMetafieldsUI:
             fila_meta["widget"].configure(text=f"{n} seleccionados ({tipo_meta.capitalize()})")
             ToastWidget.show(self.frame, f"Selección de {tipo_meta} actualizada", tipo="success")
 
+    def _abrir_selector_colecciones(self, mf):
+        """Abre el nuevo selector mejorado para colecciones de Shopify."""
+        mf_type = mf.get("type", "")
+        multi = mf_type.startswith("list.")
+        
+        self._status("Cargando colecciones...")
+        
+        def work():
+            raw_cols = self.meta_service.obtener_colecciones()
+            if not raw_cols:
+                self.frame.after(0, lambda: show_error(self.frame, "Error", "No se encontraron colecciones en Shopify"))
+                self.frame.after(0, lambda: self._status("Listo"))
+                return
+            
+            self.frame.after(0, lambda: self._status("Listo"))
+            
+            # Formato genérico para el selector
+            opciones = [{"id": c["id"], "text": c["title"]} for c in raw_cols]
+            
+            fila_meta = next((r for r in self._rows if r["metafield"]["key"] == mf["key"]), None)
+            actual = fila_meta["var"] if fila_meta else None
+            
+            titulo = "Seleccionar Colección" if not multi else "Gestionar Colecciones"
+            res = show_reference_select_dialog(
+                self.frame, titulo, opciones, actual, multi_select=multi, agrupar=False
+            )
+            
+            if res is not None:
+                fila_meta["var"] = res
+                if multi:
+                    texto = f"{len(res)} seleccionadas"
+                else:
+                    col = next((o for o in opciones if o['id'] == res), None)
+                    texto = col['text'].upper() if col else "SELECCIONADA"
+                
+                self.frame.after(0, lambda: fila_meta["widget"].configure(text=texto))
+                ToastWidget.show(self.frame, "Colección actualizada", tipo="success")
+
+        threading.Thread(target=work, daemon=True).start()
+
     @staticmethod
     def _opciones_lista(mf) -> Optional[List[str]]:
         """Opciones (choices) de una lista de texto de Shopify; None si no aplica."""
@@ -412,6 +452,39 @@ class ShopifyMetafieldsUI:
             except:
                 iniciales = []
             var = iniciales 
+        elif mf_type in ('collection_reference', 'list.collection_reference'):
+            multi = mf_type.startswith("list.")
+            label_text = "Seleccionar Colección" if not multi else "Gestionar Colecciones"
+            
+            # Si ya tiene valor, intentar mostrar el nombre legible de la colección
+            if val:
+                if multi:
+                    try:
+                        ids = json.loads(val)
+                        label_text = f"{len(ids)} seleccionadas"
+                    except: pass
+                else:
+                    label_text = "COLECCIÓN SELECCIONADA"
+
+            widget = ctk.CTkButton(val_frame, text=label_text, height=32,
+                                  fg_color=self._secondary, font=("Helvetica", 11),
+                                  command=lambda m=mf: self._abrir_selector_colecciones(m))
+            widget.pack(fill="x", expand=True, padx=5, pady=4)
+            
+            # Resolución asíncrona del nombre para el botón inicial
+            if val and not multi:
+                def resolver(gid, w=widget):
+                    cols = self.meta_service.obtener_colecciones()
+                    found = next((c for c in cols if c['id'] == gid), None)
+                    if found:
+                        self.frame.after(0, lambda: w.configure(text=found['title'].upper()))
+                threading.Thread(target=resolver, args=(val,), daemon=True).start()
+
+            if multi:
+                try: var = json.loads(val) if val else []
+                except: var = []
+            else:
+                var = val
         elif mf_type in ('rich_text_field', 'multi_line_text_field') or mf_key == 'componentes':
             # Widget de texto multilínea con altura dinámica elástica
             widget = ctk.CTkTextbox(val_frame, height=60, font=("Helvetica", 11),
@@ -490,6 +563,11 @@ class ShopifyMetafieldsUI:
                     new_val = ""
                 else:
                     new_val = json.dumps(r["var"]) # Es una lista de GIDs
+            elif mf_type in ('collection_reference', 'list.collection_reference'):
+                if not mf.get("value") and not r["var"]:
+                    new_val = ""
+                else:
+                    new_val = json.dumps(r["var"]) if mf_type.startswith("list.") else str(r["var"] or "")
             elif r.get("opciones"):
                 marcadas = [o for o in r["opciones"] if r["var"][o].get()] + r["extras"]
                 if r["ilegible"] and not marcadas:
