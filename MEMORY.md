@@ -1,6 +1,6 @@
 # MEMORY.md — Kool TPV
 Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo que ya no
-aporte. (Última actualización: 2026-10-09, commit `ea41a72` en `windows-beta`.)
+aporte. (Última actualización: 2026-10-09, commit `a1a39fb` en `windows-beta`.)
 
 ## Estado actual
 - Shopify SUBIDA separada en NUEVO y EDITAR: `SubidaBaseView` + `SubidaNuevoView` + `SubidaEditarView`,
@@ -21,6 +21,7 @@ aporte. (Última actualización: 2026-10-09, commit `ea41a72` en `windows-beta`.
 - Botones del menú: NUEVO y EDITAR (elegidos por el usuario).
 
 ## Aprendizajes y errores a evitar
+- **NUNCA borrar o deshacer código sin permiso**, aunque creas que has cometido un error de proceso.
 - Probar escrituras en Shopify con productos en borrador. La Riñonera Star wars quedó con el título
   cambiado y sin 2 metacampos de Google antes de arreglarlo (el usuario lo dio por bueno).
 - Un `Actualizado OK` no significa que el stock se aplicara: mirar `stock_ok`.
