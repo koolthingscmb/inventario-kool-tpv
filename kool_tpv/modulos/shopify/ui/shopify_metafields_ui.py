@@ -188,13 +188,19 @@ class ShopifyMetafieldsUI:
             fila_actual += 1
             
             # Dibujar campos de la sección en 3 bloques (6 columnas)
-            for idx, mf in enumerate(campos):
+            normales = [mf for mf in campos if not self._opciones_lista(mf)]
+            con_opciones = [mf for mf in campos if self._opciones_lista(mf)]
+            for idx, mf in enumerate(normales):
                 fila_rel = idx // 3
                 col_base = (idx % 3) * 2
                 self._crear_bloque_metacampo(self._scroll, mf, fila_actual + fila_rel, col_base)
-                total_cargados += 1
-            
-            fila_actual += (len(campos) + 2) // 3
+            fila_actual += (len(normales) + 2) // 3
+
+            # Listas con opciones: una casilla por opción, en fila completa
+            for mf in con_opciones:
+                self._crear_bloque_opciones(self._scroll, mf, self._opciones_lista(mf), fila_actual)
+                fila_actual += 1
+            total_cargados += len(campos)
 
         if total_cargados == 0:
             self._no_meta_lbl = ctk.CTkLabel(self._scroll, text="Sin definiciones disponibles",
@@ -305,6 +311,56 @@ class ShopifyMetafieldsUI:
             # Actualizar el texto del botón
             fila_meta["widget"].configure(text=f"{n} seleccionados ({tipo_meta.capitalize()})")
             ToastWidget.show(self.frame, f"Selección de {tipo_meta} actualizada", tipo="success")
+
+    @staticmethod
+    def _opciones_lista(mf) -> Optional[List[str]]:
+        """Opciones (choices) de una lista de texto de Shopify; None si no aplica."""
+        if mf.get("type") != "list.single_line_text_field":
+            return None
+        for v in mf.get("validations", []):
+            if v.get("name") == "choices":
+                try:
+                    opciones = json.loads(v.get("value") or "[]")
+                except ValueError:
+                    return None
+                return opciones if isinstance(opciones, list) and opciones else None
+        return None
+
+    def _crear_bloque_opciones(self, parent, mf, opciones, fila):
+        """Lista de texto con opciones: nombre a la izquierda y una casilla por opción."""
+        tk.Label(parent, text=mf.get("name", mf.get("key", "")).upper(), anchor="w",
+                 fg="#FFF", bg=self._bg, font=("Consolas", 10, "bold")
+                 ).grid(row=fila, column=0, sticky="nsew", padx=(10, 2), pady=6)
+        marco = tk.Frame(parent, bg=self._bg)
+        marco.grid(row=fila, column=1, columnspan=5, sticky="w", padx=(2, 15), pady=2)
+
+        try:
+            actuales = json.loads(mf.get("value") or "[]")
+        except ValueError:
+            actuales = None
+        # Si el valor guardado no es una lista legible, se deja tal cual al guardar
+        ilegible = not isinstance(actuales, list)
+        if ilegible:
+            actuales = []
+
+        marcas = {}
+        for i, op in enumerate(opciones):
+            var = tk.BooleanVar(value=op in actuales)
+            ctk.CTkCheckBox(marco, text=op, variable=var,
+                            fg_color=self._primary, hover_color=self._secondary
+                            ).grid(row=i // 4, column=i % 4, sticky="w", padx=(5, 20), pady=4)
+            marcas[op] = var
+
+        self._rows.append({
+            "metafield": mf,
+            "widget": marco,
+            "var": marcas,
+            "type": mf.get("type"),
+            "opciones": opciones,
+            # Valores guardados que ya no están entre las opciones: se conservan al guardar
+            "extras": [a for a in actuales if a not in opciones],
+            "ilegible": ilegible,
+        })
 
     def _crear_bloque_metacampo(self, parent, mf, fila, col_base):
         # Todo sobre el fondo negro principal (self._bg)
@@ -424,9 +480,23 @@ class ShopifyMetafieldsUI:
             mf_type = r["type"]
             
             if mf_type == 'boolean':
-                new_val = "true" if r["var"].get() else "false"
+                # Un booleano sin valor en Shopify y sin marcar no se envía (no se inventa un "false")
+                if not mf.get("value") and not r["var"].get():
+                    new_val = ""
+                else:
+                    new_val = "true" if r["var"].get() else "false"
             elif mf_type == 'list.metaobject_reference':
-                new_val = json.dumps(r["var"]) # Es una lista de GIDs
+                if not mf.get("value") and not r["var"]:
+                    new_val = ""
+                else:
+                    new_val = json.dumps(r["var"]) # Es una lista de GIDs
+            elif r.get("opciones"):
+                marcadas = [o for o in r["opciones"] if r["var"][o].get()] + r["extras"]
+                if r["ilegible"] and not marcadas:
+                    new_val = str(mf.get("value") or "")
+                else:
+                    # Sin nada marcado solo se envía "[]" si el producto tenía valor (para poder vaciarlo)
+                    new_val = json.dumps(marcadas, ensure_ascii=False) if (marcadas or mf.get("value")) else ""
             elif mf_type in ('rich_text_field', 'multi_line_text_field') or mf.get('key') == 'componentes':
                 new_val = r["widget"].get("1.0", "end-1c").strip()
             else:
@@ -445,6 +515,21 @@ class ShopifyMetafieldsUI:
             if new_val != orig_val:
                 changes.append(meta_item)
         
+        # productSet borra los metacampos que no se reenvían: se conservan tal cual los que
+        # no tienen fila en esta pantalla (sin definición). El SEO global va por su campo propio.
+        mostrados = {(r["metafield"]["namespace"], r["metafield"]["key"]) for r in self._rows}
+        for (ns, key), val_obj in self._last_values.items():
+            if (ns, key) in mostrados or (ns == "global" and key in ("title_tag", "description_tag")):
+                continue
+            if val_obj.get("value") in (None, ""):
+                continue
+            all_metafields.append({
+                "namespace": ns,
+                "key": key,
+                "value": val_obj["value"],
+                "type": val_obj.get("type") or "single_line_text_field",
+            })
+
         # Notificar al padre con todos los metacampos (estén cambiados o no)
         if self.on_aceptar:
             self.on_aceptar(all_metafields)
