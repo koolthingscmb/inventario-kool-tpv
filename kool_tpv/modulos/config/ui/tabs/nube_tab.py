@@ -213,7 +213,7 @@ class NubeTab(ctk.CTkFrame):
         ToastWidget.show(self.parent, "Subiendo base de datos...", tipo='info')
         self.update()
         
-        db_path = "/Volumes/ALMACEN/KOOL_THINGS/KOOL_TPV_V2/kool_tpv/base_datos/kool_bd.db"
+        db_path = str(DB_PATH)
         
         if not os.path.exists(db_path):
             ToastWidget.show(self.parent, "Base de datos no encontrada", tipo='error')
