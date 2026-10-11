@@ -76,7 +76,7 @@ class ShopifySyncService:
                             inventoryItem {
                                 id
                                 inventoryLevel(locationId: $locationId) {
-                                    quantities(names: ["available"]) {
+                                    quantities(names: ["on_hand"]) {
                                         name
                                         quantity
                                     }
@@ -114,7 +114,7 @@ class ShopifySyncService:
                             current = 0
                             level = inv_item.get("inventoryLevel") or {}
                             for q in (level.get("quantities") or []):
-                                if q.get("name") == "available":
+                                if q.get("name") == "on_hand":
                                     current = q.get("quantity") or 0
                                     break
                             inventory_items.append({"inv_id": inv_id, "current": int(current)})
