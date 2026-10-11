@@ -1,25 +1,20 @@
 """BulkEditView: Edición masiva de productos de Shopify.
 
 Permite filtrar por tipo, tag y estado, previsualizar cambios y aplicar
-actualizaciones de PVP, plantilla y estado en lote de forma asíncrona.
+actualizaciones de PVP y plantilla en lote de forma asíncrona.
 """
 import logging
 import threading
 import tkinter as tk
-from typing import Optional, List, Dict, Any
-from decimal import Decimal
+from typing import List, Dict, Any
 
 import customtkinter as ctk
 
-from kool_tpv.utils.config_loader import load_colors, load_layout_config
-from kool_tpv.utils.font_loader import get_font
-from kool_tpv.utils.factories.button_factory import ButtonFactory
+from kool_tpv.utils.config_loader import load_colors
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.widgets.notificaciones import show_success, show_error
-from kool_tpv.base_datos.money_adapter import prepare_for_db, read_from_db
 from ..services.shopify_product_service import ShopifyProductService
-from ..services.producto_content_service import slugify_diseno
 
 logger = logging.getLogger(__name__)
 
@@ -28,12 +23,12 @@ class ShopifyBulkEditView:
 
     COLUMNAS = [
         ('id', 60, 'ID'),
-        ('title', 300, 'TÍTULO'),
+        ('title', 300, 'TÍTULO', True),
         ('productType', 120, 'TIPO'),
         ('template', 180, 'PLANTILLA'),
         ('status', 100, 'ESTADO'),
         ('pvp_actual', 64, '€€'),
-        ('pvp_propuesto', 120, '€€NEW', True),
+        ('pvp_propuesto', 120, '€€NEW'),
         ('resultado', 120, 'RESULTADO')
     ]
 
@@ -66,7 +61,7 @@ class ShopifyBulkEditView:
 
         # Fila 1: Buscador y Tipos
         row1 = tk.Frame(filter_frame, bg=self._bg_medium)
-        row1.pack(fill="x", padx=20, pady=(15, 5))
+        row1.pack(fill="x", padx=20, pady=(15, 15))
 
         tk.Label(row1, text="FILTRAR PRODUCTOS:", font=("Helvetica", 11, "bold"),
                  fg=self._primary, bg=self._bg_medium).pack(side="left", padx=(0, 10))
@@ -89,30 +84,22 @@ class ShopifyBulkEditView:
                       fg_color=self._primary, text_color="#000", font=("Helvetica", 11, "bold"),
                       command=self._on_buscar).pack(side="left", padx=10)
 
+        self._excluir_borradores_var = tk.BooleanVar(value=True)
+        ctk.CTkCheckBox(row1, text="EXCLUIR BORRADORES", variable=self._excluir_borradores_var,
+                        font=("Helvetica", 10), text_color="#AAA").pack(side="left", padx=(15, 10))
+
+        self._excluir_archivados_var = tk.BooleanVar(value=True)
+        ctk.CTkCheckBox(row1, text="EXCLUIR ARCHIVADOS", variable=self._excluir_archivados_var,
+                        font=("Helvetica", 10), text_color="#AAA").pack(side="left")
+
         self._load_status_lbl = tk.Label(row1, text="", font=("Helvetica", 10), fg="#888", bg=self._bg_medium)
         self._load_status_lbl.pack(side="right", padx=10)
 
-        # Fila 2: Checkboxes de seguridad
-        row2 = tk.Frame(filter_frame, bg=self._bg_medium)
-        row2.pack(fill="x", padx=20, pady=(5, 15))
-
-        self._excluir_borradores_var = tk.BooleanVar(value=True)
-        ctk.CTkCheckBox(row2, text="EXCLUIR BORRADORES", variable=self._excluir_borradores_var,
-                        font=("Helvetica", 10), text_color="#AAA").pack(side="left", padx=(0, 20))
-
-        self._excluir_archivados_var = tk.BooleanVar(value=True)
-        ctk.CTkCheckBox(row2, text="EXCLUIR ARCHIVADOS", variable=self._excluir_archivados_var,
-                        font=("Helvetica", 10), text_color="#AAA").pack(side="left")
-
-        # --- Barra de Acciones (El "Qué hacer") ---
-        self._action_frame = ctk.CTkFrame(self.frame, fg_color=self._bg, border_width=1, border_color=self._bg_medium)
-        self._action_frame.pack(fill="x", padx=20, pady=10)
+        # Fila 2: Cambios de PVP y plantilla
+        row_pvp = tk.Frame(filter_frame, bg=self._bg_medium)
+        row_pvp.pack(fill="x", padx=20, pady=(0, 15))
         
-        # Modo Precio
-        row_pvp = tk.Frame(self._action_frame, bg=self._bg)
-        row_pvp.pack(fill="x", padx=15, pady=10)
-        
-        tk.Label(row_pvp, text="CAMBIO DE PVP:", font=("Helvetica", 10, "bold"), fg=self._secondary, bg=self._bg).pack(side="left", padx=(0, 10))
+        tk.Label(row_pvp, text="CAMBIO DE PVP:", font=("Helvetica", 10, "bold"), fg=self._secondary, bg=self._bg_medium).pack(side="left", padx=(0, 10))
         
         self._op_pvp = ctk.CTkOptionMenu(row_pvp, values=["PRECIO FIJO", "SUBIR %", "BAJAR %", "SUBIR €", "BAJAR €"], width=130)
         self._op_pvp.pack(side="left", padx=5)
@@ -120,21 +107,12 @@ class ShopifyBulkEditView:
         self._val_pvp = ctk.CTkEntry(row_pvp, width=80, height=28, placeholder_text="Valor...")
         self._val_pvp.pack(side="left", padx=5)
         
-        self._redondeo_pvp = ctk.CTkOptionMenu(row_pvp, values=["SIN REDONDEO", ".95", ".99", "EURO ENTERO"], width=130)
-        self._redondeo_pvp.pack(side="left", padx=5)
-        
-        ctk.CTkButton(row_pvp, text="SIMULAR", width=100, height=28, fg_color=self._secondary, command=self._on_simular_pvp).pack(side="left", padx=15)
 
-        # Modo Plantilla
-        row_tpl = tk.Frame(self._action_frame, bg=self._bg)
-        row_tpl.pack(fill="x", padx=15, pady=(0, 15))
-        
-        tk.Label(row_tpl, text="CAMBIO DE PLANTILLA:", font=("Helvetica", 10, "bold"), fg=self._secondary, bg=self._bg).pack(side="left", padx=(0, 10))
-        
-        self._tpl_entry = ctk.CTkEntry(row_tpl, width=200, height=28, placeholder_text="Nombre de plantilla...")
+
+        tk.Label(row_pvp, text="CAMBIO DE PLANTILLA:", font=("Helvetica", 10, "bold"), fg=self._secondary, bg=self._bg_medium).pack(side="left", padx=(30, 10))
+        self._tpl_entry = ctk.CTkEntry(row_pvp, width=200, height=28, placeholder_text="Nombre de plantilla...")
         self._tpl_entry.pack(side="left", padx=5)
-        
-        ctk.CTkButton(row_tpl, text="APLICAR A TABLA", width=120, height=28, fg_color=self._secondary, command=self._on_simular_plantilla).pack(side="left", padx=15)
+        ctk.CTkButton(row_pvp, text="APLICAR", width=120, height=28, fg_color=self._secondary, command=self._on_aplicar).pack(side="left", padx=15)
 
         # --- Tabla Virtual ---
         self.nav_list = VirtualNavList(
@@ -240,36 +218,41 @@ class ShopifyBulkEditView:
         if not self._all_products:
             show_error(self.frame, "No se han encontrado productos")
 
-    def _on_simular_pvp(self):
-        op = self._op_pvp.get()
-        try:
-            val_raw = self._val_pvp.get().replace(',', '.').strip()
-            val = float(val_raw) if val_raw else 0.0
-        except:
-            show_error(self.frame, "Valor de precio inválido")
+    def _on_aplicar(self):
+        """Aplica a la tabla los cambios rellenados (PVP y/o plantilla)."""
+        val_raw = self._val_pvp.get().replace(',', '.').strip()
+        tpl = self._tpl_entry.get().strip()
+
+        if not val_raw and not tpl:
+            show_error(self.frame, "No hay cambios que aplicar: escribe un valor de precio o una plantilla")
             return
-            
-        redondeo = self._redondeo_pvp.get()
-        
-        for item in self._items_tabla:
-            nuevo = self._calcular_nuevo_pvp(item["_pvp_numeric"], op, val, redondeo)
-            item["pvp_propuesto"] = f"{nuevo:.2f}€"
-            item["_pvp_propuesto_numeric"] = nuevo
-            
+
+        if val_raw:
+            try:
+                val = float(val_raw)
+            except ValueError:
+                show_error(self.frame, "Valor de precio inválido")
+                return
+            op = self._op_pvp.get()
+            for item in self._items_tabla:
+                nuevo = self._calcular_nuevo_pvp(item["_pvp_numeric"], op, val)
+                item["pvp_propuesto"] = f"{nuevo:.2f}€"
+                item["_pvp_propuesto_numeric"] = nuevo
+
+        if tpl:
+            for item in self._items_tabla:
+                item["resultado"] = f"Plantilla: {tpl}"
+                item["_tpl_propuesta"] = tpl
+
         self.nav_list.set_items(self._items_tabla)
 
-    def _calcular_nuevo_pvp(self, actual, op, val, redondeo):
+    def _calcular_nuevo_pvp(self, actual, op, val):
         nuevo = actual
         if op == "PRECIO FIJO": nuevo = val
         elif op == "SUBIR %": nuevo = actual * (1 + val/100)
         elif op == "BAJAR %": nuevo = actual * (1 - val/100)
         elif op == "SUBIR €": nuevo = actual + val
         elif op == "BAJAR €": nuevo = actual - val
-        
-        if redondeo == ".95": nuevo = int(nuevo) + 0.95
-        elif redondeo == ".99": nuevo = int(nuevo) + 0.99
-        elif redondeo == "EURO ENTERO": nuevo = float(round(nuevo))
-        
         return max(0, nuevo)
 
     def _row_styler(self, item, idx):
@@ -289,17 +272,6 @@ class ShopifyBulkEditView:
         self.nav_list.set_items(self._items_tabla)
         self._load_status_lbl.configure(text=f"Total: {len(self._items_tabla)} productos")
 
-    def _on_simular_plantilla(self):
-        tpl = self._tpl_entry.get().strip()
-        if not tpl:
-            show_error(self.frame, "Escribe el nombre de la plantilla")
-            return
-            
-        for item in self._items_tabla:
-            item["resultado"] = f"Plantilla: {tpl}"
-            item["_tpl_propuesta"] = tpl
-            
-        self.nav_list.set_items(self._items_tabla)
 
     def _on_guardar(self):
         updates = []
