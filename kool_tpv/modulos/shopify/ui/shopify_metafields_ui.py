@@ -353,6 +353,36 @@ class ShopifyMetafieldsUI:
         threading.Thread(target=work, daemon=True).start()
 
     @staticmethod
+    def _rich_to_text(val) -> Optional[str]:
+        """Extrae texto legible de un valor rich_text de Shopify; None si no es ese JSON."""
+        try:
+            data = json.loads(val)
+        except (ValueError, TypeError):
+            return None
+        if not isinstance(data, dict) or data.get("type") != "root" or not isinstance(data.get("children"), list):
+            return None
+
+        def _texto_de(nodo):
+            partes = []
+            if isinstance(nodo, dict):
+                if nodo.get("type") == "text" and nodo.get("value") is not None:
+                    partes.append(str(nodo["value"]))
+                for hijo in nodo.get("children") or []:
+                    partes.append(_texto_de(hijo))
+            return "".join(partes)
+
+        return "\n".join(_texto_de(bloque) for bloque in data["children"])
+
+    @staticmethod
+    def _text_to_rich(texto: str) -> Dict[str, Any]:
+        """Convierte texto plano (una línea = un párrafo) en JSON rich_text de Shopify."""
+        children = [
+            {"type": "paragraph", "children": [{"type": "text", "value": linea}]}
+            for linea in texto.split("\n")
+        ]
+        return {"type": "root", "children": children}
+
+    @staticmethod
     def _opciones_lista(mf) -> Optional[List[str]]:
         """Opciones (choices) de una lista de texto de Shopify; None si no aplica."""
         if mf.get("type") != "list.single_line_text_field":
@@ -423,6 +453,7 @@ class ShopifyMetafieldsUI:
         
         widget = None
         var = None
+        rich_orig = None
 
         if mf_type == 'boolean':
             var = tk.BooleanVar(value=(str(val).lower() == 'true'))
@@ -491,7 +522,9 @@ class ShopifyMetafieldsUI:
                                    fg_color=self._bg_medium, border_width=1,
                                    wrap="word")
             widget.pack(fill="x", expand=True, padx=5, pady=5)
-            widget.insert("1.0", val)
+            # El rich_text viaja como JSON estructurado: se muestra solo el texto legible
+            rich_orig = self._rich_to_text(val)
+            widget.insert("1.0", rich_orig if rich_orig is not None else val)
             
             # Ajuste inicial y vinculación a eventos para que crezca al escribir o redimensionar
             self.frame.after(10, lambda w=widget: self._ajustar_altura_textbox(w))
@@ -513,7 +546,8 @@ class ShopifyMetafieldsUI:
             "metafield": mf,
             "widget": widget,
             "var": var,
-            "type": mf_type
+            "type": mf_type,
+            "rich_orig": rich_orig
         })
 
     def _volver(self):
@@ -576,7 +610,15 @@ class ShopifyMetafieldsUI:
                     # Sin nada marcado solo se envía "[]" si el producto tenía valor (para poder vaciarlo)
                     new_val = json.dumps(marcadas, ensure_ascii=False) if (marcadas or mf.get("value")) else ""
             elif mf_type in ('rich_text_field', 'multi_line_text_field') or mf.get('key') == 'componentes':
-                new_val = r["widget"].get("1.0", "end-1c").strip()
+                texto = r["widget"].get("1.0", "end-1c").strip()
+                if r.get("rich_orig") is not None:
+                    if texto == r["rich_orig"].strip():
+                        # Sin cambios: conserva el JSON original con su formato
+                        new_val = str(mf.get("value") or "")
+                    else:
+                        new_val = json.dumps(self._text_to_rich(texto), ensure_ascii=False)
+                else:
+                    new_val = texto
             else:
                 new_val = r["widget"].get().strip()
             
