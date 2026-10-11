@@ -107,6 +107,45 @@ class ShopifyMetafieldsService:
 
         return definitions
 
+    TIPOS_MASIVOS = (
+        "single_line_text_field", "multi_line_text_field",
+        "number_integer", "number_decimal", "url", "boolean",
+    )
+
+    @staticmethod
+    def validar_valor_masivo(type_name: str, raw: str) -> Tuple[Optional[str], Optional[str]]:
+        """Valida y normaliza el valor escrito para la edición masiva.
+
+        Devuelve (valor_para_shopify, None) o (None, mensaje_de_error).
+        """
+        raw = (raw or "").strip()
+        if type_name == "boolean":
+            if raw.upper() in ("SÍ", "SI", "TRUE"):
+                return "true", None
+            if raw.upper() in ("NO", "FALSE"):
+                return "false", None
+            return None, "Elige SÍ o NO"
+        if not raw:
+            return None, "Escribe un valor para el metacampo"
+        if type_name == "number_integer":
+            try:
+                return str(int(raw)), None
+            except ValueError:
+                return None, "Escribe un número entero (sin decimales)"
+        if type_name == "number_decimal":
+            try:
+                float(raw.replace(",", "."))
+                return raw.replace(",", "."), None
+            except ValueError:
+                return None, "Escribe un número válido"
+        if type_name == "url":
+            if not raw.lower().startswith(("http://", "https://")):
+                return None, "La URL debe empezar por http:// o https://"
+            return raw, None
+        if type_name in ("single_line_text_field", "multi_line_text_field"):
+            return raw, None
+        return None, f"Tipo de metacampo no soportado en masiva: {type_name}"
+
     def obtener_entradas_metaobjeto(self, type_name: str) -> List[Dict[str, Any]]:
         """Trae todas las entradas de un tipo de metaobjeto (ej: 'mecanicas')."""
         entries = []

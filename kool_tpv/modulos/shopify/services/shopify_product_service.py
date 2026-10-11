@@ -627,6 +627,39 @@ class ShopifyProductService:
                     errores.extend([e["message"] for e in data["productSet"]["userErrors"]])
                 else: total_ok += 1
 
+        # 3. Actualizar metacampos (vía metafieldsSet, en bloques de 25; cada bloque es atómico)
+        mf_updates = [u for u in updates if "metafield" in u]
+        if mf_updates:
+            mutation_mf = """
+            mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+                metafieldsSet(metafields: $metafields) {
+                    userErrors { field message }
+                }
+            }
+            """
+            for i in range(0, len(mf_updates), 25):
+                bloque = mf_updates[i:i + 25]
+                inputs = [{
+                    "ownerId": u["product_id"],
+                    "namespace": u["metafield"]["namespace"],
+                    "key": u["metafield"]["key"],
+                    "type": u["metafield"]["type"],
+                    "value": str(u["metafield"]["value"]),
+                } for u in bloque]
+                data, err = self._graphql(endpoint, headers, mutation_mf, {"metafields": inputs})
+                if err:
+                    errores.append(f"Bloque {i // 25 + 1}: {err}")
+                    continue
+                user_errors = data.get("metafieldsSet", {}).get("userErrors")
+                if user_errors:
+                    for e in user_errors:
+                        campo = e.get("field") or []
+                        idx = int(campo[1]) if len(campo) > 1 and str(campo[1]).isdigit() else None
+                        owner = bloque[idx]["product_id"] if idx is not None and idx < len(bloque) else "?"
+                        errores.append(f"Bloque {i // 25 + 1} ({owner}): {e['message']}")
+                else:
+                    total_ok += len(bloque)
+
         return {
             "success": len(errores) == 0,
             "total_ok": total_ok,

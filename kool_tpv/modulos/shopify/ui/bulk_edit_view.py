@@ -14,7 +14,9 @@ from kool_tpv.utils.config_loader import load_colors
 from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.widgets.notificaciones import show_success, show_error
+from kool_tpv.utils.dialogs.helpers import show_warning
 from ..services.shopify_product_service import ShopifyProductService
+from ..services.shopify_metafields_service import ShopifyMetafieldsService
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +31,7 @@ class ShopifyBulkEditView:
         ('status', 100, 'ESTADO'),
         ('pvp_actual', 64, '€€'),
         ('pvp_propuesto', 120, '€€NEW'),
+        ('meta', 170, 'META'),
         ('resultado', 120, 'RESULTADO')
     ]
 
@@ -36,6 +39,11 @@ class ShopifyBulkEditView:
         self.parent = parent
         self.db = db
         self.service = ShopifyProductService(db)
+        self.mf_service = ShopifyMetafieldsService(db)
+        self._mf_defs: Dict[str, Dict[str, Any]] = {}
+        self._mf_tipo_actual = None
+        self._mf_nombre_actual = None
+        self._desc_pvp = ""
 
         try:
             self._colors_cfg = load_colors('shopify')
@@ -97,7 +105,7 @@ class ShopifyBulkEditView:
 
         # Fila 2: Cambios de PVP y plantilla
         row_pvp = tk.Frame(filter_frame, bg=self._bg_medium)
-        row_pvp.pack(fill="x", padx=20, pady=(0, 15))
+        row_pvp.pack(fill="x", padx=20, pady=(0, 10))
         
         tk.Label(row_pvp, text="CAMBIO DE PVP:", font=("Helvetica", 10, "bold"), fg=self._secondary, bg=self._bg_medium).pack(side="left", padx=(0, 10))
         
@@ -113,6 +121,19 @@ class ShopifyBulkEditView:
         self._tpl_entry = ctk.CTkEntry(row_pvp, width=200, height=28, placeholder_text="Nombre de plantilla...")
         self._tpl_entry.pack(side="left", padx=5)
         ctk.CTkButton(row_pvp, text="APLICAR", width=120, height=28, fg_color=self._secondary, command=self._on_aplicar).pack(side="left", padx=15)
+
+        # Fila 3: Cambio de metacampo
+        row_mf = tk.Frame(filter_frame, bg=self._bg_medium)
+        row_mf.pack(fill="x", padx=20, pady=(0, 15))
+
+        tk.Label(row_mf, text="CAMBIO DE METACAMPO:", font=("Helvetica", 10, "bold"), fg=self._secondary, bg=self._bg_medium).pack(side="left", padx=(0, 10))
+        self._mf_combo = SearchableCombo(row_mf, width=220, placeholder="Elige metacampo...",
+                                         module_name="shopify", command=self._on_meta_seleccionado)
+        self._mf_combo.pack(side="left", padx=5)
+        self._mf_val_frame = tk.Frame(row_mf, bg=self._bg_medium)
+        self._mf_val_frame.pack(side="left", padx=5)
+        self._mf_val_widget = None
+        self._construir_valor_meta(None)
 
         # --- Tabla Virtual ---
         self.nav_list = VirtualNavList(
@@ -135,8 +156,46 @@ class ShopifyBulkEditView:
                                        font=("Helvetica", 13, "bold"), command=self._on_guardar)
         self._btn_save.pack(side="right")
 
-        # Cargar tipos iniciales
+        # Cargar tipos y metacampos iniciales
         self._cargar_tipos()
+        self._cargar_metacampos()
+
+    def _cargar_metacampos(self):
+        def work():
+            try:
+                defs = self.mf_service.obtener_definiciones_custom()
+                validas = [d for d in defs if d["type"]["name"] in ShopifyMetafieldsService.TIPOS_MASIVOS]
+                mapa = {d["name"]: d for d in sorted(validas, key=lambda d: d["name"].lower())}
+                opts = [(i, nombre) for i, nombre in enumerate(mapa)]
+
+                def apply():
+                    self._mf_defs = mapa
+                    self._mf_combo.set_options(opts)
+                self.frame.after(0, apply)
+            except Exception:
+                logger.exception("Error cargando definiciones de metacampos")
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_meta_seleccionado(self, nombre):
+        nombre = (nombre or "").strip()
+        if nombre == self._mf_nombre_actual:
+            return  # El combo también avisa al perder el foco: no recrear el campo de valor
+        d = self._mf_defs.get(nombre)
+        self._construir_valor_meta(d["type"]["name"] if d else None, nombre)
+
+    def _construir_valor_meta(self, tipo, nombre=None):
+        """Muestra el control de valor adecuado al tipo del metacampo elegido."""
+        for w in self._mf_val_frame.winfo_children():
+            w.destroy()
+        self._mf_tipo_actual = tipo
+        self._mf_nombre_actual = nombre
+        if tipo == "boolean":
+            self._mf_val_widget = ctk.CTkOptionMenu(self._mf_val_frame, values=["SÍ", "NO"], width=100, height=28)
+        else:
+            self._mf_val_widget = ctk.CTkEntry(self._mf_val_frame, width=220, height=28,
+                                               placeholder_text="Valor..." if tipo else "Elige metacampo primero...")
+        self._mf_val_widget.pack(side="left")
 
     def _cargar_tipos(self):
         def work():
@@ -160,7 +219,9 @@ class ShopifyBulkEditView:
         
         # Seguridad: evitar búsqueda masiva accidental
         if not search and not tipo and not tag:
-            if not tk.messagebox.askyesno("Confirmar", "¿Quieres cargar TODOS los productos de la web?\n\n(Esto puede tardar unos segundos si tienes muchos)"):
+            if not show_warning(self.frame, "CARGAR TODOS LOS PRODUCTOS",
+                                "¿Quieres cargar TODOS los productos de la web?\n\n(Esto puede tardar unos segundos si tienes muchos)",
+                                confirm=True):
                 return
 
         filters = {
@@ -204,6 +265,8 @@ class ShopifyBulkEditView:
             "_pvp_numeric": pvp,
             "pvp_propuesto": "",
             "_pvp_propuesto_numeric": None,
+            "meta": "",
+            "_mf_propuesto": None,
             "resultado": "",
             "_node": node
         }
@@ -219,12 +282,30 @@ class ShopifyBulkEditView:
             show_error(self.frame, "No se han encontrado productos")
 
     def _on_aplicar(self):
-        """Aplica a la tabla los cambios rellenados (PVP y/o plantilla)."""
+        """Aplica a la tabla los cambios rellenados (PVP, plantilla y/o metacampo)."""
         val_raw = self._val_pvp.get().replace(',', '.').strip()
         tpl = self._tpl_entry.get().strip()
+        mf_nombre = self._mf_combo.get().strip()
+        mf = None
 
-        if not val_raw and not tpl:
-            show_error(self.frame, "No hay cambios que aplicar: escribe un valor de precio o una plantilla")
+        if mf_nombre:
+            d = self._mf_defs.get(mf_nombre)
+            if not d:
+                show_error(self.frame, "Metacampo no válido: elígelo de la lista")
+                return
+            tipo = d["type"]["name"]
+            if mf_nombre != self._mf_nombre_actual:
+                self._construir_valor_meta(tipo, mf_nombre)
+                show_error(self.frame, "Escribe el valor del metacampo y pulsa APLICAR otra vez")
+                return
+            valor, err = ShopifyMetafieldsService.validar_valor_masivo(tipo, self._mf_val_widget.get())
+            if err:
+                show_error(self.frame, err)
+                return
+            mf = {"namespace": d["namespace"], "key": d["key"], "type": tipo, "value": valor}
+
+        if not val_raw and not tpl and not mf:
+            show_error(self.frame, "No hay cambios que aplicar: escribe un precio, una plantilla o elige un metacampo")
             return
 
         if val_raw:
@@ -234,6 +315,7 @@ class ShopifyBulkEditView:
                 show_error(self.frame, "Valor de precio inválido")
                 return
             op = self._op_pvp.get()
+            self._desc_pvp = f"Precio: {op} {val_raw}"
             for item in self._items_tabla:
                 nuevo = self._calcular_nuevo_pvp(item["_pvp_numeric"], op, val)
                 item["pvp_propuesto"] = f"{nuevo:.2f}€"
@@ -243,6 +325,12 @@ class ShopifyBulkEditView:
             for item in self._items_tabla:
                 item["resultado"] = f"Plantilla: {tpl}"
                 item["_tpl_propuesta"] = tpl
+
+        if mf:
+            visible = {"true": "SÍ", "false": "NO"}.get(mf["value"], mf["value"]) if mf["type"] == "boolean" else mf["value"]
+            for item in self._items_tabla:
+                item["meta"] = f"{mf['key']} = {visible}"
+                item["_mf_propuesto"] = mf
 
         self.nav_list.set_items(self._items_tabla)
 
@@ -256,7 +344,7 @@ class ShopifyBulkEditView:
         return max(0, nuevo)
 
     def _row_styler(self, item, idx):
-        if item.get("_pvp_propuesto_numeric") is not None:
+        if item.get("_pvp_propuesto_numeric") is not None or item.get("_mf_propuesto"):
             return {'bg': '#1b2a20', 'fg': '#2ECC71'}
         return None
 
@@ -295,11 +383,30 @@ class ShopifyBulkEditView:
                     "new_template": item["_tpl_propuesta"]
                 })
 
+            # Metacampo
+            if item.get("_mf_propuesto"):
+                updates.append({
+                    "product_id": node["id"],
+                    "metafield": item["_mf_propuesto"]
+                })
+
         if not updates:
             show_error(self.frame, "No hay cambios pendientes para guardar")
             return
 
-        if not tk.messagebox.askyesno("Confirmar", f"Vas a aplicar cambios masivos en {len(self._items_tabla)} productos de Shopify.\n\n¿Estás seguro?"):
+        cambios = []
+        if any(i.get("_pvp_propuesto_numeric") is not None for i in self._items_tabla):
+            cambios.append(self._desc_pvp)
+        for tpl in sorted({i["_tpl_propuesta"] for i in self._items_tabla if i.get("_tpl_propuesta")}):
+            cambios.append(f"Plantilla: {tpl}")
+        for meta in sorted({i["meta"] for i in self._items_tabla if i.get("_mf_propuesto")}):
+            clave, _, valor = meta.partition(" = ")
+            cambios.append(f"Metacampo `{clave}` = `{valor}`")
+        detalle = "\n".join(f"- {c}" for c in cambios)
+
+        if not show_warning(self.frame, "CONFIRMAR EDICIÓN MASIVA",
+                            f"Vas a aplicar cambios masivos en {len(self._items_tabla)} productos de Shopify:\n{detalle}\n¿Estás seguro?",
+                            confirm=True):
             return
 
         self._btn_save.configure(state="disabled", text="GUARDANDO...")
@@ -320,6 +427,9 @@ class ShopifyBulkEditView:
                             item["_pvp_propuesto_numeric"] = None
                         if item.get("_tpl_propuesta") is not None:
                             item["_tpl_propuesta"] = None
+                        if item.get("_mf_propuesto"):
+                            item["_mf_propuesto"] = None
+                            item["meta"] = ""
                         item["resultado"] = "OK"
                     self.nav_list.set_items(self._items_tabla)
                 else:
