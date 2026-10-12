@@ -1,60 +1,58 @@
 # MEMORY.md — Kool TPV
 Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo que ya no
-aporte. (Última actualización: 2026-10-11, commits `6521ccd`..`15eb7a4` en `windows-beta`.)
+aporte. (Última actualización: 2026-10-12, commits `6521ccd`..`b99e6a0` en `windows-beta`.)
 
 ## Estado actual
-- Shopify SUBIDA separada en NUEVO y EDITAR: `SubidaBaseView` + `SubidaNuevoView` + `SubidaEditarView`,
-  con componentes (formulario, editor de contenido IA, selector de imágenes) y builders sin widgets.
-- Stock en subidas: `inventorySetQuantities` con `changeFromQuantity: null`; si falla, la pantalla avisa.
+- Shopify SUBIDA separada en NUEVO y EDITAR (`SubidaBaseView` + `SubidaNuevoView` + `SubidaEditarView`,
+  con componentes y builders sin widgets). Stock en subidas: `changeFromQuantity: null`.
 - METACAMPOS: casillas para opciones; reenvío de campos sin definición; selector de Colecciones real
-  en grid de 3 columnas con buscador y sincronización automática con el campo oficial de colecciones.
-- GENERAR CONTENIDO en EDITAR genera para la variante que se edita.
-- SINC (`6521ccd`): `sync_stock_by_sku_prefix` lee `on_hand` (antes `available`); los pedidos web
-  sin enviar rompían la comprobación (`shopify_sync_service.py`). Probado con camisetas Marino.
-- MASIVA UI (`0d65c31`): imports muertos fuera, TÍTULO elástico, botón único APLICAR (PVP y/o
-  plantilla según lo rellenado), sin redondeo, filtros y acciones en 2 filas sobre fondo gris.
-- METACAMPOS `rich_text` (`a3cd0ad`): muestra texto legible y reenvuelve a JSON solo si se edita
-  (`_rich_to_text`/`_text_to_rich`). Probado editando `componentes` de Clutch en Shopify.
-- MASIVA METACAMPOS (`15eb7a4`), pasos 1-3 del plan: fila 3 con combo de metacampos `custom`, valor por
-  tipo (texto, número, URL, SÍ/NO; `TIPOS_MASIVOS` y `validar_valor_masivo` en el servicio de
-  metacampos), columna META, envío con `metafieldsSet` en bloques de 25 dentro de
-  `actualizar_productos_lote`. Confirmación con `show_warning(confirm=True)` listando los cambios.
-  Probado por el usuario con una escritura real. NO visto aún: el texto ampliado del diálogo.
+  con buscador; `rich_text` se muestra como texto y solo se reenvuelve a JSON si se edita.
+- SINC (`6521ccd`): `sync_stock_by_sku_prefix` lee `on_hand` (antes `available`).
+- FIX Windows (`60136a6`): el selector de Colecciones de METACAMPOS abría el diálogo desde un hilo
+  secundario y colgaba la app. Ahora el hilo trae datos y el diálogo se abre con `frame.after`.
+  Fixeado, PERO hay que probarlo más veces en Windows. ELIMINAR esta nota solo cuando el usuario diga.
+- MASIVA (`0d65c31`, `15eb7a4`, `b99e6a0`): filtros y acciones en 3 filas (PVP, plantilla, metacampo),
+  botón PULSAR PARA VER LOS CAMBIOS (color Accent), columna META, confirmación que lista los cambios.
+  Metacampos: texto/número/URL/SÍ-NO; listas con opciones; familia (`coleccion_de_familia`).
+  Modos AÑADIR/CAMBIAR como botones de opción (grises si el tipo no los usa). Probado con escritura real.
+- Familia en masa (`_aplicar_familia`): AÑADIR = solo productos sin familia; CAMBIAR = a todos.
+  Orden: entrar en colección nueva -> metacampo -> salir de la antigua. Probado con Trinidad y colecciones
+  `PRUEBA_*`. Sin probar: columna RESULTADO a 220 y el aspecto pintado de la fila 3.
 
 ## Decisiones (y por qué)
-- Refactors sin cambiar comportamiento, comparando con la versión anterior (`git show HEAD:...`).
-- Doble envío de Colecciones: el metacampo `coleccion_de_familia` se sincroniza con `collections` de
-  Shopify para que el producto aparezca físicamente en la colección y no solo como una nota.
-- En EDITAR se conservan las colecciones existentes del producto para que `productSet` no las borre.
-- Edición masiva de metacampos: `metafieldsSet` (atómico por bloque; NO `productSet`, que borra lo
-  omitido). `rich_text`/`file_reference` fuera. Solo un metacampo por pulsación de APLICAR.
-- Listas con opciones (`ventajas`...): selector AÑADIR/SUSTITUIR, por defecto AÑADIR (conserva lo que
-  tenga cada producto; hay que traer los metacampos en la búsqueda de MASIVA). Aprobado por el usuario.
+- Metacampos en masa con `metafieldsSet` (atómico por bloque de 25); NUNCA `productSet` (borra lo omitido).
+  `rich_text`/`file_reference` fuera. Un metacampo por pulsación. Listas vacías NO permitidas.
+- Colecciones con API 2026-07: modelo de "fuentes". Añadir/quitar = `collectionUpdate` con
+  `sourcesToUpdate[].condition.inclusion.selectionsToAdd/Remove` (las órdenes `collectionAddProducts`/
+  `RemoveProducts` están deprecadas). Shopify rechaza el lote entero si algún producto ya está dentro:
+  siempre filtrar con `inCollection`. Colección manual VACÍA = 0 fuentes: no se puede añadir.
+- Convención del usuario: toda colección de familia nueva lleva siempre el producto en borrador
+  'PRODUCTO FANTASMA' para que tenga fuente. Las colecciones `Family-...` por etiqueta son LEGADO
+  (migrando al metacampo): no se pueden vaciar desde la masiva; la limpieza se hace aparte en Shopify.
+- No se añaden exclusiones a colecciones antiguas (parche que esconde estado). Aviso al usuario.
+- Doble envío en EDITAR: `coleccion_de_familia` también mete el producto en la colección. Se conservan
+  las colecciones existentes del producto para que `productSet` no las borre.
 - El título en EDITAR solo se toca si el usuario lo edita.
-- `rich_text` sin negritas/listas: si el usuario lo edita en el TPV se guarda como texto plano.
 
 ## Aprendizajes y errores a evitar
-- **NUNCA borrar o deshacer código sin permiso**, aunque creas que has cometido un error de proceso.
-- **NUNCA editar código sin un "aplica" explícito**: explicar y responder preguntas NO es permiso.
-- **Leer MEMORY.md y AGENTS.md al empezar CADA sesión**, aunque la conversación venga de ayer.
-- En Shopify, `on_hand` = stock físico y `available` = on_hand − pedidos sin enviar (committed).
-  `changeFromQuantity` compara contra `on_hand`. Un fallo en un item NO anula el lote: el resto se aplica.
-- Probar escrituras en Shopify con productos en borrador.
-- Un `Actualizado OK` no significa que el stock se aplicara: mirar `stock_ok`.
-- Mis scripts de `/tmp` desaparecen al reiniciar el Mac: recréalos y di que son temporales.
-- El usuario pide explicaciones simples y con ejemplos reales; no te quedes en jerga técnica.
+- **NUNCA borrar/deshacer código ni editar sin un "aplica" explícito**; explicar no es permiso.
+- **Leer MEMORY.md y AGENTS.md al empezar CADA sesión.**
+- **Respuestas CORTAS, una cosa cada vez, sin jerga.** El usuario se pierde con mensajes largos.
+- **No decir sí a todo:** dar opinión profesional con pros y contras; el usuario lo pidió.
+- Tkinter: nunca abrir diálogos ni tocar widgets desde un hilo; usar `frame.after(0, ...)`.
+- Shopify: `on_hand` = físico; `available` = on_hand − comprometido. Un fallo no anula el lote.
+- Probar escrituras con productos en borrador y verificar con lectura "antes y después" (solo lectura:
+  BD abierta `mode=ro` y `execute_query` anulado, para no escribir ni el token temporal).
+- Mis scripts de `/tmp` desaparecen al reiniciar: recréalos y di que son temporales.
 
 ## Próximos pasos
-- MASIVA metacampos: paso 4 (selectores: listas con opciones, colecciones, metaobjetos), paso 5
-  (`coleccion_de_familia` con `collectionAddProducts`, conservando colecciones) y prueba real en borrador.
-- METACAMPOS resto: archivos (`reglamento`) con nombre en vez del identificador; alinear cabecera y
-  columnas del grid y dar fila propia al texto largo; no perder lo escrito al pulsar "+ AÑADIR
-  METACAMPO"; limpiar código sobrante.
-- NUEVO/EDITAR: zona de imágenes en rejilla (miniatura, nombre, X; 2 por fila).
-- Validar subida NUEVO con precios por variante y productos sin talla/color. Revisar el prompt GENERAR
-  TAGS (idea: pasarle los tags que ya existen en Shopify).
-- Probar en Windows la UI de Tipos y la migración 054; revisar UI Tipos/Categorías
-  (`shopify_taxonomy` obsoleto: se usa `categoria_id`).
-- Botón SINOPSIS (`WhakoomSource`, por ISBN) y gestión de imágenes de producto (`imagen_url`, fase 4).
+- MASIVA: aviso "Pulsa APLICAR primero" cuando ACTUALIZAR no tiene cambios pero hay metacampo elegido;
+  opción VACIAR listas (en METACAMPOS ya se envía `[]`); referencias a metaobjetos (`mecanicas_...`).
+- METACAMPOS resto: archivos (`reglamento`) con nombre en vez de identificador; alinear grid y dar fila
+  propia al texto largo; no perder lo escrito al pulsar "+ AÑADIR METACAMPO"; limpiar código sobrante.
+- NUEVO/EDITAR: imágenes en rejilla (2 por fila); validar NUEVO con precios por variante y sin talla/color;
+  prompt GENERAR TAGS con los tags existentes. Comprobar si el doble envío de EDITAR funciona con
+  colecciones por regla.
+- Probar en Windows la UI de Tipos y la migración 054; revisar Tipos/Categorías (`shopify_taxonomy`
+  obsoleto: se usa `categoria_id`). Botón SINOPSIS (`WhakoomSource`) e imágenes de producto.
 - Pendiente de decidir: tests rotos, `openai` en `requirements.txt`, documentos desactualizados.
-- Opcional: pasada 2 del refactor (métodos de los componentes en lugar de acceso directo a widgets).
