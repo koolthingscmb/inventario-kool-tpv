@@ -112,6 +112,21 @@ class ShopifyMetafieldsService:
         "number_integer", "number_decimal", "url", "boolean",
     )
 
+    TIPOS_LISTA = ("list.single_line_text_field",)
+    TIPOS_COLECCION = ("collection_reference",)
+
+    @staticmethod
+    def opciones_lista(definicion: Dict[str, Any]) -> List[str]:
+        """Opciones (choices) definidas en Shopify para una lista de texto; [] si no tiene."""
+        for v in definicion.get("validations") or []:
+            if v.get("name") == "choices":
+                try:
+                    opciones = json.loads(v.get("value") or "[]")
+                except ValueError:
+                    return []
+                return [str(o) for o in opciones] if isinstance(opciones, list) else []
+        return []
+
     @staticmethod
     def validar_valor_masivo(type_name: str, raw: str) -> Tuple[Optional[str], Optional[str]]:
         """Valida y normaliza el valor escrito para la edición masiva.

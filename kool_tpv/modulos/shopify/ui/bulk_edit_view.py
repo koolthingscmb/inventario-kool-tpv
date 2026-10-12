@@ -15,6 +15,7 @@ from kool_tpv.utils.widgets.searchable_combo import SearchableCombo
 from kool_tpv.utils.widgets.virtual_nav_list import VirtualNavList
 from kool_tpv.utils.widgets.notificaciones import show_success, show_error
 from kool_tpv.utils.dialogs.helpers import show_warning
+from kool_tpv.utils.dialogs.metaobject_select_dialog import show_reference_select_dialog
 from ..services.shopify_product_service import ShopifyProductService
 from ..services.shopify_metafields_service import ShopifyMetafieldsService
 
@@ -32,7 +33,7 @@ class ShopifyBulkEditView:
         ('pvp_actual', 64, '€€'),
         ('pvp_propuesto', 120, '€€NEW'),
         ('meta', 170, 'META'),
-        ('resultado', 120, 'RESULTADO')
+        ('resultado', 220, 'RESULTADO')
     ]
 
     def __init__(self, parent, db):
@@ -44,15 +45,18 @@ class ShopifyBulkEditView:
         self._mf_tipo_actual = None
         self._mf_nombre_actual = None
         self._desc_pvp = ""
+        self._mf_valores: List[str] = []
+        self._mf_coleccion = None
 
         try:
             self._colors_cfg = load_colors('shopify')
             self._primary = self._colors_cfg.get('primary', '#00A4DF')
             self._secondary = self._colors_cfg.get('secondary', '#3498db')
+            self._accent = self._colors_cfg.get('accent', '#5DADE2')
             self._bg = self._colors_cfg.get('background', '#000000')
             self._bg_medium = self._colors_cfg.get('bg_medium', '#1a1a1a')
         except Exception:
-            self._primary, self._secondary = '#00A4DF', '#3498db'
+            self._primary, self._secondary, self._accent = '#00A4DF', '#3498db', '#5DADE2'
             self._bg, self._bg_medium = '#000000', '#1a1a1a'
 
         self._all_products: List[Dict[str, Any]] = []
@@ -120,7 +124,7 @@ class ShopifyBulkEditView:
         tk.Label(row_pvp, text="CAMBIO DE PLANTILLA:", font=("Helvetica", 10, "bold"), fg=self._secondary, bg=self._bg_medium).pack(side="left", padx=(30, 10))
         self._tpl_entry = ctk.CTkEntry(row_pvp, width=200, height=28, placeholder_text="Nombre de plantilla...")
         self._tpl_entry.pack(side="left", padx=5)
-        ctk.CTkButton(row_pvp, text="APLICAR", width=120, height=28, fg_color=self._secondary, command=self._on_aplicar).pack(side="left", padx=15)
+        ctk.CTkButton(row_pvp, text="PULSAR PARA VER LOS CAMBIOS", width=260, height=28, fg_color=self._accent, text_color="#000", command=self._on_aplicar).pack(side="left", padx=15)
 
         # Fila 3: Cambio de metacampo
         row_mf = tk.Frame(filter_frame, bg=self._bg_medium)
@@ -132,6 +136,11 @@ class ShopifyBulkEditView:
         self._mf_combo.pack(side="left", padx=5)
         self._mf_val_frame = tk.Frame(row_mf, bg=self._bg_medium)
         self._mf_val_frame.pack(side="left", padx=5)
+        self._mf_modo_var = tk.StringVar(value="AÑADIR")
+        self._mf_radios = [ctk.CTkRadioButton(row_mf, text=t, variable=self._mf_modo_var, value=t, width=90,
+                                              font=("Helvetica", 10), state="disabled") for t in ("AÑADIR", "CAMBIAR")]
+        for r in self._mf_radios:
+            r.pack(side="left", padx=(15, 0))
         self._mf_val_widget = None
         self._construir_valor_meta(None)
 
@@ -164,7 +173,9 @@ class ShopifyBulkEditView:
         def work():
             try:
                 defs = self.mf_service.obtener_definiciones_custom()
-                validas = [d for d in defs if d["type"]["name"] in ShopifyMetafieldsService.TIPOS_MASIVOS]
+                S = ShopifyMetafieldsService
+                validas = [d for d in defs if d["type"]["name"] in S.TIPOS_MASIVOS + S.TIPOS_COLECCION
+                           or (d["type"]["name"] in S.TIPOS_LISTA and S.opciones_lista(d))]
                 mapa = {d["name"]: d for d in sorted(validas, key=lambda d: d["name"].lower())}
                 opts = [(i, nombre) for i, nombre in enumerate(mapa)]
 
@@ -190,12 +201,64 @@ class ShopifyBulkEditView:
             w.destroy()
         self._mf_tipo_actual = tipo
         self._mf_nombre_actual = nombre
+        self._mf_valores = []
+        self._mf_coleccion = None
+        self._mf_modo_var.set("AÑADIR")
+        usa_modo = tipo in ShopifyMetafieldsService.TIPOS_COLECCION + ShopifyMetafieldsService.TIPOS_LISTA
+        for r in self._mf_radios:
+            r.configure(state="normal" if usa_modo else "disabled")
+        if tipo in ShopifyMetafieldsService.TIPOS_COLECCION:
+            self._mf_val_widget = ctk.CTkButton(self._mf_val_frame, text="ELEGIR COLECCIÓN", width=200, height=28,
+                                                fg_color=self._secondary, command=self._elegir_coleccion)
+            self._mf_val_widget.pack(side="left")
+            return
+        if tipo in ShopifyMetafieldsService.TIPOS_LISTA:
+            self._mf_val_widget = ctk.CTkButton(self._mf_val_frame, text="ELEGIR VALORES (0)", width=170, height=28,
+                                                fg_color=self._secondary, command=self._elegir_valores_lista)
+            self._mf_val_widget.pack(side="left")
+            return
         if tipo == "boolean":
             self._mf_val_widget = ctk.CTkOptionMenu(self._mf_val_frame, values=["SÍ", "NO"], width=100, height=28)
         else:
             self._mf_val_widget = ctk.CTkEntry(self._mf_val_frame, width=220, height=28,
                                                placeholder_text="Valor..." if tipo else "Elige metacampo primero...")
         self._mf_val_widget.pack(side="left")
+
+    def _elegir_valores_lista(self):
+        """Abre el selector de casillas con las opciones definidas en Shopify para la lista."""
+        d = self._mf_defs.get(self._mf_nombre_actual)
+        if not d:
+            return
+        opciones = [{"id": o, "text": o} for o in ShopifyMetafieldsService.opciones_lista(d)]
+        res = show_reference_select_dialog(self.frame, f"SELECCIONAR {self._mf_nombre_actual}", opciones,
+                                           self._mf_valores, multi_select=True, agrupar=False)
+        if res is not None:
+            self._mf_valores = [o["id"] for o in opciones if o["id"] in res]
+            self._mf_val_widget.configure(text=f"ELEGIR VALORES ({len(self._mf_valores)})")
+
+    def _elegir_coleccion(self):
+        """Pide las colecciones a Shopify en un hilo y abre el selector en el hilo principal."""
+        self._load_status_lbl.configure(text="Cargando colecciones...", fg=self._primary)
+
+        def work():
+            cols = self.mf_service.obtener_colecciones()
+            self.frame.after(0, lambda: self._mostrar_selector_coleccion(cols))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _mostrar_selector_coleccion(self, cols):
+        self._load_status_lbl.configure(text="")
+        if not cols:
+            show_error(self.frame, "No se encontraron colecciones en Shopify")
+            return
+        opciones = [{"id": c["id"], "text": c["title"]} for c in cols]
+        actual = self._mf_coleccion["id"] if self._mf_coleccion else None
+        res = show_reference_select_dialog(self.frame, "SELECCIONAR FAMILIA", opciones, actual,
+                                           multi_select=False, agrupar=False)
+        if res:
+            titulo = next((o["text"] for o in opciones if o["id"] == res), res)
+            self._mf_coleccion = {"id": res, "title": titulo}
+            self._mf_val_widget.configure(text=titulo.upper()[:26])
 
     def _cargar_tipos(self):
         def work():
@@ -298,11 +361,27 @@ class ShopifyBulkEditView:
                 self._construir_valor_meta(tipo, mf_nombre)
                 show_error(self.frame, "Escribe el valor del metacampo y pulsa APLICAR otra vez")
                 return
-            valor, err = ShopifyMetafieldsService.validar_valor_masivo(tipo, self._mf_val_widget.get())
-            if err:
-                show_error(self.frame, err)
-                return
-            mf = {"namespace": d["namespace"], "key": d["key"], "type": tipo, "value": valor}
+            if tipo in ShopifyMetafieldsService.TIPOS_COLECCION:
+                if not self._mf_coleccion:
+                    show_error(self.frame, "Elige la colección de familia")
+                    return
+                modo = "añadir" if self._mf_modo_var.get() == "AÑADIR" else "cambiar"
+                mf = {"namespace": d["namespace"], "key": d["key"], "type": tipo,
+                      "modo": modo, "coleccion": self._mf_coleccion["id"],
+                      "coleccion_nombre": self._mf_coleccion["title"]}
+            elif tipo in ShopifyMetafieldsService.TIPOS_LISTA:
+                if not self._mf_valores:
+                    show_error(self.frame, "Elige al menos un valor para la lista")
+                    return
+                modo = "añadir" if self._mf_modo_var.get() == "AÑADIR" else "sustituir"
+                mf = {"namespace": d["namespace"], "key": d["key"], "type": tipo,
+                      "modo": modo, "valores": list(self._mf_valores)}
+            else:
+                valor, err = ShopifyMetafieldsService.validar_valor_masivo(tipo, self._mf_val_widget.get())
+                if err:
+                    show_error(self.frame, err)
+                    return
+                mf = {"namespace": d["namespace"], "key": d["key"], "type": tipo, "value": valor}
 
         if not val_raw and not tpl and not mf:
             show_error(self.frame, "No hay cambios que aplicar: escribe un precio, una plantilla o elige un metacampo")
@@ -327,9 +406,26 @@ class ShopifyBulkEditView:
                 item["_tpl_propuesta"] = tpl
 
         if mf:
-            visible = {"true": "SÍ", "false": "NO"}.get(mf["value"], mf["value"]) if mf["type"] == "boolean" else mf["value"]
+            if mf["type"] == "collection_reference":
+                nombre = mf["coleccion_nombre"]
+                if mf["modo"] == "añadir":
+                    meta = f"{mf['key']}: AÑADIR {nombre}"
+                    confirmacion = f"Familia (`{mf['key']}`): AÑADIR `{nombre}` (solo a los productos sin familia)"
+                else:
+                    meta = f"{mf['key']}: CAMBIAR a {nombre}"
+                    confirmacion = f"Familia (`{mf['key']}`): CAMBIAR a `{nombre}` (sale de su familia anterior)"
+            elif "valores" in mf:
+                lista = ", ".join(mf["valores"])
+                signo, accion = ("+", "AÑADIR") if mf["modo"] == "añadir" else ("=", "CAMBIAR a")
+                meta = f"{mf['key']} {signo} {lista}"
+                confirmacion = f"Metacampo `{mf['key']}`: {accion} " + ", ".join(f"`{v}`" for v in mf["valores"])
+            else:
+                visible = {"true": "SÍ", "false": "NO"}.get(mf["value"], mf["value"]) if mf["type"] == "boolean" else mf["value"]
+                meta = f"{mf['key']} = {visible}"
+                confirmacion = f"Metacampo `{mf['key']}` = `{visible}`"
             for item in self._items_tabla:
-                item["meta"] = f"{mf['key']} = {visible}"
+                item["meta"] = meta
+                item["_mf_confirm"] = confirmacion
                 item["_mf_propuesto"] = mf
 
         self.nav_list.set_items(self._items_tabla)
@@ -399,9 +495,8 @@ class ShopifyBulkEditView:
             cambios.append(self._desc_pvp)
         for tpl in sorted({i["_tpl_propuesta"] for i in self._items_tabla if i.get("_tpl_propuesta")}):
             cambios.append(f"Plantilla: {tpl}")
-        for meta in sorted({i["meta"] for i in self._items_tabla if i.get("_mf_propuesto")}):
-            clave, _, valor = meta.partition(" = ")
-            cambios.append(f"Metacampo `{clave}` = `{valor}`")
+        for txt in sorted({i["_mf_confirm"] for i in self._items_tabla if i.get("_mf_propuesto")}):
+            cambios.append(txt)
         detalle = "\n".join(f"- {c}" for c in cambios)
 
         if not show_warning(self.frame, "CONFIRMAR EDICIÓN MASIVA",
@@ -417,7 +512,9 @@ class ShopifyBulkEditView:
             def done():
                 self._btn_save.configure(state="normal", text="ACTUALIZAR EN SHOPIFY")
                 if res["success"]:
-                    show_success(self.frame, "Actualización masiva completada")
+                    omitidos = res.get("omitidos", 0)
+                    show_success(self.frame, "Actualización masiva completada"
+                                 + (f" ({omitidos} omitidos: ya tenían familia)" if omitidos else ""))
                     # Limpiar propuestas tras éxito
                     for item in self._items_tabla:
                         if item.get("_pvp_propuesto_numeric") is not None:
@@ -432,8 +529,13 @@ class ShopifyBulkEditView:
                             item["meta"] = ""
                         item["resultado"] = "OK"
                     self.nav_list.set_items(self._items_tabla)
+                    if res.get("avisos"):
+                        show_warning(self.frame, "AVISO", "\n".join(res["avisos"]))
                 else:
-                    show_error(self.frame, f"Hubo algunos errores:\n{res['message']}")
+                    detalle = "\n".join(res.get("errores", [])[:6]) or res["message"]
+                    show_error(self.frame, f"Hubo algunos errores:\n{detalle}")
+                    if res.get("avisos"):
+                        show_warning(self.frame, "AVISO", "\n".join(res["avisos"]))
             
             self.frame.after(0, done)
 

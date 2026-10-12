@@ -1,6 +1,7 @@
 import logging
 import json
 import mimetypes
+import time
 import uuid
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple, Callable
@@ -628,7 +629,9 @@ class ShopifyProductService:
                 else: total_ok += 1
 
         # 3. Actualizar metacampos (vía metafieldsSet, en bloques de 25; cada bloque es atómico)
-        mf_updates = [u for u in updates if "metafield" in u]
+        mf_todos = [u for u in updates if "metafield" in u]
+        fam_updates = [u for u in mf_todos if u["metafield"].get("type") == "collection_reference"]
+        mf_updates = [u for u in mf_todos if u["metafield"].get("type") != "collection_reference"]
         if mf_updates:
             mutation_mf = """
             mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
@@ -637,35 +640,322 @@ class ShopifyProductService:
                 }
             }
             """
-            for i in range(0, len(mf_updates), 25):
-                bloque = mf_updates[i:i + 25]
-                inputs = [{
-                    "ownerId": u["product_id"],
-                    "namespace": u["metafield"]["namespace"],
-                    "key": u["metafield"]["key"],
-                    "type": u["metafield"]["type"],
-                    "value": str(u["metafield"]["value"]),
-                } for u in bloque]
-                data, err = self._graphql(endpoint, headers, mutation_mf, {"metafields": inputs})
-                if err:
-                    errores.append(f"Bloque {i // 25 + 1}: {err}")
-                    continue
-                user_errors = data.get("metafieldsSet", {}).get("userErrors")
-                if user_errors:
-                    for e in user_errors:
-                        campo = e.get("field") or []
-                        idx = int(campo[1]) if len(campo) > 1 and str(campo[1]).isdigit() else None
-                        owner = bloque[idx]["product_id"] if idx is not None and idx < len(bloque) else "?"
-                        errores.append(f"Bloque {i // 25 + 1} ({owner}): {e['message']}")
+            # Listas en modo AÑADIR: se lee la lista actual de cada producto justo antes de escribir
+            actuales = {}
+            for u in mf_updates:
+                mf = u["metafield"]
+                clave = (mf["namespace"], mf["key"])
+                if mf.get("modo") == "añadir" and clave not in actuales:
+                    ids = [x["product_id"] for x in mf_updates
+                           if x["metafield"].get("modo") == "añadir"
+                           and (x["metafield"]["namespace"], x["metafield"]["key"]) == clave]
+                    actuales[clave] = self._leer_metacampo_lote(endpoint, headers, ids, *clave)
+
+            envios = []
+            for u in mf_updates:
+                mf = u["metafield"]
+                pid = u["product_id"]
+                if mf.get("modo") == "añadir":
+                    leidos = actuales[(mf["namespace"], mf["key"])]
+                    if pid not in leidos:
+                        errores.append(f"{pid}: no se pudo leer su lista actual; no se ha modificado")
+                        continue
+                    try:
+                        actual = json.loads(leidos[pid]) if leidos[pid] else []
+                        if not isinstance(actual, list): raise ValueError
+                    except ValueError:
+                        errores.append(f"{pid}: su lista actual tiene un formato no válido; no se ha modificado")
+                        continue
+                    nueva = actual + [v for v in mf["valores"] if v not in actual]
+                    if nueva == actual:
+                        total_ok += 1
+                        continue
+                    valor = json.dumps(nueva, ensure_ascii=False)
+                elif mf.get("modo") == "sustituir":
+                    valor = json.dumps(list(mf["valores"]), ensure_ascii=False)
                 else:
-                    total_ok += len(bloque)
+                    valor = str(mf["value"])
+                envios.append({"product_id": pid, "namespace": mf["namespace"], "key": mf["key"],
+                               "type": mf["type"], "value": valor})
+
+            ok, errs, _ = self._enviar_metacampos(endpoint, headers, envios)
+            total_ok += ok
+            errores.extend(errs)
+
+        # 4. Familia: colección real + metacampo de colección
+        omitidos, avisos = 0, []
+        if fam_updates:
+            ok, errs, omitidos, avisos = self._aplicar_familia(endpoint, headers, fam_updates)
+            total_ok += ok
+            errores.extend(errs)
 
         return {
             "success": len(errores) == 0,
             "total_ok": total_ok,
             "message": f"Operación completada. Errores: {len(errores)}",
-            "errores": errores
+            "errores": errores,
+            "omitidos": omitidos,
+            "avisos": avisos
         }
+
+    def _leer_metacampo_lote(self, endpoint: str, headers: Dict, product_ids: List[str],
+                             namespace: str, key: str) -> Dict[str, Optional[str]]:
+        """Lee el valor actual de un metacampo en varios productos (solo lectura).
+
+        Solo incluye los productos leídos con éxito; si una lectura falla, ese producto no aparece.
+        """
+        query = """
+        query($ids: [ID!]!, $ns: String!, $key: String!) {
+            nodes(ids: $ids) {
+                ... on Product { id metafield(namespace: $ns, key: $key) { value } }
+            }
+        }
+        """
+        resultado = {}
+        for i in range(0, len(product_ids), 100):
+            data, err = self._graphql(endpoint, headers, query,
+                                      {"ids": product_ids[i:i + 100], "ns": namespace, "key": key})
+            if err or not data:
+                logger.error(f"Error leyendo metacampo {namespace}.{key}: {err}")
+                continue
+            for node in data.get("nodes") or []:
+                if node and node.get("id"):
+                    resultado[node["id"]] = (node.get("metafield") or {}).get("value")
+        return resultado
+
+    def _enviar_metacampos(self, endpoint: str, headers: Dict, envios: List[Dict[str, Any]]) -> Tuple[int, List[str], set]:
+        """Envía metacampos con metafieldsSet en bloques de 25 (cada bloque es atómico).
+
+        envios: [{"product_id", "namespace", "key", "type", "value"}].
+        Devuelve (productos_ok, errores, ids_de_productos_fallidos).
+        """
+        mutation = """
+        mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+            metafieldsSet(metafields: $metafields) {
+                userErrors { field message }
+            }
+        }
+        """
+        ok, errores, fallidos = 0, [], set()
+        for i in range(0, len(envios), 25):
+            bloque = envios[i:i + 25]
+            inputs = [{
+                "ownerId": e["product_id"],
+                "namespace": e["namespace"],
+                "key": e["key"],
+                "type": e["type"],
+                "value": e["value"],
+            } for e in bloque]
+            data, err = self._graphql(endpoint, headers, mutation, {"metafields": inputs})
+            if err:
+                errores.append(f"Bloque {i // 25 + 1}: {err}")
+                fallidos.update(e["product_id"] for e in bloque)
+                continue
+            user_errors = data.get("metafieldsSet", {}).get("userErrors")
+            if user_errors:
+                for e in user_errors:
+                    campo = e.get("field") or []
+                    idx = int(campo[1]) if len(campo) > 1 and str(campo[1]).isdigit() else None
+                    owner = bloque[idx]["product_id"] if idx is not None and idx < len(bloque) else "?"
+                    errores.append(f"Bloque {i // 25 + 1} ({owner}): {e['message']}")
+                fallidos.update(e["product_id"] for e in bloque)
+            else:
+                ok += len(bloque)
+        return ok, errores, fallidos
+
+    def _leer_familia_lote(self, endpoint: str, headers: Dict, product_ids: List[str],
+                           namespace: str, key: str, coleccion_id: str) -> Dict[str, Dict[str, Any]]:
+        """Lee (solo lectura) la familia actual de cada producto y si ya está en la colección indicada.
+
+        Solo incluye los productos leídos con éxito.
+        """
+        query = """
+        query($ids: [ID!]!, $ns: String!, $key: String!, $col: ID!) {
+            nodes(ids: $ids) {
+                ... on Product {
+                    id
+                    inCollection(id: $col)
+                    metafield(namespace: $ns, key: $key) { value }
+                }
+            }
+        }
+        """
+        resultado = {}
+        for i in range(0, len(product_ids), 100):
+            data, err = self._graphql(endpoint, headers, query, {
+                "ids": product_ids[i:i + 100], "ns": namespace, "key": key, "col": coleccion_id})
+            if err or not data:
+                logger.error(f"Error leyendo familia {namespace}.{key}: {err}")
+                continue
+            for node in data.get("nodes") or []:
+                if node and node.get("id"):
+                    resultado[node["id"]] = {
+                        "familia": (node.get("metafield") or {}).get("value") or None,
+                        "en_coleccion": bool(node.get("inCollection")),
+                    }
+        return resultado
+
+    def _contar_en_coleccion(self, endpoint: str, headers: Dict, product_ids: List[str], coleccion_id: str) -> int:
+        """Cuántos de los productos siguen dentro de la colección (solo lectura)."""
+        query = """
+        query($ids: [ID!]!, $col: ID!) {
+            nodes(ids: $ids) { ... on Product { id inCollection(id: $col) } }
+        }
+        """
+        total = 0
+        for i in range(0, len(product_ids), 100):
+            data, err = self._graphql(endpoint, headers, query, {"ids": product_ids[i:i + 100], "col": coleccion_id})
+            if err or not data:
+                logger.error(f"Error comprobando pertenencia a {coleccion_id}: {err}")
+                continue
+            total += sum(1 for n in data.get("nodes") or [] if n and n.get("inCollection"))
+        return total
+
+    def _fuente_coleccion(self, endpoint: str, headers: Dict, coleccion_id: str) -> Tuple[Optional[str], Optional[str]]:
+        """GID de la única fuente de productos de una colección. Devuelve (fuente_id, error)."""
+        data, err = self._graphql(endpoint, headers, """
+            query($id: ID!) { collection(id: $id) { title sources { __typename id } } }
+        """, {"id": coleccion_id})
+        if err or not data:
+            return None, f"No se pudo leer la colección {coleccion_id}: {err}"
+        col = data.get("collection")
+        if not col:
+            return None, f"La colección {coleccion_id} no existe"
+        fuentes = col.get("sources") or []
+        if not fuentes:
+            return None, (f"La colección '{col.get('title')}' está vacía y no tiene fuente: "
+                          "añade un producto a mano en Shopify una vez y vuelve a intentarlo")
+        productos = [f for f in fuentes if f.get("__typename") == "CollectionConditionsSource"]
+        if len(fuentes) != 1 or len(productos) != 1:
+            return None, f"La colección '{col.get('title')}' tiene {len(fuentes)} fuentes; solo se admite una de productos"
+        return productos[0]["id"], None
+
+    def _esperar_job(self, endpoint: str, headers: Dict, job_id: str, intentos: int = 15) -> bool:
+        """Espera a que termine un job de Shopify (consulta cada segundo). True si terminó."""
+        for _ in range(intentos):
+            data, err = self._graphql(endpoint, headers, "query($id: ID!) { job(id: $id) { done } }", {"id": job_id})
+            if not err and data and (data.get("job") or {}).get("done"):
+                return True
+            time.sleep(1)
+        return False
+
+    def _cambiar_selecciones(self, endpoint: str, headers: Dict, coleccion_id: str, fuente_id: str,
+                             product_ids: List[str], anadir: bool) -> Tuple[List[str], set, bool]:
+        """Añade o quita productos (selecciones manuales) de la fuente de una colección.
+
+        Usa collectionUpdate con inclusion.selectionsToAdd / selectionsToRemove, en bloques de 250.
+        Devuelve (errores, ids_fallidos, todos_los_jobs_terminaron).
+        """
+        campo = "selectionsToAdd" if anadir else "selectionsToRemove"
+        mutation = """
+        mutation($collection: CollectionUpdateInput!) {
+            collectionUpdate(collection: $collection) {
+                job { id done }
+                userErrors { field message }
+            }
+        }
+        """
+        errores, fallidos, terminado = [], set(), True
+        for i in range(0, len(product_ids), 250):
+            lote = product_ids[i:i + 250]
+            variables = {"collection": {
+                "id": coleccion_id,
+                "sourcesToUpdate": [{"condition": {
+                    "id": fuente_id,
+                    "inclusion": {campo: [{"productId": p} for p in lote]},
+                }}],
+            }}
+            data, err = self._graphql(endpoint, headers, mutation, variables)
+            if err:
+                errores.append(f"Colección {coleccion_id}: {err}")
+                fallidos.update(lote)
+                continue
+            res = data.get("collectionUpdate") or {}
+            if res.get("userErrors"):
+                errores.append(f"Colección {coleccion_id}: {json.dumps(res['userErrors'], ensure_ascii=False)[:300]}")
+                fallidos.update(lote)
+                continue
+            job = res.get("job")
+            if job and not job.get("done") and not self._esperar_job(endpoint, headers, job["id"]):
+                terminado = False
+        return errores, fallidos, terminado
+
+    def _aplicar_familia(self, endpoint: str, headers: Dict, fam_updates: List[Dict[str, Any]]) -> Tuple[int, List[str], int, List[str]]:
+        """Familia en masa: entra en la colección nueva, escribe el metacampo y (CAMBIAR) sale de la antigua.
+
+        modo "añadir": solo productos sin familia. modo "cambiar": todos.
+        Devuelve (productos_ok, errores, omitidos, avisos).
+        """
+        ok, omitidos, errores, avisos = 0, 0, [], []
+        grupos = {}
+        for u in fam_updates:
+            mf = u["metafield"]
+            clave = (mf["namespace"], mf["key"], mf["type"], mf["coleccion"], mf["modo"])
+            grupos.setdefault(clave, []).append(u["product_id"])
+
+        for (ns, key, tipo, destino, modo), ids in grupos.items():
+            ids = list(dict.fromkeys(ids))
+            leidos = self._leer_familia_lote(endpoint, headers, ids, ns, key, destino)
+
+            hacer = []
+            for pid in ids:
+                est = leidos.get(pid)
+                if est is None:
+                    errores.append(f"{pid}: no se pudo leer su familia actual; no se ha modificado")
+                elif modo == "añadir" and est["familia"]:
+                    omitidos += 1
+                elif est["familia"] == destino and est["en_coleccion"]:
+                    omitidos += 1
+                else:
+                    hacer.append((pid, est))
+            if not hacer:
+                continue
+
+            # 1) Entrar en la colección nueva (solo los que aún no están dentro)
+            fallidos = set()
+            faltan = [p for p, e in hacer if not e["en_coleccion"]]
+            if faltan:
+                fuente, err = self._fuente_coleccion(endpoint, headers, destino)
+                if err:
+                    errores.append(err)
+                    fallidos.update(faltan)
+                else:
+                    errs, fall, terminado = self._cambiar_selecciones(endpoint, headers, destino, fuente, faltan, True)
+                    errores.extend(errs)
+                    fallidos |= fall
+                    if not terminado:
+                        avisos.append("Shopify aún estaba procesando la colección nueva; revisa el resultado en el admin")
+
+            # 2) Escribir el metacampo (solo a los que no lo tienen ya con ese valor)
+            envios = [{"product_id": p, "namespace": ns, "key": key, "type": tipo, "value": destino}
+                      for p, e in hacer if p not in fallidos and e["familia"] != destino]
+            _, errs, fall_meta = self._enviar_metacampos(endpoint, headers, envios)
+            errores.extend(errs)
+            fallidos |= fall_meta
+
+            # 3) CAMBIAR: salir de la colección de familia anterior
+            if modo == "cambiar":
+                por_antigua = {}
+                for p, e in hacer:
+                    if p not in fallidos and e["familia"] and e["familia"] != destino:
+                        por_antigua.setdefault(e["familia"], []).append(p)
+                for antigua, pids in por_antigua.items():
+                    fuente, err = self._fuente_coleccion(endpoint, headers, antigua)
+                    if err:
+                        avisos.append(f"{len(pids)} producto(s) no salieron de su familia anterior: {err}")
+                        continue
+                    errs, _, terminado = self._cambiar_selecciones(endpoint, headers, antigua, fuente, pids, False)
+                    if errs:
+                        avisos.append(f"{len(pids)} producto(s) no salieron de su familia anterior: {errs[0]}")
+                        continue
+                    siguen = self._contar_en_coleccion(endpoint, headers, pids, antigua) if terminado else len(pids)
+                    if siguen:
+                        avisos.append(f"{siguen} producto(s) siguen en su familia anterior porque entran por una regla "
+                                      "(por ejemplo una etiqueta) y no se pueden sacar desde aquí")
+
+            ok += len([p for p, _ in hacer if p not in fallidos])
+
+        return ok, errores, omitidos, avisos
 
     def actualizar_skus(self, product_id: str, variantes: List[Dict[str, str]]) -> Dict[str, Any]:
         """Actualiza solo los SKUs de variantes existentes (productVariantsBulkUpdate).
