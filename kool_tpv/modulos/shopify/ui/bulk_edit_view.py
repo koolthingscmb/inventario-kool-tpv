@@ -124,7 +124,7 @@ class ShopifyBulkEditView:
         tk.Label(row_pvp, text="CAMBIO DE PLANTILLA:", font=("Helvetica", 10, "bold"), fg=self._secondary, bg=self._bg_medium).pack(side="left", padx=(30, 10))
         self._tpl_entry = ctk.CTkEntry(row_pvp, width=200, height=28, placeholder_text="Nombre de plantilla...")
         self._tpl_entry.pack(side="left", padx=5)
-        ctk.CTkButton(row_pvp, text="PULSAR PARA VER LOS CAMBIOS", width=260, height=28, fg_color=self._accent, text_color="#000", command=self._on_aplicar).pack(side="left", padx=15)
+        ctk.CTkButton(row_pvp, text="1) PULSAR PARA PREPARAR LOS CAMBIOS", width=320, height=28, fg_color=self._accent, text_color="#000", command=self._on_aplicar).pack(side="left", padx=15)
 
         # Fila 3: Cambio de metacampo
         row_mf = tk.Frame(filter_frame, bg=self._bg_medium)
@@ -161,8 +161,8 @@ class ShopifyBulkEditView:
         self._btn_quitar = ctk.CTkButton(footer, text="QUITAR DE LA LISTA", fg_color="#8b1a1a", width=180, command=self._on_quitar)
         self._btn_quitar.pack(side="left")
         
-        self._btn_save = ctk.CTkButton(footer, text="ACTUALIZAR EN SHOPIFY", fg_color="#27ae60", width=240, 
-                                       font=("Helvetica", 13, "bold"), command=self._on_guardar)
+        self._btn_save = ctk.CTkButton(footer, text="2) ACTUALIZAR EN SHOPIFY", fg_color="#27ae60", width=260,
+                                       font=("Helvetica", 13, "bold"), state="disabled", command=self._on_guardar)
         self._btn_save.pack(side="right")
 
         # Cargar tipos y metacampos iniciales
@@ -299,6 +299,7 @@ class ShopifyBulkEditView:
         self._all_products = []
         self._items_tabla = []
         self.nav_list.clear_items()
+        self._actualizar_estado_guardar()
         self._load_status_lbl.configure(text="Conectando con Shopify...", fg=self._primary)
         
         def work():
@@ -429,6 +430,7 @@ class ShopifyBulkEditView:
                 item["_mf_propuesto"] = mf
 
         self.nav_list.set_items(self._items_tabla)
+        self._actualizar_estado_guardar()
 
     def _calcular_nuevo_pvp(self, actual, op, val):
         nuevo = actual
@@ -444,6 +446,12 @@ class ShopifyBulkEditView:
             return {'bg': '#1b2a20', 'fg': '#2ECC71'}
         return None
 
+    def _actualizar_estado_guardar(self):
+        """El botón ACTUALIZAR solo se activa cuando hay cambios preparados en la tabla."""
+        hay = any(i.get("_pvp_propuesto_numeric") is not None or i.get("_tpl_propuesta") or i.get("_mf_propuesto")
+                  for i in self._items_tabla)
+        self._btn_save.configure(state="normal" if hay else "disabled")
+
     def _on_quitar(self):
         indices = self.nav_list.selected_indices
         if not indices: return
@@ -455,6 +463,7 @@ class ShopifyBulkEditView:
         
         self.nav_list.set_items(self._items_tabla)
         self._load_status_lbl.configure(text=f"Total: {len(self._items_tabla)} productos")
+        self._actualizar_estado_guardar()
 
 
     def _on_guardar(self):
@@ -510,7 +519,7 @@ class ShopifyBulkEditView:
             res = self.service.actualizar_productos_lote(updates)
             
             def done():
-                self._btn_save.configure(state="normal", text="ACTUALIZAR EN SHOPIFY")
+                self._btn_save.configure(text="2) ACTUALIZAR EN SHOPIFY")
                 if res["success"]:
                     omitidos = res.get("omitidos", 0)
                     show_success(self.frame, "Actualización masiva completada"
@@ -537,7 +546,7 @@ class ShopifyBulkEditView:
                     if res.get("avisos"):
                         show_warning(self.frame, "AVISO", "\n".join(res["avisos"]))
             
-            self.frame.after(0, done)
+            self.frame.after(0, lambda: (done(), self._actualizar_estado_guardar()))
 
         threading.Thread(target=work, daemon=True).start()
 
