@@ -321,36 +321,38 @@ class ShopifyMetafieldsUI:
         
         def work():
             raw_cols = self.meta_service.obtener_colecciones()
-            if not raw_cols:
-                self.frame.after(0, lambda: show_error(self.frame, "Error", "No se encontraron colecciones en Shopify"))
-                self.frame.after(0, lambda: self._status("Listo"))
-                return
-            
-            self.frame.after(0, lambda: self._status("Listo"))
-            
-            # Formato genérico para el selector
-            opciones = [{"id": c["id"], "text": c["title"]} for c in raw_cols]
-            
-            fila_meta = next((r for r in self._rows if r["metafield"]["key"] == mf["key"]), None)
-            actual = fila_meta["var"] if fila_meta else None
-            
-            titulo = "Seleccionar Colección" if not multi else "Gestionar Colecciones"
-            res = show_reference_select_dialog(
-                self.frame, titulo, opciones, actual, multi_select=multi, agrupar=False
-            )
-            
-            if res is not None:
-                fila_meta["var"] = res
-                if multi:
-                    texto = f"{len(res)} seleccionadas"
-                else:
-                    col = next((o for o in opciones if o['id'] == res), None)
-                    texto = col['text'].upper() if col else "SELECCIONADA"
-                
-                self.frame.after(0, lambda: fila_meta["widget"].configure(text=texto))
-                ToastWidget.show(self.frame, "Colección actualizada", tipo="success")
+            self.frame.after(0, lambda: self._mostrar_selector_colecciones(mf, multi, raw_cols))
 
         threading.Thread(target=work, daemon=True).start()
+
+    def _mostrar_selector_colecciones(self, mf, multi, raw_cols):
+        """Abre el selector en el hilo principal (Tkinter no admite ventanas desde otros hilos)."""
+        self._status("Listo")
+        if not raw_cols:
+            show_error(self.frame, "Error", "No se encontraron colecciones en Shopify")
+            return
+
+        # Formato genérico para el selector
+        opciones = [{"id": c["id"], "text": c["title"]} for c in raw_cols]
+
+        fila_meta = next((r for r in self._rows if r["metafield"]["key"] == mf["key"]), None)
+        actual = fila_meta["var"] if fila_meta else None
+
+        titulo = "Seleccionar Colección" if not multi else "Gestionar Colecciones"
+        res = show_reference_select_dialog(
+            self.frame, titulo, opciones, actual, multi_select=multi, agrupar=False
+        )
+
+        if res is not None:
+            fila_meta["var"] = res
+            if multi:
+                texto = f"{len(res)} seleccionadas"
+            else:
+                col = next((o for o in opciones if o['id'] == res), None)
+                texto = col['text'].upper() if col else "SELECCIONADA"
+
+            fila_meta["widget"].configure(text=texto)
+            ToastWidget.show(self.frame, "Colección actualizada", tipo="success")
 
     @staticmethod
     def _rich_to_text(val) -> Optional[str]:
