@@ -1,6 +1,6 @@
 # MEMORY.md — Kool TPV
 Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo que ya no
-aporte. (Última actualización: 2026-10-13, commits `6521ccd`..`133d9a8` en `windows-beta`.)
+aporte. (Última actualización: 2026-10-13, commits `6521ccd`..`88e0b3a` en `windows-beta`.)
 
 ## Estado actual
 - Shopify SUBIDA separada en NUEVO y EDITAR (`SubidaBaseView` + `SubidaNuevoView` + `SubidaEditarView`,
@@ -11,9 +11,13 @@ aporte. (Última actualización: 2026-10-13, commits `6521ccd`..`133d9a8` en `wi
   (`describir_archivo`) con botones ABRIR y NUEVO (se quitaron QUITAR/DESHACER: molestaban en el grid).
   NUEVO guarda la ruta (`archivo_local`); `product_set` sube el PDF al guardar el producto
   (`subir_archivo`: stagedUploadsCreate FILE + fileCreate APPEND_UUID + espera READY) y lo sustituye por
-  su GID; una sola subida por lote (se actualiza el mismo dict). Probado por el usuario: la pantalla.
-  SIN PROBAR: la subida real a Shopify (hacerlo con un producto en borrador). Quitar un PDF: desde el
-  admin; deshacer una elección: VOLVER sin aceptar. Botón "+ AÑADIR METACAMPO" ELIMINADO.
+  su GID; una sola subida por lote (se actualiza el mismo dict). Probado por el usuario: la pantalla y
+  la subida real en NUEVO (3 productos, OK). Sin probar: cambiar el PDF en EDITAR. Quitar un PDF: desde
+  el admin; deshacer una elección: VOLVER sin aceptar. Botón "+ AÑADIR METACAMPO" ELIMINADO.
+- METACAMPOS grid (`88e0b3a`): secciones unidas en mayúsculas (`GENERAL` + `General`); cada campo ocupa
+  1, 2 o 4 huecos (texto/número, texto largo, listas-archivo-referencias), empaquetados sin huecos
+  vacíos; SÍ/NO en una banda al final de su sección; textos largos con altura de una línea que crece
+  sola (~22% menos de alto). Guardar envía lo mismo que antes (comprobado con Tk).
 - SINC (`6521ccd`): `sync_stock_by_sku_prefix` lee `on_hand` (antes `available`).
 - FIX Windows (`60136a6`): el selector de Colecciones de METACAMPOS abría el diálogo desde un hilo
   secundario y colgaba la app. Ahora el hilo trae datos y el diálogo se abre con `frame.after`.
@@ -61,7 +65,7 @@ aporte. (Última actualización: 2026-10-13, commits `6521ccd`..`133d9a8` en `wi
 ## Próximos pasos
 - MASIVA: referencias a metaobjetos (`mecanicas_...`). Mirar pintado en Windows: filas 2 y 3 enteras
   (ahora con 3 botones de opción) e iconos de estado (●, ○, ✕).
-- METACAMPOS resto: alinear grid y dar fila propia al texto largo; limpiar código sobrante. En EDITAR,
+- METACAMPOS resto: limpiar código sobrante. En EDITAR,
   reabrir METACAMPOS antes de actualizar recarga los valores de Shopify (pierde lo preparado: ya pasaba).
   Los metacampos nuevos se crean como definición en el admin de Shopify.
 - NUEVO/EDITAR: imágenes en rejilla (2 por fila); validar NUEVO con precios por variante y sin talla/color;
