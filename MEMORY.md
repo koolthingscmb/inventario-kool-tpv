@@ -1,12 +1,19 @@
 # MEMORY.md — Kool TPV
 Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo que ya no
-aporte. (Última actualización: 2026-10-12, commits `6521ccd`..`6c75d4f` en `windows-beta`.)
+aporte. (Última actualización: 2026-10-13, commits `6521ccd`..`133d9a8` en `windows-beta`.)
 
 ## Estado actual
 - Shopify SUBIDA separada en NUEVO y EDITAR (`SubidaBaseView` + `SubidaNuevoView` + `SubidaEditarView`,
   con componentes y builders sin widgets). Stock en subidas: `changeFromQuantity: null`.
 - METACAMPOS: casillas para opciones; reenvío de campos sin definición; selector de Colecciones real
   con buscador; `rich_text` se muestra como texto y solo se reenvuelve a JSON si se edita.
+- METACAMPOS archivo (`133d9a8`): `reglamento` (`file_reference`) muestra nombre, tipo y tamaño
+  (`describir_archivo`) con botones ABRIR y NUEVO (se quitaron QUITAR/DESHACER: molestaban en el grid).
+  NUEVO guarda la ruta (`archivo_local`); `product_set` sube el PDF al guardar el producto
+  (`subir_archivo`: stagedUploadsCreate FILE + fileCreate APPEND_UUID + espera READY) y lo sustituye por
+  su GID; una sola subida por lote (se actualiza el mismo dict). Probado por el usuario: la pantalla.
+  SIN PROBAR: la subida real a Shopify (hacerlo con un producto en borrador). Quitar un PDF: desde el
+  admin; deshacer una elección: VOLVER sin aceptar. Botón "+ AÑADIR METACAMPO" ELIMINADO.
 - SINC (`6521ccd`): `sync_stock_by_sku_prefix` lee `on_hand` (antes `available`).
 - FIX Windows (`60136a6`): el selector de Colecciones de METACAMPOS abría el diálogo desde un hilo
   secundario y colgaba la app. Ahora el hilo trae datos y el diálogo se abre con `frame.after`.
@@ -52,11 +59,11 @@ aporte. (Última actualización: 2026-10-12, commits `6521ccd`..`6c75d4f` en `wi
 - Mis scripts de `/tmp` desaparecen al reiniciar: recréalos y di que son temporales.
 
 ## Próximos pasos
-- METACAMPOS: "+ AÑADIR METACAMPO" borra lo escrito (pierde datos): PRIORIDAD 1.
 - MASIVA: referencias a metaobjetos (`mecanicas_...`). Mirar pintado en Windows: filas 2 y 3 enteras
   (ahora con 3 botones de opción) e iconos de estado (●, ○, ✕).
-- METACAMPOS resto: archivos (`reglamento`) con nombre en vez de identificador; alinear grid y dar fila
-  propia al texto largo; limpiar código sobrante.
+- METACAMPOS resto: alinear grid y dar fila propia al texto largo; limpiar código sobrante. En EDITAR,
+  reabrir METACAMPOS antes de actualizar recarga los valores de Shopify (pierde lo preparado: ya pasaba).
+  Los metacampos nuevos se crean como definición en el admin de Shopify.
 - NUEVO/EDITAR: imágenes en rejilla (2 por fila); validar NUEVO con precios por variante y sin talla/color;
   prompt GENERAR TAGS con los tags existentes. Comprobar si el doble envío de EDITAR funciona con
   colecciones por regla.
