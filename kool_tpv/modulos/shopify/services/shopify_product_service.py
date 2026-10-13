@@ -583,6 +583,7 @@ class ShopifyProductService:
 
         total_ok = 0
         errores = []
+        omitidos, avisos = 0, []
 
         # Separar por tipo de cambio
         pvp_updates = [u for u in updates if "new_price" in u]
@@ -640,14 +641,14 @@ class ShopifyProductService:
                 }
             }
             """
-            # Listas en modo AÑADIR: se lee la lista actual de cada producto justo antes de escribir
+            # Listas en modo AÑADIR o VACIAR: se lee la lista actual de cada producto justo antes de escribir
             actuales = {}
             for u in mf_updates:
                 mf = u["metafield"]
                 clave = (mf["namespace"], mf["key"])
-                if mf.get("modo") == "añadir" and clave not in actuales:
+                if mf.get("modo") in ("añadir", "vaciar") and clave not in actuales:
                     ids = [x["product_id"] for x in mf_updates
-                           if x["metafield"].get("modo") == "añadir"
+                           if x["metafield"].get("modo") in ("añadir", "vaciar")
                            and (x["metafield"]["namespace"], x["metafield"]["key"]) == clave]
                     actuales[clave] = self._leer_metacampo_lote(endpoint, headers, ids, *clave)
 
@@ -673,6 +674,19 @@ class ShopifyProductService:
                     valor = json.dumps(nueva, ensure_ascii=False)
                 elif mf.get("modo") == "sustituir":
                     valor = json.dumps(list(mf["valores"]), ensure_ascii=False)
+                elif mf.get("modo") == "vaciar":
+                    leidos = actuales[(mf["namespace"], mf["key"])]
+                    if pid not in leidos:
+                        errores.append(f"{pid}: no se pudo leer su lista actual; no se ha modificado")
+                        continue
+                    try:
+                        ya_vacia = not leidos[pid] or json.loads(leidos[pid]) == []
+                    except ValueError:
+                        ya_vacia = False
+                    if ya_vacia:
+                        omitidos += 1
+                        continue
+                    valor = "[]"
                 else:
                     valor = str(mf["value"])
                 envios.append({"product_id": pid, "namespace": mf["namespace"], "key": mf["key"],
@@ -683,11 +697,12 @@ class ShopifyProductService:
             errores.extend(errs)
 
         # 4. Familia: colección real + metacampo de colección
-        omitidos, avisos = 0, []
         if fam_updates:
-            ok, errs, omitidos, avisos = self._aplicar_familia(endpoint, headers, fam_updates)
+            ok, errs, omit, avis = self._aplicar_familia(endpoint, headers, fam_updates)
             total_ok += ok
             errores.extend(errs)
+            omitidos += omit
+            avisos.extend(avis)
 
         return {
             "success": len(errores) == 0,

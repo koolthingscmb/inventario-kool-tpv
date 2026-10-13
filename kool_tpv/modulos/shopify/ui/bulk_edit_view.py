@@ -138,7 +138,9 @@ class ShopifyBulkEditView:
         self._mf_val_frame.pack(side="left", padx=5)
         self._mf_modo_var = tk.StringVar(value="AÑADIR")
         self._mf_radios = [ctk.CTkRadioButton(row_mf, text=t, variable=self._mf_modo_var, value=t, width=90,
-                                              font=("Helvetica", 10), state="disabled") for t in ("AÑADIR", "CAMBIAR")]
+                                              font=("Helvetica", 10), state="disabled",
+                                              command=self._on_modo_cambiado)
+                           for t in ("AÑADIR", "CAMBIAR", "VACIAR")]
         for r in self._mf_radios:
             r.pack(side="left", padx=(15, 0))
         self._mf_val_widget = None
@@ -204,9 +206,13 @@ class ShopifyBulkEditView:
         self._mf_valores = []
         self._mf_coleccion = None
         self._mf_modo_var.set("AÑADIR")
-        usa_modo = tipo in ShopifyMetafieldsService.TIPOS_COLECCION + ShopifyMetafieldsService.TIPOS_LISTA
+        es_lista = tipo in ShopifyMetafieldsService.TIPOS_LISTA
+        es_familia = tipo in ShopifyMetafieldsService.TIPOS_COLECCION
         for r in self._mf_radios:
-            r.configure(state="normal" if usa_modo else "disabled")
+            if r.cget("text") == "VACIAR":
+                r.configure(state="normal" if es_lista else "disabled")
+            else:
+                r.configure(state="normal" if (es_lista or es_familia) else "disabled")
         if tipo in ShopifyMetafieldsService.TIPOS_COLECCION:
             self._mf_val_widget = ctk.CTkButton(self._mf_val_frame, text="ELEGIR COLECCIÓN", width=200, height=28,
                                                 fg_color=self._secondary, command=self._elegir_coleccion)
@@ -235,6 +241,11 @@ class ShopifyBulkEditView:
         if res is not None:
             self._mf_valores = [o["id"] for o in opciones if o["id"] in res]
             self._mf_val_widget.configure(text=f"ELEGIR VALORES ({len(self._mf_valores)})")
+
+    def _on_modo_cambiado(self):
+        """Con VACIAR no hay que elegir valores: el botón de valores se apaga."""
+        if self._mf_tipo_actual in ShopifyMetafieldsService.TIPOS_LISTA and self._mf_val_widget is not None:
+            self._mf_val_widget.configure(state="disabled" if self._mf_modo_var.get() == "VACIAR" else "normal")
 
     def _elegir_coleccion(self):
         """Pide las colecciones a Shopify en un hilo y abre el selector en el hilo principal."""
@@ -371,12 +382,13 @@ class ShopifyBulkEditView:
                       "modo": modo, "coleccion": self._mf_coleccion["id"],
                       "coleccion_nombre": self._mf_coleccion["title"]}
             elif tipo in ShopifyMetafieldsService.TIPOS_LISTA:
-                if not self._mf_valores:
+                eleccion = self._mf_modo_var.get()
+                if eleccion != "VACIAR" and not self._mf_valores:
                     show_error(self.frame, "Elige al menos un valor para la lista")
                     return
-                modo = "añadir" if self._mf_modo_var.get() == "AÑADIR" else "sustituir"
-                mf = {"namespace": d["namespace"], "key": d["key"], "type": tipo,
-                      "modo": modo, "valores": list(self._mf_valores)}
+                modo = {"AÑADIR": "añadir", "CAMBIAR": "sustituir", "VACIAR": "vaciar"}[eleccion]
+                mf = {"namespace": d["namespace"], "key": d["key"], "type": tipo, "modo": modo,
+                      "valores": [] if modo == "vaciar" else list(self._mf_valores)}
             else:
                 valor, err = ShopifyMetafieldsService.validar_valor_masivo(tipo, self._mf_val_widget.get())
                 if err:
@@ -414,6 +426,9 @@ class ShopifyBulkEditView:
                 else:
                     meta = f"{mf['key']}: CAMBIAR a {nombre}"
                     confirmacion = f"Familia (`{mf['key']}`): CAMBIAR a `{nombre}` (sale de su familia anterior)"
+            elif mf.get("modo") == "vaciar":
+                meta = f"{mf['key']}: VACIAR"
+                confirmacion = f"Metacampo `{mf['key']}`: VACIAR (se quitarán TODOS los valores)"
             elif "valores" in mf:
                 lista = ", ".join(mf["valores"])
                 signo, accion = ("+", "AÑADIR") if mf["modo"] == "añadir" else ("=", "CAMBIAR a")
@@ -537,7 +552,7 @@ class ShopifyBulkEditView:
                 if res["success"]:
                     omitidos = res.get("omitidos", 0)
                     show_success(self.frame, "Actualización masiva completada"
-                                 + (f" ({omitidos} omitidos: ya tenían familia)" if omitidos else ""))
+                                 + (f" ({omitidos} omitidos: no hacía falta cambiarlos)" if omitidos else ""))
                     # Limpiar propuestas tras éxito
                     for item in self._items_tabla:
                         if item.get("_pvp_propuesto_numeric") is not None:
