@@ -80,34 +80,16 @@ class ShopifyMetafieldsUI:
                                     font=("Helvetica", 11), anchor="w")
         self._status_lbl.pack(side="left", padx=15)
 
-        # --- Cabecera de tabla (Triple columna: 6 columnas en total) ---
-        cab = tk.Frame(self.frame, bg=self._bg)
-        cab.pack(fill="x", padx=20, pady=(15, 0))
-        
-        # Clave (-30%), Valor (+ resto) repetido 3 veces
-        # Ratio aproximado: 1 : 3
-        weights = [10, 30, 10, 30, 10, 30] 
-        for i, w in enumerate(weights):
-            cab.columnconfigure(i, weight=w)
-
-        headers = ["CLAVE", "VALOR / REFERENCIA"]
-        for bloque in range(3): 
-            for i, texto in enumerate(headers):
-                col = (bloque * 2) + i
-                lbl = tk.Label(cab, text=texto, fg="#888", bg=self._bg, anchor="w",
-                               font=("Helvetica", 9, "bold"))
-                lbl.grid(row=0, column=col, sticky="ew", padx=10, pady=5)
-
-        # Separador visual bajo cabecera
-        tk.Frame(self.frame, bg=self._primary, height=1).pack(fill="x", padx=20, pady=(0, 5))
+        # Separador visual bajo el título
+        tk.Frame(self.frame, bg=self._primary, height=1).pack(fill="x", padx=20, pady=(15, 5))
 
         # --- Lista de metacampos ---
         self._scroll = ctk.CTkScrollableFrame(self.frame, fg_color="transparent")
         self._scroll.pack(fill="both", expand=True, padx=20, pady=0)
-        self._weights = weights
-        
-        for i, w in enumerate(weights):
-            self._scroll.columnconfigure(i, weight=w)
+
+        # 4 bloques de 2 columnas (nombre, valor): el nombre ocupa lo que necesita y los valores reparten el resto
+        for i in range(8):
+            self._scroll.columnconfigure(i, weight=1 if i % 2 else 0)
 
         # Cargar datos asíncronamente
         self._status("Cargando definiciones...")
@@ -150,7 +132,7 @@ class ShopifyMetafieldsUI:
             val_obj = valores.get(id_meta, {})
             
             # La sección es el texto íntegro de la descripción (o 'SIN SECCIÓN' si está vacío)
-            seccion = d.get("description", "").strip() or "GENERAL"
+            seccion = (d.get("description") or "").strip().upper() or "GENERAL"
             
             if seccion not in secciones_map:
                 secciones_map[seccion] = []
@@ -178,7 +160,7 @@ class ShopifyMetafieldsUI:
             
             # Label de sección con el texto exacto de la descripción
             header_f = tk.Frame(self._scroll, bg=self._bg)
-            header_f.grid(row=fila_actual, column=0, columnspan=6, sticky="ew", pady=(15, 8))
+            header_f.grid(row=fila_actual, column=0, columnspan=8, sticky="ew", pady=(10, 4))
             
             tk.Label(header_f, text=f"--- {nombre_sec.upper()} ---", 
                      font=("Helvetica", 9, "bold"), fg=self._secondary, bg=self._bg).pack(side="left", padx=10)
@@ -186,18 +168,31 @@ class ShopifyMetafieldsUI:
             
             fila_actual += 1
             
-            # Dibujar campos de la sección en 3 bloques (6 columnas)
-            normales = [mf for mf in campos if not self._opciones_lista(mf)]
-            con_opciones = [mf for mf in campos if self._opciones_lista(mf)]
-            for idx, mf in enumerate(normales):
-                fila_rel = idx // 3
-                col_base = (idx % 3) * 2
-                self._crear_bloque_metacampo(self._scroll, mf, fila_actual + fila_rel, col_base)
-            fila_actual += (len(normales) + 2) // 3
+            # Los campos ocupan 1, 2 o los 4 huecos de la rejilla. Se colocan primero los pequeños,
+            # luego los de media fila y al final los de fila completa, en cada caso en su orden de
+            # Shopify, sin dejar huecos vacíos. Los SÍ/NO van juntos en una banda al final.
+            clases = {mf["key"]: self._clasificar(mf) for mf in campos}
+            flujo = sorted((mf for mf in campos if clases[mf["key"]] != "bool"),
+                           key=lambda mf: clases[mf["key"]])
+            cursor = 0
+            for mf in flujo:
+                huecos = clases[mf["key"]]
+                if cursor + huecos > 4:
+                    fila_actual += 1
+                    cursor = 0
+                opciones = self._opciones_lista(mf)
+                if opciones:
+                    self._crear_bloque_opciones(self._scroll, mf, opciones, fila_actual)
+                else:
+                    self._crear_bloque_metacampo(self._scroll, mf, fila_actual, cursor * 2,
+                                                 span=huecos * 2 - 1)
+                cursor += huecos
+            if cursor:
+                fila_actual += 1
 
-            # Listas con opciones: una casilla por opción, en fila completa
-            for mf in con_opciones:
-                self._crear_bloque_opciones(self._scroll, mf, self._opciones_lista(mf), fila_actual)
+            bools = [mf for mf in campos if clases[mf["key"]] == "bool"]
+            if bools:
+                self._crear_banda_booleanos(self._scroll, bools, fila_actual)
                 fila_actual += 1
             total_cargados += len(campos)
 
@@ -349,13 +344,40 @@ class ShopifyMetafieldsUI:
                 return opciones if isinstance(opciones, list) and opciones else None
         return None
 
+    @staticmethod
+    def _clasificar(mf):
+        """Huecos que ocupa un campo: 'bool' (banda aparte), 1 (texto o número), 2 (texto largo)
+        o 4 (listas, archivos y referencias: fila completa)."""
+        tipo = mf.get("type", "")
+        if tipo == "boolean":
+            return "bool"
+        if tipo in ("multi_line_text_field", "rich_text_field") or mf.get("key") == "componentes":
+            return 2
+        if (tipo in ("file_reference", "collection_reference", "list.collection_reference",
+                     "list.metaobject_reference")
+                or ShopifyMetafieldsUI._opciones_lista(mf)):
+            return 4
+        return 1
+
+    def _crear_banda_booleanos(self, parent, campos, fila):
+        """Todos los SÍ/NO de una sección en una sola fila: casilla y nombre juntos."""
+        banda = tk.Frame(parent, bg=self._bg)
+        banda.grid(row=fila, column=0, columnspan=8, sticky="w", padx=(10, 2), pady=6)
+        for mf in campos:
+            var = tk.BooleanVar(value=(str(mf.get("value", "")).lower() == "true"))
+            cb = ctk.CTkCheckBox(banda, text=mf.get("name", mf.get("key", "")).upper(), variable=var,
+                                 font=("Consolas", 10, "bold"), fg_color=self._primary,
+                                 hover_color=self._secondary)
+            cb.pack(side="left", padx=(0, 30))
+            self._rows.append({"metafield": mf, "widget": cb, "var": var, "type": "boolean", "rich_orig": None})
+
     def _crear_bloque_opciones(self, parent, mf, opciones, fila):
         """Lista de texto con opciones: nombre a la izquierda y una casilla por opción."""
         tk.Label(parent, text=mf.get("name", mf.get("key", "")).upper(), anchor="w",
                  fg="#FFF", bg=self._bg, font=("Consolas", 10, "bold")
                  ).grid(row=fila, column=0, sticky="nsew", padx=(10, 2), pady=6)
         marco = tk.Frame(parent, bg=self._bg)
-        marco.grid(row=fila, column=1, columnspan=5, sticky="w", padx=(2, 15), pady=2)
+        marco.grid(row=fila, column=1, columnspan=7, sticky="w", padx=(2, 15), pady=2)
 
         try:
             actuales = json.loads(mf.get("value") or "[]")
@@ -385,7 +407,7 @@ class ShopifyMetafieldsUI:
             "ilegible": ilegible,
         })
 
-    def _crear_bloque_metacampo(self, parent, mf, fila, col_base):
+    def _crear_bloque_metacampo(self, parent, mf, fila, col_base, span=1):
         # Todo sobre el fondo negro principal (self._bg)
         bg_main = self._bg
         
@@ -397,7 +419,7 @@ class ShopifyMetafieldsUI:
 
         # Valor / Widget
         val_frame = tk.Frame(parent, bg=bg_main)
-        val_frame.grid(row=fila, column=col_base + 1, sticky="nsew", padx=(2, 15), pady=2)
+        val_frame.grid(row=fila, column=col_base + 1, columnspan=span, sticky="nsew", padx=(2, 15), pady=2)
 
         val = mf.get("value", "")
         mf_type = mf.get("type", "string")
@@ -408,15 +430,7 @@ class ShopifyMetafieldsUI:
         var = None
         rich_orig = None
 
-        if mf_type == 'boolean':
-            var = tk.BooleanVar(value=(str(val).lower() == 'true'))
-            widget = ctk.CTkCheckBox(
-                val_frame, text="", variable=var,
-                fg_color=self._primary, hover_color=self._secondary,
-                width=20
-            )
-            widget.pack(side="left", padx=5, pady=4)
-        elif mf_type == 'list.metaobject_reference':
+        if mf_type == 'list.metaobject_reference':
             # Obtener el tipo de metaobjeto de las validaciones
             tipo_meta = ""
             for v in mf.get("validations", []):
@@ -425,10 +439,10 @@ class ShopifyMetafieldsUI:
                     break
             
             label_text = f"Gestionar {tipo_meta.capitalize() or 'Referencias'}"
-            widget = ctk.CTkButton(val_frame, text=label_text, height=32,
+            widget = ctk.CTkButton(val_frame, text=label_text, width=240, height=32,
                                   fg_color=self._secondary, font=("Helvetica", 11),
                                   command=lambda m=mf: self._abrir_selector_metaobjetos(m))
-            widget.pack(fill="x", expand=True, padx=5, pady=4)
+            widget.pack(side="left", padx=5, pady=4)
             # Guardamos los GIDs seleccionados en una variable asociada
             try:
                 import json
@@ -450,10 +464,10 @@ class ShopifyMetafieldsUI:
                 else:
                     label_text = "COLECCIÓN SELECCIONADA"
 
-            widget = ctk.CTkButton(val_frame, text=label_text, height=32,
+            widget = ctk.CTkButton(val_frame, text=label_text, width=240, height=32,
                                   fg_color=self._secondary, font=("Helvetica", 11),
                                   command=lambda m=mf: self._abrir_selector_colecciones(m))
-            widget.pack(fill="x", expand=True, padx=5, pady=4)
+            widget.pack(side="left", padx=5, pady=4)
             
             # Resolución asíncrona del nombre para el botón inicial
             if val and not multi:
@@ -485,7 +499,7 @@ class ShopifyMetafieldsUI:
             self._pintar_archivo(widget, var, mf)
         elif mf_type in ('rich_text_field', 'multi_line_text_field') or mf_key == 'componentes':
             # Widget de texto multilínea con altura dinámica elástica
-            widget = ctk.CTkTextbox(val_frame, height=60, font=("Helvetica", 11),
+            widget = ctk.CTkTextbox(val_frame, height=34, font=("Helvetica", 11),
                                    fg_color=self._bg_medium, border_width=1,
                                    wrap="word")
             widget.pack(fill="x", expand=True, padx=5, pady=5)
@@ -568,9 +582,8 @@ class ShopifyMetafieldsUI:
             res = tk_text.tk.call(tk_text._w, "count", "-displaylines", "1.0", "end")
             num_lineas = int(res) if res else 1
             
-            # Calcular píxeles (aprox 18px por línea para fuente 11)
-            # Mínimo 2 líneas (40px), máximo 250px
-            nueva_altura = min(max(num_lineas * 20, 60), 250)
+            # Unas 20px por línea + margen interior; mínimo una línea (34px), máximo 250px
+            nueva_altura = min(max(num_lineas * 20 + 14, 34), 250)
             
             # Solo actualizar si hay un cambio significativo para evitar parpadeos
             if abs(widget.cget("height") - nueva_altura) > 5:
