@@ -24,16 +24,16 @@ logger = logging.getLogger(__name__)
 class ShopifyBulkEditView:
     """Subvista para la edición masiva de productos en Shopify."""
 
+    ICONOS_ESTADO = {"ACTIVE": "●", "DRAFT": "○", "ARCHIVED": "✕"}
+
     COLUMNAS = [
         ('id', 60, 'ID'),
         ('title', 300, 'TÍTULO', True),
         ('productType', 120, 'TIPO'),
-        ('template', 180, 'PLANTILLA'),
-        ('status', 100, 'ESTADO'),
-        ('pvp_actual', 64, '€€'),
-        ('pvp_propuesto', 120, '€€NEW'),
-        ('meta', 170, 'META'),
-        ('resultado', 220, 'RESULTADO')
+        ('template', 102, 'PLANTILLA'),
+        ('status', 20, '◉'),
+        ('pvp_actual', 60, '€€'),
+        ('resultado', 380, 'RESULTADO')
     ]
 
     def __init__(self, parent, db):
@@ -324,7 +324,7 @@ class ShopifyBulkEditView:
             "title": node["title"],
             "productType": node.get("productType", ""),
             "template": node.get("templateSuffix") or "Default",
-            "status": node["status"],
+            "status": self.ICONOS_ESTADO.get(node["status"], "?"),
             "pvp_actual": f"{pvp:.2f}€",
             "_pvp_numeric": pvp,
             "pvp_propuesto": "",
@@ -403,7 +403,6 @@ class ShopifyBulkEditView:
 
         if tpl:
             for item in self._items_tabla:
-                item["resultado"] = f"Plantilla: {tpl}"
                 item["_tpl_propuesta"] = tpl
 
         if mf:
@@ -429,6 +428,8 @@ class ShopifyBulkEditView:
                 item["_mf_confirm"] = confirmacion
                 item["_mf_propuesto"] = mf
 
+        for item in self._items_tabla:
+            self._refrescar_resultado(item)
         self.nav_list.set_items(self._items_tabla)
         self._actualizar_estado_guardar()
 
@@ -445,6 +446,19 @@ class ShopifyBulkEditView:
         if item.get("_pvp_propuesto_numeric") is not None or item.get("_mf_propuesto"):
             return {'bg': '#1b2a20', 'fg': '#2ECC71'}
         return None
+
+    @staticmethod
+    def _refrescar_resultado(item):
+        """Texto único de RESULTADO: precio nuevo, plantilla y metacampo preparados para esta fila."""
+        partes = []
+        if item.get("_pvp_propuesto_numeric") is not None:
+            partes.append(item["pvp_propuesto"])
+        if item.get("_tpl_propuesta"):
+            partes.append(f"Plantilla: {item['_tpl_propuesta']}")
+        if item.get("_mf_propuesto"):
+            partes.append(item["meta"])
+        if partes:
+            item["resultado"] = " · ".join(partes)
 
     def _actualizar_estado_guardar(self):
         """El botón ACTUALIZAR solo se activa cuando hay cambios preparados en la tabla."""
