@@ -104,10 +104,13 @@ class ShopifyProductService:
     # Imágenes: staged upload de archivos locales
     # ------------------------------------------------------------------
 
-    def staged_upload(self, endpoint: str, headers: Dict, file_path: str) -> Optional[str]:
-        """Sube un archivo local a Shopify. Devuelve el resourceUrl para productSet."""
+    def staged_upload(self, endpoint: str, headers: Dict, file_path: str, resource: str = "IMAGE") -> Optional[str]:
+        """Sube un archivo local a Shopify. Devuelve el resourceUrl para productSet o fileCreate.
+
+        resource: "IMAGE" (imágenes de producto) o "FILE" (documentos como un PDF).
+        """
         path = Path(file_path)
-        mime = mimetypes.guess_type(str(path))[0] or "image/jpeg"
+        mime = mimetypes.guess_type(str(path))[0] or ("image/jpeg" if resource == "IMAGE" else "application/octet-stream")
 
         mutation = """
         mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
@@ -118,7 +121,7 @@ class ShopifyProductService:
         }
         """
         data, err = self._graphql(endpoint, headers, mutation, {
-            "input": [{"resource": "IMAGE", "filename": path.name, "mimeType": mime, "httpMethod": "POST"}]
+            "input": [{"resource": resource, "filename": path.name, "mimeType": mime, "httpMethod": "POST"}]
         })
         if err:
             logger.error(f"stagedUploadsCreate: {err}")
@@ -144,6 +147,51 @@ class ShopifyProductService:
             return None
         return resource_url
 
+    def subir_archivo(self, endpoint: str, headers: Dict, file_path: str, alt: str = "",
+                      intentos: int = 60) -> Tuple[Optional[str], Optional[str]]:
+        """Sube un documento (p. ej. un PDF) a los Archivos de Shopify y espera a que esté listo.
+
+        Devuelve (gid_del_archivo, None) o (None, mensaje_de_error). Nunca reemplaza un archivo
+        existente con el mismo nombre: Shopify añade un sufijo único al nombre.
+        """
+        path = Path(file_path)
+        if not path.is_file():
+            return None, "El archivo ya no existe en el ordenador"
+        resource_url = self.staged_upload(endpoint, headers, str(path), resource="FILE")
+        if not resource_url:
+            return None, "No se pudo subir el archivo a Shopify"
+
+        data, err = self._graphql(endpoint, headers, """
+            mutation fileCreate($files: [FileCreateInput!]!) {
+                fileCreate(files: $files) {
+                    files { id fileStatus }
+                    userErrors { field message }
+                }
+            }
+        """, {"files": [{"originalSource": resource_url, "contentType": "FILE", "filename": path.name,
+                         "alt": alt, "duplicateResolutionMode": "APPEND_UUID"}]})
+        if err:
+            return None, err
+        res = data.get("fileCreate") or {}
+        if res.get("userErrors"):
+            return None, json.dumps(res["userErrors"], ensure_ascii=False)[:300]
+        creados = res.get("files") or []
+        if not creados:
+            return None, "Shopify no devolvió el archivo creado"
+        gid = creados[0]["id"]
+
+        for _ in range(intentos):
+            data, err = self._graphql(endpoint, headers, """
+                query($id: ID!) { node(id: $id) { ... on GenericFile { fileStatus } } }
+            """, {"id": gid})
+            estado = ((data or {}).get("node") or {}).get("fileStatus")
+            if not err and estado == "READY":
+                return gid, None
+            if estado == "FAILED":
+                return None, "Shopify no pudo procesar el archivo"
+            time.sleep(1)
+        return None, "Shopify tardó demasiado en procesar el archivo"
+
     # ------------------------------------------------------------------
     # Crear / actualizar producto (productSet)
     # ------------------------------------------------------------------
@@ -163,6 +211,17 @@ class ShopifyProductService:
         if not ctx:
             return {"success": False, "message": "Configuración de Shopify incompleta"}
         endpoint, headers, location_id = ctx
+
+        # 0) Archivos pendientes de metacampos (file_reference): se suben UNA vez y el metacampo pasa a
+        # llevar su GID. Se actualiza el mismo dict, así los demás productos del lote no los vuelven a subir.
+        for mf in datos.get("metafields") or []:
+            ruta = mf.get("archivo_local")
+            if ruta:
+                gid, err = self.subir_archivo(endpoint, headers, ruta, alt=datos["title"])
+                if err:
+                    return {"success": False, "message": f"Fallo subiendo el archivo '{Path(ruta).name}': {err}"}
+                mf["value"] = gid
+                mf.pop("archivo_local", None)
 
         # 1) Subir imágenes locales -> staged uploads (alt = "{título} - {alt}")
         files_input = []

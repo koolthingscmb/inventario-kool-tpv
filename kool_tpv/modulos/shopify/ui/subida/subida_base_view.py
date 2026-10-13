@@ -190,7 +190,7 @@ class SubidaBaseView:
         """Recibe la lista de metacampos desde la subvista (para modo NUEVO o EDITAR)."""
         self._metafields_preparados = metafields
         # Contamos cuántos tienen valor para informar al usuario en la barra de estado
-        n = len([m for m in metafields if str(m.get("value", "")).strip()])
+        n = len([m for m in metafields if str(m.get("value", "")).strip() or m.get("archivo_local")])
         
         status_text = f"✓ {n} METACAMPOS LISTOS" if n > 0 else ""
         

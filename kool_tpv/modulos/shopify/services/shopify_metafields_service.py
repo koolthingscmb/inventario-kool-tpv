@@ -2,6 +2,7 @@ import logging
 import json
 import requests
 from typing import List, Dict, Any, Optional, Tuple
+from urllib.parse import urlparse, unquote
 from .shopify_config_service import ShopifyConfigService
 from .shopify_auth_service import ShopifyAuthService
 
@@ -264,6 +265,33 @@ class ShopifyMetafieldsService:
         # Ordenar por título
         return sorted(collections, key=lambda x: x.get("title", "").lower())
 
+    @staticmethod
+    def formatear_tamano(tam: Optional[int]) -> str:
+        """Tamaño de archivo legible: '236 KB', '3.3 MB' o '' si no se conoce."""
+        if tam is None:
+            return ""
+        return f"{tam / 1024 / 1024:.1f} MB" if tam >= 1024 * 1024 else f"{round(tam / 1024)} KB"
+
+    @staticmethod
+    def describir_archivo(referencia: Optional[Dict[str, Any]]) -> Optional[Dict[str, str]]:
+        """Datos legibles de un archivo de Shopify (GenericFile): nombre, tipo, tamaño, estado y URL.
+
+        El nombre no es un campo propio de Shopify: se saca de la dirección del archivo.
+        Devuelve None si no hay datos suficientes.
+        """
+        if not referencia or not referencia.get("url"):
+            return None
+        url = referencia["url"]
+        nombre = unquote(urlparse(url).path.rsplit("/", 1)[-1]) or str(referencia.get("id") or "")
+        mime = referencia.get("mimeType") or ""
+        return {
+            "nombre": nombre,
+            "tipo": mime.split("/")[-1].upper() if mime else "",
+            "tamano": ShopifyMetafieldsService.formatear_tamano(referencia.get("originalFileSize")),
+            "estado": referencia.get("fileStatus") or "",
+            "url": url,
+        }
+
     def obtener_valores_producto(self, product_id: str) -> Dict[Tuple[str, str], Dict[str, Any]]:
         """Trae todos los metacampos con valor de un producto (paginado)."""
         metafields = {}
@@ -280,6 +308,10 @@ class ShopifyMetafieldsService:
                 key
                 value
                 type
+                reference {
+                  __typename
+                  ... on GenericFile { id url mimeType originalFileSize fileStatus }
+                }
               }
               pageInfo {
                 hasNextPage

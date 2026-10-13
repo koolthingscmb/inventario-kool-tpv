@@ -8,13 +8,15 @@ import logging
 import threading
 import tkinter as tk
 import json
+import os
+import webbrowser
+from tkinter import filedialog
 from typing import Dict, Any, List, Optional, Callable
 
 import customtkinter as ctk
 
 from kool_tpv.utils.config_loader import load_colors
 from kool_tpv.utils.widgets.notificaciones import show_error, ToastWidget
-from kool_tpv.utils.dialogs.helpers import show_input_dialog
 from kool_tpv.utils.dialogs.metaobject_select_dialog import show_metaobject_select_dialog, show_reference_select_dialog
 from ..services.shopify_product_service import ShopifyProductService
 from ..services.shopify_metafields_service import ShopifyMetafieldsService
@@ -65,11 +67,6 @@ class ShopifyMetafieldsUI:
         ctk.CTkLabel(top, text=self.producto.get("title") or "NUEVO PRODUCTO",
                      font=("Helvetica", 12), text_color="#FFF").pack(side="left", padx=10)
         
-        ctk.CTkButton(top, text="+ AÑADIR METACAMPO", width=160, height=34,
-                      fg_color="#27ae60", text_color="#FFF",
-                      font=("Helvetica", 11, "bold"),
-                      command=self._anadir_nuevo_meta).pack(side="right", padx=20)
-
         # Acciones (Crear status_lbl aquí para que esté disponible durante la carga)
         acciones = tk.Frame(self.frame, bg=self._bg)
         acciones.pack(side="bottom", fill="x", padx=20, pady=(10, 20))
@@ -165,6 +162,8 @@ class ShopifyMetafieldsUI:
                 "type": d["type"]["name"],
                 "value": val_obj.get("value", ""),
                 "id": val_obj.get("id"),
+                "reference": val_obj.get("reference"),
+                "archivo_local": val_obj.get("archivo_local"),
                 "validations": d.get("validations", [])
             })
 
@@ -209,54 +208,6 @@ class ShopifyMetafieldsUI:
             self._status("Listo")
         else:
             self._status(f"Cargados {total_cargados} campos en {len(nombres_secciones)} secciones")
-
-    def _anadir_nuevo_meta(self):
-        """Añade una nueva fila de metacampo custom localmente."""
-        # Si existía el label de 'Sin metacampos', lo quitamos
-        if hasattr(self, '_no_meta_lbl') and self._no_meta_lbl.winfo_exists():
-            self._no_meta_lbl.destroy()
-
-        # Diálogo profesional de entrada para el NOMBRE (Kool Style)
-        nombre = show_input_dialog(
-            self.frame, 
-            titulo="NUEVO METACAMPO",
-            mensaje="Introduce el NOMBRE del campo (ej: Edad recomendada):"
-        )
-        if not nombre: return
-
-        # Diálogo profesional de entrada para la SECCIÓN (Kool Style)
-        seccion = show_input_dialog(
-            self.frame, 
-            titulo="SECCIÓN DEL CAMPO",
-            mensaje="Introduce la SECCIÓN (Descripción en Shopify):",
-            valor_defecto="General"
-        )
-        if not seccion: seccion = "General"
-
-        # Generar clave técnica a partir del nombre
-        from ..services.producto_content_service import slugify_diseno
-        key = slugify_diseno(nombre).replace("-", "_")
-        
-        # Evitar duplicados
-        for r in self._rows:
-            if r["metafield"].get("key") == key:
-                show_error(self.frame, f"La clave técnica '{key}' ya existe")
-                return
-        
-        # Crear el objeto simulado de Shopify y añadirlo a las definiciones
-        nuevo_mf = {
-            "namespace": "custom",
-            "key": key,
-            "name": nombre,
-            "description": seccion,
-            "type": {"name": "single_line_text_field"},
-            "validations": []
-        }
-        
-        self._last_definitions.append(nuevo_mf)
-        self._render_metafields(self._last_definitions, self._last_values)
-        
-        ToastWidget.show(self.frame, f"Campo '{nombre}' preparado en {seccion}", tipo="success")
 
     def _abrir_selector_metaobjetos(self, mf):
         """Abre un diálogo de selección múltiple para metaobjetos con resolución de dos pasos."""
@@ -518,6 +469,20 @@ class ShopifyMetafieldsUI:
                 except: var = []
             else:
                 var = val
+        elif mf_type == 'file_reference':
+            # El archivo nuevo NO se sube aquí: se guarda su ruta y se sube al guardar el producto
+            var = {"info": ShopifyMetafieldsService.describir_archivo(mf.get("reference")),
+                   "archivo_local": mf.get("archivo_local"), "botones": {}}
+            widget = ctk.CTkLabel(val_frame, text="", anchor="w", font=("Helvetica", 11), text_color="#FFF")
+            widget.pack(side="left", padx=5, pady=4)
+            acciones = (("ABRIR", lambda e=var: webbrowser.open(e["info"]["url"])),
+                        ("NUEVO", lambda e=var, w=widget, m=mf: self._elegir_archivo(w, e, m)))
+            for nombre_btn, comando in acciones:
+                b = ctk.CTkButton(val_frame, text=nombre_btn, width=80, height=28,
+                                  fg_color=self._secondary, command=comando)
+                b.pack(side="left", padx=3)
+                var["botones"][nombre_btn] = b
+            self._pintar_archivo(widget, var, mf)
         elif mf_type in ('rich_text_field', 'multi_line_text_field') or mf_key == 'componentes':
             # Widget de texto multilínea con altura dinámica elástica
             widget = ctk.CTkTextbox(val_frame, height=60, font=("Helvetica", 11),
@@ -551,6 +516,39 @@ class ShopifyMetafieldsUI:
             "type": mf_type,
             "rich_orig": rich_orig
         })
+
+    @staticmethod
+    def _acortar_nombre(nombre, maximo=28):
+        """Recorta un nombre de archivo largo conservando la extensión."""
+        if len(nombre) <= maximo:
+            return nombre
+        base, ext = os.path.splitext(nombre)
+        return base[:max(maximo - len(ext) - 3, 1)] + "..." + ext
+
+    def _pintar_archivo(self, etiqueta, estado, mf):
+        """Texto y botones de una fila de archivo según su estado (original o nuevo pendiente)."""
+        info, ruta = estado["info"], estado["archivo_local"]
+        if ruta:
+            tam = ShopifyMetafieldsService.formatear_tamano(os.path.getsize(ruta)) if os.path.isfile(ruta) else ""
+            texto = " · ".join(p for p in (f"NUEVO: {self._acortar_nombre(os.path.basename(ruta))}", tam,
+                                           "se sube al guardar") if p)
+        elif info:
+            partes = [p for p in (self._acortar_nombre(info["nombre"]), info["tipo"], info["tamano"]) if p]
+            if info["estado"] not in ("", "READY"):
+                partes.append("PROCESANDO")
+            texto = " · ".join(partes)
+        else:
+            texto = mf.get("value") or "SIN ARCHIVO"
+        etiqueta.configure(text=texto)
+        # ABRIR solo con el archivo que ya está en Shopify (el nuevo aún no existe allí)
+        estado["botones"]["ABRIR"].configure(state="normal" if (info and not ruta) else "disabled")
+
+    def _elegir_archivo(self, etiqueta, estado, mf):
+        ruta = filedialog.askopenfilename(parent=self.frame, title="Seleccionar archivo",
+                                          filetypes=[("Documentos PDF", "*.pdf"), ("Todos los archivos", "*.*")])
+        if ruta:
+            estado["archivo_local"] = ruta
+            self._pintar_archivo(etiqueta, estado, mf)
 
     def _volver(self):
         try:
@@ -604,6 +602,9 @@ class ShopifyMetafieldsUI:
                     new_val = ""
                 else:
                     new_val = json.dumps(r["var"]) if mf_type.startswith("list.") else str(r["var"] or "")
+            elif mf_type == 'file_reference':
+                # Se reenvía el valor original; si hay un archivo nuevo, se sube al guardar el producto
+                new_val = str(mf.get("value") or "")
             elif r.get("opciones"):
                 marcadas = [o for o in r["opciones"] if r["var"][o].get()] + r["extras"]
                 if r["ilegible"] and not marcadas:
@@ -630,6 +631,8 @@ class ShopifyMetafieldsUI:
                 "value": new_val,
                 "type": mf["type"]
             }
+            if mf_type == 'file_reference' and r["var"]["archivo_local"]:
+                meta_item["archivo_local"] = r["var"]["archivo_local"]
             all_metafields.append(meta_item)
 
             # Solo si ha cambiado respecto al original (si existía original)
