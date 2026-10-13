@@ -1,6 +1,6 @@
 # MEMORY.md — Kool TPV
 Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo que ya no
-aporte. (Última actualización: 2026-10-12, commits `6521ccd`..`d83923e` en `windows-beta`.)
+aporte. (Última actualización: 2026-10-12, commits `6521ccd`..`6c75d4f` en `windows-beta`.)
 
 ## Estado actual
 - Shopify SUBIDA separada en NUEVO y EDITAR (`SubidaBaseView` + `SubidaNuevoView` + `SubidaEditarView`,
@@ -18,7 +18,9 @@ aporte. (Última actualización: 2026-10-12, commits `6521ccd`..`d83923e` en `wi
   "1) PULSAR PARA PREPARAR LOS CAMBIOS" (color Accent) y "2) ACTUALIZAR EN SHOPIFY", que está en gris
   hasta que hay cambios preparados (`_actualizar_estado_guardar`).
   Metacampos: texto/número/URL/SÍ-NO; listas con opciones; familia (`coleccion_de_familia`).
-  Modos AÑADIR/CAMBIAR como botones de opción (grises si el tipo no los usa). Probado con escritura real.
+  Modos AÑADIR/CAMBIAR/VACIAR como botones de opción (grises si el tipo no los usa; VACIAR solo en
+  listas, `6c75d4f`: escribe `[]`, Shopify lo acepta y deja el metacampo con lista vacía; salta los que ya
+  estaban vacíos). Probado con escritura real en los Clutch.
 - Familia en masa (`_aplicar_familia`): AÑADIR = solo productos sin familia; CAMBIAR = a todos.
   Orden: entrar en colección nueva -> metacampo -> salir de la antigua. Probado con Trinidad y colecciones
   `PRUEBA_*`. La tabla (`VirtualNavList`, compartida) solo colorea por FILA, no por columna.
@@ -50,10 +52,11 @@ aporte. (Última actualización: 2026-10-12, commits `6521ccd`..`d83923e` en `wi
 - Mis scripts de `/tmp` desaparecen al reiniciar: recréalos y di que son temporales.
 
 ## Próximos pasos
-- MASIVA: opción VACIAR listas (en METACAMPOS ya se envía `[]`); referencias a metaobjetos
-  (`mecanicas_...`). Mirar pintado en Windows: filas 2 y 3 enteras e iconos de estado (●, ○, ✕).
+- METACAMPOS: "+ AÑADIR METACAMPO" borra lo escrito (pierde datos): PRIORIDAD 1.
+- MASIVA: referencias a metaobjetos (`mecanicas_...`). Mirar pintado en Windows: filas 2 y 3 enteras
+  (ahora con 3 botones de opción) e iconos de estado (●, ○, ✕).
 - METACAMPOS resto: archivos (`reglamento`) con nombre en vez de identificador; alinear grid y dar fila
-  propia al texto largo; no perder lo escrito al pulsar "+ AÑADIR METACAMPO"; limpiar código sobrante.
+  propia al texto largo; limpiar código sobrante.
 - NUEVO/EDITAR: imágenes en rejilla (2 por fila); validar NUEVO con precios por variante y sin talla/color;
   prompt GENERAR TAGS con los tags existentes. Comprobar si el doble envío de EDITAR funciona con
   colecciones por regla.
