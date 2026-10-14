@@ -46,6 +46,7 @@ class ShopifyBulkEditView:
         self._mf_nombre_actual = None
         self._desc_pvp = ""
         self._mf_valores: List[str] = []
+        self._mf_valores_nombres: List[str] = []
         self._mf_coleccion = None
 
         try:
@@ -176,7 +177,7 @@ class ShopifyBulkEditView:
             try:
                 defs = self.mf_service.obtener_definiciones_custom()
                 S = ShopifyMetafieldsService
-                validas = [d for d in defs if d["type"]["name"] in S.TIPOS_MASIVOS + S.TIPOS_COLECCION
+                validas = [d for d in defs if d["type"]["name"] in S.TIPOS_MASIVOS + S.TIPOS_COLECCION + S.TIPOS_METAOBJETO
                            or (d["type"]["name"] in S.TIPOS_LISTA and S.opciones_lista(d))]
                 mapa = {d["name"]: d for d in sorted(validas, key=lambda d: d["name"].lower())}
                 opts = [(i, nombre) for i, nombre in enumerate(mapa)]
@@ -204,9 +205,10 @@ class ShopifyBulkEditView:
         self._mf_tipo_actual = tipo
         self._mf_nombre_actual = nombre
         self._mf_valores = []
+        self._mf_valores_nombres = []
         self._mf_coleccion = None
         self._mf_modo_var.set("AÑADIR")
-        es_lista = tipo in ShopifyMetafieldsService.TIPOS_LISTA
+        es_lista = tipo in ShopifyMetafieldsService.TIPOS_LISTA + ShopifyMetafieldsService.TIPOS_METAOBJETO
         es_familia = tipo in ShopifyMetafieldsService.TIPOS_COLECCION
         for r in self._mf_radios:
             if r.cget("text") == "VACIAR":
@@ -221,6 +223,11 @@ class ShopifyBulkEditView:
         if tipo in ShopifyMetafieldsService.TIPOS_LISTA:
             self._mf_val_widget = ctk.CTkButton(self._mf_val_frame, text="ELEGIR VALORES (0)", width=170, height=28,
                                                 fg_color=self._secondary, command=self._elegir_valores_lista)
+            self._mf_val_widget.pack(side="left")
+            return
+        if tipo in ShopifyMetafieldsService.TIPOS_METAOBJETO:
+            self._mf_val_widget = ctk.CTkButton(self._mf_val_frame, text="ELEGIR VALORES (0)", width=170, height=28,
+                                                fg_color=self._secondary, command=self._elegir_metaobjetos)
             self._mf_val_widget.pack(side="left")
             return
         if tipo == "boolean":
@@ -242,9 +249,43 @@ class ShopifyBulkEditView:
             self._mf_valores = [o["id"] for o in opciones if o["id"] in res]
             self._mf_val_widget.configure(text=f"ELEGIR VALORES ({len(self._mf_valores)})")
 
+    def _elegir_metaobjetos(self):
+        """Trae las entradas del metaobjeto en un hilo y abre el selector en el hilo principal."""
+        d = self._mf_defs.get(self._mf_nombre_actual)
+        if not d:
+            return
+        definition_id = next((v.get("value") for v in d.get("validations", [])
+                              if v.get("name") == "metaobject_definition_id"), None)
+        if not definition_id:
+            show_error(self.frame, "No se encontró la definición del metaobjeto en Shopify")
+            return
+        self._load_status_lbl.configure(text="Cargando opciones...", fg=self._primary)
+
+        def work():
+            tipo_meta = self.mf_service.obtener_tipo_metaobjeto_por_definicion(definition_id)
+            entradas = self.mf_service.obtener_entradas_metaobjeto(tipo_meta) if tipo_meta else []
+            self.frame.after(0, lambda: self._mostrar_selector_metaobjetos(entradas))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _mostrar_selector_metaobjetos(self, entradas):
+        self._load_status_lbl.configure(text="")
+        if not entradas:
+            show_error(self.frame, "No hay entradas creadas para este metaobjeto en Shopify")
+            return
+        opciones = [{"id": e["id"], "text": e.get("displayName") or e["id"]} for e in entradas]
+        res = show_reference_select_dialog(self.frame, f"SELECCIONAR {self._mf_nombre_actual}", opciones,
+                                           list(self._mf_valores), multi_select=True, agrupar=False)
+        if res is not None:
+            self._mf_valores = [o["id"] for o in opciones if o["id"] in res]
+            self._mf_valores_nombres = [o["text"] for o in opciones if o["id"] in res]
+            self._mf_val_widget.configure(text=f"ELEGIR VALORES ({len(self._mf_valores)})")
+
     def _on_modo_cambiado(self):
         """Con VACIAR no hay que elegir valores: el botón de valores se apaga."""
-        if self._mf_tipo_actual in ShopifyMetafieldsService.TIPOS_LISTA and self._mf_val_widget is not None:
+        if self._mf_tipo_actual in (ShopifyMetafieldsService.TIPOS_LISTA
+                                    + ShopifyMetafieldsService.TIPOS_METAOBJETO) \
+                and self._mf_val_widget is not None:
             self._mf_val_widget.configure(state="disabled" if self._mf_modo_var.get() == "VACIAR" else "normal")
 
     def _elegir_coleccion(self):
@@ -381,7 +422,8 @@ class ShopifyBulkEditView:
                 mf = {"namespace": d["namespace"], "key": d["key"], "type": tipo,
                       "modo": modo, "coleccion": self._mf_coleccion["id"],
                       "coleccion_nombre": self._mf_coleccion["title"]}
-            elif tipo in ShopifyMetafieldsService.TIPOS_LISTA:
+            elif tipo in (ShopifyMetafieldsService.TIPOS_LISTA
+                          + ShopifyMetafieldsService.TIPOS_METAOBJETO):
                 eleccion = self._mf_modo_var.get()
                 if eleccion != "VACIAR" and not self._mf_valores:
                     show_error(self.frame, "Elige al menos un valor para la lista")
@@ -389,6 +431,8 @@ class ShopifyBulkEditView:
                 modo = {"AÑADIR": "añadir", "CAMBIAR": "sustituir", "VACIAR": "vaciar"}[eleccion]
                 mf = {"namespace": d["namespace"], "key": d["key"], "type": tipo, "modo": modo,
                       "valores": [] if modo == "vaciar" else list(self._mf_valores)}
+                if tipo in ShopifyMetafieldsService.TIPOS_METAOBJETO:
+                    mf["nombres"] = [] if modo == "vaciar" else list(self._mf_valores_nombres)
             else:
                 valor, err = ShopifyMetafieldsService.validar_valor_masivo(tipo, self._mf_val_widget.get())
                 if err:
@@ -430,10 +474,11 @@ class ShopifyBulkEditView:
                 meta = f"{mf['key']}: VACIAR"
                 confirmacion = f"Metacampo `{mf['key']}`: VACIAR (se quitarán TODOS los valores)"
             elif "valores" in mf:
-                lista = ", ".join(mf["valores"])
+                visibles = mf.get("nombres") or mf["valores"]
+                lista = ", ".join(visibles)
                 signo, accion = ("+", "AÑADIR") if mf["modo"] == "añadir" else ("=", "CAMBIAR a")
                 meta = f"{mf['key']} {signo} {lista}"
-                confirmacion = f"Metacampo `{mf['key']}`: {accion} " + ", ".join(f"`{v}`" for v in mf["valores"])
+                confirmacion = f"Metacampo `{mf['key']}`: {accion} " + ", ".join(f"`{v}`" for v in visibles)
             else:
                 visible = {"true": "SÍ", "false": "NO"}.get(mf["value"], mf["value"]) if mf["type"] == "boolean" else mf["value"]
                 meta = f"{mf['key']} = {visible}"
