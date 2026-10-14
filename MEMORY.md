@@ -72,7 +72,9 @@ aporte. (Última actualización: 2026-10-14, commits `6521ccd`..`26efa99` en `wi
 - METACAMPOS resto: limpiar código sobrante. En EDITAR,
   reabrir METACAMPOS antes de actualizar recarga los valores de Shopify (pierde lo preparado: ya pasaba).
   Los metacampos nuevos se crean como definición en el admin de Shopify.
-- NUEVO/EDITAR: imágenes en rejilla (2 por fila); validar NUEVO con precios por variante y sin talla/color;
+- NUEVO/EDITAR: imágenes ya en rejilla de 3 por fila (`SelectorImagenes`, tarjetas con miniatura,
+  nombre, alt y ✕; orden y descargas en segundo plano iguales). Probado por el usuario.
+  Falta: validar NUEVO con precios por variante y sin talla/color;
   prompt GENERAR TAGS con los tags existentes. Comprobar si el doble envío de EDITAR funciona con
   colecciones por regla.
 - Probar en Windows la UI de Tipos y la migración 054; revisar Tipos/Categorías (`shopify_taxonomy`
