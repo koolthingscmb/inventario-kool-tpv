@@ -1,6 +1,6 @@
 # MEMORY.md — Kool TPV
 Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo que ya no
-aporte. (Última actualización: 2026-10-13, commits `6521ccd`..`88e0b3a` en `windows-beta`.)
+aporte. (Última actualización: 2026-10-14, commits `6521ccd`..`26efa99` en `windows-beta`.)
 
 ## Estado actual
 - Shopify SUBIDA separada en NUEVO y EDITAR (`SubidaBaseView` + `SubidaNuevoView` + `SubidaEditarView`,
@@ -12,7 +12,7 @@ aporte. (Última actualización: 2026-10-13, commits `6521ccd`..`88e0b3a` en `wi
   NUEVO guarda la ruta (`archivo_local`); `product_set` sube el PDF al guardar el producto
   (`subir_archivo`: stagedUploadsCreate FILE + fileCreate APPEND_UUID + espera READY) y lo sustituye por
   su GID; una sola subida por lote (se actualiza el mismo dict). Probado por el usuario: la pantalla y
-  la subida real en NUEVO (3 productos, OK). Sin probar: cambiar el PDF en EDITAR. Quitar un PDF: desde
+  la subida real en NUEVO (3 productos, OK) y cambiar el PDF en EDITAR. Quitar un PDF: desde
   el admin; deshacer una elección: VOLVER sin aceptar. Botón "+ AÑADIR METACAMPO" ELIMINADO.
 - METACAMPOS grid (`88e0b3a`): secciones unidas en mayúsculas (`GENERAL` + `General`); cada campo ocupa
   1, 2 o 4 huecos (texto/número, texto largo, listas-archivo-referencias), empaquetados sin huecos
@@ -31,7 +31,11 @@ aporte. (Última actualización: 2026-10-13, commits `6521ccd`..`88e0b3a` en `wi
   Metacampos: texto/número/URL/SÍ-NO; listas con opciones; familia (`coleccion_de_familia`).
   Modos AÑADIR/CAMBIAR/VACIAR como botones de opción (grises si el tipo no los usa; VACIAR solo en
   listas, `6c75d4f`: escribe `[]`, Shopify lo acepta y deja el metacampo con lista vacía; salta los que ya
-  estaban vacíos). Probado con escritura real en los Clutch.
+  estaban vacíos). Probado con escritura real en los Clutch. `list.metaobject_reference`
+  (`mecanicas_juegos_de_mesa`, `26efa99`): entra en el combo, botón ELEGIR VALORES trae las entradas
+  del metaobjeto (resuelve `metaobject_definition_id` -> type -> `obtener_entradas_metaobjeto`) y
+  abre el selector de casillas; mismos modos AÑADIR/CAMBIAR/VACIAR, tabla y confirmación muestran
+  nombres (`nombres`), se guardan GIDs. Probado por el usuario con escritura real.
 - Familia en masa (`_aplicar_familia`): AÑADIR = solo productos sin familia; CAMBIAR = a todos.
   Orden: entrar en colección nueva -> metacampo -> salir de la antigua. Probado con Trinidad y colecciones
   `PRUEBA_*`. La tabla (`VirtualNavList`, compartida) solo colorea por FILA, no por columna.
@@ -63,7 +67,7 @@ aporte. (Última actualización: 2026-10-13, commits `6521ccd`..`88e0b3a` en `wi
 - Mis scripts de `/tmp` desaparecen al reiniciar: recréalos y di que son temporales.
 
 ## Próximos pasos
-- MASIVA: referencias a metaobjetos (`mecanicas_...`). Mirar pintado en Windows: filas 2 y 3 enteras
+- MASIVA: mirar pintado en Windows: filas 2 y 3 enteras
   (ahora con 3 botones de opción) e iconos de estado (●, ○, ✕).
 - METACAMPOS resto: limpiar código sobrante. En EDITAR,
   reabrir METACAMPOS antes de actualizar recarga los valores de Shopify (pierde lo preparado: ya pasaba).
