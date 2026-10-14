@@ -112,48 +112,61 @@ class SelectorImagenes:
     # Dibujo
     # ------------------------------------------------------------------
 
+    def _nueva_tarjeta(self, pos):
+        """Tarjeta de la rejilla: 3 por fila, todas del mismo ancho."""
+        card = tk.Frame(self._lista, bg=self._bg_medium)
+        card.grid(row=pos // 3, column=pos % 3, sticky="nsew", padx=4, pady=3)
+        return card
+
     def _render(self):
         for child in self._lista.winfo_children():
             child.destroy()
         self._thumb_refs.clear()
         self._labels_web = {}
+        for col in range(3):
+            self._lista.columnconfigure(col, weight=1, uniform="imgs")
 
+        pos = 0
         for idx, img in enumerate(self._locales):
-            row_f = tk.Frame(self._lista, bg=self._bg_medium)
-            row_f.pack(fill="x", pady=3)
+            card = self._nueva_tarjeta(pos); pos += 1
             if PIL_OK:
                 try:
                     pil = Image.open(img["path"]); pil.thumbnail((TAM_MINIATURA, TAM_MINIATURA))
                     thumb = ImageTk.PhotoImage(pil)
                     self._thumb_refs.append(thumb)
-                    tk.Label(row_f, image=thumb, bg=self._bg_medium).pack(side="left", padx=8)
+                    tk.Label(card, image=thumb, bg=self._bg_medium).pack(side="left", padx=8, pady=8)
                 except (OSError, ValueError):
                     logger.warning(f"No se pudo generar la miniatura de {img['path']}")
+            cuerpo = tk.Frame(card, bg=self._bg_medium)
+            cuerpo.pack(side="left", fill="x", expand=True, pady=6)
             name = img["path"].split("/")[-1]
-            tk.Label(row_f, text=name, fg="#FFF", bg=self._bg_medium,
-                     font=("Helvetica", 10), width=30, anchor="w").pack(side="left", padx=5)
-            alt = ctk.CTkEntry(row_f, placeholder_text="alt text", width=220, height=28)
+            tk.Label(cuerpo, text=name, fg="#FFF", bg=self._bg_medium,
+                     font=("Helvetica", 10), anchor="w").pack(fill="x", padx=5)
+            alt = ctk.CTkEntry(cuerpo, placeholder_text="alt text", width=180, height=26)
             alt.insert(0, img["alt"])
             alt.bind("<FocusOut>", lambda e, i=idx, w=alt: self._locales[i].update(alt=w.get()))
-            alt.pack(side="left", padx=8)
-            ctk.CTkButton(row_f, text="✕", width=30, height=28, fg_color="#8b1a1a",
-                          command=lambda i=idx: self._del_image(i)).pack(side="right", padx=8)
+            alt.pack(anchor="w", padx=5, pady=(4, 0))
+            ctk.CTkButton(card, text="✕", width=24, height=24, fg_color="#8b1a1a",
+                          command=lambda i=idx: self._del_image(i)).pack(side="right", anchor="n",
+                                                                        padx=6, pady=6)
 
         for idx, img in enumerate(self._web):
-            row_f = tk.Frame(self._lista, bg=self._bg_medium)
-            row_f.pack(fill="x", pady=3)
+            card = self._nueva_tarjeta(pos); pos += 1
             if PIL_OK:
                 url = img["url"]
-                lbl = tk.Label(row_f, image=self._cache.get(url, self._vacia), bg=self._bg_medium)
-                lbl.pack(side="left", padx=8)
+                lbl = tk.Label(card, image=self._cache.get(url, self._vacia), bg=self._bg_medium)
+                lbl.pack(side="left", padx=8, pady=8)
                 if url not in self._cache:
                     self._labels_web.setdefault(url, []).append(lbl)
-            tk.Label(row_f, text=f"☁ {img['url'].split('/')[-1][:40]}", fg="#8cf",
-                     bg=self._bg_medium, font=("Helvetica", 10), anchor="w").pack(side="left", padx=8)
-            tk.Label(row_f, text="(ya en Shopify)", fg="#666", bg=self._bg_medium,
-                     font=("Helvetica", 9, "italic")).pack(side="left", padx=5)
-            ctk.CTkButton(row_f, text="✕", width=30, height=28, fg_color="#8b1a1a",
-                          command=lambda i=idx: self._del_web_image(i)).pack(side="right", padx=8)
+            cuerpo = tk.Frame(card, bg=self._bg_medium)
+            cuerpo.pack(side="left", fill="x", expand=True, pady=6)
+            tk.Label(cuerpo, text=f"☁ {img['url'].split('/')[-1][:28]}", fg="#8cf",
+                     bg=self._bg_medium, font=("Helvetica", 10), anchor="w").pack(fill="x", padx=5)
+            tk.Label(cuerpo, text="(ya en Shopify)", fg="#666", bg=self._bg_medium,
+                     font=("Helvetica", 9, "italic"), anchor="w").pack(fill="x", padx=5)
+            ctk.CTkButton(card, text="✕", width=24, height=24, fg_color="#8b1a1a",
+                          command=lambda i=idx: self._del_web_image(i)).pack(side="right", anchor="n",
+                                                                            padx=6, pady=6)
 
         self._lanzar_descargas()
 
