@@ -27,6 +27,8 @@
   "nuevo_nivel": {"text": "NUEVO NIVEL", "style": "warning"},
   "configurar_mapeos": {"text": "CONFIGURAR MAPEOS", "style": "special"},
   "mapeo_generos": {"text": "MAPEO GÉNEROS", "style": "special"},
-  "entrada_manual_albaran": {"text": "ENTRADA MANUAL", "style": "primary"}
+  "entrada_manual_albaran": {"text": "ENTRADA MANUAL", "style": "primary"},
+  "anadir": {"text": "AÑADIR", "style": "secondary"},
+  "probar": {"text": "PROBAR", "style": "info"}
   ,"x": {"text": "X", "style": "header_neutral_small", "min_width": 40}
 }

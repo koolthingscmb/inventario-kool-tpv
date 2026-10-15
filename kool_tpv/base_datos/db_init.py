@@ -427,6 +427,86 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migración 062: tablas editoriales_fuentes + editoriales (datos de
+		# manga/cómics). Sustituye al JSON en `configuracion`: traspasa
+		# fuentes_editoriales y las credenciales fuente_*, y borra esas claves.
+		# Si la tabla quedó creada como 'fuentes', se renombra.
+		try:
+			tablas = {r[0] for r in (db.fetch_all("SELECT name FROM sqlite_master WHERE type='table'") or [])}
+			if 'fuentes' in tablas and 'editoriales_fuentes' not in tablas:
+				db.connection.execute("ALTER TABLE fuentes RENAME TO editoriales_fuentes")
+				db.connection.commit()
+				tablas.discard('fuentes')
+				tablas.add('editoriales_fuentes')
+				logging.info('Migración 062: fuentes renombrada a editoriales_fuentes')
+			if 'editoriales_fuentes' not in tablas or 'editoriales' not in tablas:
+				logging.info('Aplicando migración 062: tablas editoriales_fuentes y editoriales')
+				db.connection.execute('''CREATE TABLE IF NOT EXISTS editoriales_fuentes (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					nombre TEXT NOT NULL,
+					plataforma TEXT NOT NULL,
+					url TEXT,
+					nif TEXT,
+					usuario TEXT,
+					password TEXT)''')
+				db.connection.execute('''CREATE TABLE IF NOT EXISTS editoriales (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					nombre TEXT NOT NULL UNIQUE,
+					fuente_id INTEGER REFERENCES editoriales_fuentes(id) ON DELETE SET NULL,
+					web_buscar TEXT,
+					web_dominio TEXT)''')
+
+				row = db.fetch_one("SELECT valor FROM configuracion WHERE clave = 'fuentes_editoriales'")
+				if row and row[0]:
+					import json as _json
+					try:
+						datos = _json.loads(row[0])
+					except Exception:
+						datos = {}
+					fuentes_mapa = datos.get('fuentes') or datos.get('portales') or {}
+					ed_mapa = datos.get('editoriales') or {}
+					id_map = {}
+					for pid, f in fuentes_mapa.items():
+						creds = {}
+						for campo in ('nif', 'usuario', 'password'):
+							cr = db.fetch_one("SELECT valor FROM configuracion WHERE clave = ?",
+												(f'fuente_{pid}_{campo}',))
+							creds[campo] = cr[0] if cr and cr[0] is not None else ''
+						cur = db.connection.execute(
+							"INSERT INTO editoriales_fuentes (nombre, plataforma, url, nif, usuario, password) VALUES (?,?,?,?,?,?)",
+							(f.get('nombre') or pid, f.get('tipo', ''), f.get('url', ''),
+							 creds['nif'], creds['usuario'], creds['password']))
+						id_map[pid] = cur.lastrowid
+					# formato plano: listas 'editoriales' dentro de cada fuente
+					for pid, f in fuentes_mapa.items():
+						for nombre_ed in (f.get('editoriales') or []):
+							db.connection.execute(
+								"INSERT OR IGNORE INTO editoriales (nombre, fuente_id) VALUES (?,?)",
+								(str(nombre_ed).lower(), id_map[pid]))
+							db.connection.execute(
+								"UPDATE editoriales SET fuente_id = ? WHERE nombre = ?",
+								(id_map[pid], str(nombre_ed).lower()))
+					# formato viejo: bloque 'editoriales' con 'portal' + webs del IR
+					for clave, ed in ed_mapa.items():
+						fid = id_map.get(ed.get('portal') or ed.get('portal_info'))
+						db.connection.execute(
+							"INSERT OR IGNORE INTO editoriales (nombre, fuente_id, web_buscar, web_dominio) VALUES (?,?,?,?)",
+							(str(clave).lower(), fid, ed.get('buscar', ''), ed.get('dominio', '')))
+						if fid:
+							db.connection.execute(
+								"UPDATE editoriales SET fuente_id = ? WHERE nombre = ?",
+								(fid, str(clave).lower()))
+					db.connection.execute("DELETE FROM configuracion WHERE clave = 'fuentes_editoriales'")
+					db.connection.execute("DELETE FROM configuracion WHERE clave LIKE 'fuente_%'")
+				db.connection.commit()
+				logging.info('Migración 062 aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 062')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Check existence
 		existing = []
 		try:

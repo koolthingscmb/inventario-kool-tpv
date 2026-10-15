@@ -9,6 +9,7 @@ Nueva versión:
 """
 from typing import Dict, Optional, List, Tuple
 import logging
+import threading
 import webbrowser
 import tkinter as tk
 
@@ -36,6 +37,7 @@ from kool_tpv.modulos.almacen.producto_repository import ProductoRepository
 from kool_tpv.utils import barcode_gen_utils
 from kool_tpv.utils.sku_generator import generate_sku
 from kool_tpv.modulos.shopify.services.buscar_data.buscar_data_service import BuscarDataService
+from kool_tpv.modulos.almacen.services.obtener_datos_service import ObtenerDatosService
 from kool_tpv.utils.dialogs.source_search_dialog import show_source_search_dialog
 
 logger = logging.getLogger(__name__)
@@ -117,8 +119,8 @@ class CrearProductoUI:
         self.e_sku.grid(row=1, column=1, columnspan=2, sticky='ew', padx=6, pady=6)
 
         ctk.CTkLabel(self.general_frame, text="EDITORIAL:", text_color=self.colors['text'], font=lbl_font).grid(row=1, column=3, sticky='w', padx=6, pady=6)
-        self.e_editorial = ctk.CTkEntry(self.general_frame, placeholder_text='Editorial', **entry_kwargs)
-        self.e_editorial.grid(row=1, column=4, sticky='ew', padx=6, pady=6)
+        self.cb_editorial = SearchableCombo(self.general_frame, placeholder='Buscar editorial')
+        self.cb_editorial.grid(row=1, column=4, sticky='ew', padx=6, pady=6)
         
         # Botón IR para editorial
         try:
@@ -457,6 +459,9 @@ class CrearProductoUI:
             self.cb_proveedor.entry.bind('<FocusOut>', lambda e: self._validate_combo_focus(self.cb_proveedor))
             self.cb_proveedor.entry.bind('<<SearchableComboSelected>>', lambda e: self._on_combo_selected(self.cb_proveedor))
             self.cb_proveedor.entry.bind('<Return>', lambda e: self._validate_combo_focus(self.cb_proveedor))
+            self.cb_editorial.entry.bind('<FocusOut>', lambda e: self._validate_editorial())
+            self.cb_editorial.entry.bind('<<SearchableComboSelected>>', lambda e: self._on_combo_selected(self.cb_editorial))
+            self.cb_editorial.entry.bind('<Return>', lambda e: self._validate_editorial())
         except Exception:
             pass
 
@@ -619,6 +624,16 @@ class CrearProductoUI:
                 self.cb_proveedor.set_options([(int(r[0]), r[1] or '') for r in provs])
             except Exception:
                 logging.exception('Error cargando proveedores')
+            # editoriales (tabla editoriales vía servicio)
+            try:
+                from kool_tpv.modulos.almacen.services.fuentes_editorial_service import (
+                    FuentesEditorialService,
+                )
+                eds = FuentesEditorialService(self.db).listar_editoriales()
+                self.cb_editorial.set_options(
+                    [(int(e['id']), e['nombre']) for e in eds])
+            except Exception:
+                logging.exception('Error cargando editoriales')
             # IVA candidates: distinct from productos
             try:
                 VALID_IVA_RATES = {0, 4, 10, 21}
@@ -725,6 +740,28 @@ class CrearProductoUI:
         except Exception:
             pass
 
+    def _validate_editorial(self):
+        """Editorial estricta: si el texto no existe en la tabla editoriales,
+        avisa con Toast y limpia el campo."""
+        try:
+            val = (self.cb_editorial.get() or '').strip()
+            if not val:
+                self.cb_editorial.entry.configure(
+                    border_color=self.colors.get('border', self.colors.get('primary', COLOR_MATRIX)))
+                return
+            if self.cb_editorial.get_id() is None:
+                self.cb_editorial.entry.configure(border_color=COLOR_ERROR)
+                self.cb_editorial.set('')
+                ToastWidget.show(
+                    self.container,
+                    f"La editorial '{val}' no existe: dala de alta en EDITORIALES",
+                    tipo='error')
+            else:
+                self.cb_editorial.entry.configure(
+                    border_color=self.colors.get('border', self.colors.get('primary', COLOR_MATRIX)))
+        except Exception:
+            logging.exception('Error validando editorial')
+
     def _on_gen_barcode_interno(self):
         """Generar código de barras interno e imagen JPG/PNG."""
         try:
@@ -776,7 +813,7 @@ class CrearProductoUI:
     def _on_buscar_editorial(self):
         """Abre la búsqueda del tomo en la web de la editorial o Google."""
         try:
-            editorial = self.e_editorial.get().strip()
+            editorial = self.cb_editorial.get().strip()
             nombre = self.e_nombre.get().strip()
             
             if not nombre:
@@ -796,58 +833,88 @@ class CrearProductoUI:
             logger.exception("Error en _on_buscar_editorial")
 
     def _on_obtener(self):
-        """Busca el título original (romaji/kanji) y datos técnicos por el nombre español."""
+        """Obtiene los datos del producto por EAN en la fuente de la editorial.
+
+        Lee el EAN de CÓDIGOS y la editorial del combo, lanza la búsqueda
+        en un hilo (el login del portal tarda) y rellena al volver:
+        ORIGINAL, AUTOR, AÑO, TAGS, SINOPSIS y LINK. No pisa lo ya escrito.
+        """
         try:
-            nombre = self.e_nombre.get().strip()
-            if not nombre:
-                ToastWidget.show(self.container, "Introduce el nombre del producto", tipo='warning')
-                return
+            codes = [c.strip() for c in (self.e_codigos.get() or '').split(',')
+                     if c.strip()]
+            ean = codes[0] if codes else ''
+            editorial = (self.cb_editorial.get() or '').strip()
 
-            service = BuscarDataService(self.db)
-            context = ''
-            try:
-                context = (self.cb_tipo.get() or '').strip().lower()
-            except Exception:
-                pass
+            self.btn_obtener.configure(state='disabled', text='BUSCANDO...')
+            ToastWidget.show(self.container, 'Buscando en la fuente...',
+                             tipo='info')
+            service = ObtenerDatosService(self.db)
 
-            ToastWidget.show(self.container, 'Buscando título original...', tipo='info')
-            results = service.search_for_obtener(nombre, context=context)
-
-            if not results:
-                # Fallback: abrir búsqueda en el navegador para localizar el romaji a mano
+            def _run():
                 try:
-                    import urllib.parse
-                    q = f"nombre original romaji de {nombre} manga"
-                    webbrowser.open(f"https://www.google.com/search?q={urllib.parse.quote(q)}")
+                    datos = service.obtener(editorial, ean)
+                except Exception as e:
+                    datos = e
+                try:
+                    self.container.after(0, lambda: self._obtener_fin(datos))
                 except Exception:
-                    logger.exception('Error abriendo búsqueda en navegador')
-                ToastWidget.show(self.container, "Sin resultados en APIs. Búsqueda abierta en el navegador", tipo='info')
-                return
+                    pass
 
-            selected = show_source_search_dialog(self.parent, results)
-            if not selected:
-                return
-
-            md = service.get_manga_data(selected["source_id"], selected["id"])
-            if not md or not md.titulo_romaji:
-                ToastWidget.show(self.container, "No se encontró el título original", tipo='warning')
-                return
-
-            # OBTENER solo rellena el campo ORIGINAL (romaji); el kanji se guarda en datos_tecnicos
-            self.e_nombre_original.delete(0, 'end')
-            self.e_nombre_original.insert(0, md.titulo_romaji)
-            try:
-                if md.titulo_nativo:
-                    if self._tech_extra is None:
-                        self._tech_extra = {}
-                    self._tech_extra['kanji'] = md.titulo_nativo
-            except Exception:
-                pass
-            ToastWidget.show(self.container, "Nombre original obtenido", tipo='success')
-
+            threading.Thread(target=_run, daemon=True).start()
         except Exception:
             logger.exception('Error en _on_obtener')
-            ToastWidget.show(self.container, "Error inesperado en OBTENER", tipo='error')
+            try:
+                self.btn_obtener.configure(state='normal', text='OBTENER')
+            except Exception:
+                pass
+            ToastWidget.show(self.container, "Error inesperado en OBTENER",
+                             tipo='error')
+
+    def _obtener_fin(self, datos):
+        """Vuelca la ficha normalizada en los campos (sin pisar lo escrito)."""
+        try:
+            self.btn_obtener.configure(state='normal', text='OBTENER')
+        except Exception:
+            pass
+        if isinstance(datos, Exception) or not datos:
+            msg = str(datos) if datos else 'Sin datos'
+            ToastWidget.show(self.container, msg, tipo='error')
+            return
+
+        def _fill(entry, value):
+            if not value or entry is None:
+                return
+            try:
+                if (entry.get() or '').strip():
+                    return
+                entry.delete(0, 'end')
+                entry.insert(0, str(value))
+            except Exception:
+                pass
+
+        # ORIGINAL solo si es un título distinto al español (romaji/original);
+        # si la fuente repite el mismo título no se rellena
+        titulo_orig = (datos.get('titulo_original') or '').strip()
+        titulo_esp = (datos.get('titulo') or '').strip()
+        if titulo_orig and titulo_orig.lower() != titulo_esp.lower():
+            _fill(getattr(self, 'e_nombre_original', None), titulo_orig)
+        _fill(getattr(self, 'e_autor', None), datos.get('autor'))
+        _fill(getattr(self, 'e_anio', None), datos.get('anio'))
+        generos = datos.get('generos') or []
+        _fill(getattr(self, 'e_tags', None), ", ".join(generos))
+        _fill(getattr(self, 'e_shop_link', None), datos.get('url_ficha'))
+        try:
+            sinopsis = datos.get('sinopsis') or ''
+            txt = getattr(self, 'txt_sinopsis', None)
+            if sinopsis and txt is not None:
+                actual = txt.get('1.0', 'end-1c').strip()
+                if not actual:
+                    txt.delete('1.0', 'end')
+                    txt.insert('1.0', sinopsis)
+        except Exception:
+            pass
+        ToastWidget.show(self.container, 'Datos obtenidos de la fuente',
+                         tipo='success')
 
     def _apply_manga_data(self, md):
         """Vuelca un MangaData en los campos de la UI (sin pisar lo ya escrito)."""
@@ -866,7 +933,16 @@ class CrearProductoUI:
         _fill(getattr(self, 'e_autor', None), md.autor)
         _fill(getattr(self, 'e_anio', None), md.anio)
         _fill(getattr(self, 'e_demog', None), md.demografia)
-        _fill(getattr(self, 'e_editorial', None), md.editorial)
+        # Editorial: solo autocompleta si coincide con una de la tabla (combo estricto)
+        try:
+            cb_ed = getattr(self, 'cb_editorial', None)
+            if cb_ed is not None and md.editorial and not (cb_ed.get() or '').strip():
+                for v in (cb_ed.values or []):
+                    if str(v).strip().lower() == str(md.editorial).strip().lower():
+                        cb_ed.set(v)
+                        break
+        except Exception:
+            pass
         _fill(getattr(self, 'e_tags', None), ", ".join(md.generos) if md.generos else '')
 
         # Kanji, géneros y estado persisten dentro de datos_tecnicos
@@ -923,6 +999,17 @@ class CrearProductoUI:
             except Exception:
                 logging.exception('Error validando combo %s', attr)
                 return False, f'Error validando {label}'
+        # Editorial: no obligatoria, pero si hay texto debe existir en la tabla
+        try:
+            cb_ed = getattr(self, 'cb_editorial', None)
+            if cb_ed is not None:
+                ed_val = (cb_ed.get() or '').strip()
+                if ed_val and cb_ed.get_id() is None:
+                    cb_ed.entry.configure(border_color=COLOR_ERROR)
+                    return False, f"La editorial '{ed_val}' no existe"
+        except Exception:
+            logging.exception('Error validando editorial')
+            return False, 'Error validando Editorial'
         return True, ''
 
     def _on_save(self):
@@ -1044,7 +1131,7 @@ class CrearProductoUI:
             shop_link = ''
 
         try:
-            editorial = (getattr(self, 'e_editorial', None) and self.e_editorial.get()) or ''
+            editorial = (getattr(self, 'cb_editorial', None) and self.cb_editorial.get()) or ''
         except Exception:
             editorial = ''
 
@@ -1422,7 +1509,7 @@ class CrearProductoUI:
                 'tipo_shop': (getattr(self, 'e_tipo_shop', None) and self.e_tipo_shop.get()) or '',
                 'etiquetas': (getattr(self, 'e_tags', None) and self.e_tags.get()) or '',
                 'shop_link': (getattr(self, 'e_shop_link', None) and self.e_shop_link.get()) or '',
-                'editorial': (getattr(self, 'e_editorial', None) and self.e_editorial.get()) or '',
+                'editorial': (getattr(self, 'cb_editorial', None) and self.cb_editorial.get()) or '',
                 'nombre_original': (getattr(self, 'e_nombre_original', None) and self.e_nombre_original.get()) or '',
                 'autor': (getattr(self, 'e_autor', None) and self.e_autor.get()) or '',
                 'anio': (getattr(self, 'e_anio', None) and self.e_anio.get()) or '',

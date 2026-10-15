@@ -71,6 +71,7 @@ class AlmacenView(BaseModuleView):
             'show_tipos': self.show_tipos,
             'show_categorias': self.show_categorias,
             'show_proveedores': self.show_proveedores,
+            'show_editoriales': self.show_editoriales,
             'show_entrada_manual': self.show_entrada_manual,
             'show_consultar': self.show_consultar,
             'show_menus': self.show_menus,
@@ -188,6 +189,7 @@ class AlmacenView(BaseModuleView):
             'CATEGORIAS': self.show_categorias,
             'CATEGORÍAS': self.show_categorias,
             'PROVEEDORES': self.show_proveedores,
+            'EDITORIALES': self.show_editoriales,
             'CONSULTAR': self.show_consultar,
             'ENTRADA MANUAL': self.show_entrada_manual,
             'SALIDA MANUAL': self.show_salida_manual,
@@ -400,6 +402,21 @@ class AlmacenView(BaseModuleView):
                 logging.exception('Error instanciando CategoriasUI en show_categorias')
         except Exception:
             logging.exception('Error abriendo categorias en AlmacenView')
+
+    def show_editoriales(self):
+        """Vista top-level: limpia el stack."""
+        self._nav_stack.clear()
+        try:
+            from .ui.editoriales_ui import EditorialesUI
+            try:
+                editoriales_ui = EditorialesUI(self.central_area, db=self.db, module_name='almacen')
+                if self.set_central_content(editoriales_ui.get_widget()):
+                    self.actualizar_ruta('ALMACEN / EDITORIALES')
+                    logging.info('Abriendo editoriales y fuentes...')
+            except Exception:
+                logging.exception('Error instanciando EditorialesUI en show_editoriales')
+        except Exception:
+            logging.exception('Error abriendo editoriales en AlmacenView')
 
     def show_proveedores(self, proveedor_id=None):
         """Vista top-level: limpia el stack."""

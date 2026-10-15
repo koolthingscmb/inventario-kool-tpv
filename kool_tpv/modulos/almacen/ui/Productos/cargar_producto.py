@@ -314,7 +314,21 @@ class CargarProductoUI:
             _set_entry(getattr(ui_instance, 'e_tipo_shop', None), data.get('tipo_shop') or '')
             _set_entry(getattr(ui_instance, 'e_tags', None), data.get('etiquetas') or '')
             _set_entry(getattr(ui_instance, 'e_shop_link', None), data.get('shop_link') or '')
-            _set_entry(getattr(ui_instance, 'e_editorial', None), data.get('editorial') or '')
+            # Editorial: combo estricto; si la guardada no está en la tabla se
+            # añade como opción para no perder el dato del producto
+            try:
+                ed_name = data.get('editorial') or ''
+                cb = getattr(ui_instance, 'cb_editorial', None)
+                if cb is not None:
+                    vals = getattr(cb, 'values', None) or []
+                    mapping = getattr(cb, '_mapping', {}) or {}
+                    if ed_name and ed_name not in vals:
+                        opts = [(mapping.get(n), n) for n in vals]
+                        opts.append((data.get('editorial_id'), ed_name))
+                        cb.set_options(opts)
+                    cb.set(ed_name)
+            except Exception:
+                logging.exception('Error aplicando editorial')
             _set_entry(getattr(ui_instance, 'e_nombre_original', None), data.get('nombre_original') or '')
             _set_textbox(getattr(ui_instance, 'txt_sinopsis', None), data.get('sinopsis') or '')
 

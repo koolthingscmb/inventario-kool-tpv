@@ -9,8 +9,8 @@ class WebSearchService:
 
     def search_manga_facts(self, query: str) -> str:
         """Busca información técnica y real de un manga en la web."""
-        # Buscamos específicamente en Whakoom o sitios de editoriales para asegurar veracidad
-        search_query = f"{query} manga oficial español whakoom autor"
+        # Priorizamos resultados en español de editoriales y webs especializadas
+        search_query = f"{query} manga oficial español autor"
         
         try:
             logger.info(f"Buscando en Internet datos de: {query}")

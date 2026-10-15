@@ -1,82 +1,73 @@
 # MEMORY.md — Kool TPV
 Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo que ya no
-aporte. (Última actualización: 2026-10-14, commits `6521ccd`..`26efa99` en `windows-beta`.)
+aporte. (Última actualización: 2026-10-15, rama `windows-beta` al día.)
 
 ## Estado actual
-- Shopify SUBIDA separada en NUEVO y EDITAR (`SubidaBaseView` + `SubidaNuevoView` + `SubidaEditarView`,
-  con componentes y builders sin widgets). Stock en subidas: `changeFromQuantity: null`.
-- METACAMPOS: casillas para opciones; reenvío de campos sin definición; selector de Colecciones real
-  con buscador; `rich_text` se muestra como texto y solo se reenvuelve a JSON si se edita.
-- METACAMPOS archivo (`133d9a8`): `reglamento` (`file_reference`) muestra nombre, tipo y tamaño
-  (`describir_archivo`) con botones ABRIR y NUEVO (se quitaron QUITAR/DESHACER: molestaban en el grid).
-  NUEVO guarda la ruta (`archivo_local`); `product_set` sube el PDF al guardar el producto
-  (`subir_archivo`: stagedUploadsCreate FILE + fileCreate APPEND_UUID + espera READY) y lo sustituye por
-  su GID; una sola subida por lote (se actualiza el mismo dict). Probado por el usuario: la pantalla y
-  la subida real en NUEVO (3 productos, OK) y cambiar el PDF en EDITAR. Quitar un PDF: desde
-  el admin; deshacer una elección: VOLVER sin aceptar. Botón "+ AÑADIR METACAMPO" ELIMINADO.
-- METACAMPOS grid (`88e0b3a`): secciones unidas en mayúsculas (`GENERAL` + `General`); cada campo ocupa
-  1, 2 o 4 huecos (texto/número, texto largo, listas-archivo-referencias), empaquetados sin huecos
-  vacíos; SÍ/NO en una banda al final de su sección; textos largos con altura de una línea que crece
-  sola (~22% menos de alto). Guardar envía lo mismo que antes (comprobado con Tk).
-- SINC (`6521ccd`): `sync_stock_by_sku_prefix` lee `on_hand` (antes `available`).
-- FIX Windows (`60136a6`): el selector de Colecciones de METACAMPOS abría el diálogo desde un hilo
-  secundario y colgaba la app. Ahora el hilo trae datos y el diálogo se abre con `frame.after`.
-  Fixeado, PERO hay que probarlo más veces en Windows. ELIMINAR esta nota solo cuando el usuario diga.
-- MASIVA (`0d65c31`, `15eb7a4`, `b99e6a0`, `a68c643`, `d83923e`): filtros y acciones en 3 filas (PVP,
-  plantilla, metacampo), confirmación que lista los cambios. Columnas: ID, TÍTULO (elástica), TIPO,
-  PLANTILLA 102, ◉ 20 (estado con iconos ● activo, ○ borrador, ✕ archivado), €€ 60 y RESULTADO 380 (une
-  precio nuevo, plantilla y metacampo; "OK" tras guardar). Dos pasos visibles: botón
-  "1) PULSAR PARA PREPARAR LOS CAMBIOS" (color Accent) y "2) ACTUALIZAR EN SHOPIFY", que está en gris
-  hasta que hay cambios preparados (`_actualizar_estado_guardar`).
-  Metacampos: texto/número/URL/SÍ-NO; listas con opciones; familia (`coleccion_de_familia`).
-  Modos AÑADIR/CAMBIAR/VACIAR como botones de opción (grises si el tipo no los usa; VACIAR solo en
-  listas, `6c75d4f`: escribe `[]`, Shopify lo acepta y deja el metacampo con lista vacía; salta los que ya
-  estaban vacíos). Probado con escritura real en los Clutch. `list.metaobject_reference`
-  (`mecanicas_juegos_de_mesa`, `26efa99`): entra en el combo, botón ELEGIR VALORES trae las entradas
-  del metaobjeto (resuelve `metaobject_definition_id` -> type -> `obtener_entradas_metaobjeto`) y
-  abre el selector de casillas; mismos modos AÑADIR/CAMBIAR/VACIAR, tabla y confirmación muestran
-  nombres (`nombres`), se guardan GIDs. Probado por el usuario con escritura real.
-- Familia en masa (`_aplicar_familia`): AÑADIR = solo productos sin familia; CAMBIAR = a todos.
-  Orden: entrar en colección nueva -> metacampo -> salir de la antigua. Probado con Trinidad y colecciones
-  `PRUEBA_*`. La tabla (`VirtualNavList`, compartida) solo colorea por FILA, no por columna.
+- Shopify SUBIDA separada en NUEVO y EDITAR (`SubidaBaseView` + componentes + builders sin widgets).
+  Stock en subidas: `changeFromQuantity: null`.
+- METACAMPOS: rejilla empaquetada (campos de 1, 2 o 4 huecos, SÍ/NO en banda); `reglamento`
+  (`file_reference`) con ABRIR/NUEVO — el PDF se sube al guardar. "+ AÑADIR METACAMPO" eliminado.
+- MASIVA: metacampos (texto/número/SÍ-NO, listas, familia y `list.metaobject_reference` con
+  ELEGIR VALORES; nombres en pantalla, GIDs a Shopify). Modos AÑADIR/CAMBIAR/VACIAR (`[]` válido).
+- NUEVO/EDITAR: imágenes en rejilla de 3 por fila (tarjeta: miniatura, nombre, alt, ✕).
+- SINC lee `on_hand` (no `available`).
+- FIX Windows: Colecciones de METACAMPOS ya no abre diálogos desde el hilo (`frame.after`).
+  Hecho, PERO probar más en Windows. ELIMINAR esta nota solo cuando el usuario diga.
 
 ## Decisiones (y por qué)
-- Metacampos en masa con `metafieldsSet` (atómico por bloque de 25); NUNCA `productSet` (borra lo omitido).
-  `rich_text`/`file_reference` fuera. Un metacampo por pulsación. Listas vacías NO permitidas.
-- Colecciones con API 2026-07: modelo de "fuentes". Añadir/quitar = `collectionUpdate` con
-  `sourcesToUpdate[].condition.inclusion.selectionsToAdd/Remove` (las órdenes `collectionAddProducts`/
-  `RemoveProducts` están deprecadas). Shopify rechaza el lote entero si algún producto ya está dentro:
-  siempre filtrar con `inCollection`. Colección manual VACÍA = 0 fuentes: no se puede añadir.
-- Convención del usuario: toda colección de familia nueva lleva siempre el producto en borrador
-  'PRODUCTO FANTASMA' para que tenga fuente. Las colecciones `Family-...` por etiqueta son LEGADO
-  (migrando al metacampo): no se pueden vaciar desde la masiva; la limpieza se hace aparte en Shopify.
+- Metacampos en masa con `metafieldsSet` (atómico por bloque de 25); NUNCA `productSet` (borra lo
+  omitido). `rich_text`/`file_reference` fuera de la masiva. Un metacampo por pulsación.
+- Colecciones con API 2026-07, modelo "fuentes": `collectionUpdate` con
+  `selectionsToAdd/Remove` (`collectionAddProducts`/`RemoveProducts` están deprecadas). Shopify
+  rechaza el lote si algún producto ya está dentro: filtrar siempre con `inCollection`. Colección
+  manual VACÍA = 0 fuentes: no se puede añadir.
+- Toda colección de familia nueva lleva el borrador 'PRODUCTO FANTASMA' para tener fuente. Las
+  `Family-...` por etiqueta son LEGADO: no se vacían desde la masiva.
 - No se añaden exclusiones a colecciones antiguas (parche que esconde estado). Aviso al usuario.
-- Doble envío en EDITAR: `coleccion_de_familia` también mete el producto en la colección. Se conservan
-  las colecciones existentes del producto para que `productSet` no las borre.
-- El título en EDITAR solo se toca si el usuario lo edita.
+- Familia en masa (`_aplicar_familia`): AÑADIR = solo productos sin familia; CAMBIAR = a todos.
+  Orden: entrar en colección nueva -> metacampo -> salir de la antigua. En EDITAR se conservan las
+  colecciones del producto para que `productSet` no las borre; el título solo se toca si el usuario
+  lo edita.
 
-## Aprendizajes y errores a evitar
-- **NUNCA borrar/deshacer código ni editar sin un "aplica" explícito**; explicar no es permiso.
-- **Leer MEMORY.md y AGENTS.md al empezar CADA sesión.**
-- **Respuestas CORTAS, una cosa cada vez, sin jerga.** El usuario se pierde con mensajes largos.
-- **No decir sí a todo:** dar opinión profesional con pros y contras; el usuario lo pidió.
-- Tkinter: nunca abrir diálogos ni tocar widgets desde un hilo; usar `frame.after(0, ...)`.
-- Shopify: `on_hand` = físico; `available` = on_hand − comprometido. Un fallo no anula el lote.
-- Probar escrituras con productos en borrador y verificar con lectura "antes y después" (solo lectura:
-  BD abierta `mode=ro` y `execute_query` anulado, para no escribir ni el token temporal).
-- Mis scripts de `/tmp` desaparecen al reiniciar: recréalos y di que son temporales.
+## Aprendizajes
+- No decir sí a todo: dar opinión profesional con pros y contras.
+- Escrituras en Shopify: probar con producto en borrador y verificar con lectura antes/después.
+- En EDITAR, reabrir METACAMPOS antes de actualizar recarga los valores de Shopify y pierde lo
+  preparado (ya pasaba antes).
 
-## Próximos pasos
-- MASIVA: mirar pintado en Windows: filas 2 y 3 enteras
-  (ahora con 3 botones de opción) e iconos de estado (●, ○, ✕).
-- METACAMPOS resto: limpiar código sobrante. En EDITAR,
-  reabrir METACAMPOS antes de actualizar recarga los valores de Shopify (pierde lo preparado: ya pasaba).
-  Los metacampos nuevos se crean como definición en el admin de Shopify.
-- NUEVO/EDITAR: imágenes ya en rejilla de 3 por fila (`SelectorImagenes`, tarjetas con miniatura,
-  nombre, alt y ✕; orden y descargas en segundo plano iguales). Probado por el usuario.
-  Falta: validar NUEVO con precios por variante y sin talla/color;
-  prompt GENERAR TAGS con los tags existentes. Comprobar si el doble envío de EDITAR funciona con
-  colecciones por regla.
-- Probar en Windows la UI de Tipos y la migración 054; revisar Tipos/Categorías (`shopify_taxonomy`
-  obsoleto: se usa `categoria_id`). Botón SINOPSIS (`WhakoomSource`) e imágenes de producto.
+## Fuentes de datos de manga/cómics (HECHO y probado en vivo)
+- Objetivo cumplido: OBTENER por ISBN/EAN exacto trae ORIGINAL (solo si es distinto
+  al título, o sea romaji/original), AUTOR, AÑO, GÉNEROS (TAGS), SINOPSIS y LINK.
+  NUNCA precios, costes ni PVP. Imágenes: pendiente (decidido: se DESCARGAN, no solo URL).
+- **Migración 062** crea `editoriales_fuentes` (id, nombre, plataforma, url, nif,
+  usuario, password) y `editoriales` (id, nombre UNIQUE, fuente_id, web_buscar,
+  web_dominio); traspasa lo sembrado en `configuracion`. `editoriales.json` BORRADO.
+- Capas: `editorial_repository.py` (SQL) <- `fuentes_editorial_service.py` (lógica)
+  <- `ui/editoriales_ui.py`. `obtener_datos_service.py` = servicio del botón OBTENER.
+  `fuentes/` = zonalibros/planeta/shopify_publico + registro (plataforma -> clase).
+- Subvista EDITORIALES: un chip = una EDITORIAL, el formulario muestra SU fuente.
+  Misma plataforma+url+usuario -> fuente compartida; otra url -> fuente nueva.
+  Fuentes huérfanas se borran solas. PROBAR = ToastWidget, verificado por el usuario.
+- EDITORIAL en crear producto = SearchableCombo estricto de la tabla `editoriales`:
+  si no existe -> toast error y limpia; al guardar también bloquea (FocusOut no
+  salta al pulsar GUARDAR en macOS). `cargar_producto` muestra la guardada aunque
+  no esté en la tabla (opción añadida sin id -> inválida al guardar = obliga a limpiar).
+- Detalles técnicos: ZonaLibros/SD = login `zonalogin.aspx` + `BuscadorArticulosResto`,
+  ficha con ids `ctl00_MainContent_txt*` en Norma y SIN prefijo en SD (regex con
+  prefijo opcional; `txtFormatoTapa` = `txtFormato`). Planeta = login `_csrf_token`,
+  `/ajax/libros/listado/` petición MÍNIMA (más parámetros dan 500). Shopify público:
+  `suggest.json` + `products/<handle>.json`. `anio` de Publicación/published_at.
+- Portadas: las `imagen_url` de las 4 fuentes son PÚBLICAS (200 sin sesión); SD usa
+  la CDN `imagenes.zonalibros.com`. Decidido con usuario: DESCARGAR a disco, no URL.
+- Credenciales NUNCA en repo/JSON: en la fila de `editoriales_fuentes`.
+
+## Próximos pasos (para mañana — REVISAR/CORREGIR)
+- SD no da bien las sinopsis de manga -> probar las webs propias de Panini
+  (panini.es) e Ivrea (editorialivrea.com) como fuente de esas editoriales.
+- Mejorar tags y demografía en el resultado de las fuentes (hoy géneros crudos
+  del portal; demografía no la da ninguno — valorar fuentes públicas).
+- Imágenes: descargar portada a disco al pulsar OBTENER (carpeta a decidir) y
+  enchufarla a la subida de Shopify (SelectorImagenes espera archivos locales).
+- Botón IR del formulario: de momento no hace nada útil (abre Google); decidir uso.
+- BuscarDataService queda solo en el botón BUSCAR DATA (OBTENER ya no lo usa).
 - Pendiente de decidir: tests rotos, `openai` en `requirements.txt`, documentos desactualizados.

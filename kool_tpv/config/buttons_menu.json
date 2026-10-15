@@ -9,6 +9,7 @@
       {"id": "tipos", "text": "TIPOS", "action": "show_tipos"},
       {"id": "categorias", "text": "CATEGORÍAS", "action": "show_categorias"},
       {"id": "proveedores", "text": "PROVEEDORES", "action": "show_proveedores"},
+      {"id": "editoriales", "text": "EDITORIALES", "action": "show_editoriales"},
       {"id": "menus", "text": "MENÚS", "action": "show_menus"}
     ]
   },
