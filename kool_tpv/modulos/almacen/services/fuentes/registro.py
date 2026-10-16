@@ -4,9 +4,11 @@ Pregunta a `FuentesEditorialService` (tablas `fuentes`/`editoriales`) qué
 fuente cubre esa editorial e instancia la clase adecuada según su
 `plataforma`:
 
-    "zonalibros" -> ZonaLibrosSource(url, credenciales)     # Norma, SD...
-    "planeta"    -> PlanetaSource(url, credenciales)
-    "shopify"    -> ShopifyPublicoSource(url)               # sin credenciales
+    "zonalibros"  -> ZonaLibrosSource(url, credenciales)    # Norma, SD...
+    "planeta"     -> PlanetaSource(url, credenciales)
+    "shopify"     -> ShopifyPublicoSource(url)              # sin credenciales
+    "panini_web"  -> PaniniWebSource(url)                   # web pública, por nombre
+    "ivrea_web"   -> IvreaWebSource(url)                    # web pública, por nombre
 
 Añadir una plataforma nueva = una clase BaseFuente + una línea en
 TIPOS_FUENTE. Las clases son código interno: nunca se editan desde la UI.
@@ -15,6 +17,8 @@ import logging
 from typing import Any, Dict, Optional
 
 from .base_fuente import BaseFuente
+from .ivrea_web_source import IvreaWebSource
+from .panini_web_source import PaniniWebSource
 from .planeta_source import PlanetaSource
 from .shopify_publico_source import ShopifyPublicoSource
 from .zonalibros_source import ZonaLibrosSource
@@ -40,10 +44,20 @@ def _crear_shopify(f: Dict[str, Any]) -> BaseFuente:
     return ShopifyPublicoSource(url=f.get("url", ""))
 
 
+def _crear_panini_web(f: Dict[str, Any]) -> BaseFuente:
+    return PaniniWebSource(url=f.get("url", ""))
+
+
+def _crear_ivrea_web(f: Dict[str, Any]) -> BaseFuente:
+    return IvreaWebSource(url=f.get("url", ""))
+
+
 TIPOS_FUENTE = {
     "zonalibros": _crear_zonalibros,
     "planeta": _crear_planeta,
     "shopify": _crear_shopify,
+    "panini_web": _crear_panini_web,
+    "ivrea_web": _crear_ivrea_web,
 }
 
 

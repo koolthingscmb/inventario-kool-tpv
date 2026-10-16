@@ -31,7 +31,8 @@ from kool_tpv.utils.dialogs.helpers import show_warning, show_error
 logger = logging.getLogger(__name__)
 
 # 'web' = sin fuente de búsqueda: solo sirve la web pública para el IR
-PLATAFORMAS = ["zonalibros", "planeta", "shopify", "web"]
+PLATAFORMAS = ["zonalibros", "planeta", "shopify", "panini_web",
+               "ivrea_web", "web"]
 
 
 class EditorialesUI:

@@ -61,9 +61,24 @@ aporte. (Última actualización: 2026-10-15, rama `windows-beta` al día.)
   la CDN `imagenes.zonalibros.com`. Decidido con usuario: DESCARGAR a disco, no URL.
 - Credenciales NUNCA en repo/JSON: en la fila de `editoriales_fuentes`.
 
-## Próximos pasos (para mañana — REVISAR/CORREGIR)
-- SD no da bien las sinopsis de manga -> probar las webs propias de Panini
-  (panini.es) e Ivrea (editorialivrea.com) como fuente de esas editoriales.
+## Próximos pasos (REVISAR/CORREGIR)
+- panini_web HECHO (2026-10-16): fuente `panini_web` busca por NOMBRE en
+  panini.es (suggest no indexa ISBN) y el servicio verifica la ficha por
+  `pnn_isbn` contra el EAN. panini.es tiene cola Queue-it: solo pasa con UA
+  Googlebot (frágil: si verifican IP se rompe). Devuelve solo titulo, autor,
+  anio, sinopsis, isbn, imagen_url, url_ficha — el usuario NO quiere Edad 18+
+  ni tag "Manga" (quitados). Plan B si falla: navegador embebido o volver a SD.
+- ivrea_web HECHO (2026-10-16): fichas de SERIE en editorialivrea.com/ESP
+  (sinopsis general, guión+dibujo, DEMOGRAFÍA real seinen/shonen, nombre
+  original japonés, galería con portada por tomo). Búsqueda AJAX
+  `is_ajax_load_posts` con nonce de la portada. Sin ISBN -> match por nombre
+  de serie exacto (verifica_isbn=False; el servicio quita el nº de tomo y
+  normaliza). Config: editorial `ivrea` -> plataforma `ivrea_web`,
+  url https://www.editorialivrea.com/ESP, sin claves.
+- LOGIN DE SD ROTO (2026-10-16): las claves guardadas en `editoriales_fuentes`
+  ya no entran (el propio portal las rechaza, el usuario también en navegador).
+  El usuario debe usar "Recordar claves" en sddistribuciones.com y actualizar
+  la contraseña en EDITORIALES -> panini/ivrea.
 - Mejorar tags y demografía en el resultado de las fuentes (hoy géneros crudos
   del portal; demografía no la da ninguno — valorar fuentes públicas).
 - Imágenes: descargar portada a disco al pulsar OBTENER (carpeta a decidir) y

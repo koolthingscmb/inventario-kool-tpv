@@ -844,6 +844,7 @@ class CrearProductoUI:
                      if c.strip()]
             ean = codes[0] if codes else ''
             editorial = (self.cb_editorial.get() or '').strip()
+            nombre = (self.e_nombre.get() or '').strip()
 
             self.btn_obtener.configure(state='disabled', text='BUSCANDO...')
             ToastWidget.show(self.container, 'Buscando en la fuente...',
@@ -852,7 +853,7 @@ class CrearProductoUI:
 
             def _run():
                 try:
-                    datos = service.obtener(editorial, ean)
+                    datos = service.obtener(editorial, ean, nombre)
                 except Exception as e:
                     datos = e
                 try:
@@ -900,6 +901,7 @@ class CrearProductoUI:
             _fill(getattr(self, 'e_nombre_original', None), titulo_orig)
         _fill(getattr(self, 'e_autor', None), datos.get('autor'))
         _fill(getattr(self, 'e_anio', None), datos.get('anio'))
+        _fill(getattr(self, 'e_demog', None), datos.get('demografia'))
         generos = datos.get('generos') or []
         _fill(getattr(self, 'e_tags', None), ", ".join(generos))
         _fill(getattr(self, 'e_shop_link', None), datos.get('url_ficha'))
