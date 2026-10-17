@@ -9,6 +9,7 @@ Nueva versión:
 """
 from typing import Dict, Optional, List, Tuple
 import logging
+import re
 import threading
 import webbrowser
 import tkinter as tk
@@ -38,6 +39,7 @@ from kool_tpv.utils import barcode_gen_utils
 from kool_tpv.utils.sku_generator import generate_sku
 from kool_tpv.modulos.shopify.services.buscar_data.buscar_data_service import BuscarDataService
 from kool_tpv.modulos.almacen.services.obtener_datos_service import ObtenerDatosService
+from kool_tpv.modulos.almacen.services.portadas_service import PortadasService
 from kool_tpv.utils.dialogs.source_search_dialog import show_source_search_dialog
 
 logger = logging.getLogger(__name__)
@@ -795,6 +797,18 @@ class CrearProductoUI:
             logger.exception("Error en _on_gen_barcode_interno")
             ToastWidget.show(self.container, "Error al generar código interno", tipo='error')
 
+    @staticmethod
+    def _links_desde_campo(texto):
+        """'url (etiqueta); url2 (etiqueta2)' -> [(etiqueta, url), ...].
+        Entrada sin etiqueta -> 'Ficha'."""
+        entradas = []
+        for trozo in re.split(r'\s*;\s*', texto or ''):
+            m = re.match(r'(https?://\S+?)(?:\s*\(([^)]*)\))?\s*$',
+                         trozo.strip())
+            if m:
+                entradas.append((m.group(2) or 'Ficha', m.group(1)))
+        return entradas
+
     def _open_shop_link(self):
         link = (self.e_nombre.get() or '').strip()
         # If shop_link entry exists, prefer it
@@ -804,11 +818,37 @@ class CrearProductoUI:
                 link = link_ent.get() or link
         except Exception:
             pass
-        if link:
+        if not link:
+            return
+        entradas = self._links_desde_campo(link)
+        if not entradas:
             try:
                 webbrowser.open(link)
             except Exception:
                 logging.exception('Error abriendo shop link')
+            return
+        url = entradas[0][1]
+        if len(entradas) > 1:
+            url = self._elegir_link(entradas)
+        if url:
+            try:
+                webbrowser.open(url)
+            except Exception:
+                logging.exception('Error abriendo shop link')
+
+    def _elegir_link(self, entradas):
+        """Varios links en el campo: diálogo para elegir cuál abrir."""
+        try:
+            from kool_tpv.utils.dialogs.metaobject_select_dialog import (
+                show_reference_select_dialog)
+            opciones = [{'id': u, 'text': e, 'family': ''}
+                        for e, u in entradas]
+            return show_reference_select_dialog(
+                self.container, 'ABRIR ENLACE', opciones, None,
+                multi_select=False, agrupar=False)
+        except Exception:
+            logging.exception('Error eligiendo enlace')
+            return entradas[0][1]
 
     def _on_buscar_editorial(self):
         """Abre la búsqueda del tomo en la web de la editorial o Google."""
@@ -850,10 +890,16 @@ class CrearProductoUI:
             ToastWidget.show(self.container, 'Buscando en la fuente...',
                              tipo='info')
             service = ObtenerDatosService(self.db)
+            portadas = PortadasService()
 
             def _run():
                 try:
                     datos = service.obtener(editorial, ean, nombre)
+                    if isinstance(datos, dict):
+                        urls = [datos.get('imagen_url'),
+                                *(datos.get('imagenes') or [])]
+                        guardadas = portadas.descargar(ean, urls)
+                        datos['_imagenes_bajadas'] = len(guardadas)
                 except Exception as e:
                     datos = e
                 try:
@@ -904,7 +950,14 @@ class CrearProductoUI:
         _fill(getattr(self, 'e_demog', None), datos.get('demografia'))
         generos = datos.get('generos') or []
         _fill(getattr(self, 'e_tags', None), ", ".join(generos))
-        _fill(getattr(self, 'e_shop_link', None), datos.get('url_ficha'))
+        links = datos.get('links') or []
+        if links:
+            link_txt = "; ".join(
+                f"{l['url']} ({l['etiqueta']})" if l.get('etiqueta')
+                else l['url'] for l in links if l.get('url'))
+        else:
+            link_txt = datos.get('url_ficha')
+        _fill(getattr(self, 'e_shop_link', None), link_txt)
         try:
             sinopsis = datos.get('sinopsis') or ''
             txt = getattr(self, 'txt_sinopsis', None)
@@ -915,7 +968,10 @@ class CrearProductoUI:
                     txt.insert('1.0', sinopsis)
         except Exception:
             pass
-        ToastWidget.show(self.container, 'Datos obtenidos de la fuente',
+        n_img = datos.get('_imagenes_bajadas') or 0
+        extra = f" · {n_img} imagen(es)" if n_img else ''
+        ToastWidget.show(self.container,
+                         f'Datos obtenidos de la fuente{extra}',
                          tipo='success')
 
     def _apply_manga_data(self, md):

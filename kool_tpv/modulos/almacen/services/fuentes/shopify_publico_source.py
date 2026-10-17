@@ -124,6 +124,7 @@ class ShopifyPublicoSource(BaseFuente):
             "generos": tags,
             "sinopsis": sinopsis,
             "imagen_url": imagenes[0] if imagenes else "",
+            "imagenes": imagenes,
             "url_ficha": f"{self.url_base}/products/{handle}",
             "_handle": handle,
         }
