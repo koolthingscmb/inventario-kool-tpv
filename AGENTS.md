@@ -37,6 +37,9 @@ repetir trabajo a mano y sin acciones destructivas ni sorpresas.
 - Capas: UI -> Service -> Repository -> Database. La lógica no va en la UI. Referencias de buen patrón:
   `modulos/produccion/` y `shopify/services/shopify_nuevo_builder.py` / `shopify_edicion_builder.py`
   (preparan datos sin conocer widgets).
+- Prohibido el hardcodeo: nada de URLs, rutas ni valores de negocio como literales en el código; van en
+  BD/config/`paths.py` y el código los usa tal cual. Si un dato está mal configurado, se corrige el dato
+  en su sitio, nunca con parches en el código.
 - Vistas de módulo heredan `BaseModuleView`. Los botones laterales se enlazan por texto desde
   `buttons_menu.json` a métodos `show_*`. Las subvistas usan `on_volver` y `actualizar_ruta` (migas de pan).
 - Colores y fuentes: `load_colors('<módulo>')` y los JSON de `config/`.

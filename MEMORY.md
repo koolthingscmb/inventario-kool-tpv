@@ -81,8 +81,22 @@ aporte. (Última actualización: 2026-10-15, rama `windows-beta` al día.)
   la contraseña en EDITORIALES -> panini/ivrea.
 - Mejorar tags y demografía en el resultado de las fuentes (hoy géneros crudos
   del portal; demografía no la da ninguno — valorar fuentes públicas).
-- Imágenes: descargar portada a disco al pulsar OBTENER (carpeta a decidir) y
-  enchufarla a la subida de Shopify (SelectorImagenes espera archivos locales).
+- Portadas HECHO (2026-10-17): `services/portadas_service.py` es el dueño de
+  `assets/portadas/<ean>.jpg` (+_2,_3): descargar() en OBTENER y buscar() para
+  la futura subida Shopify (SelectorImagenes espera archivos locales). La
+  carpeta se crea sola (paths.PORTADAS_DIR). Sin miniatura ni ruta en BD.
+- Ivrea por sitemap (2026-10-17): su buscador AJAX limita por IP (403). Ahora
+  `ivrea_web` lee `wp-sitemap-posts-wp-manga-1.xml` y casa por slug. Además
+  lee el bullet `AUTOR:` (obras de autor único; si hay guión+dibujo sale 'X / Y').
+- Norma/Planeta sin tags: `generos` vacío en ambas; ZonaLibros saca la
+  demografía del campo Materia ('SHONEN-N/D-N/D' -> 'SHONEN'; N/D -> nada).
+- udl_web HECHO (2026-10-17): web pública udllibros.com (La Cúpula, Astiberri),
+  busca por EAN con `fr_patron`; ficha = sinopsis, autor, año, portada +
+  'Otras imágenes' y enlace Calameo del extracto. Config: editorial ->
+  plataforma `udl_web`, url https://www.udllibros.com (raíz, sin /html/...).
+- LINK multi-enlace: `url (etiqueta); url2 (etiqueta2)`. IR abre directo si hay
+  uno o diálogo de selección si hay varios (udl_web devuelve Ficha + Avance).
+- AGENTS: nueva regla prohibiendo hardcodear URLs/rutas/valores de negocio.
 - Botón IR del formulario: de momento no hace nada útil (abre Google); decidir uso.
 - BuscarDataService queda solo en el botón BUSCAR DATA (OBTENER ya no lo usa).
 - Pendiente de decidir: tests rotos, `openai` en `requirements.txt`, documentos desactualizados.
