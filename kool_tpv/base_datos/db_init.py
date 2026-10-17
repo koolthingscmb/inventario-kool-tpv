@@ -507,6 +507,26 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migración 063: fuente_reserva_id en editoriales — segunda fuente que
+		# OBTENER intenta si la principal no encuentra el producto.
+		try:
+			existe = db.fetch_one(
+				"SELECT name FROM sqlite_master WHERE type='table' AND name='editoriales'")
+			cols_ed = {r[1] for r in (db.fetch_all("PRAGMA table_info(editoriales)") or [])}
+			if existe and 'fuente_reserva_id' not in cols_ed:
+				logging.info('Aplicando migración 063: fuente_reserva_id en editoriales')
+				db.connection.execute(
+					"ALTER TABLE editoriales ADD COLUMN fuente_reserva_id INTEGER"
+					" REFERENCES editoriales_fuentes(id) ON DELETE SET NULL")
+				db.connection.commit()
+				logging.info('Migración 063 aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 063')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Check existence
 		existing = []
 		try:

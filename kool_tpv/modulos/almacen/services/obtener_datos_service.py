@@ -10,7 +10,7 @@ red se ejecuta aquí, en el hilo que levante la UI; la UI solo pinta.
 import logging
 import re
 import unicodedata
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from kool_tpv.modulos.almacen.services.fuentes_editorial_service import (
     FuentesEditorialService,
@@ -43,14 +43,27 @@ class ObtenerDatosService:
             raise ValueError("No hay EAN en el campo CÓDIGOS")
         if not (texto_editorial or "").strip():
             raise ValueError("Elige una EDITORIAL de la lista")
-        fuente = self.registro.fuente_para_editorial(texto_editorial)
-        if fuente is None:
+        fuentes = self.registro.fuentes_para_editorial(texto_editorial)
+        if not fuentes:
             raise ValueError(
                 f"La editorial '{texto_editorial}' no tiene fuente de búsqueda")
 
-        if getattr(fuente, "busca_por_nombre", False):
-            return self._obtener_por_nombre(fuente, nombre, ean)
+        # principal primero; si no encuentra, la reserva
+        ultimo_error: Optional[Exception] = None
+        for fuente in fuentes:
+            try:
+                if getattr(fuente, "busca_por_nombre", False):
+                    return self._obtener_por_nombre(fuente, nombre, ean)
+                return self._obtener_por_ean(fuente, ean)
+            except Exception as e:
+                logger.info("La fuente %s no encontró el producto: %s",
+                            getattr(fuente, "id", "?"), e)
+                ultimo_error = e
+        raise ultimo_error or ValueError("El producto no aparece en la fuente")
 
+    @staticmethod
+    def _obtener_por_ean(fuente, ean: str) -> Dict[str, Any]:
+        """Fuentes que buscan por EAN/ISBN (flujo estándar)."""
         resultados = fuente.buscar(ean)
         if not resultados:
             raise ValueError(f"El EAN {ean} no aparece en la fuente")

@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 _COLS_FUENTE = "id, nombre, plataforma, url, nif, usuario, password"
-_COLS_EDITORIAL = "id, nombre, fuente_id, web_buscar, web_dominio"
+_COLS_EDITORIAL = "id, nombre, fuente_id, fuente_reserva_id, web_buscar, web_dominio"
 
 
 def _fuente(row) -> Dict[str, Any]:
@@ -28,7 +28,8 @@ def _fuente(row) -> Dict[str, Any]:
 def _editorial(row) -> Dict[str, Any]:
     return {
         "id": row[0], "nombre": row[1] or "", "fuente_id": row[2],
-        "web_buscar": row[3] or "", "web_dominio": row[4] or "",
+        "fuente_reserva_id": row[3],
+        "web_buscar": row[4] or "", "web_dominio": row[5] or "",
     }
 
 
@@ -73,6 +74,10 @@ class EditorialRepository:
             "UPDATE editoriales SET fuente_id = NULL WHERE fuente_id = ?",
             (fuente_id,))
         self.db.execute_query(
+            "UPDATE editoriales SET fuente_reserva_id = NULL"
+            " WHERE fuente_reserva_id = ?",
+            (fuente_id,))
+        self.db.execute_query(
             "DELETE FROM editoriales_fuentes WHERE id = ?", (fuente_id,))
 
     def fuente_por_datos(self, plataforma: str, url: str,
@@ -89,8 +94,9 @@ class EditorialRepository:
         """Elimina fuentes que ya no usa ninguna editorial. Devuelve cuántas."""
         cur = self.db.execute_query(
             "DELETE FROM editoriales_fuentes WHERE id NOT IN"
-            " (SELECT DISTINCT fuente_id FROM editoriales"
-            "  WHERE fuente_id IS NOT NULL)")
+            " (SELECT fuente_id FROM editoriales WHERE fuente_id IS NOT NULL"
+            "  UNION SELECT fuente_reserva_id FROM editoriales"
+            "  WHERE fuente_reserva_id IS NOT NULL)")
         return cur.rowcount if cur else 0
 
     # ---------- editoriales ----------
@@ -119,21 +125,24 @@ class EditorialRepository:
         return [r[0] for r in rows]
 
     def insertar_editorial(self, nombre: str, fuente_id: Optional[int] = None,
-                           web_buscar: str = "",
-                           web_dominio: str = "") -> int:
+                           web_buscar: str = "", web_dominio: str = "",
+                           fuente_reserva_id: Optional[int] = None) -> int:
         cur = self.db.execute_query(
             "INSERT OR IGNORE INTO editoriales"
-            " (nombre, fuente_id, web_buscar, web_dominio) VALUES (?,?,?,?)",
-            (nombre, fuente_id, web_buscar, web_dominio))
+            " (nombre, fuente_id, fuente_reserva_id, web_buscar, web_dominio)"
+            " VALUES (?,?,?,?,?)",
+            (nombre, fuente_id, fuente_reserva_id, web_buscar, web_dominio))
         return cur.lastrowid if cur else 0
 
     def actualizar_editorial(self, editorial_id: int, nombre: str,
                              fuente_id: Optional[int], web_buscar: str,
-                             web_dominio: str) -> None:
+                             web_dominio: str,
+                             fuente_reserva_id: Optional[int] = None) -> None:
         self.db.execute_query(
-            "UPDATE editoriales SET nombre=?, fuente_id=?, web_buscar=?,"
-            " web_dominio=? WHERE id=?",
-            (nombre, fuente_id, web_buscar, web_dominio, editorial_id))
+            "UPDATE editoriales SET nombre=?, fuente_id=?,"
+            " fuente_reserva_id=?, web_buscar=?, web_dominio=? WHERE id=?",
+            (nombre, fuente_id, fuente_reserva_id, web_buscar, web_dominio,
+             editorial_id))
 
     def enlazar_editoriales(self, fuente_id: int, nombres: List[str]) -> None:
         """Asigna `fuente_id` a los nombres dados (creándolos si faltan) y

@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 # 'web' = sin fuente de búsqueda: solo sirve la web pública para el IR
 PLATAFORMAS = ["zonalibros", "planeta", "shopify", "panini_web",
-               "ivrea_web", "udl_web", "web"]
+               "ivrea_web", "udl_web", "astiberri_web", "web"]
 
 
 class EditorialesUI:
@@ -96,20 +96,37 @@ class EditorialesUI:
             self.form, 'web del portal donde se busca (ej. la de SD)', 1, 1,
             colspan=7)
 
+        # --- Fuente de reserva (se intenta si la principal no encuentra) ---
+        self._reserva_fuentes: list = []   # filas de editoriales_fuentes
+        self._label(self.form, 'RESERVA:', 2, 0)
+        self.om_reserva = ctk.CTkOptionMenu(
+            self.form, values=['ninguna'],
+            fg_color=self.colors.get('primary'),
+            text_color='#000000',
+            button_color=self.colors.get('secondary'),
+            font=self._lbl_font)
+        self.om_reserva.grid(row=2, column=1, sticky='ew', padx=6, pady=6)
+        ctk.CTkLabel(
+            self.form,
+            text='si la principal no encuentra, se intenta con esta',
+            text_color=self.colors.get('secondary', COLOR_MATRIX),
+            font=self._lbl_font).grid(
+            row=2, column=2, columnspan=5, sticky='w', padx=6)
+
         # --- Zona de acceso ---
         sep = ctk.CTkFrame(self.form, fg_color='transparent')
-        sep.grid(row=2, column=0, columnspan=8, sticky='ew', pady=(10, 0))
+        sep.grid(row=3, column=0, columnspan=8, sticky='ew', pady=(10, 0))
         ctk.CTkLabel(
             sep, text='ZONA DE ACCESO  (solo si el portal pide usuario)',
             text_color=self.colors.get('secondary', COLOR_MATRIX),
             font=self._lbl_font).pack(anchor='w')
 
-        self._label(self.form, 'NIF:', 3, 0)
-        self.e_nif = self._entry(self.form, 'NIF fiscal', 3, 1)
-        self._label(self.form, 'USUARIO:', 3, 2)
-        self.e_usuario = self._entry(self.form, 'usuario', 3, 3)
-        self._label(self.form, 'CONTRASEÑA:', 3, 4)
-        self.e_password = self._entry(self.form, 'contraseña', 3, 5, colspan=3,
+        self._label(self.form, 'NIF:', 4, 0)
+        self.e_nif = self._entry(self.form, 'NIF fiscal', 4, 1)
+        self._label(self.form, 'USUARIO:', 4, 2)
+        self.e_usuario = self._entry(self.form, 'usuario', 4, 3)
+        self._label(self.form, 'CONTRASEÑA:', 4, 4)
+        self.e_password = self._entry(self.form, 'contraseña', 4, 5, colspan=3,
                                     show='*')
 
         # --- Chips (un chip = una editorial) ---
@@ -175,6 +192,11 @@ class EditorialesUI:
             w.destroy()
         for c in range(8):
             self.chips_frame.grid_columnconfigure(c, weight=1)
+        # la reserva se elige entre las fuentes ya configuradas
+        self._reserva_fuentes = self.service.listar_fuentes()
+        self.om_reserva.configure(
+            values=['ninguna'] + [self._reserva_nombre(f)
+                                  for f in self._reserva_fuentes])
         for i, ficha in enumerate(self.service.listar_fichas()):
             btn = ButtonFactory.create_button(
                 parent=self.chips_frame,
@@ -197,6 +219,8 @@ class EditorialesUI:
         self.e_nombre.delete(0, 'end')
         self.e_nombre.insert(0, ficha.get('nombre') or '')
         self.om_tipo.set(fuente.get('plataforma') or 'web')
+        self.om_reserva.set(
+            self._reserva_nombre(ficha.get('fuente_reserva') or {}))
         self.e_url.delete(0, 'end')
         self.e_url.insert(0, fuente.get('url') or '')
         self.e_nif.delete(0, 'end')
@@ -217,11 +241,27 @@ class EditorialesUI:
         self.e_id.delete(0, 'end')
         self.e_id.configure(state='disabled')
         self.om_tipo.set('zonalibros')
+        self.om_reserva.set('ninguna')
         self.btn_guardar.configure(text='GUARDAR')
         try:
             self.e_nombre.focus_set()
         except Exception:
             pass
+
+    # ---------- reserva ----------
+
+    @staticmethod
+    def _reserva_nombre(fuente: dict) -> str:
+        """Texto del desplegable RESERVA para una fuente (o 'ninguna')."""
+        return (fuente or {}).get('nombre') or 'ninguna'
+
+    def _reserva_id(self):
+        """Id de la fuente elegida en RESERVA, o None si es 'ninguna'."""
+        elegida = self.om_reserva.get()
+        for f in self._reserva_fuentes:
+            if self._reserva_nombre(f) == elegida:
+                return f['id']
+        return None
 
     # ---------- acciones ----------
 
@@ -230,6 +270,7 @@ class EditorialesUI:
             self._seleccion = self.service.guardar_ficha(
                 {'nombre': self.e_nombre.get(),
                  'plataforma': self.om_tipo.get(),
+                 'fuente_reserva_id': self._reserva_id(),
                  'url': self.e_url.get(),
                  'nif': self.e_nif.get().strip(),
                  'usuario': self.e_usuario.get().strip(),

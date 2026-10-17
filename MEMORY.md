@@ -94,6 +94,16 @@ aporte. (Última actualización: 2026-10-15, rama `windows-beta` al día.)
   busca por EAN con `fr_patron`; ficha = sinopsis, autor, año, portada +
   'Otras imágenes' y enlace Calameo del extracto. Config: editorial ->
   plataforma `udl_web`, url https://www.udllibros.com (raíz, sin /html/...).
+- astiberri_web + RESERVA (2026-10-17): sin buscador (el suyo no filtra y
+  robots.txt lo prohíbe) -> candidatas `/products/<slug>` del nombre y la ficha
+  se verifica por su EAN publicado. Da sinopsis, autor, año, Serie, imágenes y
+  enlace 'Avance' (PDF). OJO: las url_product son miniaturas `representations`
+  -> se reescriben a `blobs` (original ~2400px). Migración 063 =
+  `editoriales.fuente_reserva_id` y combo RESERVA en EDITORIALES: OBTENER
+  intenta principal y luego reserva (config: astiberri = astiberri_web + UDL).
+- Tamaños máximos de portada por fuente (medidos): Astiberri ~2400px,
+  Milky Way ~1030, Panini ~856, UDL ~800, Ivrea 400 (su original),
+  Norma/zonalibros 229 y Planeta 300 (no publican más grande).
 - LINK multi-enlace: `url (etiqueta); url2 (etiqueta2)`. IR abre directo si hay
   uno o diálogo de selección si hay varios (udl_web devuelve Ficha + Avance).
 - AGENTS: nueva regla prohibiendo hardcodear URLs/rutas/valores de negocio.

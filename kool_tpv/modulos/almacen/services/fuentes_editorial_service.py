@@ -73,11 +73,17 @@ class FuentesEditorialService:
     # ---------- resolución ----------
 
     def fuente_para_editorial(self, texto_editorial: str) -> Optional[Dict[str, Any]]:
-        """La fuente que cubre una editorial: coincidencia exacta del nombre
-        primero; si no, el nombre de editorial contenido en el texto."""
+        """La fuente principal que cubre una editorial (para PROBAR)."""
+        fuentes = self.fuentes_para_editorial(texto_editorial)
+        return fuentes[0] if fuentes else None
+
+    def fuentes_para_editorial(self, texto_editorial: str) -> List[Dict[str, Any]]:
+        """Fuentes que cubren una editorial: [principal, reserva si la hay].
+        Coincidencia exacta del nombre primero; si no, el nombre de
+        editorial contenido en el texto."""
         texto = (texto_editorial or "").strip().lower()
         if not texto:
-            return None
+            return []
         editoriales = self.repo.listar_editoriales()
         elegida = None
         for ed in editoriales:
@@ -86,9 +92,16 @@ class FuentesEditorialService:
                 break
             if elegida is None and ed["nombre"].lower() in texto:
                 elegida = ed
-        if not elegida or not elegida.get("fuente_id"):
-            return None
-        return self.repo.obtener_fuente(elegida["fuente_id"])
+        if not elegida:
+            return []
+        salida = []
+        for fid in (elegida.get("fuente_id"), elegida.get("fuente_reserva_id")):
+            if not fid or any(f["id"] == fid for f in salida):
+                continue
+            fuente = self.repo.obtener_fuente(fid)
+            if fuente:
+                salida.append(fuente)
+        return salida
 
     def web_para_editorial(self, texto_editorial: str, consulta: str) -> str:
         """URL que abre el botón IR: 'web_buscar' de la editorial, o Google
@@ -115,6 +128,9 @@ class FuentesEditorialService:
             fuente = (self.repo.obtener_fuente(ed["fuente_id"])
                       if ed.get("fuente_id") else None) or {}
             ficha["fuente"] = fuente
+            ficha["fuente_reserva"] = (
+                self.repo.obtener_fuente(ed["fuente_reserva_id"])
+                if ed.get("fuente_reserva_id") else {}) or {}
             fichas.append(ficha)
         return fichas
 
@@ -145,16 +161,19 @@ class FuentesEditorialService:
                     datos.get("fuente_nombre") or url or plataforma,
                     plataforma, url, datos.get("nif") or "",
                     usuario, datos.get("password") or "")
+        reserva_id = datos.get("fuente_reserva_id") or None
         if editorial_id:
             actual = self.repo.obtener_editorial_por_id(editorial_id) or {}
             web_buscar = datos.get("web_buscar", actual.get("web_buscar", ""))
             web_dominio = datos.get("web_dominio", actual.get("web_dominio", ""))
             self.repo.actualizar_editorial(
-                editorial_id, nombre, fuente_id, web_buscar, web_dominio)
+                editorial_id, nombre, fuente_id, web_buscar, web_dominio,
+                fuente_reserva_id=reserva_id)
         else:
             editorial_id = self.repo.insertar_editorial(
                 nombre, fuente_id, datos.get("web_buscar") or "",
-                datos.get("web_dominio") or "")
+                datos.get("web_dominio") or "",
+                fuente_reserva_id=reserva_id)
         self.repo.borrar_fuentes_huerfanas()
         return editorial_id
 
@@ -171,7 +190,8 @@ class FuentesEditorialService:
         existente = self.repo.obtener_editorial_por_nombre(nombre)
         if existente:
             self.repo.actualizar_editorial(
-                existente["id"], nombre, fuente_id, web_buscar, web_dominio)
+                existente["id"], nombre, fuente_id, web_buscar, web_dominio,
+                fuente_reserva_id=existente.get("fuente_reserva_id"))
             return existente["id"]
         return self.repo.insertar_editorial(nombre, fuente_id, web_buscar,
                                             web_dominio)

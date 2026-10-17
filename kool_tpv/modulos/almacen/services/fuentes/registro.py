@@ -7,16 +7,18 @@ fuente cubre esa editorial e instancia la clase adecuada según su
     "zonalibros"  -> ZonaLibrosSource(url, credenciales)    # Norma, SD...
     "planeta"     -> PlanetaSource(url, credenciales)
     "shopify"     -> ShopifyPublicoSource(url)              # sin credenciales
-    "panini_web"  -> PaniniWebSource(url)                   # web pública, por nombre
-    "ivrea_web"   -> IvreaWebSource(url)                    # web pública, por nombre
-    "udl_web"     -> UdlWebSource(url)                      # web pública, por EAN
+    "panini_web"   -> PaniniWebSource(url)                  # web pública, por nombre
+    "ivrea_web"    -> IvreaWebSource(url)                   # web pública, por nombre
+    "udl_web"      -> UdlWebSource(url)                     # web pública, por EAN
+    "astiberri_web" -> AstiberriWebSource(url)              # web pública, por nombre
 
 Añadir una plataforma nueva = una clase BaseFuente + una línea en
 TIPOS_FUENTE. Las clases son código interno: nunca se editan desde la UI.
 """
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
+from .astiberri_web_source import AstiberriWebSource
 from .base_fuente import BaseFuente
 from .ivrea_web_source import IvreaWebSource
 from .panini_web_source import PaniniWebSource
@@ -58,6 +60,10 @@ def _crear_udl_web(f: Dict[str, Any]) -> BaseFuente:
     return UdlWebSource(url=f.get("url", ""))
 
 
+def _crear_astiberri_web(f: Dict[str, Any]) -> BaseFuente:
+    return AstiberriWebSource(url=f.get("url", ""))
+
+
 TIPOS_FUENTE = {
     "zonalibros": _crear_zonalibros,
     "planeta": _crear_planeta,
@@ -65,6 +71,7 @@ TIPOS_FUENTE = {
     "panini_web": _crear_panini_web,
     "ivrea_web": _crear_ivrea_web,
     "udl_web": _crear_udl_web,
+    "astiberri_web": _crear_astiberri_web,
 }
 
 
@@ -76,11 +83,20 @@ class RegistroFuentes:
         self.servicio = servicio
 
     def fuente_para_editorial(self, texto_editorial: str) -> Optional[BaseFuente]:
-        """Devuelve la fuente lista para usar, o None si no hay."""
+        """Devuelve la fuente principal lista para usar, o None si no hay."""
         fuente = self.servicio.fuente_para_editorial(texto_editorial)
         if not fuente:
             return None
         return self._crear(fuente)
+
+    def fuentes_para_editorial(self, texto_editorial: str) -> List[BaseFuente]:
+        """Fuentes listas para usar: [principal, reserva si la hay]."""
+        salida = []
+        for datos in self.servicio.fuentes_para_editorial(texto_editorial):
+            fuente = self._crear(datos)
+            if fuente:
+                salida.append(fuente)
+        return salida
 
     def fuente_para_portal(self, fuente_id: Any) -> Optional[BaseFuente]:
         """Instancia la fuente por su id en la tabla `editoriales_fuentes`."""
