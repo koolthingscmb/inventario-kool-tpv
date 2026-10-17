@@ -197,13 +197,21 @@ class ZonaLibrosSource(BaseFuente):
             "isbn": a.get("ISBN") or "",
             "ean": a.get("EAN") or a.get("IsbnSinGuion") or "",
             "coleccion": a.get("Coleccion") or "",
-            "generos": [g for g in (a.get("Tema") or "").split("-") if g],
+            "demografia": self._demografia(a.get("Tema") or ""),
+            "generos": [],
             "sinopsis": "",
             "imagen_url": a.get("Imagen") or "",
             "url_ficha": urljoin(
                 self.url_base + self._ruta_base + "/", a.get("URLArt") or ""),
             "_ci": a.get("CI") or "",
         }
+
+    @staticmethod
+    def _demografia(materia: str) -> str:
+        """El campo Materia de ZonaLibros viene como 'SHONEN-N/D-N/D':
+        la demografía es el primer tramo. 'N/D' o vacío -> ''."""
+        d = (materia or "").split("-")[0].strip()
+        return "" if d.upper() in ("", "N/D") else d
 
     def _parsear_ficha(self, html: str, ci: str) -> Dict[str, Any]:
         """Los campos llevan id fijo `ctl00_MainContent_txt*` en Norma
@@ -241,10 +249,9 @@ class ZonaLibrosSource(BaseFuente):
             "isbn": campo("txtISBN"),
             "ean": campo("txtEan"),
             "coleccion": campo("txtColeccion"),
-            "generos": [g for g in (campo("txtCategoria"),
-                                    campo("txtFormato")
-                                    or campo("txtFormatoTapa"),
-                                    campo("txtIdioma")) if g],
+            # la etiqueta "Materia" de la web pinta el campo txtCategoria
+            "demografia": self._demografia(campo("txtCategoria")),
+            "generos": [],
             "sinopsis": campo("txtSinpsis"),
             "imagen_url": imagen,
             "url_ficha": f"{self.url_base}{self._ruta_base}/FichaArticulo.aspx?Libro={ci}",

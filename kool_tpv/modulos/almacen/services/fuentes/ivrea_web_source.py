@@ -1,16 +1,19 @@
 """Fuente Ivrea: web pública editorialivrea.com/ESP (sin login).
 
-Las fichas son de SERIE, no de tomo: sinopsis general, demografía, guión,
-dibujo, nombre original japonés y una galería con la portada de cada tomo.
-La web no publica el ISBN de los tomos, así que el servicio elige la
+Las fichas son de SERIE, no de tomo: sinopsis general, demografía, autor
+(guión/dibujo), nombre original japonés y una galería con la portada de cada
+tomo. La web no publica el ISBN de los tomos, así que el servicio elige la
 candidata por coincidencia exacta de nombre de serie (verifica_isbn = False).
 
-Detalle técnico: el buscador es AJAX (plugin Ivory Search) y exige un nonce
-que se publica en la portada; se obtiene en cada búsqueda con la sesión.
+Detalle técnico: NO se usa su buscador (AJAX con nonce y con limitación
+agresiva por IP). En su lugar se lee el sitemap público
+`wp-sitemap-posts-wp-manga-1.xml`, que lista todas las fichas `/titulo/`,
+y el match se hace comparando el slug normalizado con la consulta.
 """
 import html as _html
 import logging
 import re
+import unicodedata
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -39,6 +42,7 @@ class IvreaWebSource(BaseFuente):
     def __init__(self, url: str, timeout: int = 20):
         self.url_base = (url or "").rstrip("/")  # ej. https://www.editorialivrea.com/ESP
         self.timeout = timeout
+        self._indice: Optional[List[tuple]] = None  # sitemap cacheado
 
     @property
     def id(self) -> str:
@@ -59,44 +63,44 @@ class IvreaWebSource(BaseFuente):
         consulta = consulta[:num.start()].strip() if num else consulta
         if not consulta:
             return []
-        try:
-            s = requests.Session()
-            s.headers.update(_UA)
-            r = s.get(self.url_base + "/", timeout=self.timeout)
-            m = re.search(r'ajax_nonce["\']?\s*:\s*"([^"]+)"', r.text)
-            if not m:
-                logger.warning("No se encontró el nonce de búsqueda en Ivrea")
-                return []
-            r = s.post(f"{self.url_base}/wp-admin/admin-ajax.php", data={
-                "action": "is_ajax_load_posts", "security": m.group(1),
-                "s": consulta, "id": "307", "page": "1"},
-                timeout=self.timeout)
-        except Exception:
-            logger.exception("No se pudo buscar en editorialivrea.com")
-            return []
 
+        # índice de series: sitemap público (una sola petición, cacheable)
+        consulta_norm = self._norm(consulta)
         salida: List[Dict[str, Any]] = []
-        vistos = set()
-        for m in re.finditer(
-                r'<a[^>]+href="([^"]*/titulo/[^"]+)"[^>]*>(.*?)</a>',
-                r.text, re.S):
-            url, inner = m.groups()
-            titulo = _html.unescape(
-                re.sub(r"<[^>]+>|\s+", " ", inner)).strip()
-            if url in vistos:
-                # la serie sale 2 veces (imagen sin texto + enlace con título)
-                if titulo and salida and salida[-1]["url_ficha"] == url:
-                    salida[-1]["titulo"] = titulo
-                continue
-            vistos.add(url)
-            slug = url.rstrip("/").rsplit("/", 1)[-1]
-            salida.append({
-                "titulo": titulo or slug.replace("-", " "),
-                "url_ficha": url,
-                "slug": slug,
-                "numero_tomo": numero_tomo,
-            })
-        return salida
+        for url, slug in self._indice_series():
+            if consulta_norm in self._norm(slug):
+                salida.append({
+                    "titulo": slug.replace("-", " "),
+                    "url_ficha": url,
+                    "slug": slug,
+                    "numero_tomo": numero_tomo,
+                })
+        return salida[:20]
+
+    def _indice_series(self) -> List[tuple]:
+        """Sitemap de fichas `/titulo/` -> lista de (url, slug). Se cachea
+        en la instancia para no repetir la descarga en la misma sesión."""
+        if self._indice is None:
+            self._indice = []
+            try:
+                r = requests.get(
+                    f"{self.url_base}/wp-sitemap-posts-wp-manga-1.xml",
+                    headers=_UA, timeout=self.timeout)
+                if r.status_code == 200:
+                    for u in re.findall(r"<loc>([^<]+/titulo/[^<]+)</loc>",
+                                        r.text):
+                        slug = u.rstrip("/").rsplit("/", 1)[-1]
+                        self._indice.append((u, slug))
+            except Exception:
+                logger.exception("No se pudo leer el sitemap de Ivrea")
+        return self._indice
+
+    @staticmethod
+    def _norm(texto: str) -> str:
+        """Minúsculas, sin acentos ni signos: para comparar títulos/slugs."""
+        t = unicodedata.normalize("NFKD", texto or "")
+        t = "".join(c for c in t if not unicodedata.combining(c))
+        return re.sub(r"[^a-z0-9]+", "", t.lower())
 
     def detalle(self, identificador: Any) -> Optional[Dict[str, Any]]:
         url = identificador.get("url_ficha") if isinstance(identificador, dict) \
@@ -117,7 +121,7 @@ class IvreaWebSource(BaseFuente):
     def _parsear_ficha(self, html: str, url: str,
                        numero_tomo: Optional[int]) -> Dict[str, Any]:
         ficha: Dict[str, Any] = {"url_ficha": url}
-        guion, dibujo = "", ""
+        guion, dibujo, autor = "", "", ""
         sinopsis, tras_cabecera = "", False
 
         # título de la serie desde <title> ('X – Editorial Ivrea España')
@@ -140,6 +144,8 @@ class IvreaWebSource(BaseFuente):
                 campo, valor = m.group(1).strip().upper(), m.group(2).strip()
                 if campo.startswith("NOMBRE ORIGINAL"):
                     ficha["titulo_original"] = valor
+                elif campo.startswith("AUTOR"):  # AUTOR/AUTORES/AUTORA
+                    autor = valor
                 elif campo.startswith("GUIÓN") or campo.startswith("GUION"):
                     guion = valor
                 elif campo.startswith("DIBUJO"):
@@ -164,7 +170,8 @@ class IvreaWebSource(BaseFuente):
 
         if sinopsis:
             ficha["sinopsis"] = sinopsis
-        autores = [a for a in (guion, dibujo) if a]
+        # 'AUTOR' directo si la ficha lo trae; si no, 'GUIÓN / DIBUJO'
+        autores = [a for a in (autor or guion, dibujo) if a]
         if autores:
             ficha["autor"] = " / ".join(autores)
 

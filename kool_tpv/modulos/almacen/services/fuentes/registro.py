@@ -9,6 +9,7 @@ fuente cubre esa editorial e instancia la clase adecuada según su
     "shopify"     -> ShopifyPublicoSource(url)              # sin credenciales
     "panini_web"  -> PaniniWebSource(url)                   # web pública, por nombre
     "ivrea_web"   -> IvreaWebSource(url)                    # web pública, por nombre
+    "udl_web"     -> UdlWebSource(url)                      # web pública, por EAN
 
 Añadir una plataforma nueva = una clase BaseFuente + una línea en
 TIPOS_FUENTE. Las clases son código interno: nunca se editan desde la UI.
@@ -21,6 +22,7 @@ from .ivrea_web_source import IvreaWebSource
 from .panini_web_source import PaniniWebSource
 from .planeta_source import PlanetaSource
 from .shopify_publico_source import ShopifyPublicoSource
+from .udl_web_source import UdlWebSource
 from .zonalibros_source import ZonaLibrosSource
 
 logger = logging.getLogger(__name__)
@@ -52,12 +54,17 @@ def _crear_ivrea_web(f: Dict[str, Any]) -> BaseFuente:
     return IvreaWebSource(url=f.get("url", ""))
 
 
+def _crear_udl_web(f: Dict[str, Any]) -> BaseFuente:
+    return UdlWebSource(url=f.get("url", ""))
+
+
 TIPOS_FUENTE = {
     "zonalibros": _crear_zonalibros,
     "planeta": _crear_planeta,
     "shopify": _crear_shopify,
     "panini_web": _crear_panini_web,
     "ivrea_web": _crear_ivrea_web,
+    "udl_web": _crear_udl_web,
 }
 
 

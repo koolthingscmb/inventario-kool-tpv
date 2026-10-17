@@ -174,9 +174,7 @@ class PlanetaSource(BaseFuente):
             "isbn": datos.get("ISBN", ""),
             "ean": datos.get("EAN", ""),
             "coleccion": datos.get("Colección", ""),
-            "generos": [g for g in (datos.get("Colección", "") + "|" +
-                                    datos.get("Sentido de lectura", ""))
-                        .split("|") if g],
+            "generos": [],
             "sinopsis": sinopsis,
             "imagen_url": imagen,
             "url_ficha": url,
