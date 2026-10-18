@@ -11,6 +11,7 @@ fuente cubre esa editorial e instancia la clase adecuada según su
     "ivrea_web"    -> IvreaWebSource(url)                   # web pública, por nombre
     "udl_web"      -> UdlWebSource(url)                     # web pública, por EAN
     "astiberri_web" -> AstiberriWebSource(url)              # web pública, por nombre
+    "azeta_web"    -> AzetaWebSource(url, credenciales)     # portal de cliente, por EAN
 
 Añadir una plataforma nueva = una clase BaseFuente + una línea en
 TIPOS_FUENTE. Las clases son código interno: nunca se editan desde la UI.
@@ -19,6 +20,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from .astiberri_web_source import AstiberriWebSource
+from .azeta_web_source import AzetaWebSource
 from .base_fuente import BaseFuente
 from .ivrea_web_source import IvreaWebSource
 from .panini_web_source import PaniniWebSource
@@ -64,6 +66,10 @@ def _crear_astiberri_web(f: Dict[str, Any]) -> BaseFuente:
     return AstiberriWebSource(url=f.get("url", ""))
 
 
+def _crear_azeta_web(f: Dict[str, Any]) -> BaseFuente:
+    return AzetaWebSource(url=f.get("url", ""), credenciales=_creds(f))
+
+
 TIPOS_FUENTE = {
     "zonalibros": _crear_zonalibros,
     "planeta": _crear_planeta,
@@ -72,6 +78,7 @@ TIPOS_FUENTE = {
     "ivrea_web": _crear_ivrea_web,
     "udl_web": _crear_udl_web,
     "astiberri_web": _crear_astiberri_web,
+    "azeta_web": _crear_azeta_web,
 }
 
 

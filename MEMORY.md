@@ -115,11 +115,17 @@ aporte. (Última actualización: 2026-10-15, rama `windows-beta` al día.)
   la que abre IR) y, si se escriben, nif/usuario/contraseña (fuente con
   plataforma 'web'). Antes se descartaban sin avisar. Lo de `web_dominio` sigue
   existiendo pero ya no se usa desde la pantalla.
-- Penguin/Distrito Manga (investigado, SIN fuente aún): web pública
-  penguinlibros.com tiene fichas completas (portada 1100px, autor, fecha,
-  colección, sinopsis) pero su buscador está prohibido por robots.txt y el
-  listado solo muestra ~28 novedades (sin paginación). Portal clientes.prhge.com
-  = app React con reCAPTCHA v3 + Okta en el login: no se automatiza sin navegador.
+- Penguin/Distrito Manga: penguinlibros.com NO sirve (buscador prohibido por
+  robots.txt, listado de ~28 novedades) y clientes.prhge.com tampoco (reCAPTCHA
+  + Okta). SOLUCIÓN: `azeta_web` (2026-10-18), portal de cliente de la
+  distribuidora Azeta (azetadistribuciones.es): login `fr_nombre`/`fr_clave`
+  (acepta sin token reCAPTCHA hoy), búsqueda por EAN que lleva a la ficha, cubre
+  catálogo antiguo. Da título, autor, editorial, año, colección, sinopsis,
+  portada + extras (CDN, solo las del prefijo del EAN). Sin demografía (viene
+  'SH-NEN'). Etiquetas en catalán o castellano. Usuario/clave en
+  `editoriales_fuentes`, NUNCA en repo ni chat. Config: editorial `penguin` ->
+  plataforma `azeta_web`, url https://www.azetadistribuciones.es. Probada en vivo;
+  falta la prueba del usuario en la app. Candidata a fuente de reserva de otras.
 - LINK multi-enlace: `url (etiqueta); url2 (etiqueta2)`. IR abre directo si hay
   uno o diálogo de selección si hay varios (udl_web devuelve Ficha + Avance).
 - AGENTS: nueva regla prohibiendo hardcodear URLs/rutas/valores de negocio.
