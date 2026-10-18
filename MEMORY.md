@@ -104,6 +104,22 @@ aporte. (Última actualización: 2026-10-15, rama `windows-beta` al día.)
 - Tamaños máximos de portada por fuente (medidos): Astiberri ~2400px,
   Milky Way ~1030, Panini ~856, UDL ~800, Ivrea 400 (su original),
   Norma/zonalibros 229 y Planeta 300 (no publican más grande).
+- Milky Way (shopify_publico) 2026-10-18: autor y DEMOGRAFÍA salen de los tags
+  (el título de la obra que viene como tag se descarta); `generos` vacío. El
+  'Leer avance' no está en el JSON: se lee la página y se añade a LINK (Avance).
+  Sus GÉNEROS reales están en el HTML (`custom.genre`), NO en tags: pendiente.
+- GÉNEROS pendiente: el usuario quiere 3 metacampos en Shopify (demografía,
+  género, subgénero), posiblemente metaobjetos con icono. Aún sin crear; los
+  géneros irían en `datos_tecnicos` (sin migración). Lista cerrada propia.
+- EDITORIALES 2026-10-18: PLATAFORMA `web` ahora guarda la URL (en `web_buscar`,
+  la que abre IR) y, si se escriben, nif/usuario/contraseña (fuente con
+  plataforma 'web'). Antes se descartaban sin avisar. Lo de `web_dominio` sigue
+  existiendo pero ya no se usa desde la pantalla.
+- Penguin/Distrito Manga (investigado, SIN fuente aún): web pública
+  penguinlibros.com tiene fichas completas (portada 1100px, autor, fecha,
+  colección, sinopsis) pero su buscador está prohibido por robots.txt y el
+  listado solo muestra ~28 novedades (sin paginación). Portal clientes.prhge.com
+  = app React con reCAPTCHA v3 + Okta en el login: no se automatiza sin navegador.
 - LINK multi-enlace: `url (etiqueta); url2 (etiqueta2)`. IR abre directo si hay
   uno o diálogo de selección si hay varios (udl_web devuelve Ficha + Avance).
 - AGENTS: nueva regla prohibiendo hardcodear URLs/rutas/valores de negocio.

@@ -145,7 +145,10 @@ class FuentesEditorialService:
             raise ValueError("La editorial necesita un nombre")
         plataforma = (datos.get("plataforma") or "").strip()
         fuente_id = None
-        if plataforma and plataforma != "web":
+        # con 'web' solo se crea fuente si hay datos de acceso que guardar
+        tiene_acceso = any((datos.get(k) or "").strip()
+                           for k in ("nif", "usuario", "password"))
+        if plataforma and (plataforma != "web" or tiene_acceso):
             url = (datos.get("url") or "").strip()
             usuario = (datos.get("usuario") or "").strip()
             existente = self.repo.fuente_por_datos(
@@ -162,6 +165,9 @@ class FuentesEditorialService:
                     plataforma, url, datos.get("nif") or "",
                     usuario, datos.get("password") or "")
         reserva_id = datos.get("fuente_reserva_id") or None
+        if plataforma == "web":
+            # sin fuente de búsqueda: la URL escrita es la web de la editorial
+            datos = {**datos, "web_buscar": (datos.get("url") or "").strip()}
         if editorial_id:
             actual = self.repo.obtener_editorial_por_id(editorial_id) or {}
             web_buscar = datos.get("web_buscar", actual.get("web_buscar", ""))

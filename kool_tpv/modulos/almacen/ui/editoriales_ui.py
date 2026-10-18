@@ -222,7 +222,8 @@ class EditorialesUI:
         self.om_reserva.set(
             self._reserva_nombre(ficha.get('fuente_reserva') or {}))
         self.e_url.delete(0, 'end')
-        self.e_url.insert(0, fuente.get('url') or '')
+        self.e_url.insert(0, (fuente.get('url') if fuente
+                              else ficha.get('web_buscar')) or '')
         self.e_nif.delete(0, 'end')
         self.e_nif.insert(0, fuente.get('nif') or '')
         self.e_usuario.delete(0, 'end')
