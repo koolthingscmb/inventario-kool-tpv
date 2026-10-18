@@ -67,10 +67,30 @@ class ShopifyPublicoSource(BaseFuente):
                              headers=_UA, timeout=self.timeout)
             if r.status_code != 200:
                 return None
-            return self._normalizar_producto(r.json().get("product", {}), handle)
+            ficha = self._normalizar_producto(r.json().get("product", {}), handle)
         except Exception:
             logger.exception("Error en ficha %s de %s", handle, self.url_base)
             return None
+        avance = self._enlace_avance(handle)
+        if avance:
+            ficha["links"] = [{"url": ficha["url_ficha"], "etiqueta": "Ficha"},
+                              {"url": avance, "etiqueta": "Avance"}]
+        return ficha
+
+    def _enlace_avance(self, handle: str) -> str:
+        """El JSON no trae el avance: se lee la página del producto y se coge
+        el enlace cuyo texto es 'Leer avance'. Sin él, cadena vacía."""
+        try:
+            r = requests.get(f"{self.url_base}/products/{handle}",
+                             headers=_UA, timeout=self.timeout)
+            if r.status_code != 200:
+                return ""
+            m = re.search(r'<a[^>]*href="([^"]+)"[^>]*>\s*leer\s+avance\s*</a>',
+                          r.text, re.I)
+            return _html.unescape(m.group(1)) if m else ""
+        except Exception:
+            logger.warning("No se pudo leer el avance de %s", handle)
+            return ""
 
     # ---------- normalización ----------
 
@@ -97,6 +117,7 @@ class ShopifyPublicoSource(BaseFuente):
     def _normalizar_producto(self, p: Dict[str, Any], handle: str) -> Dict[str, Any]:
         """Del product.json al modelo común. La descripción es la sinopsis;
         el SKU suele ser el EAN y barcode el ISBN con guiones."""
+        titulo = p.get("title") or ""
         sinopsis = _html.unescape(re.sub(r"<[^>]+>", " ", p.get("body_html") or ""))
         sinopsis = re.sub(r"\s+", " ", sinopsis).strip()
         variante = (p.get("variants") or [{}])[0]
@@ -113,15 +134,16 @@ class ShopifyPublicoSource(BaseFuente):
         if m:
             anio = m.group(1)
         return {
-            "titulo": p.get("title") or "",
+            "titulo": titulo,
             "titulo_original": "",
-            "autor": self._autor_de_tags(tags),
+            "autor": self._autor_de_tags(tags, titulo),
+            "demografia": self._demografia_de_tags(tags),
             "anio": anio,
             "editorial": p.get("vendor") or "",
             "isbn": isbn,
             "ean": ean,
             "coleccion": p.get("product_type") or "",
-            "generos": tags,
+            "generos": [],
             "sinopsis": sinopsis,
             "imagen_url": imagenes[0] if imagenes else "",
             "imagenes": imagenes,
@@ -129,15 +151,26 @@ class ShopifyPublicoSource(BaseFuente):
             "_handle": handle,
         }
 
-    def _autor_de_tags(self, tags: List[str]) -> str:
+    def _autor_de_tags(self, tags: List[str], titulo: str = "") -> str:
         """En las tiendas de editorial el autor suele venir como tag propio.
-        Heurística: tag que parece nombre propio (mayúsculas/minúsculas)."""
+        Heurística: tag que no es una categoría conocida ni parte del título."""
         genericos = {"manga", "comic", "novela", "shojo", "shonen", "seinen",
-                     "bl", "yaoi", "tomos únicos", "tomos unicos", "novedad",
-                     "preventa", "oferta"}
+                     "josei", "bl", "yaoi", "tomos únicos", "tomos unicos",
+                     "novedad", "preventa", "oferta", "artbook", "libro"}
+        titulo_norm = titulo.lower().strip()
         for tag in tags:
-            if tag.lower().strip() not in genericos:
+            t = tag.lower().strip()
+            if t not in genericos and t not in titulo_norm:
                 return tag.strip()
+        return ""
+
+    def _demografia_de_tags(self, tags: List[str]) -> str:
+        """Extrae la demografía de las etiquetas de Shopify."""
+        demogs = {"shonen", "seinen", "shojo", "josei", "bl", "yaoi"}
+        for tag in tags:
+            t = tag.lower().strip()
+            if t in demogs:
+                return t.upper()
         return ""
 
     def probar(self) -> tuple:
