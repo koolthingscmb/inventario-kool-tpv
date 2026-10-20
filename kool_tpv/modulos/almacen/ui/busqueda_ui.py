@@ -381,6 +381,10 @@ class BusquedaUI:
                     estados.append('archivado')
                 self.owner._busqueda_termino = termino
                 self.owner._busqueda_filtros = (cat_id, tipo_id, estados)
+                # lista de la búsqueda para recorrerla con ANTERIOR / SIGUIENTE
+                self.owner._busqueda_ids = [
+                    r['_id'] for r in self.search_list.get_items()
+                    if r.get('_id') is not None]
             if self.owner and hasattr(self.owner, 'show_crear'):
                 try:
                     self.owner.show_crear(producto_id=prod_id)

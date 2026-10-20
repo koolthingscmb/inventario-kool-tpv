@@ -90,6 +90,12 @@ class SearchablePaginatedNavList(ctk.CTkFrame):
             return self.nav_list.get_selected_data()
         return None
 
+    def get_items(self) -> List[dict]:
+        """Filas cargadas por la última búsqueda, en el orden en que se ven."""
+        if hasattr(self, 'nav_list'):
+            return self.nav_list.get_items()
+        return []
+
     def get_selected_items(self) -> List[dict]:
         """Obtener todos los items seleccionados en modo multiselección."""
         if hasattr(self, 'nav_list'):

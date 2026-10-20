@@ -56,6 +56,7 @@ class CrearProductoUI:
         self.owner = owner
         self.repo = ProductoRepository(db) if db is not None else None
         self._tech_extra = {}
+        self._foto = None  # get_data() al cargar el producto: detecta cambios sin guardar
         from kool_tpv.utils.config_loader import load_colors
         try:
             self.colors = load_colors(module_name)
@@ -449,6 +450,7 @@ class CrearProductoUI:
         # Buscar data (desde config)
         self.btn_buscar = create_action_button(self.btn_frame, 'buscar_data', self._on_buscar_data, module='almacen', palette_key='secondary')
         self.btn_buscar.pack(side='left', padx=8)
+        self._crear_navegacion()
 
         # Trace category changes to update taxonomy (focusout and selection events)
         try:
@@ -1070,7 +1072,9 @@ class CrearProductoUI:
             return False, 'Error validando Editorial'
         return True, ''
 
-    def _on_save(self):
+    def _on_save(self, despues=None):
+        """Guarda el producto. Devuelve True si se guardó. Por defecto vacía el
+        formulario al terminar; con `despues` ejecuta eso en su lugar."""
         valid, msg = self._validate_strict()
         if not valid:
             try:
@@ -1283,10 +1287,17 @@ class CrearProductoUI:
             except Exception:
                 pass
             ToastWidget.show(self.container, 'Producto guardado correctamente', tipo='success')
-            try:
-                self._on_cancel()
-            except Exception:
-                pass
+            if despues is not None:
+                try:
+                    despues()
+                except Exception:
+                    logging.exception('Error en la acción posterior a guardar')
+            else:
+                try:
+                    self._on_cancel()
+                except Exception:
+                    pass
+            return True
 
         except Exception:
             logging.exception('Error guardando producto, transacción revertida')
@@ -1294,6 +1305,69 @@ class CrearProductoUI:
                 ToastWidget.show(self.container, 'NO SE PUDO GUARDAR EL PRODUCTO', tipo='error')
             except Exception:
                 pass
+
+    # ---------- navegación por la lista de la búsqueda ----------
+
+    def marcar_limpio(self):
+        """Foto del formulario recién cargado, para saber si hay cambios sin guardar."""
+        self._foto = self.get_data()
+
+    def _hay_cambios(self) -> bool:
+        return self._foto is not None and self.get_data() != self._foto
+
+    def _crear_navegacion(self):
+        """ANTERIOR / n de N / SIGUIENTE. Solo si el producto se abrió desde la
+        lista de la búsqueda."""
+        pos = None
+        try:
+            if self.owner is not None and self.producto_id is not None:
+                pos = self.owner.posicion_en_lista(self.producto_id)
+        except Exception:
+            logger.exception('Error leyendo la posición en la lista de búsqueda')
+        if not pos:
+            return
+        actual, total = pos
+        hay_ant = actual > 1
+        hay_sig = actual < total
+        try:
+            # derecha del pie: SIGUIENTE se empaqueta primero para quedar más a la derecha
+            self.btn_siguiente = ButtonFactory.create_button(
+                parent=self.btn_frame, text='SIGUIENTE ▶',
+                command=lambda: self._ir_a_vecino(1),
+                style_key="mini_action", module='almacen', palette_key='secondary')
+            self.btn_siguiente.pack(side='right', padx=8)
+            self.lbl_posicion = ctk.CTkLabel(
+                self.btn_frame, text=f'{actual} de {total}',
+                text_color=self.colors['text'], font=get_font('label', module=self.module_name))
+            self.lbl_posicion.pack(side='right', padx=8)
+            self.btn_anterior = ButtonFactory.create_button(
+                parent=self.btn_frame, text='◀ ANTERIOR',
+                command=lambda: self._ir_a_vecino(-1),
+                style_key="mini_action", module='almacen', palette_key='secondary')
+            self.btn_anterior.pack(side='right', padx=8)
+            if not hay_ant:
+                self.btn_anterior.configure(state='disabled')
+            if not hay_sig:
+                self.btn_siguiente.configure(state='disabled')
+        except Exception:
+            logger.exception('Error creando los botones de navegación')
+
+    def _ir_a_vecino(self, paso: int):
+        """Cambia al producto anterior (-1) o siguiente (1) de la lista. Si hay
+        cambios sin guardar, pregunta si guardar y pasar; solo cambia si se
+        guarda bien."""
+        destino = self.owner.producto_vecino(self.producto_id, paso)
+        if destino is None:
+            return
+        abrir = lambda: self.owner.show_crear(producto_id=destino, apilar=False)
+        if not self._hay_cambios():
+            abrir()
+            return
+        from kool_tpv.utils.dialogs.helpers import show_warning
+        sentido = 'siguiente' if paso > 0 else 'anterior'
+        if show_warning(self.container, 'Cambios sin guardar',
+                        f'¿Guardar el producto y pasar al {sentido}?', confirm=True):
+            self._on_save(despues=abrir)
 
     def _on_cancel(self):
         try:

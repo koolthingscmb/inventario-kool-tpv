@@ -570,6 +570,10 @@ class VirtualNavList(ctk.CTkFrame):
             return self._all_data[self.selected_index]
         return None
 
+    def get_items(self) -> List[dict]:
+        """Copia de todas las filas cargadas, en el orden en que se ven."""
+        return list(self._all_data)
+
     def get_selected_items(self) -> List[dict]:
         """Obtener lista de todos los items seleccionados (multi-select)."""
         if self.multi_select:

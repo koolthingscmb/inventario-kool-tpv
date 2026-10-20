@@ -175,6 +175,8 @@ class AlmacenView(BaseModuleView):
         # Estado de búsqueda para restaurar al volver de show_crear
         self._busqueda_termino = None
         self._busqueda_filtros = None  # (cat_id, tipo_id, estados)
+        # ids de los productos de la última búsqueda, en el orden de la lista
+        self._busqueda_ids = []
 
         self.breadcrumb_callbacks = {
             'ALMACÉN': self.show_albaranes,
@@ -253,13 +255,32 @@ class AlmacenView(BaseModuleView):
             logging.exception('Error en _on_power de AlmacenView')
             return False
     
-    def show_crear(self, producto_id: int = None):
-        """Instancia y muestra la UI de creación/edición en la zona central."""
+    def posicion_en_lista(self, producto_id):
+        """(posición 1-based, total) del producto en la última búsqueda, o
+        None si no viene de ella."""
+        try:
+            return self._busqueda_ids.index(producto_id) + 1, len(self._busqueda_ids)
+        except ValueError:
+            return None
+
+    def producto_vecino(self, producto_id, paso: int):
+        """Id del producto anterior (paso=-1) o siguiente (paso=1) en la
+        última búsqueda; None si no hay."""
+        pos = self.posicion_en_lista(producto_id)
+        if pos is None:
+            return None
+        nuevo = pos[0] - 1 + paso
+        return self._busqueda_ids[nuevo] if 0 <= nuevo < len(self._busqueda_ids) else None
+
+    def show_crear(self, producto_id: int = None, apilar: bool = True):
+        """Instancia y muestra la UI de creación/edición en la zona central.
+        `apilar=False` cambia de producto sin añadir otra entrada al stack
+        (ANTERIOR / SIGUIENTE), para que VOLVER regrese a la búsqueda."""
         try:
             from .ui.Productos.crear_producto_ui import CrearProductoUI
 
             # Push estado de búsqueda actual al stack para restaurar al volver
-            if self._busqueda_termino is not None:
+            if apilar and self._busqueda_termino is not None:
                 termino = self._busqueda_termino
                 filtros = self._busqueda_filtros
                 self._nav_stack.append(lambda t=termino, f=filtros: self._show_busqueda_with_state(t, f))
@@ -279,6 +300,10 @@ class AlmacenView(BaseModuleView):
                             logging.warning('CrearProductoUI: no se aplicaron datos para producto_id=%s', producto_id)
                     except Exception:
                         logging.exception('Error aplicando datos de producto a CrearProductoUI')
+                    try:
+                        crear_ui.marcar_limpio()  # para detectar cambios sin guardar
+                    except Exception:
+                        logging.exception('Error tomando la foto inicial del formulario')
             except Exception:
                 logging.exception('No fue posible instanciar/mostrar CrearProductoUI en show_crear')
 
@@ -295,6 +320,7 @@ class AlmacenView(BaseModuleView):
     def show_busqueda(self):
         """Mostrar UI de búsqueda. Vista top-level: limpia el stack."""
         self._nav_stack.clear()
+        self._busqueda_ids = []
         try:
             from .ui.busqueda_ui import BusquedaUI
             try:
