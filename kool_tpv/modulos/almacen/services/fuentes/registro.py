@@ -12,6 +12,7 @@ fuente cubre esa editorial e instancia la clase adecuada según su
     "udl_web"      -> UdlWebSource(url)                     # web pública, por EAN
     "astiberri_web" -> AstiberriWebSource(url)              # web pública, por nombre
     "azeta_web"    -> AzetaWebSource(url, credenciales)     # portal de cliente, por EAN
+    "arechi_web"   -> ArechiWebSource(url)                  # web pública, por nombre
 
 Añadir una plataforma nueva = una clase BaseFuente + una línea en
 TIPOS_FUENTE. Las clases son código interno: nunca se editan desde la UI.
@@ -19,6 +20,7 @@ TIPOS_FUENTE. Las clases son código interno: nunca se editan desde la UI.
 import logging
 from typing import Any, Dict, List, Optional
 
+from .arechi_web_source import ArechiWebSource
 from .astiberri_web_source import AstiberriWebSource
 from .azeta_web_source import AzetaWebSource
 from .base_fuente import BaseFuente
@@ -70,6 +72,10 @@ def _crear_azeta_web(f: Dict[str, Any]) -> BaseFuente:
     return AzetaWebSource(url=f.get("url", ""), credenciales=_creds(f))
 
 
+def _crear_arechi_web(f: Dict[str, Any]) -> BaseFuente:
+    return ArechiWebSource(url=f.get("url", ""))
+
+
 TIPOS_FUENTE = {
     "zonalibros": _crear_zonalibros,
     "planeta": _crear_planeta,
@@ -79,6 +85,7 @@ TIPOS_FUENTE = {
     "udl_web": _crear_udl_web,
     "astiberri_web": _crear_astiberri_web,
     "azeta_web": _crear_azeta_web,
+    "arechi_web": _crear_arechi_web,
 }
 
 

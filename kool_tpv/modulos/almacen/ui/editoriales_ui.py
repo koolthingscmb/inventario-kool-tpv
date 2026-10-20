@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 # 'web' = sin fuente de búsqueda: solo sirve la web pública para el IR
 PLATAFORMAS = ["zonalibros", "planeta", "shopify", "panini_web",
-               "ivrea_web", "udl_web", "astiberri_web", "azeta_web", "web"]
+               "ivrea_web", "udl_web", "astiberri_web", "azeta_web", "arechi_web", "web"]
 
 
 class EditorialesUI:

@@ -107,10 +107,6 @@ aporte. (Última actualización: 2026-10-15, rama `windows-beta` al día.)
 - Milky Way (shopify_publico) 2026-10-18: autor y DEMOGRAFÍA salen de los tags
   (el título de la obra que viene como tag se descarta); `generos` vacío. El
   'Leer avance' no está en el JSON: se lee la página y se añade a LINK (Avance).
-  Sus GÉNEROS reales están en el HTML (`custom.genre`), NO en tags: pendiente.
-- GÉNEROS pendiente: el usuario quiere 3 metacampos en Shopify (demografía,
-  género, subgénero), posiblemente metaobjetos con icono. Aún sin crear; los
-  géneros irían en `datos_tecnicos` (sin migración). Lista cerrada propia.
 - EDITORIALES 2026-10-18: PLATAFORMA `web` ahora guarda la URL (en `web_buscar`,
   la que abre IR) y, si se escriben, nif/usuario/contraseña (fuente con
   plataforma 'web'). Antes se descartaban sin avisar. Lo de `web_dominio` sigue
@@ -125,7 +121,23 @@ aporte. (Última actualización: 2026-10-15, rama `windows-beta` al día.)
   'SH-NEN'). Etiquetas en catalán o castellano. Usuario/clave en
   `editoriales_fuentes`, NUNCA en repo ni chat. Config: editorial `penguin` ->
   plataforma `azeta_web`, url https://www.azetadistribuciones.es. Probada en vivo;
-  falta la prueba del usuario en la app. Candidata a fuente de reserva de otras.
+  falta la prueba del usuario en la app. Será la RESERVA de casi todas las editoriales.
+- arechi_web (2026-10-20): web pública arechimanga.com (WooCommerce). El SKU
+  lleva el ISBN CON guiones, no deducible del EAN, y su buscador falla con `Cat´s`:
+  se empareja el NOMBRE con los slugs del sitemap de productos (caché 1 h), se pide
+  cada ficha por la API `wc/store/v1/products?slug=` y el servicio verifica ISBN.
+  `_norm` ignora signos y CEROS A LA IZQUIERDA ('Smiley 06' == smiley-6). Da título,
+  autor, sinopsis, demografía (categoría), portada original. Sin año, sin géneros.
+  Config: editorial `arechi` -> `arechi_web`, url https://arechimanga.com, RESERVA
+  = Azeta. Probada en vivo; falta prueba del usuario en la app (Smiley 06 OK).
+- Kibook y Mangaline: NO se hacen fuentes propias. Kibook: ficha en texto libre y
+  solo 13/41 con ISBN. Mangaline: no publica ISBN (no se puede verificar). Ambas
+  usan `azeta_web` como fuente principal (config, sin código). Decidido con usuario.
+- Editoriales manga de España aún sin dar de alta (mercado, no sabemos cuáles vende
+  el usuario): Pika, Ooso, Kitsune, Sekai, Tomodomo, Satori, Moztros, Fandogamia,
+  Babylon, Odaiba, Kodai, Nowevolution, Ponent Mon, Gallo Nero. Plan: probar un EAN
+  en Azeta antes de escribir código. Los géneros los gestiona el usuario en otro
+  proyecto: no tocar aquí.
 - LINK multi-enlace: `url (etiqueta); url2 (etiqueta2)`. IR abre directo si hay
   uno o diálogo de selección si hay varios (udl_web devuelve Ficha + Avance).
 - AGENTS: nueva regla prohibiendo hardcodear URLs/rutas/valores de negocio.
