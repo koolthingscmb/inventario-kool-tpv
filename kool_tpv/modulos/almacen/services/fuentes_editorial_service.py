@@ -140,7 +140,7 @@ class FuentesEditorialService:
         La fuente se reutiliza si ya existe una con la misma
         plataforma+url+usuario; si no, se crea — así editar el chip de una
         editorial nunca rompe a otra que comparta fuente."""
-        nombre = (datos.get("nombre") or "").strip().lower()
+        nombre = (datos.get("nombre") or "").strip()
         if not nombre:
             raise ValueError("La editorial necesita un nombre")
         plataforma = (datos.get("plataforma") or "").strip()
@@ -190,7 +190,7 @@ class FuentesEditorialService:
 
     def guardar_editorial(self, nombre: str, fuente_id: Optional[int] = None,
                           web_buscar: str = "", web_dominio: str = "") -> int:
-        nombre = (nombre or "").strip().lower()
+        nombre = (nombre or "").strip()
         if not nombre:
             raise ValueError("La editorial necesita un nombre")
         existente = self.repo.obtener_editorial_por_nombre(nombre)

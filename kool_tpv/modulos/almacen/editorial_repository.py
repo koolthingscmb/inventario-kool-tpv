@@ -108,7 +108,8 @@ class EditorialRepository:
 
     def obtener_editorial_por_nombre(self, nombre: str) -> Optional[Dict[str, Any]]:
         row = self.db.fetch_one(
-            f"SELECT {_COLS_EDITORIAL} FROM editoriales WHERE nombre = ?",
+            f"SELECT {_COLS_EDITORIAL} FROM editoriales"
+            " WHERE nombre = ? COLLATE NOCASE",
             (nombre,))
         return _editorial(row) if row else None
 
@@ -147,7 +148,7 @@ class EditorialRepository:
     def enlazar_editoriales(self, fuente_id: int, nombres: List[str]) -> None:
         """Asigna `fuente_id` a los nombres dados (creándolos si faltan) y
         desvincula los que tenía la fuente y ya no están en la lista."""
-        actuales = set(self.editoriales_de_fuente(fuente_id))
+        actuales = {n.lower() for n in self.editoriales_de_fuente(fuente_id)}
         nuevos = {n.strip().lower() for n in nombres if n and n.strip()}
         for nombre in nuevos:
             row = self.obtener_editorial_por_nombre(nombre)
@@ -159,7 +160,8 @@ class EditorialRepository:
                 self.insertar_editorial(nombre, fuente_id)
         for viejo in actuales - nuevos:
             self.db.execute_query(
-                "UPDATE editoriales SET fuente_id = NULL WHERE nombre = ?",
+                "UPDATE editoriales SET fuente_id = NULL"
+                " WHERE nombre = ? COLLATE NOCASE",
                 (viejo,))
 
     def borrar_editorial(self, editorial_id: int) -> None:

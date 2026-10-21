@@ -49,39 +49,26 @@ aporte. (Última actualización: 2026-10-20, rama `windows-beta`.)
   reCAPTCHA hoy; Ivrea limita su buscador AJAX por IP (por eso usa el sitemap).
 
 ## Pendiente
-- Prueba del usuario en la app: `azeta_web`, `arechi_web` y EDITORIALES (RESERVA y URL con `web`).
-- Idea NO pedida: avisar cuando la portada descargada sea pequeña (<800 px).
-- HECHO y probado: ◀ ANTERIOR / SIGUIENTE ▶ en la ficha (recorren la lista de la búsqueda; con
-  cambios preguntan "¿Guardar y pasar?"). `_busqueda_ids` + `show_crear(apilar=False)`; sin atajos
-  de teclado (las flechas son globales).
 - DEUDA (no urgente): `crear_producto_ui.py` (1586 líneas) hace SQL directo en
   `_load_db_options` (categorias, tipos, proveedores, tipo_iva) saltándose los repositorios;
   `__init__` 419 líneas y `_on_save` 225. Refactor = mismo comportamiento, por partes,
   empezando por mover esas 4 consultas a repositorios. No hacerlo junto a otra función.
 - Botón IR del formulario: decidir uso. `web_dominio` ya no se edita desde la pantalla.
 - Decidir: tests rotos, `openai` en `requirements.txt`, documentos desactualizados.
-- HECHO y probado: METACAMPOS de cómic. Columna `productos.metacampos` (JSON, mig. 064) guarda
-  NOMBRES (no GIDs). UN botón METACAMPOS baja las 4 listas en vivo (`MetacamposComicService`,
-  delega en `ShopifyMetafieldsService`) y abre UN diálogo agrupado (`show_metacampos_agrupados_
-  dialog`; demografía una sola vía `familias_unicas`). El diálogo compartido quedó sin buscador y
-  con 4 columnas para TODOS los usos (mecánicas, colecciones igual). El sistema reparte lo elegido
-  a 4 campos readonly. DEMOG viejo fuera; su valor se rescata de `datos_tecnicos` al cargar.
-  Shopify es el amo de las listas. Zona Shopify rediseñada (rejilla 15 cols + fila metacampos con
-  pack), color del módulo en campos/botones/cabecera con línea, SHOPIFY TIPO, SEO_DESC+DESC en una
-  fila. Tras GUARDAR el producto se queda cargado (antes se vaciaba); no duplica.
-- EN CURSO: OBTENER autorrellena metacampos. `ComparadorMetacamposService` (almacen) coteja
-  `candidatos_meta` de cada fuente (categorías/tags/materia, NUNCA la sinopsis) contra las
-  listas de Shopify + `config/metacampos_alias.json` (variante editorial -> valor oficial).
-  Hecho: comparador + alias + candidatos en las 9 fuentes. Falta: enganchar en OBTENER
-  (rellenar solo metacampos vacíos) y probar. PETICIÓN: UI pequeña en Shopify CONFIG para
+- PETICIÓN: UI pequeña en Shopify CONFIG para
   editar `metacampos_alias.json` (añadir/modificar equivalencias).
 - PRÓXIMOS PASOS (orden acordado 2026-10-20, uno por vez, con aprobación):
   1.5) PENDIENTE DECISIÓN: géneros de OBTENER -> GÉNERO por nombre (hoy siguen yendo a TAGS).
-  2) GENERAR SEO sustituye a BUSCAR DATA (rellena título web, SEO y descripción; no guarda). Hoy NO
-     se genera SEO: el prompt `manga_seo` (tabla `shopify_prompts`) pide 9 variables y
-     `OpenAIService.generate_seo` solo da 2 -> KeyError; `SEO_RULES.md` no existe (la fuente única es
-     `KOOLTHINGSHOP.md`); el prompt contradice KOOLTHINGSHOP (título SEO, orden del HTML, cierre,
-     tag "Manga"); deja a la IA inventar género/demografía; `web_search_service` usa `print`.
+  2) GENERAR SEO hecho y probado por el usuario: el botón BUSCAR DATA ahora es GENERAR SEO
+     (color Shopify). `SeoFichaService` lee `manga_seo` de `shopify_prompts` (versión del tipo
+     si existe), rellena sus 14 variables desde el formulario (serie/tomo por regex, metacampos,
+     sinopsis) y llama `OpenAIService.generate_json` con `KOOLTHINGSHOP.md` como sistema. Rellena
+     TITULO/SEO_TITLE/SEO_DESC/DESCRIPCION (esta última es HTML, va a descriptionHtml). Limpieza:
+     fuera `_on_buscar_data`, `_apply_manga_data`, `_auto_fill_shopify_data`; pendiente retirar
+     `buscar_data/`, `sources/` y la pestaña FUENTES cuando el usuario lo apruebe.
+  2b) Editoriales: quitado el `.lower()` que forzaba minúsculas al guardar (fuentes_editorial_
+     service) + lookup `COLLATE NOCASE` (editorial_repository). Los 10 nombres actuales siguen
+     en minúsculas hasta que el usuario los re-guarde o autorice UPDATE.
   3) SUBIR / ACTUALIZAR EN SHOPIFY desde la ficha (un botón que sustituye a SINCRONIZAR, hoy vacío).
      `shopify_product_mapping` está VACÍA: antes de crear, buscar por SKU/código de barras para no
      duplicar. Toda escritura en Shopify (aunque sea borrador) se pregunta antes.

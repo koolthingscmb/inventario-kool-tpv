@@ -17,7 +17,7 @@ class PromptEditorComponent:
         "seo": "{tipo_producto} {titulo_base} {tags} {beneficio}",
         "seo_title": "{titulo} {variante} {marca}",
         "html": "{titulo_introductorio} {parrafo_introductorio} {titulo_seccion_calidad} {bloque_calidad_impresion} {bloque_calidad_material} {bloque_calidad_durabilidad} {bloque_porque_elegirnos} {botones_html}",
-        "manga_seo": "{product_name} {source_data}",
+        "manga_seo": "{product_name} {tipo_producto} {series} {volume_number} {author} {publisher} {language} {format} {isbn} {demografia} {generos} {subgeneros} {contenido} {sinopsis}",
     }
 
     def __init__(self, parent, db, prompts_repo, primary_color, secondary_color, bg_color, bg_medium, tab_bg_selected, tab_bg_normal, tab_text_selected, tab_text_normal):

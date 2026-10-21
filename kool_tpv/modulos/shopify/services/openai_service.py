@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import requests
 from typing import Optional, Tuple, Dict, Any
 from .base_ai_service import BaseAIService
@@ -59,6 +60,46 @@ class OpenAIService(BaseAIService):
         except Exception as e:
             logger.exception("Error inesperado en test de conexión OpenAI")
             return False, str(e)
+
+    def generate_json(self, user_prompt: str, system_content: str = "") -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+        """Llamada genérica al chat que espera un JSON como respuesta.
+
+        Devuelve (dict, None) o (None, mensaje de error).
+        """
+        if not self.api_key:
+            return None, "API Key no proporcionada"
+
+        messages = []
+        if system_content:
+            messages.append({"role": "system", "content": system_content})
+        messages.append({"role": "user", "content": user_prompt})
+
+        data = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": 0.7,
+            "response_format": {"type": "json_object"},
+        }
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        try:
+            response = requests.post(self.API_URL, headers=headers, json=data, timeout=60)
+            if response.status_code != 200:
+                logger.error("Error OpenAI generate_json: %s - %s", response.status_code, response.text)
+                return None, f"OpenAI {response.status_code}: {response.text[:300]}"
+            content = response.json()["choices"][0]["message"]["content"].strip()
+            if content.startswith("```"):
+                content = re.sub(r"^```(?:json)?", "", content).strip()
+                content = re.sub(r"```$", "", content).strip()
+            return json.loads(content), None
+        except json.JSONDecodeError as e:
+            logger.error("JSON inválido devuelto por OpenAI: %s", e)
+            return None, f"JSON inválido de la IA: {e}"
+        except Exception as e:
+            logger.exception("Error llamando a OpenAI")
+            return None, str(e)
 
     def generate_seo(self, source_data: Dict[str, Any], product_name: str, prompt_template: str, seo_rules: str = "", web_data: str = "") -> Optional[Dict[str, str]]:
         """Genera campos SEO optimizados para Shopify usando OpenAI."""

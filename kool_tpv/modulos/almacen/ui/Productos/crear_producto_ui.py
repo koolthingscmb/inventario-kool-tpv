@@ -37,13 +37,12 @@ from kool_tpv.utils.auth_service import AuthService
 from kool_tpv.modulos.almacen.producto_repository import ProductoRepository
 from kool_tpv.utils import barcode_gen_utils
 from kool_tpv.utils.sku_generator import generate_sku
-from kool_tpv.modulos.shopify.services.buscar_data.buscar_data_service import BuscarDataService
+from kool_tpv.modulos.shopify.services.seo_ficha_service import SeoFichaService
 from kool_tpv.modulos.almacen.services.obtener_datos_service import ObtenerDatosService
 from kool_tpv.modulos.almacen.services.portadas_service import PortadasService
 from kool_tpv.modulos.almacen.services.metacampos_comic_service import MetacamposComicService
 from kool_tpv.modulos.almacen.services.comparador_metacampos_service import ComparadorMetacamposService
 from kool_tpv.utils.dialogs.metaobject_select_dialog import show_metacampos_agrupados_dialog
-from kool_tpv.utils.dialogs.source_search_dialog import show_source_search_dialog
 
 logger = logging.getLogger(__name__)
 
@@ -480,8 +479,8 @@ class CrearProductoUI:
         # Sincronizar (desde config)
         self.btn_sync = create_action_button(self.btn_frame, 'sincronizar', self._on_sync, module='almacen', palette_key='secondary')
         self.btn_sync.pack(side='left', padx=8)
-        # Buscar data (desde config)
-        self.btn_buscar = create_action_button(self.btn_frame, 'buscar_data', self._on_buscar_data, module='almacen', palette_key='secondary')
+        # Generar SEO con IA (desde config)
+        self.btn_buscar = create_action_button(self.btn_frame, 'buscar_data', self._on_generar_seo, module='shopify', palette_key='primary')
         self.btn_buscar.pack(side='left', padx=8)
         self._crear_navegacion()
 
@@ -1025,49 +1024,6 @@ class CrearProductoUI:
         ToastWidget.show(self.container,
                          f'Datos obtenidos de la fuente{extra}',
                          tipo='success')
-
-    def _apply_manga_data(self, md):
-        """Vuelca un MangaData en los campos de la UI (sin pisar lo ya escrito)."""
-        def _fill(entry, value):
-            if not value or entry is None:
-                return
-            try:
-                if (entry.get() or '').strip():
-                    return
-                entry.delete(0, 'end')
-                entry.insert(0, str(value))
-            except Exception:
-                pass
-
-        _fill(getattr(self, 'e_nombre_original', None), md.titulo_romaji)
-        _fill(getattr(self, 'e_autor', None), md.autor)
-        _fill(getattr(self, 'e_anio', None), md.anio)
-        if md.demografia and not (self._metacampos or {}).get('demografia'):
-            self.set_metacampo('demografia', md.demografia)
-        # Editorial: solo autocompleta si coincide con una de la tabla (combo estricto)
-        try:
-            cb_ed = getattr(self, 'cb_editorial', None)
-            if cb_ed is not None and md.editorial and not (cb_ed.get() or '').strip():
-                for v in (cb_ed.values or []):
-                    if str(v).strip().lower() == str(md.editorial).strip().lower():
-                        cb_ed.set(v)
-                        break
-        except Exception:
-            pass
-        _fill(getattr(self, 'e_tags', None), ", ".join(md.generos) if md.generos else '')
-
-        # Kanji, géneros y estado persisten dentro de datos_tecnicos
-        try:
-            if self._tech_extra is None:
-                self._tech_extra = {}
-            if md.titulo_nativo:
-                self._tech_extra['kanji'] = md.titulo_nativo
-            if md.generos:
-                self._tech_extra['generos'] = list(md.generos)
-            if md.estado:
-                self._tech_extra['estado'] = md.estado
-        except Exception:
-            pass
 
     def get_widget(self):
         return self.container
@@ -1692,102 +1648,76 @@ class CrearProductoUI:
         except Exception:
             logging.exception('Error en _on_sync')
 
-    def _on_buscar_data(self):
+    def _on_generar_seo(self):
+        """GENERAR SEO: envía los datos del formulario a la IA y rellena los campos SEO."""
         try:
-            logging.info('Buscar data accion triggered')
-            
-            # 1. Obtener datos básicos para la búsqueda
-            nombre = self.e_nombre.get().strip()
-            tipo_id = self.cb_tipo.get_id()
-            nombre_original = (getattr(self, 'e_nombre_original', None) and self.e_nombre_original.get() or '').strip()
-            
+            nombre = (self.e_nombre.get() or '').strip()
             if not nombre:
-                ToastWidget.show(self.container, "Introduce un nombre para buscar", tipo='warning')
+                ToastWidget.show(self.container, "Introduce un nombre para generar SEO", tipo='warning')
                 return
 
-            # 2. Iniciar servicio
-            service = BuscarDataService(self.db)
-            
-            # 3. Buscar en fuentes activas (si hay nombre original, la búsqueda es mucho más precisa)
-            query = nombre_original or nombre
-            ToastWidget.show(self.container, 'Buscando en fuentes externas...', tipo='info')
-            results = service.search_all_active(query, tipo_id)
-            
-            if not results:
-                ToastWidget.show(self.container, "No se encontraron resultados en las fuentes activas", tipo='warning')
-                return
-                
-            # 4. Mostrar diálogo de selección
-            selected = show_source_search_dialog(self.parent, results)
-            
-            if not selected:
-                return # El usuario canceló o no seleccionó nada
-                
-            # 5. Obtener detalle normalizado (SOLO datos técnicos — el SEO lo genera GENERAR SEO)
-            ToastWidget.show(self.container, 'Obteniendo datos técnicos...', tipo='info')
-            md = service.get_manga_data(selected["source_id"], selected["id"], gap_fill=True)
+            mc = self._metacampos or {}
+            def _meta_txt(v):
+                return ", ".join(map(str, v)) if isinstance(v, list) else str(v or '')
 
-            if not md:
-                ToastWidget.show(self.container, "Error al obtener detalles", tipo='error')
-                return
+            codigos = (self.e_codigos.get() or '').split(',')
+            datos = {
+                'tipo_id': self.cb_tipo.get_id(),
+                'tipo_producto': (self.cb_tipo.get() or '').strip(),
+                'product_name': nombre,
+                'author': (getattr(self, 'e_autor', None) and self.e_autor.get() or '').strip(),
+                'publisher': (getattr(self, 'cb_editorial', None) and self.cb_editorial.get() or '').strip(),
+                'isbn': codigos[0].strip() if codigos and codigos[0].strip() else '',
+                'demografia': _meta_txt(mc.get('demografia')),
+                'generos': _meta_txt(mc.get('genero_comic')),
+                'subgeneros': _meta_txt(mc.get('subgenero_comic')),
+                'contenido': _meta_txt(mc.get('contenido_adultos')),
+                'sinopsis': (self.txt_sinopsis.get('1.0', 'end-1c') or '').strip()
+                            if getattr(self, 'txt_sinopsis', None) else '',
+            }
 
-            # 6. Rellenar campos técnicos (autor, año, demografía, editorial...)
-            self._apply_manga_data(md)
-            ToastWidget.show(self.container, "Datos técnicos actualizados", tipo='success')
+            self.btn_buscar.configure(state='disabled')
+            ToastWidget.show(self.container, 'Generando SEO con IA...', tipo='info')
 
+            def _run():
+                try:
+                    res, err = SeoFichaService(self.db).generar(datos)
+                except Exception as e:
+                    logger.exception('Error generando SEO')
+                    res, err = None, str(e)
+                self.container.after(0, lambda r=res, e=err: self._seo_fin(r, e))
+
+            threading.Thread(target=_run, daemon=True).start()
         except Exception:
-            logging.exception('Error en _on_buscar_data')
-            ToastWidget.show(self.container, "Error inesperado en la búsqueda", tipo='error')
+            logger.exception('Error en _on_generar_seo')
+            ToastWidget.show(self.container, "Error inesperado generando SEO", tipo='error')
+            self.btn_buscar.configure(state='normal')
 
-    def _auto_fill_shopify_data(self, data: Dict[str, Any]):
-        """Rellena los campos de la pestaña Shopify con los datos obtenidos."""
-        source_data = data.get("source_data", {})
-        seo_data = data.get("seo_data") or {} # Puede ser None si no hay IA o falló
-        
-        # 1. Título de Shopify (e_store_title)
-        # Prioridad: IA seo_short -> IA title -> Source Title
-        title_source = ""
-        if isinstance(source_data.get('title'), dict):
-            title_source = source_data['title'].get('romaji') or source_data['title'].get('english')
-        elif isinstance(source_data.get('title'), str):
-            title_source = source_data['title']
+    @staticmethod
+    def _seo_set(widget, valor):
+        """Escribe en un campo Entry o Textbox, sea cual sea."""
+        if widget is None or not valor:
+            return
+        try:
+            widget.delete('1.0', 'end')
+            widget.insert('1.0', str(valor))
+        except Exception:
+            try:
+                widget.delete(0, 'end')
+                widget.insert(0, str(valor))
+            except Exception:
+                pass
 
-        shopify_title = seo_data.get("seo_short") or seo_data.get("title") or title_source
-        if shopify_title:
-            self.e_store_title.delete(0, 'end')
-            self.e_store_title.insert(0, str(shopify_title))
-            
-        # 2. SEO_TITLE no se rellena aquí: lo generará GENERAR SEO.
-
-        # 3. SEO Description (e_seo_desc)
-        seo_desc = seo_data.get("seo_description")
-        if seo_desc:
-            if hasattr(self.e_seo_desc, 'delete'):
-                if isinstance(self.e_seo_desc, ctk.CTkTextbox):
-                    self.e_seo_desc.delete('1.0', 'end')
-                    self.e_seo_desc.insert('1.0', str(seo_desc))
-                else:
-                    self.e_seo_desc.delete(0, 'end')
-                    self.e_seo_desc.insert(0, str(seo_desc))
-
-        # 4. DESCRIPCION no se rellena aquí: la sinopsis oficial es manual
-        #    y la descripción web la generará GENERAR SEO con esa sinopsis.
-
-        # 5. Tags (e_tags)
-        tags = seo_data.get("tags")
-        if tags:
-            if isinstance(tags, list):
-                tags_str = ", ".join(map(str, tags))
-            else:
-                tags_str = str(tags)
-            self.e_tags.delete(0, 'end')
-            self.e_tags.insert(0, tags_str)
-
-        # 6. Tipo Shop (e_tipo_shop)
-        tipo_shop = seo_data.get("tipo_shop")
-        if tipo_shop:
-            self.e_tipo_shop.delete(0, 'end')
-            self.e_tipo_shop.insert(0, str(tipo_shop))
+    def _seo_fin(self, res, err):
+        self.btn_buscar.configure(state='normal')
+        if err or not res:
+            ToastWidget.show(self.container, err or "La IA no devolvió datos", tipo='error')
+            return
+        self._seo_set(getattr(self, 'e_store_title', None), res.get('titulo'))
+        self._seo_set(getattr(self, 'e_google_title', None), res.get('seo_title'))
+        self._seo_set(getattr(self, 'e_seo_desc', None), res.get('seo_description'))
+        self._seo_set(getattr(self, 'txt_description', None), res.get('description'))
+        ToastWidget.show(self.container, "SEO generado", tipo='success')
 
     def get_data(self) -> Dict[str, str]:
         try:
