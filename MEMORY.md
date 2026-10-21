@@ -51,16 +51,32 @@ aporte. (Última actualización: 2026-10-20, rama `windows-beta`.)
 ## Pendiente
 - Prueba del usuario en la app: `azeta_web`, `arechi_web` y EDITORIALES (RESERVA y URL con `web`).
 - Idea NO pedida: avisar cuando la portada descargada sea pequeña (<800 px).
-- HECHO (falta prueba del usuario en la app): ◀ ANTERIOR / SIGUIENTE ▶ en el pie de la ficha para
-  recorrer la lista de la búsqueda. Con cambios sin guardar avisa (warning) "¿Guardar el producto y
-  pasar al siguiente?": Aceptar/Enter guarda y cambia, Cancelar/Esc se queda. Sin botón GUARDAR Y
-  SIGUIENTE (decidido con el usuario). `AlmacenView._busqueda_ids` + `show_crear(apilar=False)`
-  (no apila `_nav_stack`); cambios = `get_data()` vs foto de `marcar_limpio()`. Sin atajos de
-  teclado (las flechas son globales). `_on_save(despues=)` devuelve True si guardó.
+- HECHO y probado: ◀ ANTERIOR / SIGUIENTE ▶ en la ficha (recorren la lista de la búsqueda; con
+  cambios preguntan "¿Guardar y pasar?"). `_busqueda_ids` + `show_crear(apilar=False)`; sin atajos
+  de teclado (las flechas son globales).
 - DEUDA (no urgente): `crear_producto_ui.py` (1586 líneas) hace SQL directo en
   `_load_db_options` (categorias, tipos, proveedores, tipo_iva) saltándose los repositorios;
   `__init__` 419 líneas y `_on_save` 225. Refactor = mismo comportamiento, por partes,
   empezando por mover esas 4 consultas a repositorios. No hacerlo junto a otra función.
 - Botón IR del formulario: decidir uso. `web_dominio` ya no se edita desde la pantalla.
 - Decidir: tests rotos, `openai` en `requirements.txt`, documentos desactualizados.
-- Los GÉNEROS los gestiona el usuario en otro proyecto: no tocar aquí.
+- HECHO y probado: METACAMPOS de cómic. Columna `productos.metacampos` (JSON, mig. 064) guarda
+  NOMBRES (no GIDs). UN botón METACAMPOS baja las 4 listas en vivo (`MetacamposComicService`,
+  delega en `ShopifyMetafieldsService`) y abre UN diálogo agrupado (`show_metacampos_agrupados_
+  dialog`; demografía una sola vía `familias_unicas`). El diálogo compartido quedó sin buscador y
+  con 4 columnas para TODOS los usos (mecánicas, colecciones igual). El sistema reparte lo elegido
+  a 4 campos readonly. DEMOG viejo fuera; su valor se rescata de `datos_tecnicos` al cargar.
+  Shopify es el amo de las listas. Zona Shopify rediseñada (rejilla 15 cols + fila metacampos con
+  pack), color del módulo en campos/botones/cabecera con línea, SHOPIFY TIPO, SEO_DESC+DESC en una
+  fila. Tras GUARDAR el producto se queda cargado (antes se vaciaba); no duplica.
+- PRÓXIMOS PASOS (orden acordado 2026-10-20, uno por vez, con aprobación):
+  1.5) PENDIENTE DECISIÓN: géneros de OBTENER -> GÉNERO por nombre (hoy siguen yendo a TAGS).
+  2) GENERAR SEO sustituye a BUSCAR DATA (rellena título web, SEO y descripción; no guarda). Hoy NO
+     se genera SEO: el prompt `manga_seo` (tabla `shopify_prompts`) pide 9 variables y
+     `OpenAIService.generate_seo` solo da 2 -> KeyError; `SEO_RULES.md` no existe (la fuente única es
+     `KOOLTHINGSHOP.md`); el prompt contradice KOOLTHINGSHOP (título SEO, orden del HTML, cierre,
+     tag "Manga"); deja a la IA inventar género/demografía; `web_search_service` usa `print`.
+  3) SUBIR / ACTUALIZAR EN SHOPIFY desde la ficha (un botón que sustituye a SINCRONIZAR, hoy vacío).
+     `shopify_product_mapping` está VACÍA: antes de crear, buscar por SKU/código de barras para no
+     duplicar. Toda escritura en Shopify (aunque sea borrador) se pregunta antes.
+  4) Limpieza: `BuscarDataService` y fuentes viejas, `_auto_fill_shopify_data` (código muerto).

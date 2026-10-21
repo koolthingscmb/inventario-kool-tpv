@@ -332,6 +332,19 @@ class CargarProductoUI:
             _set_entry(getattr(ui_instance, 'e_nombre_original', None), data.get('nombre_original') or '')
             _set_textbox(getattr(ui_instance, 'txt_sinopsis', None), data.get('sinopsis') or '')
 
+            # Metacampos de Shopify (JSON): demografía, género, subgénero, contenido
+            try:
+                import json
+                meta_raw = data.get('metacampos')
+                meta = json.loads(meta_raw) if meta_raw else {}
+                if not isinstance(meta, dict):
+                    meta = {}
+                setter = getattr(ui_instance, 'set_metacampos', None)
+                if callable(setter):
+                    setter(meta)
+            except Exception:
+                pass
+
             # Cargar datos técnicos desde JSON
             try:
                 dt_raw = data.get('datos_tecnicos')
@@ -340,7 +353,13 @@ class CargarProductoUI:
                     dt = json.loads(dt_raw)
                     _set_entry(getattr(ui_instance, 'e_autor', None), dt.get('autor') or '')
                     _set_entry(getattr(ui_instance, 'e_anio', None), dt.get('anio') or '')
-                    _set_entry(getattr(ui_instance, 'e_demog', None), dt.get('demografia') or '')
+                    # La demografía escrita a mano antes del metacampo se conserva en él
+                    demog = dt.get('demografia') or ''
+                    meta_act = getattr(ui_instance, '_metacampos', None) or {}
+                    if demog and not meta_act.get('demografia'):
+                        setter = getattr(ui_instance, 'set_metacampo', None)
+                        if callable(setter):
+                            setter('demografia', demog)
                     # Conservar claves extra (kanji, generos, estado) para no perderlas al re-guardar
                     known = {'autor', 'anio', 'demografia'}
                     extra = {k: v for k, v in dt.items() if k not in known}

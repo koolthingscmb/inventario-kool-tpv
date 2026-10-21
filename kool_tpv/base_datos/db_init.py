@@ -527,6 +527,25 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migración 064: metacampos en productos — JSON con los metacampos de
+		# Shopify elegidos en la ficha (demografía, género, subgénero, contenido...).
+		try:
+			existe = db.fetch_one(
+				"SELECT name FROM sqlite_master WHERE type='table' AND name='productos'")
+			cols_prod = {r[1] for r in (db.fetch_all("PRAGMA table_info(productos)") or [])}
+			if existe and 'metacampos' not in cols_prod:
+				logging.info('Aplicando migración 064: metacampos en productos')
+				db.connection.execute(
+					"ALTER TABLE productos ADD COLUMN metacampos TEXT")
+				db.connection.commit()
+				logging.info('Migración 064 aplicada correctamente')
+		except Exception:
+			logging.exception('Error aplicando migración 064')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Check existence
 		existing = []
 		try:

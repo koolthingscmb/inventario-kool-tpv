@@ -40,6 +40,8 @@ from kool_tpv.utils.sku_generator import generate_sku
 from kool_tpv.modulos.shopify.services.buscar_data.buscar_data_service import BuscarDataService
 from kool_tpv.modulos.almacen.services.obtener_datos_service import ObtenerDatosService
 from kool_tpv.modulos.almacen.services.portadas_service import PortadasService
+from kool_tpv.modulos.almacen.services.metacampos_comic_service import MetacamposComicService
+from kool_tpv.utils.dialogs.metaobject_select_dialog import show_metacampos_agrupados_dialog
 from kool_tpv.utils.dialogs.source_search_dialog import show_source_search_dialog
 
 logger = logging.getLogger(__name__)
@@ -56,12 +58,17 @@ class CrearProductoUI:
         self.owner = owner
         self.repo = ProductoRepository(db) if db is not None else None
         self._tech_extra = {}
+        self._metacampos = {}  # clave metacampo Shopify -> nombre o lista de nombres
         self._foto = None  # get_data() al cargar el producto: detecta cambios sin guardar
         from kool_tpv.utils.config_loader import load_colors
         try:
             self.colors = load_colors(module_name)
         except Exception:
             self.colors = {'text': COLOR_MATRIX, 'primary': COLOR_MATRIX, 'accent': COLOR_MATRIX, 'background': COLOR_BG_TERMINAL, 'light': '#666666'}
+        try:
+            self.colors_shopify = load_colors('shopify')
+        except Exception:
+            self.colors_shopify = self.colors
         self.container = ctk.CTkFrame(self.parent, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
 
         # Header removed: breadcrumb is provided by BaseModuleView
@@ -70,11 +77,16 @@ class CrearProductoUI:
         self.general_frame = ctk.CTkFrame(self.container, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
         self.general_frame.pack(fill='both', expand=False, padx=12, pady=8)
 
+        # La zona Shopify usa los colores del módulo Shopify en sus campos y botones
+        shop_primary = self.colors_shopify.get('primary', self.colors.get('primary', COLOR_MATRIX))
+        self._shop_primary = shop_primary
         self.shopify_frame = ctk.CTkFrame(self.container, fg_color=self.colors.get('background', COLOR_BG_TERMINAL))
         self.shopify_frame.pack(fill='both', expand=True, padx=12, pady=(0, 8))
         # Common styles
         lbl_font = get_font('label', module=self.module_name)
         entry_kwargs = {"fg_color": self.colors.get('background', COLOR_BG_TERMINAL), "text_color": self.colors['text'], "border_width": 2, "border_color": self.colors.get('border', self.colors.get('primary', COLOR_MATRIX)), "corner_radius": 4}
+        shop_entry_kwargs = dict(entry_kwargs)
+        shop_entry_kwargs['border_color'] = shop_primary
 
         # Build GENERAL frame with 8-column grid (7 filas requeridas)
         for c in range(8):
@@ -313,92 +325,113 @@ class CrearProductoUI:
             self.e_codigos = tk.Entry(self.general_frame)
         self.e_codigos.grid(row=6, column=2, columnspan=6, sticky='nsew', padx=6, pady=6)
 
-        # Label separator for Shopify section (highlighted in yellow)
-        ctk.CTkLabel(self.general_frame, text='SHOPIFY', text_color=self.colors['secondary'], font=lbl_font).grid(row=7, column=0, columnspan=8, sticky='w', padx=6, pady=(12, 6))
+        # Separador de la zona Shopify: etiqueta + línea en color del módulo
+        sep_frame = ctk.CTkFrame(self.general_frame, fg_color='transparent')
+        sep_frame.grid(row=7, column=0, columnspan=8, sticky='ew', padx=6, pady=(12, 6))
+        ctk.CTkLabel(sep_frame, text='SHOPIFY', text_color=shop_primary, font=lbl_font).pack(side='left')
+        ctk.CTkFrame(sep_frame, height=2, corner_radius=0, fg_color=shop_primary).pack(side='left', fill='x', expand=True, padx=(10, 0), pady=6)
 
         # Load options from DB if available
         self._load_db_options()
 
-        # SHOPIFY tab: 6 filas, un campo por fila máximo orden
-        for c in range(8):
+        # SHOPIFY tab: 6 filas en rejilla de 15 columnas, etiquetas en azul Shopify
+        for c in range(15):
             self.shopify_frame.grid_columnconfigure(c, weight=1, uniform='col')
+        shop_lbl = shop_primary
 
-        # Fila 1: TITULO (3 col) | LINK (4 col) | IR (1 col)
-        ctk.CTkLabel(self.shopify_frame, text='TITULO:', text_color=self.colors['text'], font=lbl_font).grid(row=0, column=0, sticky='w', padx=6, pady=6)
-        self.e_store_title = ctk.CTkEntry(self.shopify_frame, placeholder_text='Título web', **entry_kwargs)
-        self.e_store_title.grid(row=0, column=1, columnspan=2, sticky='ew', padx=6, pady=6)
+        # Fila 1: TITULO (6) | AUTOR (5) | AÑO (4)
+        ctk.CTkLabel(self.shopify_frame, text='TITULO:', text_color=shop_lbl, font=lbl_font).grid(row=0, column=0, sticky='w', padx=6, pady=8)
+        self.e_store_title = ctk.CTkEntry(self.shopify_frame, placeholder_text='Título web', **shop_entry_kwargs)
+        self.e_store_title.grid(row=0, column=1, columnspan=5, sticky='ew', padx=6, pady=8)
 
-        ctk.CTkLabel(self.shopify_frame, text='LINK:', text_color=self.colors['text'], font=lbl_font).grid(row=0, column=3, sticky='w', padx=6, pady=6)
-        self.e_shop_link = ctk.CTkEntry(self.shopify_frame, placeholder_text='https://…', **entry_kwargs)
-        self.e_shop_link.grid(row=0, column=4, columnspan=3, sticky='ew', padx=6, pady=6)
+        ctk.CTkLabel(self.shopify_frame, text='AUTOR:', text_color=shop_lbl, font=lbl_font).grid(row=0, column=6, sticky='w', padx=6, pady=8)
+        self.e_autor = ctk.CTkEntry(self.shopify_frame, placeholder_text='Autor', **shop_entry_kwargs)
+        self.e_autor.grid(row=0, column=7, columnspan=4, sticky='ew', padx=6, pady=8)
+
+        ctk.CTkLabel(self.shopify_frame, text='AÑO:', text_color=shop_lbl, font=lbl_font).grid(row=0, column=11, sticky='w', padx=6, pady=8)
+        self.e_anio = ctk.CTkEntry(self.shopify_frame, placeholder_text='Año', **shop_entry_kwargs)
+        self.e_anio.grid(row=0, column=12, columnspan=3, sticky='ew', padx=6, pady=8)
+
+        # Fila 2: LINK (6) | IR (1) | TAGS (8)
+        ctk.CTkLabel(self.shopify_frame, text='LINK:', text_color=shop_lbl, font=lbl_font).grid(row=1, column=0, sticky='w', padx=6, pady=8)
+        self.e_shop_link = ctk.CTkEntry(self.shopify_frame, placeholder_text='https://…', **shop_entry_kwargs)
+        self.e_shop_link.grid(row=1, column=1, columnspan=5, sticky='ew', padx=6, pady=8)
         try:
             ButtonFactory.create_button(
                 parent=self.shopify_frame,
                 text='IR',
                 command=self._open_shop_link,
                 style_key="mini_action",
-                module='almacen',
+                module='shopify',
                 palette_key='secondary'
-            ).grid(row=0, column=7, sticky='ew', padx=6, pady=6)
+            ).grid(row=1, column=6, sticky='ew', padx=6, pady=8)
         except Exception:
             pass
 
-        # Fila 2: TAXONOMY (2 col) | TIPO_SHOP (2 col) | TAGS (4 col)
-        ctk.CTkLabel(self.shopify_frame, text='TAXONOMY:', text_color=self.colors['text'], font=lbl_font).grid(row=1, column=0, sticky='w', padx=6, pady=6)
+        ctk.CTkLabel(self.shopify_frame, text='TAGS:', text_color=shop_lbl, font=lbl_font).grid(row=1, column=7, sticky='w', padx=6, pady=8)
+        self.e_tags = ctk.CTkEntry(self.shopify_frame, placeholder_text='tag1, tag2', **shop_entry_kwargs)
+        self.e_tags.grid(row=1, column=8, columnspan=7, sticky='ew', padx=6, pady=8)
+
+        # Fila 3: botón pequeño METACAMPOS + las 4 cajas repartiendo el ancho
+        meta_row = ctk.CTkFrame(self.shopify_frame, fg_color='transparent')
+        meta_row.grid(row=2, column=0, columnspan=15, sticky='ew', padx=6, pady=8)
+
+        self.btn_metacampos = ctk.CTkButton(
+            meta_row, text='METACAMPOS', height=26, width=90,
+            font=("Helvetica", 10, "bold"),
+            fg_color=shop_primary, text_color=self.colors.get('background', COLOR_BG_TERMINAL),
+            command=self._on_metacampos_click)
+        self.btn_metacampos.pack(side='left', padx=(0, 10))
+
+        for attr, etiqueta, ph in (
+            ('e_meta_demografia', 'DEMOGRAFÍA:', 'Demografía'),
+            ('e_meta_genero', 'GÉNERO:', 'Género'),
+            ('e_meta_subgenero', 'SUBGÉNEROS:', 'Subgénero'),
+            ('e_meta_contenido', 'CONTENIDO:', 'Contenido'),
+        ):
+            ctk.CTkLabel(meta_row, text=etiqueta, text_color=shop_lbl, font=lbl_font).pack(side='left', padx=(8, 4))
+            entry = self._crear_meta_entry(ph, parent=meta_row)
+            entry.pack(side='left', expand=True, fill='x', padx=(0, 8))
+            setattr(self, attr, entry)
+
+        # Fila 4: SEO_TITLE (5) | TAXONOMY (5) | SHOPIFY TIPO (5)
+        ctk.CTkLabel(self.shopify_frame, text='SEO_TITLE:', text_color=shop_lbl, font=lbl_font).grid(row=3, column=0, sticky='w', padx=6, pady=8)
+        self.e_google_title = ctk.CTkEntry(self.shopify_frame, placeholder_text='SEO short title', **shop_entry_kwargs)
+        self.e_google_title.grid(row=3, column=1, columnspan=4, sticky='ew', padx=6, pady=8)
+
+        ctk.CTkLabel(self.shopify_frame, text='TAXONOMY:', text_color=shop_lbl, font=lbl_font).grid(row=3, column=5, sticky='w', padx=6, pady=8)
         # Readonly entry to allow selection/copy but prevent manual edits
         try:
-            self.ent_taxonomy = ctk.CTkEntry(self.shopify_frame, placeholder_text='', state='readonly', fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors['light'], border_width=2, border_color=self.colors.get('border', self.colors.get('secondary', COLOR_MATRIX)), corner_radius=4)
+            self.ent_taxonomy = ctk.CTkEntry(self.shopify_frame, placeholder_text='', state='readonly', fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors['light'], border_width=2, border_color=shop_primary, corner_radius=4)
         except Exception:
             # fallback if customtkinter does not support readonly state
-            self.ent_taxonomy = ctk.CTkEntry(self.shopify_frame, placeholder_text='', fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors['light'], border_width=2, border_color=self.colors['secondary'], corner_radius=4)
+            self.ent_taxonomy = ctk.CTkEntry(self.shopify_frame, placeholder_text='', fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors['light'], border_width=2, border_color=shop_primary, corner_radius=4)
             try:
                 self.ent_taxonomy.configure(state='readonly')
             except Exception:
                 pass
-        self.ent_taxonomy.grid(row=1, column=1, sticky='ew', padx=6, pady=6)
+        self.ent_taxonomy.grid(row=3, column=6, columnspan=4, sticky='ew', padx=6, pady=8)
 
-        ctk.CTkLabel(self.shopify_frame, text='TIPO_SHOP:', text_color=self.colors['text'], font=lbl_font).grid(row=1, column=2, sticky='w', padx=6, pady=6)
-        self.e_tipo_shop = ctk.CTkEntry(self.shopify_frame, placeholder_text='Tipo shop', **entry_kwargs)
-        self.e_tipo_shop.grid(row=1, column=3, sticky='ew', padx=6, pady=6)
+        ctk.CTkLabel(self.shopify_frame, text='SHOPIFY TIPO:', text_color=shop_lbl, font=lbl_font).grid(row=3, column=10, columnspan=2, sticky='w', padx=6, pady=8)
+        self.e_tipo_shop = ctk.CTkEntry(self.shopify_frame, placeholder_text='Tipo shop', **shop_entry_kwargs)
+        self.e_tipo_shop.grid(row=3, column=12, columnspan=3, sticky='ew', padx=6, pady=8)
 
-        ctk.CTkLabel(self.shopify_frame, text='TAGS:', text_color=self.colors['text'], font=lbl_font).grid(row=1, column=4, sticky='w', padx=6, pady=6)
-        self.e_tags = ctk.CTkEntry(self.shopify_frame, placeholder_text='tag1, tag2', **entry_kwargs)
-        self.e_tags.grid(row=1, column=5, columnspan=3, sticky='ew', padx=6, pady=6)
-
-        # Fila 3: SEO_TITLE (Label + Entry, 8 col)
-        ctk.CTkLabel(self.shopify_frame, text='SEO_TITLE:', text_color=self.colors['text'], font=lbl_font).grid(row=2, column=0, sticky='w', padx=6, pady=6)
-        self.e_google_title = ctk.CTkEntry(self.shopify_frame, placeholder_text='SEO short title', **entry_kwargs)
-        self.e_google_title.grid(row=2, column=1, columnspan=7, sticky='ew', padx=6, pady=6)
-
-        # Fila 4: AUTOR (3 col) | AÑO (1 col) | DEMOG (2 col)
-        ctk.CTkLabel(self.shopify_frame, text='AUTOR:', text_color=self.colors['text'], font=lbl_font).grid(row=3, column=0, sticky='w', padx=6, pady=6)
-        self.e_autor = ctk.CTkEntry(self.shopify_frame, placeholder_text='Autor', **entry_kwargs)
-        self.e_autor.grid(row=3, column=1, columnspan=2, sticky='ew', padx=6, pady=6)
-
-        ctk.CTkLabel(self.shopify_frame, text='AÑO:', text_color=self.colors['text'], font=lbl_font).grid(row=3, column=3, sticky='w', padx=6, pady=6)
-        self.e_anio = ctk.CTkEntry(self.shopify_frame, placeholder_text='Año', **entry_kwargs)
-        self.e_anio.grid(row=3, column=4, sticky='ew', padx=6, pady=6)
-
-        ctk.CTkLabel(self.shopify_frame, text='DEMOG:', text_color=self.colors['text'], font=lbl_font).grid(row=3, column=5, sticky='w', padx=6, pady=6)
-        self.e_demog = ctk.CTkEntry(self.shopify_frame, placeholder_text='Demografía', **entry_kwargs)
-        self.e_demog.grid(row=3, column=6, columnspan=2, sticky='ew', padx=6, pady=6)
-
-        # Fila 5: SINOPSIS (textbox, entrada real)
-        ctk.CTkLabel(self.shopify_frame, text='SINOPSIS:', text_color=self.colors['text'], font=lbl_font).grid(row=4, column=0, sticky='nw', padx=6, pady=6)
+        # Fila 5: SINOPSIS (textbox, ancho completo)
+        ctk.CTkLabel(self.shopify_frame, text='SINOPSIS:', text_color=shop_lbl, font=lbl_font).grid(row=4, column=0, sticky='nw', padx=6, pady=8)
         try:
-            self.txt_sinopsis = ctk.CTkTextbox(self.shopify_frame, width=800, height=60, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors['text'], border_width=2, border_color=self.colors.get('border', self.colors.get('primary', COLOR_MATRIX)))
-            self.txt_sinopsis.grid(row=4, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
+            self.txt_sinopsis = ctk.CTkTextbox(self.shopify_frame, width=800, height=60, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors['text'], border_width=2, border_color=shop_primary)
+            self.txt_sinopsis.grid(row=4, column=1, columnspan=14, sticky='nsew', padx=6, pady=8)
         except Exception:
-            frame_sin = ctk.CTkFrame(self.shopify_frame, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), border_width=2, border_color=self.colors.get('border', self.colors.get('primary', COLOR_MATRIX)))
+            frame_sin = ctk.CTkFrame(self.shopify_frame, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), border_width=2, border_color=shop_primary)
             self.txt_sinopsis = tk.Text(frame_sin, bg=self.colors.get('background', COLOR_BG_TERMINAL), fg=self.colors['text'], height=3)
             self.txt_sinopsis.pack(fill='both', expand=True)
-            frame_sin.grid(row=4, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
+            frame_sin.grid(row=4, column=1, columnspan=14, sticky='nsew', padx=6, pady=8)
 
-        # Fila 6: SEO_DESCRIPTION (CTkTextbox, altura menor 80px, 8 col)
-        ctk.CTkLabel(self.shopify_frame, text='SEO_DESCRIPTION:', text_color=self.colors['text'], font=lbl_font).grid(row=5, column=0, sticky='nw', padx=6, pady=6)
+        # Fila 6: SEO_DESCRIPTION (7) | DESCRIPCION (8), misma altura
+        ctk.CTkLabel(self.shopify_frame, text='SEO_DESCRIPTION:', text_color=shop_lbl, font=lbl_font).grid(row=5, column=0, columnspan=2, sticky='nw', padx=6, pady=8)
         try:
-            self.e_seo_desc = ctk.CTkTextbox(self.shopify_frame, width=800, height=80, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors['light'], border_width=2, border_color=self.colors.get('border', self.colors.get('secondary', COLOR_MATRIX)))
-            self.e_seo_desc.grid(row=5, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
+            self.e_seo_desc = ctk.CTkTextbox(self.shopify_frame, height=100, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors['light'], border_width=2, border_color=shop_primary)
+            self.e_seo_desc.grid(row=5, column=2, columnspan=5, sticky='nsew', padx=6, pady=8)
             try:
                 # make Tab move to next widget instead of inserting a tab character
                 self.e_seo_desc.bind('<Tab>', lambda e: self._focus_next_widget(e))
@@ -406,16 +439,15 @@ class CrearProductoUI:
                 pass
         except Exception:
             # fallback: wrap tk.Text in a framed CTkFrame to simulate border
-            frame = ctk.CTkFrame(self.shopify_frame, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), border_width=2, border_color=self.colors.get('border', self.colors.get('secondary', COLOR_MATRIX)))
+            frame = ctk.CTkFrame(self.shopify_frame, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), border_width=2, border_color=shop_primary)
             self.e_seo_desc = tk.Text(frame, bg=self.colors.get('background', COLOR_BG_TERMINAL), fg=self.colors['light'])
             self.e_seo_desc.pack(fill='both', expand=True)
-            frame.grid(row=5, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
+            frame.grid(row=5, column=2, columnspan=5, sticky='nsew', padx=6, pady=8)
 
-        # Fila 7: DESCRIPCION (CTkTextbox grande, 8 col)
-        ctk.CTkLabel(self.shopify_frame, text='DESCRIPCION:', text_color=self.colors['text'], font=lbl_font).grid(row=6, column=0, sticky='nw', padx=6, pady=6)
+        ctk.CTkLabel(self.shopify_frame, text='DESCRIPCION:', text_color=shop_lbl, font=lbl_font).grid(row=5, column=7, columnspan=2, sticky='nw', padx=6, pady=8)
         try:
-            self.txt_description = ctk.CTkTextbox(self.shopify_frame, width=800, height=100, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors['light'], border_width=2, border_color=self.colors.get('border', self.colors.get('secondary', COLOR_MATRIX)))
-            self.txt_description.grid(row=6, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
+            self.txt_description = ctk.CTkTextbox(self.shopify_frame, height=100, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors['light'], border_width=2, border_color=shop_primary)
+            self.txt_description.grid(row=5, column=9, columnspan=6, sticky='nsew', padx=6, pady=8)
             try:
                 # Tab from description should go directly to the Guardar button
                 try:
@@ -426,11 +458,11 @@ class CrearProductoUI:
             except Exception:
                 pass
         except Exception:
-            frame2 = ctk.CTkFrame(self.shopify_frame, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), border_width=2, border_color=self.colors.get('border', self.colors.get('secondary', COLOR_MATRIX)))
+            frame2 = ctk.CTkFrame(self.shopify_frame, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), border_width=2, border_color=shop_primary)
             self.txt_description = tk.Text(frame2, bg=self.colors.get('background', COLOR_BG_TERMINAL), fg=self.colors['light'])
             self.txt_description.pack(fill='both', expand=True)
-            frame2.grid(row=6, column=1, columnspan=7, sticky='nsew', padx=6, pady=6)
-        self.shopify_frame.grid_rowconfigure(6, weight=1)
+            frame2.grid(row=5, column=9, columnspan=6, sticky='nsew', padx=6, pady=8)
+        self.shopify_frame.grid_rowconfigure(5, weight=1)
 
         # Bottom buttons (aligned left per style guide)
         # Use terminal bg for footer to ensure buttons are visible and contrast correctly
@@ -949,7 +981,9 @@ class CrearProductoUI:
             _fill(getattr(self, 'e_nombre_original', None), titulo_orig)
         _fill(getattr(self, 'e_autor', None), datos.get('autor'))
         _fill(getattr(self, 'e_anio', None), datos.get('anio'))
-        _fill(getattr(self, 'e_demog', None), datos.get('demografia'))
+        demog = datos.get('demografia')
+        if demog and not (self._metacampos or {}).get('demografia'):
+            self.set_metacampo('demografia', demog)
         generos = datos.get('generos') or []
         _fill(getattr(self, 'e_tags', None), ", ".join(generos))
         links = datos.get('links') or []
@@ -992,7 +1026,8 @@ class CrearProductoUI:
         _fill(getattr(self, 'e_nombre_original', None), md.titulo_romaji)
         _fill(getattr(self, 'e_autor', None), md.autor)
         _fill(getattr(self, 'e_anio', None), md.anio)
-        _fill(getattr(self, 'e_demog', None), md.demografia)
+        if md.demografia and not (self._metacampos or {}).get('demografia'):
+            self.set_metacampo('demografia', md.demografia)
         # Editorial: solo autocompleta si coincide con una de la tabla (combo estricto)
         try:
             cb_ed = getattr(self, 'cb_editorial', None)
@@ -1206,14 +1241,13 @@ class CrearProductoUI:
         try:
             autor = (getattr(self, 'e_autor', None) and self.e_autor.get()) or ''
             anio = (getattr(self, 'e_anio', None) and self.e_anio.get()) or ''
-            demog = (getattr(self, 'e_demog', None) and self.e_demog.get()) or ''
-            
+
             import json
             tech_dict = {
                 'autor': autor,
                 'anio': anio,
-                'demografia': demog
             }
+            metacampos_json = json.dumps(getattr(self, '_metacampos', None) or {}, ensure_ascii=False)
             tech_dict.update(getattr(self, '_tech_extra', None) or {})
             datos_tecnicos = json.dumps(tech_dict)
         except Exception:
@@ -1274,6 +1308,7 @@ class CrearProductoUI:
                 nombre_original=nombre_original,
                 sinopsis=sinopsis,
                 datos_tecnicos=datos_tecnicos,
+                metacampos=metacampos_json,
             )
 
             # Actualizar campo ID en UI
@@ -1293,8 +1328,11 @@ class CrearProductoUI:
                 except Exception:
                     logging.exception('Error en la acción posterior a guardar')
             else:
+                # El producto guardado se queda cargado: seguir editándolo o
+                # navegar por la lista sin rehacer la búsqueda
+                self.producto_id = prod_id
                 try:
-                    self._on_cancel()
+                    self.marcar_limpio()
                 except Exception:
                     pass
             return True
@@ -1407,6 +1445,131 @@ class CrearProductoUI:
                         pass
         except Exception:
             logging.exception('Error en _on_cancel CrearProductoUI')
+        try:
+            self._metacampos = {}
+            self._refrescar_meta_entries()
+        except Exception:
+            pass
+
+    # ---------- metacampos de cómic (Shopify) ----------
+
+    # clave metacampo -> atributo del campo de solo lectura
+    _META_ENTRIES = (
+        ('demografia', 'e_meta_demografia'),
+        ('genero_comic', 'e_meta_genero'),
+        ('subgenero_comic', 'e_meta_subgenero'),
+        ('contenido_adultos', 'e_meta_contenido'),
+    )
+
+    def _crear_meta_entry(self, placeholder, parent=None):
+        """Campo de solo lectura que muestra los nombres elegidos (como TAXONOMY)."""
+        contenedor = parent or self.shopify_frame
+        try:
+            return ctk.CTkEntry(
+                contenedor, placeholder_text=placeholder, state='readonly',
+                fg_color=self.colors.get('background', COLOR_BG_TERMINAL),
+                text_color=self._shop_primary, border_width=2,
+                border_color=self._shop_primary,
+                corner_radius=4)
+        except Exception:
+            e = ctk.CTkEntry(contenedor, placeholder_text=placeholder)
+            try:
+                e.configure(state='readonly')
+            except Exception:
+                pass
+            return e
+
+    def _set_meta_entry(self, entry, texto):
+        """Escribe en un campo readonly: habilita, rellena y vuelve a bloquear."""
+        try:
+            entry.configure(state='normal')
+            entry.delete(0, 'end')
+            if texto:
+                entry.insert(0, texto)
+            entry.configure(state='readonly')
+        except Exception:
+            pass
+
+    def _refrescar_meta_entries(self):
+        """Vuelca self._metacampos en los 4 campos visibles."""
+        datos = self._metacampos or {}
+        for clave, attr in self._META_ENTRIES:
+            entry = getattr(self, attr, None)
+            if entry is None:
+                continue
+            v = datos.get(clave)
+            texto = ', '.join(v) if isinstance(v, list) else (v or '')
+            self._set_meta_entry(entry, texto)
+
+    def set_metacampos(self, datos):
+        """Carga el dict de metacampos (al abrir un producto)."""
+        self._metacampos = dict(datos or {})
+        self._refrescar_meta_entries()
+
+    def set_metacampo(self, clave, valor):
+        """Pone un valor por código (OBTENER, demografía antigua)."""
+        if self._metacampos is None:
+            self._metacampos = {}
+        if valor:
+            self._metacampos[clave] = valor
+        else:
+            self._metacampos.pop(clave, None)
+        self._refrescar_meta_entries()
+
+    def _on_metacampos_click(self):
+        """UN botón: baja las 4 listas de Shopify y reparte lo elegido en sus cajas."""
+        if self.db is None:
+            return
+        try:
+            ToastWidget.show(self.container, 'Cargando metacampos de Shopify…', tipo='info')
+        except Exception:
+            pass
+
+        def work():
+            svc = None
+            try:
+                svc = MetacamposComicService(self.db)
+                opciones, err = svc.obtener_opciones()
+            except Exception as e:
+                opciones, err = None, str(e)
+            try:
+                self.container.after(0, lambda: self._mostrar_selector_metacampos(svc, opciones, err))
+            except Exception:
+                pass
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _mostrar_selector_metacampos(self, svc, opciones, err):
+        if err or not opciones:
+            ToastWidget.show(self.container, err or 'No se pudieron cargar los metacampos', tipo='error')
+            return
+        # preselección: nombres guardados -> GIDs
+        seleccion = {}
+        for clave, grupo in opciones.items():
+            almacenado = (self._metacampos or {}).get(clave)
+            nombres = almacenado if isinstance(almacenado, list) else ([almacenado] if almacenado else [])
+            seleccion[grupo['titulo']] = svc.gids_de_nombres(grupo['entradas'], nombres)
+        grupos_dialogo = [
+            {'titulo': g['titulo'], 'unico': g['unico'],
+             'opciones': [{'id': e['gid'], 'text': e['nombre']} for e in g['entradas']]}
+            for g in opciones.values()
+        ]
+        resultado = show_metacampos_agrupados_dialog(
+            self.container, 'METACAMPOS', grupos_dialogo, seleccion)
+        if resultado is None:
+            return
+        for clave, grupo in opciones.items():
+            nombres = svc.nombres_de_gids(grupo['entradas'], resultado.get(grupo['titulo']) or [])
+            if grupo['unico']:
+                if nombres:
+                    self._metacampos[clave] = nombres[0]
+                else:
+                    self._metacampos.pop(clave, None)
+            elif nombres:
+                self._metacampos[clave] = nombres
+            else:
+                self._metacampos.pop(clave, None)
+        self._refrescar_meta_entries()
 
     def _focus_next_widget(self, event):
         try:
@@ -1645,7 +1808,9 @@ class CrearProductoUI:
                 'nombre_original': (getattr(self, 'e_nombre_original', None) and self.e_nombre_original.get()) or '',
                 'autor': (getattr(self, 'e_autor', None) and self.e_autor.get()) or '',
                 'anio': (getattr(self, 'e_anio', None) and self.e_anio.get()) or '',
-                'demografia': (getattr(self, 'e_demog', None) and self.e_demog.get()) or '',
+                'metacampos': (lambda: (
+                    __import__('json').dumps(getattr(self, '_metacampos', None) or {}, sort_keys=True, ensure_ascii=False)
+                ))(),
                 'sinopsis': (lambda: (
                     (lambda txt: txt.strip())(
                         (self.txt_sinopsis.get('1.0', 'end-1c') if getattr(self, 'txt_sinopsis', None) and hasattr(self.txt_sinopsis, 'get') else '')
