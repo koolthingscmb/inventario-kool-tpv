@@ -123,6 +123,7 @@ class IvreaWebSource(BaseFuente):
         ficha: Dict[str, Any] = {"url_ficha": url}
         guion, dibujo, autor = "", "", ""
         sinopsis, tras_cabecera = "", False
+        candidatos: List[str] = []
 
         # título de la serie desde <title> ('X – Editorial Ivrea España')
         m = re.search(r"<title[^>]*>(.*?)</title>", html, re.S | re.I)
@@ -142,6 +143,7 @@ class IvreaWebSource(BaseFuente):
             m = re.match(r"•\s*([^:]+):\s*(.+)", txt)
             if m:
                 campo, valor = m.group(1).strip().upper(), m.group(2).strip()
+                candidatos.append(valor)
                 if campo.startswith("NOMBRE ORIGINAL"):
                     ficha["titulo_original"] = valor
                 elif campo.startswith("AUTOR"):  # AUTOR/AUTORES/AUTORA
@@ -179,6 +181,7 @@ class IvreaWebSource(BaseFuente):
         portadas = list(dict.fromkeys(re.findall(
             r'(https://www\.editorialivrea\.com/[^"\s]+?\.jpe?g)', html)))
         ficha["imagen_url"] = self._portada_tomo(portadas, numero_tomo)
+        ficha["candidatos_meta"] = candidatos
         return ficha
 
     @staticmethod

@@ -152,6 +152,8 @@ class ArechiWebSource(BaseFuente):
             "demografia": next((c.upper() for c in categorias
                                 if c.lower() in _DEMOGRAFIAS), ""),
             "generos": [],
+            "candidatos_meta": categorias + [
+                t.get("name", "") for t in p.get("tags") or []],
             "sinopsis": _texto(p.get("description")),
             "imagen_url": imagenes[0] if imagenes else "",
             "imagenes": imagenes,

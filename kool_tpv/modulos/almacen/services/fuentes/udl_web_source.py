@@ -174,6 +174,7 @@ class UdlWebSource(BaseFuente):
         ficha.setdefault("titulo_original", "")
         ficha.setdefault("demografia", "")
         ficha["generos"] = []
+        ficha["candidatos_meta"] = [v for v in defs.values() if v]
         return ficha
 
     # ---------- prueba ----------

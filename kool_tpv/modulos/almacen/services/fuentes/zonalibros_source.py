@@ -199,6 +199,7 @@ class ZonaLibrosSource(BaseFuente):
             "coleccion": a.get("Coleccion") or "",
             "demografia": self._demografia(a.get("Tema") or ""),
             "generos": [],
+            "candidatos_meta": [a.get("Tema") or ""],
             "sinopsis": "",
             "imagen_url": a.get("Imagen") or "",
             "url_ficha": urljoin(
@@ -252,6 +253,9 @@ class ZonaLibrosSource(BaseFuente):
             # la etiqueta "Materia" de la web pinta el campo txtCategoria
             "demografia": self._demografia(campo("txtCategoria")),
             "generos": [],
+            # la Materia 'DEMOG-GENERO-SUBGENERO' puede traer los 3 tramos
+            "candidatos_meta": [
+                t for t in (campo("txtCategoria") or "").split("-") if t],
             "sinopsis": campo("txtSinpsis"),
             "imagen_url": imagen,
             "url_ficha": f"{self.url_base}{self._ruta_base}/FichaArticulo.aspx?Libro={ci}",

@@ -69,6 +69,12 @@ aporte. (Última actualización: 2026-10-20, rama `windows-beta`.)
   Shopify es el amo de las listas. Zona Shopify rediseñada (rejilla 15 cols + fila metacampos con
   pack), color del módulo en campos/botones/cabecera con línea, SHOPIFY TIPO, SEO_DESC+DESC en una
   fila. Tras GUARDAR el producto se queda cargado (antes se vaciaba); no duplica.
+- EN CURSO: OBTENER autorrellena metacampos. `ComparadorMetacamposService` (almacen) coteja
+  `candidatos_meta` de cada fuente (categorías/tags/materia, NUNCA la sinopsis) contra las
+  listas de Shopify + `config/metacampos_alias.json` (variante editorial -> valor oficial).
+  Hecho: comparador + alias + candidatos en las 9 fuentes. Falta: enganchar en OBTENER
+  (rellenar solo metacampos vacíos) y probar. PETICIÓN: UI pequeña en Shopify CONFIG para
+  editar `metacampos_alias.json` (añadir/modificar equivalencias).
 - PRÓXIMOS PASOS (orden acordado 2026-10-20, uno por vez, con aprobación):
   1.5) PENDIENTE DECISIÓN: géneros de OBTENER -> GÉNERO por nombre (hoy siguen yendo a TAGS).
   2) GENERAR SEO sustituye a BUSCAR DATA (rellena título web, SEO y descripción; no guarda). Hoy NO

@@ -187,6 +187,7 @@ class AstiberriWebSource(BaseFuente):
         ficha.setdefault("titulo_original", "")
         ficha.setdefault("demografia", "")
         ficha["generos"] = []
+        ficha["candidatos_meta"] = [v for v in props.values() if v]
         return ficha
 
     @staticmethod

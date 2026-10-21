@@ -104,11 +104,13 @@ class PaniniWebSource(BaseFuente):
                 logger.warning("JSON-LD de panini.es no se pudo parsear")
 
         # Ficha técnica: <li class="item pnn_*"><strong>label</strong><span>valor
+        candidatos: List[str] = []
         for cls, _lab, val in re.findall(
                 r'<li class="item (pnn_[a-z_]+)">\s*<strong class="label">'
                 r'([^<]+)</strong>\s*<span class="data">\s*(.*?)\s*</span>',
                 html, re.S):
             v = _html.unescape(re.sub(r"<[^>]+>|\s+", " ", val)).strip()
+            candidatos.append(v)
             if cls == "pnn_authors_display":
                 ficha["autor"] = v
             elif cls == "pnn_isbn":
@@ -116,6 +118,7 @@ class PaniniWebSource(BaseFuente):
                 ficha["ean"] = v
             elif cls == "pnn_release_date":
                 ficha["anio"] = self._anio(v)
+        ficha["candidatos_meta"] = candidatos
         return ficha
 
     @staticmethod

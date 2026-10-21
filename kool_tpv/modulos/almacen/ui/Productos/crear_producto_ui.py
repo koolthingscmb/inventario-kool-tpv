@@ -41,6 +41,7 @@ from kool_tpv.modulos.shopify.services.buscar_data.buscar_data_service import Bu
 from kool_tpv.modulos.almacen.services.obtener_datos_service import ObtenerDatosService
 from kool_tpv.modulos.almacen.services.portadas_service import PortadasService
 from kool_tpv.modulos.almacen.services.metacampos_comic_service import MetacamposComicService
+from kool_tpv.modulos.almacen.services.comparador_metacampos_service import ComparadorMetacamposService
 from kool_tpv.utils.dialogs.metaobject_select_dialog import show_metacampos_agrupados_dialog
 from kool_tpv.utils.dialogs.source_search_dialog import show_source_search_dialog
 
@@ -934,6 +935,15 @@ class CrearProductoUI:
                                 *(datos.get('imagenes') or [])]
                         guardadas = portadas.descargar(ean, urls)
                         datos['_imagenes_bajadas'] = len(guardadas)
+                        # metacampos: los candidatos estructurados de la fuente
+                        # se cotejan con las listas de Shopify (aquí, en el hilo)
+                        try:
+                            sug = ComparadorMetacamposService(self.db).comparar(
+                                datos.get('candidatos_meta') or [])
+                            datos['_meta_sugeridos'] = sug.get('metacampos') or {}
+                            datos['_meta_pruebas'] = sug.get('pruebas') or []
+                        except Exception:
+                            logger.exception('Comparador de metacampos falló')
                 except Exception as e:
                     datos = e
                 try:
@@ -981,6 +991,12 @@ class CrearProductoUI:
             _fill(getattr(self, 'e_nombre_original', None), titulo_orig)
         _fill(getattr(self, 'e_autor', None), datos.get('autor'))
         _fill(getattr(self, 'e_anio', None), datos.get('anio'))
+        # metacampos sugeridos por el comparador: solo lo que esté vacío
+        for clave, valor in (datos.get('_meta_sugeridos') or {}).items():
+            if valor and not (self._metacampos or {}).get(clave):
+                self.set_metacampo(clave, valor)
+        for prueba in datos.get('_meta_pruebas') or []:
+            logger.info('Metacampo sugerido: %s', prueba)
         demog = datos.get('demografia')
         if demog and not (self._metacampos or {}).get('demografia'):
             self.set_metacampo('demografia', demog)

@@ -175,6 +175,8 @@ class PlanetaSource(BaseFuente):
             "ean": datos.get("EAN", ""),
             "coleccion": datos.get("Colección", ""),
             "generos": [],
+            # si Planeta clasifica la obra en algún campo, que compare
+            "candidatos_meta": [v for v in datos.values() if v],
             "sinopsis": sinopsis,
             "imagen_url": imagen,
             "url_ficha": url,

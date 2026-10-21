@@ -12,7 +12,7 @@ import html as _html
 import logging
 import re
 from typing import Any, Dict, List, Optional
-from urllib.parse import urljoin
+from urllib.parse import urljoin, unquote
 
 import requests
 
@@ -129,6 +129,21 @@ class ShopifyPublicoSource(BaseFuente):
         raw_tags = p.get("tags") or []
         tags = [t.strip() for t in raw_tags.split(",") if t.strip()] \
             if isinstance(raw_tags, str) else [str(t) for t in raw_tags]
+        # el product.json NO trae metacampos: la página HTML los lleva como
+        # enlaces a colecciones 'filter.p.m.custom.<metacampo>=<valor>'
+        # (Género, Autor...). Se extraen como candidatos para el comparador.
+        candidatos = list(tags)
+        try:
+            url_html = f"{self.url_base}/products/{handle}"
+            rf = requests.get(url_html, headers=_UA, timeout=self.timeout)
+            if rf.status_code == 200:
+                for m in re.finditer(
+                        r'filter\.p\.m\.custom\.\w+=([^"&\s<]+)', rf.text):
+                    v = _html.unescape(unquote(m.group(1))).strip()
+                    if v and v not in candidatos:
+                        candidatos.append(v)
+        except Exception:
+            logger.warning("No se pudo leer la página HTML de %s", handle)
         anio = ""
         m = re.search(r"(\d{4})", p.get("published_at") or "")
         if m:
@@ -138,6 +153,7 @@ class ShopifyPublicoSource(BaseFuente):
             "titulo_original": "",
             "autor": self._autor_de_tags(tags, titulo),
             "demografia": self._demografia_de_tags(tags),
+            "candidatos_meta": candidatos,
             "anio": anio,
             "editorial": p.get("vendor") or "",
             "isbn": isbn,

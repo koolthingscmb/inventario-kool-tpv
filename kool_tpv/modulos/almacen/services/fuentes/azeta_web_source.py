@@ -190,6 +190,7 @@ class AzetaWebSource(BaseFuente):
         ficha.setdefault("titulo_original", "")
         ficha.setdefault("demografia", "")
         ficha["generos"] = []
+        ficha["candidatos_meta"] = [v for v in campos.values() if v]
         return ficha
 
     # ---------- prueba ----------
