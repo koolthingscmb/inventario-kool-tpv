@@ -133,6 +133,11 @@ class ProductoRepository:
         row = self.db.fetch_one("SELECT 1 FROM productos WHERE sku = ?", (sku,))
         return row is not None
 
+    def get_tipos_iva(self) -> List[int]:
+        """Tipos de IVA distintos que aparecen en productos."""
+        rows = self.db.fetch_all('SELECT DISTINCT tipo_iva FROM productos')
+        return [r[0] for r in rows if r[0] is not None] if rows else []
+
     def get_pvps_by_ids(self, producto_ids: List[int]) -> Dict[int, float]:
         """Obtener PVP activo para una lista de producto_ids en una sola query.
 

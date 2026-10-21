@@ -19,7 +19,7 @@ class MetacamposComicService:
     GRUPOS = (
         ("demografia", "DEMOGRAFÍA", True),
         ("genero_comic", "GÉNERO", False),
-        ("subgenero_comic", "SUBGÉNERO", False),
+        ("subgenero_comic", "TEMÁTICAS", False),
         ("contenido_adultos", "CONTENIDO", False),
     )
 
@@ -51,6 +51,32 @@ class MetacamposComicService:
         """GIDs elegidos -> nombres legibles."""
         por_gid = {e.get("gid"): e.get("nombre") for e in entradas or []}
         return [por_gid[g] for g in gids or [] if g in por_gid]
+
+    def obtener_entradas(self, clave: str) -> List[Dict[str, Any]]:
+        """Entradas [{gid, nombre}] de UN metacampo ('demografia', 'genero_comic'...)."""
+        try:
+            definiciones = self.meta_service.obtener_definiciones_custom()
+        except Exception:
+            logger.exception("Error cargando definiciones de metacampos")
+            return []
+        definicion = next((d for d in definiciones or [] if d.get("key") == clave), None)
+        if not definicion:
+            return []
+        def_id = next(
+            (v.get("value") for v in definicion.get("validations") or []
+             if v.get("name") == "metaobject_definition_id"),
+            None,
+        )
+        if not def_id:
+            return []
+        tipo = self.meta_service.obtener_tipo_metaobjeto_por_definicion(def_id)
+        if not tipo:
+            return []
+        entradas = self.meta_service.obtener_entradas_metaobjeto(tipo)
+        return [
+            {"gid": e.get("id"), "nombre": e.get("displayName") or ""}
+            for e in entradas or []
+        ]
 
     def obtener_opciones(self) -> Tuple[Optional[Dict[str, Dict[str, Any]]], Optional[str]]:
         """Devuelve ({clave: {'titulo', 'unico', 'entradas':[{'gid','nombre'}]}}, error).

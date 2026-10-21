@@ -87,6 +87,8 @@ class CrearProductoUI:
         entry_kwargs = {"fg_color": self.colors.get('background', COLOR_BG_TERMINAL), "text_color": self.colors['text'], "border_width": 2, "border_color": self.colors.get('border', self.colors.get('primary', COLOR_MATRIX)), "corner_radius": 4}
         shop_entry_kwargs = dict(entry_kwargs)
         shop_entry_kwargs['border_color'] = shop_primary
+        shop_txt = self.colors_shopify.get('light', self.colors.get('light'))
+        shop_entry_kwargs['text_color'] = shop_txt
 
         # Build GENERAL frame with 8-column grid (7 filas requeridas)
         for c in range(8):
@@ -386,7 +388,7 @@ class CrearProductoUI:
         for attr, etiqueta, ph in (
             ('e_meta_demografia', 'DEMOGRAFÍA:', 'Demografía'),
             ('e_meta_genero', 'GÉNERO:', 'Género'),
-            ('e_meta_subgenero', 'SUBGÉNEROS:', 'Subgénero'),
+            ('e_meta_subgenero', 'TEMÁTICAS:', 'Temática'),
             ('e_meta_contenido', 'CONTENIDO:', 'Contenido'),
         ):
             ctk.CTkLabel(meta_row, text=etiqueta, text_color=shop_lbl, font=lbl_font).pack(side='left', padx=(8, 4))
@@ -394,7 +396,7 @@ class CrearProductoUI:
             entry.pack(side='left', expand=True, fill='x', padx=(0, 8))
             setattr(self, attr, entry)
 
-        # Fila 4: SEO_TITLE (5) | TAXONOMY (5) | SHOPIFY TIPO (5)
+        # Fila 4: SEO_TITLE (5) | TAXONOMY (10)
         ctk.CTkLabel(self.shopify_frame, text='SEO_TITLE:', text_color=shop_lbl, font=lbl_font).grid(row=3, column=0, sticky='w', padx=6, pady=8)
         self.e_google_title = ctk.CTkEntry(self.shopify_frame, placeholder_text='SEO short title', **shop_entry_kwargs)
         self.e_google_title.grid(row=3, column=1, columnspan=4, sticky='ew', padx=6, pady=8)
@@ -402,35 +404,31 @@ class CrearProductoUI:
         ctk.CTkLabel(self.shopify_frame, text='TAXONOMY:', text_color=shop_lbl, font=lbl_font).grid(row=3, column=5, sticky='w', padx=6, pady=8)
         # Readonly entry to allow selection/copy but prevent manual edits
         try:
-            self.ent_taxonomy = ctk.CTkEntry(self.shopify_frame, placeholder_text='', state='readonly', fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors['light'], border_width=2, border_color=shop_primary, corner_radius=4)
+            self.ent_taxonomy = ctk.CTkEntry(self.shopify_frame, placeholder_text='', state='readonly', fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=shop_txt, border_width=2, border_color=shop_primary, corner_radius=4)
         except Exception:
             # fallback if customtkinter does not support readonly state
-            self.ent_taxonomy = ctk.CTkEntry(self.shopify_frame, placeholder_text='', fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors['light'], border_width=2, border_color=shop_primary, corner_radius=4)
+            self.ent_taxonomy = ctk.CTkEntry(self.shopify_frame, placeholder_text='', fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=shop_txt, border_width=2, border_color=shop_primary, corner_radius=4)
             try:
                 self.ent_taxonomy.configure(state='readonly')
             except Exception:
                 pass
-        self.ent_taxonomy.grid(row=3, column=6, columnspan=4, sticky='ew', padx=6, pady=8)
-
-        ctk.CTkLabel(self.shopify_frame, text='SHOPIFY TIPO:', text_color=shop_lbl, font=lbl_font).grid(row=3, column=10, columnspan=2, sticky='w', padx=6, pady=8)
-        self.e_tipo_shop = ctk.CTkEntry(self.shopify_frame, placeholder_text='Tipo shop', **shop_entry_kwargs)
-        self.e_tipo_shop.grid(row=3, column=12, columnspan=3, sticky='ew', padx=6, pady=8)
+        self.ent_taxonomy.grid(row=3, column=6, columnspan=9, sticky='ew', padx=6, pady=8)
 
         # Fila 5: SINOPSIS (textbox, ancho completo)
         ctk.CTkLabel(self.shopify_frame, text='SINOPSIS:', text_color=shop_lbl, font=lbl_font).grid(row=4, column=0, sticky='nw', padx=6, pady=8)
         try:
-            self.txt_sinopsis = ctk.CTkTextbox(self.shopify_frame, width=800, height=60, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors['text'], border_width=2, border_color=shop_primary)
+            self.txt_sinopsis = ctk.CTkTextbox(self.shopify_frame, width=800, height=60, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=shop_txt, border_width=2, border_color=shop_primary)
             self.txt_sinopsis.grid(row=4, column=1, columnspan=14, sticky='nsew', padx=6, pady=8)
         except Exception:
             frame_sin = ctk.CTkFrame(self.shopify_frame, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), border_width=2, border_color=shop_primary)
-            self.txt_sinopsis = tk.Text(frame_sin, bg=self.colors.get('background', COLOR_BG_TERMINAL), fg=self.colors['text'], height=3)
+            self.txt_sinopsis = tk.Text(frame_sin, bg=self.colors.get('background', COLOR_BG_TERMINAL), fg=shop_txt, height=3)
             self.txt_sinopsis.pack(fill='both', expand=True)
             frame_sin.grid(row=4, column=1, columnspan=14, sticky='nsew', padx=6, pady=8)
 
         # Fila 6: SEO_DESCRIPTION (7) | DESCRIPCION (8), misma altura
         ctk.CTkLabel(self.shopify_frame, text='SEO_DESCRIPTION:', text_color=shop_lbl, font=lbl_font).grid(row=5, column=0, columnspan=2, sticky='nw', padx=6, pady=8)
         try:
-            self.e_seo_desc = ctk.CTkTextbox(self.shopify_frame, height=100, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors['light'], border_width=2, border_color=shop_primary)
+            self.e_seo_desc = ctk.CTkTextbox(self.shopify_frame, height=100, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=shop_txt, border_width=2, border_color=shop_primary)
             self.e_seo_desc.grid(row=5, column=2, columnspan=5, sticky='nsew', padx=6, pady=8)
             try:
                 # make Tab move to next widget instead of inserting a tab character
@@ -440,13 +438,13 @@ class CrearProductoUI:
         except Exception:
             # fallback: wrap tk.Text in a framed CTkFrame to simulate border
             frame = ctk.CTkFrame(self.shopify_frame, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), border_width=2, border_color=shop_primary)
-            self.e_seo_desc = tk.Text(frame, bg=self.colors.get('background', COLOR_BG_TERMINAL), fg=self.colors['light'])
+            self.e_seo_desc = tk.Text(frame, bg=self.colors.get('background', COLOR_BG_TERMINAL), fg=shop_txt)
             self.e_seo_desc.pack(fill='both', expand=True)
             frame.grid(row=5, column=2, columnspan=5, sticky='nsew', padx=6, pady=8)
 
         ctk.CTkLabel(self.shopify_frame, text='DESCRIPCION:', text_color=shop_lbl, font=lbl_font).grid(row=5, column=7, columnspan=2, sticky='nw', padx=6, pady=8)
         try:
-            self.txt_description = ctk.CTkTextbox(self.shopify_frame, height=100, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=self.colors['light'], border_width=2, border_color=shop_primary)
+            self.txt_description = ctk.CTkTextbox(self.shopify_frame, height=100, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=shop_txt, border_width=2, border_color=shop_primary)
             self.txt_description.grid(row=5, column=9, columnspan=6, sticky='nsew', padx=6, pady=8)
             try:
                 # Tab from description should go directly to the Guardar button
@@ -459,7 +457,7 @@ class CrearProductoUI:
                 pass
         except Exception:
             frame2 = ctk.CTkFrame(self.shopify_frame, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), border_width=2, border_color=shop_primary)
-            self.txt_description = tk.Text(frame2, bg=self.colors.get('background', COLOR_BG_TERMINAL), fg=self.colors['light'])
+            self.txt_description = tk.Text(frame2, bg=self.colors.get('background', COLOR_BG_TERMINAL), fg=shop_txt)
             self.txt_description.pack(fill='both', expand=True)
             frame2.grid(row=5, column=9, columnspan=6, sticky='nsew', padx=6, pady=8)
         self.shopify_frame.grid_rowconfigure(5, weight=1)
@@ -489,9 +487,9 @@ class CrearProductoUI:
             self.cb_categoria.entry.bind('<FocusOut>', lambda e: (self._validate_combo_focus(self.cb_categoria), self._update_taxonomy_from_category(), self._auto_generate_sku()))
             self.cb_categoria.entry.bind('<<SearchableComboSelected>>', lambda e: (self._on_combo_selected(self.cb_categoria), self._update_taxonomy_from_category(), self._auto_generate_sku()))
             self.cb_categoria.entry.bind('<Return>', lambda e: (self._validate_combo_focus(self.cb_categoria), self._update_taxonomy_from_category(), self._auto_generate_sku()))
-            self.cb_tipo.entry.bind('<FocusOut>', lambda e: (self._validate_combo_focus(self.cb_tipo), self._auto_generate_sku()))
-            self.cb_tipo.entry.bind('<<SearchableComboSelected>>', lambda e: (self._on_combo_selected(self.cb_tipo), self._auto_generate_sku()))
-            self.cb_tipo.entry.bind('<Return>', lambda e: (self._validate_combo_focus(self.cb_tipo), self._auto_generate_sku()))
+            self.cb_tipo.entry.bind('<FocusOut>', lambda e: (self._validate_combo_focus(self.cb_tipo), self._update_taxonomy_from_category(), self._auto_generate_sku()))
+            self.cb_tipo.entry.bind('<<SearchableComboSelected>>', lambda e: (self._on_combo_selected(self.cb_tipo), self._update_taxonomy_from_category(), self._auto_generate_sku()))
+            self.cb_tipo.entry.bind('<Return>', lambda e: (self._validate_combo_focus(self.cb_tipo), self._update_taxonomy_from_category(), self._auto_generate_sku()))
             self.cb_proveedor.entry.bind('<FocusOut>', lambda e: self._validate_combo_focus(self.cb_proveedor))
             self.cb_proveedor.entry.bind('<<SearchableComboSelected>>', lambda e: self._on_combo_selected(self.cb_proveedor))
             self.cb_proveedor.entry.bind('<Return>', lambda e: self._validate_combo_focus(self.cb_proveedor))
@@ -635,29 +633,38 @@ class CrearProductoUI:
             if conn is None:
                 logging.info('CrearProductoUI: no hay conexión de DB disponible en _load_db_options')
                 return
-            cur = conn.cursor()
             # categorias
             try:
-                cur.execute('SELECT id, nombre, shopify_taxonomy FROM categorias')
-                cats = cur.fetchall()
-                cat_opts = [(int(r[0]), r[1] or '') for r in cats]
-                self.cb_categoria.set_options([(r[0], r[1]) for r in cat_opts])
+                from kool_tpv.modulos.almacen.categoria_repository import (
+                    CategoriaRepository,
+                )
+                cats = CategoriaRepository(self.db).get_all()
+                self.cb_categoria.set_options([(int(c['id']), c['nombre'] or '') for c in cats])
                 # save mapping for taxonomy
-                self._cat_taxonomy = {int(r[0]): (r[2] or '') for r in cats}
+                self._cat_taxonomy = {int(c['id']): (c.get('shopify_taxonomy') or '') for c in cats}
             except Exception:
                 logging.exception('Error cargando categorias')
             # tipos
             try:
-                cur.execute('SELECT id, nombre FROM tipos')
-                tipos = cur.fetchall()
-                self.cb_tipo.set_options([(int(r[0]), r[1] or '') for r in tipos])
+                from kool_tpv.modulos.almacen.tipo_repository import (
+                    TipoRepository,
+                )
+                tipos = TipoRepository(self.db).get_all()
+                self.cb_tipo.set_options([(int(t['id']), t['nombre'] or '') for t in tipos])
+                # taxonomy que hereda cada tipo de su categoría asignada
+                self._tipo_taxonomy = {
+                    int(t['id']): self._cat_taxonomy.get(int(t['categoria_id']), '')
+                    for t in tipos if t.get('categoria_id')
+                }
             except Exception:
                 logging.exception('Error cargando tipos')
             # proveedores
             try:
-                cur.execute('SELECT id, nombre FROM proveedores')
-                provs = cur.fetchall()
-                self.cb_proveedor.set_options([(int(r[0]), r[1] or '') for r in provs])
+                from kool_tpv.base_datos.proveedor_service import (
+                    ProveedorService,
+                )
+                provs = ProveedorService(self.db).get_all_proveedores()
+                self.cb_proveedor.set_options([(int(p['id']), p['nombre'] or '') for p in provs])
             except Exception:
                 logging.exception('Error cargando proveedores')
             # editoriales (tabla editoriales vía servicio)
@@ -673,9 +680,8 @@ class CrearProductoUI:
             # IVA candidates: distinct from productos
             try:
                 VALID_IVA_RATES = {0, 4, 10, 21}
-                cur.execute('SELECT DISTINCT tipo_iva FROM productos')
-                ivs = cur.fetchall()
-                iva_set = {int(r[0]) for r in ivs if r[0] is not None} | VALID_IVA_RATES
+                ivs = self.repo.get_tipos_iva() if self.repo else []
+                iva_set = {int(v) for v in ivs} | VALID_IVA_RATES
                 iva_opts = sorted([(v, str(v)) for v in iva_set])
                 self.cb_iva.set_options(iva_opts)
             except Exception:
@@ -704,33 +710,31 @@ class CrearProductoUI:
 
     def _update_taxonomy_from_category(self):
         try:
+            tax = ''
             cid = self.cb_categoria.get_id()
             if cid and hasattr(self, '_cat_taxonomy'):
                 tax = self._cat_taxonomy.get(cid, '')
+            # si la categoría del producto no tiene taxonomy, se usa la del tipo
+            if not tax:
+                tid = self.cb_tipo.get_id()
+                if tid and hasattr(self, '_tipo_taxonomy'):
+                    tax = self._tipo_taxonomy.get(tid, '')
+            # set readonly entry value
+            if getattr(self, 'ent_taxonomy', None):
                 try:
-                    # set readonly entry value
-                    if getattr(self, 'ent_taxonomy', None):
-                        try:
-                            # clear then insert value
-                            try:
-                                self.ent_taxonomy.configure(state='normal')
-                            except Exception:
-                                pass
-                            try:
-                                # some CTkEntry expose delete/insert
-                                self.ent_taxonomy.delete(0, 'end')
-                                self.ent_taxonomy.insert(0, tax)
-                            except Exception:
-                                try:
-                                    self.ent_taxonomy.configure(text=tax)
-                                except Exception:
-                                    pass
-                            try:
-                                self.ent_taxonomy.configure(state='readonly')
-                            except Exception:
-                                pass
-                        except Exception:
-                            pass
+                    self.ent_taxonomy.configure(state='normal')
+                except Exception:
+                    pass
+                try:
+                    self.ent_taxonomy.delete(0, 'end')
+                    self.ent_taxonomy.insert(0, tax)
+                except Exception:
+                    try:
+                        self.ent_taxonomy.configure(text=tax)
+                    except Exception:
+                        pass
+                try:
+                    self.ent_taxonomy.configure(state='readonly')
                 except Exception:
                     pass
         except Exception:
@@ -1183,7 +1187,7 @@ class CrearProductoUI:
             seo_title = ''
 
         try:
-            tipo_shop = (getattr(self, 'e_tipo_shop', None) and self.e_tipo_shop.get()) or ''
+            tipo_shop = (self.cb_tipo.get() or '').strip()
         except Exception:
             tipo_shop = ''
 
@@ -1672,6 +1676,7 @@ class CrearProductoUI:
                 'generos': _meta_txt(mc.get('genero_comic')),
                 'subgeneros': _meta_txt(mc.get('subgenero_comic')),
                 'contenido': _meta_txt(mc.get('contenido_adultos')),
+                'tags_actuales': (getattr(self, 'e_tags', None) and self.e_tags.get() or '').strip(),
                 'sinopsis': (self.txt_sinopsis.get('1.0', 'end-1c') or '').strip()
                             if getattr(self, 'txt_sinopsis', None) else '',
             }
@@ -1717,6 +1722,7 @@ class CrearProductoUI:
         self._seo_set(getattr(self, 'e_google_title', None), res.get('seo_title'))
         self._seo_set(getattr(self, 'e_seo_desc', None), res.get('seo_description'))
         self._seo_set(getattr(self, 'txt_description', None), res.get('description'))
+        self._seo_set(getattr(self, 'e_tags', None), res.get('tags'))
         ToastWidget.show(self.container, "SEO generado", tipo='success')
 
     def get_data(self) -> Dict[str, str]:
@@ -1747,7 +1753,7 @@ class CrearProductoUI:
                         (self.txt_description.get('1.0', 'end-1c') if getattr(self, 'txt_description', None) and hasattr(self.txt_description, 'get') else (self.txt_description.get() if getattr(self, 'txt_description', None) and hasattr(self.txt_description, 'get') else ''))
                     )
                 ))(),
-                'tipo_shop': (getattr(self, 'e_tipo_shop', None) and self.e_tipo_shop.get()) or '',
+                'tipo_shop': (self.cb_tipo.get() or '').strip(),
                 'etiquetas': (getattr(self, 'e_tags', None) and self.e_tags.get()) or '',
                 'shop_link': (getattr(self, 'e_shop_link', None) and self.e_shop_link.get()) or '',
                 'editorial': (getattr(self, 'cb_editorial', None) and self.cb_editorial.get()) or '',

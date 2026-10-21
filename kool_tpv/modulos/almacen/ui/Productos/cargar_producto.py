@@ -311,7 +311,6 @@ class CargarProductoUI:
             _set_textbox(getattr(ui_instance, 'e_seo_desc', None), data.get('seo_description') or '')
             _set_entry(getattr(ui_instance, 'e_store_title', None), data.get('titulo') or '')
             _set_entry(getattr(ui_instance, 'e_google_title', None), data.get('seo_title') or '')
-            _set_entry(getattr(ui_instance, 'e_tipo_shop', None), data.get('tipo_shop') or '')
             _set_entry(getattr(ui_instance, 'e_tags', None), data.get('etiquetas') or '')
             _set_entry(getattr(ui_instance, 'e_shop_link', None), data.get('shop_link') or '')
             # Editorial: combo estricto; si la guardada no está en la tabla se
@@ -396,6 +395,12 @@ class CargarProductoUI:
                         pass
             except Exception:
                 logging.exception('Error aplicando taxonomy')
+            # si el producto no tenía taxonomy guardada, se deriva de categoría/tipo
+            try:
+                if not (data.get('shopify_taxonomy') or '').strip():
+                    getattr(ui_instance, '_update_taxonomy_from_category', lambda: None)()
+            except Exception:
+                pass
 
             # ean CSV -> e_codigos
             try:

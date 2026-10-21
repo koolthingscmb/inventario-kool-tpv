@@ -197,22 +197,18 @@ class ZonaLibrosSource(BaseFuente):
             "isbn": a.get("ISBN") or "",
             "ean": a.get("EAN") or a.get("IsbnSinGuion") or "",
             "coleccion": a.get("Coleccion") or "",
-            "demografia": self._demografia(a.get("Tema") or ""),
+            # la Materia no es fiable por posición: los tramos van como
+            # candidatos y el comparador los asigna a su metacampo real
+            "demografia": "",
             "generos": [],
-            "candidatos_meta": [a.get("Tema") or ""],
+            "candidatos_meta": [
+                t for t in (a.get("Tema") or "").split("-") if t],
             "sinopsis": "",
             "imagen_url": a.get("Imagen") or "",
             "url_ficha": urljoin(
                 self.url_base + self._ruta_base + "/", a.get("URLArt") or ""),
             "_ci": a.get("CI") or "",
         }
-
-    @staticmethod
-    def _demografia(materia: str) -> str:
-        """El campo Materia de ZonaLibros viene como 'SHONEN-N/D-N/D':
-        la demografía es el primer tramo. 'N/D' o vacío -> ''."""
-        d = (materia or "").split("-")[0].strip()
-        return "" if d.upper() in ("", "N/D") else d
 
     def _parsear_ficha(self, html: str, ci: str) -> Dict[str, Any]:
         """Los campos llevan id fijo `ctl00_MainContent_txt*` en Norma
@@ -250,10 +246,11 @@ class ZonaLibrosSource(BaseFuente):
             "isbn": campo("txtISBN"),
             "ean": campo("txtEan"),
             "coleccion": campo("txtColeccion"),
-            # la etiqueta "Materia" de la web pinta el campo txtCategoria
-            "demografia": self._demografia(campo("txtCategoria")),
+            # la etiqueta "Materia" de la web pinta el campo txtCategoria;
+            # su primer tramo NO siempre es demografía -> no se confía y todo
+            # va como candidatos para que el comparador valide
+            "demografia": "",
             "generos": [],
-            # la Materia 'DEMOG-GENERO-SUBGENERO' puede traer los 3 tramos
             "candidatos_meta": [
                 t for t in (campo("txtCategoria") or "").split("-") if t],
             "sinopsis": campo("txtSinpsis"),

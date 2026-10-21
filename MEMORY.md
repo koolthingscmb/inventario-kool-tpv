@@ -49,14 +49,21 @@ aporte. (Última actualización: 2026-10-20, rama `windows-beta`.)
   reCAPTCHA hoy; Ivrea limita su buscador AJAX por IP (por eso usa el sitemap).
 
 ## Pendiente
-- DEUDA (no urgente): `crear_producto_ui.py` (1586 líneas) hace SQL directo en
-  `_load_db_options` (categorias, tipos, proveedores, tipo_iva) saltándose los repositorios;
-  `__init__` 419 líneas y `_on_save` 225. Refactor = mismo comportamiento, por partes,
-  empezando por mover esas 4 consultas a repositorios. No hacerlo junto a otra función.
+- DEUDA (no urgente): `crear_producto_ui.py` (1600+ líneas) aún tiene `__init__` ~419 líneas y
+  `_on_save` ~225. Ya NO hay SQL directo en `_load_db_options` (todo por repositorios/servicios:
+  categorias, tipos, proveedores, tipo_iva). Refactor restante = mismo comportamiento, por partes.
 - Botón IR del formulario: decidir uso. `web_dominio` ya no se edita desde la pantalla.
 - Decidir: tests rotos, `openai` en `requirements.txt`, documentos desactualizados.
 - PETICIÓN: UI pequeña en Shopify CONFIG para
   editar `metacampos_alias.json` (añadir/modificar equivalencias).
+- Ficha producto (2026-10-21): fuera campo SHOPIFY TIPO (redundante: se guarda el nombre del TIPO);
+  textos SEO en paleta Shopify; TAXONOMY deriva de categoría del producto o, si falta, de la del
+  tipo (`tipos.categoria_id`); "SUBGÉNERO" renombrado a TEMÁTICAS (solo etiquetas; la clave
+  Shopify `subgenero_comic` y el placeholder `{subgeneros}` del prompt no se tocan).
+- TAGS (estrategia propuesta, usuario decidiendo): derivados deterministas del producto/metacampos
+  (autor, serie?, editorial, demografía, géneros, temáticas) en slug sin tildes; temáticos de IA
+  solo contra la lista maestra = entradas del metaobjeto Temáticas en Shopify. NADA de IA libre.
+  Usuario: activar "colecciones automáticas" en las definiciones de metacampos en Shopify admin.
 - PRÓXIMOS PASOS (orden acordado 2026-10-20, uno por vez, con aprobación):
   1.5) PENDIENTE DECISIÓN: géneros de OBTENER -> GÉNERO por nombre (hoy siguen yendo a TAGS).
   2) GENERAR SEO hecho y probado por el usuario: el botón BUSCAR DATA ahora es GENERAR SEO
@@ -72,4 +79,7 @@ aporte. (Última actualización: 2026-10-20, rama `windows-beta`.)
   3) SUBIR / ACTUALIZAR EN SHOPIFY desde la ficha (un botón que sustituye a SINCRONIZAR, hoy vacío).
      `shopify_product_mapping` está VACÍA: antes de crear, buscar por SKU/código de barras para no
      duplicar. Toda escritura en Shopify (aunque sea borrador) se pregunta antes.
+     IMPORTANTE: al subir manga/cómic, enviar `barcode` = EAN en la variante (búsqueda por ISBN
+     en la tienda + GTIN para Google Shopping) y `vendor` = editorial (buscable, colecciones y
+     "brand" en Google Shopping; por eso la editorial NO va como tag). Sin EAN: no se envía.
   4) Limpieza: `BuscarDataService` y fuentes viejas, `_auto_fill_shopify_data` (código muerto).
