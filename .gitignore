@@ -44,3 +44,6 @@ kool_tpv/assets/barcodes/
 
 # Scripts de test/utilidad locales
 stress_test_data.py
+
+# Portadas descargadas por la app (se regeneran solas)
+kool_tpv/assets/portadas/
