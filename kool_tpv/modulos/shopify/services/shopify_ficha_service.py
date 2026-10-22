@@ -40,6 +40,9 @@ class ShopifyFichaService:
     # Los title_tag/description_tag de global van por el campo SEO, no por metacampo
     _SEO_KEYS = {"title_tag", "description_tag"}
 
+    # Entrada del campo LINK: 'url (etiqueta)'
+    _LINK_RE = re.compile(r"^\s*(.+?)\s*\(([^)]*)\)\s*$")
+
     def __init__(self, db):
         self.db = db
         self.repo = ShopifyRepository(db)
@@ -117,17 +120,28 @@ class ShopifyFichaService:
             })
         return metafields
 
+    @classmethod
+    def _avance_desde_link(cls, shop_link: str) -> str:
+        """Campo LINK 'url (etiqueta); url2 (etiqueta2)' -> url de la entrada
+        'Avance', o '' si no la hay."""
+        for parte in (shop_link or "").split(";"):
+            m = cls._LINK_RE.match(parte.strip())
+            if m and m.group(2).strip().lower() == "avance":
+                return m.group(1).strip()
+        return ""
+
     @staticmethod
     def _metacampos_a_conservar(existente: Dict[str, Any],
                                 metafields_ficha: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Metacampos del producto Shopify que la ficha no gestiona: se reenvían
         tal cual para que productSet no los borre."""
         propios = set(ShopifyFichaService.METACAMPOS_PROPIOS)
+        enviadas = {mf.get("key") for mf in metafields_ficha}
         conservar = []
         for mf in existente.get("metafields", {}).get("nodes", []):
             if not str(mf.get("value") or "").strip():
                 continue
-            if mf.get("namespace") == "custom" and mf.get("key") in propios:
+            if mf.get("namespace") == "custom" and mf.get("key") in (propios | enviadas):
                 continue
             if mf.get("namespace") == "global" and mf.get("key") in ShopifyFichaService._SEO_KEYS:
                 continue
@@ -205,6 +219,10 @@ class ShopifyFichaService:
         }
 
         metafields = self._metacampos_ficha(form.get("metacampos"))
+        avance = self._avance_desde_link(form.get("shop_link"))
+        if avance:
+            metafields.append({"namespace": "custom", "key": "avance_comic",
+                               "type": "url", "value": avance})
         if existente:
             datos["product_id"] = existente["id"]
             datos["collections_existing"] = [

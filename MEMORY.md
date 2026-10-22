@@ -89,6 +89,9 @@ aporte. (Última actualización: 2026-10-20, rama `windows-beta`.)
      flags variantes, shopify_taxonomy) -> Almacén->TIPOS ya no pisa lo de CONFIG->TIPOS.
      vendor = editorial: DECIDIDO, se queda (es la "marca" del producto, útil para Google
      Shopping/brand y colecciones).
+     Metacampo `custom.avance_comic` (tipo url): se envía solo si el campo LINK tiene una
+     entrada con etiqueta 'Avance' (las fuentes ya la escriben así); si no hay, se conserva
+     lo que hubiera en Shopify. El parseo está en `_avance_desde_link`.
   4) Limpieza (HECHO 2026-10-22): borrados `buscar_data/`, `sources/` (AniList/MangaDex/
      GoogleBooks/Wikipedia), `web_search_service.py`, `fuentes_tab.py` y la pestaña FUENTES
      de CONFIG. Todo era código muerto sustituido por GENERAR SEO. OJO: el sistema vivo de
