@@ -48,6 +48,9 @@ aporte. (Última actualización: 2026-10-20, rama `windows-beta`.)
   reCAPTCHA hoy; Ivrea limita su buscador AJAX por IP (por eso usa el sitemap).
 
 ## Pendiente
+- NUEVO (2026-10-22): las subidas de cómic/manga van casi perfectas. Falta: al vender un
+  cómic o manga en tienda física, que baje automáticamente el stock en Shopify (hoy la
+  cola de sync solo cubre stock base de producción, no las ventas de productos).
 - DEUDA (no urgente): `crear_producto_ui.py` (1600+ líneas) aún tiene `__init__` ~419 líneas y
   `_on_save` ~225. Ya NO hay SQL directo en `_load_db_options` (todo por repositorios/servicios:
   categorias, tipos, proveedores, tipo_iva). Refactor restante = mismo comportamiento, por partes.
