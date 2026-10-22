@@ -76,10 +76,31 @@ aporte. (Última actualización: 2026-10-20, rama `windows-beta`.)
   2b) Editoriales: quitado el `.lower()` que forzaba minúsculas al guardar (fuentes_editorial_
      service) + lookup `COLLATE NOCASE` (editorial_repository). Los 10 nombres actuales siguen
      en minúsculas hasta que el usuario los re-guarde o autorice UPDATE.
-  3) SUBIR / ACTUALIZAR EN SHOPIFY desde la ficha (un botón que sustituye a SINCRONIZAR, hoy vacío).
-     `shopify_product_mapping` está VACÍA: antes de crear, buscar por SKU/código de barras para no
-     duplicar. Toda escritura en Shopify (aunque sea borrador) se pregunta antes.
-     IMPORTANTE: al subir manga/cómic, enviar `barcode` = EAN en la variante (búsqueda por ISBN
-     en la tienda + GTIN para Google Shopping) y `vendor` = editorial (buscable, colecciones y
-     "brand" en Google Shopping; por eso la editorial NO va como tag). Sin EAN: no se envía.
+  3) SUBIR A SHOPIFY desde la ficha: HECHO y probado por el usuario (2026-10-21, sin commit aún).
+     Botón SUBIR A SHOPIFY (antes SINCRONIZAR). `ShopifyFichaService` (shopify/services) monta
+     `datos` desde get_data() y llama `product_set`: barcode=EAN en la variante, vendor=editorial,
+     productType=tipo TPV, taxonomy de la ficha, templateSuffix=`shopify_template_suffix` (nuevo
+     campo "Plantilla de producto" en CONFIG->GENERAL; tenía 'kool-camisetas' precargado), metacampos
+     cómic a GIDs, portadas locales con alt (título - portada/contraportada), precio+stock.
+     Siempre sube ACTIVE (el usuario prefirió sin diálogo de estado). Antes de crear: búsqueda
+     por barcode (`buscar_por_barcode`); si existe -> diálogo enlazar. En actualización se reenvían
+     metacampos/colecciones/imágenes que la ficha no gestiona (productSet borra lo omitido).
+     Tras subir: mapping + sync_log + `pending_sync=0` + LINK relleno (`marcar_sincronizado`).
+     Tras CREAR: busca duplicados por título (`buscar_por_titulo`) -> diálogo multiselección
+     reutilizado -> BORRAR con confirmación (`borrar_producto`/`productDelete`, irreversible).
+     FIX hecho: `TipoRepository.update` ya no toca columnas de Shopify (web_activo, template_suffix,
+     flags variantes, shopify_taxonomy) -> Almacén->TIPOS ya no pisa lo de CONFIG->TIPOS.
+     DUDA PENDIENTE (decidir mañana): `vendor` = editorial. Ojo: vendor NO es el vendedor (la
+     tienda es el vendedor) ni afecta a envíos; es la "marca" del producto (en librerías = editorial,
+     bien para Google Shopping/brand y colecciones). Riesgo real solo si alguna app leyera vendor
+     como proveedor. Alternativas si molesta: no enviar vendor en manga/cómic, o usarlo solo en
+     fabricación propia (camisetas -> 'Kool Things' ya va por cfg marca en SUBIDA).
   4) Limpieza: `BuscarDataService` y fuentes viejas, `_auto_fill_shopify_data` (código muerto).
+  5) VALES en BD (HECHO y probado, 2026-10-22): migraciones 065 (vales/vales_usos),
+     066 (num_vale+nombre), 067 (cierres.total_vales). El vale es FORMA DE PAGO:
+     tickets.vale_cents = importe aplicado, payments con metodo 'vale', consumo
+     dentro de la transacción de la venta. Vale que cubre todo -> panel
+     PAGADO CON VALE. Cierre: venta real + línea 'Pagado con vales'; devoluciones
+     en neto (las líneas que se anulan no inflan) y conteo por tipo de línea.
+     PENDIENTE: migrar vales JSON activos si los hubiera; revisar stock de
+     'Super Heroes BP ENG' (posible +1 por el bug de línea fantasma).
