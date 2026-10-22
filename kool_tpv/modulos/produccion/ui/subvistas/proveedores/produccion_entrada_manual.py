@@ -767,6 +767,13 @@ class ProduccionEntradaManualUI:
                     tipo='success'
                 )
             
+            # Transacciones confirmadas: despertar al trabajador de sync de Shopify
+            try:
+                from kool_tpv.modulos.shopify.services.shopify_sync_service import ShopifySyncService
+                ShopifySyncService(self.db).procesar_pendientes_async()
+            except Exception:
+                logger.exception("Error despertando al trabajador de sync")
+            
             self._on_volver_click()
 
         except Exception:

@@ -67,54 +67,45 @@ class ProduccionStockBaseService:
 		
 		# Hook de Sincronización Automática
 		if ok:
-			self._trigger_async_sync(tipo_id, color_id, talla, variante_id, cantidad)
+			self._trigger_async_sync(tipo_id, color_id, talla, variante_id, cantidad, cur=cur)
 			
 		return ok
 
-	def _trigger_async_sync(self, tipo_id, color_id, talla, variante_id, cantidad, motivo: str = "Actualización manual"):
-		"""Dispara la sincronización con Shopify en segundo plano si está activa."""
+	def _trigger_async_sync(self, tipo_id, color_id, talla, variante_id, cantidad,
+	                       motivo: str = "Actualización manual", cur=None):
+		"""Encola la sincronización con Shopify dentro de la transacción del llamador.
+
+		El encargo queda como 'pendiente' en shopify_sync_log: si la transacción
+		se deshace, el encargo desaparece con ella. Sin cursor externo (fuera de
+		transacción) además se despierta al trabajador para procesarlo ya.
+		"""
 		try:
 			# Solo variantes marcadas como "SYNC WEB" en su configuración
 			if not variante_id:
 				return
-			row = self.db.fetch_one("SELECT sync_web FROM tipos_variantes WHERE id = ?", (variante_id,))
+			if cur:
+				cur.execute("SELECT sync_web FROM tipos_variantes WHERE id = ?", (variante_id,))
+				row = cur.fetchone()
+			else:
+				row = self.db.fetch_one("SELECT sync_web FROM tipos_variantes WHERE id = ?", (variante_id,))
 			if not row or not row[0]:
 				return
 			from kool_tpv.modulos.shopify.services.shopify_config_service import ShopifyConfigService
-			if ShopifyConfigService(self.db).get_config().get("sync_active"):
-				sku = self.generar_sku(tipo_id, color_id, talla, variante_id)
-				import threading
-				from kool_tpv.modulos.shopify.services.shopify_sync_service import ShopifySyncService
-				def _async():
-					try:
-						sync_svc = ShopifySyncService(self.db)
-						res = sync_svc.sync_stock_by_sku_prefix(sku, cantidad, reason=motivo)
-						
-						# Mostrar Toast si la sincronización fue exitosa
-						if res.get("success"):
-							from kool_tpv.utils.widgets.notificaciones.toast_widget import ToastWidget
-							import tkinter as tk
-							try:
-								# Intentamos obtener cualquier ventana activa para el toast
-								def _find_root():
-									# 1. Intentar por el root por defecto
-									try:
-										if hasattr(tk, '_default_root') and tk._default_root:
-											return tk._default_root
-									except: pass
-									# 2. Intentar buscar en todas las ventanas abiertas
-									try:
-										from tkinter import _default_root
-										if _default_root: return _default_root
-									except: pass
-									return None
-
-								root = _find_root()
-								if root:
-									root.after(0, lambda: ToastWidget.show(root, f"Shopify: {sku} actualizado", tipo='success'))
-							except Exception: pass
-					except Exception: pass
-				threading.Thread(target=_async, daemon=True).start()
+			if not ShopifyConfigService(self.db).get_config().get("sync_active"):
+				return
+			sku = self.generar_sku(tipo_id, color_id, talla, variante_id)
+			if not sku:
+				logger.error(f"No se pudo generar SKU de sync (tipo={tipo_id}, color={color_id}, talla={talla}, variante={variante_id})")
+				return
+			from kool_tpv.modulos.shopify.shopify_repository import ShopifyRepository
+			ShopifyRepository(self.db).encolar_sync_stock(sku, cantidad, motivo, cur=cur)
+			if not cur:
+				# Fuera de transacción el encargo ya está confirmado: despertar al trabajador
+				try:
+					from kool_tpv.modulos.shopify.services.shopify_sync_service import ShopifySyncService
+					ShopifySyncService(self.db).procesar_pendientes_async()
+				except Exception:
+					logger.exception("Error despertando al trabajador de sync")
 		except Exception:
 			logger.exception("Error en _trigger_async_sync")
 
@@ -182,7 +173,7 @@ class ProduccionStockBaseService:
 			
 			# 5. Sincronizar con Shopify
 			if ok:
-				self._trigger_async_sync(tipo_id, color_id, talla, variante_id, cant_total, motivo="Entrada de Albarán")
+				self._trigger_async_sync(tipo_id, color_id, talla, variante_id, cant_total, motivo="Entrada de Albarán", cur=cur)
 				# 6. Auto-poblar la matriz si la combinación no existe
 				self._asegurar_matriz(tipo_id, color_id, talla, variante_id, cur=cur)
 			
@@ -326,7 +317,7 @@ class ProduccionStockBaseService:
 		if ok and delta != 0:
 			# Obtenemos la cantidad actual para enviar el estado real
 			cantidad_actual = self.repo.obtener_cantidad(tipo_id, color_id, (talla or "").strip().upper(), variante_id)
-			self._trigger_async_sync(tipo_id, color_id, talla, variante_id, cantidad_actual, motivo=motivo)
+			self._trigger_async_sync(tipo_id, color_id, talla, variante_id, cantidad_actual, motivo=motivo, cur=cur)
 
 		return ok
 

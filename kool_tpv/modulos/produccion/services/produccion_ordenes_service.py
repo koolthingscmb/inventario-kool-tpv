@@ -149,6 +149,14 @@ class ProduccionOrdenesService:
                     if borrado:
                         lineas_borradas += 1
 
+            # Transacción confirmada: despertar al trabajador de sync de Shopify
+            # para que procese los encargos 'pendiente' dejados por las líneas.
+            try:
+                from kool_tpv.modulos.shopify.services.shopify_sync_service import ShopifySyncService
+                ShopifySyncService(self.db).procesar_pendientes_async()
+            except Exception:
+                self.logger.exception("Error despertando al trabajador de sync")
+
             return lineas_borradas
 
         except Exception:

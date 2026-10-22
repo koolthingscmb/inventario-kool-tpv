@@ -63,7 +63,7 @@ class ShopifySyncView(ctk.CTkFrame):
         self.tab_bar.pack(fill="x", padx=30, pady=(0, 10))
         self.tab_bar.pack_propagate(False)
 
-        tabs = [("ACTUALIZAR", self._show_tab_actualizar), ("LOGS", self._show_tab_logs)]
+        tabs = [("ACTUALIZAR", self._show_tab_actualizar), ("PENDIENTES", self._show_tab_pendientes), ("LOGS", self._show_tab_logs)]
         for name, callback in tabs:
             lbl = tk.Label(
                 self.tab_bar, text=name, font=("Helvetica", 10, "bold"),
@@ -172,6 +172,100 @@ class ShopifySyncView(ctk.CTkFrame):
         # Espacio debajo para el futuro
         spacer = ctk.CTkFrame(self.content_area, fg_color="transparent")
         spacer.pack(fill="both", expand=True)
+
+    def _show_tab_pendientes(self):
+        """Lista los encargos de sync pendientes o fallidos, con reintento manual."""
+        primary_color = self.colors.get('primary', '#00A4DF')
+
+        try:
+            filas = self.sync_service.repo.get_cola_sync()
+        except Exception:
+            filas = []
+
+        # --- Cabecera con acciones ---
+        header = ctk.CTkFrame(self.content_area, fg_color="transparent")
+        header.pack(fill="x", pady=(0, 10))
+
+        if filas:
+            ctk.CTkLabel(
+                header, text=f"{len(filas)} encargo(s) que necesitan atención",
+                font=("Roboto-Bold", 14), text_color=primary_color
+            ).pack(side="left")
+            ButtonFactory.create_button(
+                header, text="REINTENTAR TODOS",
+                command=lambda: self._on_reintentar_encargo(None),
+                style_key="mini_action", module="shopify", palette_key="primary"
+            ).pack(side="right", padx=5)
+            ButtonFactory.create_button(
+                header, text="REFRESCAR",
+                command=self._refresh_pendientes,
+                style_key="mini_action", module="shopify", palette_key="secondary"
+            ).pack(side="right")
+        else:
+            ctk.CTkLabel(
+                self.content_area,
+                text="Todo sincronizado. No hay encargos pendientes ni errores.",
+                font=("Roboto-Bold", 13), text_color="#888888"
+            ).pack(pady=40)
+            return
+
+        # --- Lista de encargos ---
+        lista = ctk.CTkScrollableFrame(self.content_area, fg_color="transparent")
+        lista.pack(fill="both", expand=True)
+
+        self._rows_cola = filas
+        for fila in filas:
+            estado = fila.get("resultado", "")
+            sku = fila.get("sku") or "?"
+            cantidad = fila.get("cantidad")
+            mensaje = fila.get("mensaje") or ""
+            fecha = fila.get("created_at") or ""
+
+            row_frame = ctk.CTkFrame(lista, fg_color=self.colors.get('bg_medium', '#1a1a1a'), corner_radius=10)
+            row_frame.pack(fill="x", pady=4, ipady=6)
+
+            estado_txt = {"pendiente": "PENDIENTE", "error": "ERROR", "sin_variantes": "SIN WEB"}.get(estado, estado.upper())
+            estado_color = {"pendiente": "#F0A030", "error": "#E74C3C", "sin_variantes": "#E67E22"}.get(estado, "#888888")
+
+            ctk.CTkLabel(row_frame, text=estado_txt, font=("Roboto-Bold", 12),
+                         text_color=estado_color, width=110, anchor="w").pack(side="left", padx=(15, 5))
+
+            ctk.CTkLabel(row_frame, text=sku, font=("Consolas", 13),
+                         text_color="#FFFFFF", anchor="w").pack(side="left", padx=5)
+
+            detalle = f"-> {cantidad}" if cantidad is not None else ""
+            if estado != "pendiente" and mensaje:
+                detalle = f"{detalle}  {mensaje}".strip()
+            ctk.CTkLabel(row_frame, text=f"{detalle}   {fecha}", font=("Helvetica", 11),
+                         text_color="#AAAAAA", anchor="w").pack(side="left", padx=10, fill="x", expand=True)
+
+            ButtonFactory.create_button(
+                row_frame, text="REINTENTAR",
+                command=lambda lid=fila["id"]: self._on_reintentar_encargo(lid),
+                style_key="mini_action", module="shopify", palette_key="primary",
+                width=120, height=30
+            ).pack(side="right", padx=15)
+
+    def _refresh_pendientes(self):
+        """Recarga la lista de encargos pendientes."""
+        if self._current_tab == "PENDIENTES" and self.winfo_exists():
+            for child in self.content_area.winfo_children():
+                child.destroy()
+            self._show_tab_pendientes()
+
+    def _on_reintentar_encargo(self, log_id: Optional[int]):
+        """Devuelve encargos a 'pendiente' y despierta al trabajador de sync."""
+        try:
+            if log_id is None:
+                for fila in getattr(self, '_rows_cola', []):
+                    self.sync_service.repo.marcar_pendiente(fila["id"])
+            else:
+                self.sync_service.repo.marcar_pendiente(log_id)
+            self.sync_service.procesar_pendientes_async()
+            show_success(self, "Reintentando sincronización...")
+            self.after(2500, self._refresh_pendientes)
+        except Exception:
+            logger.exception("Error reintentando encargo de sync")
 
     def _show_tab_logs(self):
         """Muestra el historial permanente de sincronización en formato terminal."""

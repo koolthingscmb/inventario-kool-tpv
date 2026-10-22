@@ -104,3 +104,13 @@ aporte. (Última actualización: 2026-10-20, rama `windows-beta`.)
      en neto (las líneas que se anulan no inflan) y conteo por tipo de línea.
      PENDIENTE: migrar vales JSON activos si los hubiera; revisar stock de
      'Super Heroes BP ENG' (posible +1 por el bug de línea fantasma).
+  6) COLA DE SYNC STOCK->SHOPIFY (HECHO y probado, 2026-10-22): migración 068
+     añade sku/cantidad/reintentos a shopify_sync_log. `_trigger_async_sync` ya no
+     lanza hilos: ENCOLA el encargo ('pendiente') dentro de la transacción del
+     llamador (si rueda atrás, el encargo desaparece). Tras commit, un solo
+     trabajador (`procesar_pendientes`, candado de clase) los procesa en serie
+     con un solo token -> adiós a la estampida OAuth que perdió la sync de la
+     infantil 9-11 (token caducado + 3 hilos pidiendo llave a la vez).
+     Errores quedan con motivo real y se ven en SYNC -> pestaña PENDIENTES con
+     REINTENTAR manual. Errores NO se reintentan solos al arrancar (decisión del
+     usuario); los 'pendiente' huérfanos sí se drenan al iniciar (main.py).

@@ -118,6 +118,20 @@ class App(ctk.CTk):
         self.bind('<Escape>', lambda e: self._dispatch_power())
 
         logging.info("Aplicación iniciada correctamente.")
+        self._drenar_sync_pendientes()
+
+    def _drenar_sync_pendientes(self):
+        """Procesa en segundo plano los encargos de sync de Shopify pendientes.
+
+        Solo drena los 'pendiente' (encargos que nunca llegaron a intentarse).
+        Los errores NO se reintentan solos: quedan visibles en SYNC -> PENDIENTES
+        hasta que el usuario decida con el botón REINTENTAR.
+        """
+        try:
+            from kool_tpv.modulos.shopify.services.shopify_sync_service import ShopifySyncService
+            ShopifySyncService(self.db).procesar_pendientes_async()
+        except Exception:
+            logging.getLogger(__name__).exception("Error drenando sync pendientes al arrancar")
 
     def _init_ui_structure(self):
         sidebar_cfg = self.layout_cfg.get("modules", {}).get("sidebar", {})

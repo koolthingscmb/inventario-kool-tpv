@@ -13,6 +13,7 @@ class ShopifyAuthService:
     def __init__(self, db):
         self.db = db
         self.config_service = ShopifyConfigService(db)
+        self.last_error = None
 
     def get_token(self) -> Optional[str]:
         """Obtiene un token válido, ya sea el persistente (shpat) o uno generado por OAuth."""
@@ -43,7 +44,10 @@ class ShopifyAuthService:
             except: pass
                 
         # 2. Si no hay o ha caducado, pedir uno nuevo
-        token, _ = self.solicitar_nuevo_token(cfg)
+        token, err = self.solicitar_nuevo_token(cfg)
+        if not token:
+            self.last_error = err
+            logger.error(f"No se pudo renovar el token de Shopify: {err}")
         return token
 
     def solicitar_nuevo_token(self, cfg: Optional[Dict] = None) -> Tuple[Optional[str], Optional[str]]:

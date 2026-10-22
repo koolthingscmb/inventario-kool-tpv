@@ -629,6 +629,26 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migración 068: cola de sincronización de stock con Shopify — el log
+		# de sync guarda el encargo pendiente (sku y cantidad objetivo) para
+		# que un solo trabajador lo procese tras el commit y pueda reintentar
+		# los fallos en vez de perderlos en silencio.
+		try:
+			cols_sync = {r[1] for r in (db.fetch_all("PRAGMA table_info(shopify_sync_log)") or [])}
+			if cols_sync and 'sku' not in cols_sync:
+				logging.info('Aplicando migración 068: cola de sync en shopify_sync_log')
+				db.connection.execute('ALTER TABLE shopify_sync_log ADD COLUMN sku TEXT')
+				db.connection.execute('ALTER TABLE shopify_sync_log ADD COLUMN cantidad INTEGER')
+				db.connection.execute('ALTER TABLE shopify_sync_log ADD COLUMN reintentos INTEGER DEFAULT 0')
+				db.connection.commit()
+				logging.info('Migración 068 (cola sync en shopify_sync_log) aplicada')
+		except Exception:
+			logging.exception('Error aplicando migración 068')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Check existence
 		existing = []
 		try:
