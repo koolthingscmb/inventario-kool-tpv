@@ -219,7 +219,6 @@ class TipoRepository:
         id: int,
         nombre: str,
         descripcion: str,
-        shopify_taxonomy: str,
         fide_porcentaje: float,
         color: str = None,
         icono: str = None,
@@ -229,21 +228,21 @@ class TipoRepository:
         activo: int = 1,
         orden: int = 0,
         categoria_id: Optional[int] = None,
-        web_activo: int = 0,
-        template_suffix: str = '',
-        shopify_use_variant_as_type: int = 0,
-        shopify_agrupar_variantes: int = 0,
     ) -> None:
-        """Actualiza un tipo existente."""
+        """Actualiza un tipo existente.
+
+        Los campos de Shopify (web_activo, template_suffix, flags de variantes y
+        shopify_taxonomy) los gestiona SHOPIFY -> CONFIG -> TIPOS; este UPDATE no
+        los toca para no pisar esa configuración.
+        """
         self.db.execute_query(
             'UPDATE tipos SET nombre = ?, descripcion = ?, '
-            'shopify_taxonomy = ?, fide_porcentaje = ?, color = ?, icono = ?, '
-            'coste_base = ?, requiere_talla = ?, requiere_color = ?, activo = ?, orden = ?, categoria_id = ?, '
-            'web_activo = ?, template_suffix = ?, shopify_use_variant_as_type = ?, shopify_agrupar_variantes = ? '
+            'fide_porcentaje = ?, color = ?, icono = ?, '
+            'coste_base = ?, requiere_talla = ?, requiere_color = ?, activo = ?, orden = ?, categoria_id = ? '
             'WHERE id = ?',
-            (nombre, descripcion, shopify_taxonomy, float(fide_porcentaje), color, icono,
+            (nombre, descripcion, float(fide_porcentaje), color, icono,
              float(coste_base), int(requiere_talla), int(requiere_color), int(activo), int(orden),
-             categoria_id, int(web_activo), template_suffix, int(shopify_use_variant_as_type), int(shopify_agrupar_variantes), id),
+             categoria_id, id),
         )
 
     def delete(self, id: int) -> None:
