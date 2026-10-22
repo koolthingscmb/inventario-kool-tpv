@@ -642,6 +642,64 @@ class TicketCarrito(ctk.CTkFrame):
         except Exception:
             logger.exception("Error activando pago multi")
 
+    def activar_pago_vale_final(self, on_finalizar: Optional[Callable] = None):
+        """Activar finalización cuando un vale cubre el total de la venta.
+
+        No hay dinero que cobrar: muestra un panel con el importe del vale
+        y un único botón FINALIZAR.
+        """
+        try:
+            self._clear_payment_area()
+
+            resumen = self.carrito_service.get_resumen_financiero() if self.carrito_service else {}
+            vale_euros = resumen.get('vale_euros', 0.0)
+
+            from kool_tpv.utils.widgets.payment_controllers import PaymentConfigHelper
+            config = PaymentConfigHelper("efectivo")
+            tf = config.get_font("titulo")
+            bf = config.get_font("button")
+            lf = config.get_font("label")
+            p = config.get_layout_value("padding") or 20
+            s = config.get_layout_value("spacing") or 12
+            bw = config.get_layout_value("button", "width") or 200
+            bh = config.get_layout_value("button", "height") or 45
+            br = config.get_layout_value("button", "corner_radius") or 22
+            bb = config.get_layout_value("button", "border_width") or 2
+
+            panel = ctk.CTkFrame(
+                self.payment_area,
+                fg_color=config.get_bg_color(),
+                border_width=config.get_layout_value("border_width") or 5,
+                border_color="#2ecc71",
+                corner_radius=config.get_layout_value("corner_radius") or 18,
+            )
+            mc = ctk.CTkFrame(panel, fg_color="transparent")
+            mc.pack(fill="both", expand=True, padx=p, pady=s)
+
+            ctk.CTkLabel(mc, text="PAGADO CON VALE", font=tf,
+                         text_color=config.get_color("text_titulo")).pack(pady=(0, 8))
+            ctk.CTkLabel(mc, text=f"Vale aplicado: {float(vale_euros):.2f} € · Pendiente: 0.00 €",
+                         font=lf, text_color=config.get_color("text_label")).pack(pady=(0, 10))
+
+            def _finalizar():
+                if on_finalizar:
+                    on_finalizar({'total': 0.0})
+
+            ctk.CTkButton(
+                mc, text="FINALIZAR VENTA", command=_finalizar,
+                fg_color="#2ecc71", hover_color="#27ae60",
+                text_color="#FFFFFF", font=bf, width=bw, height=bh,
+                corner_radius=br, border_width=bb).pack()
+
+            self.active_payment_controller = panel
+            self.active_payment_type = "vale_final"
+            panel.pack(fill="both", expand=True)
+
+            logger.info("Pago vale-final activado (venta cubierta por vale)")
+
+        except Exception:
+            logger.exception("Error activando pago vale-final")
+
     def desactivar_pago(self):
         """Desactivar forma de pago activa (volver footer a estado neutral)."""
         self._clear_payment_area()
@@ -883,61 +941,72 @@ class TicketCarrito(ctk.CTkFrame):
         except Exception:
             logger.exception("Error actualizando totales")
 
+    def _find_item_index(self, item_data: dict) -> int:
+        """Localiza el índice real en el carrito de la línea mostrada en pantalla.
+
+        La comparación usa id + tipo de línea + precio en VALOR ABSOLUTO,
+        porque las líneas de devolución se pintan con el precio negado y
+        el precio mostrado no coincide con el guardado.
+        Devuelve -1 si no la encuentra.
+        """
+        from decimal import Decimal
+
+        item_id = item_data.get("id")
+        item_line_tipo = str(item_data.get('line_tipo', 'venta')).lower()
+
+        item_pvp_raw = item_data.get('pvp', 0)
+        item_pvp = Decimal('0.00')
+        if isinstance(item_pvp_raw, str):
+            try:
+                clean_pvp = item_pvp_raw.replace('€', '').replace(' ', '').replace(',', '.')
+                item_pvp = Decimal(clean_pvp)
+            except Exception:
+                pass
+        else:
+            try:
+                item_pvp = Decimal(str(item_pvp_raw))
+            except Exception:
+                pass
+        item_pvp = abs(item_pvp)
+
+        items = self.carrito_service.get_items() or []
+        for idx, item in enumerate(items):
+            match_id = item.get("id") == item_id
+            match_tipo = str(item.get('line_tipo', 'venta')).lower() == item_line_tipo
+            try:
+                match_pvp = abs(Decimal(str(item.get('pvp', 0)))) == item_pvp
+            except Exception:
+                match_pvp = False
+
+            if match_id and match_tipo and match_pvp:
+                return idx
+        return -1
+
     def _on_item_change(self, item_data: dict, action: str):
         """Handler cuando se modifica un item desde el NavList."""
         try:
             if not self.carrito_service:
                 return
 
-            from decimal import Decimal
+            # Las filas visuales (tesoro, descuento, vale) no son items reales
+            if item_data.get('visual'):
+                return
+
+            idx = self._find_item_index(item_data)
+            if idx < 0:
+                logger.warning(f"No se encontró la línea del carrito para '{action}': {item_data.get('nombre')}")
+                return
+
+            items = self.carrito_service.get_items() or []
+            current_qty = int(items[idx].get("cantidad", 0))
 
             if action == "add":
-                # Para añadir una unidad, NO volvemos a la base de datos (perderíamos precios manuales)
-                # Usamos los datos actuales de la línea, forzando cantidad 1 para el incremento
-                item_delta = item_data.copy()
-                item_delta['cantidad'] = 1
-                
-                # Extraer el precio numérico si viene como string formateado ("X.XX €")
-                pvp_raw = item_delta.get('pvp', 0)
-                if isinstance(pvp_raw, str):
-                    try:
-                        clean_pvp = pvp_raw.replace('€', '').replace(' ', '').replace(',', '.')
-                        item_delta['pvp'] = Decimal(clean_pvp)
-                    except Exception:
-                        pass
-                
-                self.carrito_service.add_item(item_delta, parent_window=self.winfo_toplevel())
-
+                self.carrito_service.update_cantidad(idx, current_qty + 1)
             elif action == "remove":
-                item_id = item_data.get("id")
-                item_line_tipo = str(item_data.get('line_tipo', 'venta')).lower()
-                
-                # Extraer precio para comparar la línea exacta
-                item_pvp_raw = item_data.get('pvp', 0)
-                item_pvp = Decimal('0.00')
-                if isinstance(item_pvp_raw, str):
-                    try:
-                        clean_pvp = item_pvp_raw.replace('€', '').replace(' ', '').replace(',', '.')
-                        item_pvp = Decimal(clean_pvp)
-                    except Exception:
-                        pass
+                if current_qty > 1:
+                    self.carrito_service.update_cantidad(idx, current_qty - 1)
                 else:
-                    item_pvp = Decimal(str(item_pvp_raw))
-
-                items = self.carrito_service.get_items() or []
-                for idx, item in enumerate(items):
-                    # Comparar ID, tipo de línea Y precio (PVP) para encontrar la línea exacta
-                    match_id = item.get("id") == item_id
-                    match_tipo = str(item.get('line_tipo', 'venta')).lower() == item_line_tipo
-                    match_pvp = Decimal(str(item.get('pvp', 0))) == item_pvp
-
-                    if match_id and match_tipo and match_pvp:
-                        current_qty = int(item.get("cantidad", 0))
-                        if current_qty > 1:
-                            self.carrito_service.update_cantidad(idx, current_qty - 1)
-                        else:
-                            self.carrito_service.remove_item(idx)
-                        break
+                    self.carrito_service.remove_item(idx)
 
             # Refrescar display
             self.update_carrito()

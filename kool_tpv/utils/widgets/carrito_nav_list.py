@@ -86,10 +86,14 @@ class CarritoNavList(VirtualNavList):
             return {}
         
         tipo_colors = self.carrito_colors.get(f"line_{line_tipo}", {})
-        return {
+        colors = {
             'bg': tipo_colors.get("bg"),
             'fg': tipo_colors.get("text")
         }
+        # Mantener el color del tipo de línea aunque la fila esté seleccionada
+        if tipo_colors.get("text"):
+            colors['selected_fg'] = tipo_colors["text"]
+        return colors
 
     def _apply_carrito_colors(self):
         """Aplicar colores específicos del carrito sobre los de NavList base."""

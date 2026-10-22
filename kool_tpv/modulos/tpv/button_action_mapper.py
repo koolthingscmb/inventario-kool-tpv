@@ -109,6 +109,25 @@ def _activate_payment(view, tipo: str):
             logger.warning('ticket_carrito no disponible')
             return
 
+        # Si un vale cubre todo el pendiente, no se cobra nada por
+        # efectivo/tarjeta: se muestra el panel "PAGADO CON VALE".
+        if tipo != 'devolucion':
+            try:
+                carrito = getattr(view, 'carrito_service', None)
+                vale_aplicado = carrito.get_vale_aplicado() if carrito else None
+                if vale_aplicado:
+                    resumen = carrito.get_resumen_financiero()
+                    pendiente = float(resumen.get('total', 0.0) or 0.0)
+                    if pendiente <= 0.0:
+                        tc.activar_pago_vale_final(
+                            on_finalizar=lambda data: finalize(
+                                efectivo=0.0, forma_pago='Vale',
+                                importe_efectivo=0.0, importe_tarjeta=0.0))
+                        logger.info('Venta cubierta por vale: panel FINALIZAR activado')
+                        return
+            except Exception:
+                logger.exception('Error comprobando cobertura total del vale')
+
         # Crear wrapper de finalización (igual que en TpvKeyboardShortcuts)
         def _make_wrapper(tipo_pago):
             def wrapper(data: dict):

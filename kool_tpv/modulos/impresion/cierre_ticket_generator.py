@@ -242,6 +242,7 @@ class CierreTicketGenerator(BaseTicketGenerator):
                 te = _to_decimal(totals.get('total_efectivo', _D('0')))
                 tt = _to_decimal(totals.get('total_tarjeta', _D('0')))
                 tw = _to_decimal(totals.get('total_web', _D('0')))
+                tv = _to_decimal(totals.get('total_vales', _D('0')))
                 td = _to_decimal(totals.get('total_devoluciones', _D('0')))
                 if te != _D('0'):
                     lines.append(self._format_line_lr('Total Efectivo:', self._format_currency(te)))
@@ -249,6 +250,8 @@ class CierreTicketGenerator(BaseTicketGenerator):
                     lines.append(self._format_line_lr('Total Tarjeta:', self._format_currency(tt)))
                 if tw != _D('0'):
                     lines.append(self._format_line_lr('Total Web:', self._format_currency(tw)))
+                if tv != _D('0'):
+                    lines.append(self._format_line_lr('Pagado con vales:', self._format_currency(tv)))
                 lines.append(self.DIVIDER)
         except Exception:
             pass

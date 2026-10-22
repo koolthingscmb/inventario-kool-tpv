@@ -696,7 +696,11 @@ class TpvController:
                 ticket.update_carrito()
             # Activar el tipo de pago que el usuario había elegido originalmente
             tc = getattr(self.view, 'ticket_carrito', None)
-            pending = getattr(tc, 'pending_payment_type', 'efectivo') if tc else 'efectivo'
+            pending = (
+                getattr(tc, 'pending_payment_type', None)
+                or getattr(tc, 'active_payment_type', None)
+                or 'efectivo'
+            ) if tc else 'efectivo'
             try:
                 from kool_tpv.modulos.tpv.button_action_mapper import _activate_payment
                 _activate_payment(self.view, pending)
@@ -1133,11 +1137,19 @@ class TpvController:
             })
         payload['descuentos'] = descuentos_list
 
-        # Añadir datos del vale de devolución si existe
+        # Añadir datos del vale de devolución si existe.
+        # vale_cents guarda el importe APLICADO a esta venta (no el saldo
+        # del vale), y se registra como pago 'vale' en la tabla payments.
         vale_aplicado = kwargs.get('vale_aplicado')
         if vale_aplicado:
             payload['vale_id'] = vale_aplicado.get('id')
-            payload['vale_cents'] = int(vale_aplicado.get('importe_cents', 0))
+            payload['vale_aplicado'] = vale_aplicado
+            vale_aplicado_cents = int(
+                vale_aplicado.get('importe_aplicar_cents')
+                or vale_aplicado.get('importe_cents', 0))
+            payload['vale_cents'] = vale_aplicado_cents
+            if vale_aplicado_cents > 0:
+                payload['pagos'].append(('vale', vale_aplicado_cents))
         else:
             payload['vale_id'] = None
             payload['vale_cents'] = None
@@ -1328,37 +1340,15 @@ class TpvController:
                 ticket_id = result['ticket_id']
                 num_ticket = result['num_ticket']
 
-                # Marcar/consumir vale si había uno aplicado
+                # El vale ya se consumió dentro de la transacción de la
+                # venta (VentaProcessor). Aquí solo queda marcar el pedido
+                # asociado como ENTREGADO si existía.
                 try:
                     vale_aplicado = carrito_service.get_vale_aplicado()
-                    if vale_aplicado:
-                        vale_id = vale_aplicado['id']
-                        cliente_id = vale_aplicado.get('cliente_id')
-                        importe_aplicar_cents = vale_aplicado.get(
-                            'importe_aplicar_cents', vale_aplicado.get('importe_cents', 0)
-                        )
-                        from kool_tpv.modulos.tpv.vale_devolucion_service import ValeDevolucionService
-                        vale_service = ValeDevolucionService()
-
-                        if cliente_id:
-                            # Vale asignado a cliente: consumir solo el importe aplicado
-                            ok = vale_service.consumir_parcial(vale_id, int(importe_aplicar_cents), str(num_ticket))
-                            if ok:
-                                logger.info(f"Vale {vale_id} consumido parcialmente ({importe_aplicar_cents} céntimos) en ticket {num_ticket}")
-                        else:
-                            # Vale anónimo: gasto total como hasta ahora
-                            ok = vale_service.marcar_usado(vale_id, str(num_ticket))
-                            if ok:
-                                logger.info(f"Vale {vale_id} marcado como usado en ticket {num_ticket}")
-                        
-                        # PASO 7: Marcar pedido asociado como ENTREGADO si existe
-                        try:
-                            if self.pedidos_service:
-                                self.pedidos_service.marcar_entregado_por_vale(vale_id)
-                        except Exception:
-                            logger.exception('Error marcando pedido como entregado tras usar vale')
+                    if vale_aplicado and self.pedidos_service:
+                        self.pedidos_service.marcar_entregado_por_vale(vale_aplicado['id'])
                 except Exception:
-                    logger.exception('Error marcando vale como usado')
+                    logger.exception('Error marcando pedido como entregado tras usar vale')
 
                 # (Snapshot persistence removed by user request)
 

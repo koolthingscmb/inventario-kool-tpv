@@ -788,9 +788,11 @@ class ImpresoraService:
                     pass
 
             totals = {
+                'total_facturas': read_from_db(int(cierre_data.get('total_ingresos') or 0)),
                 'total_efectivo': read_from_db(int(cierre_data.get('total_efectivo') or 0)),
                 'total_tarjeta': read_from_db(int(cierre_data.get('total_tarjeta') or 0)),
                 'total_web': read_from_db(int(cierre_data.get('total_web') or 0)),
+                'total_vales': read_from_db(int(cierre_data.get('total_vales') or 0)),
                 'total_descuentos': read_from_db(int(cierre_data.get('total_descuentos') or 0)),
                 'total_devoluciones': read_from_db(int(cierre_data.get('total_devoluciones') or 0)),
                 'base_21': read_from_db(int(cierre_data.get('base_21') or 0)),
@@ -846,6 +848,19 @@ class ImpresoraService:
                     prod_svc = ProductoService(self.db)
                     totals['productos'] = prod_svc.get_ventas_por_producto(ticket_ids, line_tipo='venta')
                     totals['devoluciones_por_producto'] = prod_svc.get_ventas_por_producto(ticket_ids, line_tipo='devolucion')
+
+                    # Contar ventas/devoluciones por tipo de línea (no por
+                    # signo del total: una devolución puede sumar 0 €)
+                    try:
+                        _ph = ','.join(['?'] * len(ticket_ids))
+                        _devol_rows = self.db.fetch_all(
+                            f"SELECT DISTINCT ticket_id FROM ticket_lines WHERE ticket_id IN ({_ph}) AND line_tipo = 'devolucion'",
+                            tuple(ticket_ids)) or []
+                        _n_devol = len(_devol_rows)
+                        totals['devoluciones_count'] = _n_devol
+                        totals['ventas_count'] = len(ticket_ids) - _n_devol
+                    except Exception:
+                        pass
 
                     if not clientes_puntos:
                         puntos_resumen = cierre_svc.get_puntos_resumen_cierre(ticket_ids)

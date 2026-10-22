@@ -57,7 +57,13 @@ class CierreCajaProcessor(TicketProcessor):
 
         # Recuperar registros de tickets para poblar cierres_lineas
         placeholders = ','.join(['?'] * len(ticket_ids))
-        sql = f"SELECT id, num_ticket, total, forma_pago, importe_efectivo, importe_tarjeta, importe_web, descuento_euros, tesoro_ganado, tesoro_gastado FROM tickets WHERE id IN ({placeholders})"
+        sql = (
+            f"SELECT id, num_ticket, total, forma_pago, importe_efectivo, importe_tarjeta, importe_web, "
+            f"descuento_euros, tesoro_ganado, tesoro_gastado, "
+            f"(SELECT COUNT(*) FROM ticket_lines tl WHERE tl.ticket_id = tickets.id AND tl.line_tipo = 'devolucion') AS devol_lines, "
+            f"vale_cents "
+            f"FROM tickets WHERE id IN ({placeholders})"
+        )
         self.db.connect()
         ticket_rows = self.db.fetch_all(sql, tuple(ticket_ids))
 
@@ -74,12 +80,15 @@ class CierreCajaProcessor(TicketProcessor):
                 try:
                     total_cents = int(tr[2] or 0)
                     total_euros = read_from_db(total_cents)
-                    if total_cents < 0:
+                    es_devolucion = int(tr[10] or 0) > 0
+                    if es_devolucion:
                         devoluciones_count += 1
                         total_devoluciones += abs(total_euros)
                     else:
+                        # tickets.total ya tiene el vale descontado: la venta
+                        # real suma también el vale aplicado (forma de pago).
                         ventas_count += 1
-                        total_facturas += total_euros
+                        total_facturas += total_euros + read_from_db(int(tr[11] or 0))
                 except Exception:
                     continue
 
@@ -219,12 +228,13 @@ class CierreCajaProcessor(TicketProcessor):
                 tesoro_ganado = int(tr[8] or 0) if len(tr) > 8 else 0
                 tesoro_gastado = int(tr[9] or 0) if len(tr) > 9 else 0
 
-                # LÓGICA: Distinguir descuentos vs devoluciones
+                # LÓGICA: Distinguir descuentos vs devoluciones por tipo
+                # de línea (un ticket de devolución puede sumar 0 €).
+                es_devolucion = int(tr[10] or 0) > 0 if len(tr) > 10 else (total_db < 0)
                 descuentos_valor = 0
                 devoluciones_valor = 0
-                if total_db < 0:
+                if es_devolucion:
                     devoluciones_valor = abs(total_db)
-                    descuentos_valor = 0
                 else:
                     descuentos_valor = descuento_euros
 

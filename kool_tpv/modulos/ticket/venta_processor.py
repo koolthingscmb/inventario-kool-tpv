@@ -111,6 +111,30 @@ class VentaProcessor(TicketProcessor):
                 for metodo, importe_cents in pagos:
                     self.repo.insert_payment(ticket_id, metodo, importe_cents, kwargs.get('created_at'), cur=cur)
 
+                # Consumir el vale dentro de la misma transacción: si el
+                # consumo falla, la venta entera se revierte (nunca un
+                # ticket guardado con el saldo del vale intacto).
+                vale_aplicado = kwargs.get('vale_aplicado')
+                if vale_aplicado:
+                    from kool_tpv.modulos.tpv.vale_devolucion_service import ValeDevolucionService
+                    vale_svc = ValeDevolucionService(db=self.db)
+                    vale_id = vale_aplicado.get('id')
+                    aplicar_cents = int(
+                        vale_aplicado.get('importe_aplicar_cents')
+                        or vale_aplicado.get('importe_cents', 0) or 0)
+                    if vale_aplicado.get('cliente_id'):
+                        # Vale de cliente: descuenta solo lo aplicado.
+                        ok_vale = vale_svc.consumir_parcial(
+                            vale_id, aplicar_cents, str(num_ticket), cur=cur)
+                    else:
+                        # Vale anónimo: se gasta entero.
+                        ok_vale = vale_svc.marcar_usado(
+                            vale_id, str(num_ticket), cur=cur)
+                    if not ok_vale:
+                        raise RuntimeError(
+                            f'No se pudo consumir el vale {vale_id} en ticket {num_ticket}')
+                    logger.info('Vale %s consumido en ticket %s', vale_id, num_ticket)
+
                 # Auditoría (ya manejada por el Repository en insert_ticket)
                 # No es necesario insert_audit_log manual aquí si el repo ya lo hace
                 pass

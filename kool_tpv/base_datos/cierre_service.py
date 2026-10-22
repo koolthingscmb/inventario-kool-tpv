@@ -182,6 +182,7 @@ class CierreService:
             'total_efectivo': Decimal('0'),
             'total_tarjeta': Decimal('0'),
             'total_web': Decimal('0'),
+            'total_vales': Decimal('0'),
             'base_21': Decimal('0'),
             'iva_21': Decimal('0'),
             'base_4': Decimal('0'),
@@ -201,7 +202,7 @@ class CierreService:
             placeholders = ','.join(['?'] * len(ticket_ids))
 
             # Obtener datos principales de tickets (totales y pagos en céntimos)
-            sql_tickets = f"SELECT id, num_ticket, created_at, total, forma_pago, importe_efectivo, cambio, importe_tarjeta FROM tickets WHERE id IN ({placeholders})"
+            sql_tickets = f"SELECT id, num_ticket, created_at, total, forma_pago, importe_efectivo, cambio, importe_tarjeta, vale_cents FROM tickets WHERE id IN ({placeholders})"
             self.db.connect()
             ticket_rows = self.db.fetch_all(sql_tickets, tuple(ticket_ids))
 
@@ -215,7 +216,12 @@ class CierreService:
                     total_cents = int(tr[3] or 0)
                     total_euros = read_from_db(total_cents)
                     if total_cents >= 0:
-                        total_facturas += total_euros
+                        # tickets.total ya tiene el vale descontado: la venta
+                        # real es total + vale aplicado. El vale es una forma
+                        # de pago, no un descuento.
+                        vale_euros = read_from_db(int(tr[8] or 0)) if len(tr) > 8 else Decimal('0')
+                        total_facturas += total_euros + vale_euros
+                        result['total_vales'] += vale_euros
                 except Exception:
                     pass
                 try:
@@ -287,7 +293,10 @@ class CierreService:
                             pass
                     if str(line_tipo) == 'devolucion':
                         try:
-                            total_devoluciones += abs(gross)
+                            # Sumar con signo (neto): una línea de devolución
+                            # positiva que se anula con otra negativa debe
+                            # aportar 0, no inflar el total en valor absoluto.
+                            total_devoluciones -= gross
                         except Exception:
                             pass
                     divisor = (Decimal('1') + (Decimal(tipo_iva) / Decimal('100')))
@@ -313,7 +322,7 @@ class CierreService:
 
             # totals for discounts and devoluciones (Decimal)
             result['total_descuentos'] = total_descuentos
-            result['total_devoluciones'] = total_devoluciones
+            result['total_devoluciones'] = abs(total_devoluciones)
 
             # Persist facturas and set total_ingresos = total_facturas
             # Las devoluciones NO se restan aquí: los tickets positivos ya tienen
@@ -388,15 +397,22 @@ class CierreService:
                     last = int(row[0]) if row and row[0] is not None else 0
                     cierre_num = last + 1
 
-                # Preparar campos para insertar
-                insert_cols = (
+                # Preparar campos para insertar (total_vales solo si la
+                # columna existe, por robustez ante BDs sin migración 067)
+                insert_cols = [
                     'cierre_num', 'fecha_hora', 'cajero', 'total_ingresos', 'num_ventas',
                     'rango_inicio_ticket', 'rango_fin_ticket', 'total_efectivo', 'total_tarjeta',
                     'total_web', 'total_devoluciones', 'total_descuentos',
                     'tesoro_ganado', 'tesoro_gastado', 'iva_desglose',
                     'base_21', 'iva_21', 'base_4', 'iva_4', 'total_base_imponible', 'total_iva',
                     'cierre_text', 'usuario_id'
-                )
+                ]
+                try:
+                    cols_cierres = {r[1] for r in (self.db.fetch_all("PRAGMA table_info(cierres)") or [])}
+                    if 'total_vales' in cols_cierres:
+                        insert_cols.append('total_vales')
+                except Exception:
+                    pass
 
                 # Compute minimal values for devoluciones/discounts as 0 for now
                 if cierre_text is None:
@@ -460,6 +476,8 @@ class CierreService:
                     cierre_text,
                     usuario_id,
                 )
+                if 'total_vales' in insert_cols:
+                    values = values + (prepare_for_db(totals.get('total_vales', 0.0)),)
 
                 # Build insert SQL mapping None fecha_hora to CURRENT_TIMESTAMP via explicit expression
                 insert_sql = (
@@ -655,8 +673,8 @@ class CierreService:
             placeholders = ','.join(['?'] * len(ticket_ids))
             sql = (
                 f'SELECT cajero, '
-                f'COUNT(*) AS ventas_count, '
-                f'COALESCE(SUM(CASE WHEN total >= 0 THEN total ELSE 0 END), 0) AS total_ventas_cents '
+                f'SUM(CASE WHEN NOT EXISTS (SELECT 1 FROM ticket_lines tl WHERE tl.ticket_id = tickets.id AND tl.line_tipo = \'devolucion\') THEN 1 ELSE 0 END) AS ventas_count, '
+                f'COALESCE(SUM(CASE WHEN NOT EXISTS (SELECT 1 FROM ticket_lines tl WHERE tl.ticket_id = tickets.id AND tl.line_tipo = \'devolucion\') THEN total + COALESCE(vale_cents, 0) ELSE 0 END), 0) AS total_ventas_cents '
                 f'FROM tickets WHERE id IN ({placeholders}) GROUP BY cajero'
             )
             self.db.connect()
@@ -685,8 +703,8 @@ class CierreService:
         try:
             sql = (
                 'SELECT cajero, '
-                'COUNT(*) AS ventas_count, '
-                'COALESCE(SUM(CASE WHEN total >= 0 THEN total ELSE 0 END), 0) AS total_ventas_cents '
+                'SUM(CASE WHEN NOT EXISTS (SELECT 1 FROM ticket_lines tl WHERE tl.ticket_id = tickets.id AND tl.line_tipo = \'devolucion\') THEN 1 ELSE 0 END) AS ventas_count, '
+                'COALESCE(SUM(CASE WHEN NOT EXISTS (SELECT 1 FROM ticket_lines tl WHERE tl.ticket_id = tickets.id AND tl.line_tipo = \'devolucion\') THEN total + COALESCE(vale_cents, 0) ELSE 0 END), 0) AS total_ventas_cents '
                 'FROM tickets WHERE cierre_id = ? GROUP BY cajero'
             )
             self.db.connect()
@@ -767,7 +785,8 @@ class CierreService:
             'rango_inicio_ticket', 'rango_fin_ticket', 'total_efectivo', 'total_tarjeta',
             'total_web', 'total_devoluciones', 'total_descuentos', 'tesoro_ganado',
             'tesoro_gastado', 'tesoro_total_ganado', 'tesoro_total_gastado', 'cierre_text', 'usuario_id',
-            'total_base_imponible', 'total_iva', 'base_21', 'iva_21', 'base_4', 'iva_4', 'iva_desglose', 'created_at', 'printed', 'printed_at', 'printer_name'
+            'total_base_imponible', 'total_iva', 'base_21', 'iva_21', 'base_4', 'iva_4', 'iva_desglose', 'created_at', 'printed', 'printed_at', 'printer_name',
+            'total_vales'
         ]
         data = {}
         for i, col in enumerate(cols):

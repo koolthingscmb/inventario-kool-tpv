@@ -459,6 +459,10 @@ class VirtualNavList(ctk.CTkFrame):
                     # pero NO sobre la selección, para que el usuario vea el foco.
                     if custom_colors.get('bg'): bg = custom_colors['bg']
                     if custom_colors.get('fg'): fg = custom_colors['fg']
+                elif custom_colors and is_sel:
+                    # El callback puede fijar colores de selección (p.ej. devolución sigue roja)
+                    if custom_colors.get('selected_bg'): bg = custom_colors['selected_bg']
+                    if custom_colors.get('selected_fg'): fg = custom_colors['selected_fg']
                 
                 # Actualizar Frame (Bloque sólido, sin bordes)
                 row['frame'].configure(bg=bg, highlightthickness=0)
