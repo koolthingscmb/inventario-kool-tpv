@@ -552,8 +552,15 @@ class CrearPedidoUI:
                 
                 if vale_data:
                     path_str = vale_data.get('path', '')
-                    nombre_vale = _Path(path_str).stem if path_str else '?'
-                    if nombre_vale.startswith('USADO_'): nombre_vale = nombre_vale[6:]
+                    if vale_data.get('num_vale'):
+                        nombre_vale = f"VALE-{vale_data['num_vale']}"
+                        if vale_data.get('nombre'):
+                            nombre_vale += f" · {vale_data['nombre']}"
+                    elif path_str:
+                        nombre_vale = _Path(path_str).stem
+                        if nombre_vale.startswith('USADO_'): nombre_vale = nombre_vale[6:]
+                    else:
+                        nombre_vale = '?'
                     
                     importe = read_from_db(vale_data.get('importe_cents', 0))
                     

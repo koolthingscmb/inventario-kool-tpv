@@ -221,11 +221,21 @@ class ValesListSubView(CTkFrame):
                 saldo_restante_cents = 0
                 saldo_euros = Decimal('0.00')
             
-            # Obtener nombre del archivo sin extensión
+            # Nombre legible del vale: VALE-N + descripción (vales en BD) o
+            # el nombre del archivo para vales antiguos en JSON
             path_str = vale.get('path', '')
-            nombre_vale = _Path(path_str).stem if path_str else '?'
-            if nombre_vale.startswith('USADO_'):
-                nombre_vale = nombre_vale[6:]
+            num_vale = vale.get('num_vale')
+            descripcion = vale.get('nombre') or ''
+            if num_vale:
+                nombre_vale = f'VALE-{num_vale}'
+                if descripcion:
+                    nombre_vale += f' · {descripcion}'
+            elif path_str:
+                nombre_vale = _Path(path_str).stem
+                if nombre_vale.startswith('USADO_'):
+                    nombre_vale = nombre_vale[6:]
+            else:
+                nombre_vale = '?'
             
             return {
                 'id': vale.get('id'),
@@ -338,9 +348,13 @@ class ValesListSubView(CTkFrame):
                         if ticket and hasattr(ticket, 'update_carrito'):
                             ticket.update_carrito()
 
-                        # 6. Volver al TPV
+                        # 6. Volver al TPV y reactivar la forma de pago
+                        # (si el vale cubre todo, mostrará el panel de vale)
                         if hasattr(self.view, 'pop_subview'):
                             self.view.pop_subview()
+                            controller = getattr(self.view, 'controller', None)
+                            if controller and hasattr(controller, '_after_vale_applied'):
+                                controller._after_vale_applied()
                             ToastWidget.show(self.view, f"Vale de {importe_euros:.2f} € aplicado", tipo='success')
                     else:
                         ToastWidget.show(self, "No se pudo acceder al carrito", tipo='error')

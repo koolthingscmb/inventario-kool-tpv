@@ -546,6 +546,89 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migración 065: vales de devolución en BD — sustituye a los JSON de
+		# BORRADORES_DIR como fuente de verdad (saldo, estado e historial de
+		# consumos). vales_usos guarda cada gasto parcial o total.
+		try:
+			db.connection.execute('''
+				CREATE TABLE IF NOT EXISTS vales (
+					id TEXT PRIMARY KEY,
+					fecha TEXT NOT NULL,
+					importe_cents INTEGER NOT NULL,
+					importe_original_cents INTEGER NOT NULL,
+					importe_restante_cents INTEGER NOT NULL,
+					cliente_id INTEGER,
+					cliente_nombre TEXT DEFAULT '',
+					num_ticket_devolucion TEXT NOT NULL,
+					usado INTEGER DEFAULT 0,
+					reservado INTEGER DEFAULT 0,
+					pedido_id INTEGER,
+					num_ticket_venta_uso TEXT,
+					fecha_uso TEXT
+				)
+			''')
+			db.connection.execute('''
+				CREATE TABLE IF NOT EXISTS vales_usos (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					vale_id TEXT NOT NULL REFERENCES vales(id),
+					num_ticket_venta_uso TEXT NOT NULL,
+					fecha TEXT NOT NULL,
+					importe_cents INTEGER NOT NULL
+				)
+			''')
+			db.connection.execute(
+				'CREATE INDEX IF NOT EXISTS idx_vales_usos_vale ON vales_usos(vale_id)')
+			db.connection.commit()
+			logging.info('Migración 065 (vales en BD) aplicada')
+		except Exception:
+			logging.exception('Error aplicando migración 065')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
+		# Migración 066: num_vale (identificador legible secuencial) y nombre
+		# (descripción, antes iba en el nombre del archivo JSON) en vales.
+		try:
+			cols_vales = {r[1] for r in (db.fetch_all("PRAGMA table_info(vales)") or [])}
+			if 'num_vale' not in cols_vales:
+				logging.info('Aplicando migración 066: num_vale y nombre en vales')
+				db.connection.execute(
+					'ALTER TABLE vales ADD COLUMN num_vale INTEGER')
+				db.connection.execute(
+					'ALTER TABLE vales ADD COLUMN nombre TEXT')
+				# Numerar los vales existentes por orden de creación
+				rows = db.fetch_all('SELECT id FROM vales ORDER BY fecha, rowid') or []
+				for i, r in enumerate(rows, start=1):
+					db.connection.execute(
+						'UPDATE vales SET num_vale = ? WHERE id = ?', (i, r[0]))
+				db.connection.commit()
+				logging.info('Migración 066 (num_vale/nombre en vales) aplicada')
+		except Exception:
+			logging.exception('Error aplicando migración 066')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
+		# Migración 067: total_vales en cierres — el cierre guarda cuánto se
+		# pagó con vales de devolución (forma de pago, no descuento) para que
+		# el snapshot del cierre y su reimpresión lo reflejen siempre.
+		try:
+			cols_cierres = {r[1] for r in (db.fetch_all("PRAGMA table_info(cierres)") or [])}
+			if 'total_vales' not in cols_cierres:
+				logging.info('Aplicando migración 067: total_vales en cierres')
+				db.connection.execute(
+					'ALTER TABLE cierres ADD COLUMN total_vales INTEGER DEFAULT 0')
+				db.connection.commit()
+				logging.info('Migración 067 (total_vales en cierres) aplicada')
+		except Exception:
+			logging.exception('Error aplicando migración 067')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Check existence
 		existing = []
 		try:

@@ -95,18 +95,21 @@ class PaymentControllerVale(ctk.CTkFrame):
             vale = vales[0]
             self._vale_seleccionado = vale
             imp = read_from_db(vale.get("importe_cents", 0))
-            # Extraer nombre corto del vale (solo el ID numérico o prefijo)
-            path_str = vale.get("path", "")
-            from pathlib import Path as _Path
-            nombre_vale = _Path(path_str).stem if path_str else None
-            if not nombre_vale:
-                nombre_vale = vale.get("num_ticket_devolucion", "?")
-            # Extraer solo el ID numérico si existe formato Vale1_2420_1706
-            if "_" in nombre_vale:
-                # Quitar todo después del primer guion bajo (fecha y otros datos)
-                nombre_corto = nombre_vale.split("_")[0]
+            # Nombre corto del vale: VALE-N (BD) o stem del archivo (JSON antiguo)
+            if vale.get("num_vale"):
+                nombre_corto = f"VALE-{vale['num_vale']}"
             else:
-                nombre_corto = nombre_vale
+                path_str = vale.get("path", "")
+                from pathlib import Path as _Path
+                nombre_vale = _Path(path_str).stem if path_str else None
+                if not nombre_vale:
+                    nombre_vale = vale.get("num_ticket_devolucion", "?")
+                # Extraer solo el ID numérico si existe formato Vale1_2420_1706
+                if "_" in nombre_vale:
+                    # Quitar todo después del primer guion bajo (fecha y otros datos)
+                    nombre_corto = nombre_vale.split("_")[0]
+                else:
+                    nombre_corto = nombre_vale
             txt = f"{nombre_corto} {imp:.2f}€"
             if len(vales) > 1:
                 txt += f"\n(+{len(vales)-1} más)"
