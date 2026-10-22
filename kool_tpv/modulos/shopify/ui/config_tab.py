@@ -10,7 +10,6 @@ from typing import Dict, Any, List, Optional
 from kool_tpv.utils.factories.button_factory import ButtonFactory
 from kool_tpv.utils.config_loader import load_colors
 from kool_tpv.utils.widgets.notificaciones import show_success, show_error
-from kool_tpv.modulos.shopify.services.sources.source_manager import SourceManager
 from kool_tpv.modulos.shopify.shopify_prompts_repository import ShopifyPromptsRepository
 
 # Componentes y Tabs independientes
@@ -20,7 +19,6 @@ from kool_tpv.modulos.shopify.ui.tabs.tipos_tab import TiposTab
 from kool_tpv.modulos.shopify.ui.tabs.ia_tab import IATab
 from kool_tpv.modulos.shopify.ui.tabs.ia_tonos_tab import IATonosTab
 from kool_tpv.modulos.shopify.ui.tabs.ia_beneficios_tab import IABeneficiosTab
-from kool_tpv.modulos.shopify.ui.tabs.fuentes_tab import FuentesTab
 from kool_tpv.modulos.shopify.ui.tabs.logs_tab import LogsTab
 
 logger = logging.getLogger(__name__)
@@ -33,7 +31,6 @@ class ShopifyConfigTab:
         self.service = service
         self.db = service.db
         
-        self.source_manager = SourceManager(self.db)
         self.prompts_repo = ShopifyPromptsRepository(self.db)
         
         # Colores
@@ -56,7 +53,7 @@ class ShopifyConfigTab:
 
         self._current_tab = None
         self._tab_labels = {}
-        self._tabs = ["GENERAL", "TIPOS", "IA", "IA PROMPTS", "IA TONOS", "IA BENEFICIOS", "FUENTES", "LOGS"]
+        self._tabs = ["GENERAL", "TIPOS", "IA", "IA PROMPTS", "IA TONOS", "IA BENEFICIOS", "LOGS"]
         self._config = self.service.get_config()
 
         # UI Base
@@ -85,7 +82,6 @@ class ShopifyConfigTab:
         self._ia_tab = None
         self._ia_tonos_tab = None
         self._ia_beneficios_tab = None
-        self._fuentes_tab = None
         self._logs_tab = None
         self._tipos_tab = None
 
@@ -148,10 +144,6 @@ class ShopifyConfigTab:
             self._create_section_header(self._content_frame, "CONFIGURACIÓN GPT (OPENAI)")
             self._ia_tab = IATab(self._content_frame, self.db, self._config, self._bg_color, self._primary_color, self._secondary_color)
             self._ia_tab.render()
-        elif tab_name == "FUENTES": 
-            self._create_section_header(self._content_frame, "CONECTORES DE DATOS EXTERNOS")
-            self._fuentes_tab = FuentesTab(self._content_frame, self.db, self._config, self.source_manager, self.service, self._primary_color, self._secondary_color, self._bg_color, self._bg_medium)
-            self._fuentes_tab.render()
         elif tab_name == "IA PROMPTS": 
             self._create_section_header(self._content_frame, "PROMPTS DE IA (GENÉRICOS)")
             self._prompt_editor.render(self._content_frame, tipo_id=None)
@@ -171,7 +163,7 @@ class ShopifyConfigTab:
         for child in self._footer_frame.winfo_children(): child.destroy()
         style_solid = {"corner_radius": 10, "border_width": 0, "font": ("Roboto-SemiBold", 16)}
 
-        if self._current_tab in ["GENERAL", "TIPOS", "IA", "IA PROMPTS", "IA TONOS", "IA BENEFICIOS", "FUENTES"]:
+        if self._current_tab in ["GENERAL", "TIPOS", "IA", "IA PROMPTS", "IA TONOS", "IA BENEFICIOS"]:
             palette = self._colors_cfg.get("buttons", {}).get("primary", {})
             ButtonFactory.create_button(
                 self._footer_frame, text="APLICAR CAMBIOS",
@@ -215,7 +207,6 @@ class ShopifyConfigTab:
         
         if self._ia_tab: self._ia_tab.harvest(self._config)
         if self._general_tab: self._general_tab.harvest(self._config)
-        if self._fuentes_tab: self._fuentes_tab.harvest(self._config)
 
         ok = self.service.save_config(self._config)
         prompts_ok = True

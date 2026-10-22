@@ -10,7 +10,6 @@ aporte. (Última actualización: 2026-10-20, rama `windows-beta`.)
   con ELEGIR VALORES; modos AÑADIR/CAMBIAR/VACIAR (`[]` válido).
 - NUEVO/EDITAR: imágenes en rejilla de 3 por fila.
 - FIX Windows: Colecciones de METACAMPOS ya no abre diálogos desde el hilo (`frame.after`).
-  Hecho, PERO probar más en Windows. ELIMINAR esta nota solo cuando el usuario diga.
 
 ## Decisiones Shopify (y por qué)
 - Metacampos en masa con `metafieldsSet` (bloques de 25); NUNCA `productSet` (borra lo omitido).
@@ -65,18 +64,16 @@ aporte. (Última actualización: 2026-10-20, rama `windows-beta`.)
   solo contra la lista maestra = entradas del metaobjeto Temáticas en Shopify. NADA de IA libre.
   Usuario: activar "colecciones automáticas" en las definiciones de metacampos en Shopify admin.
 - PRÓXIMOS PASOS (orden acordado 2026-10-20, uno por vez, con aprobación):
-  1.5) PENDIENTE DECISIÓN: géneros de OBTENER -> GÉNERO por nombre (hoy siguen yendo a TAGS).
   2) GENERAR SEO hecho y probado por el usuario: el botón BUSCAR DATA ahora es GENERAR SEO
      (color Shopify). `SeoFichaService` lee `manga_seo` de `shopify_prompts` (versión del tipo
      si existe), rellena sus 14 variables desde el formulario (serie/tomo por regex, metacampos,
      sinopsis) y llama `OpenAIService.generate_json` con `KOOLTHINGSHOP.md` como sistema. Rellena
      TITULO/SEO_TITLE/SEO_DESC/DESCRIPCION (esta última es HTML, va a descriptionHtml). Limpieza:
-     fuera `_on_buscar_data`, `_apply_manga_data`, `_auto_fill_shopify_data`; pendiente retirar
-     `buscar_data/`, `sources/` y la pestaña FUENTES cuando el usuario lo apruebe.
+     fuera `_on_buscar_data`, `_apply_manga_data`, `_auto_fill_shopify_data`.
   2b) Editoriales: quitado el `.lower()` que forzaba minúsculas al guardar (fuentes_editorial_
      service) + lookup `COLLATE NOCASE` (editorial_repository). Los 10 nombres actuales siguen
      en minúsculas hasta que el usuario los re-guarde o autorice UPDATE.
-  3) SUBIR A SHOPIFY desde la ficha: HECHO y probado por el usuario (2026-10-21, sin commit aún).
+  3) SUBIR A SHOPIFY desde la ficha: HECHO y probado por el usuario (2026-10-21).
      Botón SUBIR A SHOPIFY (antes SINCRONIZAR). `ShopifyFichaService` (shopify/services) monta
      `datos` desde get_data() y llama `product_set`: barcode=EAN en la variante, vendor=editorial,
      productType=tipo TPV, taxonomy de la ficha, templateSuffix=`shopify_template_suffix` (nuevo
@@ -90,20 +87,20 @@ aporte. (Última actualización: 2026-10-20, rama `windows-beta`.)
      reutilizado -> BORRAR con confirmación (`borrar_producto`/`productDelete`, irreversible).
      FIX hecho: `TipoRepository.update` ya no toca columnas de Shopify (web_activo, template_suffix,
      flags variantes, shopify_taxonomy) -> Almacén->TIPOS ya no pisa lo de CONFIG->TIPOS.
-     DUDA PENDIENTE (decidir mañana): `vendor` = editorial. Ojo: vendor NO es el vendedor (la
-     tienda es el vendedor) ni afecta a envíos; es la "marca" del producto (en librerías = editorial,
-     bien para Google Shopping/brand y colecciones). Riesgo real solo si alguna app leyera vendor
-     como proveedor. Alternativas si molesta: no enviar vendor en manga/cómic, o usarlo solo en
-     fabricación propia (camisetas -> 'Kool Things' ya va por cfg marca en SUBIDA).
-  4) Limpieza: `BuscarDataService` y fuentes viejas, `_auto_fill_shopify_data` (código muerto).
+     vendor = editorial: DECIDIDO, se queda (es la "marca" del producto, útil para Google
+     Shopping/brand y colecciones).
+  4) Limpieza (HECHO 2026-10-22): borrados `buscar_data/`, `sources/` (AniList/MangaDex/
+     GoogleBooks/Wikipedia), `web_search_service.py`, `fuentes_tab.py` y la pestaña FUENTES
+     de CONFIG. Todo era código muerto sustituido por GENERAR SEO. OJO: el sistema vivo de
+     fuentes es OTRO: `almacen/services/fuentes/` (editoriales, botón OBTENER).
   5) VALES en BD (HECHO y probado, 2026-10-22): migraciones 065 (vales/vales_usos),
      066 (num_vale+nombre), 067 (cierres.total_vales). El vale es FORMA DE PAGO:
      tickets.vale_cents = importe aplicado, payments con metodo 'vale', consumo
      dentro de la transacción de la venta. Vale que cubre todo -> panel
      PAGADO CON VALE. Cierre: venta real + línea 'Pagado con vales'; devoluciones
      en neto (las líneas que se anulan no inflan) y conteo por tipo de línea.
-     PENDIENTE: migrar vales JSON activos si los hubiera; revisar stock de
-     'Super Heroes BP ENG' (posible +1 por el bug de línea fantasma).
+     PENDIENTE: migrar vales JSON activos si los hubiera; probar en Windows
+     la impresión real del ticket con vale y del cierre en la térmica.
   6) COLA DE SYNC STOCK->SHOPIFY (HECHO y probado, 2026-10-22): migración 068
      añade sku/cantidad/reintentos a shopify_sync_log. `_trigger_async_sync` ya no
      lanza hilos: ENCOLA el encargo ('pendiente') dentro de la transacción del
