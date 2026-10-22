@@ -475,7 +475,7 @@ class CrearProductoUI:
         self.btn_movimientos.pack(side='left', padx=8)
 
         # Sincronizar (desde config)
-        self.btn_sync = create_action_button(self.btn_frame, 'sincronizar', self._on_sync, module='almacen', palette_key='secondary')
+        self.btn_sync = create_action_button(self.btn_frame, 'subir_shopify', self._on_sync, module='almacen', palette_key='secondary')
         self.btn_sync.pack(side='left', padx=8)
         # Generar SEO con IA (desde config)
         self.btn_buscar = create_action_button(self.btn_frame, 'buscar_data', self._on_generar_seo, module='shopify', palette_key='primary')
@@ -1646,11 +1646,156 @@ class CrearProductoUI:
             logging.exception('Error refrescando tesoro')
 
     def _on_sync(self):
+        """SUBIR A SHOPIFY: crea o actualiza la ficha web del producto (activo)."""
         try:
-            logging.info('Sincronizar accion triggered')
-            ToastWidget.show(self.container, 'Sincronización iniciada', tipo='info')
-        except Exception:
-            logging.exception('Error en _on_sync')
+            pid_txt = (self.e_id_var.get() or '').strip() if getattr(self, 'e_id_var', None) else ''
+            pid = int(pid_txt) if pid_txt else 0
+        except (ValueError, TypeError):
+            pid = 0
+        if not pid:
+            ToastWidget.show(self.container, 'Guarda el producto antes de subirlo a Shopify', tipo='warning')
+            return
+        if self._hay_cambios():
+            ToastWidget.show(self.container, 'Guarda los cambios antes de subir', tipo='warning')
+            return
+        form = self.get_data()
+
+        def work():
+            try:
+                from kool_tpv.modulos.shopify.services.shopify_ficha_service import ShopifyFichaService
+                svc = ShopifyFichaService(self.db)
+                estado = svc.estado_subida(pid)
+                existente = None
+                if not estado['mapeado']:
+                    ean = svc._primer_ean(form.get('codigos_barras'))
+                    if ean:
+                        existente = svc.buscar_por_ean(ean)
+                self.container.after(0, lambda: self._confirmar_y_subir(
+                    pid, form, existente, estado['mapeado']))
+            except Exception:
+                logging.exception('Error comprobando producto en Shopify')
+                self.container.after(0, lambda: ToastWidget.show(
+                    self.container, 'Error comprobando Shopify', tipo='error'))
+
+        ToastWidget.show(self.container, 'Comprobando Shopify…', tipo='info')
+        threading.Thread(target=work, daemon=True).start()
+
+    def _confirmar_y_subir(self, pid, form, existente, mapeado):
+        """Si el EAN ya existe en Shopify se pide permiso para enlazarlo."""
+        shopify_id = None
+        if existente:
+            from kool_tpv.utils.dialogs import show_warning
+            ok = show_warning(
+                self.container, 'YA EXISTE EN SHOPIFY',
+                f"El EAN ya lo usa '{existente.get('title')}' ({existente.get('status')}).\n"
+                '¿Actualizar ese producto y enlazarlo con esta ficha?',
+                confirm=True)
+            if not ok:
+                return
+            shopify_id = existente.get('id')
+        es_nuevo = not mapeado and not shopify_id
+        self._subir_a_shopify(pid, form, shopify_id, es_nuevo)
+
+    def _subir_a_shopify(self, pid, form, shopify_id, es_nuevo):
+        def work():
+            try:
+                from kool_tpv.modulos.shopify.services.shopify_ficha_service import ShopifyFichaService
+                res = ShopifyFichaService(self.db).subir(
+                    pid, form, 'ACTIVE', shopify_id_confirmado=shopify_id)
+                self.container.after(0, lambda: self._on_subida_lista(res, es_nuevo, form))
+            except Exception:
+                logging.exception('Error subiendo producto a Shopify')
+                self.container.after(0, lambda: self._on_subida_lista(
+                    {'success': False, 'message': 'Error inesperado (ver log)'}))
+
+        ToastWidget.show(self.container, 'Subiendo a Shopify…', tipo='info')
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_subida_lista(self, res, es_nuevo=False, form=None):
+        from kool_tpv.utils.dialogs import show_error
+        if res.get('success'):
+            if res.get('url') and getattr(self, 'e_shop_link', None):
+                self.e_shop_link.delete(0, 'end')
+                self.e_shop_link.insert(0, res['url'])
+                if self._foto is not None:
+                    self._foto['shop_link'] = res['url']
+            if res.get('stock_ok', True):
+                ToastWidget.show(self.container, 'Subido a Shopify', tipo='success')
+            else:
+                show_error(self.container, 'SUBIDO SIN STOCK',
+                           f"El producto subió pero el stock falló:\n{res.get('stock_error') or ''}")
+            if es_nuevo:
+                self._buscar_duplicados(form or {}, res.get('product_id'))
+        else:
+            show_error(self.container, 'ERROR SUBIENDO', res.get('message') or 'Error desconocido')
+
+    def _buscar_duplicados(self, form, producto_nuevo_id):
+        """Tras crear un producto nuevo: busca duplicados antiguos por título."""
+        titulo = (form.get('titulo') or form.get('nombre') or '').strip()
+        if not titulo:
+            return
+
+        def work():
+            try:
+                from kool_tpv.modulos.shopify.services.shopify_ficha_service import ShopifyFichaService
+                dups = ShopifyFichaService(self.db).buscar_duplicados(
+                    titulo, excluir_id=producto_nuevo_id)
+                self.container.after(0, lambda: self._mostrar_duplicados(dups))
+            except Exception:
+                logging.exception('Error buscando duplicados en Shopify')
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _mostrar_duplicados(self, dups):
+        """Diálogo con checkboxes: el usuario marca los duplicados a borrar."""
+        if not dups:
+            return
+        from kool_tpv.utils.dialogs.metaobject_select_dialog import show_reference_select_dialog
+        opciones = [{
+            'id': p['id'],
+            'text': f"{p.get('title')}  ·  {p.get('status')}  ·  "
+                    f"{(p.get('createdAt') or '')[:10]}  ·  "
+                    f"sku: {', '.join(v.get('sku') or '-' for v in p.get('variants', {}).get('nodes', []))}",
+            'family': p.get('productType') or 'Sin tipo',
+        } for p in dups]
+        marcados = show_reference_select_dialog(
+            self.container, 'POSIBLES DUPLICADOS EN SHOPIFY',
+            opciones, [], multi_select=True)
+        if not marcados:
+            return
+        from kool_tpv.utils.dialogs import show_warning
+        ok = show_warning(
+            self.container, 'BORRAR DUPLICADOS',
+            f'¿Borrar {len(marcados)} producto(s) de Shopify?\nEsta acción NO se puede deshacer.',
+            confirm=True)
+        if not ok:
+            return
+
+        def work():
+            try:
+                from kool_tpv.modulos.shopify.services.shopify_ficha_service import ShopifyFichaService
+                res = ShopifyFichaService(self.db).borrar_productos(marcados)
+                self.container.after(0, lambda: self._on_duplicados_borrados(res))
+            except Exception:
+                logging.exception('Error borrando duplicados en Shopify')
+                self.container.after(0, lambda: ToastWidget.show(
+                    self.container, 'Error borrando duplicados', tipo='error'))
+
+        ToastWidget.show(self.container, 'Borrando duplicados…', tipo='info')
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_duplicados_borrados(self, res):
+        n = len(res.get('borrados') or [])
+        errores = res.get('errores') or []
+        if n and not errores:
+            ToastWidget.show(self.container, f'{n} duplicado(s) borrado(s)', tipo='success')
+        elif n:
+            ToastWidget.show(
+                self.container, f'{n} borrados, {len(errores)} con error (ver log)', tipo='warning')
+        else:
+            from kool_tpv.utils.dialogs import show_error
+            show_error(self.container, 'SIN BORRAR',
+                       'No se pudo borrar ningún duplicado (ver log)')
 
     def _on_generar_seo(self):
         """GENERAR SEO: envía los datos del formulario a la IA y rellena los campos SEO."""

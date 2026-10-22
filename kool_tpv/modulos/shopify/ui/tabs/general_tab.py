@@ -37,6 +37,7 @@ class GeneralTab:
             (3, 0, "Marca/Proveedor:", "Kool Things", "marca"),
             (3, 2, "URL guía de tallas:", "https://...", "link_guia"),
             (4, 0, "CDN botones género:", "https://cdn.shopify.com/.../files/", "botones_cdn"),
+            (4, 2, "Plantilla de producto:", "Vacío = plantilla por defecto", "template_suffix"),
         ]
 
         for row, col_label, label, placeholder, key in fields:

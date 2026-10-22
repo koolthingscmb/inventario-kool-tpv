@@ -22,6 +22,7 @@ class ShopifyConfigService:
         "client_secret": "shopify_client_secret",
         "marca": "shopify_marca",
         "link_guia": "shopify_link_guia",
+        "template_suffix": "shopify_template_suffix",
         "botones_cdn": "shopify_botones_cdn",
         "stock_sorpresa": "shopify_stock_sorpresa",
         "precio_hombre": "shopify_precio_hombre",

@@ -365,6 +365,12 @@ WHERE 1=1
             logger.exception(f"Error añadiendo EAN {ean} a producto {producto_id}")
             raise
 
+    def marcar_sincronizado(self, producto_id: int, shop_link: str = '') -> None:
+        """Tras una subida a Shopify correcta: limpia pending_sync y guarda el enlace."""
+        self.db.execute_query(
+            "UPDATE productos SET pending_sync = 0, shop_link = ? WHERE id = ?",
+            (shop_link, producto_id))
+
     def guardar_producto_completo(
         self,
         nombre: str,

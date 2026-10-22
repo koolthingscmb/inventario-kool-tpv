@@ -204,6 +204,7 @@ class ShopifyProductService:
           precio, recargo_tallas, variantes (rows de get_variantes_stock),
           codigo_categoria, iniciales, imagenes [{path, alt}],
           taxonomy_gid, status ('DRAFT'|'ACTIVE'), product_id (opcional),
+          barcode (EAN; va en la variante, solo se envía si hay valor),
           stock_sorpresa (opcional -> pone stock 50 a todas las variantes)
         }
         """
@@ -329,12 +330,16 @@ class ShopifyProductService:
                 if requiere_color and color:
                     option_values.append({"optionName": "Color", "name": color})
 
-                variantes_input.append({
+                variante = {
                     "sku": built_sku,
                     "price": f"{precio_variante:.2f}",
                     "inventoryItem": {"tracked": tracked},
                     "optionValues": option_values,
-                })
+                }
+                # Solo si la variante tiene EAN: enviar barcode: null borraría el que ya haya
+                if v.get("barcode"):
+                    variante["barcode"] = str(v["barcode"]).strip()
+                variantes_input.append(variante)
             product_options = []
             if tallas:
                 product_options.append({"name": "Talla", "values": [{"name": t} for t in tallas]})
@@ -1068,6 +1073,82 @@ class ShopifyProductService:
         self.repo.add_sync_log(None, "SKU_UPDATE", "success",
                                f"{n} SKUs actualizados en {product_id}")
         return {"success": True, "message": f"{n} SKUs actualizados"}
+
+    def buscar_por_barcode(self, ean: str) -> Optional[Dict[str, Any]]:
+        """Producto que ya lleva ese barcode en alguna variante, o None.
+        Solo lectura: sirve para decidir si la ficha crea o enlaza."""
+        ean = (ean or "").strip()
+        if not ean:
+            return None
+        ctx = self._api_context()
+        if not ctx:
+            return None
+        endpoint, headers, _ = ctx
+        data, err = self._graphql(endpoint, headers, """
+            query($q: String!) {
+                productVariants(first: 10, query: $q) {
+                    nodes {
+                        id barcode
+                        product { id title handle status productType }
+                    }
+                }
+            }
+        """, {"q": f"barcode:{ean}"})
+        if err or not data:
+            logger.error("buscar_por_barcode %s: %s", ean, err)
+            return None
+        for nodo in data.get("productVariants", {}).get("nodes", []):
+            if nodo.get("barcode") == ean and nodo.get("product"):
+                return nodo["product"]
+        return None
+
+    def buscar_por_titulo(self, titulo: str) -> List[Dict[str, Any]]:
+        """Productos cuyo título contiene las palabras dadas. Solo lectura:
+        sirve para localizar duplicados antiguos tras una subida."""
+        titulo = (titulo or "").strip()
+        if not titulo:
+            return []
+        ctx = self._api_context()
+        if not ctx:
+            return []
+        endpoint, headers, _ = ctx
+        data, err = self._graphql(endpoint, headers, """
+            query($q: String!) {
+                products(first: 25, query: $q) {
+                    nodes {
+                        id title handle status productType createdAt
+                        variants(first: 5) { nodes { sku } }
+                    }
+                }
+            }
+        """, {"q": f"title:{titulo}"})
+        if err or not data:
+            logger.error("buscar_por_titulo %s: %s", titulo, err)
+            return []
+        return data.get("products", {}).get("nodes", [])
+
+    def borrar_producto(self, product_id: str) -> Dict[str, Any]:
+        """Borra un producto de Shopify (productDelete). Acción irreversible."""
+        ctx = self._api_context()
+        if not ctx:
+            return {"success": False, "message": "Configuración de Shopify incompleta"}
+        endpoint, headers, _ = ctx
+        data, err = self._graphql(endpoint, headers, """
+            mutation productDelete($input: ProductDeleteInput!) {
+                productDelete(input: $input) {
+                    deletedProductId
+                    userErrors { field message }
+                }
+            }
+        """, {"input": {"id": product_id}})
+        if err:
+            return {"success": False, "message": err}
+        result = (data or {}).get("productDelete", {})
+        if result.get("userErrors"):
+            return {"success": False,
+                    "message": json.dumps(result["userErrors"])[:300]}
+        return {"success": bool(result.get("deletedProductId")),
+                "deleted_id": result.get("deletedProductId")}
 
     def cargar_producto(self, product_id: str) -> Optional[Dict[str, Any]]:
         """Carga todos los datos editables de un producto existente."""
