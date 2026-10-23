@@ -73,8 +73,10 @@ aporte. (Última actualización: 2026-10-20, rama `windows-beta`.)
   = se borra en el destino; claves ajenas del destino se conservan).
   `pending_sync=1` + audit `EDICION_MASIVA_METACAMPOS`; sin edición por fila.
   Las 4 claves salen de `MetacamposComicService.GRUPOS` (fuente única).
-- PETICIÓN: UI pequeña en Shopify CONFIG para editar `metacampos_alias.json`.
-- TAGS (usuario decidiendo): derivados deterministas; IA solo contra lista maestra.
-  Activar "colecciones automáticas" en definiciones de metacampos en Shopify admin.
+- HECHO (2026-10-23): pestaña EQUIVALENCIAS en Shopify -> CONFIG edita
+  `metacampos_alias.json`: una fila por valor oficial (valores vivos vía
+  `obtener_opciones`, agrupados por metacampo) con palabras por comas.
+  Huérfanas en bloque "SIN EFECTO" preservadas tal cual. Validación y
+  escritura en `ComparadorMetacamposService.guardar_alias`.
 - Deuda: `crear_producto_ui.py` (1600+ líneas, refactor por partes); botón IR sin
   uso decidido; tests rotos, `openai` en requirements, docs desactualizados.

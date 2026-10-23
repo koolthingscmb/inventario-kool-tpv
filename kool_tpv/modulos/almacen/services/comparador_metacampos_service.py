@@ -15,7 +15,7 @@ Reglas:
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from kool_tpv.modulos.almacen.services.metacampos_comic_service import (
     MetacamposComicService,
@@ -71,6 +71,83 @@ class ComparadorMetacamposService:
         except Exception:
             logger.exception("No se pudo leer metacampos_alias.json")
         return self._alias
+
+    # ---------- edición de la tabla de equivalencias ----------
+
+    def listar_alias(self) -> Dict[str, str]:
+        """Devuelve el JSON tal cual está en disco (orden conservado)."""
+        try:
+            ruta = CONFIG_DIR / "metacampos_alias.json"
+            if ruta.exists():
+                datos = json.loads(ruta.read_text(encoding="utf-8"))
+                return {str(k): str(v) for k, v in (datos or {}).items()}
+        except Exception:
+            logger.exception("No se pudo leer metacampos_alias.json")
+        return {}
+
+    def guardar_alias(self, alias: Dict[str, str],
+                      listas: Optional[Dict[str, Dict[str, str]]] = None,
+                      preservar: Optional[Dict[str, str]] = None,
+                      ) -> Tuple[bool, List[str]]:
+        """Valida y escribe metacampos_alias.json.
+
+        Reglas: ni palabra ni valor vacíos, sin palabras duplicadas tras
+        normalizar y el valor debe existir en las listas oficiales de
+        Shopify (se guarda el nombre oficial exacto). `listas`
+        ({clave: {normalizado: nombre}}) es inyectable; si no se pasa se
+        piden a Shopify. `preservar` son equivalencias huérfanas (apuntan a
+        valores que ya no existen) que se escriben tal cual, sin validar.
+        Si hay cualquier error NO se escribe el archivo.
+        """
+        errores: List[str] = []
+        if listas is None:
+            err = self._cargar_listas()
+            if err:
+                return False, [err]
+            listas = self._listas or {}
+
+        oficiales: Dict[str, str] = {}
+        for clave, _, _ in MetacamposComicService.GRUPOS:
+            for norm, nombre in (listas.get(clave) or {}).items():
+                oficiales.setdefault(norm, nombre)
+
+        limpio: Dict[str, str] = {}
+        for palabra, valor in (alias or {}).items():
+            p = str(palabra or "").strip()
+            v = str(valor or "").strip()
+            if not p or not v:
+                errores.append("Hay filas con la palabra o el valor vacíos")
+                continue
+            norm_p = MetacamposComicService.normalizar(p)
+            if norm_p in limpio:
+                errores.append(f"Palabra duplicada: '{p}'")
+                continue
+            oficial = oficiales.get(MetacamposComicService.normalizar(v))
+            if not oficial:
+                errores.append(f"'{v}' no existe en los metacampos de Shopify")
+                continue
+            limpio[norm_p] = oficial
+
+        if errores:
+            return False, errores
+
+        # equivalencias huérfanas: se conservan tal cual para no perderlas
+        for palabra, valor in (preservar or {}).items():
+            p = MetacamposComicService.normalizar(str(palabra or "").strip())
+            v = str(valor or "").strip()
+            if p and v:
+                limpio.setdefault(p, v)
+
+        try:
+            ruta = CONFIG_DIR / "metacampos_alias.json"
+            ruta.write_text(
+                json.dumps(limpio, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8")
+            self._alias = None  # invalidar la caché del comparador
+            return True, []
+        except Exception as e:
+            logger.exception("No se pudo escribir metacampos_alias.json")
+            return False, [f"No se pudo escribir el archivo: {e}"]
 
     # ---------- comparación ----------
 

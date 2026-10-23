@@ -20,6 +20,7 @@ from kool_tpv.modulos.shopify.ui.tabs.ia_tab import IATab
 from kool_tpv.modulos.shopify.ui.tabs.ia_tonos_tab import IATonosTab
 from kool_tpv.modulos.shopify.ui.tabs.ia_beneficios_tab import IABeneficiosTab
 from kool_tpv.modulos.shopify.ui.tabs.logs_tab import LogsTab
+from kool_tpv.modulos.shopify.ui.tabs.alias_tab import AliasTab
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ class ShopifyConfigTab:
 
         self._current_tab = None
         self._tab_labels = {}
-        self._tabs = ["GENERAL", "TIPOS", "IA", "IA PROMPTS", "IA TONOS", "IA BENEFICIOS", "LOGS"]
+        self._tabs = ["GENERAL", "TIPOS", "EQUIVALENCIAS", "IA", "IA PROMPTS", "IA TONOS", "IA BENEFICIOS", "LOGS"]
         self._config = self.service.get_config()
 
         # UI Base
@@ -84,6 +85,7 @@ class ShopifyConfigTab:
         self._ia_beneficios_tab = None
         self._logs_tab = None
         self._tipos_tab = None
+        self._alias_tab = None
 
         # Footer
         self._footer_frame = tk.Frame(self.frame, bg=self._bg_medium, height=70)
@@ -155,6 +157,13 @@ class ShopifyConfigTab:
             self._create_section_header(self._content_frame, "BIBLIOTECA DE BENEFICIOS")
             self._ia_beneficios_tab = IABeneficiosTab(self._content_frame, self.db, self._primary_color, self._bg_color, self._bg_medium)
             self._ia_beneficios_tab.render()
+        elif tab_name == "EQUIVALENCIAS":
+            self._create_section_header(self._content_frame, "EQUIVALENCIAS DE METACAMPOS")
+            self._alias_tab = AliasTab(
+                self._content_frame, self.db,
+                self._primary_color, self._secondary_color,
+                self._bg_color, self._bg_medium)
+            self._alias_tab.render()
         elif tab_name == "LOGS":
             self._logs_tab = LogsTab(self._content_frame, self.service, self._bg_color)
             self._logs_tab.render()
@@ -163,7 +172,7 @@ class ShopifyConfigTab:
         for child in self._footer_frame.winfo_children(): child.destroy()
         style_solid = {"corner_radius": 10, "border_width": 0, "font": ("Roboto-SemiBold", 16)}
 
-        if self._current_tab in ["GENERAL", "TIPOS", "IA", "IA PROMPTS", "IA TONOS", "IA BENEFICIOS"]:
+        if self._current_tab in ["GENERAL", "TIPOS", "EQUIVALENCIAS", "IA", "IA PROMPTS", "IA TONOS", "IA BENEFICIOS"]:
             palette = self._colors_cfg.get("buttons", {}).get("primary", {})
             ButtonFactory.create_button(
                 self._footer_frame, text="APLICAR CAMBIOS",
@@ -222,6 +231,11 @@ class ShopifyConfigTab:
 
         if self._current_tab == "TIPOS" and self._tipos_tab:
             self._tipos_tab.save_tipo_actual()
+
+        # EQUIVALENCIAS valida y escribe su propio archivo: su toast decide
+        if self._current_tab == "EQUIVALENCIAS" and self._alias_tab:
+            self._alias_tab.save()
+            return
 
         if ok and prompts_ok:
             show_success(self.frame, "Configuración guardada.")
