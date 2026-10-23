@@ -135,7 +135,7 @@ class ProduccionOrdenesService:
 
                     # 5. INTEGRACIÓN TPV: Sumar stock al producto TPV vinculado
                     if item.variante_id:
-                        self._actualizar_stock_tpv_vinculado(item)
+                        self._actualizar_stock_tpv_vinculado(item, usuario_id)
 
                     # 6. REPOSICIÓN: Borrar línea vinculada o coincidente
                     borrado = False
@@ -194,7 +194,7 @@ class ProduccionOrdenesService:
         except Exception:
             self.logger.exception(f"Error actualizando stock para diseño {item.diseno_codigo}")
 
-    def _actualizar_stock_tpv_vinculado(self, item: ItemProduccion):
+    def _actualizar_stock_tpv_vinculado(self, item: ItemProduccion, usuario_id: Optional[int] = None):
         """Si la variante está vinculada a un producto TPV, sumar el stock correspondiente."""
         try:
             link = self.link_service.get_por_combinacion(item.variante_id, extra_id=item.extra_id, coleccion_id=item.coleccion_id)
@@ -207,7 +207,8 @@ class ProduccionOrdenesService:
                 self.stock_movements.aplicar_movimiento(
                     producto_id=link.producto_id,
                     cantidad=cantidad_tpv,
-                    motivo=f"produccion:{item.diseno_codigo}"
+                    motivo=f"produccion:{item.diseno_nombre or item.diseno_codigo}",
+                    usuario_id=usuario_id
                 )
                 
                 self.logger.info(f"VINCULACIÓN TPV: Sumado +{cantidad_tpv} uds al producto ID {link.producto_id} (Variante {item.variante_id})")
@@ -292,7 +293,7 @@ class ProduccionOrdenesService:
                 )
                 self._actualizar_stock_diseno_directo(dis_orig, tipo_orig, col_orig, talla_orig, var_orig, -cant_orig)
                 if var_orig:
-                    self._ajustar_stock_tpv_vinculado_por_datos(dis_orig, var_orig, -cant_orig)
+                    self._ajustar_stock_tpv_vinculado_por_datos(dis_orig, var_orig, -cant_orig, linea_original.usuario_produccion_id)
 
                 # Aplicar stock nuevo (restar la nueva producción)
                 self.stock_base_service.actualizar_cantidad(
@@ -306,14 +307,14 @@ class ProduccionOrdenesService:
                     linea_original.variante_id, linea_original.cantidad
                 )
                 if linea_original.variante_id:
-                    self._ajustar_stock_tpv_vinculado(linea_original, linea_original.cantidad)
+                    self._ajustar_stock_tpv_vinculado(linea_original, linea_original.cantidad, linea_original.usuario_produccion_id)
 
             return True
         except Exception:
             self.logger.exception(f"Error actualizando línea {linea_id}")
             return False
 
-    def _ajustar_stock_tpv_vinculado_por_datos(self, diseno_codigo, variante_id, delta):
+    def _ajustar_stock_tpv_vinculado_por_datos(self, diseno_codigo, variante_id, delta, usuario_id: Optional[int] = None):
         """Ajustar stock TPV por datos directos (para reversiones)."""
         try:
             from kool_tpv.modulos.produccion.repositories.produccion_disenos_repository import ProduccionDisenosRepository
@@ -327,7 +328,8 @@ class ProduccionOrdenesService:
                 self.stock_movements.aplicar_movimiento(
                     producto_id=link.producto_id,
                     cantidad=cantidad_tpv,
-                    motivo=f"produccion:{diseno_codigo}"
+                    motivo=f"produccion:{dis.nombre if dis else diseno_codigo}",
+                    usuario_id=usuario_id
                 )
         except Exception:
             self.logger.exception(f"Error ajustando stock TPV directo para {diseno_codigo}")
@@ -346,7 +348,7 @@ class ProduccionOrdenesService:
         except Exception:
             self.logger.exception(f"Error ajustando stock directo para diseño {codigo}")
 
-    def _ajustar_stock_tpv_vinculado(self, linea: ProduccionLinea, delta: int):
+    def _ajustar_stock_tpv_vinculado(self, linea: ProduccionLinea, delta: int, usuario_id: Optional[int] = None):
         """Ajustar el stock TPV vinculado basándose en un delta."""
         try:
             # Obtener coleccion_id del diseño para el link_service
@@ -362,7 +364,8 @@ class ProduccionOrdenesService:
                 self.stock_movements.aplicar_movimiento(
                     producto_id=link.producto_id,
                     cantidad=cantidad_tpv,
-                    motivo=f"produccion:{linea.diseno_codigo}"
+                    motivo=f"produccion:{dis.nombre if dis else linea.diseno_codigo}",
+                    usuario_id=usuario_id
                 )
         except Exception:
             self.logger.exception(f"Error ajustando stock TPV vinculado para linea {linea.id}")
