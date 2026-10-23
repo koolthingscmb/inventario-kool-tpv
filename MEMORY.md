@@ -1,6 +1,6 @@
 # MEMORY.md — Kool TPV
 Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo que ya no
-aporte. (Última actualización: 2026-10-20, rama `windows-beta`.)
+aporte. (Última actualización: 2026-10-23, rama `windows-beta`.)
 
 ## Estado actual (Shopify)
 - SUBIDA separada en NUEVO y EDITAR (`SubidaBaseView` + componentes + builders sin widgets).
@@ -66,17 +66,16 @@ aporte. (Última actualización: 2026-10-20, rama `windows-beta`.)
 - `avance_comic`: solo se envía si LINK tiene entrada etiquetada 'Avance'.
 - OBTENER: géneros van a METACAMPOS, no a TAGS. Fuentes vivas: `almacen/services/fuentes/`.
 
+## Hecho el 2026-10-23
+- EDICIÓN MASIVA -> modo METACAMPOS (almacén): copia en ESPEJO los 4 metacampos
+  cómic (`MetacamposComicService.GRUPOS`, fuente única) de un producto referente
+  al lote; ausente en el referente = se borra en el destino; claves ajenas se
+  conservan. `pending_sync=1` + audit `EDICION_MASIVA_METACAMPOS`.
+- Shopify -> CONFIG -> EQUIVALENCIAS edita `metacampos_alias.json`: una fila por
+  valor oficial (vivos vía `obtener_opciones`, agrupados por metacampo), palabras
+  por comas. Huérfanas preservadas en bloque "SIN EFECTO". Valida y escribe
+  `ComparadorMetacamposService.guardar_alias`.
+
 ## Pendiente
-- HECHO (2026-10-23): modo METACAMPOS en la EDICIÓN masiva del almacén: elige
-  producto referente y copia sus 4 metacampos cómic (demografia, genero_comic,
-  subgenero_comic, contenido_adultos) en ESPEJO al lote (ausente en el referente
-  = se borra en el destino; claves ajenas del destino se conservan).
-  `pending_sync=1` + audit `EDICION_MASIVA_METACAMPOS`; sin edición por fila.
-  Las 4 claves salen de `MetacamposComicService.GRUPOS` (fuente única).
-- HECHO (2026-10-23): pestaña EQUIVALENCIAS en Shopify -> CONFIG edita
-  `metacampos_alias.json`: una fila por valor oficial (valores vivos vía
-  `obtener_opciones`, agrupados por metacampo) con palabras por comas.
-  Huérfanas en bloque "SIN EFECTO" preservadas tal cual. Validación y
-  escritura en `ComparadorMetacamposService.guardar_alias`.
 - Deuda: `crear_producto_ui.py` (1600+ líneas, refactor por partes); botón IR sin
   uso decidido; tests rotos, `openai` en requirements, docs desactualizados.
