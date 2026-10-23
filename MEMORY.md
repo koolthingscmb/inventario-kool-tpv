@@ -40,6 +40,10 @@ aporte. (Última actualización: 2026-10-20, rama `windows-beta`.)
   demografía de tags, avance), panini_web, ivrea_web (sitemap), udl_web (La Cúpula), astiberri_web
   (slug+EAN, imágenes `blobs`), arechi_web (sitemap+API, ceros a la izquierda ignorados),
   azeta_web (portal de cliente, por EAN). `azeta_web` será la RESERVA de casi todo.
+- astiberri_web (2026-10-23): busca por EAN en `/search?key=keyword&value=` con
+  cabecera XHR (el buscador indexa ISBN; verifica cada ficha por su EAN publicado).
+  Plan B: slugs por nombre + candidatas del buscador por título. `/search` está
+  Disallow en su robots.txt — decisión del propietario. Flag `busca_por_ean_y_nombre`.
 - Sin fuente propia, van con `azeta_web` (config, sin código): Penguin/Distrito Manga, Kibook,
   Mangaline, Devir, Yermo, Nuevo Nueve, Dolmen, Grafito y los manga menores. No volver a investigar.
 - Portadas máximas: Astiberri ~2400 px, Milky Way ~1030, Panini ~856, UDL ~800, Azeta ~650, Arechi
@@ -72,6 +76,5 @@ aporte. (Última actualización: 2026-10-20, rama `windows-beta`.)
 - PETICIÓN: UI pequeña en Shopify CONFIG para editar `metacampos_alias.json`.
 - TAGS (usuario decidiendo): derivados deterministas; IA solo contra lista maestra.
   Activar "colecciones automáticas" en definiciones de metacampos en Shopify admin.
-- Editoriales: 10 nombres siguen en minúsculas hasta re-guardarlos (o UPDATE autorizado).
 - Deuda: `crear_producto_ui.py` (1600+ líneas, refactor por partes); botón IR sin
   uso decidido; tests rotos, `openai` en requirements, docs desactualizados.

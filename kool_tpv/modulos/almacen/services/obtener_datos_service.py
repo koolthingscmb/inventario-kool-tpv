@@ -52,6 +52,12 @@ class ObtenerDatosService:
         ultimo_error: Optional[Exception] = None
         for fuente in fuentes:
             try:
+                if getattr(fuente, "busca_por_ean_y_nombre", False):
+                    # EAN directo primero; si no aparece, nombre + verificación
+                    try:
+                        return self._obtener_por_ean(fuente, ean)
+                    except ValueError:
+                        return self._obtener_por_nombre(fuente, nombre, ean)
                 if getattr(fuente, "busca_por_nombre", False):
                     return self._obtener_por_nombre(fuente, nombre, ean)
                 return self._obtener_por_ean(fuente, ean)

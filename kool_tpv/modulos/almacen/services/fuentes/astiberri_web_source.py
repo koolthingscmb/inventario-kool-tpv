@@ -1,11 +1,17 @@
 """Fuente Astiberri: web pública astiberri.com (sin login).
 
-El buscador de la web (`/search`) devuelve el catálogo entero y su
-robots.txt lo prohíbe a bots, así que NO se usa. En su lugar las fichas
-`/products/<slug>` son públicas y publican ISBN y EAN: `buscar()` genera
-candidatas de slug a partir del NOMBRE del producto (sin peticiones) y el
-servicio verifica cada ficha comparando su EAN con el escaneado — una
-candidata equivocada simplemente no coincide y se prueba la siguiente.
+`buscar()` tiene dos caminos según la consulta:
+
+- Dígitos (EAN/ISBN): el buscador `/search?key=keyword&value=` indexa el
+  ISBN y, llamado con la cabecera X-Requested-With, devuelve la ficha
+  exacta. OJO: `/search` figura como Disallow en su robots.txt; se usa por
+  decisión del propietario (herramienta propia, consultas puntuales).
+- Texto: candidatas `/products/<slug>` generadas del NOMBRE (sin
+  peticiones) más las que devuelve el mismo buscador por título.
+
+Cada ficha candidata se verifica comparando su EAN/ISBN publicado con el
+escaneado (en la propia fuente para la vía EAN, en el servicio para la
+vía nombre) — una candidata equivocada simplemente no coincide.
 
 La ficha aporta: título (`<h1>`), autor (`h2.product-author` -> enlaces
 `/authors/`), propiedades (`ISBN`, `EAN`, `Año de publicación`, `Serie`),
@@ -33,13 +39,15 @@ _UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                     "AppleWebKit/537.36 Chrome/120.0 Safari/537.36"}
 
 _MAX_CANDIDATAS = 8
+_MAX_BUSCADOR = 5
 
 
 class AstiberriWebSource(BaseFuente):
-    """Web pública de Astiberri. `buscar` recibe el NOMBRE, no el EAN."""
+    """Web pública de Astiberri: EAN por `/search` y nombre por slugs."""
 
-    # Marca para el servicio: busca por nombre y verifica por EAN de la ficha
-    busca_por_nombre = True
+    # Marca para el servicio: EAN directo primero y nombre (slugs +
+    # verificación por ISBN de la ficha) como plan B
+    busca_por_ean_y_nombre = True
 
     def __init__(self, url: str, timeout: int = 20):
         self.url_base = (url or "").rstrip("/")
@@ -52,14 +60,60 @@ class AstiberriWebSource(BaseFuente):
     # ---------- búsqueda y ficha ----------
 
     def buscar(self, consulta: str) -> List[Dict[str, Any]]:
-        """Candidatas /products/<slug> generadas del nombre (sin peticiones):
-        nombre limpio, sin número de tomo/edición, y quitando palabras del
-        final. La ficha buena se reconoce por su EAN en el servicio."""
+        """Dos caminos según la consulta (ver docstring del módulo)."""
+        consulta = (consulta or "").strip()
+        if re.fullmatch(r"\d{9,13}", consulta.replace("-", "")):
+            return self._buscar_por_ean(consulta)
+        slugs = list(dict.fromkeys(
+            self._slugs(consulta) + self._slugs_del_buscador(consulta)))
         return [{"titulo": slug, "url_ficha": f"{self.url_base}/products/{slug}"}
-                for slug in self._slugs(consulta)]
+                for slug in slugs]
+
+    def _buscar_por_ean(self, ean: str) -> List[Dict[str, Any]]:
+        """Búsqueda directa por EAN/ISBN: el buscador lo indexa y devuelve
+        la ficha exacta. Cada candidata se verifica descargando su ficha,
+        que viaja adjunta para que `detalle` no la pida dos veces."""
+        ean_digits = ean.replace("-", "")
+        resultados = []
+        for slug in self._slugs_del_buscador(ean_digits):
+            url = f"{self.url_base}/products/{slug}"
+            ficha = self.detalle({"url_ficha": url})
+            if not ficha:
+                continue
+            if (ficha.get("ean") or ficha.get("isbn") or ""
+                    ).replace("-", "") != ean_digits:
+                continue
+            resultados.append({
+                "titulo": ficha.get("titulo") or slug,
+                "url_ficha": url,
+                "ean": ficha.get("ean") or ficha.get("isbn") or "",
+                "isbn": ficha.get("isbn") or "",
+                "_detalle": ficha,
+            })
+        return resultados
+
+    def _slugs_del_buscador(self, texto: str) -> List[str]:
+        """Slugs /products/... que devuelve el buscador público
+        (`key=keyword&value=`). La respuesta HTML llega filtrada por
+        relevancia; se deduplican conservando el orden."""
+        try:
+            r = requests.get(
+                f"{self.url_base}/search",
+                params={"key": "keyword", "value": texto},
+                headers={**_UA, "X-Requested-With": "XMLHttpRequest"},
+                timeout=self.timeout)
+            if r.status_code != 200:
+                return []
+        except Exception:
+            logger.exception("El buscador de astiberri no respondió")
+            return []
+        return list(dict.fromkeys(
+            re.findall(r'href="/products/([^"?#]+)', r.text)))[:_MAX_BUSCADOR]
 
     def detalle(self, identificador: Any) -> Optional[Dict[str, Any]]:
         """Descarga y parsea la ficha; None si no es una ficha de producto."""
+        if isinstance(identificador, dict) and identificador.get("_detalle"):
+            return identificador["_detalle"]
         url = identificador.get("url_ficha") if isinstance(identificador, dict) \
             else str(identificador or "")
         if not url:
