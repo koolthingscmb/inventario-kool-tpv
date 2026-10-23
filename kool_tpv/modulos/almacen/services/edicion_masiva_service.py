@@ -4,15 +4,18 @@ Contiene la lógica de negocio para:
 - Extracción de números de tomos/volúmenes mediante expresiones regulares.
 - Generación de nombres propuestos basados en plantillas con variables ({num}, {sku}, {actual}, {id}).
 - Edición masiva de PVP con operaciones (fijo, %, €) y redondeos comerciales.
+- Copia en espejo de metacampos cómic desde un producto de referencia a un lote.
 - Búsqueda de lotes y aplicación transaccional en la base de datos.
 """
 import re
+import json
 import logging
 from decimal import Decimal, ROUND_FLOOR, ROUND_CEILING
 from typing import List, Dict, Any, Optional, Tuple
 
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.modulos.almacen.producto_repository import ProductoRepository
+from kool_tpv.modulos.almacen.services.metacampos_comic_service import MetacamposComicService
 from kool_tpv.base_datos.producto_service import ProductoService
 
 logger = logging.getLogger(__name__)
@@ -348,4 +351,126 @@ class EdicionMasivaService:
             return 0
 
         return self.repo.actualizar_pvp_masivo(items_a_guardar, usuario_id=usuario_id)
+
+    # ------------------------------------------------------------------
+    # Edición masiva de metacampos cómic (copia en espejo desde referencia)
+    # ------------------------------------------------------------------
+
+    # Las claves cómic se toman de MetacamposComicService.GRUPOS (fuente única)
+    CLAVES_METACAMPOS_COMIC = tuple(clave for clave, _, _ in MetacamposComicService.GRUPOS)
+
+    def buscar_producto_referencia(self, termino: str = '', limit: int = 30) -> List[Dict[str, Any]]:
+        """Busca candidatos a producto de referencia para el combo del modo METACAMPOS."""
+        productos = self.buscar_lote_productos(termino=termino, limit=limit)
+        resultados = []
+        for p in productos:
+            nombre = str(p.get('nombre') or '').strip()
+            sku = p.get('sku') or ''
+            resultados.append({
+                'id': p.get('id'),
+                'nombre': nombre,
+                'sku': sku,
+                'nombre_display': f"{nombre} ({sku})" if sku else nombre,
+            })
+        return resultados
+
+    def obtener_metacampos_producto(self, producto_id: int) -> Dict[str, Any]:
+        """Devuelve el dict de metacampos locales del producto (JSON en productos.metacampos)."""
+        try:
+            row = self.db.fetch_one(
+                "SELECT metacampos FROM productos WHERE id = ?", (producto_id,)
+            )
+            if not row or not row[0]:
+                return {}
+            meta = json.loads(row[0])
+            return meta if isinstance(meta, dict) else {}
+        except Exception:
+            logger.exception("Error leyendo metacampos de producto_id=%s", producto_id)
+            return {}
+
+    @staticmethod
+    def resumen_metacampos(meta: Dict[str, Any]) -> str:
+        """Resumen corto de los metacampos cómic: demografía | género | temáticas | contenido."""
+        if not meta:
+            return "—"
+        def _unir(v):
+            return '+'.join(str(x) for x in v) if isinstance(v, list) and v else '—'
+        demo = str(meta.get('demografia') or '—')
+        return (
+            f"{demo} | {_unir(meta.get('genero_comic'))} | "
+            f"{_unir(meta.get('subgenero_comic'))} | {_unir(meta.get('contenido_adultos'))}"
+        )
+
+    def metacampos_espejo(self, meta_origen: Dict[str, Any]) -> Dict[str, Any]:
+        """Devuelve solo las claves cómic presentes en el origen (espejo exacto)."""
+        return {
+            k: meta_origen[k]
+            for k in self.CLAVES_METACAMPOS_COMIC
+            if k in (meta_origen or {})
+        }
+
+    def generar_previsualizacion_metacampos(
+        self,
+        productos: List[Dict[str, Any]],
+        meta_origen: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """Genera la previsualización de la copia en espejo de metacampos cómic.
+
+        Para cada producto se calcula el JSON resultante: sus claves ajenas se
+        conservan y las claves cómic quedan exactamente como las del origen
+        (si el origen no tiene una clave, el producto la pierde: espejo).
+        """
+        espejo = self.metacampos_espejo(meta_origen or {})
+        previsualizacion = []
+        for p in productos:
+            pid = p.get('id')
+            actual = self.obtener_metacampos_producto(pid)
+
+            propuesto = {
+                k: v for k, v in actual.items()
+                if k not in self.CLAVES_METACAMPOS_COMIC
+            }
+            propuesto.update(espejo)
+
+            previsualizacion.append({
+                'id': pid,
+                'sku': p.get('sku') or '',
+                'nombre_actual': str(p.get('nombre') or '').strip(),
+                'meta_actual': actual,
+                'meta_propuesto': propuesto,
+                'meta_actual_txt': self.resumen_metacampos(actual),
+                'meta_propuesto_txt': self.resumen_metacampos(propuesto),
+                'seleccionado': True,
+                '_raw': p
+            })
+
+        return previsualizacion
+
+    def aplicar_cambios_metacampos(
+        self,
+        cambios: List[Dict[str, Any]],
+        usuario_id: Optional[int] = None
+    ) -> int:
+        """Aplica la copia de metacampos en base de datos de forma atómica.
+
+        Args:
+            cambios: Lista de dicts con 'id' y 'meta_propuesto' (dict final).
+            usuario_id: ID del usuario para auditoría.
+
+        Returns:
+            int: Número de productos actualizados.
+        """
+        items_a_guardar = []
+        for c in cambios:
+            if not c.get('seleccionado', True):
+                continue
+            pid = c.get('id')
+            meta = c.get('meta_propuesto')
+            if pid and meta is not None:
+                items_a_guardar.append((pid, meta))
+
+        if not items_a_guardar:
+            return 0
+
+        return self.repo.actualizar_metacampos_masivo(items_a_guardar, usuario_id=usuario_id)
 

@@ -8,6 +8,7 @@ Reglas implementadas:
  - No se transforman ni normalizan tipos
  - Se usan `self.db.fetch_one` / `self.db.fetch_all` según corresponda
 """
+import json
 import logging
 from typing import Optional, Dict, Any, List
 
@@ -653,5 +654,62 @@ WHERE 1=1
             return actualizados
         except Exception:
             logging.exception("Error en actualizar_pvp_masivo")
+            raise
+
+    def actualizar_metacampos_masivo(self, items: List[Any], usuario_id: Optional[int] = None) -> int:
+        """Sustituye el JSON de metacampos de cada producto por el recibido.
+
+        El dict final ya viene calculado por el service (espejo de las claves
+        cómic + claves ajenas del producto preservadas). Todo en una
+        transacción atómica: metacampos + pending_sync + updated_at + auditoría.
+
+        Args:
+            items: Lista de dicts o tuplas con 'id' (int) y 'metacampos' (dict).
+            usuario_id: ID opcional del usuario para audit_logs.
+
+        Returns:
+            int: Número de productos actualizados.
+        """
+        if not items:
+            return 0
+
+        actualizados = 0
+        try:
+            with self.db.transaction() as cur:
+                for item in items:
+                    pid = item.get('id') if isinstance(item, dict) else item[0]
+                    meta = item.get('metacampos') if isinstance(item, dict) else item[1]
+                    if not pid or meta is None:
+                        continue
+
+                    meta_txt = json.dumps(meta, ensure_ascii=False)
+
+                    cur.execute("SELECT metacampos FROM productos WHERE id = ?", (pid,))
+                    row = cur.fetchone()
+                    prev_txt = (row[0] or '') if row else ''
+                    if prev_txt == meta_txt:
+                        continue
+
+                    cur.execute(
+                        """UPDATE productos
+                           SET metacampos = ?, pending_sync = 1, updated_at = CURRENT_TIMESTAMP
+                           WHERE id = ?""",
+                        (meta_txt, pid)
+                    )
+                    actualizados += 1
+
+                    if self.audit:
+                        self.audit.registrar(
+                            entidad='productos',
+                            entidad_id=pid,
+                            accion='EDICION_MASIVA_METACAMPOS',
+                            usuario_id=usuario_id,
+                            datos_previos=f"Metacampos: {prev_txt or '{}'}",
+                            datos_nuevos=f"Metacampos: {meta_txt}",
+                            cur=cur
+                        )
+            return actualizados
+        except Exception:
+            logging.exception("Error en actualizar_metacampos_masivo")
             raise
 

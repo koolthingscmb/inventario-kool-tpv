@@ -1,12 +1,14 @@
-"""EdicionMasivaUI: Subvista de edición masiva de productos (nombres y PVP).
+"""EdicionMasivaUI: Subvista de edición masiva de productos (nombres, PVP y metacampos).
 
 Modos de trabajo (selector superior):
 - NOMBRES: unificación de nombres mediante plantillas ({num}, {sku}, {actual})
   con detección automática del número de tomo y padding opcional.
 - PVP: cambio masivo de precio (fijo, +%, -%, +€, -€) con redondeos
   comerciales (.95, .99, euro entero — siempre hacia arriba).
+- METACAMPOS: copia en espejo de los metacampos cómic (demografía, género,
+  temáticas y contenido) desde un producto de referencia al lote seleccionado.
 
-Flujo común a ambos modos:
+Flujo común a todos los modos:
 1. Buscar lotes por término, categoría y tipo.
 2. Descartar productos de la lista (Ctrl/Cmd+clic, Shift, Supr) sin borrarlos de la BD.
 3. Previsualizar los cambios en tabla virtualizada y editar filas con doble clic.
@@ -58,6 +60,15 @@ class EdicionMasivaUI:
         ('estado_cambio', 110, 'ESTADO')
     ]
 
+    COLUMNAS_METACAMPOS = [
+        ('id', 60, 'ID'),
+        ('sku', 130, 'SKU'),
+        ('nombre_actual', 280, 'NOMBRE'),
+        ('meta_actual', 380, 'METACAMPOS ACTUALES (Demografía | Género | Temáticas | Contenido)'),
+        ('meta_propuesto', 380, 'METACAMPOS PROPUESTOS'),
+        ('estado_cambio', 110, 'ESTADO')
+    ]
+
     def __init__(self, parent, db: Database, owner=None, keyboard_manager=None, module_name: str = 'almacen'):
         self.parent = parent
         self.db = db
@@ -90,12 +101,17 @@ class EdicionMasivaUI:
         self._primary = self.colors.get('primary', COLOR_MATRIX)
         self._border = self.colors.get('border', self._primary)
 
-        # Estado: 'nombres' o 'pvp'
+        # Estado: 'nombres', 'pvp' o 'metacampos'
         self._modo = 'nombres'
         self._productos_cargados: List[Dict[str, Any]] = []
         # Previews por modo: {pid: item}. Las ediciones manuales se conservan
         # al regenerar o al alternar entre modos (flag 'editado_manual').
-        self._previews: Dict[str, Dict[Any, Dict[str, Any]]] = {'nombres': {}, 'pvp': {}}
+        self._previews: Dict[str, Dict[Any, Dict[str, Any]]] = {
+            'nombres': {}, 'pvp': {}, 'metacampos': {}
+        }
+        # Metacampos del producto de referencia (modo METACAMPOS)
+        self._meta_origen: Dict[str, Any] = {}
+        self._ref_pid: Optional[int] = None
 
         # Contenedor principal
         self.container = ctk.CTkFrame(self.parent, fg_color=self._bg)
@@ -232,6 +248,19 @@ class EdicionMasivaUI:
         )
         self.btn_modo_pvp.pack(side='left')
 
+        self.btn_modo_metacampos = ButtonFactory.create_button(
+            parent=row_modo,
+            text='METACAMPOS',
+            command=lambda: self._on_cambiar_modo('metacampos'),
+            style_key='chip_default',
+            module=self.module_name,
+            palette_key='secondary',
+            width=130,
+            height=30,
+            cursor='hand2'
+        )
+        self.btn_modo_metacampos.pack(side='left', padx=(8, 0))
+
         self.lbl_contador = ctk.CTkLabel(
             row_modo,
             text="0 productos cargados",
@@ -243,9 +272,11 @@ class EdicionMasivaUI:
         # Barras de operación por modo
         self._crear_barra_nombres(op_frame)
         self._crear_barra_pvp(op_frame)
+        self._crear_barra_metacampos(op_frame)
 
         # Estado inicial: modo nombres
         self.frame_pvp.pack_forget()
+        self.frame_metacampos.pack_forget()
 
     def _crear_barra_nombres(self, parent):
         """Barra de operación del modo NOMBRES: plantilla + padding."""
@@ -394,27 +425,111 @@ class EdicionMasivaUI:
             text_color="#95A5A6"
         ).pack(side='left')
 
+    def _crear_barra_metacampos(self, parent):
+        """Barra del modo METACAMPOS: producto de referencia + resumen de sus metacampos cómic."""
+        self.frame_metacampos = ctk.CTkFrame(parent, fg_color='transparent')
+        # Se empaqueta/desempaqueta según el modo activo
+
+        row1 = ctk.CTkFrame(self.frame_metacampos, fg_color='transparent')
+        row1.pack(fill='x', padx=12, pady=(4, 4))
+
+        ctk.CTkLabel(
+            row1,
+            text="PRODUCTO DE REFERENCIA:",
+            font=get_font('label_bold', module=self.module_name),
+            text_color=self._primary
+        ).pack(side='left', padx=(0, 8))
+
+        self.ref_combo = SearchableCombo(
+            row1,
+            search_function=self.service.buscar_producto_referencia,
+            command=self._on_referente_seleccionado,
+            placeholder="Escribe nombre o SKU y elige el producto origen...",
+            width=380,
+            module_name=self.module_name
+        )
+        self.ref_combo.pack(side='left', padx=(0, 12))
+
+        self.btn_prev_meta = ButtonFactory.create_button(
+            parent=row1,
+            text='PREVISUALIZAR',
+            command=self._on_aplicar_operacion,
+            style_key='action_confirm',
+            module=self.module_name,
+            palette_key='secondary'
+        )
+        self.btn_prev_meta.pack(side='left')
+
+        # Fila 2: resumen de los metacampos del producto elegido
+        row2 = ctk.CTkFrame(self.frame_metacampos, fg_color='transparent')
+        row2.pack(fill='x', padx=12, pady=(0, 8))
+
+        self.lbl_ref_resumen = ctk.CTkLabel(
+            row2,
+            text="Elige el producto cuyos metacampos se copiarán tal cual (espejo) a los seleccionados.",
+            font=get_font('small', module=self.module_name),
+            text_color="#95A5A6"
+        )
+        self.lbl_ref_resumen.pack(side='left')
+
+    def _on_referente_seleccionado(self, _valor=None):
+        """Carga los metacampos del producto de referencia elegido y muestra su resumen."""
+        data = self.ref_combo.get_producto_data() if hasattr(self.ref_combo, 'get_producto_data') else None
+        if not data or not data.get('id'):
+            self._meta_origen = {}
+            self._ref_pid = None
+            self.lbl_ref_resumen.configure(
+                text="Elige el producto cuyos metacampos se copiarán tal cual (espejo) a los seleccionados.",
+                text_color="#95A5A6"
+            )
+            return
+
+        self._ref_pid = data['id']
+        self._meta_origen = self.service.obtener_metacampos_producto(self._ref_pid)
+
+        espejo = self.service.metacampos_espejo(self._meta_origen)
+        if espejo:
+            self.lbl_ref_resumen.configure(
+                text=f"Referencia: {self.service.resumen_metacampos(espejo)}",
+                text_color="#2ECC71"
+            )
+        else:
+            self.lbl_ref_resumen.configure(
+                text="Referencia: sin metacampos cómic — los seleccionados quedarán también sin ellos (espejo).",
+                text_color="#e67e22"
+            )
+
     def _on_cambiar_modo(self, modo: str):
-        """Alterna entre los modos NOMBRES y PVP conservando la lista de trabajo."""
+        """Alterna entre los modos NOMBRES, PVP y METACAMPOS conservando la lista de trabajo."""
         if modo == self._modo:
             return
         self._modo = modo
 
+        chips = {
+            'nombres': self.btn_modo_nombres,
+            'pvp': self.btn_modo_pvp,
+            'metacampos': self.btn_modo_metacampos,
+        }
+        frames = {
+            'nombres': self.frame_nombres,
+            'pvp': self.frame_pvp,
+            'metacampos': self.frame_metacampos,
+        }
+
         # Restilado de chips: activo sólido (primary), inactivo outline (secondary)
-        if modo == 'nombres':
-            ButtonFactory.apply_style(
-                self.btn_modo_nombres, 'chip_selected', module=self.module_name, palette_key='primary')
-            ButtonFactory.apply_style(
-                self.btn_modo_pvp, 'chip_default', module=self.module_name, palette_key='secondary')
-            self.frame_pvp.pack_forget()
-            self.frame_nombres.pack(fill='x')
-        else:
-            ButtonFactory.apply_style(
-                self.btn_modo_pvp, 'chip_selected', module=self.module_name, palette_key='primary')
-            ButtonFactory.apply_style(
-                self.btn_modo_nombres, 'chip_default', module=self.module_name, palette_key='secondary')
-            self.frame_nombres.pack_forget()
-            self.frame_pvp.pack(fill='x')
+        for m, chip in chips.items():
+            if m == modo:
+                ButtonFactory.apply_style(
+                    chip, 'chip_selected', module=self.module_name, palette_key='primary')
+            else:
+                ButtonFactory.apply_style(
+                    chip, 'chip_default', module=self.module_name, palette_key='secondary')
+
+        for m, frame in frames.items():
+            if m == modo:
+                frame.pack(fill='x')
+            else:
+                frame.pack_forget()
 
         # Reconstruir tabla con las columnas del modo y regenerar preview
         self._rebuild_tabla()
@@ -439,7 +554,12 @@ class EdicionMasivaUI:
             except Exception:
                 pass
 
-        columns = self.COLUMNAS_NOMBRES if self._modo == 'nombres' else self.COLUMNAS_PVP
+        columnas_por_modo = {
+            'nombres': self.COLUMNAS_NOMBRES,
+            'pvp': self.COLUMNAS_PVP,
+            'metacampos': self.COLUMNAS_METACAMPOS,
+        }
+        columns = columnas_por_modo.get(self._modo, self.COLUMNAS_NOMBRES)
 
         self.nav_list = VirtualNavList(
             self._table_container,
@@ -474,6 +594,8 @@ class EdicionMasivaUI:
         """Destaca en verde las filas que cambiarán en el modo activo."""
         if self._modo == 'nombres':
             cambia = bool(item.get('nombre_propuesto')) and item.get('nombre_propuesto') != item.get('nombre_actual')
+        elif self._modo == 'metacampos':
+            cambia = item.get('_meta_propuesto') != item.get('_meta_actual')
         else:
             prop = item.get('_pvp_propuesto_dec')
             act = item.get('_pvp_actual_dec')
@@ -559,6 +681,11 @@ class EdicionMasivaUI:
                 patron=self.patron_var.get().strip(),
                 rellenar_ceros=self.check_ceros_var.get()
             )
+        elif self._modo == 'metacampos':
+            items = self.service.generar_previsualizacion_metacampos(
+                productos=self._productos_cargados,
+                meta_origen=self._meta_origen
+            )
         else:
             operacion = self.op_pvp_combo.get_id() or 'fijo'
             valor = self._parsear_valor_pvp()
@@ -597,9 +724,10 @@ class EdicionMasivaUI:
             if manual:
                 if self._modo == 'nombres':
                     it['nombre_propuesto'] = manual.get('nombre_propuesto', it['nombre_propuesto'])
-                else:
+                    it['editado_manual'] = True
+                elif self._modo == 'pvp':
                     it['pvp_propuesto'] = manual.get('pvp_propuesto', it['pvp_propuesto'])
-                it['editado_manual'] = True
+                    it['editado_manual'] = True
             mapa[pid] = it
 
     def _preview_list(self) -> List[Dict[str, Any]]:
@@ -612,6 +740,8 @@ class EdicionMasivaUI:
         if self._modo == 'nombres':
             prop = item.get('nombre_propuesto')
             return bool(prop) and prop != item.get('nombre_actual')
+        if self._modo == 'metacampos':
+            return item.get('meta_propuesto') != item.get('meta_actual')
         prop = item.get('pvp_propuesto')
         return prop is not None and prop != item.get('pvp_actual')
 
@@ -634,6 +764,18 @@ class EdicionMasivaUI:
                     'nombre_propuesto': item['nombre_propuesto'],
                     'num_detectado': str(item['num_detectado']) if item.get('num_detectado') is not None else "-",
                     'estado_cambio': estado_txt,
+                    '_raw': item
+                })
+            elif self._modo == 'metacampos':
+                rows.append({
+                    'id': str(item['id']),
+                    'sku': item['sku'],
+                    'nombre_actual': item['nombre_actual'],
+                    'meta_actual': item['meta_actual_txt'],
+                    'meta_propuesto': item['meta_propuesto_txt'],
+                    'estado_cambio': estado_txt,
+                    '_meta_actual': item['meta_actual'],
+                    '_meta_propuesto': item['meta_propuesto'],
                     '_raw': item
                 })
             else:
@@ -676,6 +818,7 @@ class EdicionMasivaUI:
         # Nueva búsqueda: las previews anteriores ya no aplican
         self._previews['nombres'].clear()
         self._previews['pvp'].clear()
+        self._previews['metacampos'].clear()
 
         if not self._productos_cargados:
             ToastWidget.show(self.container, "No se encontraron productos con esos filtros", tipo="warning")
@@ -709,6 +852,10 @@ class EdicionMasivaUI:
             ToastWidget.show(self.container, "Introduce un valor numérico válido para la operación PVP", tipo="warning")
             return
 
+        if self._modo == 'metacampos' and not self._ref_pid:
+            ToastWidget.show(self.container, "Elige un producto de referencia para copiar sus metacampos", tipo="warning")
+            return
+
         self._generar_preview_actual()
         self._actualizar_tabla()
 
@@ -716,6 +863,10 @@ class EdicionMasivaUI:
         """Permite editar manualmente la propuesta de una fila (doble clic)."""
         item = row_data.get('_raw')
         if not item:
+            return
+
+        # El modo METACAMPOS no admite edición individual: es espejo del referente
+        if self._modo == 'metacampos':
             return
 
         pid = item['id']
@@ -782,6 +933,7 @@ class EdicionMasivaUI:
         for pid in ids_a_quitar:
             self._previews['nombres'].pop(pid, None)
             self._previews['pvp'].pop(pid, None)
+            self._previews['metacampos'].pop(pid, None)
 
         # Limpiar selección y refrescar tabla
         if hasattr(self.nav_list, 'deselect_all'):
@@ -797,6 +949,9 @@ class EdicionMasivaUI:
             item['editado_manual'] = False
             if self._modo == 'nombres':
                 item['nombre_propuesto'] = item['nombre_actual']
+            elif self._modo == 'metacampos':
+                item['meta_propuesto'] = dict(item.get('meta_actual') or {})
+                item['meta_propuesto_txt'] = self.service.resumen_metacampos(item['meta_propuesto'])
             else:
                 item['pvp_propuesto'] = item.get('pvp_actual', Decimal('0.00'))
         self._actualizar_tabla()
@@ -814,7 +969,7 @@ class EdicionMasivaUI:
             return
 
         total = len(cambios_a_aplicar)
-        modo_txt = "PVP" if self._modo == 'pvp' else "nombres"
+        modo_txt = {'pvp': "PVP", 'metacampos': "metacampos cómic"}.get(self._modo, "nombres")
         confirmado = show_warning(
             self.container,
             titulo="CONFIRMAR EDICIÓN MASIVA",
@@ -832,6 +987,8 @@ class EdicionMasivaUI:
         try:
             if self._modo == 'nombres':
                 actualizados = self.service.aplicar_cambios(cambios_a_aplicar, usuario_id=usuario_id)
+            elif self._modo == 'metacampos':
+                actualizados = self.service.aplicar_cambios_metacampos(cambios_a_aplicar, usuario_id=usuario_id)
             else:
                 actualizados = self.service.aplicar_cambios_pvp(cambios_a_aplicar, usuario_id=usuario_id)
 

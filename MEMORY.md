@@ -47,83 +47,31 @@ aporte. (Última actualización: 2026-10-20, rama `windows-beta`.)
 - Frágil: panini.es solo deja pasar con UA Googlebot (Queue-it); Azeta acepta el login sin token
   reCAPTCHA hoy; Ivrea limita su buscador AJAX por IP (por eso usa el sitemap).
 
+## Reglas de arquitectura (permanentes)
+- PUERTA ÚNICA DE STOCK (2026-10-23): todo cambio de `productos.stock_actual` debe
+  pasar por `StockMovementService.aplicar_movimiento(pid, cantidad, motivo, usuario_id,
+  ticket_line_id, ventas_change, encolar_sync, motivo_sync, cur)` = UPDATE +
+  movimiento + encargo SYNC_PRODUCTO, en la transacción del llamador (rollback =
+  desaparece todo). NO hacer UPDATE a mano. Tras confirmar: `procesar_pendientes_async()`.
+  Albaranes: `encolar_sync=False` y encolan 1 por producto al final. Fuera a
+  propósito: reseteo de tienda y tools. El log muestra "nombre (EAN) -> Stock: N".
+- Cola sync: encolar dentro de la transacción; un solo trabajador serial; errores
+  con motivo real en SYNC -> PENDIENTES (reintento manual del usuario); huérfanos
+  'pendiente' se drenan al arrancar.
+- Vales = forma de pago (no descuento), consumo atómico en la venta (mig. 065-067).
+- `avance_comic`: solo se envía si LINK tiene entrada etiquetada 'Avance'.
+- OBTENER: géneros van a METACAMPOS, no a TAGS. Fuentes vivas: `almacen/services/fuentes/`.
+
 ## Pendiente
-- SYNC STOCK TIENDA->SHOPIFY (HECHO y probado 2026-10-22): PUERTA ÚNICA =
-  `StockMovementService.aplicar_movimiento(pid, cantidad, motivo, usuario_id,
-  ticket_line_id, ventas_change, encolar_sync, motivo_sync, cur)` — hace UPDATE
-  de stock + movimiento en `stock_movements` + encargo SYNC_PRODUCTO, todo en la
-  transacción del llamador (rollback = desaparece todo). REGLA: toda vía NUEVA que
-  toque `productos.stock_actual` debe usar `aplicar_movimiento` (NO hacer UPDATE a
-  mano) + `procesar_pendientes_async()` tras confirmar. Migrados: ventas/devoluciones
-  (ticket_repository, motivo_sync para devoluciones), menús, ajuste manual y
-  producción vinculada (produccion_ordenes_service: de regalo ganaron movimientos
-  en el historial — antes no apuntaban — y ya no hacen commit prematuro con
-  execute_query). Albaranes usan `encolar_sync=False` y encolan 1 por producto al
-  final con el stock FINAL (deduplicado). El log muestra "nombre (EAN) -> Stock: N".
-  Quedan fuera a propósito: reseteo de tienda y herramientas de migración.
-- DEUDA (no urgente): `crear_producto_ui.py` (1600+ líneas) aún tiene `__init__` ~419 líneas y
-  `_on_save` ~225. Ya NO hay SQL directo en `_load_db_options` (todo por repositorios/servicios:
-  categorias, tipos, proveedores, tipo_iva). Refactor restante = mismo comportamiento, por partes.
-- Botón IR del formulario: decidir uso. `web_dominio` ya no se edita desde la pantalla.
-- Decidir: tests rotos, `openai` en `requirements.txt`, documentos desactualizados.
-- PETICIÓN: UI pequeña en Shopify CONFIG para
-  editar `metacampos_alias.json` (añadir/modificar equivalencias).
-- Ficha producto (2026-10-21): fuera campo SHOPIFY TIPO (redundante: se guarda el nombre del TIPO);
-  textos SEO en paleta Shopify; TAXONOMY deriva de categoría del producto o, si falta, de la del
-  tipo (`tipos.categoria_id`); "SUBGÉNERO" renombrado a TEMÁTICAS (solo etiquetas; la clave
-  Shopify `subgenero_comic` y el placeholder `{subgeneros}` del prompt no se tocan).
-- TAGS (estrategia propuesta, usuario decidiendo): derivados deterministas del producto/metacampos
-  (autor, serie?, editorial, demografía, géneros, temáticas) en slug sin tildes; temáticos de IA
-  solo contra la lista maestra = entradas del metaobjeto Temáticas en Shopify. NADA de IA libre.
-  Usuario: activar "colecciones automáticas" en las definiciones de metacampos en Shopify admin.
-- PRÓXIMOS PASOS (orden acordado 2026-10-20, uno por vez, con aprobación):
-  2) GENERAR SEO hecho y probado por el usuario: el botón BUSCAR DATA ahora es GENERAR SEO
-     (color Shopify). `SeoFichaService` lee `manga_seo` de `shopify_prompts` (versión del tipo
-     si existe), rellena sus 14 variables desde el formulario (serie/tomo por regex, metacampos,
-     sinopsis) y llama `OpenAIService.generate_json` con `KOOLTHINGSHOP.md` como sistema. Rellena
-     TITULO/SEO_TITLE/SEO_DESC/DESCRIPCION (esta última es HTML, va a descriptionHtml). Limpieza:
-     fuera `_on_buscar_data`, `_apply_manga_data`, `_auto_fill_shopify_data`.
-  2b) Editoriales: quitado el `.lower()` que forzaba minúsculas al guardar (fuentes_editorial_
-     service) + lookup `COLLATE NOCASE` (editorial_repository). Los 10 nombres actuales siguen
-     en minúsculas hasta que el usuario los re-guarde o autorice UPDATE.
-  3) SUBIR A SHOPIFY desde la ficha: HECHO y probado por el usuario (2026-10-21).
-     Botón SUBIR A SHOPIFY (antes SINCRONIZAR). `ShopifyFichaService` (shopify/services) monta
-     `datos` desde get_data() y llama `product_set`: barcode=EAN en la variante, vendor=editorial,
-     productType=tipo TPV, taxonomy de la ficha, templateSuffix=`shopify_template_suffix` (nuevo
-     campo "Plantilla de producto" en CONFIG->GENERAL; tenía 'kool-camisetas' precargado), metacampos
-     cómic a GIDs, portadas locales con alt (título - portada/contraportada), precio+stock.
-     Siempre sube ACTIVE (el usuario prefirió sin diálogo de estado). Antes de crear: búsqueda
-     por barcode (`buscar_por_barcode`); si existe -> diálogo enlazar. En actualización se reenvían
-     metacampos/colecciones/imágenes que la ficha no gestiona (productSet borra lo omitido).
-     Tras subir: mapping + sync_log + `pending_sync=0` + LINK relleno (`marcar_sincronizado`).
-     Tras CREAR: busca duplicados por título (`buscar_por_titulo`) -> diálogo multiselección
-     reutilizado -> BORRAR con confirmación (`borrar_producto`/`productDelete`, irreversible).
-     FIX hecho: `TipoRepository.update` ya no toca columnas de Shopify (web_activo, template_suffix,
-     flags variantes, shopify_taxonomy) -> Almacén->TIPOS ya no pisa lo de CONFIG->TIPOS.
-     vendor = editorial: DECIDIDO, se queda (es la "marca" del producto, útil para Google
-     Shopping/brand y colecciones).
-     Metacampo `custom.avance_comic` (tipo url): se envía solo si el campo LINK tiene una
-     entrada con etiqueta 'Avance' (las fuentes ya la escriben así); si no hay, se conserva
-     lo que hubiera en Shopify. El parseo está en `_avance_desde_link`.
-  4) Limpieza (HECHO 2026-10-22): borrados `buscar_data/`, `sources/` (AniList/MangaDex/
-     GoogleBooks/Wikipedia), `web_search_service.py`, `fuentes_tab.py` y la pestaña FUENTES
-     de CONFIG. Todo era código muerto sustituido por GENERAR SEO. OJO: el sistema vivo de
-     fuentes es OTRO: `almacen/services/fuentes/` (editoriales, botón OBTENER).
-  5) VALES en BD (HECHO y probado, 2026-10-22): migraciones 065 (vales/vales_usos),
-     066 (num_vale+nombre), 067 (cierres.total_vales). El vale es FORMA DE PAGO:
-     tickets.vale_cents = importe aplicado, payments con metodo 'vale', consumo
-     dentro de la transacción de la venta. Vale que cubre todo -> panel
-     PAGADO CON VALE. Cierre: venta real + línea 'Pagado con vales'; devoluciones
-     en neto (las líneas que se anulan no inflan) y conteo por tipo de línea.
-     PENDIENTE: migrar vales JSON activos si los hubiera; probar en Windows
-     la impresión real del ticket con vale y del cierre en la térmica.
-  6) COLA DE SYNC STOCK->SHOPIFY (HECHO y probado, 2026-10-22): migración 068
-     añade sku/cantidad/reintentos a shopify_sync_log. `_trigger_async_sync` ya no
-     lanza hilos: ENCOLA el encargo ('pendiente') dentro de la transacción del
-     llamador (si rueda atrás, el encargo desaparece). Tras commit, un solo
-     trabajador (`procesar_pendientes`, candado de clase) los procesa en serie
-     con un solo token -> adiós a la estampida OAuth que perdió la sync de la
-     infantil 9-11 (token caducado + 3 hilos pidiendo llave a la vez).
-     Errores quedan con motivo real y se ven en SYNC -> pestaña PENDIENTES con
-     REINTENTAR manual. Errores NO se reintentan solos al arrancar (decisión del
-     usuario); los 'pendiente' huérfanos sí se drenan al iniciar (main.py).
+- HECHO (2026-10-23): modo METACAMPOS en la EDICIÓN masiva del almacén: elige
+  producto referente y copia sus 4 metacampos cómic (demografia, genero_comic,
+  subgenero_comic, contenido_adultos) en ESPEJO al lote (ausente en el referente
+  = se borra en el destino; claves ajenas del destino se conservan).
+  `pending_sync=1` + audit `EDICION_MASIVA_METACAMPOS`; sin edición por fila.
+  Las 4 claves salen de `MetacamposComicService.GRUPOS` (fuente única).
+- PETICIÓN: UI pequeña en Shopify CONFIG para editar `metacampos_alias.json`.
+- TAGS (usuario decidiendo): derivados deterministas; IA solo contra lista maestra.
+  Activar "colecciones automáticas" en definiciones de metacampos en Shopify admin.
+- Editoriales: 10 nombres siguen en minúsculas hasta re-guardarlos (o UPDATE autorizado).
+- Deuda: `crear_producto_ui.py` (1600+ líneas, refactor por partes); botón IR sin
+  uso decidido; tests rotos, `openai` en requirements, docs desactualizados.
