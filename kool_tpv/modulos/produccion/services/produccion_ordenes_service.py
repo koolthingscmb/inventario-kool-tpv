@@ -9,6 +9,7 @@ from datetime import datetime
 
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.base_datos.money_adapter import prepare_for_db
+from kool_tpv.base_datos.stock_movement_service import StockMovementService
 from kool_tpv.modulos.produccion.models.produccion_orden_model import ProduccionOrden
 from kool_tpv.modulos.produccion.models.produccion_linea_model import ProduccionLinea
 from kool_tpv.modulos.produccion.repositories.produccion_ordenes_repository import ProduccionOrdenesRepository
@@ -58,6 +59,7 @@ class ProduccionOrdenesService:
         self.repo_extras = ProduccionExtrasRepository(db)
         self.link_service = VarianteProductoService(db)
         self.tallas_service = ProduccionTallasService(db)
+        self.stock_movements = StockMovementService(db)
         self.reposicion_store = ReposicionStore()
 
     def guardar_orden(self, items: List[ItemProduccion], usuario_id: Optional[int] = None) -> int:
@@ -201,10 +203,12 @@ class ProduccionOrdenesService:
                 ratio = link.ratio if link.ratio and link.ratio > 0 else 1
                 cantidad_tpv = item.cantidad * ratio
                 
-                # Ejecutar el update directamente en la base de datos
-                # Esto se ejecuta dentro de la misma transacción que el resto de la orden
-                query = "UPDATE productos SET stock_actual = stock_actual + ? WHERE id = ?"
-                self.db.execute_query(query, (cantidad_tpv, link.producto_id))
+                # Stock + movimiento + encargo Shopify dentro de la transacción de la orden
+                self.stock_movements.aplicar_movimiento(
+                    producto_id=link.producto_id,
+                    cantidad=cantidad_tpv,
+                    motivo=f"produccion:{item.diseno_codigo}"
+                )
                 
                 self.logger.info(f"VINCULACIÓN TPV: Sumado +{cantidad_tpv} uds al producto ID {link.producto_id} (Variante {item.variante_id})")
         except Exception:
@@ -320,8 +324,11 @@ class ProduccionOrdenesService:
             if link and link.producto_id:
                 ratio = link.ratio if link.ratio and link.ratio > 0 else 1
                 cantidad_tpv = delta * ratio
-                query = "UPDATE productos SET stock_actual = stock_actual + ? WHERE id = ?"
-                self.db.execute_query(query, (cantidad_tpv, link.producto_id))
+                self.stock_movements.aplicar_movimiento(
+                    producto_id=link.producto_id,
+                    cantidad=cantidad_tpv,
+                    motivo=f"produccion:{diseno_codigo}"
+                )
         except Exception:
             self.logger.exception(f"Error ajustando stock TPV directo para {diseno_codigo}")
 
@@ -352,8 +359,11 @@ class ProduccionOrdenesService:
             if link and link.producto_id:
                 ratio = link.ratio if link.ratio and link.ratio > 0 else 1
                 cantidad_tpv = delta * ratio
-                query = "UPDATE productos SET stock_actual = stock_actual + ? WHERE id = ?"
-                self.db.execute_query(query, (cantidad_tpv, link.producto_id))
+                self.stock_movements.aplicar_movimiento(
+                    producto_id=link.producto_id,
+                    cantidad=cantidad_tpv,
+                    motivo=f"produccion:{linea.diseno_codigo}"
+                )
         except Exception:
             self.logger.exception(f"Error ajustando stock TPV vinculado para linea {linea.id}")
 

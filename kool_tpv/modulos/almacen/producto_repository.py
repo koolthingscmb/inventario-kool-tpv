@@ -13,7 +13,7 @@ from typing import Optional, Dict, Any, List
 
 from kool_tpv.base_datos.money_adapter import prepare_for_db, read_from_db
 from kool_tpv.base_datos.audit_service import AuditService
-from kool_tpv.base_datos.stock_movement_repository import StockMovementRepository
+from kool_tpv.base_datos.stock_movement_service import StockMovementService
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class ProductoRepository:
     def __init__(self, db: Database):
         self.db = db
         self.audit = AuditService(db)
-        self.stock_movements = StockMovementRepository(db)
+        self.stock_movements = StockMovementService(db)
         self._create_indexes()
 
     def _create_indexes(self) -> None:
@@ -483,44 +483,49 @@ WHERE 1=1
             logging.exception('Error guardando producto completo id=%s', producto_id)
             raise
 
-    def ajustar_stock_manual(self, producto_id: int, cantidad_ajuste: int, motivo: str, usuario_id: int) -> bool:
-        """Realiza un ajuste manual de stock y lo registra en stock_movements y audit_logs."""
-        try:
-            with self.db.transaction() as cur:
-                # 0. Obtener stock actual para auditoría
-                cur.execute("SELECT stock_actual, nombre FROM productos WHERE id = ?", (producto_id,))
-                row = cur.fetchone()
-                stock_previo = row[0] if row else 0
-                nombre_prod = row[1] if row else "Desconocido"
+    def ajustar_stock_manual(self, producto_id: int, cantidad_ajuste: int, motivo: str, usuario_id: int, cur=None) -> bool:
+        """Realiza un ajuste manual de stock y lo registra en stock_movements y audit_logs.
 
-                # 1. Actualizar stock en productos
-                cur.execute(
-                    "UPDATE productos SET stock_actual = stock_actual + ? WHERE id = ?",
-                    (cantidad_ajuste, producto_id)
-                )
-                # 2. Registrar movimiento técnico con usuario_id
-                self.stock_movements.registrar_movimiento(
-                    producto_id=producto_id,
-                    cantidad=cantidad_ajuste,
-                    motivo=motivo,
-                    usuario_id=usuario_id,
-                    cur=cur
-                )
-                
-                # 3. Auditoría de gestión
-                self.audit.registrar(
-                    entidad='productos',
-                    entidad_id=producto_id,
-                    accion='AJUSTE_STOCK_MANUAL',
-                    usuario_id=usuario_id,
-                    datos_previos=f"Stock previo: {stock_previo}",
-                    datos_nuevos=f"Ajuste: {cantidad_ajuste} ({motivo}). Nuevo stock: {stock_previo + cantidad_ajuste}",
-                    cur=cur
-                )
+        Con `cur` se ejecuta dentro de la transacción del llamador; sin él,
+        abre la suya propia.
+        """
+        try:
+            if cur is not None:
+                self._ajustar_stock_manual_tx(producto_id, cantidad_ajuste, motivo, usuario_id, cur)
+            else:
+                with self.db.transaction() as cur:
+                    self._ajustar_stock_manual_tx(producto_id, cantidad_ajuste, motivo, usuario_id, cur)
             return True
         except Exception:
             logging.exception("Error en ajuste manual de stock para producto_id=%s", producto_id)
             raise
+
+    def _ajustar_stock_manual_tx(self, producto_id: int, cantidad_ajuste: int, motivo: str, usuario_id: int, cur):
+        # 0. Obtener stock actual para auditoría
+        cur.execute("SELECT stock_actual, nombre FROM productos WHERE id = ?", (producto_id,))
+        row = cur.fetchone()
+        stock_previo = row[0] if row else 0
+        nombre_prod = row[1] if row else "Desconocido"
+
+        # 1 y 2. Actualizar stock + registrar movimiento + encolar sync Shopify
+        self.stock_movements.aplicar_movimiento(
+            producto_id=producto_id,
+            cantidad=cantidad_ajuste,
+            motivo=motivo,
+            usuario_id=usuario_id,
+            cur=cur
+        )
+
+        # 3. Auditoría de gestión
+        self.audit.registrar(
+            entidad='productos',
+            entidad_id=producto_id,
+            accion='AJUSTE_STOCK_MANUAL',
+            usuario_id=usuario_id,
+            datos_previos=f"Stock previo: {stock_previo}",
+            datos_nuevos=f"Ajuste: {cantidad_ajuste} ({motivo}). Nuevo stock: {stock_previo + cantidad_ajuste}",
+            cur=cur
+        )
 
     def actualizar_nombres_masivo(self, items: List[Any], usuario_id: Optional[int] = None) -> int:
         """Actualiza el nombre de múltiples productos en una sola transacción atómica.

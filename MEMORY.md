@@ -48,9 +48,19 @@ aporte. (Última actualización: 2026-10-20, rama `windows-beta`.)
   reCAPTCHA hoy; Ivrea limita su buscador AJAX por IP (por eso usa el sitemap).
 
 ## Pendiente
-- NUEVO (2026-10-22): las subidas de cómic/manga van casi perfectas. Falta: al vender un
-  cómic o manga en tienda física, que baje automáticamente el stock en Shopify (hoy la
-  cola de sync solo cubre stock base de producción, no las ventas de productos).
+- SYNC STOCK TIENDA->SHOPIFY (HECHO y probado 2026-10-22): PUERTA ÚNICA =
+  `StockMovementService.aplicar_movimiento(pid, cantidad, motivo, usuario_id,
+  ticket_line_id, ventas_change, encolar_sync, motivo_sync, cur)` — hace UPDATE
+  de stock + movimiento en `stock_movements` + encargo SYNC_PRODUCTO, todo en la
+  transacción del llamador (rollback = desaparece todo). REGLA: toda vía NUEVA que
+  toque `productos.stock_actual` debe usar `aplicar_movimiento` (NO hacer UPDATE a
+  mano) + `procesar_pendientes_async()` tras confirmar. Migrados: ventas/devoluciones
+  (ticket_repository, motivo_sync para devoluciones), menús, ajuste manual y
+  producción vinculada (produccion_ordenes_service: de regalo ganaron movimientos
+  en el historial — antes no apuntaban — y ya no hacen commit prematuro con
+  execute_query). Albaranes usan `encolar_sync=False` y encolan 1 por producto al
+  final con el stock FINAL (deduplicado). El log muestra "nombre (EAN) -> Stock: N".
+  Quedan fuera a propósito: reseteo de tienda y herramientas de migración.
 - DEUDA (no urgente): `crear_producto_ui.py` (1600+ líneas) aún tiene `__init__` ~419 líneas y
   `_on_save` ~225. Ya NO hay SQL directo en `_load_db_options` (todo por repositorios/servicios:
   categorias, tipos, proveedores, tipo_iva). Refactor restante = mismo comportamiento, por partes.

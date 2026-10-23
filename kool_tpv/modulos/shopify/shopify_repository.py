@@ -140,7 +140,7 @@ class ShopifyRepository:
         """Encargos de sync que necesitan atención: pendientes, errores y SKUs sin web."""
         rows = self.db.fetch_all(
             """SELECT * FROM shopify_sync_log
-               WHERE accion = 'SYNC_STOCK_PREFIX' AND sku IS NOT NULL
+               WHERE accion IN ('SYNC_STOCK_PREFIX', 'SYNC_PRODUCTO') AND sku IS NOT NULL
                  AND resultado IN ('pendiente', 'error', 'sin_variantes')
                ORDER BY id DESC LIMIT ?""",
             (limit,)

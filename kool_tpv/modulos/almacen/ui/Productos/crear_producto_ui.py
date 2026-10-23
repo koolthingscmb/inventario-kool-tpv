@@ -590,18 +590,25 @@ class CrearProductoUI:
             show_error(self.container, "ERROR", "El motivo es obligatorio para la trazabilidad")
             return
             
-        # 4. Ejecutar ajuste via Repository
+        # 4. Ejecutar ajuste via Repository (el encargo de sync a Shopify va
+        # dentro de la misma transacción: si el ajuste se deshace, desaparece)
         try:
-            if self.repo.ajustar_stock_manual(self.producto_id, uds, f"Ajuste manual: {motivo}", user['id']):
-                ToastWidget.show(self.container, "Stock ajustado correctamente", tipo='success')
-                
-                # 5. Refrescar UI usando el loader oficial
-                try:
-                    from kool_tpv.modulos.almacen.ui.Productos.cargar_producto import CargarProductoUI
-                    loader = CargarProductoUI(self.parent, self.db)
-                    loader.apply_to_ui(self.producto_id, self)
-                except Exception:
-                    logger.exception("Error refrescando UI tras ajuste")
+            from kool_tpv.modulos.shopify.services.shopify_sync_service import ShopifySyncService
+            sync_svc = ShopifySyncService(self.db)
+            with self.db.transaction() as cur:
+                if not self.repo.ajustar_stock_manual(self.producto_id, uds, f"Ajuste manual: {motivo}", user['id'], cur=cur):
+                    return
+            sync_svc.procesar_pendientes_async()
+
+            ToastWidget.show(self.container, "Stock ajustado correctamente", tipo='success')
+
+            # 5. Refrescar UI usando el loader oficial
+            try:
+                from kool_tpv.modulos.almacen.ui.Productos.cargar_producto import CargarProductoUI
+                loader = CargarProductoUI(self.parent, self.db)
+                loader.apply_to_ui(self.producto_id, self)
+            except Exception:
+                logger.exception("Error refrescando UI tras ajuste")
         except Exception:
             show_error(self.container, "ERROR", "No se pudo realizar el ajuste en la base de datos")
 

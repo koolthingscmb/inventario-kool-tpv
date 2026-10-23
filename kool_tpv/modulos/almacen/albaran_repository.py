@@ -3,7 +3,7 @@ from decimal import Decimal
 from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.base_datos.money_adapter import prepare_for_db
 from kool_tpv.base_datos.audit_service import AuditService
-from kool_tpv.base_datos.stock_movement_repository import StockMovementRepository
+from kool_tpv.base_datos.stock_movement_service import StockMovementService
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +12,7 @@ class AlbaranRepository:
     def __init__(self, db: Database):
         self.db = db
         self.audit = AuditService(db)
-        self.stock_movements = StockMovementRepository(db)
+        self.stock_movements = StockMovementService(db)
 
     def guardar_albaran_completo(
         self, num_albaran, proveedor_id, fecha, tipo, lineas, totales, usuario_id=None, cur=None
@@ -29,6 +29,7 @@ class AlbaranRepository:
     ) -> int:
         try:
             tipo = tipo or 'ENTRADA'
+            productos_sync = set()
             cur.execute(
                 """
                 INSERT INTO albaranes
@@ -99,18 +100,16 @@ class AlbaranRepository:
 
                     cantidad_ajuste = line['cantidad'] if tipo == 'ENTRADA' else -line['cantidad']
                     try:
-                        cur.execute(
-                            "UPDATE productos SET stock_actual = stock_actual + ? WHERE id = ?",
-                            (cantidad_ajuste, line['producto_id'])
-                        )
-                        # Registrar movimiento de stock con usuario_id
-                        self.stock_movements.registrar_movimiento(
+                        # Stock + movimiento (el encargo Shopify se encola al final, uno por producto)
+                        self.stock_movements.aplicar_movimiento(
                             producto_id=line['producto_id'],
                             cantidad=cantidad_ajuste,
                             motivo=f"albaran:{num_albaran}",
                             usuario_id=usuario_id,
+                            encolar_sync=False,
                             cur=cur
                         )
+                        productos_sync.add(line['producto_id'])
                     except Exception as e:
                         logger.warning('Error actualizando stock producto %s: %s', line['producto_id'], e)
 
@@ -133,6 +132,9 @@ class AlbaranRepository:
                             )
                         except Exception as e:
                             logger.warning('Error actualizando precio producto %s: %s', line['producto_id'], e)
+
+            for pid_sync in productos_sync:
+                self._encolar_sync_producto(pid_sync, f"albaran:{num_albaran}", cur)
 
             logger.info('Albarán %s guardado con id=%s', num_albaran, albaran_id)
             return albaran_id
@@ -161,6 +163,7 @@ class AlbaranRepository:
             tipo_alb = row_alb[0] if row_alb else 'ENTRADA'
             num_albaran = row_alb[1] if row_alb else str(albaran_id)
             old_total = row_alb[2] if row_alb else 0
+            productos_sync = set()
 
             # 2. Actualizar cabecera
             cur.execute(
@@ -215,15 +218,16 @@ class AlbaranRepository:
                         stock_adj = diff if tipo_alb == 'ENTRADA' else -diff
                         
                         if producto_id:
-                            cur.execute("UPDATE productos SET stock_actual = stock_actual + ? WHERE id = ?", (stock_adj, producto_id))
-                            # Log de movimiento con usuario_id
-                            self.stock_movements.registrar_movimiento(
+                            # Stock + movimiento (encargo Shopify al final)
+                            self.stock_movements.aplicar_movimiento(
                                 producto_id=producto_id,
                                 cantidad=stock_adj,
                                 motivo=f"Edición Albarán {num_albaran} (Ajuste cantidad)",
                                 usuario_id=usuario_id,
+                                encolar_sync=False,
                                 cur=cur
                             )
+                            productos_sync.add(producto_id)
                     
                     # Actualizar la línea en BD
                     cur.execute(
@@ -279,14 +283,15 @@ class AlbaranRepository:
                                 logger.error(f"VINCULO PRO (Edición): ERROR vinculando EAN {line['ean']} a producto {producto_id}: {e}")
 
                         stock_adj = cantidad_nueva if tipo_alb == 'ENTRADA' else -cantidad_nueva
-                        cur.execute("UPDATE productos SET stock_actual = stock_actual + ? WHERE id = ?", (stock_adj, producto_id))
-                        self.stock_movements.registrar_movimiento(
+                        self.stock_movements.aplicar_movimiento(
                             producto_id=producto_id,
                             cantidad=stock_adj,
                             motivo=f"Edición Albarán {num_albaran} (Línea añadida)",
                             usuario_id=usuario_id,
+                            encolar_sync=False,
                             cur=cur
                         )
+                        productos_sync.add(producto_id)
 
             # 4. Borrar líneas que ya no están en la lista (Líneas eliminadas)
             ids_to_delete = set(db_lines.keys()) - new_ids
@@ -295,18 +300,34 @@ class AlbaranRepository:
                 if old_l['producto_id']:
                     # Revertir stock completamente
                     adj = -old_l['cantidad'] if tipo_alb == 'ENTRADA' else old_l['cantidad']
-                    cur.execute("UPDATE productos SET stock_actual = stock_actual + ? WHERE id = ?", (adj, old_l['producto_id']))
-                    self.stock_movements.registrar_movimiento(
+                    self.stock_movements.aplicar_movimiento(
                         producto_id=old_l['producto_id'],
                         cantidad=adj,
                         motivo=f"Edición Albarán {num_albaran} (Línea eliminada)",
                         usuario_id=usuario_id,
+                        encolar_sync=False,
                         cur=cur
                     )
+                    productos_sync.add(old_l['producto_id'])
                 cur.execute("DELETE FROM albaran_lines WHERE id = ?", (lid,))
+
+            for pid_sync in productos_sync:
+                self._encolar_sync_producto(pid_sync, f"Edición Albarán {num_albaran}", cur)
 
             logger.info('Albarán %s sincronizado correctamente', num_albaran)
 
         except Exception:
             logger.exception('Error actualizando albarán id=%s', albaran_id)
             raise
+
+    def _encolar_sync_producto(self, producto_id: int, motivo: str, cur) -> None:
+        """Deja encargo de sync a Shopify dentro de la transacción del albarán.
+
+        Solo encola si el producto está enlazado a Shopify; un fallo aquí
+        nunca rompe el albarán.
+        """
+        try:
+            from kool_tpv.modulos.shopify.services.shopify_sync_service import ShopifySyncService
+            ShopifySyncService(self.db).encolar_sync_producto(producto_id, motivo, cur=cur)
+        except Exception:
+            logger.exception('Error encolando sync Shopify para producto_id=%s', producto_id)

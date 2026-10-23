@@ -515,6 +515,13 @@ class ProduccionImportarAlbaran:
                         cur=cur
                     )
             
+            # Despertar al trabajador de sync Shopify tras confirmar el albarán
+            try:
+                from kool_tpv.modulos.shopify.services.shopify_sync_service import ShopifySyncService
+                ShopifySyncService(self.db).procesar_pendientes_async()
+            except Exception:
+                logger.exception("Error despertando trabajador de sync Shopify")
+
             ToastWidget.show(self.container, "Albarán procesado y stock actualizado", tipo='success')
             self._on_volver_click()
             

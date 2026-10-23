@@ -2,7 +2,7 @@ from typing import List, Dict, Optional, Tuple
 import logging
 from kool_tpv.modulos.almacen.producto_repository import ProductoRepository
 from kool_tpv.modulos.almacen.menu_repository import MenuRepository
-from kool_tpv.base_datos.stock_movement_repository import StockMovementRepository
+from kool_tpv.base_datos.stock_movement_service import StockMovementService
 from kool_tpv.base_datos.money_adapter import prepare_for_db, read_from_db
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ class MenuService:
         self.db = db
         self.prod_repo = ProductoRepository(db)
         self.menu_repo = MenuRepository(db)
-        self.stock_movements = StockMovementRepository(db)
+        self.stock_movements = StockMovementService(db)
 
     def guardar_menu(self, 
                      nombre: str, 
@@ -134,11 +134,8 @@ class MenuService:
             componentes = self.menu_repo.get_componentes_para_venta(producto_id, cur=cur)
             for componente_id, cantidad in componentes:
                 stock_change = -(cantidad * unidades)
-                cur.execute(
-                    'UPDATE productos SET stock_actual = COALESCE(stock_actual, 0) + ? WHERE id = ?',
-                    (stock_change, componente_id)
-                )
-                self.stock_movements.registrar_movimiento(
+                # Stock + movimiento + encargo Shopify en la transacción del ticket.
+                self.stock_movements.aplicar_movimiento(
                     producto_id=componente_id,
                     cantidad=stock_change,
                     motivo=f'menu:{ticket_id}',

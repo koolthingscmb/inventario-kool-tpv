@@ -95,7 +95,7 @@ class DevolucionProcessor(VentaProcessor):
                         stock_change = int(it.get('cantidad', 0))
                         ventas_change = -int(it.get('cantidad', 0))
                         try:
-                            self.repo.update_stock_and_record_movement(prod_id, stock_change, ventas_change, f"ticket:{ticket_id}", ticket_line_id=line_id, usuario_id=usuario_id, cur=cur)
+                            self.repo.update_stock_and_record_movement(prod_id, stock_change, ventas_change, f"ticket:{ticket_id}", ticket_line_id=line_id, usuario_id=usuario_id, motivo_sync=f"devolucion:{ticket_id}", cur=cur)
                         except Exception:
                             logger.exception('Error updating stock and recording movement for producto_id=%s in ticket=%s', prod_id, ticket_id)
                             raise
@@ -136,6 +136,13 @@ class DevolucionProcessor(VentaProcessor):
                         logger.exception('DevolucionProcessor: error revirtiendo puntos (ticket_id=%s)', ticket_id)
 
             # Transaction committed successfully
+
+            # Ticket confirmado: despertar al trabajador de sync de Shopify
+            try:
+                from kool_tpv.modulos.shopify.services.shopify_sync_service import ShopifySyncService
+                ShopifySyncService(self.db).procesar_pendientes_async()
+            except Exception:
+                logger.exception('Error despertando trabajador de sync Shopify')
 
             # Generar vale de devolución (fuera de la transacción BD para no bloquear)
             try:

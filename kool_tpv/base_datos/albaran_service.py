@@ -140,6 +140,13 @@ class AlbaranService:
                 except Exception:
                     logging.exception('Error actualizando pedidos desde albarán hook')
 
+            # Despertar al trabajador de sync Shopify tras confirmar el albarán
+            try:
+                from kool_tpv.modulos.shopify.services.shopify_sync_service import ShopifySyncService
+                ShopifySyncService(self.db).procesar_pendientes_async()
+            except Exception:
+                logging.exception('Error despertando trabajador de sync Shopify')
+
             logging.info(f'Albarán {num_albaran} guardado correctamente con ID {albaran_id}')
             return albaran_id
 
@@ -414,6 +421,14 @@ class AlbaranService:
             # 3. Delegar escritura al repo (pasamos todas las líneas para que gestione borrados)
             self.repo.actualizar_albaran_con_lineas(albaran_id, lineas_procesadas, totales, usuario_id=usuario_id, cur=cur)
             logging.info(f'Albarán {albaran_id} actualizado: totales recalculados y líneas sincronizadas')
+
+            # Despertar al trabajador de sync Shopify tras confirmar el albarán
+            try:
+                from kool_tpv.modulos.shopify.services.shopify_sync_service import ShopifySyncService
+                ShopifySyncService(self.db).procesar_pendientes_async()
+            except Exception:
+                logging.exception('Error despertando trabajador de sync Shopify')
+
             return True
 
         except Exception:

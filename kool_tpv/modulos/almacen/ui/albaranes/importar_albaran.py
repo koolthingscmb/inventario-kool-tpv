@@ -1362,6 +1362,13 @@ class ImportarAlbaranUI:
                 usuario_id=usuario_id
             )
 
+            # Despertar al trabajador de sync Shopify tras confirmar el albarán
+            try:
+                from kool_tpv.modulos.shopify.services.shopify_sync_service import ShopifySyncService
+                ShopifySyncService(self.db).procesar_pendientes_async()
+            except Exception:
+                logger.exception('Error despertando trabajador de sync Shopify')
+
             # Limpiar estado para que has_unsaved_changes = False
             self.parse_result = None
             self._productos_data = {}

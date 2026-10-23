@@ -141,6 +141,13 @@ class VentaProcessor(TicketProcessor):
 
             # Transaction committed successfully
 
+            # Ticket confirmado: despertar al trabajador de sync de Shopify
+            try:
+                from kool_tpv.modulos.shopify.services.shopify_sync_service import ShopifySyncService
+                ShopifySyncService(self.db).procesar_pendientes_async()
+            except Exception:
+                logger.exception('Error despertando trabajador de sync Shopify')
+
             # Procesar descuentos (crear línea negativa)
             descuentos = kwargs.get('descuentos', [])
             if descuentos:

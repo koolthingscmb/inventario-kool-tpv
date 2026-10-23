@@ -12,7 +12,7 @@ from kool_tpv.base_datos.db_wrapper import Database
 from kool_tpv.base_datos.money_adapter import prepare_for_db
 from kool_tpv.base_datos.money_adapter import read_from_db
 from kool_tpv.base_datos.audit_service import AuditService
-from kool_tpv.base_datos.stock_movement_repository import StockMovementRepository
+from kool_tpv.base_datos.stock_movement_service import StockMovementService
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class TicketRepository:
     def __init__(self, db: Database):
         self.db = db
         self.audit = AuditService(db)
-        self.stock_movements = StockMovementRepository(db)
+        self.stock_movements = StockMovementService(db)
 
     def insert_ticket(self, *, created_at, cajero, cliente, cliente_id, num_ticket,
                       subtotal_cents, forma_pago, total_cents, pagado_cents, cambio_cents,
@@ -132,8 +132,8 @@ class TicketRepository:
         if not use_external_cursor:
             self.db.connection.commit()
 
-    def update_stock_and_record_movement(self, producto_id: int, stock_change: int, ventas_change: int, motivo: str, ticket_line_id: Optional[int] = None, usuario_id: Optional[int] = None, cur=None):
-        """Atomicamente actualizar stock/ventas y registrar movimiento de stock.
+    def update_stock_and_record_movement(self, producto_id: int, stock_change: int, ventas_change: int, motivo: str, ticket_line_id: Optional[int] = None, usuario_id: Optional[int] = None, motivo_sync: Optional[str] = None, cur=None):
+        """Atomicamente actualizar stock/ventas, registrar movimiento y encolar sync Shopify.
 
         Lanza excepción si falla, para que el caller (processor) pueda hacer rollback.
         """
@@ -141,15 +141,18 @@ class TicketRepository:
         if not use_external_cursor:
             cur = self.db.connection.cursor()
         try:
-            cur.execute('UPDATE productos SET stock_actual = COALESCE(stock_actual,0) + ?, ventas_totales = COALESCE(ventas_totales,0) + ? WHERE id = ?', (stock_change, ventas_change, producto_id))
-            self.stock_movements.registrar_movimiento(
+            ok = self.stock_movements.aplicar_movimiento(
                 producto_id=producto_id,
                 cantidad=stock_change,
                 motivo=motivo,
                 usuario_id=usuario_id,
                 ticket_line_id=ticket_line_id,
+                ventas_change=ventas_change,
+                motivo_sync=motivo_sync,
                 cur=cur
             )
+            if not ok:
+                raise RuntimeError(f'aplicar_movimiento falló para producto_id={producto_id}, motivo={motivo}')
             if not use_external_cursor:
                 self.db.connection.commit()
         except Exception:

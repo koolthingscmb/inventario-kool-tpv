@@ -1,6 +1,7 @@
 import logging
 import requests
 import json
+import re
 import uuid
 import threading
 from typing import List, Dict, Any, Optional, Tuple
@@ -223,6 +224,39 @@ class ShopifySyncService:
 
         return True
 
+    # --- Encargos de producto (ventas, devoluciones, albaranes, menús) ---
+
+    def encolar_sync_producto(self, producto_id: int, motivo: Optional[str] = None, cur=None) -> None:
+        """Deja un encargo de sync de stock de un producto de la tienda.
+
+        Solo actúa si el producto está enlazado a Shopify (tiene mapping).
+        Pensado para llamarse dentro de la transacción del llamador: si ésta
+        se deshace, el encargo desaparece con ella. Guarda el stock resultante
+        (valor absoluto), no el cambio.
+        """
+        if not producto_id:
+            return
+        if not self.config_service.get_config().get("sync_active"):
+            return
+        if not self.repo.get_mapping_by_product_id(producto_id):
+            return
+        query = "SELECT stock_actual FROM productos WHERE id = ?"
+        query_ean = "SELECT ean FROM codigos_barras WHERE producto_id = ? LIMIT 1"
+        if cur is not None:
+            cur.execute(query, (producto_id,))
+            fila = cur.fetchone()
+            cur.execute(query_ean, (producto_id,))
+            fila_ean = cur.fetchone()
+        else:
+            fila = self.db.fetch_one(query, (producto_id,))
+            fila_ean = self.db.fetch_one(query_ean, (producto_id,))
+        stock = int(fila[0]) if fila and fila[0] is not None else 0
+        ean = (fila_ean[0] or "").strip() if fila_ean else ""
+        self.repo.add_sync_log(
+            producto_id, "SYNC_PRODUCTO", "pendiente",
+            mensaje=motivo or "Cambio de stock", sku=ean or f"PID-{producto_id}",
+            cantidad=stock, cur=cur)
+
     # --- Trabajador de la cola de sincronización ---
 
     def procesar_pendientes_async(self, reintentar_errores: bool = False) -> None:
@@ -261,6 +295,8 @@ class ShopifySyncService:
 
     def _procesar_encargo(self, row: Dict[str, Any]) -> int:
         """Ejecuta un encargo de sync y deja su resultado real en el propio registro."""
+        if (row.get("accion") or "") == "SYNC_PRODUCTO":
+            return self._procesar_encargo_producto(row)
         sku = (row.get("sku") or "").strip()
         if not sku:
             self.repo.marcar_resultado(row["id"], "error", "Encargo de sync sin SKU")
@@ -287,6 +323,109 @@ class ShopifySyncService:
         self.repo.marcar_resultado(row["id"], "error", f"{sku}: {res.get('message')}")
         self._mostrar_toast(f"Shopify: {sku} NO sincronizado ({res.get('message')})", "error")
         return 0
+
+    def _procesar_encargo_producto(self, row: Dict[str, Any]) -> int:
+        """Encargo de sync de un producto enlazado (venta, devolución, albarán, menú)."""
+        producto_id = row.get("producto_id")
+        sku = (row.get("sku") or f"ID {producto_id}").strip()
+        if not producto_id:
+            self.repo.marcar_resultado(row["id"], "error", "Encargo de producto sin producto_id")
+            return 0
+
+        prod = self.db.fetch_one(
+            "SELECT nombre, stock_actual FROM productos WHERE id = ?", (producto_id,))
+        nombre = prod["nombre"] if prod else ""
+        etiqueta = f"{nombre} ({sku})" if nombre else sku
+
+        cantidad = row.get("cantidad")
+        if cantidad is None:
+            cantidad = prod["stock_actual"] if prod and prod["stock_actual"] is not None else 0
+
+        res = self._ejecutar_sync_producto(producto_id, int(cantidad))
+        if res.get("success") and res.get("updated", 0) > 0:
+            motivo = row.get("mensaje") or "Sincronización de stock"
+            msg = f"{motivo} | {etiqueta} -> Stock: {cantidad} ({res['updated']} variantes)"
+            self.repo.marcar_resultado(row["id"], "success", msg)
+            self._mostrar_toast(f"Shopify: {etiqueta} actualizado", "success")
+            return 1
+        if res.get("success"):
+            self.repo.marcar_resultado(row["id"], "sin_variantes",
+                                       f"{etiqueta}: {res.get('message')}")
+            self._mostrar_toast(f"Shopify: {etiqueta} no existe en la web", "warning")
+            return 0
+        self.repo.marcar_resultado(row["id"], "error", f"{etiqueta}: {res.get('message')}")
+        self._mostrar_toast(f"Shopify: {etiqueta} NO sincronizado ({res.get('message')})", "error")
+        return 0
+
+    def _ejecutar_sync_producto(self, producto_id: int, cantidad: int) -> Dict[str, Any]:
+        """Fija `cantidad` como stock de las variantes del producto enlazado en Shopify."""
+        def _fail(msg: str) -> Dict[str, Any]:
+            return {"success": False, "message": msg}
+
+        mapping = self.repo.get_mapping_by_product_id(producto_id)
+        if not mapping or not mapping.get("shopify_product_id"):
+            return {"success": True, "updated": 0, "message": "Producto sin enlace a Shopify"}
+
+        ctx = self._get_api_context()
+        if not ctx:
+            return _fail(self._ctx_error or "Configuración incompleta")
+
+        shop_url, token, location_id, api_version = ctx
+        endpoint = f"https://{shop_url}/admin/api/{api_version}/graphql.json"
+        headers = {"X-Shopify-Access-Token": token, "Content-Type": "application/json"}
+        location_gid = f"gid://shopify/Location/{location_id}"
+
+        query = """
+        query($id: ID!, $locationId: ID!) {
+            product(id: $id) {
+                variants(first: 50) {
+                    nodes {
+                        sku
+                        inventoryItem {
+                            id
+                            inventoryLevel(locationId: $locationId) {
+                                quantities(names: ["on_hand"]) { name quantity }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        """
+        try:
+            response = requests.post(
+                endpoint, headers=headers, timeout=15,
+                json={"query": query, "variables": {
+                    "id": mapping["shopify_product_id"],
+                    "locationId": location_gid}})
+            if response.status_code != 200:
+                return _fail(f"Error HTTP {response.status_code}: {response.text}")
+            data = response.json()
+            if "errors" in data:
+                return _fail(f"Error GraphQL: {json.dumps(data['errors'])}")
+            producto = data.get("data", {}).get("product")
+            if not producto:
+                return _fail("El producto enlazado ya no existe en Shopify")
+            items = []
+            for node in producto.get("variants", {}).get("nodes", []):
+                inv = node.get("inventoryItem") or {}
+                inv_id = (inv.get("id") or "").split("/")[-1]
+                if not inv_id:
+                    continue
+                current = 0
+                for q in ((inv.get("inventoryLevel") or {}).get("quantities") or []):
+                    if q.get("name") == "on_hand":
+                        current = q.get("quantity") or 0
+                        break
+                items.append({"inv_id": inv_id, "current": int(current)})
+        except Exception as e:
+            return _fail(f"Fallo de conexión: {str(e)}")
+
+        if not items:
+            return {"success": True, "updated": 0, "message": "Producto sin variantes en Shopify"}
+        if self._update_stock_batch(items, int(cantidad), endpoint, headers, location_id):
+            return {"success": True, "message": "OK", "updated": len(items)}
+        return _fail("Error al aplicar el stock en Shopify")
 
     def _mostrar_toast(self, mensaje: str, tipo: str = "success") -> None:
         """Muestra un toast en el hilo de la UI desde el trabajador de sync."""

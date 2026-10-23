@@ -45,8 +45,41 @@ class StockMovementRepository:
             logger.exception(f"Error obteniendo movimientos para producto_id={producto_id}")
             return []
 
-    def registrar_movimiento(self, producto_id: int, cantidad: int, motivo: str, 
-                             usuario_id: Optional[int] = None, 
+    def aplicar_movimiento(self, producto_id: int, cantidad: int, motivo: str,
+                           usuario_id: Optional[int] = None,
+                           ticket_line_id: Optional[int] = None,
+                           ventas_change: int = 0,
+                           cur=None) -> bool:
+        """Aplica el cambio de stock en productos y registra el movimiento.
+
+        Ambas escrituras van en la misma transacción: con `cur` externo usan
+        la del llamador; sin él abren una propia.
+        """
+        try:
+            query = """
+                UPDATE productos
+                SET stock_actual = COALESCE(stock_actual, 0) + ?,
+                    ventas_totales = COALESCE(ventas_totales, 0) + ?
+                WHERE id = ?
+            """
+            params = (cantidad, ventas_change, producto_id)
+
+            if cur:
+                cur.execute(query, params)
+                return self.registrar_movimiento(
+                    producto_id, cantidad, motivo,
+                    usuario_id=usuario_id, ticket_line_id=ticket_line_id, cur=cur)
+            with self.db.transaction() as cur_trans:
+                cur_trans.execute(query, params)
+                return self.registrar_movimiento(
+                    producto_id, cantidad, motivo,
+                    usuario_id=usuario_id, ticket_line_id=ticket_line_id, cur=cur_trans)
+        except Exception:
+            logger.exception(f"Error aplicando movimiento para producto_id={producto_id}")
+            return False
+
+    def registrar_movimiento(self, producto_id: int, cantidad: int, motivo: str,
+                             usuario_id: Optional[int] = None,
                              ticket_line_id: Optional[int] = None,
                              cur=None) -> bool:
         """Registra un nuevo movimiento de stock."""
