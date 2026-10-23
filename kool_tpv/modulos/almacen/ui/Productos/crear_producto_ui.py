@@ -1767,7 +1767,7 @@ class CrearProductoUI:
         } for p in dups]
         marcados = show_reference_select_dialog(
             self.container, 'POSIBLES DUPLICADOS EN SHOPIFY',
-            opciones, [], multi_select=True)
+            opciones, [], multi_select=True, columnas=1)
         if not marcados:
             return
         from kool_tpv.utils.dialogs import show_warning

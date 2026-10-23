@@ -14,18 +14,22 @@ class ShopifyReferenceSelectDialog(BaseDialog):
                  seleccion_actual: Optional[Union[str, List[str]]] = None,
                  multi_select: bool = True,
                  agrupar_por_familia: bool = True,
-                 familias_unicas: Optional[set] = None):
+                 familias_unicas: Optional[set] = None,
+                 columnas: int = 4):
         """
         Args:
             opciones: Lista de dicts con {'id': str, 'text': str, 'family': str}
             seleccion_actual: GID o lista de GIDs seleccionados.
             familias_unicas: familias donde solo puede marcarse una opción
                 (marcar una desmarca la anterior).
+            columnas: nº de columnas del grid (1 = una opción por fila,
+                para textos largos).
         """
         self.titulo_ui = titulo
         self.multi_select = multi_select
         self.agrupar = agrupar_por_familia
         self.familias_unicas = familias_unicas or set()
+        self.columnas = max(1, columnas)
         self._familia_por_id = {op['id']: op.get('family') for op in opciones}
         self.opciones_originales = opciones
         self.opciones_mostradas = self._ordenar_opciones(opciones)
@@ -67,8 +71,8 @@ class ShopifyReferenceSelectDialog(BaseDialog):
         )
         self.scroll_frame.pack(fill='both', expand=True, padx=5, pady=5)
 
-        # Configurar 4 columnas iguales
-        for i in range(4):
+        # Configurar las columnas iguales
+        for i in range(self.columnas):
             self.scroll_frame.columnconfigure(i, weight=1)
 
         self._render_lista()
@@ -77,7 +81,7 @@ class ShopifyReferenceSelectDialog(BaseDialog):
         self._crear_botones(content_frame, btn_text='CONFIRMAR SELECCIÓN', confirm=True)
 
     def _render_lista(self):
-        """Dibuja la lista en un grid de 4 columnas."""
+        """Dibuja la lista en un grid de N columnas."""
         for child in self.scroll_frame.winfo_children():
             child.destroy()
 
@@ -91,7 +95,7 @@ class ShopifyReferenceSelectDialog(BaseDialog):
         opciones_a_dibujar = self.opciones_mostradas
 
         if not opciones_a_dibujar:
-            ctk.CTkLabel(self.scroll_frame, text="Sin resultados", font=message_font, text_color="#666").grid(row=0, column=0, columnspan=4, pady=20)
+            ctk.CTkLabel(self.scroll_frame, text="Sin resultados", font=message_font, text_color="#666").grid(row=0, column=0, columnspan=self.columnas, pady=20)
             return
 
         for op in opciones_a_dibujar:
@@ -106,7 +110,7 @@ class ShopifyReferenceSelectDialog(BaseDialog):
                         self.scroll_frame, text=f"--- {current_familia.upper()} ---",
                         font=("Helvetica", 10, "bold"), text_color="#666"
                     )
-                    lbl_fam.grid(row=fila_actual, column=0, columnspan=4, pady=(15, 5), sticky="w", padx=10)
+                    lbl_fam.grid(row=fila_actual, column=0, columnspan=self.columnas, pady=(15, 5), sticky="w", padx=10)
                     fila_actual += 1
 
             i_id = op['id']
@@ -130,7 +134,7 @@ class ShopifyReferenceSelectDialog(BaseDialog):
                 rb.grid(row=fila_actual, column=col_actual, sticky="w", padx=15, pady=4)
 
             col_actual += 1
-            if col_actual >= 4:
+            if col_actual >= self.columnas:
                 col_actual = 0
                 fila_actual += 1
 
@@ -219,9 +223,11 @@ def show_metacampos_agrupados_dialog(parent, titulo: str, grupos: List[Dict[str,
 def show_reference_select_dialog(parent, titulo: str, opciones: List[Dict[str, Any]],
                                 seleccion_actual: Union[str, List[str], None],
                                 multi_select: bool = False,
-                                agrupar: bool = False) -> Union[str, List[str], None]:
+                                agrupar: bool = False,
+                                columnas: int = 4) -> Union[str, List[str], None]:
     """Nueva función para cualquier referencia de Shopify (ej: Colecciones)."""
-    dialog = ShopifyReferenceSelectDialog(parent, titulo, opciones, seleccion_actual, 
-                                        multi_select=multi_select, agrupar_por_familia=agrupar)
+    dialog = ShopifyReferenceSelectDialog(parent, titulo, opciones, seleccion_actual,
+                                        multi_select=multi_select, agrupar_por_familia=agrupar,
+                                        columnas=columnas)
     parent.wait_window(dialog)
     return dialog.result
