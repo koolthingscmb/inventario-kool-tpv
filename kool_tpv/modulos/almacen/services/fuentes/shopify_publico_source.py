@@ -1,18 +1,24 @@
 """Fuente Shopify pública: tiendas de editoriales montadas en Shopify.
 
-Sin login. Dos endpoints JSON que toda tienda Shopify expone:
-- `GET /search/suggest.json?q=<q>&resources[type]=product` -> sugerencias
-  (acepta EAN/ISBN y texto; devuelve título y handle del producto).
-- `GET /products/<handle>.json` -> ficha completa: título, descripción
-  (sinopsis), imágenes, tags (autor/géneros), SKU/barcode (EAN/ISBN).
+Sin login. La búsqueda `GET /search/suggest.json?q=<q>&resources[type]=product`
+ya devuelve la ficha casi completa: título, sinopsis (`body`), tags (serie,
+autor, demografía), portada y vendor. Con esa sola petición basta.
+
+Las páginas `/products/<handle>` y `product.json` de estas tiendas llevan la
+protección de Shopify contra peticiones automáticas (HTTP 429), que salta en
+seguida. Por eso `detalle()` NO depende de ellas: monta la ficha con lo que ya
+trajo la búsqueda y solo intenta la página una vez, de forma opcional, para
+completar el enlace «Leer avance», el ISBN con guiones y los metacampos. Si
+falla o limita, la ficha se devuelve igual de completa.
 
 Ejemplo verificado: milkywayediciones.com. Solo lectura.
 """
 import html as _html
+import json
 import logging
 import re
 from typing import Any, Dict, List, Optional
-from urllib.parse import urljoin, unquote
+from urllib.parse import urljoin, unquote, urlparse
 
 import requests
 
@@ -20,11 +26,18 @@ from .base_fuente import BaseFuente
 
 logger = logging.getLogger(__name__)
 
-_UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}
+_UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"}
 
 
 class ShopifyPublicoSource(BaseFuente):
     """Tienda Shopify pública de una editorial (sin credenciales)."""
+
+    # Tags que no son autor ni serie: categorías genéricas de estas tiendas
+    _TAGS_GENERICOS = {"manga", "comic", "novela", "shojo", "shonen", "seinen",
+                       "josei", "bl", "yaoi", "tomos únicos", "tomos unicos",
+                       "novedad", "preventa", "oferta", "artbook", "libro"}
+    _DEMOGRAFIAS = {"shonen", "seinen", "shojo", "josei", "bl", "yaoi",
+                    "kodomo", "kodomomuke"}
 
     def __init__(self, url: str, timeout: int = 20):
         self.url_base = url.rstrip("/")
@@ -34,10 +47,11 @@ class ShopifyPublicoSource(BaseFuente):
     def id(self) -> str:
         return "shopify"
 
-    # ---------- búsqueda y ficha ----------
+    # ---------- búsqueda (única petición obligatoria) ----------
 
     def buscar(self, consulta: str) -> List[Dict[str, Any]]:
-        """Busca por EAN/ISBN/título vía suggest.json; devuelve resultados."""
+        """Busca por EAN/ISBN/título vía suggest.json; la respuesta ya trae
+        sinopsis, tags, portada y vendor — la ficha casi hecha."""
         consulta = (consulta or "").strip()
         if not consulta:
             return []
@@ -47,146 +61,166 @@ class ShopifyPublicoSource(BaseFuente):
                 params={"q": consulta, "resources[type]": "product",
                         "resources[limit]": "10"},
                 headers=_UA, timeout=self.timeout)
+            if r.status_code == 429:
+                raise ValueError(
+                    f"{urlparse(self.url_base).netloc} está limitando las "
+                    "peticiones. Espera un minuto y vuelve a intentarlo.")
             if r.status_code != 200:
                 return []
             productos = (r.json().get("resources", {})
                          .get("results", {}).get("products", []))
-            return [self._normalizar_sugerencia(p) for p in productos]
+            ean = consulta if re.fullmatch(r"\d{10,13}", consulta) else ""
+            return [self._normalizar_sugerencia(p, ean) for p in productos]
+        except ValueError:
+            raise
         except Exception:
             logger.exception("Error buscando en %s", self.url_base)
             return []
 
-    def detalle(self, identificador: Any) -> Optional[Dict[str, Any]]:
-        """Ficha completa del producto (handle o dict de buscar())."""
-        handle = identificador.get("_handle") if isinstance(identificador, dict) \
-            else str(identificador)
-        if not handle:
-            return None
-        try:
-            r = requests.get(f"{self.url_base}/products/{handle}.json",
-                             headers=_UA, timeout=self.timeout)
-            if r.status_code != 200:
-                return None
-            ficha = self._normalizar_producto(r.json().get("product", {}), handle)
-        except Exception:
-            logger.exception("Error en ficha %s de %s", handle, self.url_base)
-            return None
-        avance = self._enlace_avance(handle)
-        if avance:
-            ficha["links"] = [{"url": ficha["url_ficha"], "etiqueta": "Ficha"},
-                              {"url": avance, "etiqueta": "Avance"}]
-        return ficha
+    # ---------- ficha (0 peticiones + 1 opcional) ----------
 
-    def _enlace_avance(self, handle: str) -> str:
-        """El JSON no trae el avance: se lee la página del producto y se coge
-        el enlace cuyo texto es 'Leer avance'. Sin él, cadena vacía."""
+    def detalle(self, identificador: Any) -> Optional[Dict[str, Any]]:
+        """Devuelve la ficha completa construida desde la sugerencia.
+
+        Después intenta la página del producto UNA vez, solo para sumar el
+        enlace de avance, el ISBN con guiones y los metacampos. Cualquier
+        fallo ahí se ignora: la ficha ya está completa."""
+        sugerencia = identificador if isinstance(identificador, dict) else {}
+        handle = sugerencia.get("_handle") or str(identificador or "")
+        ficha = dict(sugerencia)
+        ficha["_handle"] = handle
+        if not handle:
+            return ficha
         try:
             r = requests.get(f"{self.url_base}/products/{handle}",
                              headers=_UA, timeout=self.timeout)
             if r.status_code != 200:
-                return ""
-            m = re.search(r'<a[^>]*href="([^"]+)"[^>]*>\s*leer\s+avance\s*</a>',
-                          r.text, re.I)
-            return _html.unescape(m.group(1)) if m else ""
+                if r.status_code == 429:
+                    logger.info("%s limitó la página de %s; ficha sin extras",
+                                self.url_base, handle)
+                return ficha
+            self._completar_desde_pagina(ficha, r.text, handle)
         except Exception:
-            logger.warning("No se pudo leer el avance de %s", handle)
-            return ""
+            logger.warning("Extras de la página de %s no disponibles", handle)
+        return ficha
 
     # ---------- normalización ----------
 
-    def _normalizar_sugerencia(self, p: Dict[str, Any]) -> Dict[str, Any]:
+    def _normalizar_sugerencia(self, p: Dict[str, Any],
+                               ean: str = "") -> Dict[str, Any]:
+        """Del producto de suggest.json al modelo común. `body` es la sinopsis
+        en HTML; `tags` trae serie, autor y demografía."""
         url = p.get("url", "")
         handle = url.split("/products/")[-1].split("?")[0] if "/products/" in url else ""
-        return {
-            "titulo": p.get("title") or "",
-            "titulo_original": "",
-            "autor": "",
-            "anio": "",
-            "editorial": p.get("vendor") or "",
-            "isbn": "",
-            "ean": "",
-            "coleccion": "",
-            "generos": [],
-            "sinopsis": "",
-            "imagen_url": (p.get("image") or {}).get("src", "")
-                if isinstance(p.get("image"), dict) else (p.get("image") or ""),
-            "url_ficha": urljoin(self.url_base, url),
-            "_handle": handle,
-        }
+        tags = p.get("tags") or []
+        if isinstance(tags, str):
+            tags = [t.strip() for t in tags.split(",") if t.strip()]
 
-    def _normalizar_producto(self, p: Dict[str, Any], handle: str) -> Dict[str, Any]:
-        """Del product.json al modelo común. La descripción es la sinopsis;
-        el SKU suele ser el EAN y barcode el ISBN con guiones."""
         titulo = p.get("title") or ""
-        sinopsis = _html.unescape(re.sub(r"<[^>]+>", " ", p.get("body_html") or ""))
-        sinopsis = re.sub(r"\s+", " ", sinopsis).strip()
-        variante = (p.get("variants") or [{}])[0]
-        sku = variante.get("sku") or ""
-        barcode = variante.get("barcode") or ""
-        ean, isbn = (sku, barcode) if re.fullmatch(r"\d{12,13}", sku) else ("", barcode or sku)
-        imagenes = [i.get("src", "") for i in p.get("images", [])]
-        # tags llega como string separado por comas en el product.json público
-        raw_tags = p.get("tags") or []
-        tags = [t.strip() for t in raw_tags.split(",") if t.strip()] \
-            if isinstance(raw_tags, str) else [str(t) for t in raw_tags]
-        # el product.json NO trae metacampos: la página HTML los lleva como
-        # enlaces a colecciones 'filter.p.m.custom.<metacampo>=<valor>'
-        # (Género, Autor...). Se extraen como candidatos para el comparador.
-        candidatos = list(tags)
-        try:
-            url_html = f"{self.url_base}/products/{handle}"
-            rf = requests.get(url_html, headers=_UA, timeout=self.timeout)
-            if rf.status_code == 200:
-                for m in re.finditer(
-                        r'filter\.p\.m\.custom\.\w+=([^"&\s<]+)', rf.text):
-                    v = _html.unescape(unquote(m.group(1))).strip()
-                    if v and v not in candidatos:
-                        candidatos.append(v)
-        except Exception:
-            logger.warning("No se pudo leer la página HTML de %s", handle)
-        anio = ""
-        m = re.search(r"(\d{4})", p.get("published_at") or "")
-        if m:
-            anio = m.group(1)
+        imagen = ""
+        if isinstance(p.get("image"), dict):
+            imagen = p["image"].get("src") or ""
+        elif p.get("image"):
+            imagen = p["image"]
+        if not imagen and isinstance(p.get("featured_image"), dict):
+            imagen = p["featured_image"].get("url") or ""
+
         return {
             "titulo": titulo,
             "titulo_original": "",
             "autor": self._autor_de_tags(tags, titulo),
             "demografia": self._demografia_de_tags(tags),
-            "candidatos_meta": candidatos,
-            "anio": anio,
+            "candidatos_meta": list(tags),
+            "anio": "",
             "editorial": p.get("vendor") or "",
-            "isbn": isbn,
+            "isbn": "",
             "ean": ean,
-            "coleccion": p.get("product_type") or "",
+            "coleccion": self._serie_de_tags(tags, titulo),
             "generos": [],
-            "sinopsis": sinopsis,
-            "imagen_url": imagenes[0] if imagenes else "",
-            "imagenes": imagenes,
-            "url_ficha": f"{self.url_base}/products/{handle}",
+            "sinopsis": self._limpiar(p.get("body") or ""),
+            "imagen_url": imagen,
+            "imagenes": [imagen] if imagen else [],
+            "url_ficha": urljoin(self.url_base, f"/products/{handle}")
+                if handle else urljoin(self.url_base, url),
             "_handle": handle,
+            "_ean_busqueda": ean,
         }
 
+    def _completar_desde_pagina(self, ficha: Dict[str, Any], texto: str,
+                                handle: str) -> None:
+        """Extras que solo están en la página HTML (mejor esfuerzo):
+        enlace 'Leer avance', ISBN con guiones, título original y metacampos
+        filter.p.m.custom.* -> candidatos del comparador."""
+        m = re.search(r'<a[^>]*href="([^"]+)"[^>]*>\s*leer\s+avance\s*</a>',
+                      texto, re.I)
+        if m:
+            avance = _html.unescape(m.group(1))
+            ficha["links"] = [{"url": ficha["url_ficha"], "etiqueta": "Ficha"},
+                              {"url": avance, "etiqueta": "Avance"}]
+
+        isbn = self._campo_meta(texto, "isbn")
+        if isbn:
+            ficha["isbn"] = isbn
+            if not ficha.get("ean"):
+                digitos = re.sub(r"\D", "", isbn)
+                if len(digitos) in (10, 13):
+                    ficha["ean"] = digitos
+
+        if not ficha.get("titulo_original"):
+            ficha["titulo_original"] = self._campo_meta(
+                texto, "titulo-original") or ""
+
+        # el bloque de autor de la página es más fiable que la heurística
+        autor = self._campo_meta(texto, "author", etiqueta="h3")
+        if autor:
+            ficha["autor"] = autor
+
+        candidatos = ficha.setdefault("candidatos_meta", [])
+        for m in re.finditer(r"filter\.p\.m\.custom\.(\w+)=([^\"&\s<]+)", texto):
+            valor = _html.unescape(unquote(m.group(2))).strip()
+            if valor and valor not in candidatos:
+                candidatos.append(valor)
+        if not ficha.get("demografia"):
+            ficha["demografia"] = self._demografia_de_tags(candidatos)
+
+    def _campo_meta(self, texto: str, nombre: str,
+                    etiqueta: str = "span") -> str:
+        """Bloque `<div class="product-main__<nombre>">...<span>valor</span>`."""
+        m = re.search(
+            rf'class="product-main__{re.escape(nombre)}".*?'
+            rf'<{etiqueta}[^>]*>(.*?)</{etiqueta}>',
+            texto, re.S)
+        return self._limpiar(m.group(1)) if m else ""
+
+    # ---------- ayudas ----------
+
+    @staticmethod
+    def _limpiar(fragmento: str) -> str:
+        """Quita etiquetas HTML y compacta espacios."""
+        valor = re.sub(r"<[^>]+>", " ", fragmento or "")
+        return re.sub(r"\s+", " ", _html.unescape(valor)).strip()
+
     def _autor_de_tags(self, tags: List[str], titulo: str = "") -> str:
-        """En las tiendas de editorial el autor suele venir como tag propio.
-        Heurística: tag que no es una categoría conocida ni parte del título."""
-        genericos = {"manga", "comic", "novela", "shojo", "shonen", "seinen",
-                     "josei", "bl", "yaoi", "tomos únicos", "tomos unicos",
-                     "novedad", "preventa", "oferta", "artbook", "libro"}
+        """Tag que no es categoría conocida ni parte del título -> autor."""
         titulo_norm = titulo.lower().strip()
         for tag in tags:
             t = tag.lower().strip()
-            if t not in genericos and t not in titulo_norm:
+            if t not in self._TAGS_GENERICOS and t not in titulo_norm:
+                return tag.strip()
+        return ""
+
+    def _serie_de_tags(self, tags: List[str], titulo: str) -> str:
+        """Tag que sí aparece en el título -> nombre de la serie."""
+        titulo_norm = titulo.lower()
+        for tag in tags:
+            if tag.lower().strip() in titulo_norm:
                 return tag.strip()
         return ""
 
     def _demografia_de_tags(self, tags: List[str]) -> str:
-        """Extrae la demografía de las etiquetas de Shopify."""
-        demogs = {"shonen", "seinen", "shojo", "josei", "bl", "yaoi"}
         for tag in tags:
-            t = tag.lower().strip()
-            if t in demogs:
-                return t.upper()
+            if tag.lower().strip() in self._DEMOGRAFIAS:
+                return tag.strip().upper()
         return ""
 
     def probar(self) -> tuple:
@@ -197,6 +231,8 @@ class ShopifyPublicoSource(BaseFuente):
                              headers=_UA, timeout=self.timeout)
             if r.status_code == 200:
                 return (True, f"Tienda Shopify accesible: {self.url_base}")
+            if r.status_code == 429:
+                return (False, f"{self.url_base} está limitando las peticiones")
             return (False, f"{self.url_base} respondió {r.status_code}")
         except Exception as e:
             return (False, f"Error en {self.url_base}: {e}")
