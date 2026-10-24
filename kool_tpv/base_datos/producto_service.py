@@ -225,6 +225,8 @@ class ProductoService:
             p.etiquetas,
             p.shop_link,
             p.shopify_taxonomy,
+            p.shopify_rebaja_activa,
+            p.shopify_descuento_porcentaje,
             COALESCE(c.nombre, 'Sin categoría') AS categoria_nombre,
             COALESCE(t.nombre, 'Sin tipo') AS tipo_nombre,
             COALESCE(prov.nombre, 'Sin proveedor') AS proveedor_nombre,

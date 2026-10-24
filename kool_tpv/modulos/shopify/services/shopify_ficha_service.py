@@ -12,9 +12,11 @@ completas (ver AGENTS.md).
 import json
 import logging
 import re
+import unicodedata
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from html import escape
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from kool_tpv.modulos.almacen.producto_repository import ProductoRepository
 from kool_tpv.modulos.almacen.services.metacampos_comic_service import MetacamposComicService
@@ -42,6 +44,49 @@ class ShopifyFichaService:
 
     # Entrada del campo LINK: 'url (etiqueta)'
     _LINK_RE = re.compile(r"^\s*(.+?)\s*\(([^)]*)\)\s*$")
+
+    # Rebaja inicial que propone la ficha en manga/cómic: 500 centésimas = 5 %
+    REBAJA_COMIC_CENTESIMAS = 500
+
+    @staticmethod
+    def _norm(texto) -> str:
+        """Minúsculas sin tildes: 'Cómic' -> 'comic'."""
+        base = unicodedata.normalize("NFD", str(texto or ""))
+        return base.encode("ascii", "ignore").decode().lower().strip()
+
+    @classmethod
+    def es_comic_o_manga(cls, tipo_nombre, categoria_nombre=None) -> bool:
+        """El tipo es 'Manga' o 'Cómic', o cuelga de una categoría de cómics."""
+        if cls._norm(tipo_nombre) in ("manga", "comic"):
+            return True
+        cat = cls._norm(categoria_nombre)
+        return bool(cat) and ("comic" in cat or "manga" in cat)
+
+    @staticmethod
+    def calcular_precios_rebaja(pvp_base, rebaja_activa, descuento_texto
+                                ) -> Tuple[str, Optional[str]]:
+        """Devuelve (price, compareAtPrice) para la variante de Shopify.
+
+        Siempre calcula desde el PVP base del TPV (nunca del precio rebajado),
+        con Decimal y redondeo comercial a dos decimales. Sin rebaja devuelve
+        compareAtPrice=None para que el envío lo vacíe explícitamente.
+        """
+        try:
+            base = Decimal(str(pvp_base or "0").replace(",", ".").strip() or "0")
+        except InvalidOperation:
+            base = Decimal("0")
+        if not rebaja_activa:
+            return f"{base:.2f}", None
+        try:
+            pct = Decimal(str(descuento_texto or "").replace(",", ".").strip() or "0")
+        except InvalidOperation:
+            pct = Decimal("0")
+        if pct <= 0 or pct >= 100:
+            logger.warning("Descuento de rebaja inválido (%s); se sube sin rebaja", descuento_texto)
+            return f"{base:.2f}", None
+        final = (base * (Decimal("100") - pct) / Decimal("100")).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP)
+        return f"{final:.2f}", f"{base:.2f}"
 
     def __init__(self, db):
         self.db = db
@@ -191,6 +236,12 @@ class ShopifyFichaService:
         except ValueError:
             cantidad = 0
 
+        # Rebaja: price = precio final; compareAtPrice = precio base (o null
+        # para quitar la comparación cuando la rebaja está desmarcada)
+        precio_final, precio_comparacion = self.calcular_precios_rebaja(
+            form.get("pvp"), form.get("rebaja_activa"),
+            form.get("descuento_porcentaje"))
+
         datos = {
             "title": titulo,
             "handle": handle,
@@ -207,7 +258,8 @@ class ShopifyFichaService:
             "product_options": [{"name": "Title", "values": [{"name": "Default Title"}]}],
             "variantes": [{
                 "sku": ean or (form.get("sku") or "").strip(),
-                "precio": form.get("pvp") or "0",
+                "precio": precio_final,
+                "compare_at_price": precio_comparacion,
                 "cantidad": cantidad,
                 "barcode": ean,
                 "tracked": True,

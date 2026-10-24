@@ -13,6 +13,7 @@ import re
 import threading
 import webbrowser
 import tkinter as tk
+from decimal import Decimal, InvalidOperation
 
 import customtkinter as ctk
 
@@ -38,6 +39,7 @@ from kool_tpv.modulos.almacen.producto_repository import ProductoRepository
 from kool_tpv.utils import barcode_gen_utils
 from kool_tpv.utils.sku_generator import generate_sku
 from kool_tpv.modulos.shopify.services.seo_ficha_service import SeoFichaService
+from kool_tpv.modulos.shopify.services.shopify_ficha_service import ShopifyFichaService
 from kool_tpv.modulos.almacen.services.obtener_datos_service import ObtenerDatosService
 from kool_tpv.modulos.almacen.services.portadas_service import PortadasService
 from kool_tpv.modulos.almacen.services.metacampos_comic_service import MetacamposComicService
@@ -425,7 +427,24 @@ class CrearProductoUI:
             self.txt_sinopsis.pack(fill='both', expand=True)
             frame_sin.grid(row=4, column=1, columnspan=14, sticky='nsew', padx=6, pady=8)
 
-        # Fila 6: SEO_DESCRIPTION (7) | DESCRIPCION (8), misma altura
+        # Fila 6: REBAJA — 'Aplicar rebaja' + % + resumen 'base -> precio web'
+        rebaja_row = ctk.CTkFrame(self.shopify_frame, fg_color='transparent')
+        rebaja_row.grid(row=6, column=0, columnspan=15, sticky='ew', padx=6, pady=8)
+        self.chk_rebaja_var = tk.BooleanVar(value=False)
+        self.chk_rebaja = ctk.CTkCheckBox(
+            rebaja_row, text='APLICAR REBAJA', variable=self.chk_rebaja_var,
+            fg_color=shop_primary, text_color=shop_lbl, font=lbl_font,
+            command=self._refrescar_resumen_rebaja)
+        self.chk_rebaja.pack(side='left', padx=(0, 12))
+        ctk.CTkLabel(rebaja_row, text='DESCUENTO (%):', text_color=shop_lbl, font=lbl_font).pack(side='left')
+        self.e_descuento = ctk.CTkEntry(rebaja_row, width=70, placeholder_text='5', **shop_entry_kwargs)
+        self.e_descuento.pack(side='left', padx=(6, 12))
+        self.e_descuento.bind('<KeyRelease>', lambda e: self._refrescar_resumen_rebaja())
+        self.lbl_rebaja = ctk.CTkLabel(rebaja_row, text='', text_color=shop_txt, font=lbl_font)
+        self.lbl_rebaja.pack(side='left', padx=(10, 0))
+        self.e_pvp.bind('<KeyRelease>', lambda e: self._refrescar_resumen_rebaja())
+
+        # Fila 7: SEO_DESCRIPTION (7) | DESCRIPCION (8), misma altura
         ctk.CTkLabel(self.shopify_frame, text='SEO_DESCRIPTION:', text_color=shop_lbl, font=lbl_font).grid(row=5, column=0, columnspan=2, sticky='nw', padx=6, pady=8)
         try:
             self.e_seo_desc = ctk.CTkTextbox(self.shopify_frame, height=100, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=shop_txt, border_width=2, border_color=shop_primary)
@@ -487,9 +506,9 @@ class CrearProductoUI:
             self.cb_categoria.entry.bind('<FocusOut>', lambda e: (self._validate_combo_focus(self.cb_categoria), self._update_taxonomy_from_category(), self._auto_generate_sku()))
             self.cb_categoria.entry.bind('<<SearchableComboSelected>>', lambda e: (self._on_combo_selected(self.cb_categoria), self._update_taxonomy_from_category(), self._auto_generate_sku()))
             self.cb_categoria.entry.bind('<Return>', lambda e: (self._validate_combo_focus(self.cb_categoria), self._update_taxonomy_from_category(), self._auto_generate_sku()))
-            self.cb_tipo.entry.bind('<FocusOut>', lambda e: (self._validate_combo_focus(self.cb_tipo), self._update_taxonomy_from_category(), self._auto_generate_sku()))
-            self.cb_tipo.entry.bind('<<SearchableComboSelected>>', lambda e: (self._on_combo_selected(self.cb_tipo), self._update_taxonomy_from_category(), self._auto_generate_sku()))
-            self.cb_tipo.entry.bind('<Return>', lambda e: (self._validate_combo_focus(self.cb_tipo), self._update_taxonomy_from_category(), self._auto_generate_sku()))
+            self.cb_tipo.entry.bind('<FocusOut>', lambda e: (self._validate_combo_focus(self.cb_tipo), self._update_taxonomy_from_category(), self._auto_generate_sku(), self._aplicar_defecto_rebaja()))
+            self.cb_tipo.entry.bind('<<SearchableComboSelected>>', lambda e: (self._on_combo_selected(self.cb_tipo), self._update_taxonomy_from_category(), self._auto_generate_sku(), self._aplicar_defecto_rebaja()))
+            self.cb_tipo.entry.bind('<Return>', lambda e: (self._validate_combo_focus(self.cb_tipo), self._update_taxonomy_from_category(), self._auto_generate_sku(), self._aplicar_defecto_rebaja()))
             self.cb_proveedor.entry.bind('<FocusOut>', lambda e: self._validate_combo_focus(self.cb_proveedor))
             self.cb_proveedor.entry.bind('<<SearchableComboSelected>>', lambda e: self._on_combo_selected(self.cb_proveedor))
             self.cb_proveedor.entry.bind('<Return>', lambda e: self._validate_combo_focus(self.cb_proveedor))
@@ -1261,7 +1280,25 @@ class CrearProductoUI:
             codes = [c.strip() for c in (codes_text or '').split(',') if c.strip()]
 
             fabricado_por_nosotros = 1 if getattr(self, 'chk_fabricado_var', None) and self.chk_fabricado_var.get() else 0
-            
+
+            # Rebaja Shopify: porcentaje en centésimas (500 = 5 %); validado
+            # antes de guardar: mayor que 0 y menor que 100, máx. 2 decimales
+            rebaja_activa = 1 if getattr(self, 'chk_rebaja_var', None) and self.chk_rebaja_var.get() else 0
+            raw_pct = (getattr(self, 'e_descuento', None) and self.e_descuento.get() or '').strip()
+            descuento_pct = None
+            if raw_pct:
+                try:
+                    pct_dec = Decimal(raw_pct.replace(',', '.'))
+                    if pct_dec <= 0 or pct_dec >= 100 or -pct_dec.as_tuple().exponent > 2:
+                        raise ValueError('fuera de rango')
+                    descuento_pct = int(pct_dec * 100)
+                except (InvalidOperation, ValueError):
+                    ToastWidget.show(self.container, 'DESCUENTO: número entre 0 y 100, máx. 2 decimales', tipo='error')
+                    return
+            if rebaja_activa and descuento_pct is None:
+                ToastWidget.show(self.container, 'Indica el porcentaje de descuento', tipo='error')
+                return
+
             prod_id = self.repo.guardar_producto_completo(
                 nombre=nombre,
                 nombre_boton=nombre_boton,
@@ -1292,6 +1329,8 @@ class CrearProductoUI:
                 sinopsis=sinopsis,
                 datos_tecnicos=datos_tecnicos,
                 metacampos=metacampos_json,
+                shopify_rebaja_activa=rebaja_activa,
+                shopify_descuento_porcentaje=descuento_pct,
             )
 
             # Actualizar campo ID en UI
@@ -1433,6 +1472,12 @@ class CrearProductoUI:
             self._refrescar_meta_entries()
         except Exception:
             pass
+        try:
+            if getattr(self, 'chk_rebaja_var', None):
+                self.chk_rebaja_var.set(False)
+            self._refrescar_resumen_rebaja()
+        except Exception:
+            pass
 
     # ---------- metacampos de cómic (Shopify) ----------
 
@@ -1483,6 +1528,46 @@ class CrearProductoUI:
             v = datos.get(clave)
             texto = ', '.join(v) if isinstance(v, list) else (v or '')
             self._set_meta_entry(entry, texto)
+
+    # ---------- rebaja de Shopify ----------
+
+    def _aplicar_defecto_rebaja(self, forzar=False):
+        """Manga/cómic sin configuración guardada: propone rebaja del 5 %.
+
+        No pisa el porcentaje si el usuario ya escribió uno (salvo `forzar`,
+        que se usa al cargar una ficha sin valor guardado).
+        """
+        try:
+            if not ShopifyFichaService.es_comic_o_manga(
+                    (getattr(self, 'cb_tipo', None) and self.cb_tipo.get()) or '',
+                    (getattr(self, 'cb_categoria', None) and self.cb_categoria.get()) or ''):
+                return
+            if not self.chk_rebaja_var.get():
+                self.chk_rebaja_var.set(True)
+            if forzar or not (self.e_descuento.get() or '').strip():
+                self.e_descuento.delete(0, 'end')
+                self.e_descuento.insert(0, '5')
+            self._refrescar_resumen_rebaja()
+        except Exception:
+            logging.exception('Error aplicando defecto de rebaja')
+
+    def _refrescar_resumen_rebaja(self):
+        """Muestra '10,00 € -> 9,50 €' según PVP y descuento actuales."""
+        try:
+            if not getattr(self, 'chk_rebaja_var', None) or not self.chk_rebaja_var.get():
+                self.lbl_rebaja.configure(text='')
+                return
+            base_txt = (self.e_pvp.get() or '0').strip() or '0'
+            pct_txt = (self.e_descuento.get() or '').strip()
+            precio, referencia = ShopifyFichaService.calcular_precios_rebaja(
+                base_txt, True, pct_txt)
+            if referencia:
+                ref = referencia.replace('.', ',')
+                self.lbl_rebaja.configure(text=f'{ref} € -> {precio.replace(".", ",")} €')
+            else:
+                self.lbl_rebaja.configure(text='')
+        except Exception:
+            logging.exception('Error refrescando resumen de rebaja')
 
     def set_metacampos(self, datos):
         """Carga el dict de metacampos (al abrir un producto)."""
@@ -1921,6 +2006,8 @@ class CrearProductoUI:
                     )
                 ))(),
                 'codigos_barras': (getattr(self, 'e_codigos', None) and (self.e_codigos.get() or '').strip()) or '',
+                'rebaja_activa': bool(getattr(self, 'chk_rebaja_var', None) and self.chk_rebaja_var.get()),
+                'descuento_porcentaje': (getattr(self, 'e_descuento', None) and (self.e_descuento.get() or '').strip()) or '',
             }
         except Exception:
             logging.exception('Error obteniendo datos CrearProductoUI')

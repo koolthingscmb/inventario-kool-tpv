@@ -649,6 +649,26 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migración 069: rebaja de Shopify en la ficha de producto — guarda si
+		# el producto lleva "Aplicar rebaja" y su porcentaje (en centésimas de
+		# punto: 500 = 5 %). NULL significa "aún sin configurar", así la ficha
+		# puede proponer el valor por defecto de manga/cómic sin pisar la
+		# decisión guardada por el usuario.
+		try:
+			cols_rebaja = {r[1] for r in (db.fetch_all("PRAGMA table_info(productos)") or [])}
+			if 'shopify_rebaja_activa' not in cols_rebaja:
+				logging.info('Aplicando migración 069: campos de rebaja Shopify en productos')
+				db.connection.execute('ALTER TABLE productos ADD COLUMN shopify_rebaja_activa INTEGER')
+				db.connection.execute('ALTER TABLE productos ADD COLUMN shopify_descuento_porcentaje INTEGER')
+				db.connection.commit()
+				logging.info('Migración 069 (rebaja Shopify en productos) aplicada')
+		except Exception:
+			logging.exception('Error aplicando migración 069')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Check existence
 		existing = []
 		try:

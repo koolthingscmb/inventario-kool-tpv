@@ -4,6 +4,7 @@ Este fichero contiene una implementación mínima que delega en
 `ProductoService.get_producto_completo` y devuelve el dict de datos.
 La lógica de rellenado de widgets se implementará después.
 """
+from decimal import Decimal
 from typing import Optional
 import logging
 
@@ -330,6 +331,32 @@ class CargarProductoUI:
                 logging.exception('Error aplicando editorial')
             _set_entry(getattr(ui_instance, 'e_nombre_original', None), data.get('nombre_original') or '')
             _set_textbox(getattr(ui_instance, 'txt_sinopsis', None), data.get('sinopsis') or '')
+
+            # Rebaja Shopify: valores guardados o, si aún no se configuró
+            # (NULL), el valor inicial de manga/cómic (activada al 5 %)
+            try:
+                ra = data.get('shopify_rebaja_activa')
+                pct = data.get('shopify_descuento_porcentaje')
+                var = getattr(ui_instance, 'chk_rebaja_var', None)
+                entry = getattr(ui_instance, 'e_descuento', None)
+                if ra is None:
+                    aplicar = getattr(ui_instance, '_aplicar_defecto_rebaja', None)
+                    if callable(aplicar):
+                        aplicar(forzar=True)
+                else:
+                    if var is not None and hasattr(var, 'set'):
+                        var.set(bool(int(ra)))
+                    if pct is not None:
+                        # centésimas -> texto para la ficha: 525 -> '5,25'
+                        texto = str(Decimal(int(pct)) / Decimal('100')).replace('.', ',').rstrip('0').rstrip(',')
+                        _set_entry(entry, texto)
+                    else:
+                        _set_entry(entry, '')
+                    refrescar = getattr(ui_instance, '_refrescar_resumen_rebaja', None)
+                    if callable(refrescar):
+                        refrescar()
+            except Exception:
+                logging.exception('Error aplicando rebaja Shopify')
 
             # Metacampos de Shopify (JSON): demografía, género, subgénero, contenido
             try:

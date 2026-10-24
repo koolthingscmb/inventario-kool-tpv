@@ -336,6 +336,10 @@ class ShopifyProductService:
                     "inventoryItem": {"tracked": tracked},
                     "optionValues": option_values,
                 }
+                # compareAtPrice solo cuando la ficha lo gestiona: un precio de
+                # referencia o None para vaciarlo (sin él, Shopify conserva el valor)
+                if "compare_at_price" in v:
+                    variante["compareAtPrice"] = v["compare_at_price"]
                 # Solo si la variante tiene EAN: enviar barcode: null borraría el que ya haya
                 if v.get("barcode"):
                     variante["barcode"] = str(v["barcode"]).strip()
