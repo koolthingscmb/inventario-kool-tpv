@@ -70,15 +70,12 @@ class EditorialRepository:
             (nombre, plataforma, url, nif, usuario, password, fuente_id))
 
     def borrar_fuente(self, fuente_id: int) -> None:
-        self.db.execute_query(
-            "UPDATE editoriales SET fuente_id = NULL WHERE fuente_id = ?",
-            (fuente_id,))
-        self.db.execute_query(
-            "UPDATE editoriales SET fuente_reserva_id = NULL"
-            " WHERE fuente_reserva_id = ?",
-            (fuente_id,))
-        self.db.execute_query(
-            "DELETE FROM editoriales_fuentes WHERE id = ?", (fuente_id,))
+        cur = self.db.execute_query(
+            "DELETE FROM editoriales_fuentes WHERE id = ? AND NOT EXISTS"
+            " (SELECT 1 FROM editoriales WHERE fuente_id = ? OR fuente_reserva_id = ?)",
+            (fuente_id, fuente_id, fuente_id))
+        if not cur.rowcount:
+            raise ValueError("La fuente no existe o está en uso; actualiza la selección")
 
     def fuente_por_datos(self, plataforma: str, url: str,
                          usuario: str, password: str = "") -> Optional[Dict[str, Any]]:
@@ -124,6 +121,14 @@ class EditorialRepository:
             "SELECT nombre FROM editoriales WHERE fuente_id = ? ORDER BY nombre",
             (fuente_id,)) or []
         return [r[0] for r in rows]
+
+    def usos_de_fuente(self, fuente_id: int) -> List[Dict[str, Any]]:
+        rows = self.db.fetch_all(
+            "SELECT id, nombre, fuente_id, fuente_reserva_id FROM editoriales"
+            " WHERE fuente_id = ? OR fuente_reserva_id = ? ORDER BY nombre",
+            (fuente_id, fuente_id)) or []
+        return [{"id": r[0], "nombre": r[1], "principal": r[2] == fuente_id,
+                 "reserva": r[3] == fuente_id} for r in rows]
 
     def insertar_editorial(self, nombre: str, fuente_id: Optional[int] = None,
                            web_buscar: str = "", web_dominio: str = "",

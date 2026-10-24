@@ -1,81 +1,51 @@
 # MEMORY.md — Kool TPV
-Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo que ya no
-aporte. (Última actualización: 2026-10-23, rama `windows-beta`.)
+Memoria entre sesiones. Actualización: 2026-10-24, rama `windows-beta`. Máximo ~50 líneas.
 
-## Estado actual (Shopify)
-- SUBIDA separada en NUEVO y EDITAR (`SubidaBaseView` + componentes + builders sin widgets).
-  Stock en subidas: `changeFromQuantity: null`. SINC lee `on_hand` (no `available`).
-- METACAMPOS: rejilla empaquetada; `reglamento` (`file_reference`) con ABRIR/NUEVO (el PDF
-  se sube al guardar). MASIVA: texto/número/SÍ-NO, listas, familia y `list.metaobject_reference`
-  con ELEGIR VALORES; modos AÑADIR/CAMBIAR/VACIAR (`[]` válido).
-- NUEVO/EDITAR: imágenes en rejilla de 3 por fila.
-- FIX Windows: Colecciones de METACAMPOS ya no abre diálogos desde el hilo (`frame.after`).
+## Trabajo actual — pendiente de prueba del usuario
+- Editoriales y fuentes: UI dividida 50/50. Arriba editorial (ID, nombre, web, fuente principal/reserva
+  con SearchableCombo); abajo fuente (ID, nombre, plataforma, URL y credenciales). Chips y CRUD propios.
+- Seleccionar editorial carga su fuente principal; pulsar chip de fuente desactiva editorial.
+  NUEVA limpia ambas zonas. Seleccionar no guarda; cada zona tiene su botón GUARDAR.
+- Fuentes independientes: ya no se eliminan automáticamente al borrar/guardar editoriales.
+  Editar fuente en uso pide confirmación mostrando editoriales afectadas, incluidas reservas.
+  Borrar fuente en uso se bloquea: hay que reasignar primero; el DELETE también está protegido.
+- Plataforma desde `TIPOS_FUENTE` del registro, no lista duplicada en UI. Opciones de fuentes
+  desde BD con ID visible para distinguir nombres iguales. Crear un adaptador nuevo sigue requiriendo código.
+- Capas: `editorial_repository` -> `fuentes_editorial_service` -> `editoriales_ui`.
+  `guardar_asignacion` solo modifica editorial; guardar fuente sin `editoriales` no cambia asignaciones.
+- Verificado: compilación de 3 Python, diff sin errores, CRUD y validaciones con SQLite en memoria
+  usando esquema real (solo lectura); estructura UI 50/50 y flujos de selección/guardado/borrado.
+  No se escribió en BD real ni se consultaron portales. Apariencia no inspeccionada. Sin commit/push.
 
-## Decisiones Shopify (y por qué)
-- Metacampos en masa con `metafieldsSet` (bloques de 25); NUNCA `productSet` (borra lo omitido).
-  `rich_text`/`file_reference` fuera de la masiva.
-- Colecciones (API 2026-07): `collectionUpdate` con `selectionsToAdd/Remove`; filtrar siempre con
-  `inCollection`. Colección manual VACÍA = 0 fuentes. Toda colección de familia nueva lleva el
-  borrador 'PRODUCTO FANTASMA'; las `Family-...` por etiqueta son LEGADO. Sin exclusiones parche.
-- Familia en masa: AÑADIR = solo productos sin familia; CAMBIAR = a todos. Orden: entrar en la nueva
-  -> metacampo -> salir de la antigua. En EDITAR se conservan las colecciones del producto.
+## Shopify — estado y decisiones
+- SUBIDA: NUEVO/EDITAR comparten base, componentes y builders sin widgets; imágenes en rejilla de 3.
+- Stock: subidas con `changeFromQuantity: null`; SINC lee `on_hand`, no `available`.
+- METACAMPOS: `reglamento` file_reference se sube al guardar; reabrir antes de actualizar pierde lo preparado.
+- Masiva Shopify: `metafieldsSet` en bloques de 25, nunca `productSet` (borra omitidos).
+  Excluye rich_text/file_reference; listas admiten `[]`; modos AÑADIR/CAMBIAR/VACIAR.
+- Colecciones API 2026-07: `collectionUpdate` selectionsToAdd/Remove y filtro `inCollection`.
+  Colección manual vacía = 0 fuentes; familia nueva con borrador PRODUCTO FANTASMA; Family- por tag es legado.
+- Familia: AÑADIR solo sin familia; CAMBIAR todos; entrar nueva -> metacampo -> salir antigua.
+- Espejo cómic en EDICIÓN MASIVA almacén: 4 claves de `MetacamposComicService.GRUPOS`, ausente = borrar,
+  claves ajenas conservadas; pending_sync + auditoría. Verificado por usuario y subido (`8844ef9`).
+- CONFIG/EQUIVALENCIAS: valores vivos agrupados, palabras por comas; huérfanas preservadas SIN EFECTO.
+  JSON propiedad de `ComparadorMetacamposService`. Verificado/subido (`73764c7`).
+- Duplicados tras subida: una opción por fila sin recorte explícito; verificado/subido (`c992e41`).
 
-## Aprendizajes
-- No decir sí a todo: opinión profesional con pros y contras. Preguntar antes de cambiar nada.
-- Escrituras en Shopify: probar con borrador y verificar con lectura antes/después.
-- En EDITAR, reabrir METACAMPOS antes de actualizar recarga y pierde lo preparado.
-- Un dato mal configurado se corrige en su sitio, nunca con parche en el código (sin hardcodeo).
-- Con el usuario enfadado: frases cortas, sin nombres de tablas; reproducir antes de explicar.
+## Reglas y fuentes OBTENER
+- Mac = BD de pruebas; Windows = tienda. Enlaces Shopify locales: subir en Mac no enlaza Windows.
+  Sync Windows e impresión térmica de vales comprobados por usuario.
+- Stock: todo cambio normal por `StockMovementService.aplicar_movimiento` dentro de transacción:
+  UPDATE + movimiento + cola; rollback conjunto. Tras confirmar `procesar_pendientes_async()`.
+  Albaranes encolan una vez por producto al final; cola serial durable con reintento manual.
+- Vales = pago, no descuento; consumo atómico. OBTENER: géneros a METACAMPOS, no TAGS; nunca PVP.
+- Fuentes vivas: `almacen/services/fuentes/`, registro por plataforma; principal y luego reserva.
+  LINK multi `url (etiqueta); url2 (etiqueta2)`; avance_comic solo con etiqueta Avance.
+- Astiberri por EAN verificado/subido (`b7a8ccf`): /search XHR, verifica ISBN de ficha; reserva por título/slugs.
+  /search tiene Disallow en robots.txt; uso aprobado por usuario. No prometer ausencia de bloqueos o riesgo legal.
+- Sin adaptador propio, configurar Azeta (Penguin, Kibook y otros); no reinvestigar sin petición.
+- Portadas locales gitignored; máxima calidad variable: Astiberri ~2400px, Ivrea 400, Planeta 300, Norma 229.
+- Fragilidad: Panini Queue-it, Azeta reCAPTCHA, Ivrea límites AJAX (usa sitemap). Credenciales nunca en logs/chat.
 
-## Fuentes de datos de producto (OBTENER) — CERRADO el 2026-10-20
-- Capas: `editorial_repository` (SQL) <- `fuentes_editorial_service` <- `ui/editoriales_ui`;
-  `obtener_datos_service` (botón OBTENER) + `fuentes/registro.py` (plataforma -> clase) +
-  `PortadasService` (`assets/portadas/<ean>.jpg`, `_2`...; carpeta se crea sola; no va en git).
-- Tablas: `editoriales_fuentes` (plataforma, url, nif, usuario, password) y `editoriales`
-  (fuente_id, `fuente_reserva_id` [mig. 063], `web_buscar`, `web_dominio`). OBTENER prueba la
-  fuente principal y luego la RESERVA. Con plataforma `web` la URL va a `web_buscar` y IR la abre.
-- Reglas: nunca precios/PVP; TAGS vacíos; LINK multi `url (etiqueta); url2 (etiqueta2)` (IR elige);
-  credenciales solo en `editoriales_fuentes`, NUNCA en repo, chat ni logs.
-- Plataformas: zonalibros (Norma, demografía de 'Materia'), planeta, shopify (Milky Way: autor y
-  demografía de tags, avance), panini_web, ivrea_web (sitemap), udl_web (La Cúpula), astiberri_web
-  (slug+EAN, imágenes `blobs`), arechi_web (sitemap+API, ceros a la izquierda ignorados),
-  azeta_web (portal de cliente, por EAN). `azeta_web` será la RESERVA de casi todo.
-- astiberri_web (2026-10-23): busca por EAN en `/search?key=keyword&value=` con
-  cabecera XHR (el buscador indexa ISBN; verifica cada ficha por su EAN publicado).
-  Plan B: slugs por nombre + candidatas del buscador por título. `/search` está
-  Disallow en su robots.txt — decisión del propietario. Flag `busca_por_ean_y_nombre`.
-- Sin fuente propia, van con `azeta_web` (config, sin código): Penguin/Distrito Manga, Kibook,
-  Mangaline, Devir, Yermo, Nuevo Nueve, Dolmen, Grafito y los manga menores. No volver a investigar.
-- Portadas máximas: Astiberri ~2400 px, Milky Way ~1030, Panini ~856, UDL ~800, Azeta ~650, Arechi
-  ~624, Ivrea 400, Planeta 300, Norma 229. Google recomienda ~800: ampliar a mano en los más vendidos.
-- Frágil: panini.es solo deja pasar con UA Googlebot (Queue-it); Azeta acepta el login sin token
-  reCAPTCHA hoy; Ivrea limita su buscador AJAX por IP (por eso usa el sitemap).
-
-## Reglas de arquitectura (permanentes)
-- PUERTA ÚNICA DE STOCK (2026-10-23): todo cambio de `productos.stock_actual` debe
-  pasar por `StockMovementService.aplicar_movimiento(pid, cantidad, motivo, usuario_id,
-  ticket_line_id, ventas_change, encolar_sync, motivo_sync, cur)` = UPDATE +
-  movimiento + encargo SYNC_PRODUCTO, en la transacción del llamador (rollback =
-  desaparece todo). NO hacer UPDATE a mano. Tras confirmar: `procesar_pendientes_async()`.
-  Albaranes: `encolar_sync=False` y encolan 1 por producto al final. Fuera a
-  propósito: reseteo de tienda y tools. El log muestra "nombre (EAN) -> Stock: N".
-- Cola sync: encolar dentro de la transacción; un solo trabajador serial; errores
-  con motivo real en SYNC -> PENDIENTES (reintento manual del usuario); huérfanos
-  'pendiente' se drenan al arrancar.
-- Vales = forma de pago (no descuento), consumo atómico en la venta (mig. 065-067).
-- `avance_comic`: solo se envía si LINK tiene entrada etiquetada 'Avance'.
-- OBTENER: géneros van a METACAMPOS, no a TAGS. Fuentes vivas: `almacen/services/fuentes/`.
-
-## Hecho el 2026-10-23
-- EDICIÓN MASIVA -> modo METACAMPOS (almacén): copia en ESPEJO los 4 metacampos
-  cómic (`MetacamposComicService.GRUPOS`, fuente única) de un producto referente
-  al lote; ausente en el referente = se borra en el destino; claves ajenas se
-  conservan. `pending_sync=1` + audit `EDICION_MASIVA_METACAMPOS`.
-- Shopify -> CONFIG -> EQUIVALENCIAS edita `metacampos_alias.json`: una fila por
-  valor oficial (vivos vía `obtener_opciones`, agrupados por metacampo), palabras
-  por comas. Huérfanas preservadas en bloque "SIN EFECTO". Valida y escribe
-  `ComparadorMetacamposService.guardar_alias`.
-
-## Pendiente
-- Deuda: `crear_producto_ui.py` (1600+ líneas, refactor por partes); botón IR sin
-  uso decidido; tests rotos, `openai` en requirements, docs desactualizados.
+## Deuda conocida
+- crear_producto_ui grande; tests de base no verdes; openai sin usar; documentación antigua. No corregir sin permiso.

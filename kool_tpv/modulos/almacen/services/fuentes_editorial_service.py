@@ -45,6 +45,12 @@ class FuentesEditorialService:
         plataforma = (datos.get("plataforma") or datos.get("tipo") or "").strip()
         if not nombre or not plataforma:
             raise ValueError("La fuente necesita nombre y plataforma")
+        if plataforma not in self.listar_plataformas():
+            raise ValueError("Selecciona una plataforma disponible")
+        if not (datos.get("url") or "").strip():
+            raise ValueError("La fuente necesita una URL")
+        if fuente_id and not self.repo.obtener_fuente(fuente_id):
+            raise ValueError("La fuente ya no existe")
         if fuente_id:
             self.repo.actualizar_fuente(
                 fuente_id, nombre, plataforma, (datos.get("url") or "").strip(),
@@ -55,16 +61,60 @@ class FuentesEditorialService:
                 nombre, plataforma, (datos.get("url") or "").strip(),
                 datos.get("nif") or "", datos.get("usuario") or "",
                 datos.get("password") or "")
-        editoriales = datos.get("editoriales") or []
-        if isinstance(editoriales, str):
-            editoriales = [e.strip() for e in editoriales.split(",")]
-        self.repo.enlazar_editoriales(fuente_id, editoriales)
+        if "editoriales" in datos:
+            editoriales = datos["editoriales"] or []
+            if isinstance(editoriales, str):
+                editoriales = [e.strip() for e in editoriales.split(",")]
+            self.repo.enlazar_editoriales(fuente_id, editoriales)
         return fuente_id
 
     def borrar_fuente(self, fuente_id: int) -> None:
         """Elimina la fuente; sus editoriales quedan sin fuente (se conservan
         para el IR)."""
+        usos = self.usos_de_fuente(fuente_id)
+        if usos:
+            raise ValueError("Reasigna primero las editoriales que utilizan esta fuente: "
+                             + ", ".join(u["nombre"] for u in usos))
         self.repo.borrar_fuente(fuente_id)
+
+    @staticmethod
+    def listar_plataformas() -> List[str]:
+        from .fuentes.registro import TIPOS_FUENTE
+        return sorted(TIPOS_FUENTE)
+
+    def usos_de_fuente(self, fuente_id: int) -> List[Dict[str, Any]]:
+        return self.repo.usos_de_fuente(fuente_id)
+
+    def opciones_fuentes(self) -> List[tuple]:
+        return [(f["id"], f'{f["nombre"]} · ID {f["id"]}')
+                for f in self.repo.listar_fuentes()]
+
+    def guardar_asignacion(self, datos: Dict[str, Any],
+                           editorial_id: Optional[int] = None) -> int:
+        nombre = (datos.get("nombre") or "").strip()
+        if not nombre:
+            raise ValueError("La editorial necesita un nombre")
+        existente = self.repo.obtener_editorial_por_nombre(nombre)
+        if existente and existente["id"] != editorial_id:
+            raise ValueError("Ya existe una editorial con ese nombre")
+        actual = self.repo.obtener_editorial_por_id(editorial_id) if editorial_id else {}
+        if editorial_id and not actual:
+            raise ValueError("La editorial ya no existe")
+        principal = datos.get("fuente_id") or None
+        reserva = datos.get("fuente_reserva_id") or None
+        for fid in (principal, reserva):
+            if fid and not self.repo.obtener_fuente(fid):
+                raise ValueError("La fuente seleccionada ya no existe")
+        if principal and principal == reserva:
+            raise ValueError("La fuente principal y la reserva deben ser distintas")
+        web = (datos.get("web_buscar") or "").strip()
+        dominio = (actual or {}).get("web_dominio") or ""
+        if editorial_id:
+            self.repo.actualizar_editorial(editorial_id, nombre, principal,
+                                          web, dominio, fuente_reserva_id=reserva)
+            return editorial_id
+        return self.repo.insertar_editorial(nombre, principal, web, dominio,
+                                           fuente_reserva_id=reserva)
 
     def editoriales_que_usan_portal(self, fuente_id: int) -> List[str]:
         """Nombres de las editoriales que cubre una fuente."""
@@ -180,7 +230,6 @@ class FuentesEditorialService:
                 nombre, fuente_id, datos.get("web_buscar") or "",
                 datos.get("web_dominio") or "",
                 fuente_reserva_id=reserva_id)
-        self.repo.borrar_fuentes_huerfanas()
         return editorial_id
 
     # ---------- editoriales (filas sueltas, para el IR) ----------
@@ -204,4 +253,3 @@ class FuentesEditorialService:
 
     def borrar_editorial(self, editorial_id: int) -> None:
         self.repo.borrar_editorial(editorial_id)
-        self.repo.borrar_fuentes_huerfanas()
