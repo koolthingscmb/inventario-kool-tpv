@@ -31,10 +31,13 @@ Memoria entre sesiones. Actualización: 2026-10-24, rama `windows-beta`. Máximo
 - CONFIG/EQUIVALENCIAS: valores vivos agrupados, palabras por comas; huérfanas preservadas SIN EFECTO.
   JSON propiedad de `ComparadorMetacamposService`. Verificado/subido (`73764c7`).
 - Duplicados tras subida: una opción por fila sin recorte explícito; verificado/subido (`c992e41`).
-- Rebaja ficha (migr. 069, sin commit): `shopify_rebaja_activa`/`shopify_descuento_porcentaje` en
-  productos; % en centésimas, NULL = sin configurar (manga/cómic -> 5 % inicial). UPDATE con COALESCE:
-  otros flujos (menú/albarán/TPV) no pisan los campos. `price`=final, `compareAtPrice`=base o null.
-  `es_comic_o_manga` por nombre de tipo/categoría. Simulado OK; falta prueba real en Shopify.
+- Rebaja ficha (migr. 069, subido `9c4e224`): `shopify_rebaja_activa`/`shopify_descuento_porcentaje`
+  en productos; % en centésimas, NULL = sin configurar (manga/cómic -> 5 % inicial). UPDATE con
+  COALESCE: otros flujos no pisan los campos. `price`=final, `compareAtPrice`=base o null.
+  `es_comic_o_manga` por nombre de tipo/categoría. Verificado por usuario con subida real.
+- Label estado web en la fila de rebaja (sin commit): `estado_subida` devuelve `ultima_sincronizacion`
+  (mapping.last_synced_at); UI pinta EN LA WEB + fecha, NO SUBIDO A LA WEB o CAMBIOS PENDIENTES.
+  Refresco al abrir (cargar_producto), al guardar y tras subir. No llamadas a Shopify.
 
 ## Reglas y fuentes OBTENER
 - Mac = BD de pruebas; Windows = tienda. Enlaces Shopify locales: subir en Mac no enlaza Windows.
@@ -44,8 +47,11 @@ Memoria entre sesiones. Actualización: 2026-10-24, rama `windows-beta`. Máximo
   Albaranes encolan una vez por producto al final; cola serial durable con reintento manual.
 - Vales = pago, no descuento; consumo atómico. OBTENER: géneros a METACAMPOS, no TAGS; nunca PVP.
 - Fuentes vivas: `almacen/services/fuentes/`, registro por plataforma; principal y luego reserva.
-  `shopify_publico` (Milky Way): SOLO `suggest.json` trae ficha completa (sinopsis, tags, portada);
-  la página del producto es extra opcional tolerante a 429 (avance/ISBN/metacampos).
+  `shopify_publico` (Milky Way, `501f7e7`): `suggest.json` ya trae ficha completa (sinopsis, tags,
+  portada); la página del producto es extra opcional tolerante a 429 (avance/ISBN/metacampos).
+- Pendiente aprobado para futuro: usar Azeta como principal de la editorial Milky Way (datos base)
+  y milkyway_web solo para extras (avance/metacampos). Hoy reserva solo se usa si principal falla;
+  haría falta un paso de fusión. Sin comprobar aún si Azeta lleva el catálogo de Milky Way.
   LINK multi `url (etiqueta); url2 (etiqueta2)`; avance_comic solo con etiqueta Avance.
 - Astiberri por EAN verificado/subido (`b7a8ccf`): /search XHR, verifica ISBN de ficha; reserva por título/slugs.
   /search tiene Disallow en robots.txt; uso aprobado por usuario. No prometer ausencia de bloqueos o riesgo legal.

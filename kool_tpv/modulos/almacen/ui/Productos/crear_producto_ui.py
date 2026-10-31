@@ -13,6 +13,7 @@ import re
 import threading
 import webbrowser
 import tkinter as tk
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
 import customtkinter as ctk
@@ -442,6 +443,10 @@ class CrearProductoUI:
         self.e_descuento.bind('<KeyRelease>', lambda e: self._refrescar_resumen_rebaja())
         self.lbl_rebaja = ctk.CTkLabel(rebaja_row, text='', text_color=shop_txt, font=lbl_font)
         self.lbl_rebaja.pack(side='left', padx=(10, 0))
+        # Estado web a la derecha de la fila: subido, última sincronización
+        # y cambios pendientes (se rellena con _refrescar_estado_shopify)
+        self.lbl_estado_shopify = ctk.CTkLabel(rebaja_row, text='', text_color=shop_lbl, font=lbl_font)
+        self.lbl_estado_shopify.pack(side='right', padx=(10, 0))
         self.e_pvp.bind('<KeyRelease>', lambda e: self._refrescar_resumen_rebaja())
 
         # Fila 7: SEO_DESCRIPTION (7) | DESCRIPCION (8), misma altura
@@ -1343,6 +1348,10 @@ class CrearProductoUI:
                 self._refresh_tesoro()
             except Exception:
                 pass
+            try:
+                self._refrescar_estado_shopify()
+            except Exception:
+                pass
             ToastWidget.show(self.container, 'Producto guardado correctamente', tipo='success')
             if despues is not None:
                 try:
@@ -1476,6 +1485,8 @@ class CrearProductoUI:
             if getattr(self, 'chk_rebaja_var', None):
                 self.chk_rebaja_var.set(False)
             self._refrescar_resumen_rebaja()
+            if getattr(self, 'lbl_estado_shopify', None) is not None:
+                self.lbl_estado_shopify.configure(text='')
         except Exception:
             pass
 
@@ -1568,6 +1579,42 @@ class CrearProductoUI:
                 self.lbl_rebaja.configure(text='')
         except Exception:
             logging.exception('Error refrescando resumen de rebaja')
+
+    def _refrescar_estado_shopify(self):
+        """Pinta a la derecha de la rebaja si el producto está en la web,
+        cuándo fue su última sincronización y si hay cambios pendientes.
+        Lectura local de la BD: sin llamadas a Shopify."""
+        try:
+            lbl = getattr(self, 'lbl_estado_shopify', None)
+            if lbl is None:
+                return
+            pid_txt = (self.e_id_var.get() or '').strip() if getattr(self, 'e_id_var', None) else ''
+            try:
+                pid = int(pid_txt) if pid_txt else 0
+            except (ValueError, TypeError):
+                pid = 0
+            texto = ''
+            if pid:
+                estado = ShopifyFichaService(self.db).estado_subida(pid)
+                if not estado.get('mapeado'):
+                    texto = 'NO SUBIDO A LA WEB'
+                else:
+                    fecha = self._formatear_fecha_sync(estado.get('ultima_sincronizacion'))
+                    texto = (f'EN LA WEB · Última actualización con Shopify: {fecha}'
+                             if fecha else 'EN LA WEB')
+                    if estado.get('pending_sync'):
+                        texto += ' · CAMBIOS PENDIENTES'
+            lbl.configure(text=texto)
+        except Exception:
+            logger.exception('Error refrescando el estado de Shopify')
+
+    @staticmethod
+    def _formatear_fecha_sync(valor):
+        """'2026-10-21 19:27:59' -> '21-10-2026 19:27'; si no se entiende, tal cual."""
+        try:
+            return datetime.strptime(str(valor), '%Y-%m-%d %H:%M:%S').strftime('%d-%m-%Y %H:%M')
+        except (ValueError, TypeError):
+            return str(valor or '')
 
     def set_metacampos(self, datos):
         """Carga el dict de metacampos (al abrir un producto)."""
@@ -1816,6 +1863,7 @@ class CrearProductoUI:
             else:
                 show_error(self.container, 'SUBIDO SIN STOCK',
                            f"El producto subió pero el stock falló:\n{res.get('stock_error') or ''}")
+            self._refrescar_estado_shopify()
             if es_nuevo:
                 self._buscar_duplicados(form or {}, res.get('product_id'))
         else:

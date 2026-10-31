@@ -108,6 +108,7 @@ class ShopifyFichaService:
             "shopify_id": mapping.get("shopify_product_id"),
             "handle": mapping.get("handle"),
             "pending_sync": bool(prod.get("pending_sync")),
+            "ultima_sincronizacion": mapping.get("last_synced_at"),
         }
 
     def buscar_por_ean(self, ean: str) -> Optional[Dict[str, Any]]:

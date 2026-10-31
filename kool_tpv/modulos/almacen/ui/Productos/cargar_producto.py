@@ -357,6 +357,12 @@ class CargarProductoUI:
                         refrescar()
             except Exception:
                 logging.exception('Error aplicando rebaja Shopify')
+            try:
+                refrescar_shopify = getattr(ui_instance, '_refrescar_estado_shopify', None)
+                if callable(refrescar_shopify):
+                    refrescar_shopify()
+            except Exception:
+                logging.exception('Error refrescando estado de Shopify')
 
             # Metacampos de Shopify (JSON): demografía, género, subgénero, contenido
             try:
