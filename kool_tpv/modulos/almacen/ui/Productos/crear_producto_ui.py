@@ -41,6 +41,8 @@ from kool_tpv.utils import barcode_gen_utils
 from kool_tpv.utils.sku_generator import generate_sku
 from kool_tpv.modulos.shopify.services.seo_ficha_service import SeoFichaService
 from kool_tpv.modulos.shopify.services.shopify_ficha_service import ShopifyFichaService
+from kool_tpv.modulos.shopify.services.shopify_config_service import ShopifyConfigService
+from kool_tpv.modulos.shopify.services.openai_service import OpenAIService
 from kool_tpv.modulos.almacen.services.obtener_datos_service import ObtenerDatosService
 from kool_tpv.modulos.almacen.services.portadas_service import PortadasService
 from kool_tpv.modulos.almacen.services.metacampos_comic_service import MetacamposComicService
@@ -1950,7 +1952,13 @@ class CrearProductoUI:
                 return ", ".join(map(str, v)) if isinstance(v, list) else str(v or '')
 
             codigos = (self.e_codigos.get() or '').split(',')
+            pid_txt = (self.e_id_var.get() or '').strip() if getattr(self, 'e_id_var', None) else ''
+            try:
+                pid = int(pid_txt) if pid_txt else None
+            except (ValueError, TypeError):
+                pid = None
             datos = {
+                'producto_id': pid,
                 'tipo_id': self.cb_tipo.get_id(),
                 'tipo_producto': (self.cb_tipo.get() or '').strip(),
                 'product_name': nombre,
@@ -1966,8 +1974,19 @@ class CrearProductoUI:
                             if getattr(self, 'txt_sinopsis', None) else '',
             }
 
+            # Identificar proveedor configurado para el aviso
+            cfg_ia = ShopifyConfigService(self.db).get_config()
+            prov_ia = str(cfg_ia.get('ia_proveedor') or 'openai').strip().lower()
+            modelo_ia = cfg_ia.get('ia_model') or ('gemini-3.6-flash' if prov_ia == 'gemini' else 'gpt-4o-mini')
+            if prov_ia == 'gemini':
+                num_k = len(OpenAIService.claves_gemini_desde_texto(cfg_ia.get('ia_gemini_api_keys') or ''))
+                letra_gemini = OpenAIService.get_proxima_letra_gemini(num_k)
+                ia_label = f"Gemini [{letra_gemini}] ({modelo_ia})"
+            else:
+                ia_label = f"ChatGPT ({modelo_ia})"
+
             self.btn_buscar.configure(state='disabled')
-            ToastWidget.show(self.container, 'Generando SEO con IA...', tipo='info')
+            ToastWidget.show(self.container, f'Generando SEO con {ia_label}...', tipo='info')
 
             def _run():
                 try:
@@ -1975,7 +1994,11 @@ class CrearProductoUI:
                 except Exception as e:
                     logger.exception('Error generando SEO')
                     res, err = None, str(e)
-                self.container.after(0, lambda r=res, e=err: self._seo_fin(r, e))
+                try:
+                    if getattr(self, 'container', None) and self.container.winfo_exists():
+                        self.container.after(0, lambda r=res, e=err: self._seo_fin(r, e))
+                except Exception:
+                    pass
 
             threading.Thread(target=_run, daemon=True).start()
         except Exception:
@@ -1999,7 +2022,15 @@ class CrearProductoUI:
                 pass
 
     def _seo_fin(self, res, err):
-        self.btn_buscar.configure(state='normal')
+        try:
+            if getattr(self, 'btn_buscar', None) and self.btn_buscar.winfo_exists():
+                self.btn_buscar.configure(state='normal')
+        except Exception:
+            pass
+
+        if not (getattr(self, 'container', None) and self.container.winfo_exists()):
+            return
+
         if err or not res:
             ToastWidget.show(self.container, err or "La IA no devolvió datos", tipo='error')
             return

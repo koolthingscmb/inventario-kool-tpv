@@ -4,8 +4,7 @@ import re
 import unicodedata
 from typing import Dict, Any, Optional, Tuple, List
 
-import requests
-
+from .openai_service import OpenAIService
 from .shopify_config_service import ShopifyConfigService
 from .producto_prompts import (
     PROMPT_SEO_DESCRIPCION, PROMPT_BODY_HTML, PROMPT_TAGS,
@@ -16,8 +15,6 @@ from .producto_prompts import (
 from ..shopify_prompts_repository import ShopifyPromptsRepository
 
 logger = logging.getLogger(__name__)
-
-OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 
 
 def slugify_diseno(titulo: str) -> str:
@@ -30,8 +27,9 @@ def slugify_diseno(titulo: str) -> str:
 
 
 class ProductoContentService:
-    """Genera los textos de un producto con OpenAI usando los prompts de la
-    tabla shopify_prompts (genéricos o excepciones por tipo)."""
+    """Genera los textos de un producto con la IA configurada (OpenAI o
+    Gemini) usando los prompts de la tabla shopify_prompts (genéricos o
+    excepciones por tipo)."""
 
     def __init__(self, db):
         self.db = db
@@ -44,32 +42,10 @@ class ProductoContentService:
 
     def _llamar_ia(self, prompt: str, json_mode: bool = False) -> Tuple[Optional[str], Optional[str]]:
         cfg = self.config_service.get_config()
-        api_key, model = cfg.get("ia_api_key"), cfg.get("ia_model") or "gpt-4o-mini"
-        if not api_key:
-            return None, "Falta la OpenAI API Key en CONFIG > IA"
-
-        payload = {
-            "model": model,
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.7,
-        }
-        if json_mode:
-            payload["response_format"] = {"type": "json_object"}
-
-        try:
-            resp = requests.post(
-                OPENAI_URL,
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                json=payload,
-                timeout=60,
-            )
-        except Exception as e:
-            return None, f"Conexión OpenAI: {e}"
-
-        if resp.status_code != 200:
-            return None, f"OpenAI {resp.status_code}: {resp.text[:300]}"
-
-        return resp.json()["choices"][0]["message"]["content"].strip(), None
+        ia, err = OpenAIService.desde_config(cfg)
+        if err:
+            return None, err
+        return ia.generate_text(prompt, json_mode=json_mode)
 
     def _get_prompt(self, clave: str, default: str, tipo_id: Optional[int] = None) -> str:
         """Prompt desde la tabla; busca específico de tipo primero, luego genérico."""

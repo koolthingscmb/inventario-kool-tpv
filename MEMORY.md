@@ -35,9 +35,30 @@ Memoria entre sesiones. Actualización: 2026-10-24, rama `windows-beta`. Máximo
   en productos; % en centésimas, NULL = sin configurar (manga/cómic -> 5 % inicial). UPDATE con
   COALESCE: otros flujos no pisan los campos. `price`=final, `compareAtPrice`=base o null.
   `es_comic_o_manga` por nombre de tipo/categoría. Verificado por usuario con subida real.
-- Label estado web en la fila de rebaja (sin commit): `estado_subida` devuelve `ultima_sincronizacion`
-  (mapping.last_synced_at); UI pinta EN LA WEB + fecha, NO SUBIDO A LA WEB o CAMBIOS PENDIENTES.
+- Label estado web en la fila de rebaja (subido `e572daa`, verificado por usuario): `estado_subida`
+  devuelve `ultima_sincronizacion`; UI pinta EN LA WEB + fecha, NO SUBIDO A LA WEB o CAMBIOS PENDIENTES.
   Refresco al abrir (cargar_producto), al guardar y tras subir. No llamadas a Shopify.
+- SEO IA (sin commit): 429 insufficient_quota de OpenAI se traduce a "La IA no tiene saldo..."
+  en openai_service.generate_json; SeoFichaService deja toda falla del GENERAR SEO en
+  shopify_sync_log con accion SEO_IA (la ficha pasa producto_id en datos). Causa real del
+  fallo de nov-2026: cuenta OpenAI sin créditos, no bug de código.
+- IA multiproveedor (sin commit): OpenAIService habla OpenAI y Gemini (endpoint compatible
+  /v1beta/openai/); desde_config(cfg) decide proveedor/llaves/modelo. Modelo por defecto Gemini
+  cambiado a `gemini-3.6-flash` (3.8-flash sufre sobrecarga HTTP 503 en Google).
+  Varias API keys de Gemini: campos individuales A-E en el chip GEMINI (se persisten
+  juntas como una por línea en `shopify_ia_gemini_api_keys`). Rotación equitativa round-robin
+  entre peticiones (A -> B -> C -> A) y fallback automático a la siguiente si la que toca
+  falla o agota cuota. La letra usada sale en el toast de GENERAR SEO ("Gemini [A]") y en el
+  log de sync.
+  CONFIG IA con chips CHATGPT/GEMINI/GOOGLE BOOKS, patrón copiado de IA PROMPTS
+  (paleta por parámetros, ButtonFactory, volcado a memoria al cambiar de chip). Cada
+  proveedor guarda su modelo (`ia_model_openai`/`ia_model_gemini`); USAR ESTA IA marca el
+  activo (ia_proveedor + ia_model al guardar). PROBAR CONEXIÓN prueba el chip visible.
+  Sin migración: solo filas clave-valor en `configuracion`. producto_content_service
+  también respeta el proveedor. temperature fuera en gemini.
+  SEO con IA: toast informativo con la IA en uso ("Generando SEO con Gemini (gemini-3.6-flash)..."),
+  callback UI protegido contra destrucción de ventana y registro de éxito/fallo en
+  `shopify_sync_log` (acción `SEO_IA`) visible en Shopify -> SINC -> Logs.
 
 ## Reglas y fuentes OBTENER
 - Mac = BD de pruebas; Windows = tienda. Enlaces Shopify locales: subir en Mac no enlaza Windows.

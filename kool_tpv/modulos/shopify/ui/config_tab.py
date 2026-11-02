@@ -143,8 +143,13 @@ class ShopifyConfigTab:
             self._tipos_tab.render_prompt_editor_callback = self._prompt_editor.render
             self._tipos_tab.render()
         elif tab_name == "IA": 
-            self._create_section_header(self._content_frame, "CONFIGURACIÓN GPT (OPENAI)")
-            self._ia_tab = IATab(self._content_frame, self.db, self._config, self._bg_color, self._primary_color, self._secondary_color)
+            self._create_section_header(self._content_frame, "CONFIGURACIÓN DE IA (OPENAI / GEMINI)")
+            self._ia_tab = IATab(
+                self._content_frame, self.db, self._config,
+                self._primary_color, self._secondary_color, self._bg_color, self._bg_medium,
+                self._tab_bg_selected, self._tab_bg_normal,
+                self._tab_text_selected, self._tab_text_normal
+            )
             self._ia_tab.render()
         elif tab_name == "IA PROMPTS": 
             self._create_section_header(self._content_frame, "PROMPTS DE IA (GENÉRICOS)")

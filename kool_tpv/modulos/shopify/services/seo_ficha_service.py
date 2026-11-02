@@ -15,6 +15,7 @@ from kool_tpv.modulos.almacen.services.metacampos_comic_service import (
 )
 from .openai_service import OpenAIService
 from .shopify_config_service import ShopifyConfigService
+from ..shopify_repository import ShopifyRepository
 from ..shopify_prompts_repository import ShopifyPromptsRepository
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,29 @@ class SeoFichaService:
         self.db = db
         self.config_service = ShopifyConfigService(db)
         self.prompts_repo = ShopifyPromptsRepository(db)
+        self.repo = ShopifyRepository(db)
+
+    def _producto_id_valido(self, producto_id: Any) -> Optional[int]:
+        """Comprueba si el producto_id existe en la tabla productos para evitar fallo FK."""
+        if not producto_id:
+            return None
+        try:
+            pid = int(producto_id)
+            res = self.db.fetch_one("SELECT id FROM productos WHERE id = ?", (pid,))
+            return pid if res else None
+        except Exception:
+            return None
+
+    def _error(self, datos: Dict[str, Any], mensaje: str):
+        """Devuelve (None, mensaje) y deja la línea de error en el log de
+        sincronización (visible en Shopify CONFIG -> SINC)."""
+        try:
+            pid = self._producto_id_valido(datos.get("producto_id"))
+            self.repo.add_sync_log(
+                pid, "SEO_IA", "error", mensaje)
+        except Exception:
+            logger.exception("No se pudo registrar el error de SEO en el log")
+        return None, mensaje
 
     def _tematicas_disponibles(self) -> list:
         """Nombres de las entradas del metaobjeto Temáticas (lista cerrada).
@@ -111,12 +135,12 @@ class SeoFichaService:
         """Devuelve (dict con titulo/seo_title/seo_description/description, error)."""
         prompt = self.prompts_repo.get_texto("manga_seo", datos.get("tipo_id"))
         if not prompt:
-            return None, "No hay prompt 'manga_seo' en Shopify > IA PROMPTS."
+            return self._error(datos, "No hay prompt 'manga_seo' en Shopify > IA PROMPTS.")
 
         cfg = self.config_service.get_config()
-        api_key = (cfg.get("ia_api_key") or "").strip()
-        if not api_key:
-            return None, "Falta la OpenAI API Key en Shopify CONFIG > IA."
+        ia, err_ia = OpenAIService.desde_config(cfg)
+        if err_ia:
+            return self._error(datos, err_ia)
 
         nombre = (datos.get("product_name") or "").strip()
         series = (datos.get("series") or "").strip()
@@ -148,12 +172,24 @@ class SeoFichaService:
         for clave, valor in valores.items():
             prompt_final = prompt_final.replace("{" + clave + "}", valor)
 
-        model = cfg.get("ia_model") or "gpt-4o-mini"
-        res, err = OpenAIService(api_key, model).generate_json(
+        res, err, letra = ia.generate_json(
             prompt_final, _cargar_contexto_marca())
         if err:
-            return None, err
+            return self._error(datos, err)
         if not isinstance(res, dict):
-            return None, "La IA no devolvió un JSON válido."
+            return self._error(datos, "La IA no devolvió un JSON válido.")
         res["tags"] = self._tags_finales(datos, tematicas, res.get("tags_tematicos"))
+
+        # Registrar éxito en el historial de sincronización
+        try:
+            nombre_prod = datos.get("product_name") or "Producto"
+            letra_str = f" [{letra}]" if letra else ""
+            prov_label = f"Gemini{letra_str}" if ia.proveedor == "gemini" else "ChatGPT"
+            msg = f"SEO generado con {prov_label} ({ia.model}) para {nombre_prod}"
+            pid = self._producto_id_valido(datos.get("producto_id"))
+            self.repo.add_sync_log(
+                pid, "SEO_IA", "success", msg)
+        except Exception:
+            logger.exception("No se pudo registrar el log de SEO completado")
+
         return res, None
