@@ -116,6 +116,7 @@ class ShopifyMetafieldsService:
     TIPOS_LISTA = ("list.single_line_text_field",)
     TIPOS_COLECCION = ("collection_reference",)
     TIPOS_METAOBJETO = ("list.metaobject_reference",)
+    TIPOS_METAOBJETO_UNICO = ("metaobject_reference",)
 
     @staticmethod
     def opciones_lista(definicion: Dict[str, Any]) -> List[str]:

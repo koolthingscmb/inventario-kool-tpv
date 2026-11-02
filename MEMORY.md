@@ -38,11 +38,11 @@ Memoria entre sesiones. Actualización: 2026-10-24, rama `windows-beta`. Máximo
 - Label estado web en la fila de rebaja (subido `e572daa`, verificado por usuario): `estado_subida`
   devuelve `ultima_sincronizacion`; UI pinta EN LA WEB + fecha, NO SUBIDO A LA WEB o CAMBIOS PENDIENTES.
   Refresco al abrir (cargar_producto), al guardar y tras subir. No llamadas a Shopify.
-- SEO IA (sin commit): 429 insufficient_quota de OpenAI se traduce a "La IA no tiene saldo..."
+- SEO IA (subido `5c42d10`): 429 insufficient_quota de OpenAI se traduce a "La IA no tiene saldo..."
   en openai_service.generate_json; SeoFichaService deja toda falla del GENERAR SEO en
   shopify_sync_log con accion SEO_IA (la ficha pasa producto_id en datos). Causa real del
   fallo de nov-2026: cuenta OpenAI sin créditos, no bug de código.
-- IA multiproveedor (sin commit): OpenAIService habla OpenAI y Gemini (endpoint compatible
+- IA multiproveedor (subido `5c42d10`): OpenAIService habla OpenAI y Gemini (endpoint compatible
   /v1beta/openai/); desde_config(cfg) decide proveedor/llaves/modelo. Modelo por defecto Gemini
   cambiado a `gemini-3.6-flash` (3.8-flash sufre sobrecarga HTTP 503 en Google).
   Varias API keys de Gemini: campos individuales A-E en el chip GEMINI (se persisten
@@ -59,6 +59,20 @@ Memoria entre sesiones. Actualización: 2026-10-24, rama `windows-beta`. Máximo
   SEO con IA: toast informativo con la IA en uso ("Generando SEO con Gemini (gemini-3.6-flash)..."),
   callback UI protegido contra destrucción de ventana y registro de éxito/fallo en
   `shopify_sync_log` (acción `SEO_IA`) visible en Shopify -> SINC -> Logs.
+
+## Metaobjetos Shopify (`kool_tpv/METAOBJETOS-API.md`)
+- METACAMPOS admite `metaobject_reference` único: botón "SELECCIONAR <tipo>" con selector de una
+  opción (reutiliza `show_reference_select_dialog`); nombre resuelto en hilo; GID directo al guardar.
+- Masiva admite únicos: `TIPOS_METAOBJETO_UNICO` aparte (no mezclado con listas); va por el camino
+  escalar de `metafieldsSet` (value=GID suelto). Listas de metaobjetos ya iban antes.
+- Secciones de METACAMPOS repartidas en 2 columnas (izquierda/derecha alternando); dentro de cada
+  una los campos fluyen como antes.
+- Stock sync es GENÉRICO por `productos` + `shopify_product_mapping` (lo crea la ficha de almacén).
+  NUEVO guarda `shopify_diseno_mapping` (ruta producción por SKU) -> no da sync de stock de producto.
+- PENDIENTE (aprobado, no hecho): (1) ficha de almacén gestione también metacampos de juegos de mesa
+  (hoy solo los 4 de cómic); (2) `metaobjectCreate` para `ficha_juego` por producto (jugadores,
+  tiempo, edad...) — no existe ningún metaobjectCreate en el código; entradas nuevas se crean a mano
+  en el admin de Shopify (decisión del usuario).
 
 ## Reglas y fuentes OBTENER
 - Mac = BD de pruebas; Windows = tienda. Enlaces Shopify locales: subir en Mac no enlaza Windows.

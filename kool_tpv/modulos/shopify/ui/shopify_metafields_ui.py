@@ -149,28 +149,38 @@ class ShopifyMetafieldsUI:
                 "validations": d.get("validations", [])
             })
 
-        # 2. Ordenar las secciones alfabéticamente
+        # 2. Ordenar las secciones alfabéticamente y repartirlas en 2 columnas
         nombres_secciones = sorted(secciones_map.keys())
-        
-        fila_actual = 0
+
+        cols_container = tk.Frame(self._scroll, bg=self._bg)
+        cols_container.pack(fill="both", expand=True)
+        cols_container.columnconfigure(0, weight=1)
+        cols_container.columnconfigure(1, weight=1)
+
         total_cargados = 0
-        
-        for nombre_sec in nombres_secciones:
+
+        for i, nombre_sec in enumerate(nombres_secciones):
             campos = secciones_map[nombre_sec]
-            
+
+            # Cada sección va en su propio marco: izquierda (0) o derecha (1)
+            sec_frame = tk.Frame(cols_container, bg=self._bg)
+            sec_frame.grid(row=i // 2, column=i % 2, sticky="new", padx=(4, 12), pady=(6, 0))
+            for c in range(8):
+                sec_frame.columnconfigure(c, weight=1 if c % 2 else 0)
+
             # Label de sección con el texto exacto de la descripción
-            header_f = tk.Frame(self._scroll, bg=self._bg)
-            header_f.grid(row=fila_actual, column=0, columnspan=8, sticky="ew", pady=(10, 4))
-            
-            tk.Label(header_f, text=f"--- {nombre_sec.upper()} ---", 
+            header_f = tk.Frame(sec_frame, bg=self._bg)
+            header_f.grid(row=0, column=0, columnspan=8, sticky="ew", pady=(4, 4))
+
+            tk.Label(header_f, text=f"--- {nombre_sec.upper()} ---",
                      font=("Helvetica", 9, "bold"), fg=self._secondary, bg=self._bg).pack(side="left", padx=10)
             tk.Frame(header_f, bg="#333", height=1).pack(side="left", fill="x", expand=True, padx=(0, 20))
-            
-            fila_actual += 1
-            
-            # Los campos ocupan 1, 2 o los 4 huecos de la rejilla. Se colocan primero los pequeños,
-            # luego los de media fila y al final los de fila completa, en cada caso en su orden de
-            # Shopify, sin dejar huecos vacíos. Los SÍ/NO van juntos en una banda al final.
+
+            fila_actual = 1
+
+            # Los campos ocupan 2 o los 4 huecos de la rejilla de la sección. Se colocan primero
+            # los de media fila y al final los de fila completa, en su orden de Shopify, sin dejar
+            # huecos vacíos. Los SÍ/NO van juntos en una banda al final.
             clases = {mf["key"]: self._clasificar(mf) for mf in campos}
             flujo = sorted((mf for mf in campos if clases[mf["key"]] != "bool"),
                            key=lambda mf: clases[mf["key"]])
@@ -182,9 +192,9 @@ class ShopifyMetafieldsUI:
                     cursor = 0
                 opciones = self._opciones_lista(mf)
                 if opciones:
-                    self._crear_bloque_opciones(self._scroll, mf, opciones, fila_actual)
+                    self._crear_bloque_opciones(sec_frame, mf, opciones, fila_actual)
                 else:
-                    self._crear_bloque_metacampo(self._scroll, mf, fila_actual, cursor * 2,
+                    self._crear_bloque_metacampo(sec_frame, mf, fila_actual, cursor * 2,
                                                  span=huecos * 2 - 1)
                 cursor += huecos
             if cursor:
@@ -192,8 +202,7 @@ class ShopifyMetafieldsUI:
 
             bools = [mf for mf in campos if clases[mf["key"]] == "bool"]
             if bools:
-                self._crear_banda_booleanos(self._scroll, bools, fila_actual)
-                fila_actual += 1
+                self._crear_banda_booleanos(sec_frame, bools, fila_actual)
             total_cargados += len(campos)
 
         if total_cargados == 0:
@@ -243,20 +252,32 @@ class ShopifyMetafieldsUI:
         # Encontrar la fila correspondiente para actualizar su 'var'
         fila_meta = next((r for r in self._rows if r["metafield"]["key"] == mf["key"]), None)
         if not fila_meta: return
-        
-        seleccionados_actuales = fila_meta["var"] or []
 
-        # Mostrar el diálogo profesional (Kool Style)
-        nuevos_seleccionados = show_metaobject_select_dialog(
-            self.frame, tipo_meta, opciones, seleccionados_actuales
-        )
-        
-        if nuevos_seleccionados is not None:
-            fila_meta["var"] = nuevos_seleccionados
-            n = len(nuevos_seleccionados)
-            # Actualizar el texto del botón
-            fila_meta["widget"].configure(text=f"{n} seleccionados ({tipo_meta.capitalize()})")
-            ToastWidget.show(self.frame, f"Selección de {tipo_meta} actualizada", tipo="success")
+        multi = mf.get("type", "") == "list.metaobject_reference"
+
+        if multi:
+            seleccionados_actuales = fila_meta["var"] or []
+            # Mostrar el diálogo profesional (Kool Style)
+            nuevos_seleccionados = show_metaobject_select_dialog(
+                self.frame, tipo_meta, opciones, seleccionados_actuales
+            )
+            if nuevos_seleccionados is not None:
+                fila_meta["var"] = nuevos_seleccionados
+                n = len(nuevos_seleccionados)
+                fila_meta["widget"].configure(text=f"{n} seleccionados ({tipo_meta.capitalize()})")
+                ToastWidget.show(self.frame, f"Selección de {tipo_meta} actualizada", tipo="success")
+        else:
+            # Referencia única: selector de una sola opción
+            opciones_ui = [{"id": e["id"], "text": e.get("displayName") or ""} for e in opciones]
+            res = show_reference_select_dialog(
+                self.frame, f"Seleccionar {tipo_meta}", opciones_ui,
+                fila_meta["var"], multi_select=False, agrupar=False
+            )
+            if res is not None:
+                fila_meta["var"] = res
+                nombre = next((o["text"] for o in opciones_ui if o["id"] == res), "SELECCIONADO")
+                fila_meta["widget"].configure(text=nombre.upper())
+                ToastWidget.show(self.frame, f"Selección de {tipo_meta} actualizada", tipo="success")
 
     def _abrir_selector_colecciones(self, mf):
         """Abre el nuevo selector mejorado para colecciones de Shopify."""
@@ -354,10 +375,11 @@ class ShopifyMetafieldsUI:
         if tipo in ("multi_line_text_field", "rich_text_field") or mf.get("key") == "componentes":
             return 2
         if (tipo in ("file_reference", "collection_reference", "list.collection_reference",
-                     "list.metaobject_reference")
+                     "metaobject_reference", "list.metaobject_reference")
                 or ShopifyMetafieldsUI._opciones_lista(mf)):
             return 4
-        return 1
+        # Campos normales: media fila (grid de 2 columnas)
+        return 2
 
     def _crear_banda_booleanos(self, parent, campos, fila):
         """Todos los SÍ/NO de una sección en una sola fila: casilla y nombre juntos."""
@@ -430,26 +452,56 @@ class ShopifyMetafieldsUI:
         var = None
         rich_orig = None
 
-        if mf_type == 'list.metaobject_reference':
+        if mf_type in ('metaobject_reference', 'list.metaobject_reference'):
+            multi_meta = mf_type.startswith('list.')
             # Obtener el tipo de metaobjeto de las validaciones
             tipo_meta = ""
             for v in mf.get("validations", []):
                 if v["name"] == "type":
                     tipo_meta = v["value"]
                     break
-            
-            label_text = f"Gestionar {tipo_meta.capitalize() or 'Referencias'}"
+
+            if multi_meta:
+                label_text = f"Gestionar {tipo_meta.capitalize() or 'Referencias'}"
+            else:
+                label_text = f"Seleccionar {tipo_meta.capitalize() or 'referencia'}"
             widget = ctk.CTkButton(val_frame, text=label_text, width=240, height=32,
                                   fg_color=self._secondary, font=("Helvetica", 11),
                                   command=lambda m=mf: self._abrir_selector_metaobjetos(m))
             widget.pack(side="left", padx=5, pady=4)
             # Guardamos los GIDs seleccionados en una variable asociada
-            try:
-                import json
-                iniciales = json.loads(val) if val else []
-            except:
-                iniciales = []
-            var = iniciales 
+            if multi_meta:
+                try:
+                    iniciales = json.loads(val) if val else []
+                except Exception:
+                    iniciales = []
+                var = iniciales
+            else:
+                var = val or None
+
+            # Resolución asíncrona del nombre legible de lo seleccionado
+            if val:
+                def resolver_meta(mf_=mf, w=widget, multi_=multi_meta):
+                    def_id = next(
+                        (v.get("value") for v in mf_.get("validations", [])
+                         if v.get("name") == "metaobject_definition_id"), None)
+                    if not def_id:
+                        return
+                    tipo = self.meta_service.obtener_tipo_metaobjeto_por_definicion(def_id)
+                    if not tipo:
+                        return
+                    por_gid = {e["id"]: (e.get("displayName") or "")
+                               for e in self.meta_service.obtener_entradas_metaobjeto(tipo)}
+                    if multi_:
+                        try:
+                            ids = json.loads(mf_.get("value") or "[]")
+                        except Exception:
+                            ids = []
+                        texto = f"{len(ids)} seleccionados ({tipo.capitalize()})"
+                    else:
+                        texto = (por_gid.get(mf_.get("value")) or "SELECCIONADO").upper()
+                    self.frame.after(0, lambda: w.configure(text=texto))
+                threading.Thread(target=resolver_meta, daemon=True).start()
         elif mf_type in ('collection_reference', 'list.collection_reference'):
             multi = mf_type.startswith("list.")
             label_text = "Seleccionar Colección" if not multi else "Gestionar Colecciones"
@@ -610,6 +662,8 @@ class ShopifyMetafieldsUI:
                     new_val = ""
                 else:
                     new_val = json.dumps(r["var"]) # Es una lista de GIDs
+            elif mf_type == 'metaobject_reference':
+                new_val = str(r["var"] or "")
             elif mf_type in ('collection_reference', 'list.collection_reference'):
                 if not mf.get("value") and not r["var"]:
                     new_val = ""
