@@ -669,6 +669,54 @@ def initialize_database(db_path: str) -> None:
 			except Exception:
 				pass
 
+		# Migración 070: grupo de metacampos por tipo — dice qué juego de
+		# metacampos de Shopify lleva cada tipo ('comic', 'juego'...).
+		# NULL/vacío = el tipo no usa metacampos. Reemplaza la detección por
+		# nombre de tipo/categoría.
+		try:
+			cols_meta = {r[1] for r in (db.fetch_all("PRAGMA table_info(tipos)") or [])}
+			if 'metacampos_grupo' not in cols_meta:
+				logging.info('Aplicando migración 070: metacampos_grupo en tipos')
+				db.connection.execute("ALTER TABLE tipos ADD COLUMN metacampos_grupo TEXT")
+				db.connection.commit()
+				logging.info('Migración 070 (metacampos_grupo en tipos) aplicada')
+		except Exception:
+			logging.exception('Error aplicando migración 070')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
+		# Migración 071: rellena metacampos_grupo UNA SOLA VEZ en los tipos que
+		# ya usaban metacampos (Manga/Cómic -> 'comic', Juego de mesa -> 'juego').
+		# Solo los vacíos y solo la primera vez: marca 'mig071_metacampos_grupo'
+		# en configuracion para respetar lo que el usuario cambie a mano después.
+		try:
+			cols_meta = {r[1] for r in (db.fetch_all("PRAGMA table_info(tipos)") or [])}
+			ya = db.fetch_one(
+				"SELECT valor FROM configuracion WHERE clave = 'mig071_metacampos_grupo'")
+			if 'metacampos_grupo' in cols_meta and not ya:
+				db.connection.execute(
+					"""UPDATE tipos SET metacampos_grupo = 'comic'
+					   WHERE (metacampos_grupo IS NULL OR metacampos_grupo = '')
+					     AND LOWER(TRIM(nombre)) IN ('manga', 'comic', 'cómic')""")
+				db.connection.execute(
+					"""UPDATE tipos SET metacampos_grupo = 'juego'
+					   WHERE (metacampos_grupo IS NULL OR metacampos_grupo = '')
+					     AND LOWER(TRIM(nombre)) IN ('juego de mesa')""")
+				db.connection.execute(
+					"""INSERT INTO configuracion (clave, valor)
+					   VALUES ('mig071_metacampos_grupo', '1')
+					   ON CONFLICT(clave) DO UPDATE SET valor = '1'""")
+				db.connection.commit()
+				logging.info('Migración 071 (metacampos_grupo inicial en tipos) aplicada')
+		except Exception:
+			logging.exception('Error aplicando migración 071')
+			try:
+				db.connection.rollback()
+			except Exception:
+				pass
+
 		# Check existence
 		existing = []
 		try:

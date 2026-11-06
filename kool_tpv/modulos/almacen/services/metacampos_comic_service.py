@@ -23,6 +23,15 @@ class MetacamposComicService:
         ("contenido_adultos", "CONTENIDO", False),
     )
 
+    GRUPOS_JUEGO = (
+        ("tematica", "TEMÁTICAS", False),
+        ("tipo_juego", "TIPO DE JUEGO", True),
+        ("mecanicas_juegos_de_mesa", "MECÁNICAS", False),
+        ("sellos_kool", "SELLOS", False),
+    )
+
+    GRUPOS_POR_NOMBRE = {"comic": GRUPOS, "juego": GRUPOS_JUEGO}
+
     def __init__(self, db):
         self.meta_service = ShopifyMetafieldsService(db)
 
@@ -78,10 +87,11 @@ class MetacamposComicService:
             for e in entradas or []
         ]
 
-    def obtener_opciones(self) -> Tuple[Optional[Dict[str, Dict[str, Any]]], Optional[str]]:
+    def obtener_opciones(self, grupos=None) -> Tuple[Optional[Dict[str, Dict[str, Any]]], Optional[str]]:
         """Devuelve ({clave: {'titulo', 'unico', 'entradas':[{'gid','nombre'}]}}, error).
 
-        Recorre los 4 metacampos de cómic: definición -> metaobjeto -> entradas.
+        Recorre los metacampos del grupo indicado (por defecto los de cómic):
+        definición -> metaobjeto -> entradas.
         """
         try:
             definiciones = self.meta_service.obtener_definiciones_custom()
@@ -92,7 +102,7 @@ class MetacamposComicService:
         por_clave = {d.get("key"): d for d in definiciones or []}
         resultado: Dict[str, Dict[str, Any]] = {}
 
-        for clave, titulo, unico in self.GRUPOS:
+        for clave, titulo, unico in (grupos or self.GRUPOS):
             definicion = por_clave.get(clave)
             if not definicion:
                 return None, f"No existe el metacampo '{clave}' en Shopify"

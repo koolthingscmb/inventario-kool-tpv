@@ -131,13 +131,14 @@ class TiposTab:
     def _render_variantes(self, tipo_id: int):
         self._clear_central_tipos()
         try:
-            res = self.db.fetch_one("SELECT nombre, template_suffix, shopify_use_variant_as_type, shopify_agrupar_variantes FROM tipos WHERE id = ?", (tipo_id,))
+            res = self.db.fetch_one("SELECT nombre, template_suffix, shopify_use_variant_as_type, shopify_agrupar_variantes, metacampos_grupo FROM tipos WHERE id = ?", (tipo_id,))
             tipo_nombre = res[0] if res else ""
             template_suffix = res[1] or ""
             use_variant_as_type = res[2] or 0
             agrupar_variantes = res[3] or 0
+            metacampos_grupo = res[4] or ""
         except Exception:
-            tipo_nombre, template_suffix, use_variant_as_type, agrupar_variantes = "", "", 0, 0
+            tipo_nombre, template_suffix, use_variant_as_type, agrupar_variantes, metacampos_grupo = "", "", 0, 0, ""
 
         # Fila 1: Título
         header_frame = tk.Frame(self._central_tipos, bg=self._bg_medium)
@@ -175,6 +176,18 @@ class TiposTab:
             border_width=2
         )
         self._tipos_agrupar_variantes_check.pack(side="left", padx=(5, 15))
+
+        tk.Label(config_row, text="METACAMPOS:", font=("Helvetica", 11),
+                 fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(5, 5))
+        self._tipos_metacampos_var = tk.StringVar(value=self._meta_label(metacampos_grupo))
+        self._tipos_metacampos_menu = ctk.CTkOptionMenu(
+            config_row, values=["NINGUNO", "CÓMIC", "JUEGO"],
+            variable=self._tipos_metacampos_var,
+            font=("Helvetica", 10), fg_color=self._primary_color,
+            button_color=self._secondary_color, text_color="#FFFFFF",
+            width=100, height=28
+        )
+        self._tipos_metacampos_menu.pack(side="left", padx=(0, 15))
 
         if tipo_nombre.lower() == "camiseta":
             tk.Label(config_row, text="STOCK SORP:", font=("Helvetica", 11), fg="#FFFFFF", bg=self._bg_medium).pack(side="left", padx=(5, 5))
@@ -237,6 +250,16 @@ class TiposTab:
         if self.render_prompt_editor_callback:
             self.render_prompt_editor_callback(self._central_tipos, tipo_id=tipo_id)
 
+    # Grupo de metacampos del tipo: valor en BD -> etiqueta del selector
+    _META_GRUPOS = {"NINGUNO": "", "CÓMIC": "comic", "JUEGO": "juego"}
+
+    @classmethod
+    def _meta_label(cls, grupo: Optional[str]) -> str:
+        for label, val in cls._META_GRUPOS.items():
+            if val == (grupo or ""):
+                return label
+        return "NINGUNO"
+
     def _format_precio_web(self, cents: Optional[int]) -> str:
         if not cents: return "0,00€"
         euros = read_from_db(cents)
@@ -266,6 +289,10 @@ class TiposTab:
         if self._tipos_agrupar_variantes_var:
             val = 1 if self._tipos_agrupar_variantes_var.get() else 0
             self.db.execute_query("UPDATE tipos SET shopify_agrupar_variantes = ? WHERE id = ?", (val, self._tipo_selected_id))
+
+        if self._tipos_metacampos_var:
+            grupo = self._META_GRUPOS.get(self._tipos_metacampos_var.get(), "")
+            self.db.execute_query("UPDATE tipos SET metacampos_grupo = ? WHERE id = ?", (grupo or None, self._tipo_selected_id))
 
         if self._tipos_sorpresa_stock_entry and self._tipos_sorpresa_stock_entry.winfo_exists():
             self._config["stock_sorpresa"] = self._tipos_sorpresa_stock_entry.get()

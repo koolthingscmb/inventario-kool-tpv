@@ -35,7 +35,8 @@ class TipoRepository:
         rows = self.db.fetch_all(
             'SELECT id, nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, '
             'coste_base, requiere_talla, requiere_color, activo, orden, categoria_id, '
-            'web_activo, template_suffix, shopify_use_variant_as_type, shopify_agrupar_variantes '
+            'web_activo, template_suffix, shopify_use_variant_as_type, shopify_agrupar_variantes, '
+            'metacampos_grupo '
             'FROM tipos ORDER BY nombre'
         )
         return [
@@ -57,6 +58,7 @@ class TipoRepository:
                 'template_suffix': r[14],
                 'shopify_use_variant_as_type': r[15],
                 'shopify_agrupar_variantes': r[16],
+                'metacampos_grupo': r[17],
             }
             for r in rows
         ] if rows else []
@@ -66,7 +68,8 @@ class TipoRepository:
         row = self.db.fetch_one(
             'SELECT id, nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, '
             'coste_base, requiere_talla, requiere_color, activo, orden, categoria_id, '
-            'web_activo, template_suffix, shopify_use_variant_as_type, shopify_agrupar_variantes '
+            'web_activo, template_suffix, shopify_use_variant_as_type, shopify_agrupar_variantes, '
+            'metacampos_grupo '
             'FROM tipos WHERE id = ?',
             (id,),
         )
@@ -90,6 +93,7 @@ class TipoRepository:
             'template_suffix': row[14],
             'shopify_use_variant_as_type': row[15],
             'shopify_agrupar_variantes': row[16],
+            'metacampos_grupo': row[17],
         }
 
     def get_by_nombre(self, nombre: str) -> Optional[Dict[str, Any]]:
@@ -97,7 +101,8 @@ class TipoRepository:
         row = self.db.fetch_one(
             'SELECT id, nombre, descripcion, shopify_taxonomy, fide_porcentaje, color, icono, '
             'coste_base, requiere_talla, requiere_color, activo, orden, categoria_id, '
-            'web_activo, template_suffix, shopify_use_variant_as_type, shopify_agrupar_variantes '
+            'web_activo, template_suffix, shopify_use_variant_as_type, shopify_agrupar_variantes, '
+            'metacampos_grupo '
             'FROM tipos WHERE LOWER(nombre) = LOWER(?) LIMIT 1',
             (nombre,),
         )
@@ -121,6 +126,7 @@ class TipoRepository:
             'template_suffix': row[14],
             'shopify_use_variant_as_type': row[15],
             'shopify_agrupar_variantes': row[16],
+            'metacampos_grupo': row[17],
         }
 
     def get_ventas_por_tipo(self, ticket_ids: List[int], line_tipo: str = None, tipo_ids: List[int] = None):

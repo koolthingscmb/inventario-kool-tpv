@@ -390,16 +390,18 @@ class CrearProductoUI:
             command=self._on_metacampos_click)
         self.btn_metacampos.pack(side='left', padx=(0, 10))
 
-        for attr, etiqueta, ph in (
-            ('e_meta_demografia', 'DEMOGRAFÍA:', 'Demografía'),
-            ('e_meta_genero', 'GÉNERO:', 'Género'),
-            ('e_meta_subgenero', 'TEMÁTICAS:', 'Temática'),
-            ('e_meta_contenido', 'CONTENIDO:', 'Contenido'),
-        ):
-            ctk.CTkLabel(meta_row, text=etiqueta, text_color=shop_lbl, font=lbl_font).pack(side='left', padx=(8, 4))
-            entry = self._crear_meta_entry(ph, parent=meta_row)
+        self._meta_labels = []
+        self._meta_entries = []
+        self._meta_keys = []
+        for attr in ('e_meta_demografia', 'e_meta_genero', 'e_meta_subgenero', 'e_meta_contenido'):
+            lbl = ctk.CTkLabel(meta_row, text='', text_color=shop_lbl, font=lbl_font)
+            lbl.pack(side='left', padx=(8, 4))
+            entry = self._crear_meta_entry('', parent=meta_row)
             entry.pack(side='left', expand=True, fill='x', padx=(0, 8))
             setattr(self, attr, entry)
+            self._meta_labels.append(lbl)
+            self._meta_entries.append(entry)
+        self._aplicar_grupo_metacampos()
 
         # Fila 4: SEO_TITLE (5) | TAXONOMY (10)
         ctk.CTkLabel(self.shopify_frame, text='SEO_TITLE:', text_color=shop_lbl, font=lbl_font).grid(row=3, column=0, sticky='w', padx=6, pady=8)
@@ -513,9 +515,9 @@ class CrearProductoUI:
             self.cb_categoria.entry.bind('<FocusOut>', lambda e: (self._validate_combo_focus(self.cb_categoria), self._update_taxonomy_from_category(), self._auto_generate_sku()))
             self.cb_categoria.entry.bind('<<SearchableComboSelected>>', lambda e: (self._on_combo_selected(self.cb_categoria), self._update_taxonomy_from_category(), self._auto_generate_sku()))
             self.cb_categoria.entry.bind('<Return>', lambda e: (self._validate_combo_focus(self.cb_categoria), self._update_taxonomy_from_category(), self._auto_generate_sku()))
-            self.cb_tipo.entry.bind('<FocusOut>', lambda e: (self._validate_combo_focus(self.cb_tipo), self._update_taxonomy_from_category(), self._auto_generate_sku(), self._aplicar_defecto_rebaja()))
-            self.cb_tipo.entry.bind('<<SearchableComboSelected>>', lambda e: (self._on_combo_selected(self.cb_tipo), self._update_taxonomy_from_category(), self._auto_generate_sku(), self._aplicar_defecto_rebaja()))
-            self.cb_tipo.entry.bind('<Return>', lambda e: (self._validate_combo_focus(self.cb_tipo), self._update_taxonomy_from_category(), self._auto_generate_sku(), self._aplicar_defecto_rebaja()))
+            self.cb_tipo.entry.bind('<FocusOut>', lambda e: (self._validate_combo_focus(self.cb_tipo), self._update_taxonomy_from_category(), self._auto_generate_sku(), self._aplicar_defecto_rebaja(), self._aplicar_grupo_metacampos()))
+            self.cb_tipo.entry.bind('<<SearchableComboSelected>>', lambda e: (self._on_combo_selected(self.cb_tipo), self._update_taxonomy_from_category(), self._auto_generate_sku(), self._aplicar_defecto_rebaja(), self._aplicar_grupo_metacampos()))
+            self.cb_tipo.entry.bind('<Return>', lambda e: (self._validate_combo_focus(self.cb_tipo), self._update_taxonomy_from_category(), self._auto_generate_sku(), self._aplicar_defecto_rebaja(), self._aplicar_grupo_metacampos()))
             self.cb_proveedor.entry.bind('<FocusOut>', lambda e: self._validate_combo_focus(self.cb_proveedor))
             self.cb_proveedor.entry.bind('<<SearchableComboSelected>>', lambda e: self._on_combo_selected(self.cb_proveedor))
             self.cb_proveedor.entry.bind('<Return>', lambda e: self._validate_combo_focus(self.cb_proveedor))
@@ -1492,15 +1494,56 @@ class CrearProductoUI:
         except Exception:
             pass
 
-    # ---------- metacampos de cómic (Shopify) ----------
+    # ---------- metacampos de Shopify por grupo (comic/juego) ----------
 
-    # clave metacampo -> atributo del campo de solo lectura
-    _META_ENTRIES = (
-        ('demografia', 'e_meta_demografia'),
-        ('genero_comic', 'e_meta_genero'),
-        ('subgenero_comic', 'e_meta_subgenero'),
-        ('contenido_adultos', 'e_meta_contenido'),
-    )
+    # Grupo -> [(clave metacampo, etiqueta, placeholder)] en el orden de las cajas
+    _META_GRUPOS_UI = {
+        'comic': (
+            ('demografia', 'DEMOGRAFÍA:', 'Demografía'),
+            ('genero_comic', 'GÉNERO:', 'Género'),
+            ('subgenero_comic', 'TEMÁTICAS:', 'Temática'),
+            ('contenido_adultos', 'CONTENIDO:', 'Contenido'),
+        ),
+        'juego': (
+            ('tematica', 'TEMÁTICAS:', 'Temáticas'),
+            ('tipo_juego', 'TIPO DE JUEGO:', 'Tipo de juego'),
+            ('mecanicas_juegos_de_mesa', 'MECÁNICAS:', 'Mecánicas'),
+            ('sellos_kool', 'SELLOS:', 'Sellos'),
+        ),
+    }
+
+    def _grupo_metacampos(self) -> str:
+        """'comic' | 'juego' | '' según el metacampos_grupo del tipo elegido."""
+        try:
+            tipo_id = self.cb_tipo.get_id() if getattr(self, 'cb_tipo', None) else None
+            if not tipo_id:
+                return ''
+            from kool_tpv.modulos.almacen.tipo_repository import TipoRepository
+            tipo = TipoRepository(self.db).get_by_id(int(tipo_id))
+            return (tipo or {}).get('metacampos_grupo') or ''
+        except Exception:
+            logging.exception('Error obteniendo grupo de metacampos')
+            return ''
+
+    def _aplicar_grupo_metacampos(self):
+        """Pinta las cajas de metacampos según el grupo del tipo (o las vacía)."""
+        defs = self._META_GRUPOS_UI.get(self._grupo_metacampos())
+        self._meta_keys = [d[0] for d in (defs or ())]
+        for i, (lbl, entry) in enumerate(zip(self._meta_labels, self._meta_entries)):
+            if defs and i < len(defs):
+                _, etiqueta, ph = defs[i]
+                lbl.configure(text=etiqueta)
+                try:
+                    entry.configure(placeholder_text=ph)
+                except Exception:
+                    pass
+            else:
+                lbl.configure(text='')
+                try:
+                    entry.configure(placeholder_text='')
+                except Exception:
+                    pass
+        self._refrescar_meta_entries()
 
     def _crear_meta_entry(self, placeholder, parent=None):
         """Campo de solo lectura que muestra los nombres elegidos (como TAXONOMY)."""
@@ -1532,15 +1575,14 @@ class CrearProductoUI:
             pass
 
     def _refrescar_meta_entries(self):
-        """Vuelca self._metacampos en los 4 campos visibles."""
+        """Vuelca self._metacampos en las cajas visibles del grupo activo."""
         datos = self._metacampos or {}
-        for clave, attr in self._META_ENTRIES:
-            entry = getattr(self, attr, None)
-            if entry is None:
-                continue
+        for i, clave in enumerate(getattr(self, '_meta_keys', ()) or ()):
+            if i >= len(self._meta_entries):
+                break
             v = datos.get(clave)
             texto = ', '.join(v) if isinstance(v, list) else (v or '')
-            self._set_meta_entry(entry, texto)
+            self._set_meta_entry(self._meta_entries[i], texto)
 
     # ---------- rebaja de Shopify ----------
 
@@ -1621,7 +1663,7 @@ class CrearProductoUI:
     def set_metacampos(self, datos):
         """Carga el dict de metacampos (al abrir un producto)."""
         self._metacampos = dict(datos or {})
-        self._refrescar_meta_entries()
+        self._aplicar_grupo_metacampos()
 
     def set_metacampo(self, clave, valor):
         """Pone un valor por código (OBTENER, demografía antigua)."""
@@ -1634,8 +1676,13 @@ class CrearProductoUI:
         self._refrescar_meta_entries()
 
     def _on_metacampos_click(self):
-        """UN botón: baja las 4 listas de Shopify y reparte lo elegido en sus cajas."""
+        """UN botón: baja las listas de Shopify del grupo del tipo y reparte lo elegido."""
         if self.db is None:
+            return
+        grupo = self._grupo_metacampos()
+        grupos = MetacamposComicService.GRUPOS_POR_NOMBRE.get(grupo)
+        if not grupos:
+            ToastWidget.show(self.container, 'Este tipo no tiene metacampos configurados', tipo='error')
             return
         try:
             ToastWidget.show(self.container, 'Cargando metacampos de Shopify…', tipo='info')
@@ -1646,7 +1693,7 @@ class CrearProductoUI:
             svc = None
             try:
                 svc = MetacamposComicService(self.db)
-                opciones, err = svc.obtener_opciones()
+                opciones, err = svc.obtener_opciones(grupos)
             except Exception as e:
                 opciones, err = None, str(e)
             try:

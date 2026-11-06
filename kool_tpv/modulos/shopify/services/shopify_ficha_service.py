@@ -32,12 +32,17 @@ logger = logging.getLogger(__name__)
 class ShopifyFichaService:
     """Orquesta la subida del producto de la ficha a Shopify."""
 
-    # Metacampos de cómic gestionados por la ficha (clave -> ¿valor único?)
+    # Metacampos gestionados por la ficha (clave -> ¿valor único?)
+    # Cómic: demografia/genero/subgenero/contenido. Juego: tematica/tipo/mecanicas/sellos.
     METACAMPOS_PROPIOS = {
         "demografia": True,
         "genero_comic": False,
         "subgenero_comic": False,
         "contenido_adultos": False,
+        "tematica": False,
+        "tipo_juego": True,
+        "mecanicas_juegos_de_mesa": False,
+        "sellos_kool": False,
     }
     # Los title_tag/description_tag de global van por el campo SEO, no por metacampo
     _SEO_KEYS = {"title_tag", "description_tag"}

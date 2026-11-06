@@ -69,10 +69,14 @@ Memoria entre sesiones. Actualización: 2026-10-24, rama `windows-beta`. Máximo
   una los campos fluyen como antes.
 - Stock sync es GENÉRICO por `productos` + `shopify_product_mapping` (lo crea la ficha de almacén).
   NUEVO guarda `shopify_diseno_mapping` (ruta producción por SKU) -> no da sync de stock de producto.
-- PENDIENTE (aprobado, no hecho): (1) ficha de almacén gestione también metacampos de juegos de mesa
-  (hoy solo los 4 de cómic); (2) `metaobjectCreate` para `ficha_juego` por producto (jugadores,
+- PENDIENTE (aprobado, no hecho): `metaobjectCreate` para `ficha_juego` por producto (jugadores,
   tiempo, edad...) — no existe ningún metaobjectCreate en el código; entradas nuevas se crean a mano
   en el admin de Shopify (decisión del usuario).
+- `metacampos_grupo` por tipo (migr. 070 + relleno única vez 071, marca `mig071_metacampos_grupo`):
+  'comic'/'juego'/NULL en `tipos`; lo decide CONFIG->TIPOS (selector METACAMPOS NINGUNO/CÓMIC/JUEGO).
+  Ficha de almacén muestra los 4 grupos del tipo (comic: demografia..contenido; juego: tematica,
+  tipo_juego unico, mecanicas_juegos_de_mesa, sellos_kool). MetacamposComicService.GRUPOS_JUEGO y
+  ShopifyFichaService.METACAMPOS_PROPIOS cubren las 8 claves. Verificado por usuario.
 
 ## Reglas y fuentes OBTENER
 - Mac = BD de pruebas; Windows = tienda. Enlaces Shopify locales: subir en Mac no enlaza Windows.
