@@ -21,6 +21,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from .arechi_web_source import ArechiWebSource
+from .devir_web_source import DevirWebSource
 from .sdgames_web_source import SdGamesWebSource
 from .astiberri_web_source import AstiberriWebSource
 from .azeta_web_source import AzetaWebSource
@@ -81,6 +82,10 @@ def _crear_sdgames_web(f: Dict[str, Any]) -> BaseFuente:
     return SdGamesWebSource(url=f.get("url", ""))
 
 
+def _crear_devir_web(f: Dict[str, Any]) -> BaseFuente:
+    return DevirWebSource(url=f.get("url", ""), credenciales=_creds(f))
+
+
 TIPOS_FUENTE = {
     "zonalibros": _crear_zonalibros,
     "planeta": _crear_planeta,
@@ -92,6 +97,7 @@ TIPOS_FUENTE = {
     "azeta_web": _crear_azeta_web,
     "arechi_web": _crear_arechi_web,
     "sdgames_web": _crear_sdgames_web,
+    "devir_web": _crear_devir_web,
 }
 
 
