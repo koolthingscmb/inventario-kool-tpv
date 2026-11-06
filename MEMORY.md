@@ -69,9 +69,17 @@ Memoria entre sesiones. Actualización: 2026-10-24, rama `windows-beta`. Máximo
   una los campos fluyen como antes.
 - Stock sync es GENÉRICO por `productos` + `shopify_product_mapping` (lo crea la ficha de almacén).
   NUEVO guarda `shopify_diseno_mapping` (ruta producción por SKU) -> no da sync de stock de producto.
-- PENDIENTE (aprobado, no hecho): `metaobjectCreate` para `ficha_juego` por producto (jugadores,
-  tiempo, edad...) — no existe ningún metaobjectCreate en el código; entradas nuevas se crean a mano
-  en el admin de Shopify (decisión del usuario).
+- `ficha_juego` (metaobjeto por producto) HECHO: `ShopifyMetafieldsService.crear_metaobjeto/
+  actualizar_metaobjeto/obtener_campos_definicion_metaobjeto` (lee fieldDefinitions en vivo).
+  Diálogo reusable `utils/dialogs/ficha_juego_dialog.py` (BaseDialog; botones vacíos en la base ->
+  las subclases implementan _on_accept/_on_cancel). Campos reales: jugadores/tiempo/edad/fundas_gratis/
+  ambientacion/concentracion/dificultad/azar. Subida: _preparar_ficha_juego crea o actualiza y pone el
+  GID en custom.ficha_juego. OBTENER autorellena jugadores/edad/tiempo en tipos 'juego' (no pisar lo
+  puesto). Verificado por usuario.
+- Fuentes juegos: `sdgames_web` (playsdgames.com, pública por nombre, verifica_isbn=False, probada) y
+  `devir_web` (b2bdevir.es, login Magento+form_key, busca por EAN, atributos 'Más información' ->
+  jugadores min-max/edad/duracion, probada). Asmodee PENDIENTE: asmodee.es bloquea bots (Akamai 403);
+  salida = b2b.asmodee.es con credenciales o navegador real.
 - `metacampos_grupo` por tipo (migr. 070 + relleno única vez 071, marca `mig071_metacampos_grupo`):
   'comic'/'juego'/NULL en `tipos`; lo decide CONFIG->TIPOS (selector METACAMPOS NINGUNO/CÓMIC/JUEGO).
   Ficha de almacén muestra los 4 grupos del tipo (comic: demografia..contenido; juego: tematica,
