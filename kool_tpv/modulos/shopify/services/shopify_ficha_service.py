@@ -171,6 +171,43 @@ class ShopifyFichaService:
             })
         return metafields
 
+    def _preparar_ficha_juego(self, metacampos_json: str,
+                            existente: Optional[Dict[str, Any]]) -> Optional[str]:
+        """Crea/actualiza el metaobjeto ficha_juego del producto. Devuelve el GID o None.
+
+        Los campos guardados en la ficha viajan como {'ficha_juego': {key: valor}}
+        dentro del JSON de metacampos. Si el producto ya tiene la ficha en Shopify
+        se actualiza la entrada; si no, se crea una nueva (metaobjectCreate).
+        """
+        try:
+            datos = (json.loads(metacampos_json or "{}") or {}).get('ficha_juego')
+        except Exception:
+            return None
+        if not isinstance(datos, dict):
+            return None
+        campos = [{"key": k, "value": v} for k, v in datos.items()
+                  if str(v or "").strip() != ""]
+        if not campos:
+            return None
+
+        meta_svc = self.metacampos_svc.meta_service
+        gid_actual = None
+        for mf in (existente or {}).get("metafields", {}).get("nodes", []):
+            if mf.get("namespace") == "custom" and mf.get("key") == "ficha_juego":
+                gid_actual = (mf.get("value") or "").strip()
+                break
+
+        if gid_actual:
+            ok, err = meta_svc.actualizar_metaobjeto(gid_actual, campos)
+            if not ok:
+                logger.error("ficha_juego no actualizada (%s): %s", gid_actual, err)
+            return gid_actual
+        gid, err = meta_svc.crear_metaobjeto("ficha_juego", campos)
+        if err:
+            logger.error("ficha_juego no creada: %s", err)
+            return None
+        return gid
+
     @classmethod
     def _avance_desde_link(cls, shop_link: str) -> str:
         """Campo LINK 'url (etiqueta); url2 (etiqueta2)' -> url de la entrada
@@ -281,6 +318,10 @@ class ShopifyFichaService:
         if avance:
             metafields.append({"namespace": "custom", "key": "avance_comic",
                                "type": "url", "value": avance})
+        ficha_gid = self._preparar_ficha_juego(form.get("metacampos"), existente)
+        if ficha_gid:
+            metafields.append({"namespace": "custom", "key": "ficha_juego",
+                               "type": "metaobject_reference", "value": ficha_gid})
         if existente:
             datos["product_id"] = existente["id"]
             datos["collections_existing"] = [

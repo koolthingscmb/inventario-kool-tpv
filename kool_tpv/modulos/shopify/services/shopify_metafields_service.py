@@ -229,6 +229,93 @@ class ShopifyMetafieldsService:
 
         return data["metaobjectDefinition"]["type"]
 
+    def obtener_campos_definicion_metaobjeto(self, type_name: str) -> List[Dict[str, Any]]:
+        """Campos (fieldDefinitions) de un tipo de metaobjeto, en vivo desde Shopify.
+
+        Devuelve [{'key', 'name', 'type', 'required'}] tal como la define la tienda:
+        sirve para pintar formularios sin escribir claves a mano en el código.
+        """
+        query = """
+        query CamposMetaobjeto($type: String!) {
+          metaobjectDefinitionByType(type: $type) {
+            type
+            fieldDefinitions {
+              key
+              name
+              type { name }
+              required
+            }
+          }
+        }
+        """
+        data, err = self._graphql(query, {"type": type_name})
+        if err:
+            logger.error("Error leyendo campos del metaobjeto %s: %s", type_name, err)
+            return []
+        definicion = (data or {}).get("metaobjectDefinitionByType")
+        if not definicion:
+            logger.error("No existe la definición del metaobjeto %s: %r", type_name, data)
+            return []
+        return definicion.get("fieldDefinitions") or []
+
+    def crear_metaobjeto(self, type_name: str, campos: List[Dict[str, str]]
+                         ) -> Tuple[Optional[str], Optional[str]]:
+        """Crea una entrada de metaobjeto (metaobjectCreate). Devuelve (gid, error).
+
+        `campos`: [{'key': 'jugadores', 'value': '2-4'}, ...] con las claves
+        tal como las expone obtener_campos_definicion_metaobjeto.
+        """
+        mutation = """
+        mutation CrearMetaobjeto($metaobject: MetaobjectCreateInput!) {
+          metaobjectCreate(metaobject: $metaobject) {
+            metaobject { id displayName }
+            userErrors { field message }
+          }
+        }
+        """
+        variables = {"metaobject": {
+            "type": type_name,
+            "fields": [{"key": c["key"], "value": str(c["value"])} for c in campos],
+        }}
+        data, err = self._graphql(mutation, variables)
+        if err:
+            return None, err
+        res = (data or {}).get("metaobjectCreate") or {}
+        errores = res.get("userErrors") or []
+        if errores:
+            mensaje = "; ".join(e.get("message") or "" for e in errores)
+            logger.error("metaobjectCreate %s rechazado: %s", type_name, mensaje)
+            return None, mensaje
+        gid = (res.get("metaobject") or {}).get("id")
+        if not gid:
+            return None, "metaobjectCreate no devolvió el id de la entrada"
+        return gid, None
+
+    def actualizar_metaobjeto(self, gid: str, campos: List[Dict[str, str]]
+                              ) -> Tuple[bool, Optional[str]]:
+        """Actualiza campos de una entrada de metaobjeto (metaobjectUpdate)."""
+        mutation = """
+        mutation ActualizarMetaobjeto($id: ID!, $metaobject: MetaobjectUpdateInput!) {
+          metaobjectUpdate(id: $id, metaobject: $metaobject) {
+            metaobject { id displayName }
+            userErrors { field message }
+          }
+        }
+        """
+        variables = {"id": gid, "metaobject": {
+            "fields": [{"key": c["key"], "value": str(c["value"])} for c in campos],
+        }}
+        data, err = self._graphql(mutation, variables)
+        if err:
+            return False, err
+        res = (data or {}).get("metaobjectUpdate") or {}
+        errores = res.get("userErrors") or []
+        if errores:
+            mensaje = "; ".join(e.get("message") or "" for e in errores)
+            logger.error("metaobjectUpdate %s rechazado: %s", gid, mensaje)
+            return False, mensaje
+        return True, None
+
     def obtener_colecciones(self) -> List[Dict[str, Any]]:
         """Trae todas las colecciones de Shopify para usar como referencia."""
         collections = []

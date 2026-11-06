@@ -390,6 +390,13 @@ class CrearProductoUI:
             command=self._on_metacampos_click)
         self.btn_metacampos.pack(side='left', padx=(0, 10))
 
+        self.btn_ficha_juego = ctk.CTkButton(
+            meta_row, text='FICHA JUEGO', height=26, width=90,
+            font=("Helvetica", 10, "bold"),
+            fg_color=shop_primary, text_color=self.colors.get('background', COLOR_BG_TERMINAL),
+            command=self._on_ficha_juego_click)
+        self._meta_row_btns_parent = meta_row
+
         self._meta_labels = []
         self._meta_entries = []
         self._meta_keys = []
@@ -1058,6 +1065,22 @@ class CrearProductoUI:
                     txt.insert('1.0', sinopsis)
         except Exception:
             pass
+        try:
+            # ficha_juego: autorellena solo en tipos 'juego' y solo lo que falte
+            if self._grupo_metacampos() == 'juego':
+                if self._metacampos is None:
+                    self._metacampos = {}
+                fj = self._metacampos.setdefault('ficha_juego', {})
+                for origen, clave in (('jugadores', 'jugadores'),
+                                      ('edad', 'edad'),
+                                      ('duracion', 'tiempo')):
+                    valor = (datos.get(origen) or '').strip()
+                    if valor and not fj.get(clave):
+                        fj[clave] = valor
+                if not fj:
+                    self._metacampos.pop('ficha_juego', None)
+        except Exception:
+            pass
         n_img = datos.get('_imagenes_bajadas') or 0
         extra = f" · {n_img} imagen(es)" if n_img else ''
         ToastWidget.show(self.container,
@@ -1527,7 +1550,17 @@ class CrearProductoUI:
 
     def _aplicar_grupo_metacampos(self):
         """Pinta las cajas de metacampos según el grupo del tipo (o las vacía)."""
-        defs = self._META_GRUPOS_UI.get(self._grupo_metacampos())
+        grupo = self._grupo_metacampos()
+        defs = self._META_GRUPOS_UI.get(grupo)
+        try:
+            btn_fj = getattr(self, 'btn_ficha_juego', None)
+            if btn_fj and btn_fj.winfo_exists():
+                if grupo == 'juego':
+                    btn_fj.pack(side='left', padx=(0, 10), before=self._meta_labels[0] if self._meta_labels else None)
+                else:
+                    btn_fj.pack_forget()
+        except Exception:
+            pass
         self._meta_keys = [d[0] for d in (defs or ())]
         for i, (lbl, entry) in enumerate(zip(self._meta_labels, self._meta_entries)):
             if defs and i < len(defs):
@@ -1734,6 +1767,39 @@ class CrearProductoUI:
             else:
                 self._metacampos.pop(clave, None)
         self._refrescar_meta_entries()
+
+    def _on_ficha_juego_click(self):
+        """Abre el formulario de ficha_juego: campos leídos en vivo de Shopify."""
+        if self.db is None:
+            return
+        try:
+            ToastWidget.show(self.container, 'Cargando campos de la ficha…', tipo='info')
+        except Exception:
+            pass
+
+        def work():
+            svc = MetacamposComicService(self.db)
+            campos = svc.meta_service.obtener_campos_definicion_metaobjeto('ficha_juego')
+            try:
+                self.container.after(0, lambda: self._mostrar_ficha_juego(campos))
+            except Exception:
+                pass
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _mostrar_ficha_juego(self, campos):
+        if not campos:
+            ToastWidget.show(self.container, 'No hay campos definidos para ficha_juego en Shopify', tipo='error')
+            return
+        from kool_tpv.utils.dialogs.ficha_juego_dialog import show_ficha_juego_dialog
+        almacenado = (self._metacampos or {}).get('ficha_juego') or {}
+        resultado = show_ficha_juego_dialog(self.container, campos, almacenado)
+        if resultado is None:
+            return
+        if resultado:
+            self._metacampos['ficha_juego'] = resultado
+        else:
+            self._metacampos.pop('ficha_juego', None)
 
     def _focus_next_widget(self, event):
         try:
