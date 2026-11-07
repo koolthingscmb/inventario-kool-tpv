@@ -410,12 +410,26 @@ class CrearProductoUI:
             self._meta_entries.append(entry)
         self._aplicar_grupo_metacampos()
 
-        # Fila 4: SEO_TITLE (5) | TAXONOMY (10)
-        ctk.CTkLabel(self.shopify_frame, text='SEO_TITLE:', text_color=shop_lbl, font=lbl_font).grid(row=3, column=0, sticky='w', padx=6, pady=8)
-        self.e_google_title = ctk.CTkEntry(self.shopify_frame, placeholder_text='SEO short title', **shop_entry_kwargs)
-        self.e_google_title.grid(row=3, column=1, columnspan=4, sticky='ew', padx=6, pady=8)
+        # Fila extra: botón FAMILIA + caja con la familia elegida (vale para todos los tipos)
+        familia_row = ctk.CTkFrame(self.shopify_frame, fg_color='transparent')
+        familia_row.grid(row=3, column=0, columnspan=15, sticky='ew', padx=6, pady=8)
 
-        ctk.CTkLabel(self.shopify_frame, text='TAXONOMY:', text_color=shop_lbl, font=lbl_font).grid(row=3, column=5, sticky='w', padx=6, pady=8)
+        self.btn_familia = ctk.CTkButton(
+            familia_row, text='FAMILIA', height=26, width=90,
+            font=("Helvetica", 10, "bold"),
+            fg_color=shop_primary, text_color=self.colors.get('background', COLOR_BG_TERMINAL),
+            command=self._on_familia_click)
+        self.btn_familia.pack(side='left', padx=(0, 10))
+        ctk.CTkLabel(familia_row, text='FAMILIA:', text_color=shop_lbl, font=lbl_font).pack(side='left', padx=(8, 4))
+        self.e_meta_familia = self._crear_meta_entry('Familia', parent=familia_row)
+        self.e_meta_familia.pack(side='left', expand=True, fill='x', padx=(0, 8))
+
+        # Fila 4: SEO_TITLE (5) | TAXONOMY (10)
+        ctk.CTkLabel(self.shopify_frame, text='SEO_TITLE:', text_color=shop_lbl, font=lbl_font).grid(row=4, column=0, sticky='w', padx=6, pady=8)
+        self.e_google_title = ctk.CTkEntry(self.shopify_frame, placeholder_text='SEO short title', **shop_entry_kwargs)
+        self.e_google_title.grid(row=4, column=1, columnspan=4, sticky='ew', padx=6, pady=8)
+
+        ctk.CTkLabel(self.shopify_frame, text='TAXONOMY:', text_color=shop_lbl, font=lbl_font).grid(row=4, column=5, sticky='w', padx=6, pady=8)
         # Readonly entry to allow selection/copy but prevent manual edits
         try:
             self.ent_taxonomy = ctk.CTkEntry(self.shopify_frame, placeholder_text='', state='readonly', fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=shop_txt, border_width=2, border_color=shop_primary, corner_radius=4)
@@ -426,22 +440,22 @@ class CrearProductoUI:
                 self.ent_taxonomy.configure(state='readonly')
             except Exception:
                 pass
-        self.ent_taxonomy.grid(row=3, column=6, columnspan=9, sticky='ew', padx=6, pady=8)
+        self.ent_taxonomy.grid(row=4, column=6, columnspan=9, sticky='ew', padx=6, pady=8)
 
         # Fila 5: SINOPSIS (textbox, ancho completo)
-        ctk.CTkLabel(self.shopify_frame, text='SINOPSIS:', text_color=shop_lbl, font=lbl_font).grid(row=4, column=0, sticky='nw', padx=6, pady=8)
+        ctk.CTkLabel(self.shopify_frame, text='SINOPSIS:', text_color=shop_lbl, font=lbl_font).grid(row=5, column=0, sticky='nw', padx=6, pady=8)
         try:
             self.txt_sinopsis = ctk.CTkTextbox(self.shopify_frame, width=800, height=60, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=shop_txt, border_width=2, border_color=shop_primary)
-            self.txt_sinopsis.grid(row=4, column=1, columnspan=14, sticky='nsew', padx=6, pady=8)
+            self.txt_sinopsis.grid(row=5, column=1, columnspan=14, sticky='nsew', padx=6, pady=8)
         except Exception:
             frame_sin = ctk.CTkFrame(self.shopify_frame, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), border_width=2, border_color=shop_primary)
             self.txt_sinopsis = tk.Text(frame_sin, bg=self.colors.get('background', COLOR_BG_TERMINAL), fg=shop_txt, height=3)
             self.txt_sinopsis.pack(fill='both', expand=True)
-            frame_sin.grid(row=4, column=1, columnspan=14, sticky='nsew', padx=6, pady=8)
+            frame_sin.grid(row=5, column=1, columnspan=14, sticky='nsew', padx=6, pady=8)
 
-        # Fila 6: REBAJA — 'Aplicar rebaja' + % + resumen 'base -> precio web'
+        # Fila 7: REBAJA — 'Aplicar rebaja' + % + resumen 'base -> precio web'
         rebaja_row = ctk.CTkFrame(self.shopify_frame, fg_color='transparent')
-        rebaja_row.grid(row=6, column=0, columnspan=15, sticky='ew', padx=6, pady=8)
+        rebaja_row.grid(row=7, column=0, columnspan=15, sticky='ew', padx=6, pady=8)
         self.chk_rebaja_var = tk.BooleanVar(value=False)
         self.chk_rebaja = ctk.CTkCheckBox(
             rebaja_row, text='APLICAR REBAJA', variable=self.chk_rebaja_var,
@@ -460,11 +474,11 @@ class CrearProductoUI:
         self.lbl_estado_shopify.pack(side='right', padx=(10, 0))
         self.e_pvp.bind('<KeyRelease>', lambda e: self._refrescar_resumen_rebaja())
 
-        # Fila 7: SEO_DESCRIPTION (7) | DESCRIPCION (8), misma altura
-        ctk.CTkLabel(self.shopify_frame, text='SEO_DESCRIPTION:', text_color=shop_lbl, font=lbl_font).grid(row=5, column=0, columnspan=2, sticky='nw', padx=6, pady=8)
+        # Fila 8: SEO_DESCRIPTION (7) | DESCRIPCION (8), misma altura
+        ctk.CTkLabel(self.shopify_frame, text='SEO_DESCRIPTION:', text_color=shop_lbl, font=lbl_font).grid(row=6, column=0, columnspan=2, sticky='nw', padx=6, pady=8)
         try:
             self.e_seo_desc = ctk.CTkTextbox(self.shopify_frame, height=100, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=shop_txt, border_width=2, border_color=shop_primary)
-            self.e_seo_desc.grid(row=5, column=2, columnspan=5, sticky='nsew', padx=6, pady=8)
+            self.e_seo_desc.grid(row=6, column=2, columnspan=5, sticky='nsew', padx=6, pady=8)
             try:
                 # make Tab move to next widget instead of inserting a tab character
                 self.e_seo_desc.bind('<Tab>', lambda e: self._focus_next_widget(e))
@@ -475,12 +489,12 @@ class CrearProductoUI:
             frame = ctk.CTkFrame(self.shopify_frame, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), border_width=2, border_color=shop_primary)
             self.e_seo_desc = tk.Text(frame, bg=self.colors.get('background', COLOR_BG_TERMINAL), fg=shop_txt)
             self.e_seo_desc.pack(fill='both', expand=True)
-            frame.grid(row=5, column=2, columnspan=5, sticky='nsew', padx=6, pady=8)
+            frame.grid(row=6, column=2, columnspan=5, sticky='nsew', padx=6, pady=8)
 
-        ctk.CTkLabel(self.shopify_frame, text='DESCRIPCION:', text_color=shop_lbl, font=lbl_font).grid(row=5, column=7, columnspan=2, sticky='nw', padx=6, pady=8)
+        ctk.CTkLabel(self.shopify_frame, text='DESCRIPCION:', text_color=shop_lbl, font=lbl_font).grid(row=6, column=7, columnspan=2, sticky='nw', padx=6, pady=8)
         try:
             self.txt_description = ctk.CTkTextbox(self.shopify_frame, height=100, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), text_color=shop_txt, border_width=2, border_color=shop_primary)
-            self.txt_description.grid(row=5, column=9, columnspan=6, sticky='nsew', padx=6, pady=8)
+            self.txt_description.grid(row=6, column=9, columnspan=6, sticky='nsew', padx=6, pady=8)
             try:
                 # Tab from description should go directly to the Guardar button
                 try:
@@ -494,8 +508,8 @@ class CrearProductoUI:
             frame2 = ctk.CTkFrame(self.shopify_frame, fg_color=self.colors.get('background', COLOR_BG_TERMINAL), border_width=2, border_color=shop_primary)
             self.txt_description = tk.Text(frame2, bg=self.colors.get('background', COLOR_BG_TERMINAL), fg=shop_txt)
             self.txt_description.pack(fill='both', expand=True)
-            frame2.grid(row=5, column=9, columnspan=6, sticky='nsew', padx=6, pady=8)
-        self.shopify_frame.grid_rowconfigure(5, weight=1)
+            frame2.grid(row=6, column=9, columnspan=6, sticky='nsew', padx=6, pady=8)
+        self.shopify_frame.grid_rowconfigure(6, weight=1)
 
         # Bottom buttons (aligned left per style guide)
         # Use terminal bg for footer to ensure buttons are visible and contrast correctly
@@ -1616,6 +1630,9 @@ class CrearProductoUI:
             v = datos.get(clave)
             texto = ', '.join(v) if isinstance(v, list) else (v or '')
             self._set_meta_entry(self._meta_entries[i], texto)
+        familia_entry = getattr(self, 'e_meta_familia', None)
+        if familia_entry is not None:
+            self._set_meta_entry(familia_entry, datos.get('familia') or '')
 
     # ---------- rebaja de Shopify ----------
 
@@ -1766,6 +1783,56 @@ class CrearProductoUI:
                 self._metacampos[clave] = nombres
             else:
                 self._metacampos.pop(clave, None)
+        self._refrescar_meta_entries()
+
+    # ---------- familia (metacampo único, para todos los tipos) ----------
+
+    def _on_familia_click(self):
+        """Botón FAMILIA: baja las entradas del metaobjeto familia y abre el selector."""
+        if self.db is None:
+            return
+        try:
+            ToastWidget.show(self.container, 'Cargando familias de Shopify…', tipo='info')
+        except Exception:
+            pass
+
+        def work():
+            svc = None
+            try:
+                svc = MetacamposComicService(self.db)
+                opciones, err = svc.obtener_opciones((("familia", "FAMILIA", True),))
+            except Exception as e:
+                opciones, err = None, str(e)
+            try:
+                self.container.after(0, lambda: self._mostrar_selector_familia(svc, opciones, err))
+            except Exception:
+                pass
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _mostrar_selector_familia(self, svc, opciones, err):
+        if err or not opciones:
+            ToastWidget.show(self.container, err or 'No se pudieron cargar las familias', tipo='error')
+            return
+        grupo = opciones['familia']
+        almacenado = (self._metacampos or {}).get('familia')
+        nombres = [almacenado] if almacenado else []
+        seleccion = {'FAMILIA': svc.gids_de_nombres(grupo['entradas'], nombres)}
+        grupos_dialogo = [{
+            'titulo': 'FAMILIA', 'unico': True,
+            'opciones': [{'id': e['gid'], 'text': e['nombre']} for e in grupo['entradas']],
+        }]
+        resultado = show_metacampos_agrupados_dialog(
+            self.container, 'FAMILIA', grupos_dialogo, seleccion)
+        if resultado is None:
+            return
+        elegidos = svc.nombres_de_gids(grupo['entradas'], resultado.get('FAMILIA') or [])
+        if self._metacampos is None:
+            self._metacampos = {}
+        if elegidos:
+            self._metacampos['familia'] = elegidos[0]
+        else:
+            self._metacampos.pop('familia', None)
         self._refrescar_meta_entries()
 
     def _on_ficha_juego_click(self):

@@ -43,6 +43,7 @@ class ShopifyFichaService:
         "tipo_juego": True,
         "mecanicas_juegos_de_mesa": False,
         "sellos_kool": False,
+        "familia": True,
     }
     # Los title_tag/description_tag de global van por el campo SEO, no por metacampo
     _SEO_KEYS = {"title_tag", "description_tag"}
