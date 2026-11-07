@@ -1,5 +1,5 @@
 # MEMORY.md — Kool TPV
-Memoria entre sesiones. Actualización: 2026-10-24, rama `windows-beta`. Máximo ~50 líneas.
+Memoria entre sesiones. Actualización: 2026-11-07, rama `windows-beta`. Máximo ~50 líneas.
 
 ## Editoriales y fuentes — subido en `cfe6cdb`
 - UI 50/50: editorial arriba (ID, nombre, WEB, principal/reserva con buscador); fuente abajo
@@ -85,10 +85,10 @@ Memoria entre sesiones. Actualización: 2026-10-24, rama `windows-beta`. Máximo
   Ficha de almacén muestra los 4 grupos del tipo (comic: demografia..contenido; juego: tematica,
   tipo_juego unico, mecanicas_juegos_de_mesa, sellos_kool). MetacamposComicService.GRUPOS_JUEGO y
   ShopifyFichaService.METACAMPOS_PROPIOS cubren las 8 claves. Verificado por usuario.
-- `familia` (metaobjeto, único; entradas con campo `coleccion`): botón FAMILIA propio en la ficha
-  (fila bajo metacampos, todos los tipos), reusa obtener_opciones + diálogo agrupado. Está en
-  METACAMPOS_PROPIOS -> la ficha manda: subir sin familia en ficha BORRA la de Shopify. Las
-  colecciones de familia son automáticas (el metacampo basta, no se gestiona membresía).
+- `familia` (metaobjeto, único; entradas con campo `coleccion`; subido `81dd8ca`): botón FAMILIA
+  propio en la ficha (fila bajo metacampos, todos los tipos), reusa obtener_opciones + diálogo
+  agrupado. Está en METACAMPOS_PROPIOS -> la ficha manda: subir sin familia en ficha BORRA la de
+  Shopify. Las colecciones de familia son automáticas (el metacampo basta, no se gestiona membresía).
 
 ## Reglas y fuentes OBTENER
 - Mac = BD de pruebas; Windows = tienda. Enlaces Shopify locales: subir en Mac no enlaza Windows.
