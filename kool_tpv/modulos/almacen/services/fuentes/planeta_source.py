@@ -131,11 +131,19 @@ class PlanetaSource(BaseFuente):
     def _parsear_ficha(self, html: str, url: str) -> Dict[str, Any]:
         """Sinopsis en product-list_summary-content y pares título/valor
         de la tabla technical-data."""
+        # La sinopsis completa viene incrustada en el script: el click de
+        # "Más información" (#full-synopsis) la inyecta en product-list_summary.
         sinopsis = ""
-        m = re.search(r'class="product-list_summary-content"[^>]*>(.*?)</div>',
-                      html, flags=re.S)
+        m = re.search(
+            r"product-list_summary'\)\.html\('(.*?)'\);", html, flags=re.S)
+        if not m:
+            # sin botón "Más información": el resumen del div es todo lo que hay
+            m = re.search(
+                r'class="product-list_summary-content"[^>]*>(.*?)</div>',
+                html, flags=re.S)
         if m:
-            sinopsis = _html.unescape(re.sub(r"<[^>]+>", " ", m.group(1))).strip()
+            sinopsis = m.group(1).replace("\\'", "'").replace('\\"', '"')
+            sinopsis = _html.unescape(re.sub(r"<[^>]+>", " ", sinopsis)).strip()
             sinopsis = re.sub(r"\s+", " ", sinopsis)
 
         datos = {}
