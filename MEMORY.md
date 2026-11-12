@@ -107,6 +107,9 @@ Memoria entre sesiones. Actualización: 2026-11-07, rama `windows-beta`. Máximo
 - Astiberri por EAN verificado/subido (`b7a8ccf`): /search XHR, verifica ISBN de ficha; reserva por título/slugs.
   /search tiene Disallow en robots.txt; uso aprobado por usuario. No prometer ausencia de bloqueos o riesgo legal.
 - Sin adaptador propio, configurar Azeta (Penguin, Kibook y otros); no reinvestigar sin petición.
+- Planeta (`758b158`): sinopsis completa sale del script `#full-synopsis` (el botón "Más
+  información" la incrusta en el HTML), no del div resumen. UI EQUIVALENCIAS = oficial ->
+  palabras separadas por comas: Planeta "Manga Shonen" necesita `manga shonen` bajo Shonen.
 - Portadas locales gitignored; máxima calidad variable: Astiberri ~2400px, Ivrea 400, Planeta 300, Norma 229.
 - Fragilidad: Panini Queue-it, Azeta reCAPTCHA, Ivrea límites AJAX (usa sitemap). Credenciales nunca en logs/chat.
 
