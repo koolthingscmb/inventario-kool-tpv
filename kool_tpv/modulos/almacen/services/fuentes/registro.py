@@ -27,6 +27,7 @@ from .astiberri_web_source import AstiberriWebSource
 from .azeta_web_source import AzetaWebSource
 from .base_fuente import BaseFuente
 from .ivrea_web_source import IvreaWebSource
+from .lacupula_web_source import LacupulaWebSource
 from .panini_web_source import PaniniWebSource
 from .planeta_source import PlanetaSource
 from .shopify_publico_source import ShopifyPublicoSource
@@ -86,6 +87,10 @@ def _crear_devir_web(f: Dict[str, Any]) -> BaseFuente:
     return DevirWebSource(url=f.get("url", ""), credenciales=_creds(f))
 
 
+def _crear_lacupula_web(f: Dict[str, Any]) -> BaseFuente:
+    return LacupulaWebSource(url=f.get("url", ""))
+
+
 TIPOS_FUENTE = {
     "zonalibros": _crear_zonalibros,
     "planeta": _crear_planeta,
@@ -98,6 +103,7 @@ TIPOS_FUENTE = {
     "arechi_web": _crear_arechi_web,
     "sdgames_web": _crear_sdgames_web,
     "devir_web": _crear_devir_web,
+    "lacupula_web": _crear_lacupula_web,
 }
 
 
