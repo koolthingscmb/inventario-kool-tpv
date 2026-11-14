@@ -9,7 +9,10 @@ Memoria entre sesiones. Actualización: 2026-11-14, rama `windows-beta`. Máximo
 ## Shopify
 - SUBIDA NUEVO/EDITAR con builders sin widgets. Stock: subida `changeFromQuantity: null`; SINC `on_hand`.
 - Masiva: `metafieldsSet` en bloques de 25, nunca `productSet` (borra omitidos); excluye
-  rich_text/file_reference; modos AÑADIR/CAMBIAR/VACIAR.
+  rich_text/file_reference; modos AÑADIR/CAMBIAR/QUITAR. Varios metacampos por producto
+  (`_mf_lista`, repetir uno lo reemplaza) y franja CAMBIOS PREPARADOS con ✕ por cambio.
+  QUITAR en valor único/escalar = `metafieldsDelete` (lee antes; sin valor = omitido); en listas
+  sigue escribiendo `[]`; familia no tiene QUITAR. Pendiente: columna VALOR ACTUAL.
 - Colecciones API 2026-07: `collectionUpdate` selectionsToAdd/Remove + `inCollection`.
   Familia masiva: entrar nueva -> metacampo -> salir antigua; AÑADIR solo si no tenía.
 - Rebaja ficha (migr. 069): % en centésimas, NULL = sin configurar; `price` = final,

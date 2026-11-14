@@ -699,6 +699,8 @@ class ShopifyProductService:
 
         # 3. Actualizar metacampos (vía metafieldsSet, en bloques de 25; cada bloque es atómico)
         mf_todos = [u for u in updates if "metafield" in u]
+        quitar_updates = [u for u in mf_todos if u["metafield"].get("modo") == "quitar"]
+        mf_todos = [u for u in mf_todos if u["metafield"].get("modo") != "quitar"]
         fam_updates = [u for u in mf_todos if u["metafield"].get("type") == "collection_reference"]
         mf_updates = [u for u in mf_todos if u["metafield"].get("type") != "collection_reference"]
         if mf_updates:
@@ -771,6 +773,13 @@ class ShopifyProductService:
             errores.extend(errs)
             omitidos += omit
             avisos.extend(avis)
+
+        # 5. Quitar: borra el metacampo (metafieldsDelete) solo de los productos que lo tienen
+        if quitar_updates:
+            ok, errs, omit = self._quitar_metacampos(endpoint, headers, quitar_updates)
+            total_ok += ok
+            errores.extend(errs)
+            omitidos += omit
 
         return {
             "success": len(errores) == 0,
@@ -845,6 +854,55 @@ class ShopifyProductService:
             else:
                 ok += len(bloque)
         return ok, errores, fallidos
+
+    def _quitar_metacampos(self, endpoint: str, headers: Dict,
+                           quitar: List[Dict[str, Any]]) -> Tuple[int, List[str], int]:
+        """Borra metacampos con metafieldsDelete en bloques de 25 (cada bloque es atómico).
+
+        quitar: [{"product_id", "metafield": {"namespace", "key", ...}}].
+        Antes de borrar se lee el valor actual de cada producto: los que no lo tienen
+        se cuentan como omitidos y los que no se pueden leer no se tocan.
+        Devuelve (productos_ok, errores, omitidos).
+        """
+        mutation = """
+        mutation metafieldsDelete($metafields: [MetafieldIdentifierInput!]!) {
+            metafieldsDelete(metafields: $metafields) {
+                deletedMetafields { ownerId }
+                userErrors { field message }
+            }
+        }
+        """
+        ok, omitidos, errores = 0, 0, []
+        por_clave: Dict[Tuple[str, str], List[str]] = {}
+        for u in quitar:
+            mf = u["metafield"]
+            por_clave.setdefault((mf["namespace"], mf["key"]), []).append(u["product_id"])
+
+        for (namespace, key), ids in por_clave.items():
+            ids = list(dict.fromkeys(ids))
+            leidos = self._leer_metacampo_lote(endpoint, headers, ids, namespace, key)
+            hacer = []
+            for pid in ids:
+                if pid not in leidos:
+                    errores.append(f"{pid}: no se pudo leer su valor actual; no se ha modificado")
+                elif leidos[pid] in (None, ""):
+                    omitidos += 1
+                else:
+                    hacer.append(pid)
+
+            for i in range(0, len(hacer), 25):
+                bloque = hacer[i:i + 25]
+                inputs = [{"ownerId": pid, "namespace": namespace, "key": key} for pid in bloque]
+                data, err = self._graphql(endpoint, headers, mutation, {"metafields": inputs})
+                if err:
+                    errores.append(f"Bloque {i // 25 + 1}: {err}")
+                    continue
+                user_errors = data.get("metafieldsDelete", {}).get("userErrors")
+                if user_errors:
+                    errores.extend(f"Bloque {i // 25 + 1}: {e['message']}" for e in user_errors)
+                else:
+                    ok += len(bloque)
+        return ok, errores, omitidos
 
     def _leer_familia_lote(self, endpoint: str, headers: Dict, product_ids: List[str],
                            namespace: str, key: str, coleccion_id: str) -> Dict[str, Dict[str, Any]]:

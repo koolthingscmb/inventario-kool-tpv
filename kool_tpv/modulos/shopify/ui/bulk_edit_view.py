@@ -138,14 +138,22 @@ class ShopifyBulkEditView:
         self._mf_val_frame = tk.Frame(row_mf, bg=self._bg_medium)
         self._mf_val_frame.pack(side="left", padx=5)
         self._mf_modo_var = tk.StringVar(value="AÑADIR")
-        self._mf_radios = [ctk.CTkRadioButton(row_mf, text=t, variable=self._mf_modo_var, value=t, width=90,
-                                              font=("Helvetica", 10), state="disabled",
-                                              command=self._on_modo_cambiado)
-                           for t in ("AÑADIR", "CAMBIAR", "VACIAR")]
-        for r in self._mf_radios:
+        self._mf_radios = {t: ctk.CTkRadioButton(row_mf, text=t, variable=self._mf_modo_var, value=t, width=90,
+                                                 font=("Helvetica", 10), state="disabled",
+                                                 command=self._on_modo_cambiado)
+                           for t in ("AÑADIR", "CAMBIAR", "QUITAR")}
+        for r in self._mf_radios.values():
             r.pack(side="left", padx=(15, 0))
         self._mf_val_widget = None
         self._construir_valor_meta(None)
+
+        # Fila 4: cambios preparados; cada uno es una etiqueta que se quita con un clic.
+        # Se muestra solo cuando hay algo preparado (ver _refrescar_chips).
+        self._row_chips = tk.Frame(filter_frame, bg=self._bg_medium)
+        tk.Label(self._row_chips, text="CAMBIOS PREPARADOS (clic para quitar):", font=("Helvetica", 10, "bold"),
+                 fg=self._secondary, bg=self._bg_medium).pack(side="left", padx=(0, 10))
+        self._chips_frame = tk.Frame(self._row_chips, bg=self._bg_medium)
+        self._chips_frame.pack(side="left")
 
         # --- Tabla Virtual ---
         self.nav_list = VirtualNavList(
@@ -210,14 +218,14 @@ class ShopifyBulkEditView:
         self._mf_valor_unico = None
         self._mf_valor_unico_nombre = ""
         self._mf_coleccion = None
-        self._mf_modo_var.set("AÑADIR")
         es_lista = tipo in ShopifyMetafieldsService.TIPOS_LISTA + ShopifyMetafieldsService.TIPOS_METAOBJETO
         es_familia = tipo in ShopifyMetafieldsService.TIPOS_COLECCION
-        for r in self._mf_radios:
-            if r.cget("text") == "VACIAR":
-                r.configure(state="normal" if es_lista else "disabled")
-            else:
-                r.configure(state="normal" if (es_lista or es_familia) else "disabled")
+        # AÑADIR solo tiene sentido en listas y familia; en un valor único, CAMBIAR es asignar el valor.
+        # QUITAR borra el metacampo y vale para todo salvo familia (que tiene su propia lógica de colecciones).
+        self._mf_modo_var.set("AÑADIR" if (es_lista or es_familia) else "CAMBIAR")
+        self._mf_radios["AÑADIR"].configure(state="normal" if (es_lista or es_familia) else "disabled")
+        self._mf_radios["CAMBIAR"].configure(state="normal" if tipo else "disabled")
+        self._mf_radios["QUITAR"].configure(state="normal" if (tipo and not es_familia) else "disabled")
         if tipo in ShopifyMetafieldsService.TIPOS_COLECCION:
             self._mf_val_widget = ctk.CTkButton(self._mf_val_frame, text="ELEGIR COLECCIÓN", width=200, height=28,
                                                 fg_color=self._secondary, command=self._elegir_coleccion)
@@ -323,11 +331,10 @@ class ShopifyBulkEditView:
             self._mf_val_widget.configure(text=self._mf_valor_unico_nombre.upper()[:30])
 
     def _on_modo_cambiado(self):
-        """Con VACIAR no hay que elegir valores: el botón de valores se apaga."""
-        if self._mf_tipo_actual in (ShopifyMetafieldsService.TIPOS_LISTA
-                                    + ShopifyMetafieldsService.TIPOS_METAOBJETO) \
+        """Con QUITAR no hay que elegir valor: el control de valor se apaga."""
+        if self._mf_tipo_actual not in ShopifyMetafieldsService.TIPOS_COLECCION \
                 and self._mf_val_widget is not None:
-            self._mf_val_widget.configure(state="disabled" if self._mf_modo_var.get() == "VACIAR" else "normal")
+            self._mf_val_widget.configure(state="disabled" if self._mf_modo_var.get() == "QUITAR" else "normal")
 
     def _elegir_coleccion(self):
         """Pide las colecciones a Shopify en un hilo y abre el selector en el hilo principal."""
@@ -422,8 +429,7 @@ class ShopifyBulkEditView:
             "_pvp_numeric": pvp,
             "pvp_propuesto": "",
             "_pvp_propuesto_numeric": None,
-            "meta": "",
-            "_mf_propuesto": None,
+            "_mf_lista": [],
             "resultado": "",
             "_node": node
         }
@@ -463,6 +469,10 @@ class ShopifyBulkEditView:
                 mf = {"namespace": d["namespace"], "key": d["key"], "type": tipo,
                       "modo": modo, "coleccion": self._mf_coleccion["id"],
                       "coleccion_nombre": self._mf_coleccion["title"]}
+            elif self._mf_modo_var.get() == "QUITAR" and tipo not in (
+                    ShopifyMetafieldsService.TIPOS_LISTA + ShopifyMetafieldsService.TIPOS_METAOBJETO):
+                # valor único o escalar: se borra el metacampo de los productos que lo tengan
+                mf = {"namespace": d["namespace"], "key": d["key"], "type": tipo, "modo": "quitar"}
             elif tipo in ShopifyMetafieldsService.TIPOS_METAOBJETO_UNICO:
                 if not self._mf_valor_unico:
                     show_error(self.frame, "Elige un valor para el metacampo")
@@ -472,10 +482,10 @@ class ShopifyBulkEditView:
             elif tipo in (ShopifyMetafieldsService.TIPOS_LISTA
                           + ShopifyMetafieldsService.TIPOS_METAOBJETO):
                 eleccion = self._mf_modo_var.get()
-                if eleccion != "VACIAR" and not self._mf_valores:
+                if eleccion != "QUITAR" and not self._mf_valores:
                     show_error(self.frame, "Elige al menos un valor para la lista")
                     return
-                modo = {"AÑADIR": "añadir", "CAMBIAR": "sustituir", "VACIAR": "vaciar"}[eleccion]
+                modo = {"AÑADIR": "añadir", "CAMBIAR": "sustituir", "QUITAR": "vaciar"}[eleccion]
                 mf = {"namespace": d["namespace"], "key": d["key"], "type": tipo, "modo": modo,
                       "valores": [] if modo == "vaciar" else list(self._mf_valores)}
                 if tipo in ShopifyMetafieldsService.TIPOS_METAOBJETO:
@@ -509,7 +519,11 @@ class ShopifyBulkEditView:
                 item["_tpl_propuesta"] = tpl
 
         if mf:
-            if mf["type"] == "collection_reference":
+            if mf.get("modo") == "quitar":
+                meta = f"{mf['key']}: QUITAR"
+                confirmacion = (f"Metacampo `{mf['key']}`: QUITAR (se borrará su valor en los productos "
+                                "seleccionados que lo tengan)")
+            elif mf["type"] == "collection_reference":
                 nombre = mf["coleccion_nombre"]
                 if mf["modo"] == "añadir":
                     meta = f"{mf['key']}: AÑADIR {nombre}"
@@ -522,8 +536,8 @@ class ShopifyBulkEditView:
                 meta = f"{mf['key']} = {nombre}"
                 confirmacion = f"Metacampo `{mf['key']}`: asignar `{nombre}` a los productos seleccionados"
             elif mf.get("modo") == "vaciar":
-                meta = f"{mf['key']}: VACIAR"
-                confirmacion = f"Metacampo `{mf['key']}`: VACIAR (se quitarán TODOS los valores)"
+                meta = f"{mf['key']}: QUITAR"
+                confirmacion = f"Metacampo `{mf['key']}`: QUITAR (se quitarán TODOS los valores)"
             elif "valores" in mf:
                 visibles = mf.get("nombres") or mf["valores"]
                 lista = ", ".join(visibles)
@@ -534,10 +548,13 @@ class ShopifyBulkEditView:
                 visible = {"true": "SÍ", "false": "NO"}.get(mf["value"], mf["value"]) if mf["type"] == "boolean" else mf["value"]
                 meta = f"{mf['key']} = {visible}"
                 confirmacion = f"Metacampo `{mf['key']}` = `{visible}`"
+            clave = (mf["namespace"], mf["key"])
             for item in self._items_tabla:
-                item["meta"] = meta
-                item["_mf_confirm"] = confirmacion
-                item["_mf_propuesto"] = mf
+                # varios metacampos por producto: repetir uno solo reemplaza ese
+                previos = [e for e in item.get("_mf_lista") or []
+                           if (e["mf"]["namespace"], e["mf"]["key"]) != clave]
+                previos.append({"mf": mf, "texto": meta, "confirm": confirmacion})
+                item["_mf_lista"] = previos
 
         for item in self._items_tabla:
             self._refrescar_resultado(item)
@@ -554,7 +571,7 @@ class ShopifyBulkEditView:
         return max(0, nuevo)
 
     def _row_styler(self, item, idx):
-        if item.get("_pvp_propuesto_numeric") is not None or item.get("_mf_propuesto"):
+        if item.get("_pvp_propuesto_numeric") is not None or item.get("_mf_lista"):
             return {'bg': '#1b2a20', 'fg': '#2ECC71'}
         return None
 
@@ -566,16 +583,72 @@ class ShopifyBulkEditView:
             partes.append(item["pvp_propuesto"])
         if item.get("_tpl_propuesta"):
             partes.append(f"Plantilla: {item['_tpl_propuesta']}")
-        if item.get("_mf_propuesto"):
-            partes.append(item["meta"])
-        if partes:
-            item["resultado"] = " · ".join(partes)
+        partes.extend(e["texto"] for e in item.get("_mf_lista") or [])
+        item["resultado"] = " · ".join(partes)
 
     def _actualizar_estado_guardar(self):
         """El botón ACTUALIZAR solo se activa cuando hay cambios preparados en la tabla."""
-        hay = any(i.get("_pvp_propuesto_numeric") is not None or i.get("_tpl_propuesta") or i.get("_mf_propuesto")
+        hay = any(i.get("_pvp_propuesto_numeric") is not None or i.get("_tpl_propuesta") or i.get("_mf_lista")
                   for i in self._items_tabla)
         self._btn_save.configure(state="normal" if hay else "disabled")
+        self._refrescar_chips()
+
+    def _cambios_preparados(self):
+        """[(texto, quitar)] de lo preparado en la tabla: PVP, plantillas y cada metacampo."""
+        cambios = []
+        if any(i.get("_pvp_propuesto_numeric") is not None for i in self._items_tabla):
+            cambios.append((self._desc_pvp, self._quitar_pvp))
+        for tpl in sorted({i["_tpl_propuesta"] for i in self._items_tabla if i.get("_tpl_propuesta")}):
+            cambios.append((f"Plantilla: {tpl}", lambda t=tpl: self._quitar_plantilla(t)))
+        metas = {}
+        for i in self._items_tabla:
+            for e in i.get("_mf_lista") or []:
+                metas.setdefault((e["mf"]["namespace"], e["mf"]["key"]), e["texto"])
+        for clave, texto in metas.items():
+            cambios.append((texto, lambda c=clave: self._quitar_metacampo(c)))
+        return cambios
+
+    def _refrescar_chips(self):
+        """Redibuja la franja de cambios preparados (oculta si no hay ninguno)."""
+        if not hasattr(self, "_chips_frame"):
+            return
+        for w in self._chips_frame.winfo_children():
+            w.destroy()
+        cambios = self._cambios_preparados()
+        for texto, quitar in cambios:
+            # el borrado se retrasa para no destruir el botón mientras CTk termina su animación de clic
+            ctk.CTkButton(self._chips_frame, text=f"{texto}  ✕", height=26, fg_color="#1b2a20",
+                          text_color="#2ECC71", hover_color="#8b1a1a", border_width=1, border_color="#2ECC71",
+                          font=("Helvetica", 10),
+                          command=lambda q=quitar: self.frame.after(150, q)).pack(side="left", padx=(0, 6))
+        if cambios:
+            self._row_chips.pack(fill="x", padx=20, pady=(0, 12))
+        else:
+            self._row_chips.pack_forget()
+
+    def _quitar_pvp(self):
+        for i in self._items_tabla:
+            i["pvp_propuesto"] = ""
+            i["_pvp_propuesto_numeric"] = None
+        self._tras_quitar_cambio()
+
+    def _quitar_plantilla(self, tpl):
+        for i in self._items_tabla:
+            if i.get("_tpl_propuesta") == tpl:
+                i["_tpl_propuesta"] = None
+        self._tras_quitar_cambio()
+
+    def _quitar_metacampo(self, clave):
+        for i in self._items_tabla:
+            i["_mf_lista"] = [e for e in i.get("_mf_lista") or []
+                              if (e["mf"]["namespace"], e["mf"]["key"]) != clave]
+        self._tras_quitar_cambio()
+
+    def _tras_quitar_cambio(self):
+        for i in self._items_tabla:
+            self._refrescar_resultado(i)
+        self.nav_list.set_items(self._items_tabla)
+        self._actualizar_estado_guardar()
 
     def _on_quitar(self):
         indices = self.nav_list.selected_indices
@@ -614,10 +687,10 @@ class ShopifyBulkEditView:
                 })
 
             # Metacampo
-            if item.get("_mf_propuesto"):
+            for e in item.get("_mf_lista") or []:
                 updates.append({
                     "product_id": node["id"],
-                    "metafield": item["_mf_propuesto"]
+                    "metafield": e["mf"]
                 })
 
         if not updates:
@@ -629,7 +702,7 @@ class ShopifyBulkEditView:
             cambios.append(self._desc_pvp)
         for tpl in sorted({i["_tpl_propuesta"] for i in self._items_tabla if i.get("_tpl_propuesta")}):
             cambios.append(f"Plantilla: {tpl}")
-        for txt in sorted({i["_mf_confirm"] for i in self._items_tabla if i.get("_mf_propuesto")}):
+        for txt in sorted({e["confirm"] for i in self._items_tabla for e in i.get("_mf_lista") or []}):
             cambios.append(txt)
         detalle = "\n".join(f"- {c}" for c in cambios)
 
@@ -658,9 +731,7 @@ class ShopifyBulkEditView:
                             item["_pvp_propuesto_numeric"] = None
                         if item.get("_tpl_propuesta") is not None:
                             item["_tpl_propuesta"] = None
-                        if item.get("_mf_propuesto"):
-                            item["_mf_propuesto"] = None
-                            item["meta"] = ""
+                        item["_mf_lista"] = []
                         item["resultado"] = "OK"
                     self.nav_list.set_items(self._items_tabla)
                     if res.get("avisos"):
