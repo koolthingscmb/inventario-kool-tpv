@@ -815,6 +815,68 @@ class ShopifyProductService:
                     resultado[node["id"]] = (node.get("metafield") or {}).get("value")
         return resultado
 
+    def leer_valores_metacampo(self, product_ids: List[str], namespace: str, key: str,
+                               tipo: str) -> Optional[Dict[str, str]]:
+        """Valor actual y legible de un metacampo en varios productos (solo lectura).
+
+        Devuelve {product_id: texto}, con "" si el producto no tiene valor. Los productos que no
+        se pudieron leer no aparecen. Las referencias (metaobjeto o colección) se muestran con su
+        nombre; si no se puede resolver, con su identificador. None si falta la configuración.
+        """
+        ctx = self._api_context()
+        if not ctx:
+            return None
+        endpoint, headers, _ = ctx
+        crudos = self._leer_metacampo_lote(endpoint, headers, product_ids, namespace, key)
+        gids = sorted({p for v in crudos.values() for p in self._partes_valor(v) if p.startswith("gid://")})
+        nombres = self._nombres_de_gids(endpoint, headers, gids)
+        return {pid: self._texto_valor(v, tipo, nombres) for pid, v in crudos.items()}
+
+    @staticmethod
+    def _partes_valor(valor: Optional[str]) -> List[str]:
+        """Valor crudo de un metacampo -> sus elementos (una lista JSON se separa en varios)."""
+        if not valor:
+            return []
+        if valor.startswith("["):
+            try:
+                lista = json.loads(valor)
+                if isinstance(lista, list):
+                    return [str(x) for x in lista]
+            except ValueError:
+                pass
+        return [valor]
+
+    @classmethod
+    def _texto_valor(cls, valor: Optional[str], tipo: str, nombres: Dict[str, str]) -> str:
+        """Texto para mostrar en la tabla: SÍ/NO en booleanos, nombres en referencias."""
+        if not valor:
+            return ""
+        if tipo == "boolean":
+            return {"true": "SÍ", "false": "NO"}.get(valor, valor)
+        texto = ", ".join(nombres.get(p, p) for p in cls._partes_valor(valor))
+        return " ".join(texto.split())
+
+    def _nombres_de_gids(self, endpoint: str, headers: Dict, gids: List[str]) -> Dict[str, str]:
+        """Nombre de cada metaobjeto o colección referenciados (solo lectura, en bloques de 100)."""
+        query = """
+        query($ids: [ID!]!) {
+            nodes(ids: $ids) {
+                ... on Metaobject { id displayName }
+                ... on Collection { id title }
+            }
+        }
+        """
+        nombres = {}
+        for i in range(0, len(gids), 100):
+            data, err = self._graphql(endpoint, headers, query, {"ids": gids[i:i + 100]})
+            if err or not data:
+                logger.error(f"Error resolviendo nombres de referencias: {err}")
+                continue
+            for node in data.get("nodes") or []:
+                if node and node.get("id"):
+                    nombres[node["id"]] = node.get("displayName") or node.get("title") or node["id"]
+        return nombres
+
     def _enviar_metacampos(self, endpoint: str, headers: Dict, envios: List[Dict[str, Any]]) -> Tuple[int, List[str], set]:
         """Envía metacampos con metafieldsSet en bloques de 25 (cada bloque es atómico).
 

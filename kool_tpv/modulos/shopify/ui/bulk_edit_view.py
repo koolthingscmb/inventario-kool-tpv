@@ -33,6 +33,7 @@ class ShopifyBulkEditView:
         ('template', 102, 'PLANTILLA'),
         ('status', 20, '◉'),
         ('pvp_actual', 60, '€€'),
+        ('valor_actual', 170, 'VALOR ACTUAL'),
         ('resultado', 380, 'RESULTADO')
     ]
 
@@ -48,6 +49,7 @@ class ShopifyBulkEditView:
         self._mf_valores: List[str] = []
         self._mf_valores_nombres: List[str] = []
         self._mf_coleccion = None
+        self._vact_token = 0
 
         try:
             self._colors_cfg = load_colors('shopify')
@@ -206,6 +208,49 @@ class ShopifyBulkEditView:
             return  # El combo también avisa al perder el foco: no recrear el campo de valor
         d = self._mf_defs.get(nombre)
         self._construir_valor_meta(d["type"]["name"] if d else None, nombre)
+        self._cargar_valores_actuales()
+
+    def _cargar_valores_actuales(self):
+        """Rellena la columna VALOR ACTUAL con lo que tiene hoy cada producto en el metacampo elegido.
+
+        Lee de Shopify en un hilo (solo lectura). Si cambia el metacampo o la lista mientras se lee,
+        el resultado antiguo se descarta.
+        """
+        self._vact_token += 1
+        token = self._vact_token
+        d = self._mf_defs.get(self._mf_nombre_actual or "")
+        items = list(self._items_tabla)
+        for item in items:
+            item["valor_actual"] = "…" if d else ""
+        self.nav_list.refresh()
+        if not d or not items:
+            return
+        ids = [i["_node"]["id"] for i in items]
+        namespace, key, tipo = d["namespace"], d["key"], d["type"]["name"]
+
+        def work():
+            try:
+                valores = self.service.leer_valores_metacampo(ids, namespace, key, tipo)
+            except Exception:
+                logger.exception("Error leyendo el valor actual de %s.%s", namespace, key)
+                valores = None
+            try:
+                self.frame.after(0, lambda: self._aplicar_valores_actuales(token, items, valores))
+            except Exception:
+                pass
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _aplicar_valores_actuales(self, token, items, valores):
+        """'—' = sin valor; '?' = no se pudo leer ese producto."""
+        if token != self._vact_token:
+            return
+        if valores is None:
+            show_error(self.frame, "No se pudo leer el valor actual del metacampo")
+        for item in items:
+            v = (valores or {}).get(item["_node"]["id"])
+            item["valor_actual"] = "?" if v is None else (v or "—")
+        self.nav_list.refresh()
 
     def _construir_valor_meta(self, tipo, nombre=None):
         """Muestra el control de valor adecuado al tipo del metacampo elegido."""
@@ -396,6 +441,7 @@ class ShopifyBulkEditView:
         }
         
         self._is_loading = True
+        self._vact_token += 1
         self._all_products = []
         self._items_tabla = []
         self.nav_list.clear_items()
@@ -430,6 +476,7 @@ class ShopifyBulkEditView:
             "pvp_propuesto": "",
             "_pvp_propuesto_numeric": None,
             "_mf_lista": [],
+            "valor_actual": "",
             "resultado": "",
             "_node": node
         }
@@ -443,6 +490,9 @@ class ShopifyBulkEditView:
         self._load_status_lbl.configure(text=f"Total: {len(self._all_products)} productos", fg="#2ECC71")
         if not self._all_products:
             show_error(self.frame, "No se han encontrado productos")
+            return
+        if self._mf_nombre_actual:
+            self._cargar_valores_actuales()
 
     def _on_aplicar(self):
         """Aplica a la tabla los cambios rellenados (PVP, plantilla y/o metacampo)."""
@@ -459,6 +509,7 @@ class ShopifyBulkEditView:
             tipo = d["type"]["name"]
             if mf_nombre != self._mf_nombre_actual:
                 self._construir_valor_meta(tipo, mf_nombre)
+                self._cargar_valores_actuales()
                 show_error(self.frame, "Escribe el valor del metacampo y pulsa APLICAR otra vez")
                 return
             if tipo in ShopifyMetafieldsService.TIPOS_COLECCION:
@@ -742,7 +793,9 @@ class ShopifyBulkEditView:
                     if res.get("avisos"):
                         show_warning(self.frame, "AVISO", "\n".join(res["avisos"]))
             
-            self.frame.after(0, lambda: (done(), self._actualizar_estado_guardar()))
+            # tras guardar (con o sin errores) se vuelve a leer, para ver el resultado real en VALOR ACTUAL
+            self.frame.after(0, lambda: (done(), self._actualizar_estado_guardar(),
+                                         self._cargar_valores_actuales()))
 
         threading.Thread(target=work, daemon=True).start()
 

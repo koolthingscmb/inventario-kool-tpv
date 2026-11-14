@@ -554,6 +554,13 @@ class VirtualNavList(ctk.CTkFrame):
                     self._canvas.focus_set()
             except: pass
 
+    def refresh(self):
+        """Repinta las filas visibles con los datos actuales, sin tocar selección ni scroll.
+
+        Para cuando se modifican campos de los dicts ya cargados (los mismos que se pasaron a set_items).
+        """
+        self._refresh_ui()
+
     def clear_items(self):
         self._all_data = []
         self.selected_index = -1
